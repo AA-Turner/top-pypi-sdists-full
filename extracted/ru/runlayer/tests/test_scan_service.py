@@ -6331,6 +6331,56 @@ class TestSubmitScanResults:
         assert entries[("agent_definition", "host_static")]["complete"] is False
         assert entries[("agent_definition", "container")]["complete"] is True
 
+    def test_fully_throttled_skill_scan_is_success_with_incomplete_surface(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        def throttle_everything(*_args, throttled_surfaces, **_kwargs):
+            throttled_surfaces.add("host_static")
+            return "success"
+
+        with (
+            mock.patch.object(
+                scan_service,
+                "submit_discovered_skills",
+                side_effect=throttle_everything,
+            ),
+            mock.patch.object(
+                scan_service, "reconcile_skill_presence", return_value="success"
+            ) as presence,
+        ):
+            submission = submit_scan_results(
+                client,
+                _submission_scan_result(skills=2),
+                artifact_cache=mock.MagicMock(),
+            )
+
+        assert submission.exit_code == 0
+        assert submission.failed_submissions == []
+        assert submission.unsupported == []
+        assert submission.category_outcomes["skill"] == "success"
+        presence.assert_called_once()
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("skill", "host_static")] == {
+            "category": "skill",
+            "surface": "host_static",
+            "complete": False,
+            "reason": "resubmit_throttled",
+        }
+        assert entries[("mcp", "host_static")]["complete"] is True
+
+    def test_skill_free_scan_resets_the_resubmit_baseline(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        cache = mock.MagicMock()
+
+        submit_scan_results(client, _submission_scan_result(), artifact_cache=cache)
+
+        cache.retain_submissions.assert_called_once_with(set(), kind="skill")
+
     def test_manifest_is_last_and_reuses_session_id_for_every_submit(self):
         client = mock.MagicMock()
         client.submit_agents.return_value = {"agents_processed": 1}

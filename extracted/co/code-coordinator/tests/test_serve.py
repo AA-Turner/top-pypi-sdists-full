@@ -1455,6 +1455,108 @@ def test_children_falls_back_to_work_order_when_no_sub_issues(
     assert by_num[102]["state"] == "closed"
 
 
+# ── #3426: `## Sub-issues` bold-prefixed lines + surfaced parse errors ───────
+
+_BOLD_PREFIXED_SUB_ISSUES_BODY = """\
+Tracking issue for the milestone — the real vimcode#1170 text.
+
+## Sub-issues
+- [ ] #101  {group: A}
+- [ ] **#1206 — tranche 2 of #1191**: the 8 remaining value options land here
+- [x] #102  {group: A}
+"""
+
+
+def _make_bold_prefixed_sub_issues_db(path: Path) -> None:
+    """Seed a DB with a tracking issue whose `## Sub-issues` block bolds one
+    lead item (`- [ ] **#1206 — ...**`) — the exact vimcode#1170 shape that
+    used to raise `WorkOrderError` and hide every sibling line too."""
+    conn = sqlite3.connect(str(path))
+    conn.row_factory = sqlite3.Row
+    _ensure_schema(conn)
+    conn.execute("INSERT INTO machines (name, host, capabilities, repos) VALUES (?,?,?,?)",
+                 ("laptop", "laptop.tailnet", '["python"]', '["api"]'))
+    conn.execute(
+        "INSERT INTO issues (repo_name, number, title, body, state, labels, synced_at) "
+        "VALUES (?, ?, ?, ?, 'open', ?, 0)",
+        ("api", 1170, "Milestone tracking", _BOLD_PREFIXED_SUB_ISSUES_BODY, '["epic", "coord"]'),
+    )
+    set_board_meta(conn, "board_initialized", "1")
+    conn.commit()
+    conn.close()
+
+
+def test_children_bold_prefixed_issue_number_parses_like_a_plain_line(
+    tmp_path: Path, valid_config_path: Path,
+):
+    """#3426: bolding the lead item is normal markdown and must parse — the
+    bold-prefixed line yields a child just like a plain line would, and no
+    sibling line in the same block is hidden by it."""
+    db_path = tmp_path / "coord.db"
+    _make_bold_prefixed_sub_issues_db(db_path)
+
+    cfg = load_config(valid_config_path)
+    app = build_app(SqliteStore(db_path), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+
+    entries = board["children"]
+    assert len(entries) == 1, f"expected 1 children entry, got {len(entries)}: {entries}"
+    entry = entries[0]
+    assert entry["tracking_issue"] == 1170
+    by_num = {c["number"]: c for c in entry["children"]}
+    assert set(by_num) == {101, 102, 1206}
+    assert by_num[1206]["state"] == "open"
+    # A genuinely malformed epic elsewhere must never appear in the error
+    # list either, when there isn't one.
+    assert board.get("children_errors") == []
+
+
+def test_children_errors_reports_a_genuinely_malformed_epic(
+    tmp_path: Path, valid_config_path: Path,
+):
+    """#3426: an epic body that still cannot be parsed (a stray non-checklist
+    line under `## Sub-issues`, as opposed to the now-fixed bold-prefix case)
+    must appear on the board payload as an explicit `children_errors` entry
+    — naming the repo and tracking issue — rather than silently reading as
+    zero children."""
+    db_path = tmp_path / "coord.db"
+    _make_sub_issues_db_with_malformed_epic(db_path)
+
+    cfg = load_config(valid_config_path)
+    app = build_app(SqliteStore(db_path), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+
+    assert "children_errors" in board, "children_errors key missing from /board"
+    errors = board["children_errors"]
+    assert len(errors) == 1, f"expected 1 children_errors entry, got {len(errors)}: {errors}"
+    err = errors[0]
+    assert err["repo_name"] == "api"
+    assert err["tracking_issue"] == 600
+    assert "unparseable line" in err["error"]
+
+    # The well-formed epic (#500) must still report its children normally —
+    # the same fail-open isolation `children` already gets, now doubled for
+    # `children_errors`.
+    entries = board["children"]
+    by_tracking_issue = {e["tracking_issue"]: e for e in entries}
+    assert 500 in by_tracking_issue
+    assert 600 not in by_tracking_issue
+
+
+def test_children_errors_empty_when_all_epics_well_formed(
+    sub_issues_db: Path, valid_config_path: Path,
+):
+    """#3426: the common, healthy case — no parse failures anywhere — must
+    report an explicitly empty `children_errors`, not omit the key."""
+    cfg = load_config(valid_config_path)
+    app = build_app(SqliteStore(sub_issues_db), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+    assert board.get("children_errors") == []
+
+
 # ── #975: plan_roster in /board payload ──────────────────────────────────────
 
 def _make_plan_roster_db(path: Path) -> None:
@@ -1766,6 +1868,396 @@ def test_roll_pending_read_failure_does_not_blank_board(
 
     assert board["roll_pending"] is None
     assert board["round_number"] == 7  # rest of the board is untouched
+
+
+# ── #3428 (#3408 item 3): concurrency ceilings + provenance + occupancy ─────
+
+
+def _concurrency_config_text(*, pipeline_max_parallel_per_repo: int = 3) -> str:
+    """One repo (`api`) with its own #3423 `max_parallel` override, one
+    (`shared`) without — enough to exercise the "repo override wins, fleet
+    value listed as losing" acceptance bar without touching the shared
+    `VALID_CONFIG` every other test in this file relies on."""
+    return (
+        "repos:\n"
+        "  - name: api\n"
+        "    github: acme/api\n"
+        "    max_parallel: 1\n"
+        "  - name: shared\n"
+        "    github: acme/shared\n"
+        "machines:\n"
+        "  - name: laptop\n"
+        "    host: laptop.tailnet\n"
+        "    capabilities: [python]\n"
+        "    repos: [api, shared]\n"
+        "pipeline:\n"
+        f"  max_parallel_per_repo: {pipeline_max_parallel_per_repo}\n"
+    )
+
+
+@pytest.fixture
+def concurrency_config_path(tmp_path: Path) -> Path:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_concurrency_config_text())
+    return p
+
+
+@pytest.fixture
+def no_real_systemd_unit(monkeypatch, tmp_path: Path):
+    """Isolate these tests from whatever `--max-parallel` flag (if any) the
+    REAL machine running the suite happens to have hardcoded on its own
+    installed `coord-drive-queue.service` — mirrors
+    `tests/test_config_effective.py`'s fixture of the same name. Without
+    this, a fleet host wired the way #3408 itself describes would silently
+    inject an unexpected `systemd_flag` winner into these assertions.
+    """
+    absent = tmp_path / "no-such-unit" / "coord-drive-queue.service"
+    monkeypatch.setattr(
+        "coord.drive_queue.default_systemd_user_unit_path", lambda *a, **k: absent
+    )
+
+
+def test_concurrency_absent_from_board_payload_when_resolution_fails(
+    file_db: Path, valid_config_path: Path, monkeypatch
+):
+    """#3428: same fail-open posture as `roll_pending`/`goal_header` above —
+    a broken resolution degrades to `concurrency: null`, never blanks (or
+    503s) the rest of the board."""
+    def _boom(*_a, **_k):
+        raise RuntimeError("systemd unit read exploded")
+
+    monkeypatch.setattr("coord.drive_queue.read_systemd_max_parallel_flags", _boom)
+    cfg = load_config(valid_config_path)
+    app = build_app(SqliteStore(file_db), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+
+    assert "concurrency" in board
+    assert board["concurrency"] is None
+    assert board["round_number"] == 7  # rest of the board is untouched
+
+
+def test_concurrency_reports_repo_override_and_losing_fleet_value(
+    file_db: Path, concurrency_config_path: Path, no_real_systemd_unit
+):
+    """The #3428 acceptance bar: a repo with its own #3423
+    `repos[].max_parallel` reports ITS ceiling and names `coordinator_yml_repo`
+    as the winner, with the fleet-wide `max_parallel_per_repo` value listed
+    as losing — machine-readable `source_kind`, not prose a client has to
+    string-match."""
+    cfg = load_config(concurrency_config_path)
+    app = build_app(SqliteStore(file_db), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+
+    concurrency = board["concurrency"]
+    assert concurrency is not None
+
+    fleet = concurrency["max_parallel_per_repo"]
+    assert fleet["value"] == 3
+    assert fleet["source_kind"] == "coordinator_yml_pipeline"
+
+    api_ceiling = concurrency["repo_overrides"]["api"]
+    assert api_ceiling["value"] == 1
+    assert api_ceiling["source_kind"] == "coordinator_yml_repo"
+    assert api_ceiling["losing"] == [
+        {
+            "source": "coordinator.yml pipeline.max_parallel_per_repo",
+            "source_kind": "coordinator_yml_pipeline",
+            "value": 3,
+        }
+    ]
+    # `shared` never overrode the fleet default — #3423's own "only the
+    # repos that differ" contract — so it must not appear in the map at all.
+    assert "shared" not in concurrency["repo_overrides"]
+
+
+def _refresher_seeded_with(*keys: str, age: float = 0.0):
+    """A `DriveSessionsRefresher` publishing a reading of *keys* taken *age*
+    seconds ago — the tick-side snapshot `/board` consumes, without a `tmux`
+    subprocess (#3428: the reading is NEVER taken on the read path)."""
+    import time as _t
+
+    from coord.drive_sessions_snapshot import (
+        DriveSessionsRefresher,
+        DriveSessionsSnapshot,
+    )
+
+    return DriveSessionsRefresher(
+        DriveSessionsSnapshot(keys=frozenset(keys), observed_at=_t.time() - age)
+    )
+
+
+def test_concurrency_occupancy_matches_compute_running_occupancy(
+    tmp_path: Path, concurrency_config_path: Path, rw_db, no_real_systemd_unit
+):
+    """#3428 acceptance: occupancy must be the SAME verdict
+    `coord.drive_queue.compute_running_occupancy` gives for the equivalent
+    board state — never a second, independently-counted number (#2085 "one
+    question, one answer"). Asserted against a fresh call to that function
+    over the SERVED board, not a hand-count."""
+    from coord.drive_queue import (
+        DEFAULT_MAX_ATTEMPTS,
+        STATE_RUNNING,
+        build_board_view,
+        compute_running_occupancy,
+        entries_from_rows,
+        entry_key,
+    )
+
+    cfg = load_config(concurrency_config_path)
+    app = build_app(
+        SqliteStore(tmp_path / "rw.db"),
+        cfg,
+        drive_sessions_refresher=_refresher_seeded_with(entry_key("api", 1650)),
+    )
+    with TestClient(app) as cli:
+        cli.post("/drive-queue", json={
+            "action": "enqueue", "repo_name": "api", "issue_number": 1650,
+        })
+        cli.post("/drive-queue", json={
+            "action": "update", "repo_name": "api", "issue_number": 1650,
+            "fields": {"state": STATE_RUNNING},
+        })
+
+        board = cli.get("/board").json()
+
+        concurrency = board["concurrency"]
+        assert concurrency is not None
+        assert concurrency["occupied"] == 1
+        assert concurrency["repo_occupied"] == {"api": 1}
+        # The numbers are labelled as actually observed, and carry the
+        # moment of the reading behind them (#2096).
+        assert concurrency["occupancy_state"] == "observed"
+        assert concurrency["occupancy_observed_at"] is not None
+
+        # Independently recompute the same verdict from the served board's
+        # own `drive_queue` rows — proves agreement with the real function
+        # rather than trusting the served numbers on faith.
+        entries = entries_from_rows(board["drive_queue"])
+        board_view = build_board_view(board, [entry_key("api", 1650)])
+        occupied, repo_occupied = compute_running_occupancy(
+            entries, board_view, DEFAULT_MAX_ATTEMPTS
+        )
+    assert concurrency["occupied"] == occupied
+    assert concurrency["repo_occupied"] == repo_occupied
+
+
+def test_board_version_stable_across_occupancy_refresh_with_same_sessions(
+    tmp_path: Path, concurrency_config_path: Path, rw_db, no_real_systemd_unit,
+    monkeypatch,
+):
+    """Review finding on #3428: `DriveSessionsRefresher.refresh()` stamps a
+    fresh `time.time()` into `occupancy_observed_at` on EVERY tick pass
+    (default 15s) even when the live-session set read is byte-identical to
+    the previous one. That timestamp must not move the `/board` ETag on its
+    own — the same #3293 failure class `fleet_health.refreshed_at` was
+    already excluded for. `occupied`/`repo_occupied`/the ceilings are real
+    state and DO belong in the digest; only the clock is excluded."""
+    import time as _t
+
+    from coord.drive_queue import STATE_RUNNING, entry_key
+    from coord.drive_sessions_snapshot import DriveSessionsSnapshot
+
+    monkeypatch.setenv("COORD_BOARD_CACHE_TTL", "0")  # rebuild every request
+
+    now = _t.time()
+    refresher = _refresher_seeded_with(entry_key("api", 1650))
+
+    cfg = load_config(concurrency_config_path)
+    app = build_app(
+        SqliteStore(tmp_path / "rw.db"), cfg, drive_sessions_refresher=refresher,
+    )
+    with TestClient(app) as cli:
+        cli.post("/drive-queue", json={
+            "action": "enqueue", "repo_name": "api", "issue_number": 1650,
+        })
+        cli.post("/drive-queue", json={
+            "action": "update", "repo_name": "api", "issue_number": 1650,
+            "fields": {"state": STATE_RUNNING},
+        })
+
+        r1 = cli.get("/board")
+        assert r1.status_code == 200
+        body1 = r1.json()
+        etag1 = r1.headers["etag"]
+        assert etag1
+        assert body1["concurrency"]["occupancy_state"] == "observed"
+
+        # Simulate a second tick pass with the SAME live-session set but a
+        # later reading — mirrors a real `DriveSessionsRefresher.refresh()`
+        # whose `list_drive_sessions()` answer did not change (no DB write
+        # happens here, matching that: only the tick-owned snapshot moves).
+        refresher._snapshot = DriveSessionsSnapshot(
+            keys=frozenset({entry_key("api", 1650)}), observed_at=now + 30.0,
+        )
+
+        r2 = cli.get("/board", headers={"If-None-Match": etag1})
+        assert r2.status_code == 304, (
+            "an occupancy refresh with an unchanged session set must not "
+            "move the ETag — occupancy_observed_at is a self-moving clock, "
+            "same class as fleet_health.refreshed_at (#3293)"
+        )
+        assert r2.headers.get("etag") == etag1
+
+        # Confirm the clock really did move on the wire while the version
+        # held, so this isn't vacuous.
+        r3 = cli.get("/board")
+        body3 = r3.json()
+        assert (
+            body3["concurrency"]["occupancy_observed_at"]
+            != body1["concurrency"]["occupancy_observed_at"]
+        )
+        assert body3["concurrency"]["occupied"] == body1["concurrency"]["occupied"]
+        assert body3["board_version"] == body1["board_version"]
+        assert r3.headers["etag"] == etag1
+
+
+def test_board_never_takes_a_tmux_reading_on_the_read_path(
+    tmp_path: Path, concurrency_config_path: Path, rw_db, monkeypatch,
+    no_real_systemd_unit,
+):
+    """Invariant 1 (`tests/test_board_read_path.py`): the live-session
+    reading behind occupancy is a `tmux list-sessions` SUBPROCESS, so a
+    board build must never take it — it consumes the tick-refreshed
+    snapshot instead. Regression guard: computing occupancy inline was the
+    first cut of #3428 and it put a process spawn (5s timeout) on the
+    hottest read path in the daemon."""
+    from coord.drive_queue import STATE_RUNNING, entry_key
+
+    def _boom(*a, **k):  # noqa: ANN002, ANN003
+        raise AssertionError("tmux reading taken on the /board read path")
+
+    monkeypatch.setattr("coord.drive.list_drive_sessions", _boom)
+
+    cfg = load_config(concurrency_config_path)
+    app = build_app(
+        SqliteStore(tmp_path / "rw.db"),
+        cfg,
+        drive_sessions_refresher=_refresher_seeded_with(entry_key("api", 1650)),
+    )
+    with TestClient(app) as cli:
+        cli.post("/drive-queue", json={
+            "action": "enqueue", "repo_name": "api", "issue_number": 1650,
+        })
+        cli.post("/drive-queue", json={
+            "action": "update", "repo_name": "api", "issue_number": 1650,
+            "fields": {"state": STATE_RUNNING},
+        })
+        board = cli.get("/board").json()
+
+    # Served from the snapshot, not from `_boom`.
+    assert board["concurrency"]["occupied"] == 1
+
+
+def test_concurrency_occupancy_is_unknown_before_any_reading(
+    tmp_path: Path, concurrency_config_path: Path, rw_db, no_real_systemd_unit
+):
+    """#2096: a daemon that has never taken a session reading — a fresh
+    start, or `COORD_DRIVE_SESSIONS_REFRESH_INTERVAL=0` — reports occupancy
+    as UNKNOWN, never as `0`. A running drive whose slot got reported free
+    is the 2026-08-01 stacking incident's input; "nobody looked" must not
+    render as "all slots free". The CEILINGS are unaffected."""
+    from coord.drive_queue import STATE_RUNNING
+
+    cfg = load_config(concurrency_config_path)
+    app = build_app(SqliteStore(tmp_path / "rw.db"), cfg)  # never refreshed
+    with TestClient(app) as cli:
+        cli.post("/drive-queue", json={
+            "action": "enqueue", "repo_name": "api", "issue_number": 1650,
+        })
+        cli.post("/drive-queue", json={
+            "action": "update", "repo_name": "api", "issue_number": 1650,
+            "fields": {"state": STATE_RUNNING},
+        })
+        board = cli.get("/board").json()
+
+    concurrency = board["concurrency"]
+    assert concurrency["occupancy_state"] == "unobserved"
+    assert concurrency["occupied"] is None
+    assert concurrency["repo_occupied"] is None
+    assert concurrency["occupancy_observed_at"] is None
+    # The ceilings are resolved from config + this host's unit on every
+    # build, so they stay populated while occupancy is unknown.
+    assert concurrency["max_parallel_per_repo"]["value"] == 3
+
+
+def test_concurrency_occupancy_goes_stale_when_the_refresh_loop_stalls(
+    tmp_path: Path, concurrency_config_path: Path, rw_db, no_real_systemd_unit
+):
+    """The failing verdict is REACHABLE (#2096): the refresh loops are bare
+    `asyncio.create_task`s with no supervisor (#2862), so one that dies
+    stays dead — and its last reading must stop counting as current instead
+    of being served as the truth forever."""
+    from coord.drive_queue import STATE_RUNNING, entry_key
+    from coord.drive_sessions_snapshot import STALE_AFTER_SECONDS
+
+    cfg = load_config(concurrency_config_path)
+    app = build_app(
+        SqliteStore(tmp_path / "rw.db"),
+        cfg,
+        drive_sessions_refresher=_refresher_seeded_with(
+            entry_key("api", 1650), age=STALE_AFTER_SECONDS + 60
+        ),
+    )
+    with TestClient(app) as cli:
+        cli.post("/drive-queue", json={
+            "action": "enqueue", "repo_name": "api", "issue_number": 1650,
+        })
+        cli.post("/drive-queue", json={
+            "action": "update", "repo_name": "api", "issue_number": 1650,
+            "fields": {"state": STATE_RUNNING},
+        })
+        board = cli.get("/board").json()
+
+    concurrency = board["concurrency"]
+    assert concurrency["occupancy_state"] == "stale"
+    assert concurrency["occupied"] is None
+    assert concurrency["repo_occupied"] is None
+    # The age of the abandoned reading is still on the wire, so a client
+    # can say HOW stale rather than just "unknown".
+    assert concurrency["occupancy_observed_at"] is not None
+
+
+def test_concurrency_systemd_flag_wins_and_is_labeled(
+    file_db: Path, concurrency_config_path: Path, monkeypatch, tmp_path: Path
+):
+    """#3428 / companion #3429 fix: a systemd unit's own `ExecStart=
+    --max-parallel` flag outranks `coordinator.yml` outright and reports as
+    `systemd_flag` — a machine-readable label, never the free-text prose a
+    client would otherwise have to string-match."""
+    unit_path = tmp_path / "coord-drive-queue.service"
+    unit_path.write_text(
+        "[Service]\nExecStart=/usr/bin/coord drive-queue tick --max-parallel 9\n"
+    )
+    monkeypatch.setattr(
+        "coord.drive_queue.default_systemd_user_unit_path", lambda *a, **k: unit_path
+    )
+    cfg = load_config(concurrency_config_path)
+    app = build_app(SqliteStore(file_db), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+
+    max_parallel = board["concurrency"]["max_parallel"]
+    assert max_parallel["value"] == 9
+    assert max_parallel["source_kind"] == "systemd_flag"
+
+
+def test_concurrency_no_systemd_unit_never_reports_systemd_flag(
+    file_db: Path, concurrency_config_path: Path, no_real_systemd_unit
+):
+    """The companion negative case (#3429's own bug report): with no unit
+    installed at all, nothing reports `systemd_flag` — inventing a flag from
+    unit-file prose that was never a live ExecStart= override must not
+    resurface here."""
+    cfg = load_config(concurrency_config_path)
+    app = build_app(SqliteStore(file_db), cfg)
+    with TestClient(app) as cli:
+        board = cli.get("/board").json()
+
+    concurrency = board["concurrency"]
+    assert concurrency["max_parallel"]["source_kind"] != "systemd_flag"
+    assert concurrency["max_parallel_per_repo"]["source_kind"] != "systemd_flag"
 
 
 def _make_finished_milestone_db(path: Path) -> None:

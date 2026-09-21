@@ -296,6 +296,7 @@ def _record(
             error_type=kind,
             error_text=str(error),
             source_app=MANDATE_SCAN_SOURCE_APP,
+            source_feature="scanner",
             route=caller,
             user_id=getattr(ctx, "user_id", None) or None,  # orm-getattr-ok: AppContext
             organization_id=getattr(ctx, "organization_id", None),  # orm-getattr-ok: AppContext

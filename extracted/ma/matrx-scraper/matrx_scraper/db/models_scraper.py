@@ -3,7 +3,7 @@ from matrx_orm import BooleanField, CharField, DateTimeField, ForeignKey, Intege
 from dataclasses import dataclass
 from typing import ClassVar
 
-class ScrapeDomain(Model):
+class ScrapeDomain(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     url = CharField()
     common_name = CharField()
@@ -22,8 +22,13 @@ class ScrapeDomain(Model):
     _database = "matrx_scraper"
     _table_name = "scrape_domain"
     _db_schema = "scraper"
+    _entity_token = "scrape_domain"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "system"
 
-class ScrapeFailureLog(Model):
+class ScrapeFailureLog(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     target_url = TextField(null=False)
     domain_name = TextField(null=False)
@@ -39,6 +44,11 @@ class ScrapeFailureLog(Model):
     _database = "matrx_scraper"
     _table_name = "scrape_failure_log"
     _db_schema = "scraper"
+    _entity_token = "scrape_failure_log"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "system"
 
 class ScrapeParsedPage(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -72,7 +82,7 @@ class ScrapeParsedPage(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "restricted"
 
-class ScrapeDomainSettings(Model):
+class ScrapeDomainSettings(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     domain_id = ForeignKey(to_model=ScrapeDomain, to_column='id', to_schema='scraper', null=False, unique=True)
     enabled = BooleanField(null=False, default=True)
@@ -83,8 +93,13 @@ class ScrapeDomainSettings(Model):
     _database = "matrx_scraper"
     _table_name = "scrape_domain_settings"
     _db_schema = "scraper"
+    _entity_token = "scrape_domain_settings"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "system"
 
-class ScrapePathPattern(Model):
+class ScrapePathPattern(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     scrape_domain_id = ForeignKey(to_model=ScrapeDomain, to_column='id', to_schema='scraper', )
     path_pattern = CharField(default='/*')
@@ -102,8 +117,13 @@ class ScrapePathPattern(Model):
     _database = "matrx_scraper"
     _table_name = "scrape_path_pattern"
     _db_schema = "scraper"
+    _entity_token = "scrape_path_pattern"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "system"
 
-class ScrapeRetryQueue(Model):
+class ScrapeRetryQueue(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     target_url = TextField(null=False)
     domain_name = TextField(null=False)
@@ -124,8 +144,13 @@ class ScrapeRetryQueue(Model):
     _database = "matrx_scraper"
     _table_name = "scrape_retry_queue"
     _db_schema = "scraper"
+    _entity_token = "scrape_retry_queue"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "system"
 
-class ScrapePathOverride(Model):
+class ScrapePathOverride(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     path_pattern_id = ForeignKey(to_model=ScrapePathPattern, to_column='id', to_schema='scraper', null=False)
     is_active = BooleanField(null=False, default=True)
@@ -139,6 +164,11 @@ class ScrapePathOverride(Model):
     _database = "matrx_scraper"
     _table_name = "scrape_path_override"
     _db_schema = "scraper"
+    _entity_token = "scrape_path_override"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "system"
 
 __all__ = [
     "ScrapeDomain",

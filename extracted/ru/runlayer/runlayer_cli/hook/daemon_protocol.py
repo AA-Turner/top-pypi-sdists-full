@@ -34,6 +34,9 @@ REQUEST_ACCEPTED_ACK = b"\x06"
 HOOK_ENV_ALLOWLIST = frozenset(
     {
         "APPDATA",
+        # Claude Code's process marker; the Devin double-fire guard reads it
+        # to tell a nested Claude Code host from an imported hook.
+        "CLAUDECODE",
         "CLINE_DIR",
         "COPILOT_ADDITIONAL_MCP_CONFIG",
         "COPILOT_HOME",

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from faststream._internal.endpoint.publisher import PublisherSpecification
     from faststream._internal.types import PublisherMiddleware
     from faststream.kafka.message import KafkaMessage
+    from faststream.kafka.types import KafkaSendableMessage
     from faststream.response.response import PublishCommand
 
     from .config import KafkaPublisherConfig
@@ -307,7 +308,7 @@ class BatchPublisher(LogicPublisher):
     @overload
     async def publish(
         self,
-        *messages: "SendableMessage",
+        *messages: "KafkaSendableMessage",
         topic: str = "",
         key: bytes | Any | None = None,
         partition: int | None = None,
@@ -321,7 +322,7 @@ class BatchPublisher(LogicPublisher):
     @overload
     async def publish(
         self,
-        *messages: "SendableMessage",
+        *messages: "KafkaSendableMessage",
         topic: str = "",
         key: bytes | Any | None = None,
         partition: int | None = None,
@@ -335,7 +336,7 @@ class BatchPublisher(LogicPublisher):
     @overload
     async def publish(
         self,
-        *messages: "SendableMessage",
+        *messages: "KafkaSendableMessage",
         topic: str = "",
         key: bytes | Any | None = None,
         partition: int | None = None,
@@ -349,7 +350,7 @@ class BatchPublisher(LogicPublisher):
     @override
     async def publish(
         self,
-        *messages: "SendableMessage",
+        *messages: "KafkaSendableMessage",
         topic: str = "",
         key: bytes | Any | None = None,
         partition: int | None = None,
@@ -421,6 +422,11 @@ class BatchPublisher(LogicPublisher):
     ) -> None:
         """This method should be called in subscriber flow only."""
         cmd = KafkaPublishCommand.from_cmd(cmd, batch=True)
+
+        if not cmd.batch_bodies:
+            # Match the non-batch publisher: an empty result is one empty message,
+            # not a batch of zero, which no broker can express (see issue #3056).
+            cmd.batch_bodies = (b"",)
 
         cmd.destination = self.topic
         cmd.add_headers(self.headers, override=False)

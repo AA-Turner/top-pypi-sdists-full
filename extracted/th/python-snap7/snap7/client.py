@@ -1,7 +1,7 @@
-"""
-Pure Python S7 client implementation.
+"""Synchronous client for the classic S7 protocol.
 
-Drop-in replacement for the ctypes-based client with native Python implementation.
+``s7.Client`` and ``snap7.Client`` expose this same implementation. The
+``s7`` import name is recommended for new projects.
 """
 
 import copy
@@ -11,6 +11,7 @@ import struct
 import sys
 import threading
 import time
+from collections.abc import Sequence
 from typing import List, Any, Optional, Tuple, Union, Callable, cast
 from datetime import datetime
 from ctypes import (
@@ -21,11 +22,12 @@ from ctypes import (
 
 from .connection import ISOTCPConnection
 from .s7protocol import S7Protocol, get_return_code_description
-from .datatypes import S7WordLen
+from .datatypes import S7DataTypes, S7WordLen
 from .error import S7Error, S7ConnectionError, S7ProtocolError, S7StalePacketError, S7TimeoutError
 from .client_base import ClientMixin
 from .log import PLCLoggerAdapter, OperationLogger
 from .optimizer import ReadItem, ReadPacket, sort_items, merge_items, packetize, extract_results
+from .rate_limiter import RateLimitAlgorithm, RateLimitBehavior, RequestRateLimiter
 from .tags import Tag, _STRING_RE
 from . import util
 
@@ -34,6 +36,7 @@ from .type import (
     Area,
     Block,
     BlocksList,
+    ForceEntry,
     S7CpuInfo,
     TS7BlockInfo,
     S7DataItem,
@@ -231,6 +234,31 @@ def _encode_scalar(datatype: str, buf: bytearray, offset: int, value: Any, bit: 
     raise ValueError(f"Unsupported tag datatype: {datatype}")
 
 
+def _parse_force_szl(raw: bytes) -> list[ForceEntry]:
+    """Parse SZL 0x0025 (force table) data into :class:`ForceEntry` items.
+
+    Each SZL 0x0025 entry is 8 bytes:
+      - bytes 0-1: area code (big-endian, 0x0081=PE, 0x0082=PA)
+      - bytes 2-3: byte offset (big-endian)
+      - byte 4:    bit number (0-7)
+      - byte 5:    force value (0x00=False, 0x01=True)
+      - bytes 6-7: reserved
+
+    Returns an empty list if *raw* is too short or contains no entries.
+    """
+    entry_size = 8
+    entries: list[ForceEntry] = []
+    offset = 0
+    while offset + entry_size <= len(raw):
+        area_code = struct.unpack(">H", raw[offset : offset + 2])[0]
+        byte_off = struct.unpack(">H", raw[offset + 2 : offset + 4])[0]
+        bit_num = raw[offset + 4]
+        val = raw[offset + 5] != 0
+        entries.append(ForceEntry(area=area_code, byte_offset=byte_off, bit=bit_num, value=val))
+        offset += entry_size
+    return entries
+
+
 class _OptimizationPlan:
     """Cached optimization plan for repeated read_multi_vars calls with the same layout."""
 
@@ -241,15 +269,14 @@ class _OptimizationPlan:
 
 
 class Client(ClientMixin):
-    """
-    Pure Python S7 client implementation.
+    """Synchronous client for classic S7 communication.
 
-    Drop-in replacement for the ctypes-based client that provides native Python
-    communication with Siemens S7 PLCs without requiring the Snap7 C library.
+    Supports S7-300, S7-400, S7-1200 and S7-1500 PLCs via the classic S7
+    protocol. S7-1200 and S7-1500 access requires PUT/GET to be enabled.
 
     Examples:
-        >>> import snap7
-        >>> client = snap7.Client()
+        >>> from s7 import Client
+        >>> client = Client()
         >>> client.connect("192.168.1.10", 0, 1)
         >>> data = client.db_read(1, 0, 4)
         >>> client.disconnect()
@@ -267,6 +294,10 @@ class Client(ClientMixin):
         backoff_factor: float = 2.0,
         max_delay: float = 30.0,
         heartbeat_interval: float = 0,
+        max_requests_per_second: float = 0,
+        rate_limit_algorithm: RateLimitAlgorithm = "fixed",
+        rate_limit_behavior: RateLimitBehavior = "block",
+        rate_limit_burst: int | None = None,
         on_disconnect: Optional[Callable[[], None]] = None,
         on_reconnect: Optional[Callable[[], None]] = None,
         **kwargs: Any,
@@ -282,6 +313,10 @@ class Client(ClientMixin):
             backoff_factor: Multiplier for exponential backoff between retries.
             max_delay: Maximum delay between reconnection attempts in seconds.
             heartbeat_interval: Interval in seconds for heartbeat probes (0=disabled).
+            max_requests_per_second: Maximum outbound PLC requests per second (0=disabled).
+            rate_limit_algorithm: ``fixed`` for even spacing or ``token_bucket`` for bursts.
+            rate_limit_behavior: ``block`` to wait or ``raise`` to reject immediately.
+            rate_limit_burst: Token bucket capacity. Defaults to one second of requests.
             on_disconnect: Optional callback invoked when connection is lost.
             on_reconnect: Optional callback invoked after successful reconnection.
             **kwargs: Ignored. Kept for backwards compatibility.
@@ -341,6 +376,12 @@ class Client(ClientMixin):
         self._max_delay = max_delay
         self._on_disconnect = on_disconnect
         self._on_reconnect = on_reconnect
+        self._rate_limiter = RequestRateLimiter(
+            max_requests_per_second,
+            algorithm=rate_limit_algorithm,
+            behavior=rate_limit_behavior,
+            burst_capacity=rate_limit_burst,
+        )
 
         # Heartbeat settings
         self._heartbeat_interval = heartbeat_interval
@@ -373,6 +414,11 @@ class Client(ClientMixin):
             raise S7ConnectionError("Not connected to PLC")
         return self.connection
 
+    def _send_data(self, conn: ISOTCPConnection, request: bytes) -> None:
+        """Apply the per-client rate limit and send one S7 request PDU."""
+        self._rate_limiter.acquire()
+        conn.send_data(request)
+
     def _send_receive(self, request: bytes, max_stale_retries: int = 3) -> dict[str, Any]:
         """Send a request and receive/parse the response with stale packet retry.
 
@@ -395,7 +441,7 @@ class Client(ClientMixin):
         conn = self._get_connection()
 
         with self._reconnect_lock:
-            conn.send_data(request)
+            self._send_data(conn, request)
 
             for attempt in range(max_stale_retries + 1):
                 response_data = conn.receive_data()
@@ -571,15 +617,21 @@ class Client(ClientMixin):
         Returns:
             Self for method chaining
         """
+        # Remote TSAP: connection type, rack and slot encoded per S7.
+        self.remote_tsap = (self.connection_type << 8) | (rack << 5) | slot
+        return self._connect(address, rack, slot, tcp_port)
+
+    def _connect(self, address: str, rack: int, slot: int, tcp_port: int) -> "Client":
+        """Establish a connection using the configured local and remote TSAPs.
+
+        LOGO clients supply explicit TSAPs instead of deriving them from a
+        rack and slot. Both paths share connection and heartbeat setup.
+        """
         self.host = address
         self.port = tcp_port
         self.rack = rack
         self.slot = slot
         self._params[Parameter.RemotePort] = tcp_port
-
-        # Calculate TSAP values from rack/slot
-        # Remote TSAP: rack and slot encoded as per S7 specification
-        self.remote_tsap = (self.connection_type << 8) | (rack << 5) | slot
 
         try:
             start_time = time.time()
@@ -804,9 +856,7 @@ class Client(ClientMixin):
         """
         resolved = Tag.from_string(tag) if isinstance(tag, str) else tag
         if resolved.is_symbolic:
-            raise NotImplementedError(
-                "Symbolic (LID-based) tag access requires S7CommPlus. Use s7.Client instead of snap7.Client."
-            )
+            raise NotImplementedError("Symbolic (LID-based) tag access is not supported by the classic S7 client.")
         data = self.read_area(Area(resolved.area), resolved.db_number, resolved.byte_offset, resolved.size)
         return _decode_tag(resolved, bytearray(data), encoding=encoding)
 
@@ -823,9 +873,7 @@ class Client(ClientMixin):
         """
         resolved = Tag.from_string(tag) if isinstance(tag, str) else tag
         if resolved.is_symbolic:
-            raise NotImplementedError(
-                "Symbolic (LID-based) tag access requires S7CommPlus. Use s7.Client instead of snap7.Client."
-            )
+            raise NotImplementedError("Symbolic (LID-based) tag access is not supported by the classic S7 client.")
         size = resolved.size
         buf = bytearray(size)
         # For BOOL writes, we need the current byte to preserve other bits
@@ -835,14 +883,14 @@ class Client(ClientMixin):
         _encode_tag(resolved, buf, value, encoding=encoding)
         return self.write_area(Area(resolved.area), resolved.db_number, resolved.byte_offset, buf)
 
-    def read_tags(self, tags: "list[Union[Tag, str]]", encoding: str = "latin-1") -> list[Any]:
+    def read_tags(self, tags: "Sequence[Union[Tag, str]]", encoding: str = "latin-1") -> list[Any]:
         """Read multiple tags in a single optimized request.
 
         Uses the multi-variable read optimizer when available to batch
         reads into minimal PDU exchanges.
 
         Args:
-            tags: List of :class:`~snap7.tags.Tag` instances or address strings.
+            tags: Sequence of :class:`~snap7.tags.Tag` instances or address strings.
             encoding: Character encoding for STRING/FSTRING values (default ``"latin-1"``).
 
         Returns:
@@ -956,7 +1004,8 @@ class Client(ClientMixin):
             area: Memory area to read from
             db_number: DB number (for DB area only)
             start: Start address
-            size: Number of items to read (for TM/CT: timers/counters, for others: bytes)
+            size: Number of elements of the selected word length (bytes by default).
+                BIT values are returned as one byte per bit; TM/CT use two-byte elements.
             word_len: Optional word length override. If None, defaults to area-based logic
                 (TIMER for TM, COUNTER for CT, BYTE for others).
 
@@ -978,7 +1027,7 @@ class Client(ClientMixin):
         else:
             s7_word_len = S7WordLen.BYTE
 
-        max_chunk = self._max_read_size()
+        max_chunk = self._read_chunk_count(s7_word_len)
         if size <= max_chunk:
             # Single request - use reconnect-aware send/receive
             def build_request() -> bytes:
@@ -997,7 +1046,7 @@ class Client(ClientMixin):
         remaining = size
         while remaining > 0:
             chunk_size = min(remaining, max_chunk)
-            chunk_offset = offset
+            chunk_offset = offset * self._element_address_step(s7_word_len)
 
             def build_chunk_request(o: int = chunk_offset, cs: int = chunk_size) -> bytes:
                 return self.protocol.build_read_request(
@@ -1045,7 +1094,7 @@ class Client(ClientMixin):
         else:
             s7_word_len = S7WordLen.BYTE
 
-        max_chunk = self._max_write_size()
+        max_chunk = self._write_chunk_bytes(s7_word_len, len(data))
         if len(data) <= max_chunk:
             # Single request
             def build_request() -> bytes:
@@ -1064,7 +1113,7 @@ class Client(ClientMixin):
         while remaining > 0:
             chunk_size = min(remaining, max_chunk)
             chunk_data = data[offset : offset + chunk_size]
-            chunk_offset = offset
+            chunk_offset = offset // S7DataTypes.get_size_bytes(s7_word_len) * self._element_address_step(s7_word_len)
 
             def build_chunk_request(o: int = chunk_offset, cd: bytes = bytes(chunk_data)) -> bytes:
                 return self.protocol.build_write_request(
@@ -1193,7 +1242,7 @@ class Client(ClientMixin):
 
             # Send all requests back-to-back
             for _, pdu in requests:
-                conn.send_data(pdu)
+                self._send_data(conn, pdu)
 
             # Receive responses, matching by sequence number
             results: dict[int, dict[str, Any]] = {}
@@ -1354,26 +1403,33 @@ class Client(ClientMixin):
             raise ValueError(f"Too many items: {len(items)} exceeds MAX_VARS ({self.MAX_VARS})")
 
         # Handle S7DataItem list (ctypes)
-        if hasattr(items[0], "Area"):
-            s7_items = cast(List[S7DataItem], items)
-            for s7_item in s7_items:
+        if isinstance(items[0], S7DataItem):
+            for s7_item in items:
+                if not isinstance(s7_item, S7DataItem):
+                    raise TypeError("items must contain either only S7DataItem objects or only dictionaries")
                 area = Area(s7_item.Area)
                 db_number = s7_item.DBNumber
                 start = s7_item.Start
-                size = s7_item.Amount
+                word_len = WordLen(s7_item.WordLen)
+                size = S7DataTypes.get_size_bytes(S7WordLen(word_len), s7_item.Amount)
+                if s7_item.Amount < 0:
+                    raise ValueError("Item amount must be non-negative")
+                if size and not s7_item.pData:
+                    raise ValueError("Write item requires a data pointer")
 
-                # Extract data from pData
+                # Extract all elements from pData, retaining the request datatype.
                 data = bytearray(size)
                 if s7_item.pData:
                     for i in range(size):
                         data[i] = s7_item.pData[i]
 
-                self.write_area(area, db_number, start, data)
+                self.write_area(area, db_number, start, data, word_len)
             return 0
 
         # Handle dict list
-        dict_items = cast(List[dict[str, Any]], items)
-        for dict_item in dict_items:
+        for dict_item in items:
+            if not isinstance(dict_item, dict):
+                raise TypeError("items must contain either only S7DataItem objects or only dictionaries")
             area = dict_item["area"]
             db_number = dict_item.get("db_number", 0)
             start = dict_item["start"]
@@ -1466,7 +1522,7 @@ class Client(ClientMixin):
                 break
 
             followup = self.protocol.build_userdata_followup_request(group, subfunction, sequence_number)
-            conn.send_data(followup)
+            self._send_data(conn, followup)
 
             response_data = conn.receive_data()
             response = self.protocol.parse_response(response_data)
@@ -1644,7 +1700,7 @@ class Client(ClientMixin):
             len(data_section),  # Data length
         )
 
-        conn.send_data(header + param_data + data_section)
+        self._send_data(conn, header + param_data + data_section)
 
         response_data = conn.receive_data()
         self.protocol.parse_response(response_data)
@@ -1662,7 +1718,7 @@ class Client(ClientMixin):
             0x0000,  # Data length
         )
 
-        conn.send_data(header + param_data)
+        self._send_data(conn, header + param_data)
 
         response_data = conn.receive_data()
         self.protocol.parse_response(response_data)
@@ -1928,6 +1984,151 @@ class Client(ClientMixin):
             raise S7ConnectionError("Not connected to PLC")
         return parse_protection_szl(self.read_szl(0x0232, 0))
 
+    # ---------------------------------------------------------------
+    # Force I/O
+    # ---------------------------------------------------------------
+
+    _FORCE_AREAS: frozenset[int] = frozenset({Area.PE, Area.PA})
+
+    def force_bit(self, area: Area, byte_offset: int, bit: int, value: bool) -> None:
+        """Force a single I/O bit in the process image.
+
+        Performs a read-modify-write on the specified byte to set or clear
+        the target bit without affecting neighbouring bits. This writes
+        directly to the process image, so the value may be overwritten by
+        the PLC's scan cycle. It is equivalent to the approach used by
+        rs-snap7.
+
+        Only the I/O areas (PE = inputs, PA = outputs) are supported.
+
+        Args:
+            area: Memory area (:attr:`~snap7.type.Area.PE` or
+                :attr:`~snap7.type.Area.PA`).
+            byte_offset: Byte offset within the area.
+            bit: Bit number (0-7) within the byte.
+            value: Desired bit value.
+
+        Raises:
+            ValueError: If *area* is not PE or PA, or *bit* is out of range.
+        """
+        if area not in self._FORCE_AREAS:
+            raise ValueError(f"Force is only supported for PE (inputs) and PA (outputs), got {area!r}")
+        if not 0 <= bit <= 7:
+            raise ValueError(f"Bit must be 0-7, got {bit}")
+
+        current = self.read_area(area, 0, byte_offset, 1)
+        if value:
+            current[0] |= 1 << bit
+        else:
+            current[0] &= ~(1 << bit)
+        self.write_area(area, 0, byte_offset, current)
+        logger.info(f"Forced {area.name} byte {byte_offset} bit {bit} = {value}")
+
+    def cancel_force(self, area: Area, byte_offset: int, bit: int) -> None:
+        """Cancel a forced I/O bit by clearing it in the process image.
+
+        Clears the specified bit. On a real PLC the scan cycle will
+        restore the natural I/O state once the force is released; on the
+        emulated server the bit stays at 0 until explicitly written.
+
+        Args:
+            area: Memory area (:attr:`~snap7.type.Area.PE` or
+                :attr:`~snap7.type.Area.PA`).
+            byte_offset: Byte offset within the area.
+            bit: Bit number (0-7) within the byte.
+
+        Raises:
+            ValueError: If *area* is not PE or PA, or *bit* is out of range.
+        """
+        if area not in self._FORCE_AREAS:
+            raise ValueError(f"Cancel force is only supported for PE (inputs) and PA (outputs), got {area!r}")
+        if not 0 <= bit <= 7:
+            raise ValueError(f"Bit must be 0-7, got {bit}")
+
+        current = self.read_area(area, 0, byte_offset, 1)
+        current[0] &= ~(1 << bit)
+        self.write_area(area, 0, byte_offset, current)
+        logger.info(f"Cancelled force on {area.name} byte {byte_offset} bit {bit}")
+
+    def read_force_table(self) -> list[ForceEntry]:
+        """Read the PLC force table via SZL 0x0025.
+
+        On a real PLC this returns bits that have been forced through the
+        CPU's built-in force mechanism (e.g. via TIA Portal). Bits set
+        through :meth:`force_bit` (process-image writes) do **not** appear
+        here because they bypass the CPU force table.
+
+        Returns:
+            List of :class:`~snap7.type.ForceEntry` instances describing
+            each forced bit.  Returns an empty list when no bits are
+            currently forced or when the PLC does not support SZL 0x0025.
+        """
+        if not self.get_connected():
+            raise S7ConnectionError("Not connected to PLC")
+
+        try:
+            szl = self.read_szl(0x0025, 0x0000)
+        except (S7ProtocolError, RuntimeError):
+            # PLC does not support force table SZL or returned an error
+            logger.debug("SZL 0x0025 not available; returning empty force table")
+            return []
+
+        raw = bytes(szl.Data[: szl.Header.LengthDR])
+        return _parse_force_szl(raw)
+
+    def set_session_password(self, password: str) -> int:
+        """Set the session password to unlock a password-protected PLC.
+
+        Sends an S7 USERDATA request (function group 5, subfunction 1)
+        with the encoded password. After a successful call the PLC grants
+        higher-privilege access for the duration of this session.
+
+        Args:
+            password: Plaintext password (max 8 ASCII characters).
+
+        Returns:
+            0 on success.
+
+        Raises:
+            ~snap7.error.S7ConnectionError: If not connected.
+            ~snap7.error.S7ProtocolError: If the PLC rejects the password.
+        """
+        if not self.get_connected():
+            raise S7ConnectionError("Not connected to PLC")
+
+        encoded = self.protocol.encode_password(password)
+
+        def build_request() -> bytes:
+            return self.protocol.build_set_session_password_request(encoded)
+
+        response = self._send_receive_with_reconnect(build_request)
+        self.protocol.check_userdata_response(response)
+        logger.info("Session password set successfully")
+        return 0
+
+    def clear_session_password(self) -> int:
+        """Clear the session password, returning to the default protection level.
+
+        Sends an S7 USERDATA request (function group 5, subfunction 2).
+
+        Returns:
+            0 on success.
+
+        Raises:
+            ~snap7.error.S7ConnectionError: If not connected.
+            ~snap7.error.S7ProtocolError: If the PLC rejects the request.
+        """
+        if not self.get_connected():
+            raise S7ConnectionError("Not connected to PLC")
+
+        def build_request() -> bytes:
+            return self.protocol.build_clear_session_password_request()
+
+        response = self._send_receive_with_reconnect(build_request)
+        self.protocol.check_userdata_response(response)
+        logger.info("Session password cleared successfully")
+        return 0
+
     def read_szl(self, ssl_id: int, index: int = 0) -> S7SZL:
         """
         Read SZL (System Status List).
@@ -1975,7 +2176,7 @@ class Client(ClientMixin):
                 break
 
             followup = self.protocol.build_userdata_followup_request(group, subfunction, sequence_number)
-            conn.send_data(followup)
+            self._send_data(conn, followup)
 
             response_data = conn.receive_data()
             response = self.protocol.parse_response(response_data)
@@ -2095,7 +2296,7 @@ class Client(ClientMixin):
         """
         conn = self._get_connection()
 
-        conn.send_data(bytes(data))
+        self._send_data(conn, bytes(data))
         response = conn.receive_data()
         return bytearray(response)
 

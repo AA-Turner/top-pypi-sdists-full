@@ -19,7 +19,9 @@ class AppendixSerpPriceData(BaseModel):
     AppendixSerpPriceData
     """ # noqa: E501
     tasks_fixed: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    ai_summary: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     jobs: Optional[AppendixAKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     languages: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     live: Optional[AppendixSerpPriceDataInfo] = Field(default=None, description=r"")
@@ -30,7 +32,9 @@ class AppendixSerpPriceData(BaseModel):
     tasks_ready: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "tasks_fixed", 
+        "ai_summary", 
         "errors", 
+        "id_list", 
         "jobs", 
         "languages", 
         "live", 
@@ -66,7 +70,9 @@ class AppendixSerpPriceData(BaseModel):
         _dict = {}
 
         _dict['tasks_fixed'] = self.tasks_fixed.to_dict() if self.tasks_fixed else None
+        _dict['ai_summary'] = self.ai_summary.to_dict() if self.ai_summary else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['jobs'] = self.jobs.to_dict() if self.jobs else None
         _dict['languages'] = self.languages.to_dict() if self.languages else None
         _dict['live'] = self.live.to_dict() if self.live else None
@@ -88,7 +94,9 @@ class AppendixSerpPriceData(BaseModel):
 
         _obj = cls.model_validate({
             "tasks_fixed": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["tasks_fixed"]) if obj.get("tasks_fixed") is not None else None,
+            "ai_summary": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["ai_summary"]) if obj.get("ai_summary") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
             "jobs": AppendixAKeywordsDataPriceDataInfo.from_dict(obj["jobs"]) if obj.get("jobs") is not None else None,
             "languages": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["languages"]) if obj.get("languages") is not None else None,
             "live": AppendixSerpPriceDataInfo.from_dict(obj["live"]) if obj.get("live") is not None else None,

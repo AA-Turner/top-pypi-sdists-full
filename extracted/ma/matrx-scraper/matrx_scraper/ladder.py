@@ -94,6 +94,28 @@ def next_rung(current: str) -> str | None:
     return RUNGS[index + 1]
 
 
+def last_ordered_rung(trail: list[dict[str, Any]]) -> str | None:
+    """The last ORDERED rung a trail actually reached, or None.
+
+    THE ONE WAY to ask a trail "where did this get to". `trail[-1]["rung"]` is
+    NOT that question and never was: an optional entry (`OPTIONAL_RUNGS` —
+    residential egress) may sit anywhere in a trail, including last, and it is
+    not a rung. Every caller that indexed the raw tail instead of calling this
+    got a `ValueError` out of `RUNGS.index` the first time a host wired
+    residential egress up — a 500 on a write door, for a trail the ladder law
+    considers perfectly lawful.
+
+    Returns None for an empty trail AND for a trail of nothing but optional
+    entries; both mean "no rung has been reached", and a caller that must have
+    one says so itself rather than being handed a rung nobody ran.
+    """
+    for entry in reversed(trail):
+        rung = str(entry.get("rung") or "")
+        if rung and rung not in OPTIONAL_RUNGS:
+            return rung
+    return None
+
+
 def assert_no_skipped_rung(trail: list[dict[str, Any]]) -> None:
     """THE LADDER LAW, as a callable guard.
 
@@ -125,6 +147,26 @@ def assert_no_skipped_rung(trail: list[dict[str, Any]]) -> None:
                 f"the ladder went {previous!r} → {current!r}; the only rung that may "
                 f"follow {previous!r} is {expected!r}"
             )
+
+
+def deepest_ladder_rung(trail: list[dict[str, Any]]) -> str | None:
+    """How far up the ladder this trail actually got, or `None` for an empty one.
+
+    "The deepest rung" is the LAST ORDERED rung in the trail. `residential` is an
+    optional entry rather than a rung (it is the same `http` work asked again from a
+    different address), so it is stepped over here exactly as `assert_no_skipped_rung`
+    steps over it — answering `residential` to "how far did this get" would put a value
+    in `platform.acquisition_block.rung` that the ledger's own `RUNGS` check refuses,
+    and the whole row would be dropped.
+
+    Written for the Block Ledger, which needs ONE rung name beside the full trail so a
+    reader can sort and facet without parsing the trail on every row.
+    """
+    for entry in reversed(trail or []):
+        rung = str(entry.get("rung") or "")
+        if rung and rung not in OPTIONAL_RUNGS and rung in RUNGS:
+            return rung
+    return None
 
 
 # ── What a person's own browser can beat that ours cannot ───────────────────
@@ -387,15 +429,12 @@ def decide(
     if not trail:
         raise LadderOrderError("a ladder verdict needs a trail; none was recorded")
 
-    ordered = [
-        str(entry["rung"]) for entry in trail if str(entry["rung"]) not in OPTIONAL_RUNGS
-    ]
-    if not ordered:
+    current = last_ordered_rung(trail)
+    if current is None:
         raise LadderOrderError(
             "a ladder verdict needs at least one ladder rung; this trail has only "
             f"optional entries ({sorted(OPTIONAL_RUNGS)})"
         )
-    current = ordered[-1]
     candidate = next_rung(current)
     if candidate is None:
         return LadderVerdict(

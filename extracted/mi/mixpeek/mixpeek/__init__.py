@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.756"
+__version__ = "1.3.773"
 
 # Define package exports
 __all__ = [
@@ -544,7 +544,11 @@ __all__ = [
     "ExplainRetrieverResponse",
     "ExplainStagePlan",
     "ExplodeSpec",
+    "ExportDestination",
+    "ExportDestinationResult",
     "ExportFormat",
+    "ExportMediaSummary",
+    "ExportShard",
     "ExternalConnection",
     "ExternalLink",
     "ExtractorBreakdownResponse",
@@ -911,6 +915,7 @@ __all__ = [
     "PerformanceSummary",
     "Permission",
     "PipelineComparison",
+    "PlanDefinitionResponse",
     "PlanUsage",
     "PostProcessingPhase",
     "PostgreSQLConfig",
@@ -1952,7 +1957,11 @@ from mixpeek.models.explain_retriever_request import ExplainRetrieverRequest as 
 from mixpeek.models.explain_retriever_response import ExplainRetrieverResponse as ExplainRetrieverResponse
 from mixpeek.models.explain_stage_plan import ExplainStagePlan as ExplainStagePlan
 from mixpeek.models.explode_spec import ExplodeSpec as ExplodeSpec
+from mixpeek.models.export_destination import ExportDestination as ExportDestination
+from mixpeek.models.export_destination_result import ExportDestinationResult as ExportDestinationResult
 from mixpeek.models.export_format import ExportFormat as ExportFormat
+from mixpeek.models.export_media_summary import ExportMediaSummary as ExportMediaSummary
+from mixpeek.models.export_shard import ExportShard as ExportShard
 from mixpeek.models.external_connection import ExternalConnection as ExternalConnection
 from mixpeek.models.external_link import ExternalLink as ExternalLink
 from mixpeek.models.extractor_breakdown_response import ExtractorBreakdownResponse as ExtractorBreakdownResponse
@@ -2319,6 +2328,7 @@ from mixpeek.models.performance_metric import PerformanceMetric as PerformanceMe
 from mixpeek.models.performance_summary import PerformanceSummary as PerformanceSummary
 from mixpeek.models.permission import Permission as Permission
 from mixpeek.models.pipeline_comparison import PipelineComparison as PipelineComparison
+from mixpeek.models.plan_definition_response import PlanDefinitionResponse as PlanDefinitionResponse
 from mixpeek.models.plan_usage import PlanUsage as PlanUsage
 from mixpeek.models.post_processing_phase import PostProcessingPhase as PostProcessingPhase
 from mixpeek.models.postgre_sql_config import PostgreSQLConfig as PostgreSQLConfig

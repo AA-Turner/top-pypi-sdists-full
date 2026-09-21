@@ -1,4 +1,4 @@
-from typing import Any, Generic, Self, override
+from typing import Any, Generic, Self
 from typing_extensions import TypeVar
 
 import numpy as np
@@ -10,7 +10,7 @@ from ._typing import BunchMixin
 
 __all__ = ["_find_repeats"]
 
-_ResultT_co = TypeVar("_ResultT_co", bound=np.float64 | onp.ArrayND[np.float64], default=np.float64 | Any, covariant=True)
+_ResultT_co = TypeVar("_ResultT_co", bound=npc.floating | onp.ArrayND[npc.floating], default=np.float64 | Any, covariant=True)
 
 ###
 
@@ -27,10 +27,8 @@ class TheilslopesResult(
     tuple[_ResultT_co, _ResultT_co, _ResultT_co, _ResultT_co],
     Generic[_ResultT_co],
 ):
-    @override
-    def __new__(_cls, slope: _ResultT_co, intercept: _ResultT_co, low_slope: _ResultT_co, high_slope: _ResultT_co) -> Self: ...  # pyrefly:ignore[bad-override]
-    @override
-    def __init__(  # pyrefly:ignore[bad-override]
+    def __new__(_cls, slope: _ResultT_co, intercept: _ResultT_co, low_slope: _ResultT_co, high_slope: _ResultT_co) -> Self: ...
+    def __init__(
         self, /, slope: _ResultT_co, intercept: _ResultT_co, low_slope: _ResultT_co, high_slope: _ResultT_co
     ) -> None: ...
 

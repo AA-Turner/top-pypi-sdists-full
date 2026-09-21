@@ -733,6 +733,28 @@ def list_wsl_distros(
     return [distro.name for distro in inventory.distros]
 
 
+def _is_traversable_home(path: Path, attempt_reasons: list[str]) -> bool:
+    """True when ``path`` is a directory whose entries can be listed.
+
+    The ``\\\\wsl.localhost`` share serves files as the distro's default
+    (non-root) user, so ``/root`` (0700) and other users' homes (0750 on
+    Ubuntu >= 21.04) ``stat()`` fine but every read beneath them is
+    ``WinError 5``. Probing one ``iterdir`` here keeps such homes out of the
+    scan instead of letting every downstream scanner trip over them.
+    """
+    try:
+        if not path.is_dir():
+            return False
+        next(path.iterdir(), None)
+    except PermissionError:
+        attempt_reasons.append("wsl_home_access_denied")
+        return False
+    except OSError:
+        attempt_reasons.append("wsl_home_access_failed")
+        return False
+    return True
+
+
 def get_wsl_user_homes(
     distro: str,
     scan_status: CompletionStatusSink | None = None,
@@ -742,18 +764,16 @@ def get_wsl_user_homes(
     Lists ``\\\\wsl.localhost\\<distro>\\home\\*`` plus ``/root`` (falls back
     to the older ``\\\\wsl$`` share). To bound UNC enumeration, sorts only the
     capped listing prefix; selection is stable when the listing fits the cap.
-    Returns each reachable home dir; tolerates missing and access-denied paths.
+    Returns each readable home dir; missing paths are skipped silently, homes
+    the share cannot traverse are dropped as ``wsl_home_access_denied``.
     """
     failed_attempt_reasons: list[str] = []
     for unc_root in (Rf"\\wsl.localhost\{distro}", Rf"\\wsl$\{distro}"):
         homes: list[Path] = []
         attempt_reasons: list[str] = []
         root_home = Path(unc_root) / "root"
-        try:
-            if root_home.is_dir():
-                homes.append(root_home)
-        except OSError:
-            attempt_reasons.append("wsl_home_access_failed")
+        if _is_traversable_home(root_home, attempt_reasons):
+            homes.append(root_home)
         home_base = Path(unc_root) / "home"
         try:
             if home_base.is_dir():
@@ -764,12 +784,7 @@ def get_wsl_user_homes(
                     if len(homes) >= MAX_WSL_HOMES:
                         attempt_reasons.append("wsl_home_discovery_capped")
                         break
-                    try:
-                        is_directory = entry.is_dir()
-                    except OSError:
-                        attempt_reasons.append("wsl_home_access_failed")
-                        continue
-                    if is_directory:
+                    if _is_traversable_home(entry, attempt_reasons):
                         homes.append(entry)
         except OSError:
             attempt_reasons.append("wsl_home_enumeration_failed")

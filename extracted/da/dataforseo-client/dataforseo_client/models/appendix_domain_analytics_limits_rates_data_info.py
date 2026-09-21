@@ -21,11 +21,13 @@ class AppendixDomainAnalyticsLimitsRatesDataInfo(BaseModel):
     errors: Optional[StrictFloat] = Field(default=None, description=r"")
     whois: Optional[AppendixWhoisDomainAnalyticsLimitsRatesDataInfo] = Field(default=None, description=r"")
     technologies: Optional[AppendixTechnologiesDomainAnalyticsLimitsRatesDataInfo] = Field(default=None, description=r"")
+    available_filters: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "tasks_ready", 
         "errors", 
         "whois", 
         "technologies", 
+        "available_filters", 
         ]
 
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
@@ -56,6 +58,7 @@ class AppendixDomainAnalyticsLimitsRatesDataInfo(BaseModel):
         _dict['errors'] = self.errors
         _dict['whois'] = self.whois.to_dict() if self.whois else None
         _dict['technologies'] = self.technologies.to_dict() if self.technologies else None
+        _dict['available_filters'] = self.available_filters
         return _dict
 
 
@@ -72,6 +75,7 @@ class AppendixDomainAnalyticsLimitsRatesDataInfo(BaseModel):
             "errors": obj.get("errors"),
             "whois": AppendixWhoisDomainAnalyticsLimitsRatesDataInfo.from_dict(obj["whois"]) if obj.get("whois") is not None else None,
             "technologies": AppendixTechnologiesDomainAnalyticsLimitsRatesDataInfo.from_dict(obj["technologies"]) if obj.get("technologies") is not None else None,
+            "available_filters": obj.get("available_filters"),
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

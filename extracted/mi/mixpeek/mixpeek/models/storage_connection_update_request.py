@@ -34,8 +34,9 @@ class StorageConnectionUpdateRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. New metadata dictionary. Replaces existing metadata entirely (partial updates not supported). Set to empty dict {} to clear all metadata.")
     status: Optional[TaskStatusEnum] = Field(default=None, description="OPTIONAL. New operational status. ACTIVE: Connection is healthy and ready for use. SUSPENDED: Temporarily disabled, credentials preserved. FAILED: Health checks failing. ARCHIVED: Permanently retired (cannot be reactivated).")
     is_active: Optional[StrictBool] = Field(default=None, description="OPTIONAL. Quick boolean flag for filtering. True when status is ACTIVE, False otherwise. Automatically maintained when status changes.")
+    write_enabled: Optional[StrictBool] = Field(default=None, description="Turn write access to this connection's storage on or off. Omitted leaves it as it is; a connection that has never had it set cannot be written to.")
     provider_config: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Updated provider configuration including credentials. Replaces provider_config, except that credential fields you omit are kept when the credential type is unchanged, so a read-modify-write of one setting does not drop the stored secret. Send a credential field to replace it. SECURITY: credential fields never appear in read responses.")
-    __properties: ClassVar[List[str]] = ["name", "description", "metadata", "status", "is_active", "provider_config"]
+    __properties: ClassVar[List[str]] = ["name", "description", "metadata", "status", "is_active", "write_enabled", "provider_config"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class StorageConnectionUpdateRequest(BaseModel):
             "metadata": obj.get("metadata"),
             "status": obj.get("status"),
             "is_active": obj.get("is_active"),
+            "write_enabled": obj.get("write_enabled"),
             "provider_config": obj.get("provider_config")
         })
         return _obj

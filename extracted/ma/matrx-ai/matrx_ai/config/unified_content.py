@@ -5,6 +5,10 @@ from typing import Any, Literal, Optional
 from google.genai.types import Part
 from matrx_utils import vcprint
 
+from matrx_ai.config.decision_input_config import (
+    DecisionAnswersContent,
+    DecisionQuestionsContent,
+)
 from matrx_ai.config.config_utils import (
     decode_binary_metadata,
     encode_binary_metadata,
@@ -859,6 +863,8 @@ UnifiedContent = (
     | TranscriptSessionInputContent
     | WorkbookInputContent
     | DocumentInputContent
+    | DecisionQuestionsContent
+    | DecisionAnswersContent
 )
 
 
@@ -1060,6 +1066,27 @@ def _decode_content_block(block: dict[str, Any]) -> UnifiedContent:
             provider=str(block.get("provider", "") or ""),
             block=dict(raw_block) if isinstance(raw_block, dict) else {},
             metadata=dict(raw_meta) if isinstance(raw_meta, dict) else {},
+        )
+
+    elif block_type == "decision_questions":
+        # The decision modality's question part. Validation lives in the
+        # registered kind (matrx_ai.decisions.kinds) — reconstructing a stored
+        # block must stay tolerant (this is the ONE tolerant decoder), so a
+        # malformed stored batch surfaces as a named refusal upstream rather
+        # than killing a conversation load.
+        return DecisionQuestionsContent(
+            questions=list(block.get("questions") or []),
+            metadata=dict(block.get("metadata") or {}),
+        )
+
+    elif block_type == "decision_answers":
+        from matrx_ai.decisions.kinds import DecisionAnswers
+
+        return DecisionAnswersContent(
+            answers=DecisionAnswers.model_validate(
+                {key: value for key, value in block.items() if key not in ("type", "metadata")}
+            ),
+            metadata=dict(block.get("metadata") or {}),
         )
 
     elif block_type in STRUCTURED_INPUT_TYPE_MAP:

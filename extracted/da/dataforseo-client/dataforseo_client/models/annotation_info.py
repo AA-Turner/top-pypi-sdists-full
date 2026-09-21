@@ -16,13 +16,15 @@ class AnnotationInfo(BaseModel):
     AnnotationInfo
     """ # noqa: E501
     title: Optional[StrictStr] = Field(default=None, description=r"*the domain name or title of the quoted source*")
-    url: Optional[StrictStr] = Field(default=None, description=r"*URL of the quoted source*")
+    url: Optional[StrictStr] = Field(default=None, description=r"*redirect URL to the quoted source*. contains a Vertex AI redirect that leads to the original source")
+    direct_url: Optional[StrictStr] = Field(default=None, description=r"*direct URL to the quoted source*. contains the original source URL that the Vertex AI redirect in the `url` field leads to")
     start_index: Optional[StrictInt] = Field(default=None, description=r"*start of the annotation indexing*")
     end_index: Optional[StrictInt] = Field(default=None, description=r"*end of the annotation indexing*")
     text: Optional[StrictStr] = Field(default=None, description=r"*text of the reasoning chain section*. text of the reasoning chain  section summarizing the model's thought process")
     __properties: ClassVar[List[str]] = [
         "title", 
         "url", 
+        "direct_url", 
         "start_index", 
         "end_index", 
         "text", 
@@ -54,6 +56,7 @@ class AnnotationInfo(BaseModel):
 
         _dict['title'] = self.title
         _dict['url'] = self.url
+        _dict['direct_url'] = self.direct_url
         _dict['start_index'] = self.start_index
         _dict['end_index'] = self.end_index
         _dict['text'] = self.text
@@ -71,6 +74,7 @@ class AnnotationInfo(BaseModel):
         _obj = cls.model_validate({
             "title": obj.get("title"),
             "url": obj.get("url"),
+            "direct_url": obj.get("direct_url"),
             "start_index": obj.get("start_index"),
             "end_index": obj.get("end_index"),
             "text": obj.get("text"),

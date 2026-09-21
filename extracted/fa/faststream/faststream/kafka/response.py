@@ -3,18 +3,21 @@ from typing import TYPE_CHECKING, Any, Union
 
 from typing_extensions import override
 
+from faststream._internal.kafka import (
+    extract_per_message_keys_and_bodies,
+    key_for_index,
+    realign_keys,
+)
 from faststream.response.publish_type import PublishType
 from faststream.response.response import (
     BatchPublishCommand,
     PublishCommand,
     Response,
-    extract_per_message_keys_and_bodies,
-    key_for_index,
-    realign_keys,
 )
 
 if TYPE_CHECKING:
     from faststream._internal.basic_types import SendableMessage
+    from faststream.kafka.types import KafkaSendableMessage
 
 
 class KafkaResponse(Response):
@@ -67,9 +70,9 @@ class KafkaResponse(Response):
 class KafkaPublishCommand(BatchPublishCommand):
     def __init__(
         self,
-        message: "SendableMessage",
+        message: "KafkaSendableMessage",
         /,
-        *messages: "SendableMessage",
+        *messages: "KafkaSendableMessage",
         topic: str,
         _publish_type: PublishType,
         key: bytes | Any | None = None,

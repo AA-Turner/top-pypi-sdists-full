@@ -251,8 +251,14 @@ async def standalone_coordinator(
     user_id: str | None = None,
     conversation_id: str | None = None,
     database: str | None = None,
+    atomic: bool = False,
 ) -> AsyncIterator[Coordinator]:
-    """Open an isolated, synchronously committed Coordinator for background work."""
+    """Open an isolated, synchronously committed Coordinator for background work.
+
+    ``atomic`` discards queued work if the body raises and disables individual
+    write recovery if its batch transaction fails. Use it when partial rows
+    would misrepresent a failed logical operation, such as a conversation fork.
+    """
     if not reason.strip():
         raise ValueError("standalone_coordinator requires a non-empty reason")
 
@@ -283,19 +289,24 @@ async def standalone_coordinator(
             request_id=request_id,
             user_id=user_id,
             conversation_id=conversation_id,
+            atomic=atomic,
         )
         _coordinator_cv.set(coordinator)
 
         try:
             yield coordinator
         except BaseException:
-            # Preserve the caller's exception, but first secure any operation it
-            # queued. Session fallback captures failed writes for replay.
-            import asyncio
+            if atomic:
+                # The body failed before commit. Its queued rows are one
+                # logical copy and must not be flushed as partial success.
+                await coordinator.abort()
+            else:
+                # Preserve the caller's exception, but secure queued writes.
+                import asyncio
 
-            await asyncio.shield(
-                coordinator.drain_and_confirm(reason=f"{reason}_error")
-            )
+                await asyncio.shield(
+                    coordinator.drain_and_confirm(reason=f"{reason}_error")
+                )
             raise
         else:
             # This scope has no RequestLane finalizer. Durability must therefore

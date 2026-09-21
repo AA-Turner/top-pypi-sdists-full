@@ -102,7 +102,7 @@ class ExecutionState:
     # drain finalizer flushes it. NEVER read in fire-and-forget background
     # tasks — they should use a fresh coordinator scoped to the parent task
     # via the ContextVar fork that asyncio.create_task() performs implicitly.
-    writes: "WriteCoordinator | None" = None
+    writes: WriteCoordinator | None = None
 
     # In-flight persist context. The main loop keeps these current as it runs
     # so that if the request is CANCELLED mid-stream (client disconnect, server
@@ -141,6 +141,24 @@ class ExecutionState:
     # caution fire at most once.
     loop_guard_intervened: bool = False
     loop_guard_warned: bool = False
+
+    # THE CEILINGS IN FORCE FOR THIS RUN. Resolved once, from the org's
+    # ``orchestration.loop_guard`` settings rows, and reused every iteration —
+    # a per-iteration read would put a Postgres round trip on the hot loop for
+    # numbers that cannot change mid-run. ``LoopGuardThresholds``; typed Any so
+    # execution_state stays free of the guard module.
+    loop_guard_thresholds: Any | None = None
+
+    # ONE TOOL, NOT EVERY TOOL (2026-09-20). Tools this run has already switched
+    # off. The run CONTINUES on the rest, so the guard must never re-blame a
+    # tool it has already removed — the failures are still in the window and it
+    # would trip forever on an answer it already gave.
+    loop_guard_disabled_tools: list[str] = field(default_factory=list)
+
+    # At most one "keep going" verdict per run. A standoff decision that says
+    # continue is a real second chance; an unbounded stream of them is a way to
+    # spend the user's money on the same broken tool forever.
+    loop_guard_standoff_continued: bool = False
 
     # THE GUARD'S REASON TRAVELS. The guard knows WHICH tool failed, HOW MANY
     # times and WHAT it said; captured here at the moment it trips so the

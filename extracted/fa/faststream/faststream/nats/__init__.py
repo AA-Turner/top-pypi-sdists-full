@@ -1,7 +1,13 @@
+from importlib.util import find_spec
+from typing import TYPE_CHECKING, TypeAlias
+
 from faststream._internal.parser import ParserProto
 from faststream._internal.testing.app import TestApp
 
-NatsParserType = ParserProto["Msg"]  # type: ignore[name-defined]
+if TYPE_CHECKING:
+    from nats.aio.msg import Msg
+
+NatsParserType: TypeAlias = ParserProto["Msg"]
 
 try:
     from nats.js.api import (
@@ -26,7 +32,8 @@ try:
     from .testing import TestNatsBroker
 
 except ImportError as e:
-    if "'nats'" not in e.msg:
+    # the package is installed: the failure is its own, not a missing extra
+    if find_spec("nats") is not None:
         raise
 
     from faststream.exceptions import INSTALL_FASTSTREAM_NATS

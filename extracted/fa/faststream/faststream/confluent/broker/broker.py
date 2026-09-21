@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     )
     from faststream.confluent.helpers.config import ConfluentConfig
     from faststream.confluent.message import KafkaMessage
+    from faststream.confluent.types import KafkaSendableMessage
     from faststream.security import BaseSecurity
     from faststream.specification.schema.extra import Tag, TagDict
 
@@ -66,6 +67,7 @@ class KafkaBroker(
     BrokerUsecase[
         Message | tuple[Message, ...],
         Callable[..., AsyncConfluentConsumer],
+        KafkaBrokerConfig,
     ],
 ):
     url: list[str]
@@ -102,7 +104,7 @@ class KafkaBroker(
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
         parser: Optional["CustomCallable"] = None,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         routers: Iterable[KafkaRegistrator] = (),
         # AsyncAPI args
@@ -342,8 +344,8 @@ class KafkaBroker(
         headers: dict[str, str] | None = None,
         correlation_id: str | None = None,
         reply_to: str = "",
-        no_confirm: Literal[True] = ...,
-    ) -> asyncio.Future[Message | None]: ...
+        no_confirm: Literal[False] = False,
+    ) -> Message | None: ...
 
     @overload
     async def publish(
@@ -357,8 +359,8 @@ class KafkaBroker(
         headers: dict[str, str] | None = None,
         correlation_id: str | None = None,
         reply_to: str = "",
-        no_confirm: Literal[False] = False,
-    ) -> Message | None: ...
+        no_confirm: Literal[True] = ...,
+    ) -> asyncio.Future[Message | None]: ...
 
     @overload
     async def publish(
@@ -461,7 +463,7 @@ class KafkaBroker(
     @override
     async def publish_batch(  # type: ignore[override]
         self,
-        *messages: "SendableMessage",
+        *messages: "KafkaSendableMessage",
         topic: str,
         partition: int | None = None,
         timestamp_ms: int | None = None,

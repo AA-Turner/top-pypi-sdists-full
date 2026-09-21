@@ -61,6 +61,17 @@ Design decisions (#974):
   the ``## Sub-issues``/``## Work order`` checklist's own ``[x]``/``[ ]`` box,
   which #1061 stopped keeping in sync with reality. The CLI command
   (``coord plans --lint-stale-epics``) is what reads the local cache.
+- **Unparseable-checklist lint (#3426)**.  :func:`find_unparseable_epics` is a
+  third read-only lint over the same locally-cached ``issues`` shape: an open,
+  ``"epic"``-labelled issue whose ``## Sub-issues`` checklist itself fails to
+  parse (:class:`~coord.milestone_order.WorkOrderError`) rather than merely
+  having zero/all-closed children. Every OTHER call site over the same
+  checklist (the board-payload ``children`` projection, :func:`find_stale_epics`
+  above, ``coord/github_ops.py``'s close-guard) catches that error and reports
+  "no children" — indistinguishable from an epic that genuinely has none, and
+  silent (vimcode#1170: three bold-prefixed lines hid all 24 real children with
+  no warning anywhere). This lint is what makes that failure visible: folded
+  into ``coord plans --lint-epics``, which exits non-zero when it finds one.
 """
 
 from __future__ import annotations
@@ -86,6 +97,7 @@ __all__ = [
     "PlanEntry",
     "find_tracking_issue",
     "find_unlabelled_epics",
+    "find_unparseable_epics",
     "find_stale_epics",
     "aggregate_plan",
     "aggregate_repo_plans",
@@ -272,6 +284,77 @@ def find_unlabelled_epics(issues: list[dict]) -> list[dict]:
         if TRACKING_ISSUE_LABEL in label_names:
             continue
         hits.append(issue)
+    return hits
+
+
+# ── Unparseable-checklist lint (#3426) ──────────────────────────────────────
+
+
+def find_unparseable_epics(issues: list[dict]) -> list[dict]:
+    """Return open, ``TRACKING_ISSUE_LABEL``-labelled issues whose ``##
+    Sub-issues`` checklist fails to parse (#3426).
+
+    Every call site downstream of :class:`coord.parentage.MarkdownParentage`
+    (the board-payload ``children`` projection, :func:`find_stale_epics`
+    below, and ``coord/github_ops.py``'s close-guard) catches
+    :class:`~coord.milestone_order.WorkOrderError` and reports "zero
+    children" for the whole epic — indistinguishable from an epic that
+    genuinely has none. A single malformed line (e.g. an issue number
+    wrapped in ``**bold**``, before #3426 widened the grammar to strip a
+    leading emphasis marker) used to hide EVERY sibling line in the same
+    block too: vimcode#1170, three bold-prefixed lines hiding all 24
+    children while two were in flight, with nothing reporting it anywhere.
+
+    This lint is the one place that surfaces the failure instead of
+    swallowing it: it re-derives each epic's children through the exact same
+    seam the board payload uses — :class:`coord.parentage.MarkdownParentage`
+    .children(..., fallback_to_work_order=True) — and reports the ones that
+    still raise, each hit carrying the original issue dict plus an
+    ``"error"`` key with the exact :class:`~coord.milestone_order.
+    WorkOrderError` message (names the offending line).
+
+    Deliberately *not* a direct call to :func:`coord.milestone_order.
+    parse_sub_issues` (#3426 review finding): ``coord/serve_app.py``'s board
+    payload additionally falls back to ``## Work order`` when ``##
+    Sub-issues`` is absent/empty (common for epics that predate #1008, per
+    the #1197 fix-iteration finding), and that fallback parse can itself
+    raise. Calling ``parse_sub_issues`` alone here would let this lint and
+    the board payload disagree about whether the same epic is parseable —
+    the "one question, one answer" split-brain this repo's #2096 calls out.
+    Going through :class:`~coord.parentage.MarkdownParentage` with the same
+    ``fallback_to_work_order=True`` keeps the two consumers from being able
+    to diverge.
+
+    ``issues`` is the same local-cache shape :func:`find_unlabelled_epics` /
+    :func:`find_stale_epics` consume (``labels`` as a plain ``list[str]``,
+    plus ``"body"``). Read-only — flags only; the caller (``coord plans
+    --lint-epics``) is what turns a non-empty result into a non-zero exit
+    code.
+    """
+    parentage = MarkdownParentage()
+    hits: list[dict] = []
+    for issue in issues:
+        state = (issue.get("state") or "open").lower()
+        if state != "open":
+            continue
+        raw_labels = issue.get("labels") or []
+        label_names = {
+            lbl["name"] if isinstance(lbl, dict) else str(lbl) for lbl in raw_labels
+        }
+        if TRACKING_ISSUE_LABEL not in label_names:
+            continue
+        number = issue.get("number")
+        if number is None:
+            continue
+        try:
+            parentage.children(
+                issue.get("repo_name", ""),
+                int(number),
+                body=issue.get("body") or "",
+                fallback_to_work_order=True,
+            )
+        except Exception as exc:  # noqa: BLE001 — #3426: report it, don't swallow it
+            hits.append({**issue, "error": str(exc)})
     return hits
 
 

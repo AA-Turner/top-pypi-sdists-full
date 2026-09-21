@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.4.20
+Version: 0.4.21
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -41,6 +41,7 @@ Requires-Dist: volcengine-python-sdk[ark]>=5.0.3
 Requires-Dist: fastapi>=0.128.0
 Requires-Dist: uvicorn>=0.39.0
 Requires-Dist: xxhash>=3.0.0
+Requires-Dist: rapidfuzz<4,>=3.14
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: tabulate>=0.9.0
 Requires-Dist: urllib3>=2.7.0
@@ -49,17 +50,17 @@ Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: typer>=0.12.0
 Requires-Dist: litellm<1.91.2,>=1.83.7
 Requires-Dist: python-multipart>=0.0.31
-Requires-Dist: tree-sitter>=0.23.0
-Requires-Dist: tree-sitter-python>=0.23.0
-Requires-Dist: tree-sitter-javascript>=0.23.0
-Requires-Dist: tree-sitter-typescript>=0.23.0
-Requires-Dist: tree-sitter-java>=0.23.0
-Requires-Dist: tree-sitter-cpp>=0.23.0
-Requires-Dist: tree-sitter-rust>=0.23.0
-Requires-Dist: tree-sitter-go>=0.23.0
-Requires-Dist: tree-sitter-c-sharp>=0.23.0
-Requires-Dist: tree-sitter-php>=0.23.0
-Requires-Dist: tree-sitter-lua>=0.1.0
+Requires-Dist: tree-sitter==0.25.2
+Requires-Dist: tree-sitter-python==0.25.0
+Requires-Dist: tree-sitter-javascript==0.25.0
+Requires-Dist: tree-sitter-typescript==0.23.2
+Requires-Dist: tree-sitter-java==0.23.5
+Requires-Dist: tree-sitter-cpp==0.23.4
+Requires-Dist: tree-sitter-rust==0.24.0
+Requires-Dist: tree-sitter-go==0.25.0
+Requires-Dist: tree-sitter-c-sharp==0.23.1
+Requires-Dist: tree-sitter-php==0.24.1
+Requires-Dist: tree-sitter-lua==0.5.0
 Requires-Dist: opentelemetry-api>=1.14
 Requires-Dist: opentelemetry-sdk>=1.14
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.14
@@ -71,8 +72,8 @@ Requires-Dist: argon2-cffi>=23.0.0
 Requires-Dist: lark-oapi>=1.5.3
 Requires-Dist: mcp<2,>=1.27
 Requires-Dist: pathspec>=1.1.1
-Requires-Dist: grep-ast>=0.9.0
-Requires-Dist: tree-sitter-language-pack<2.0,>=1.12
+Requires-Dist: grep-ast==0.9.0
+Requires-Dist: tree-sitter-language-pack==1.13.3
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
@@ -483,5 +484,5 @@ The OpenViking project uses different licenses for different components:
 
 - **Main Project**: AGPLv3 - see the [LICENSE](./LICENSE) file for details
 - **crates/ov\_cli**: Apache 2.0 - see the [LICENSE](./crates/LICENSE) for details
-- **examples**: Apache 2.0 - see the [LICENSE](./examples/LICENSE) for details
+- **examples**: Apache 2.0 - see the [LICENSE](./examples/LICENSE) for details. The Hermes plugin in `examples/hermes-plugin` retains its [MIT license](./examples/hermes-plugin/LICENSE).
 - **third\_party**: Respective original licenses of third-party projects

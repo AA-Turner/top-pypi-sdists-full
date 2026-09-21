@@ -10,6 +10,10 @@ import httpx
 import pytest
 
 from runlayer_cli.scan import file_collector, skill_scanner
+from runlayer_cli.scan.artifact_cache import (
+    SKILL_RESUBMIT_WINDOW_SECONDS,
+    ArtifactCache,
+)
 from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.file_collector import MAX_SINGLE_FILE_BYTES
 from runlayer_cli.scan.skill_scanner import (
@@ -32,6 +36,7 @@ from runlayer_cli.scan.skill_scanner import (
 from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact, PluginFile
 from runlayer_cli.scan.service import (
     _lookup_fingerprints_in_batches,
+    _submission_key,
     submit_discovered_plugins,
     submit_discovered_skills,
 )
@@ -1481,8 +1486,8 @@ class TestSubmitDiscoveredSkills:
         payloads = [call.args[0] for call in client.submit_skill.call_args_list]
         assert payloads[0]["files"] == []
         assert payloads[1]["files"] == [{"title": "SKILL.md", "content": "# unknown"}]
-        cache.record.assert_any_call("known")
-        cache.record.assert_any_call("unknown")
+        cache.record.assert_any_call("known", None)
+        cache.record.assert_any_call("unknown", None)
 
     def test_batch_lookup_chunks_misses(self):
         client = mock.MagicMock()
@@ -1793,7 +1798,7 @@ class TestSubmitDiscoveredSkills:
             {"title": "SKILL.md", "content": "# full content"}
         ]
         cache.evict.assert_called_once_with("poisoned-id")
-        cache.record.assert_called_once_with("poisoned-id")
+        cache.record.assert_called_once_with("poisoned-id", None)
 
     @pytest.mark.parametrize(
         "skills",
@@ -2355,6 +2360,253 @@ class TestSubmitDiscoveredSkills:
         assert client.submit_skill_fingerprint.call_count == 1
 
 
+class TestSkillResubmitThrottle:
+    """Unchanged, server-confirmed skills wait out the re-submit window."""
+
+    WINDOW = SKILL_RESUBMIT_WINDOW_SECONDS
+
+    @staticmethod
+    def _skill(path: str, *, identifier: str = "skill-id", oversized: bool = False):
+        return DiscoveredSkillArtifact(
+            name=Path(path).name,
+            path=path,
+            artifact_type=ARTIFACT_SKILL_MD,
+            scope="project",
+            tool="multi",
+            identifier=identifier,
+            oversized=oversized,
+            files=[] if oversized else [SkillFile(title="SKILL.md", content="# body")],
+        )
+
+    @staticmethod
+    def _cache(
+        tmp_path: Path,
+        clock: list[float],
+        *,
+        window: float = SKILL_RESUBMIT_WINDOW_SECONDS,
+    ) -> ArtifactCache:
+        return ArtifactCache(
+            "https://example.runlayer.com",
+            "rl_org_test",
+            cache_path=tmp_path / "artifact-cache.json",
+            now=lambda: clock[0],
+            resubmit_window_seconds=window,
+        )
+
+    @staticmethod
+    def _client() -> mock.MagicMock:
+        client = mock.MagicMock()
+        client.submit_skill_fingerprints.return_value = {"results": []}
+        client.submit_skill.return_value = {"has_content": True}
+        return client
+
+    @staticmethod
+    def _scan(client, cache, skills) -> tuple[str, set[str]]:
+        throttled: set[str] = set()
+        status = submit_discovered_skills(
+            client,
+            skills,
+            artifact_cache=cache,
+            throttled_surfaces=throttled,
+        )
+        return status, throttled
+
+    @staticmethod
+    def _submitted_paths(client) -> list[str]:
+        return [call.args[0]["path"] for call in client.submit_skill.call_args_list]
+
+    def test_submission_key_is_deterministic_and_ignores_scan_stamps(self):
+        skill = self._skill("/skills/a")
+        key = _submission_key("skill", skill.to_api_payload())
+        assert key is not None and key.startswith("skill:")
+        assert key == _submission_key(
+            "skill", {**skill.to_api_payload(), "scan_session_id": "other"}
+        )
+        assert _submission_key("skill", {"path": {1, 2}}) is None
+
+    def test_unchanged_skill_waits_out_the_window_then_resubmits(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        skill = self._skill("/skills/a")
+
+        assert self._scan(client, cache, [skill]) == ("success", set())
+        assert self._submitted_paths(client) == ["/skills/a"]
+        assert client.submit_skill.call_args.args[0]["files"] != []
+
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
+        client.submit_skill.assert_not_called()
+        client.submit_skill_fingerprints.assert_not_called()
+
+        # The skipped scan did not refresh the timestamp: the window still ends
+        # relative to the first submit, and the resubmit starts a new one.
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [skill]) == ("success", set())
+        assert self._submitted_paths(client) == ["/skills/a"]
+        assert client.submit_skill.call_args.args[0]["files"] == []
+
+        clock[0] += self.WINDOW / 2
+        client.reset_mock()
+        assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
+        client.submit_skill.assert_not_called()
+
+    def test_zero_window_disables_the_throttle(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock, window=0)
+        client = self._client()
+        skill = self._skill("/skills/a")
+
+        for _ in range(3):
+            client.reset_mock()
+            assert self._scan(client, cache, [skill]) == ("success", set())
+            assert self._submitted_paths(client) == ["/skills/a"]
+            clock[0] += 1
+
+    def test_synced_window_replaces_the_compiled_in_one(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock, window=60)
+        client = self._client()
+        skill = self._skill("/skills/a")
+        self._scan(client, cache, [skill])
+
+        clock[0] += 59
+        client.reset_mock()
+        assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
+        client.submit_skill.assert_not_called()
+
+        clock[0] += 1
+        client.reset_mock()
+        assert self._scan(client, cache, [skill]) == ("success", set())
+        assert self._submitted_paths(client) == ["/skills/a"]
+
+    def test_new_or_relocated_skill_resubmits_its_whole_surface(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        original = self._skill("/skills/a", identifier="a")
+        self._scan(client, cache, [original])
+
+        # Same content at a new path is a new installation row: it goes out at
+        # once, and as a duplicate copy it does not drag the original along.
+        clock[0] += 1
+        client.reset_mock()
+        copy = self._skill("/elsewhere/a", identifier="a")
+        assert self._scan(client, cache, [original, copy]) == (
+            "success",
+            {"host_static"},
+        )
+        assert self._submitted_paths(client) == ["/elsewhere/a"]
+
+        clock[0] += 1
+        client.reset_mock()
+        relocated = self._skill("/moved/a", identifier="a")
+        assert self._scan(client, cache, [relocated]) == ("success", set())
+        assert self._submitted_paths(client) == ["/moved/a"]
+
+        clock[0] += 1
+        client.reset_mock()
+        brand_new = self._skill("/skills/b", identifier="b")
+        assert self._scan(client, cache, [original, brand_new]) == ("success", set())
+        assert self._submitted_paths(client) == ["/skills/a", "/skills/b"]
+
+    def test_removed_then_reinstalled_skill_resubmits_inside_window(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        skill_a = self._skill("/skills/a", identifier="a")
+        skill_b = self._skill("/skills/b", identifier="b")
+        self._scan(client, cache, [skill_a, skill_b])
+
+        clock[0] += 1
+        client.reset_mock()
+        assert self._scan(client, cache, [skill_b]) == ("success", {"host_static"})
+        client.submit_skill.assert_not_called()
+
+        # Back at the same path with the same content: the server still holds
+        # it as removed, so the surface resubmits instead of waiting.
+        clock[0] += 1
+        client.reset_mock()
+        assert self._scan(client, cache, [skill_a, skill_b]) == ("success", set())
+        assert self._submitted_paths(client) == ["/skills/a", "/skills/b"]
+
+    def test_server_missing_content_resubmits_full_then_throttles(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        skill = self._skill("/skills/a")
+        self._scan(client, cache, [skill])
+
+        clock[0] += self.WINDOW
+        client.reset_mock()
+        client.submit_skill.side_effect = [
+            {"has_content": False},
+            {"has_content": True},
+        ]
+        assert self._scan(client, cache, [skill]) == ("success", set())
+        payloads = [
+            call.args[0]["files"] for call in client.submit_skill.call_args_list
+        ]
+        assert payloads == [[], [{"title": "SKILL.md", "content": "# body"}]]
+
+        clock[0] += 1
+        client.reset_mock()
+        client.submit_skill.side_effect = None
+        assert self._scan(client, cache, [skill]) == ("success", {"host_static"})
+        client.submit_skill.assert_not_called()
+
+    def test_oversized_and_duplicate_copies_always_submit(self, tmp_path):
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        skills = [
+            self._skill("/skills/a", identifier="a"),
+            self._skill("/skills/a-copy", identifier="a"),
+            self._skill("/skills/big", identifier="big", oversized=True),
+        ]
+        self._scan(client, cache, skills)
+
+        clock[0] += 1
+        client.reset_mock()
+        assert self._scan(client, cache, skills) == ("success", {"host_static"})
+        assert self._submitted_paths(client) == ["/skills/a-copy", "/skills/big"]
+
+    def test_vanished_skill_accrues_one_miss_per_window_until_the_third(
+        self, tmp_path
+    ):
+        """Unchanged A keeps the surface throttled, so vanished B is missed
+        only by the complete scan at each expiry: stale after 3 x window."""
+        scan_interval = 15 * 60
+        stale_miss_threshold = 3  # backend DEFAULT_STALE_MISS_THRESHOLD
+        clock = [1_000.0]
+        cache = self._cache(tmp_path, clock)
+        client = self._client()
+        skill_a = self._skill("/skills/a", identifier="a")
+        skill_b = self._skill("/skills/b", identifier="b")
+        assert self._scan(client, cache, [skill_a, skill_b]) == ("success", set())
+
+        complete_misses: list[int] = []
+        scans = stale_miss_threshold * self.WINDOW // scan_interval
+        for step in range(1, scans + 1):
+            clock[0] += scan_interval
+            client.reset_mock()
+            status, throttled = self._scan(client, cache, [skill_a])
+            assert status == "success"
+            if throttled:
+                assert throttled == {"host_static"}
+                client.submit_skill.assert_not_called()
+            else:
+                assert self._submitted_paths(client) == ["/skills/a"]
+                complete_misses.append(step * scan_interval)
+        # Only complete scans omitting B count a server miss, so the third
+        # (stale) one lands at three windows, not one.
+        assert complete_misses == [
+            n * self.WINDOW for n in range(1, stale_miss_threshold + 1)
+        ]
+
+
 class TestSubmitDiscoveredPlugins:
     def test_handles_api_error_without_traceback(self):
         client = mock.MagicMock()
@@ -2897,7 +3149,7 @@ class TestSubmitDiscoveredPluginsFileStripping:
 
         client.submit_plugin_fingerprints.assert_called_once_with(["plug-batch"])
         client.submit_plugin_fingerprint.assert_not_called()
-        cache.record.assert_called_once_with("plug-batch")
+        cache.record.assert_called_once_with("plug-batch", None)
 
     def test_fresh_known_plugin_lookup_missing_content_resubmits_full(self):
         client = mock.MagicMock()
@@ -3027,7 +3279,7 @@ class TestSubmitDiscoveredPluginsFileStripping:
             {"title": "package.json", "content": '{"name":"full"}'}
         ]
         cache.evict.assert_called_once_with("plug-poisoned")
-        cache.record.assert_called_once_with("plug-poisoned")
+        cache.record.assert_called_once_with("plug-poisoned", None)
 
     @pytest.mark.parametrize(
         "lookup",

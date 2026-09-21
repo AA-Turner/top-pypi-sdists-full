@@ -6,7 +6,7 @@ about tasks as returned in list operations, with methods to load full task detai
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
 from xpander_sdk.models.configuration import Configuration
@@ -75,6 +75,20 @@ class TasksListItem(BaseModel):
         default=None, description="Final result of the execution, if available"
     )
     title: Optional[str] = Field(default=None, description="Task title")
+    execution_kind: Optional[str] = Field(
+        default=None,
+        description=(
+            "'resident' for a harness process that stays in progress until the agent "
+            "finishes it; None for a plain turn"
+        ),
+    )
+    process: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Read model of a resident process (state, stop_reason, frozen, segment, "
+            "wake, last_update, attempt); None for a plain turn"
+        ),
+    )
 
     async def aload(self, configuration: Optional[Configuration] = None) -> Task:
         """

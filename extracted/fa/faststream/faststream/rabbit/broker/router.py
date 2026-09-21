@@ -148,7 +148,7 @@ class RabbitRoute(SubscriberRoute):
         publishers: Iterable[RabbitPublisher] = (),
         consume_args: dict[str, Any] | None = None,
         # broker arguments
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         ack_policy: AckPolicy = EMPTY,
@@ -210,7 +210,7 @@ class RabbitRoute(SubscriberRoute):
         )
 
 
-class RabbitRouter(RabbitRegistrator, BrokerRouter[IncomingMessage]):
+class RabbitRouter(RabbitRegistrator, BrokerRouter[IncomingMessage, RabbitBrokerConfig]):
     """Includable to RabbitBroker router."""
 
     def __init__(
@@ -218,7 +218,7 @@ class RabbitRouter(RabbitRegistrator, BrokerRouter[IncomingMessage]):
         prefix: str = "",
         handlers: Iterable[RabbitRoute] = (),
         *,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         routers: Iterable[RabbitRegistrator] = (),
         parser: Optional["CustomCallable"] = None,

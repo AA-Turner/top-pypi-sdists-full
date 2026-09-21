@@ -89,7 +89,7 @@ class StreamSubscriber(DefaultSubscriber["Msg"]):
         except (TimeoutError, ConnectionClosedError):
             return None
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         msg: NatsMessage = await process_msg(  # type: ignore[assignment]
@@ -103,7 +103,7 @@ class StreamSubscriber(DefaultSubscriber["Msg"]):
         return msg
 
     @override
-    async def __aiter__(self) -> AsyncIterator["NatsMessage"]:  # type: ignore[override]
+    async def __aiter__(self) -> AsyncIterator["NatsMessage"]:
         assert not self.calls, (
             "You can't use iterator if subscriber has registered handlers."
         )
@@ -124,7 +124,7 @@ class StreamSubscriber(DefaultSubscriber["Msg"]):
                 **extra_options,
             )
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         while True:

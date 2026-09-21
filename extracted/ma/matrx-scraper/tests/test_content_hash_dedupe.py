@@ -42,7 +42,7 @@ MARKDOWN = "# stable content\n\nstable markdown body"
 BODY_SHA = hashlib.sha256(BODY.encode("utf-8")).hexdigest()
 MARKDOWN_SHA = hashlib.sha256(MARKDOWN.encode("utf-8")).hexdigest()
 SITE_ID = "d0aff5b6-0710-4848-8304-164db3c80ab7"
-ORG_ID = "5dc930e9-bd65-44a1-8369-af773f6e1a5b"
+ORG_ID = "00000000-0000-4000-8000-0000000fffa1"
 PAGE_ID = "22913054-1933-44b8-ba94-f592f362b8c1"
 PREV_SESSION_ID = "7b5e6a0e-3a51-4b8f-9d2c-6f0d4c1e2a93"
 PREV_SNAPSHOT_ID = "99999999-9999-4999-8999-999999999999"
@@ -106,8 +106,8 @@ def _persister(
     state = CrawlPersistenceState(
         site_id=SITE_ID,
         session_id="2b262f8c-1fbe-4575-81f5-c99c0709bd61",
-        user_id="4cf62e4e-2679-484f-b652-034e697418df",
-        file_owner_id="4cf62e4e-2679-484f-b652-034e697418df",
+        user_id="00000000-0000-4000-8000-0000000fffe1",
+        file_owner_id="00000000-0000-4000-8000-0000000fffe1",
         organization_id=ORG_ID,
         coverage_qualified=False,
     )

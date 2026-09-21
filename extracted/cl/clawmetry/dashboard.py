@@ -369,7 +369,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.887"
+__version__ = "0.12.892"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -7093,7 +7093,6 @@ DASHBOARD_HTML = r"""
      no legal basis. Regenerate with scripts/vendor_fonts.py. -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css', v=version) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=version) }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/first-run.css', v=version) }}">
 <script src="{{ url_for('static', filename='js/nav-dropdown.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/alerts.js', v=version) }}" defer></script>
 <script src="{{ url_for('static', filename='js/trail.js', v=version) }}" defer></script>
@@ -7113,7 +7112,6 @@ DASHBOARD_HTML = r"""
 </head>
 <body data-theme="dark" class="booting has-profile-menu">
 {% include 'partials/overlays.html' %}
-{% include 'partials/first-run.html' %}
 <div class="zoom-wrapper" id="zoom-wrapper">
 <div class="nav">
   <h1><a href="https://clawmetry.com" style="display:flex;align-items:center;gap:7px;text-decoration:none;color:inherit"><img src="/static/img/logo.svg" width="22" height="22" style="border-radius:4px;vertical-align:middle;flex-shrink:0" alt="ClawMetry"><span><span style="color:var(--text-primary)">Claw</span><span style="color:#E5443A">Metry</span></span></a></h1>
@@ -7249,12 +7247,15 @@ DASHBOARD_HTML = r"""
          UNCHANGED; only icons, ordering and section labels moved. The
          Approvals/Alerts/Notifications adjacency (founder request
          2026-07-29) is preserved inside Govern. #}
-      {# Session-first IA (Trail, 2026-09): the product opens on the decision
-         trail. Sessions is the landing item; the KPI board (Home) and the
-         other raw-signal views sit under a "Monitoring" label. Sessions
-         lives there too, directly under Agents (founder request
-         2026-09-15), and still carries the default highlight. data-tab ids
-         are unchanged; only order, labels and grouping moved. #}
+      {# Agent-first IA (2026-09-20, founder request): the product opens on
+         WHO is running. Agents is the landing item and carries the default
+         highlight; Sessions sits directly under it and every agent row leads
+         into it. "Which of my agents is this?" comes before "which of its
+         runs was that?", and the roster answers the first without the reader
+         knowing what a session is. The KPI board (Home) and the other
+         raw-signal views stay under "Monitoring". The landing tab itself is
+         `CM_LANDING_TAB` in static/js/app.js; this `active` class is the
+         markup half and the two must agree. data-tab ids are unchanged. #}
       <div class="left-nav-section-label" data-i18n="nav.section_monitoring">Monitoring</div>
       <div class="left-nav-item" data-tab="overview" onclick="switchTab('overview')" data-i18n-title="nav.home_tooltip" title="Is everything OK, at a glance">
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
@@ -7262,11 +7263,11 @@ DASHBOARD_HTML = r"""
         <span id="nav-stuck-badge" class="left-nav-badge" style="display:none;">0</span>
       </div>
 
-      <div class="left-nav-item" data-tab="inventory" onclick="switchTab('inventory')" data-i18n-title="nav.inventory_tooltip" title="Every agent on this machine: what it runs, what it costs, is it alive, who owns it">
+      <div class="left-nav-item active" data-tab="inventory" onclick="switchTab('inventory')" data-i18n-title="nav.inventory_tooltip" title="Every agent on this machine: what it runs, what it costs, is it alive, who owns it">
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span>
         <span class="left-nav-label" data-i18n="nav.inventory">Agents</span>
       </div>
-      <div class="left-nav-item active" data-tab="transcripts" onclick="switchTab('transcripts')" data-i18n-title="nav.session_replay_tooltip" title="Every session, newest first. Open one to see what it was asked, what it did, and how it ended">
+      <div class="left-nav-item" data-tab="transcripts" onclick="switchTab('transcripts')" data-i18n-title="nav.session_replay_tooltip" title="Every session, newest first. Open one to see what it was asked, what it did, and how it ended">
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
         <span class="left-nav-label" data-i18n="nav.session_replay">Sessions</span>
       </div>
@@ -7531,7 +7532,6 @@ DASHBOARD_HTML = r"""
      every dollar amount and score renders through. Loaded BEFORE app.js so
      window.cmMoney / cmProvBadge exist by the time a tab paints. -->
 <script src="{{ url_for('static', filename='js/provenance.js', v=version) }}"></script>
-<script src="{{ url_for('static', filename='js/first-run.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/app.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/guard-checks.js', v=version) }}"></script>
 </div> <!-- end zoom-wrapper -->

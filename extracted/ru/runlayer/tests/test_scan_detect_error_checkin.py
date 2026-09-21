@@ -10,6 +10,7 @@ import typer
 
 from runlayer_cli import aiwatch_checkin
 from runlayer_cli.commands import scan
+from runlayer_cli.scan.artifact_cache import SKILL_RESUBMIT_WINDOW_SECONDS
 from runlayer_cli.scan.config_parser import MCPClientConfig, MCPServerConfig
 from runlayer_cli.scan.service import ScanResult, ScanSubmissionResult
 
@@ -284,7 +285,9 @@ def test_scan_threads_enabled_artifact_cache_to_submission() -> None:
     ):
         _run_scan_submit_path(artifact_lookup_cache=True)
 
-    cache_cls.assert_called_once_with("h", "s")
+    cache_cls.assert_called_once_with(
+        "h", "s", resubmit_window_seconds=SKILL_RESUBMIT_WINDOW_SECONDS
+    )
     mock_submit.assert_called_once_with(
         client,
         mock.ANY,

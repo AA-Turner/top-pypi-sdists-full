@@ -122,7 +122,6 @@ class RepositorySettingsConfigFile(JSONDictConfigFile):
             Status check configuration for the aggregate health-check job.
         """
         return self.github_actions_status_check(
-            workflow=HealthCheckWorkflowConfigFile.I.workflow_name(),
             job=HealthCheckWorkflowConfigFile.I.name_from_id(
                 HealthCheckWorkflowConfigFile.I.job_id_from_method(
                     HealthCheckWorkflowConfigFile.I.job_health_check,
@@ -130,40 +129,32 @@ class RepositorySettingsConfigFile(JSONDictConfigFile):
             ),
         )
 
-    def github_actions_status_check(self, workflow: str, job: str) -> dict[str, Any]:
+    def github_actions_status_check(self, job: str) -> dict[str, Any]:
         """Build a status check restricted to GitHub Actions.
 
         Args:
-            workflow: Human-readable workflow name.
             job: Human-readable job name.
 
         Returns:
             Status check configuration with the GitHub Actions integration ID.
         """
         return self.status_check(
-            workflow=workflow,
             job=job,
             integration_id=15368,
         )
 
-    def status_check(
-        self,
-        workflow: str,
-        job: str,
-        integration_id: int,
-    ) -> dict[str, Any]:
-        """Build a required status check from workflow and job names.
+    def status_check(self, job: str, integration_id: int) -> dict[str, Any]:
+        """Build a required status check from a job name.
 
         Args:
-            workflow: Human-readable workflow name.
             job: Human-readable job name.
             integration_id: ID of the integration allowed to provide the check.
 
         Returns:
-            Status check configuration using GitHub's workflow/job context.
+            Status check configuration using the job name as the context.
         """
         return {
-            "context": f"{workflow} / {job}",
+            "context": job,
             "integration_id": integration_id,
         }
 

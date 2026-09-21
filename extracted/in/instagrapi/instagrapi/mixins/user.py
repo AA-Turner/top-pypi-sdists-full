@@ -32,8 +32,8 @@ from instagrapi.utils.serialization import dumps, json_value
 MAX_USER_COUNT = 200
 INFO_FROM_MODULES = ("self_profile", "feed_timeline", "reel_feed_timeline")
 FOLLOWERS_ORDERS = ("date_followed_latest", "date_followed_earliest")
-USER_WEB_PROFILE_DOC_ID = "26762473490008061"
-USER_INFO_V2_DOC_ID = "25980296051578533"
+USER_WEB_PROFILE_DOC_ID = "28036671149327607"
+USER_INFO_V2_DOC_ID = USER_WEB_PROFILE_DOC_ID
 USER_INFO_BY_USERNAME_V2_DOC_ID = "26347858941511777"
 ADDRESS_BOOK_DEFAULT_INCLUDE = ("extra_display_name", "thumbnails")
 USER_REPORT_REASONS = {"spam": ("ig_report_account", "ig_its_inappropriate", "ig_spam_v3")}
@@ -161,13 +161,14 @@ class UserMixin:
             "render_surface": "PROFILE",
             "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider": True,
             "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider": False,
+            "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider": False,
             "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": False,
+            "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider": False,
         }
         data = self.public_doc_id_graphql_request(
             USER_WEB_PROFILE_DOC_ID,
             variables,
             referer=f"https://www.instagram.com/{user_id}/",
-            headers={"X-FB-Friendly-Name": "PolarisProfilePageContentQuery"},
         )
         if not data or not data.get("user"):
             raise UserNotFound(user_id=user_id, **(data or {}))
@@ -280,11 +281,14 @@ class UserMixin:
         Get user object via the PolarisProfilePageContentQuery doc_id.
         """
         variables = {
+            "enable_integrity_filters": True,
             "id": str(user_id),
             "render_surface": "PROFILE",
             "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider": True,
             "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider": False,
+            "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider": False,
             "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": False,
+            "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider": False,
         }
         self._inject_sessionid_for_v2_gql()
         data = self.public_doc_id_graphql_request(USER_INFO_V2_DOC_ID, variables)
@@ -2642,7 +2646,7 @@ class UserMixin:
     def user_related_profiles_gql(self, user_id: str) -> List[UserShort]:
         """
         Get related profiles for a target user via the public GraphQL
-        ``edge_chaining`` field.
+        ``edge_chaining`` field, reusing the private session when available.
 
         Hits the legacy ``query_hash="ad99dd9d3646cc3c0dda65debcd266a7"``
         — IG has been gating this query_hash more aggressively over
@@ -2669,6 +2673,7 @@ class UserMixin:
             below 4 (opt-in retry signal — set ``client.num_retry``
             yourself to enable).
         """
+        self.inject_sessionid_to_public()
         variables = {
             "user_id": str(user_id),
             "include_chaining": True,

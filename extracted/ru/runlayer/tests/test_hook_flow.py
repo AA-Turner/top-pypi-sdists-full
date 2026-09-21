@@ -71,6 +71,14 @@ class TestRunHookFlow:
         assert flows[0]["operation"] == "cli.hook_event"
         assert flows[0]["session_id"] == "sess-123"
         assert flows[0]["status"] == "ok"
+        assert flows[0]["client"] == "claude_code"
+        assert flows[0]["hook_event"] == "UserPromptSubmit"
+
+    def test_unclassified_event_spools_hook_event_other(self, monkeypatch, capsys):
+        _run_hook(monkeypatch, {"hook_event_name": "SomeBrandNewEvent"})
+        flows = _spooled_flows()
+        assert flows[0]["operation"] == "cli.hook_event"
+        assert flows[0]["hook_event"] == "other"
 
     def test_stop_hook_operation(self, monkeypatch, capsys):
         monkeypatch.setattr(hook_dispatch, "forward_stop_event", lambda *a, **k: None)
@@ -106,7 +114,8 @@ class TestRunHookFlow:
 
     def test_policy_deny_spools_ok_flow_with_policy_step(self, monkeypatch, capsys):
         # Shell policy deny exits via sys.exit(0); the flow still emits with
-        # status="ok" (a deny is an outcome, not a failure).
+        # status="ok" (a deny is an outcome, not a failure) and, like every
+        # event that can deny, as an enforcement (pre-tool) flow.
         payload = {
             "hook_event_name": "beforeShellExecution",
             "command": "cat .env",
@@ -115,7 +124,7 @@ class TestRunHookFlow:
             _run_hook(monkeypatch, payload, enforcement=True)
         flows = _spooled_flows()
         assert len(flows) == 1
-        assert flows[0]["operation"] == "cli.hook_event"
+        assert flows[0]["operation"] == "cli.hook_pre_tool"
         assert flows[0]["status"] == "ok"
         assert [s["name"] for s in flows[0]["steps"]] == ["policy_check"]
         assert flows[0]["steps"][0]["status"] == "ok"

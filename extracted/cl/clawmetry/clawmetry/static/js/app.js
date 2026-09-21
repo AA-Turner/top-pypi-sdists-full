@@ -373,13 +373,13 @@
     var freeEndpoint = (state && state.free_only_endpoint) || '/api/trial/continue-free';
     var freeRuntimes = (state && Array.isArray(state.free_runtimes) && state.free_runtimes.length)
       ? state.free_runtimes
-      : ['openclaw', 'nemoclaw', 'goose'];
+      : ['openclaw', 'nemoclaw', 'goose', 'qwen_code'];
     // nemoclaw is NVIDIA NemoClaw and it is FREE. nanoclaw is a different
     // runtime entirely, and it is PAID (entitlements.PAID_RUNTIMES). This
     // mapping said 'NanoClaw', so the one screen that tells a blocked user
     // what they still get named a runtime they do NOT get and never named
     // the one they do. Labels come from entitlements.RUNTIME_LABELS.
-    var RT_LABELS = { openclaw: 'OpenClaw', nemoclaw: 'NVIDIA NemoClaw', goose: 'Goose' };
+    var RT_LABELS = { openclaw: 'OpenClaw', nemoclaw: 'NVIDIA NemoClaw', goose: 'Goose', qwen_code: 'Qwen Code' };
     var freeRuntimesLabel = freeRuntimes
       .map(function (r) { return RT_LABELS[r] || r; })
       .join(' + ');
@@ -587,7 +587,7 @@
 
     // Free-mode escape: expired-trial users can drop back to
     // free-runtime-only mode instead of paying (entitlements.py's
-    // FREE_RUNTIMES = {openclaw, nemoclaw, goose} — NOT nanoclaw, which is paid;
+    // FREE_RUNTIMES = {openclaw, nemoclaw, goose, qwen_code} — NOT nanoclaw, which is paid;
     // this comment said NanoClaw and that is how the label above got it
     // wrong too). Posts to the
     // continue-free endpoint (allowlisted), then reloads to a
@@ -1277,7 +1277,6 @@ async function ackAllAlerts() {
 function visibilitySetInterval(fn, ms) {
   return setInterval(function() {
     if (typeof document !== 'undefined' && document.hidden) return;
-    if (window.cmFirstRun && window.cmFirstRun.active) return;
     try { fn(); } catch (e) {}
   }, ms);
 }
@@ -22597,9 +22596,6 @@ async function _cmSyncTick() {
 async function cmSyncInit() {
   // Cloud mode keeps its existing cm-sync-bar (Phase 2 promotes this component).
   if (window.CLOUD_MODE) return;
-  // First-install preparation owns progress now; do not start a second
-  // progress poller behind its screen.
-  if (window.cmFirstRun) return;
   // #1937: the banner describes CLOUD-side sync work. Don't show it when
   //   * the user opted out (CLAWMETRY_NO_CLOUD=1 or ~/.clawmetry/nocloud), or
   //   * the user never connected (no config.json -> nothing to sync).
@@ -29325,10 +29321,6 @@ var BOOT_HARD_TIMEOUT_MS = 8000;
 var _bootFinished = false;
 function _safeFinishBoot() {
   if (_bootFinished) return;
-  if (window.cmFirstRun && window.cmFirstRun.checking) {
-    window.cmFirstRun.checked.then(_safeFinishBoot);
-    return;
-  }
   _bootFinished = true;
   finishBootOverlay();
 }
@@ -29543,18 +29535,31 @@ document.addEventListener('DOMContentLoaded', function() {
   try { _cmInitGlobalRuntimeSwitcher(); } catch (e) { /* non-fatal */ }
   try { _hideCloudIrrelevantNav(); } catch (e) { /* non-fatal */ }
   try { _applyTracingFlag(); } catch (e) { /* non-fatal */ }
-  // Session-first landing: the product opens on the decision trail (the
-  // Sessions list, each row one click from its Trail), not on a KPI board.
-  // Overview stays one click away under Monitoring. Deep links win:
+  // Agent-first landing: the product opens on WHO is running (the Agents
+  // roster: one row per agent, what it runs, whether it is alive, what it
+  // costs), not on a KPI board and not on the raw session list. "Which of my
+  // agents is this?" comes before "which of its runs was that?", and the
+  // roster answers the first question without the reader knowing what a
+  // session is. Sessions is the next item down and every agent row leads
+  // into it. Deep links still win:
   //   #trail=<agent_type>:<session_id>  -> that session's Trail page
   //   #session=<id>                     -> Sessions, replay opened by loadTranscripts()
   try { _cmBootLanding(); } catch (e) { /* non-fatal */ }
 });
 
+//: The tab the dashboard opens on. One place, because the nav markup's
+//: `active` class and the e2e landing guards have to agree with it.
+var CM_LANDING_TAB = 'inventory';
+
 function _cmBootLanding() {
   var trailSid = (typeof _trailSessionFromHash === 'function') ? _trailSessionFromHash(window.location.hash) : null;
   if (trailSid && typeof openTrail === 'function') { openTrail(trailSid); return; }
-  if (typeof switchTab === 'function') switchTab('transcripts');
+  // A #session= deep link is a request for the Sessions list, not the roster.
+  if (/[#&]session=/.test(window.location.hash || '')) {
+    if (typeof switchTab === 'function') switchTab('transcripts');
+    return;
+  }
+  if (typeof switchTab === 'function') switchTab(CM_LANDING_TAB);
 }
 
 // Hash router. Only `#trail=` is routed here: `#session=` is consumed by

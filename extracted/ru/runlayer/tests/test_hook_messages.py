@@ -16,14 +16,19 @@ class TestUnreachableCauseRendering:
     def test_upload_timeout_names_size_elapsed_and_bounded_rate(self):
         user, agent = messages.tool_api_unreachable(
             tool_name="Edit",
-            failure=_ctx(kind="upload_timeout", payload_bytes=8_400_000, elapsed_s=30.0),
+            failure=_ctx(
+                kind="upload_timeout", payload_bytes=8_400_000, elapsed_s=30.0
+            ),
         )
         assert "8.4 MB body" in agent
         assert "had not finished sending after 30s" in agent
         # Honesty: the body never finished sending, so the rate is a bound.
         assert "under ~2.2 Mbit/s effective" in agent
         assert "Large tool outputs on slow connections" in agent
-        assert user == "Failed to contact Runlayer API (upload of 8.4 MB stalled after 30s)"
+        assert (
+            user
+            == "Failed to contact Runlayer API (upload of 8.4 MB stalled after 30s)"
+        )
 
     def test_small_body_upload_timeout_states_size_but_never_blames_it(self):
         """A 2 KB upload stalling behind a dead proxy is not a data-volume
@@ -34,7 +39,9 @@ class TestUnreachableCauseRendering:
         assert "(2 KB body) had not finished sending" in agent
         assert "Large tool outputs" not in agent
         assert "Mbit/s" not in agent
-        assert user == "Failed to contact Runlayer API (upload of 2 KB stalled after 30s)"
+        assert (
+            user == "Failed to contact Runlayer API (upload of 2 KB stalled after 30s)"
+        )
 
     def test_upload_dropped_connection_names_size_without_rate(self):
         """Prod signature: ALB reaps a stalled upload -> client sees a write
@@ -45,7 +52,9 @@ class TestUnreachableCauseRendering:
         assert "connection dropped" in agent
         assert "8.4 MB" in agent
         assert "Mbit/s" not in agent
-        assert user == "Failed to contact Runlayer API (upload of 8.4 MB failed after 42s)"
+        assert (
+            user == "Failed to contact Runlayer API (upload of 8.4 MB failed after 42s)"
+        )
 
     def test_small_body_upload_failed_does_not_blame_size(self):
         _, agent = messages.tool_api_unreachable(
@@ -106,15 +115,18 @@ class TestUnreachableCauseRendering:
         assert "time limit" not in agent
 
     def test_http_failure_renders_answered_request_not_outage(self):
-        """An HTTP response means something answered (403 = key lacks a role,
-        429 = throttled); outage framing would misdirect. Attribution stays
-        with the request, not definitively the API — behind an intercepting
-        proxy the response may come from another hop."""
+        """An HTTP response means something answered; outage framing would
+        misdirect even for a retryable 5xx. Attribution stays with the
+        request, not definitively the API — behind an intercepting proxy the
+        response may come from another hop."""
         user, agent = messages.tool_api_unreachable(
             failure=_ctx(kind="http", status_code=503, elapsed_s=0.4)
         )
         assert "was answered with HTTP 503" in agent
-        assert "not a connectivity problem" in agent
+        assert (
+            "The connection worked but the service could not process the request"
+            in agent
+        )
         assert "The Runlayer API responded" not in agent
         assert "Failed to contact" not in agent
         assert "temporarily unreachable" not in agent
@@ -197,7 +209,10 @@ class TestUnreachableCauseRendering:
             "Runlayer API rejected this machine's credentials (HTTP 401). "
             "Run 'runlayer login' to refresh them (device: USERBOX)"
         )
-        assert "Run 'runlayer login' to refresh this machine's Runlayer credentials" in agent
+        assert (
+            "Run 'runlayer login' to refresh this machine's Runlayer credentials"
+            in agent
+        )
         assert "Nothing on this machine can fix this" not in agent
         assert "device management" not in agent
         assert "Runlayer administrator" in agent
@@ -218,14 +233,16 @@ class TestUnreachableCauseRendering:
             "Unverified actions are blocked (fail-closed)." in agent
         )
 
-    @pytest.mark.parametrize("builder", [messages.api_unreachable, messages.tool_api_unreachable])
+    @pytest.mark.parametrize(
+        "builder", [messages.api_unreachable, messages.tool_api_unreachable]
+    )
     def test_agent_guardrails_block_is_intact(self, builder):
         """The agent directive block is a product contract; the cause line
-        must not alter it."""
+        must not alter it. Unreachable-API denies carry the retryable block."""
         _, agent = builder(
             failure=_ctx(kind="upload_timeout", payload_bytes=8_400_000, elapsed_s=30.0)
         )
-        assert messages.AGENT_GUARDRAILS in agent
+        assert messages.RETRYABLE_INFRA_GUARDRAILS in agent
 
     def test_mcp_variant_carries_cause_too(self):
         user, agent = messages.api_unreachable(
@@ -236,6 +253,151 @@ class TestUnreachableCauseRendering:
         assert "stalled after 10s" in user
 
 
+class TestApiUnreachableIsRetryable:
+    """Timeout/connect failures render as a retryable infra block, not a violation."""
+
+    UNREACHABLE = [
+        _ctx(kind="timeout", elapsed_s=28.0, attempts=2),
+        _ctx(kind="connect", attempts=3),
+        _ctx(kind="upload_timeout", payload_bytes=8_400_000, elapsed_s=30.0),
+        _ctx(kind="upload_failed", payload_bytes=2_048),
+        None,
+    ]
+
+    @pytest.mark.parametrize(
+        "builder", [messages.api_unreachable, messages.tool_api_unreachable]
+    )
+    @pytest.mark.parametrize("failure", UNREACHABLE)
+    def test_renders_as_retryable_block_not_violation(self, builder, failure):
+        user, agent = builder(tool_name="Bash", failure=failure)
+        assert agent.startswith("# Action Blocked: Runlayer API Unreachable\n")
+        assert (
+            "blocked as a precaution (fail-closed). No security violation was detected."
+            in agent
+        )
+        assert "- Tool: Bash" in agent
+        assert "Security Violation Detected" not in agent
+        assert "Violation type" not in agent
+        assert "Do not retry" not in agent
+        assert messages.AGENT_GUARDRAILS not in agent
+        # Retry-once guidance and the anti-tamper lines both survive.
+        assert "NOT a policy match or threat detection" in agent
+        assert (
+            "retry this exact action once. If it is blocked again, stop and inform the user"
+            in agent
+        )
+        assert (
+            "Do not suggest modifying, bypassing, or disabling the Runlayer hook"
+            in agent
+        )
+        assert "Do not suggest checking or editing hook files, settings.json" in agent
+        assert agent.endswith(
+            "**What to do:**\n"
+            "Retry shortly. If this keeps happening, contact your Runlayer administrator."
+        )
+        assert user.startswith("Failed to contact Runlayer API")
+
+    def test_reason_keeps_budget_and_attempt_details(self):
+        """Budget and attempt count stay on the Reason line."""
+        _, agent = messages.tool_api_unreachable(
+            tool_name="Bash", failure=_ctx(kind="timeout", elapsed_s=28.0, attempts=2)
+        )
+        assert (
+            "- Reason: Failed to contact the Runlayer API for local tool verification. "
+            "Unverified actions are blocked (fail-closed). "
+            "No complete response arrived within 28s, after 2 attempts." in agent
+        )
+
+    def test_mcp_variant_names_its_verification_phrase(self):
+        _, agent = messages.api_unreachable(failure=_ctx(kind="connect"))
+        assert "# Action Blocked: Runlayer API Unreachable" in agent
+        assert "for MCP execution verification" in agent
+
+    @pytest.mark.parametrize("status_code", [401, 403, 404, 407])
+    def test_rejected_requests_keep_violation_rendering(self, status_code):
+        """Credential, proxy, and other 4xx answers keep the violation rendering."""
+        _, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=status_code)
+        )
+        assert agent.startswith("# Security Violation Detected\n")
+        assert messages.AGENT_GUARDRAILS in agent
+        assert "Action Blocked:" not in agent
+
+    def test_other_4xx_violation_wording_unchanged(self):
+        """Pinned: the generic answered-request violation is byte-identical."""
+        user, agent = messages.tool_api_unreachable(
+            tool_name="Bash", failure=_ctx(kind="http", status_code=403, attempts=2)
+        )
+        assert user == "Runlayer verification request failed (HTTP 403)"
+        assert agent == (
+            "# Security Violation Detected\n"
+            "\nYour organization's security policy (enforced by Runlayer) has blocked this operation.\n"
+            "\n**What happened:**"
+            "\n- Violation type: Infrastructure"
+            "\n- Tool: Bash"
+            "\n- Reason: The local tool verification request was answered with HTTP 403, after 2 attempts, "
+            "so the action could not be verified. The connection worked but the request was "
+            "rejected or failed — this is not a connectivity problem. Unverified actions are "
+            "blocked (fail-closed)."
+            f"\n\n{messages.AGENT_GUARDRAILS}\n"
+            "\n**What to do:**\n"
+            "If this keeps happening, contact your Runlayer administrator."
+        )
+
+    @pytest.mark.parametrize("status_code", [429, 500, 502, 503, 504])
+    @pytest.mark.parametrize(
+        "builder", [messages.api_unreachable, messages.tool_api_unreachable]
+    )
+    def test_unavailable_or_throttled_answers_render_retryable(
+        self, builder, status_code
+    ):
+        """5xx and 429 answers are service states, so they get the retryable block."""
+        user, agent = builder(
+            tool_name="Bash",
+            failure=_ctx(kind="http", status_code=status_code, attempts=2),
+        )
+        assert user == f"Runlayer verification request failed (HTTP {status_code})"
+        assert agent.startswith("# Action Blocked: Runlayer API Unavailable\n")
+        assert "- Tool: Bash" in agent
+        assert (
+            f"- Reason: The {'MCP execution' if builder is messages.api_unreachable else 'local tool'} "
+            f"verification request was answered with HTTP {status_code}, after 2 attempts, "
+            "so the action could not be verified." in agent
+        )
+        assert "Unverified actions are blocked (fail-closed)." in agent
+        assert messages.RETRYABLE_INFRA_GUARDRAILS in agent
+        assert messages.AGENT_GUARDRAILS not in agent
+        assert "Security Violation Detected" not in agent
+        assert "Violation type" not in agent
+        assert agent.endswith(
+            "**What to do:**\n"
+            "Retry shortly. If this keeps happening, contact your Runlayer administrator."
+        )
+
+    def test_http_without_status_code_stays_a_violation(self):
+        _, agent = messages.tool_api_unreachable(failure=_ctx(kind="http"))
+        assert agent.startswith("# Security Violation Detected\n")
+        assert "answered with HTTP error" in agent
+
+    def test_scan_unavailable_rendering_unchanged(self):
+        """Pinned: the backend scan_unavailable deny that the unreachable
+        path now mirrors must itself be untouched."""
+        user, agent = messages.tool_scan_unavailable(
+            "Scanner timed out", tool_name="Bash"
+        )
+        assert user == "Scanner timed out"
+        assert agent == (
+            "# Action Blocked: Security Scan Unavailable\n"
+            "\nRunlayer could not complete the required security scan in time, so this operation was blocked as a precaution (fail-closed). No security violation was detected.\n"
+            "\n**What happened:**"
+            "\n- Tool: Bash"
+            "\n- Reason: Scanner timed out"
+            f"\n\n{messages.RETRYABLE_INFRA_GUARDRAILS}\n"
+            "\n**What to do:**\n"
+            "Retry shortly. If this keeps happening, contact your Runlayer administrator."
+        )
+
+
 class TestFailureKindContract:
     @pytest.mark.parametrize("kind", get_args(FailureKind))
     def test_every_classifier_kind_has_a_rendering(self, kind):
@@ -243,7 +405,9 @@ class TestFailureKindContract:
         the opaque legacy message (the regression ENG-5197 fixes)."""
         baseline = messages.tool_api_unreachable()[1]
         _, agent = messages.tool_api_unreachable(
-            failure=_ctx(kind=kind, payload_bytes=8_400_000, elapsed_s=30.0, status_code=503)
+            failure=_ctx(
+                kind=kind, payload_bytes=8_400_000, elapsed_s=30.0, status_code=503
+            )
         )
         assert agent != baseline, f"kind {kind!r} rendered the opaque legacy message"
 

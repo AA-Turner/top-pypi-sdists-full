@@ -158,6 +158,7 @@ async def task_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         from matrx_ai.db.content_types.tasks import tasks_manager_instance
         result = await tasks_manager_instance.create_task(
             user_id=ctx.user_id,
+            organization_id=ctx.organization_id,
             title=title,
             description=args.get("description", ""),
             project_id=args.get("project_id") or None,

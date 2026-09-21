@@ -1516,18 +1516,32 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
             ),
         ],
         install_probe=InstallProbe(
+            # Devin Desktop ships the Devin Local agent, which runs the same
+            # harness as the CLI and reads this entry's config.json#hooks, so
+            # the desktop app is presence evidence for this surface even when
+            # the ``devin`` binary was never installed. Bundle/registry/desktop
+            # ids mirror the windsurf entry; the ``devin-desktop`` GUI launcher
+            # is deliberately not listed because this probe executes binaries.
+            macos_app_bundles=["Devin.app"],
             cli_binaries=["devin"],
+            windows_display_name_prefixes=["Devin"],
+            windows_install_dirs=[
+                "%LOCALAPPDATA%/Programs/Devin/Devin.exe",
+                "%PROGRAMFILES%/Devin/Devin.exe",
+            ],
+            linux_desktop_ids=["devin-desktop.desktop"],
             config_dirs=[
                 PlatformPath("~/.config/devin", platform="macos"),
                 PlatformPath("~/.config/devin", platform="linux"),
                 PlatformPath("%APPDATA%/devin", platform="windows"),
             ],
         ),
-        notes="Cognition's terminal agent, a separate surface from Devin Desktop "
-        "(the renamed Windsurf, covered by the windsurf entry at "
-        "~/.codeium/windsurf/mcp_config.json). Remote servers use transport "
-        "http|sse and may carry inline oauthClientSecret. ~/.devin is omitted as "
-        "a signal because the desktop app creates it too.",
+        notes="Cognition's terminal agent. Devin Desktop (the renamed Windsurf) is "
+        "covered by the windsurf entry at ~/.codeium/windsurf/mcp_config.json for "
+        "Cascade MCP config, but its bundled Devin Local agent shares this CLI "
+        "config surface. Remote servers use transport http|sse and may carry "
+        "inline oauthClientSecret. ~/.devin is omitted as a signal because the "
+        "desktop app creates it too.",
     ),
     MCPClientDefinition(
         name="roo_code",

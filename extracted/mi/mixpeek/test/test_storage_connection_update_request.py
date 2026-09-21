@@ -41,6 +41,7 @@ class TestStorageConnectionUpdateRequest(unittest.TestCase):
                 metadata = { },
                 status = 'PENDING',
                 is_active = True,
+                write_enabled = True,
                 provider_config = { }
             )
         else:

@@ -341,6 +341,10 @@ _GITHUB_COPILOT_CLI_PIPELINE_HOOKS = (
 # ``pre_write_code`` is deliberately absent: there is no canonical pre-write
 # event in the normalized vocabulary, so registering it would only emit events
 # no handler consumes. File writes are observed via ``post_write_code``.
+# ``post_cascade_response`` stays over ``post_cascade_response_with_transcript``:
+# the inline markdown feeds the Stop event's last message directly, while the
+# transcript variant only hands over a JSONL path whose per-step schema
+# Cognition documents as unstable.
 _WINDSURF_ENFORCEMENT_HOOKS = (
     "pre_mcp_tool_use",
     "pre_run_command",
@@ -351,8 +355,10 @@ _WINDSURF_PIPELINE_HOOKS = (
     "pre_user_prompt",
     "post_mcp_tool_use",
     "post_run_command",
+    "post_read_code",
     "post_write_code",
     "post_cascade_response",
+    "post_setup_worktree",
 )
 
 # Qwen Code's hook contract is a near-clone of Claude Code's, so the names below

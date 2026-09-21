@@ -1,3 +1,19 @@
+# Copyright (c) 2019, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
+#
+# Distributed under the 3-clause BSD license, see accompanying file LICENSE
+# or https://github.com/scikit-hep/vector for details.
+"""
+Defines behaviors for SymPy vectors. New vectors created with the respective classes
+
+.. code-block:: python
+
+    vector.VectorSympy2D(...)
+    vector.VectorSympy3D(...)
+    vector.VectorSympy4D(...)
+
+will have these behaviors built in (and will pass them to any derived objects).
+"""
+
 from __future__ import annotations
 
 import typing
@@ -31,10 +47,10 @@ from vector._methods import (
     VectorProtocol,
     _aztype,
     _coordinate_class_to_names,
+    _generic_coordinates,
     _handler_of,
     _ltype,
     _repr_generic_to_momentum,
-    _repr_momentum_to_generic,
     _ttype,
 )
 
@@ -47,10 +63,16 @@ class _lib:
         return val
 
     def maximum(self, val1: sympy.Expr | int, val2: sympy.Expr | int) -> sympy.Expr:
-        return val1 if isinstance(val1, sympy.Expr) else val2
+        # sympy.Max rejects nan, which numeric coordinates (from mixed
+        # sympy/object operations) can legitimately carry
+        if isinstance(val1, sympy.Expr) or isinstance(val2, sympy.Expr):
+            return sympy.Max(val1, val2)
+        return numpy.maximum(val1, val2)
 
     def minimum(self, val1: sympy.Expr | int, val2: sympy.Expr | int) -> sympy.Expr:
-        return val1 if isinstance(val1, sympy.Expr) else val2
+        if isinstance(val1, sympy.Expr) or isinstance(val2, sympy.Expr):
+            return sympy.Min(val1, val2)
+        return numpy.minimum(val1, val2)
 
     def arcsin(self, val: sympy.Expr) -> sympy.Expr:
         return sympy.asin(val)
@@ -85,15 +107,21 @@ class _lib:
         return sympy.Eq(val1, val2)
 
     def copysign(self, val1: sympy.Expr, val2: sympy.Expr) -> sympy.Expr:
-        return val1
+        # this assumes the sign carrier (val2) is non-negative, which holds for
+        # timelike vectors; a faithful Abs(val1)*sign(val2) translation makes
+        # sympy's simplifier choke on the nested Piecewise expressions that
+        # tau/t round-trips produce (see scikit-hep/vector#711)
+        if isinstance(val1, sympy.Expr) or isinstance(val2, sympy.Expr):
+            return val1
+        return numpy.copysign(val1, val2)
 
     @property
     def inf(self) -> sympy.Expr:
         return sympy.oo
 
     # same named functions
-    def sign(self, val: int | float) -> sympy.Expr:
-        return numpy.sign(val)
+    def sign(self, val: sympy.Expr | float) -> sympy.Expr:
+        return sympy.sign(val) if isinstance(val, sympy.Expr) else numpy.sign(val)
 
     def sqrt(self, val: sympy.Expr) -> sympy.Expr:
         return sympy.sqrt(val)
@@ -388,6 +416,29 @@ _coord_sympy_type = {
 }
 
 
+def _azimuthal_sympy(coordinates: dict[str, sympy.Symbol]) -> AzimuthalSympy:
+    """Builds an azimuthal object from validated, generically named coordinates."""
+    if "x" in coordinates:
+        return AzimuthalSympyXY(coordinates["x"], coordinates["y"])
+    return AzimuthalSympyRhoPhi(coordinates["rho"], coordinates["phi"])
+
+
+def _longitudinal_sympy(coordinates: dict[str, sympy.Symbol]) -> LongitudinalSympy:
+    """Builds a longitudinal object from validated, generically named coordinates."""
+    if "z" in coordinates:
+        return LongitudinalSympyZ(coordinates["z"])
+    if "theta" in coordinates:
+        return LongitudinalSympyTheta(coordinates["theta"])
+    return LongitudinalSympyEta(coordinates["eta"])
+
+
+def _temporal_sympy(coordinates: dict[str, sympy.Symbol]) -> TemporalSympy:
+    """Builds a temporal object from validated, generically named coordinates."""
+    if "t" in coordinates:
+        return TemporalSympyT(coordinates["t"])
+    return TemporalSympyTau(coordinates["tau"])
+
+
 def _is_type_safe(coordinates: dict[str, typing.Any]) -> None:
     if not all(isinstance(coord, sympy.Expr) for coord in coordinates.values()):
         raise TypeError("coordinates must be a sympy expression")
@@ -439,10 +490,10 @@ class VectorSympy(Vector):  # noqa: PLW1641
     # that behavior. We can refactor out each `if` block in `__array_ufunc__`
     # into separate functions to avoid the type ignore comments, but that
     # would make the code less readable.
-    def __eq__(self, other: typing.Any) -> typing.Any:
+    def __eq__(self, other: object) -> typing.Any:
         return numpy.equal(self, other)  # type: ignore[call-overload]
 
-    def __ne__(self, other: typing.Any) -> typing.Any:
+    def __ne__(self, other: object) -> typing.Any:
         return numpy.not_equal(self, other)  # type: ignore[call-overload]
 
     def __abs__(self) -> float:
@@ -629,7 +680,7 @@ class VectorSympy(Vector):  # noqa: PLW1641
             and isinstance(inputs[0], Vector)
             and not isinstance(inputs[1], Vector)
         ):
-            result = numpy.absolute(inputs[0]) ** inputs[1]
+            result = numpy.absolute(inputs[0]) ** inputs[1]  # type: ignore[call-overload]
             for output in outputs:
                 _replace_data(output, result)
             return result
@@ -733,26 +784,12 @@ class VectorSympy2D(VectorSympy, Planar, Vector2D):
     azimuthal: AzimuthalSympy
 
     def __init__(self, azimuthal: AzimuthalSympy | None = None, **kwargs: sympy.Symbol):
-        for k, v in kwargs.copy().items():
-            kwargs.pop(k)
-            kwargs[_repr_momentum_to_generic.get(k, k)] = v
-
         if not kwargs and azimuthal is not None:
             self.azimuthal = azimuthal
         elif kwargs and azimuthal is None:
             _is_type_safe(kwargs)
-            if set(kwargs) == {"x", "y"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-            elif set(kwargs) == {"rho", "phi"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-            else:
-                complaint = """unrecognized combination of coordinates, allowed combinations are:\n
-                    x= y=
-                    rho= phi=""".replace("                    ", "    ")
-                if type(self) is VectorSympy2D:
-                    raise TypeError(complaint)
-                else:
-                    raise TypeError(f"{complaint}\n\nor their momentum equivalents")
+            coordinates = _generic_coordinates(self, kwargs)
+            self.azimuthal = _azimuthal_sympy(coordinates)
         else:
             raise TypeError("must give Azimuthal if not giving keyword arguments")
 
@@ -822,8 +859,8 @@ class VectorSympy2D(VectorSympy, Planar, Vector2D):
             azcoords = _coord_sympy_type[returns[0]](result[0], result[1])
             return cls.ProjectionClass2D(azimuthal=azcoords)
 
-        elif len(returns) == 2 or (
-            (len(returns) == 3 and returns[2] is None)
+        elif (
+            (len(returns) == 2 or (len(returns) == 3 and returns[2] is None))
             and isinstance(returns[0], type)
             and issubclass(returns[0], Azimuthal)
             and isinstance(returns[1], type)
@@ -934,45 +971,14 @@ class VectorSympy3D(VectorSympy, Spatial, Vector3D):
         longitudinal: LongitudinalSympy | None = None,
         **kwargs: sympy.Symbol,
     ):
-        for k, v in kwargs.copy().items():
-            kwargs.pop(k)
-            kwargs[_repr_momentum_to_generic.get(k, k)] = v
-
         if not kwargs and azimuthal is not None and longitudinal is not None:
             self.azimuthal = azimuthal
             self.longitudinal = longitudinal
         elif kwargs and azimuthal is None and longitudinal is None:
             _is_type_safe(kwargs)
-            if set(kwargs) == {"x", "y", "z"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyZ(kwargs["z"])
-            elif set(kwargs) == {"x", "y", "eta"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyEta(kwargs["eta"])
-            elif set(kwargs) == {"x", "y", "theta"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyTheta(kwargs["theta"])
-            elif set(kwargs) == {"rho", "phi", "z"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyZ(kwargs["z"])
-            elif set(kwargs) == {"rho", "phi", "eta"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyEta(kwargs["eta"])
-            elif set(kwargs) == {"rho", "phi", "theta"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyTheta(kwargs["theta"])
-            else:
-                complaint = """unrecognized combination of coordinates, allowed combinations are:\n
-                    x= y= z=
-                    x= y= theta=
-                    x= y= eta=
-                    rho= phi= z=
-                    rho= phi= theta=
-                    rho= phi= eta=""".replace("                    ", "    ")
-                if type(self) is VectorSympy3D:
-                    raise TypeError(complaint)
-                else:
-                    raise TypeError(f"{complaint}\n\nor their momentum equivalents")
+            coordinates = _generic_coordinates(self, kwargs)
+            self.azimuthal = _azimuthal_sympy(coordinates)
+            self.longitudinal = _longitudinal_sympy(coordinates)
         else:
             raise TypeError(
                 "must give Azimuthal and Longitudinal if not giving keyword arguments"
@@ -1026,8 +1032,8 @@ class VectorSympy3D(VectorSympy, Spatial, Vector3D):
             azcoords = _coord_sympy_type[returns[0]](result[0], result[1])
             return cls.ProjectionClass2D(azimuthal=azcoords)
 
-        elif len(returns) == 2 or (
-            (len(returns) == 3 and returns[2] is None)
+        elif (
+            (len(returns) == 2 or (len(returns) == 3 and returns[2] is None))
             and isinstance(returns[0], type)
             and issubclass(returns[0], Azimuthal)
             and isinstance(returns[1], type)
@@ -1208,10 +1214,6 @@ class VectorSympy4D(VectorSympy, Lorentz, Vector4D):
         temporal: TemporalSympy | None = None,
         **kwargs: sympy.Symbol,
     ):
-        for k, v in kwargs.copy().items():
-            kwargs.pop(k)
-            kwargs[_repr_momentum_to_generic.get(k, k)] = v
-
         if (
             not kwargs
             and azimuthal is not None
@@ -1223,72 +1225,10 @@ class VectorSympy4D(VectorSympy, Lorentz, Vector4D):
             self.temporal = temporal
         elif kwargs and azimuthal is None and longitudinal is None and temporal is None:
             _is_type_safe(kwargs)
-            if set(kwargs) == {"x", "y", "z", "t"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyZ(kwargs["z"])
-                self.temporal = TemporalSympyT(kwargs["t"])
-            elif set(kwargs) == {"x", "y", "eta", "t"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyEta(kwargs["eta"])
-                self.temporal = TemporalSympyT(kwargs["t"])
-            elif set(kwargs) == {"x", "y", "theta", "t"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyTheta(kwargs["theta"])
-                self.temporal = TemporalSympyT(kwargs["t"])
-            elif set(kwargs) == {"rho", "phi", "z", "t"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyZ(kwargs["z"])
-                self.temporal = TemporalSympyT(kwargs["t"])
-            elif set(kwargs) == {"rho", "phi", "eta", "t"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyEta(kwargs["eta"])
-                self.temporal = TemporalSympyT(kwargs["t"])
-            elif set(kwargs) == {"rho", "phi", "theta", "t"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyTheta(kwargs["theta"])
-                self.temporal = TemporalSympyT(kwargs["t"])
-            elif set(kwargs) == {"x", "y", "z", "tau"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyZ(kwargs["z"])
-                self.temporal = TemporalSympyTau(kwargs["tau"])
-            elif set(kwargs) == {"x", "y", "eta", "tau"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyEta(kwargs["eta"])
-                self.temporal = TemporalSympyTau(kwargs["tau"])
-            elif set(kwargs) == {"x", "y", "theta", "tau"}:
-                self.azimuthal = AzimuthalSympyXY(kwargs["x"], kwargs["y"])
-                self.longitudinal = LongitudinalSympyTheta(kwargs["theta"])
-                self.temporal = TemporalSympyTau(kwargs["tau"])
-            elif set(kwargs) == {"rho", "phi", "z", "tau"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyZ(kwargs["z"])
-                self.temporal = TemporalSympyTau(kwargs["tau"])
-            elif set(kwargs) == {"rho", "phi", "eta", "tau"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyEta(kwargs["eta"])
-                self.temporal = TemporalSympyTau(kwargs["tau"])
-            elif set(kwargs) == {"rho", "phi", "theta", "tau"}:
-                self.azimuthal = AzimuthalSympyRhoPhi(kwargs["rho"], kwargs["phi"])
-                self.longitudinal = LongitudinalSympyTheta(kwargs["theta"])
-                self.temporal = TemporalSympyTau(kwargs["tau"])
-            else:
-                complaint = """unrecognized combination of coordinates, allowed combinations are:\n
-                    x= y= z= tau=
-                    x= y= theta= t=
-                    x= y= theta= tau=
-                    x= y= eta= t=
-                    x= y= z= t=
-                    x= y= eta= tau=
-                    rho= phi= z= t=
-                    rho= phi= z= tau=
-                    rho= phi= theta= t=
-                    rho= phi= theta= tau=
-                    rho= phi= eta= t=
-                    rho= phi= eta= tau=""".replace("                    ", "    ")
-                if type(self) is VectorSympy4D:
-                    raise TypeError(complaint)
-                else:
-                    raise TypeError(f"{complaint}\n\nor their momentum equivalents")
+            coordinates = _generic_coordinates(self, kwargs)
+            self.azimuthal = _azimuthal_sympy(coordinates)
+            self.longitudinal = _longitudinal_sympy(coordinates)
+            self.temporal = _temporal_sympy(coordinates)
         else:
             raise TypeError(
                 "must give Azimuthal, Longitudinal, and Temporal if not giving keyword arguments"

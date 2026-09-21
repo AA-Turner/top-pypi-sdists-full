@@ -55,6 +55,7 @@ LLM_ROUTING_BASE_URL_KEY = "LlmRoutingBaseUrl"
 DETECT_RENAMED_PLUGIN_CACHES_KEY = "DetectRenamedPluginCaches"
 PROJECT_DEPTH_KEY = "ProjectDepth"
 PROJECT_TIMEOUT_KEY = "ProjectTimeout"
+SKILL_RESUBMIT_WINDOW_SECONDS_KEY = "SkillResubmitWindowSeconds"
 CPU_CORES_KEY = "CpuCores"
 MAX_CPU_PERCENT_KEY = "MaxCpuPercent"
 MEMORY_LIMIT_MB_KEY = "MemoryLimitMb"
@@ -76,6 +77,7 @@ BACKEND_SYNC_OWNED_KEYS: tuple[str, ...] = (
     LLM_ROUTING_BASE_URL_KEY,
     PROJECT_DEPTH_KEY,
     PROJECT_TIMEOUT_KEY,
+    SKILL_RESUBMIT_WINDOW_SECONDS_KEY,
 )
 
 _STRING_FIELDS: tuple[tuple[str, str], ...] = (
@@ -202,6 +204,7 @@ class ManagedConfig(TypedDict, total=False):
     detect_renamed_plugin_caches: bool
     project_depth: int
     project_timeout: int
+    skill_resubmit_window_seconds: int
     cpu_cores: int
     max_cpu_percent: int
     memory_limit_mb: int
@@ -332,6 +335,13 @@ def _read_managed_config_uncached() -> ManagedConfig:
                 )
                 managed["project_depth"] = backend_config["project_depth"]
                 managed["project_timeout"] = backend_config["project_timeout"]
+                skill_resubmit_window_seconds = backend_config.get(
+                    "skill_resubmit_window_seconds"
+                )
+                if skill_resubmit_window_seconds is not None:
+                    managed["skill_resubmit_window_seconds"] = (
+                        skill_resubmit_window_seconds
+                    )
     return managed
 
 

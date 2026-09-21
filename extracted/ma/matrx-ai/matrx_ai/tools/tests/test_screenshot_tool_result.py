@@ -113,7 +113,7 @@ def _make_screenshot_output() -> dict:
         "screenshot_base64": _PNG_B64,
         "width": 1,
         "height": 1,
-        "url": "https://example.com/page",
+        "url": "https://harbordentalgroup.com/new-patients",
         "title": "Example Page",
     }
 

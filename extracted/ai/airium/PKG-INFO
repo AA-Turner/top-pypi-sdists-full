@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airium
-Version: 0.2.7
+Version: 0.3.2
 Summary: Easy and quick html builder with natural syntax correspondence (python->html). No templates needed. Serves pure pythonic library with no dependencies.
 Home-page: https://gitlab.com/kamichal/airium
 Author: Michał Kaczmarczyk
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python
 Classifier: Topic :: Database :: Front-Ends
@@ -34,15 +35,17 @@ Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Utilities
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
+Requires-Dist: black~=24.8; extra == "dev"
 Requires-Dist: check-manifest; extra == "dev"
-Requires-Dist: flake8~=7.1; extra == "dev"
 Requires-Dist: mypy~=1.10; extra == "dev"
-Requires-Dist: pytest-cov~=3.0; extra == "dev"
+Requires-Dist: pytest-cov~=5.0; extra == "dev"
 Requires-Dist: pytest-mock~=3.6; extra == "dev"
-Requires-Dist: pytest~=6.2; extra == "dev"
+Requires-Dist: pytest~=8.3; extra == "dev"
+Requires-Dist: ruff~=0.6; extra == "dev"
 Requires-Dist: types-beautifulsoup4~=4.12; extra == "dev"
 Requires-Dist: types-requests~=2.32; extra == "dev"
 Provides-Extra: parse
@@ -60,11 +63,41 @@ Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: provides-extra
+Dynamic: requires-python
 Dynamic: summary
 
 ## Airium
 
-Bidirectional `HTML`-`python` translator.
+Airium is the most natural, pure-Python HTML generator with no runtime
+dependencies. It lets you describe an HTML document with ordinary Python
+code, without introducing a template language or a separate template file.
+The result is an HTML string or UTF-8 encoded bytes that can be returned from
+a web endpoint, written to a file, or passed to another system.
+
+Airium is designed around these principles:
+
+- **Natural Python syntax:** use `with` blocks for nesting, function arguments
+  for attributes, and normal Python control flow for conditions and loops.
+- **A 1:1 representation of HTML structure:** Python indentation and context
+  managers mirror the resulting DOM tree, so the code is easy to read and
+  refactor.
+- **No templates required:** keep the view logic and its markup together in
+  one Python module instead of switching between Python and a template
+  language.
+- **Precise IDE assistance:** the package includes generated typing stubs for
+  standard HTML elements and their attributes, while retaining a dynamic
+  escape hatch for custom HTML.
+- **Bidirectional translation:** convert existing HTML back into starter
+  Python code with the reverse translator.
+- **Readable output by default:** generate pretty-printed HTML, or choose
+  minified output when the document size matters.
+
+Airium intentionally focuses on generating HTML, not validating it. It does
+not check whether a tag is valid HTML, whether an attribute belongs to a tag,
+or whether the final tree satisfies browser standards. This keeps the API
+small and flexible, and means that mistakes are passed through to the output
+instead of being silently rewritten. Validate the generated document
+separately when validation is important.
 
 [![PyPI version](https://img.shields.io/pypi/v/airium.svg)](https://pypi.python.org/pypi/airium/)
 [![pipeline status](https://gitlab.com/kamichal/airium/badges/master/pipeline.svg)](https://gitlab.com/kamichal/airium/-/commits/master)
@@ -75,12 +108,103 @@ Bidirectional `HTML`-`python` translator.
 
 Key features:
 
-- simple, straight-forward
-- template-less (just the python, you may say goodbye to all the templates)
-- DOM structure is strictly represented by python indentation (with context-managers)
-- gives much cleaner `HTML` than regular templates
-- equipped with reverse translator: `HTML` to python
-- can output either pretty (default) or minified `HTML` code
+- simple and straightforward
+- template-less: write HTML directly in Python
+- DOM structure represented by Python indentation and context managers
+- reverse translator from HTML to Python
+- pretty (default) or minified HTML output
+
+## Type checking
+
+Airium ships a `py.typed` marker and public HTML typing helpers. Projects using
+Airium can run mypy normally after installing the package:
+
+```bash
+python -m pip install mypy airium
+python -m mypy your_project
+```
+
+`TagName` describes standard HTML element names and `HTMLAttributes` provides
+common attribute-name completion while still allowing Airium's dynamic
+`get_tag_` escape hatch for custom elements and attributes.
+
+Standard tags with tag-specific stubs provide keyword completion in supported
+IDEs. For example, `a.img(` exposes image attributes such as `src`, `alt`,
+`width`, `height`, `loading`, and `srcset`. The `img` element is an HTML void
+element, so it must be called directly rather than used as `with a.img():`.
+
+The element and attribute signatures are generated by
+`tools/generate_html_stubs.py`. Run it after updating the HTML vocabulary:
+
+```bash
+python tools/generate_html_stubs.py
+```
+
+The generated signatures include global HTML attributes and the standard
+element-specific attributes for every supported HTML element. `aria-*`,
+`data-*`, custom attributes, and custom elements remain available through
+Airium's dynamic keyword and `get_tag_` escape hatches.
+
+## How it works
+
+An `Airium` instance is both a document builder and a callable text writer.
+Accessing an attribute on it, such as `a.div` or `a.custom_element`, invokes
+`Airium.__getattr__` and creates a tag factory dynamically. There is no fixed
+runtime list of allowed element names: any attribute name can be used as a
+tag name. The generated factory accepts positional attribute fragments and
+keyword attributes.
+
+Use a context manager when an element has children:
+
+```python
+from airium import Airium
+
+a = Airium()
+with a.section(id="intro", **{"data-page": "home"}):
+    a.h1(_t="Welcome")
+    a("Text can also be written directly.")
+```
+
+This produces:
+
+```html
+<section id="intro" data-page="home">
+  <h1>Welcome</h1>
+  Text can also be written directly.
+</section>
+```
+
+Use `_t` for text content and `klass` (or `class_`) for the HTML `class`
+attribute, because `class` is a Python keyword:
+
+```python
+a.input(type="email", required=True)
+a.div(klass="card", _t="A card")
+```
+
+Void elements such as `img`, `input`, `br`, and `meta` are called directly
+and must not be used as context managers. Python expressions work naturally
+around the markup, so loops and conditions can generate repeated or optional
+elements.
+
+The dynamic API also means Airium can emit custom elements and attributes:
+
+```python
+with a.my_widget(**{"data-state": "ready", "aria-label": "Status"}):
+    a.span(_t="Ready")
+```
+would produce:
+
+```html
+<my_widget data-state="ready" aria-label="Status">
+  <span>Ready</span>
+</my_widget>
+```
+
+For standard elements, the bundled `.pyi` stubs add exact tag and attribute
+completion in supported IDEs and help static type checkers catch spelling and
+value errors. Dynamic access remains available when the HTML vocabulary is
+custom or ahead of the generated stubs.
 
 # Generating `HTML` code in python using `airium`
 
@@ -281,8 +405,9 @@ print(table_str)
 
 ### Pretty or Minify
 
-By default, airium biulds `HTML` code indented with spaces and with line breaks being line feed `\n` characters.
-It can be changed while creating an `Airium` instance. In general all avaliable arguments whit their default values are:
+By default, Airium builds `HTML` code indented with spaces and with line
+breaks using line feed (`\n`) characters. These defaults can be changed while
+creating an `Airium` instance:
 
 ```python
 a = Airium(
@@ -351,8 +476,8 @@ but line breaks will be still added. In order to get rid of line breaks, check t
 
 #### indent level
 
-The `current_level` being an integer can be set to non-negative
-value, wich will cause `airium` to start indentation with level offset given by the number.
+The `current_level` integer can be set to a non-negative value. Airium then
+starts indentation at the given level offset.
 
 #### line break character
 
@@ -365,10 +490,81 @@ a = Airium(source_line_break_character="\r\n")  # windows' style
 
 Note that the setting has no effect when `source_minify` argument is set to `True` (see above).
 
-# Using airium with web-frameworks
+# Using Airium with web frameworks
 
-Airium can be used with frameworks like Flask or Django. It can completely replace
-template engines, reducing code-files scater, which may bring better code organization, and some other reasons.
+Airium works with any framework that accepts a string or bytes as an HTTP
+response. The following FastAPI example is a complete HTML endpoint with
+inline CSS and JavaScript. Inline assets are useful for small pages,
+prototypes, and self-contained responses; larger applications can generate
+`link` and `script` elements pointing to static files instead.
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+from airium import Airium
+
+app = FastAPI()
+
+
+@app.get("/", response_class=HTMLResponse)
+def home() -> HTMLResponse:
+    a = Airium()
+    a("<!DOCTYPE html>")
+
+    with a.html(lang="en"):
+        with a.head():
+            a.meta(charset="utf-8")
+            a.meta(
+                name="viewport",
+                content="width=device-width, initial-scale=1",
+            )
+            a.title(_t="Airium + FastAPI")
+            a.style(
+                _t="""
+                :root { font-family: system-ui, sans-serif; }
+                body { margin: 2rem auto; max-width: 42rem; padding: 0 1rem; }
+                button { cursor: pointer; padding: .6rem 1rem; }
+                .message { color: #176b3a; }
+                """,
+            )
+
+        with a.body():
+            with a.main():
+                a.h1(_t="Hello from FastAPI")
+                a.p(
+                    id="message",
+                    klass="message",
+                    _t="This page was generated with pure Python.",
+                )
+                a.button(id="toggle-message", type="button", _t="Toggle message")
+
+            a.script(
+                _t="""
+                const button = document.querySelector("#toggle-message");
+                const message = document.querySelector("#message");
+                button.addEventListener("click", () => {
+                    message.hidden = !message.hidden;
+                });
+                """,
+            )
+
+    return HTMLResponse(content=bytes(a))
+```
+
+Run it with:
+
+```bash
+pip install fastapi uvicorn airium
+uvicorn main:app --reload
+```
+
+The endpoint returns the generated document directly; no template loader,
+template directory, or HTML file is needed.
+
+Airium can also be used with frameworks like Flask or Django. It can replace
+template engines, reducing code-file scatter and keeping related presentation
+and application logic together.
 
 Here is an example of using airium with django. It implements reusable `basic_body` and a view called `index`.
 
@@ -462,7 +658,7 @@ urlpatterns = [
 ]
 ```
 
-The result ing web page on my machine looks like that:
+The resulting web page on my machine looks like this:
 
 ![Airium/Django templateless example](airium_django_example.png)
 
@@ -527,7 +723,7 @@ py_str = from_html_to_airium(html_str)
 # airium tests ensure that the result of the conversion is equal to the string:
 assert py_str == """\
 #!/usr/bin/env python
-# File generated by reverse AIRIUM translator (version 0.2.7).
+# File generated by reverse AIRIUM translator (version 0.3.2).
 # Any change will be overridden on next run.
 # flake8: noqa E501 (line too long)
 

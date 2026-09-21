@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.export_destination import ExportDestination
 from mixpeek.models.export_format import ExportFormat
 from mixpeek.models.logical_operator_input import LogicalOperatorInput
 from typing import Optional, Set
@@ -28,7 +29,7 @@ from typing_extensions import Self
 
 class CollectionExportRequest(BaseModel):
     """
-    Request model for exporting collection data.  **Export Formats:** - **JSON**: Line-delimited JSON (JSONL) format, one document per line. Good for streaming and large files. - **CSV**: Comma-separated values. Best for tabular data analysis in spreadsheets. - **PARQUET**: Columnar format optimized for analytics. Best for large datasets and data pipelines.  **Vector Export:** Vectors are stored separately from document metadata due to their large size. When `include_vectors=True`, vectors are exported to a separate file with the naming convention: `{collection_name}_vectors.{format}`  **Lineage:** When `include_lineage=True`, every row also carries `lineage_chain` (each processing step from the source object to this document), `source_content_hash` (SHA-256 of the source content) and `document_created_at` (ISO 8601). In JSON the chain is a list; in CSV and Parquet it is a JSON-encoded string so every row keeps one column type.  **Field Selection:** Use `select_fields` to export only specific fields, reducing file size for large collections. Supports dot notation for nested fields (e.g., \"metadata.title\").  **Filtering:** Apply filters to export a subset of documents. Uses the same LogicalOperator format as the documents list endpoint.
+    Request model for exporting collection data.  **Export Formats:** - **JSON**: Line-delimited JSON (JSONL) format, one document per line. Good for streaming and large files. - **CSV**: Comma-separated values. Best for tabular data analysis in spreadsheets. - **PARQUET**: Columnar format optimized for analytics. Best for large datasets and data pipelines. - **WEBDATASET**: Tar shards in the WebDataset layout, one sample per document.   Each sample carries `<key>.json` (the same row the other formats emit) and, with   `include_media=True`, the source object's bytes as `<key>.<ext>`. Read it with any   WebDataset loader. `samples_per_shard` sets the shard size.  **Vector Export:** Vectors are stored separately from document metadata due to their large size. When `include_vectors=True`, vectors are exported to a separate file with the naming convention: `{collection_name}_vectors.{format}`  **Lineage:** When `include_lineage=True`, every row also carries `lineage_chain` (each processing step from the source object to this document), `source_content_hash` (SHA-256 of the source content) and `document_created_at` (ISO 8601). In JSON the chain is a list; in CSV and Parquet it is a JSON-encoded string so every row keeps one column type.  **Field Selection:** Use `select_fields` to export only specific fields, reducing file size for large collections. Supports dot notation for nested fields (e.g., \"metadata.title\").  **Filtering:** Apply filters to export a subset of documents. Uses the same LogicalOperator format as the documents list endpoint.
     """ # noqa: E501
     format: Optional[ExportFormat] = Field(default=None, description="Export format: json (line-delimited), csv, or parquet (default).")
     include_vectors: Optional[StrictBool] = Field(default=False, description="Whether to include vectors in the export. Vectors are exported to a separate file due to their large size. This significantly increases export time and file size.")
@@ -36,7 +37,10 @@ class CollectionExportRequest(BaseModel):
     select_fields: Optional[List[StrictStr]] = Field(default=None, description="Specific fields to include in the export. If not provided, all fields are exported. Supports dot notation for nested fields (e.g., 'metadata.title', 'metadata.author').")
     filters: Optional[LogicalOperatorInput] = Field(default=None, description="Filter conditions to export only matching documents. Uses LogicalOperator format (AND/OR/NOT) same as document listing.")
     sample_size: Optional[Annotated[int, Field(le=1000000, strict=True, ge=1)]] = Field(default=None, description="Maximum number of documents to export. If not provided, exports all documents. Useful for testing exports or creating sample datasets.")
-    __properties: ClassVar[List[str]] = ["format", "include_vectors", "include_lineage", "select_fields", "filters", "sample_size"]
+    include_media: Optional[StrictBool] = Field(default=False, description="WebDataset only. Put the source object's bytes in each sample alongside its row, resolved through the document's root object. A document whose object is gone, or which never had one, ships with its row alone and is counted in the response's media summary. This moves the full media set, so expect a much larger export and a longer run.")
+    samples_per_shard: Optional[Annotated[int, Field(le=100000, strict=True, ge=1)]] = Field(default=1000, description="WebDataset only. Documents per tar shard. Smaller shards parallelize better across training workers; larger shards mean fewer files to move.")
+    destination: Optional[ExportDestination] = Field(default=None, description="Write the export into your own storage through a connection you own. The files and a manifest land under the prefix you give. The 7-day download copy is still written too, so the presigned URLs in the response keep working and nothing existing changes.")
+    __properties: ClassVar[List[str]] = ["format", "include_vectors", "include_lineage", "select_fields", "filters", "sample_size", "include_media", "samples_per_shard", "destination"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +84,9 @@ class CollectionExportRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of filters
         if self.filters:
             _dict['filters'] = self.filters.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of destination
+        if self.destination:
+            _dict['destination'] = self.destination.to_dict()
         return _dict
 
     @classmethod
@@ -97,7 +104,10 @@ class CollectionExportRequest(BaseModel):
             "include_lineage": obj.get("include_lineage") if obj.get("include_lineage") is not None else False,
             "select_fields": obj.get("select_fields"),
             "filters": LogicalOperatorInput.from_dict(obj["filters"]) if obj.get("filters") is not None else None,
-            "sample_size": obj.get("sample_size")
+            "sample_size": obj.get("sample_size"),
+            "include_media": obj.get("include_media") if obj.get("include_media") is not None else False,
+            "samples_per_shard": obj.get("samples_per_shard") if obj.get("samples_per_shard") is not None else 1000,
+            "destination": ExportDestination.from_dict(obj["destination"]) if obj.get("destination") is not None else None
         })
         return _obj
 

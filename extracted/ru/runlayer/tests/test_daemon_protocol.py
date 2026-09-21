@@ -197,8 +197,10 @@ def test_request_environment_copies_only_allowlisted_values() -> None:
         "GROK_HOOK_EVENT": "PreToolUse",
         "COPILOT_ADDITIONAL_MCP_CONFIG": "{}",
         "RUNLAYER_HOOK_GZIP": "0",
-        # Carries the Devin host signal the double-fire guard reads.
+        # Carries the Devin host signal the double-fire guard reads, and the
+        # Claude Code marker it uses to spare a nested real Claude host.
         "DEVIN_PROJECT_DIR": "/repo",
+        "CLAUDECODE": "1",
         "RUNLAYER_API_KEY": "must-not-cross-ipc",
     }
 
@@ -212,6 +214,7 @@ def test_request_environment_copies_only_allowlisted_values() -> None:
         # The gzip kill switch crosses IPC so daemon-served hooks honor it.
         "RUNLAYER_HOOK_GZIP": "0",
         "DEVIN_PROJECT_DIR": "/repo",
+        "CLAUDECODE": "1",
     }
 
 

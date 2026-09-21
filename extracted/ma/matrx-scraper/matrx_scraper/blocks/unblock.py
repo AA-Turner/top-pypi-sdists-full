@@ -136,6 +136,12 @@ _ROUTES: dict[str, Unblock] = {
         "The file opened but produced no readable words. It may be a scan — in which case the "
         "route is reading the images, not the text layer.",
     ),
+    "ocr_binary_missing": Unblock(
+        "settings",
+        "This scan needs OCR to read, and the OCR engine is not installed on this server. "
+        "That is an infrastructure gap, not something about this file — install Tesseract "
+        "(or the configured OCR provider) on the host and reprocess.",
+    ),
     # ── Connected accounts ───────────────────────────────────────────────────
     "scope_not_granted": Unblock(
         "reconnect",

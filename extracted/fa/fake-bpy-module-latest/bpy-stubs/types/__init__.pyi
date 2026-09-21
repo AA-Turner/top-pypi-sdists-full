@@ -84708,13 +84708,13 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
         """Settings for soft body simulation (readonly)"""
 
     track_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
-    """ Axis that points in the 'forward' direction (applies to Instance Vertices when Align to Vertex Normal is enabled) (default 'POS_X')"""
+    """ Axis that points in the 'forward' direction (applies to Instance Vertices when Align to Vertex Normal is enabled) (default 'POS_Y')"""
 
     type: typing.Literal[bpy.stub_internal.rna_enums.ObjectTypeItems]
     """ Type of object (default 'EMPTY', readonly)"""
 
     up_axis: typing.Literal["X", "Y", "Z"]
-    """ Axis that points in the upward direction (applies to Instance Vertices when Align to Vertex Normal is enabled) (default 'Y')"""
+    """ Axis that points in the upward direction (applies to Instance Vertices when Align to Vertex Normal is enabled) (default 'Z')"""
 
     use_camera_lock_parent: bool
     """ View Lock 3D viewport camera transformation affects the object's parent instead (default False)"""
@@ -84765,7 +84765,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     """ Object visibility to glossy rays (default True)"""
 
     visible_raycast: bool
-    """ Object visibility to raycast rays. Implicitly false for Blended materials. (default True)"""
+    """ Object visibility to raycast rays. Implicitly false for Blended materials in EEVEE. (default True)"""
 
     visible_shadow: bool
     """ Object visibility to shadow rays (default True)"""

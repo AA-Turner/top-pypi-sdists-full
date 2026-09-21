@@ -14,6 +14,14 @@ AGENT_GUARDRAILS = (
     "- Do not retry this action or attempt alternative approaches to achieve the same result."
 )
 
+RETRYABLE_INFRA_GUARDRAILS = (
+    "**If you are an AI Agent:**\n"
+    "- This was a fail-closed infrastructure state, NOT a policy match or threat detection.\n"
+    "- Wait a few seconds, then retry this exact action once. If it is blocked again, stop and inform the user.\n"
+    "- Do not suggest modifying, bypassing, or disabling the Runlayer hook or security configuration.\n"
+    "- Do not suggest checking or editing hook files, settings.json, or any security configuration."
+)
+
 DEFAULT_USER_MSG = "Action blocked by organization security policy"
 
 # Monitor-mode one-liner (hourly, per device) when the API rejects this
@@ -214,10 +222,11 @@ def _unreachable_message(
     """Shared assembly for the two unreachable-API builders (single source so
     wording/field changes cannot drift between the MCP and local-tool paths)."""
     if failure is not None and failure.kind == "http":
-        # Any HTTP response means the API was reached — an unreachable/outage
-        # framing would misdirect (403 = key lacks a role or a proxy/WAF said
-        # no, 429 = throttled, 5xx = server error). Only 401 is a credential
-        # answer from the API itself and gets credential wording.
+        # Any HTTP response means something answered — an unreachable framing
+        # would misdirect. 401 is a credential answer from the API itself,
+        # 407 comes from a proxy on the path, 5xx/429 mean the service could
+        # not process the request right now (retryable), and any other 4xx
+        # (403 = key lacks a role or a proxy/WAF said no) is a rejection.
         if failure.status_code == CREDENTIAL_REJECTED_STATUS:
             return _credential_rejected_message(
                 verification_phrase,
@@ -244,13 +253,27 @@ def _unreachable_message(
         # Runlayer API itself, so attribute the status to the request, not
         # definitively to the API.
         status = failure.status_code if failure.status_code is not None else "error"
+        user_msg = f"Runlayer verification request failed (HTTP {status})"
+        answered = (
+            f"The {verification_phrase} request was answered with HTTP "
+            f"{status}{_attempts_note(failure)}, so the action could not "
+            "be verified."
+        )
+        if _is_retryable_status(failure.status_code):
+            return (
+                user_msg,
+                _retryable_block(
+                    title="Runlayer API Unavailable",
+                    explanation="The Runlayer API could not process the required verification right now (server error or throttling), so this operation was blocked as a precaution (fail-closed). No security violation was detected.",
+                    reason=f"{answered} The connection worked but the service could not process the request. Unverified actions are blocked (fail-closed).",
+                    tool_name=tool_name,
+                ),
+            )
         return (
-            f"Runlayer verification request failed (HTTP {status})",
+            user_msg,
             _violation_with_tool(
                 "Infrastructure",
-                f"The {verification_phrase} request was answered with HTTP "
-                f"{status}{_attempts_note(failure)}, so the action could not "
-                "be verified. The "
+                f"{answered} The "
                 "connection worked but the request was rejected or failed — "
                 "this is not a connectivity problem. Unverified actions are "
                 "blocked (fail-closed).",
@@ -267,13 +290,20 @@ def _unreachable_message(
         reason += f" {cause}"
     return (
         f"Failed to contact Runlayer API{user_suffix}",
-        _violation_with_tool(
-            "Infrastructure",
-            reason,
+        _retryable_block(
+            title="Runlayer API Unreachable",
+            explanation="Runlayer could not reach its API to complete the required verification in time, so this operation was blocked as a precaution (fail-closed). No security violation was detected.",
+            reason=reason,
             tool_name=tool_name,
-            footer="If you believe this is an error, contact your Runlayer administrator. The Runlayer API may be temporarily unreachable.",
         ),
     )
+
+
+def _is_retryable_status(status_code: int | None) -> bool:
+    """5xx (server error, or a load balancer answering for unhealthy targets)
+    and 429 (throttled) are transient service states worth one retry; every
+    other HTTP answer is a rejection of this particular request."""
+    return status_code is not None and (status_code >= 500 or status_code == 429)
 
 
 def _violation(
@@ -410,35 +440,15 @@ def tool_input_denied(reason: str, *, tool_name: str = "") -> tuple[str, str]:
     )
 
 
-# Unlike AGENT_GUARDRAILS this permits one retry — "do not retry" on an infra
-# timeout would turn a transient hiccup into a hard stop. Anti-tamper lines
-# are kept.
-SCAN_UNAVAILABLE_GUARDRAILS = (
-    "**If you are an AI Agent:**\n"
-    "- This was a fail-closed infrastructure state, NOT a policy match or threat detection.\n"
-    "- Wait a few seconds, then retry this exact action once. If it is blocked again, stop and inform the user.\n"
-    "- Do not suggest modifying, bypassing, or disabling the Runlayer hook or security configuration.\n"
-    "- Do not suggest checking or editing hook files, settings.json, or any security configuration."
-)
-
-
 def tool_scan_unavailable(reason: str, *, tool_name: str = "") -> tuple[str, str]:
     """Deny rendering for ``block_state == "scan_unavailable"`` — retryable,
     not a security violation."""
-    parts = [
-        "# Action Blocked: Security Scan Unavailable\n",
-        "\nRunlayer could not complete the required security scan in time, so this operation was blocked as a precaution (fail-closed). No security violation was detected.\n",
-        "\n**What happened:**",
-    ]
-    if tool_name:
-        parts.append(f"\n- Tool: {tool_name}")
-    parts.append(f"\n- Reason: {reason}")
-    parts.append(f"\n\n{SCAN_UNAVAILABLE_GUARDRAILS}\n")
-    parts.append(
-        "\n**What to do:**\n"
-        "Retry shortly. If this keeps happening, contact your Runlayer administrator."
+    return reason, _retryable_block(
+        title="Security Scan Unavailable",
+        explanation="Runlayer could not complete the required security scan in time, so this operation was blocked as a precaution (fail-closed). No security violation was detected.",
+        reason=reason,
+        tool_name=tool_name,
     )
-    return reason, "".join(parts)
 
 
 # Post-hook analogue of tool_scan_unavailable: block_output embeds a single
@@ -564,4 +574,35 @@ def _violation_with_tool(
             "\n**What to do:**\n"
             "If you believe this is an error, contact your Runlayer administrator."
         )
+    return "".join(parts)
+
+
+def _retryable_block(
+    *,
+    title: str,
+    explanation: str,
+    reason: str,
+    tool_name: str = "",
+) -> str:
+    """Fail-closed block that is an infrastructure state, not a detection:
+    backend scan_unavailable, client-side unreachable API, 5xx/429 answers.
+
+    Unlike ``_violation_with_tool`` there is no "Security Violation" header
+    and the guardrails permit one retry — "do not retry" on an infra hiccup
+    would turn a transient state into a hard stop for the agent. The
+    anti-tamper lines are kept.
+    """
+    parts = [
+        f"# Action Blocked: {title}\n",
+        f"\n{explanation}\n",
+        "\n**What happened:**",
+    ]
+    if tool_name:
+        parts.append(f"\n- Tool: {tool_name}")
+    parts.append(f"\n- Reason: {reason}")
+    parts.append(f"\n\n{RETRYABLE_INFRA_GUARDRAILS}\n")
+    parts.append(
+        "\n**What to do:**\n"
+        "Retry shortly. If this keeps happening, contact your Runlayer administrator."
+    )
     return "".join(parts)

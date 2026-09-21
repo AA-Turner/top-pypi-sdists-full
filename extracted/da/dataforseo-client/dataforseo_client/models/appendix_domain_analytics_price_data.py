@@ -9,8 +9,8 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.appendix_whois_domain_analytics_price_data import AppendixWhoisDomainAnalyticsPriceData
-from dataforseo_client.models.appendix_technologies_domain_analytics_price_data import AppendixTechnologiesDomainAnalyticsPriceData
 from dataforseo_client.models.appendix_task_keywords_data_price_data_info import AppendixTaskKeywordsDataPriceDataInfo
+from dataforseo_client.models.appendix_technologies_domain_analytics_price_data import AppendixTechnologiesDomainAnalyticsPriceData
 
 
 
@@ -19,11 +19,13 @@ class AppendixDomainAnalyticsPriceData(BaseModel):
     AppendixDomainAnalyticsPriceData
     """ # noqa: E501
     whois: Optional[AppendixWhoisDomainAnalyticsPriceData] = Field(default=None, description=r"")
+    available_filters: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     technologies: Optional[AppendixTechnologiesDomainAnalyticsPriceData] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     tasks_ready: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "whois", 
+        "available_filters", 
         "technologies", 
         "errors", 
         "tasks_ready", 
@@ -54,6 +56,7 @@ class AppendixDomainAnalyticsPriceData(BaseModel):
         _dict = {}
 
         _dict['whois'] = self.whois.to_dict() if self.whois else None
+        _dict['available_filters'] = self.available_filters.to_dict() if self.available_filters else None
         _dict['technologies'] = self.technologies.to_dict() if self.technologies else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
         _dict['tasks_ready'] = self.tasks_ready.to_dict() if self.tasks_ready else None
@@ -70,6 +73,7 @@ class AppendixDomainAnalyticsPriceData(BaseModel):
 
         _obj = cls.model_validate({
             "whois": AppendixWhoisDomainAnalyticsPriceData.from_dict(obj["whois"]) if obj.get("whois") is not None else None,
+            "available_filters": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["available_filters"]) if obj.get("available_filters") is not None else None,
             "technologies": AppendixTechnologiesDomainAnalyticsPriceData.from_dict(obj["technologies"]) if obj.get("technologies") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
             "tasks_ready": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["tasks_ready"]) if obj.get("tasks_ready") is not None else None,

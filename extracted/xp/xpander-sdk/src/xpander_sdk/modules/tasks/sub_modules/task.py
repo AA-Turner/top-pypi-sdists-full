@@ -207,6 +207,7 @@ class Task(XPanderSharedModel):
         sub_executions (Optional[List[str]]): List of sub-execution IDs.
         is_manually_stopped (Optional[bool]): Flag indicating if the task was manually stopped.
         payload_extension (Optional[dict]): Additional data for the task.
+        execution_kind (Optional[str]): "turn" (default) or "resident", a process that stays executing until the agent finishes it.
         hitl_request (Optional[HumanInTheLoopRequest]): Human-in-the-loop request state.
         pending_eca_request (Optional[PendingECARequest]): Pending ECA request, if any.
         source (Optional[str]): Source information of the task.
@@ -266,6 +267,7 @@ class Task(XPanderSharedModel):
     should_update_parent: Optional[bool] = False
     is_manually_stopped: Optional[bool] = False
     payload_extension: Optional[dict] = None
+    execution_kind: Optional[str] = None
     hitl_request: Optional[HumanInTheLoopRequest] = None
     pending_eca_request: Optional[PendingECARequest] = None
     source: Optional[str] = None

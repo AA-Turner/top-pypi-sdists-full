@@ -63,10 +63,15 @@ def test_worker_checkpoint_archive_excludes_regenerable_browser_caches(tmp_path)
     (service_cache / "response").write_bytes(b"drop-service-cache")
     (code_cache / "compiled").write_bytes(b"drop-code-cache")
 
-    archive = runtime._archive_dir(str(profile))
+    archive_path = tmp_path / "archive"
+    _hash, _size, archive_format_version = runtime._archive_dir_to_file(
+        str(profile), str(archive_path)
+    )
+    assert archive_format_version == runtime.ARCHIVE_FORMAT_TAR_ZSTD
+    assert archive_path.read_bytes()[:4] == runtime._ZSTD_MAGIC
 
-    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as captured:
-        members = set(captured.getnames())
+    with runtime._open_archive_for_reading(str(archive_path)) as captured:
+        members = {member.name for member in captured}
     assert "profile/Default/IndexedDB/auth-state" in members
     assert not any("/Default/Cache/" in f"/{name}/" for name in members)
     assert not any("/Default/Service Worker/CacheStorage/" in f"/{name}/" for name in members)
@@ -1431,3 +1436,394 @@ async def test_shutdown_during_inflight_bootstrap_is_not_reported_as_never_boots
     # Once bootstrapped, the same fence succeeds normally.
     done = await stub.shutdown(reason="emergency_fence")
     assert done.ok and done.stopped
+
+
+# ── One checkpoint at a time; an in-flight count that cannot leak ────────────
+
+
+def _unbootstrapped_but_admitted(worker: BrowserWorker, monkeypatch, user_data_dir: str) -> None:
+    """Skip the admission ladder (bearer, bootstrap, identity, fence, lease,
+    sequence) so a checkpoint/command reaches its body without Chromium."""
+    for name in (
+        "_verify_bearer",
+        "_require_bootstrapped",
+        "_check_identity",
+        "_check_fencing",
+        "_require_unexpired_lease",
+        "_guard_command_admission",
+    ):
+        monkeypatch.setattr(worker, name, lambda *a, **k: None)
+    monkeypatch.setattr(worker, "_check_sequence", lambda req: None)
+    monkeypatch.setattr(worker, "_admit_sequenced", lambda req, resp: None, raising=False)
+    worker.run_id = "run-checkpoint"
+    worker.profile_id = "profile-checkpoint"
+    worker.fencing_revision = 1
+    worker.run_mode = "automation_only"
+    worker.health = "healthy"
+    worker.queue_state = "open"
+    worker.chromium_version = "test"
+    worker._user_data_dir = user_data_dir
+
+
+def _checkpoint_request() -> M.CheckpointRequest:
+    return M.CheckpointRequest(
+        run_id="run-checkpoint",
+        profile_id="profile-checkpoint",
+        fencing_token="fence",
+        fencing_revision=1,
+        sequence=7,
+        issued_at=datetime.now(UTC),
+        checkpoint_id="checkpoint-1",
+        mode="close_and_archive",
+        reason="stop",
+        dek_plaintext_b64=base64.b64encode(b"k" * 32).decode("ascii"),
+        dek_wrapped_b64="wrapped",
+        key_version="key-v1",
+        nonce_b64=base64.b64encode(b"n" * 12).decode("ascii"),
+        archive_format_version=1,
+        upload_target={
+            "method": "PUT",
+            "url": "https://upload.invalid/checkpoint",
+            "expires_at": datetime.now(UTC) + timedelta(minutes=5),
+        },
+    )
+
+
+async def test_second_concurrent_checkpoint_is_refused_not_an_unclean_exit(
+    monkeypatch, tmp_path
+) -> None:
+    """Break caught (2026-09-19, 8 production runs): two control-plane callers
+    checkpointed the same worker at once; the second ``context.close()`` hit a
+    Chrome the first had already closed and the run died as
+    ``chromium_unclean_exit`` — for a browser that exited cleanly, once."""
+    worker = BrowserWorker(worker_id="worker-test-exclusive")
+    _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
+    release = asyncio.Event()
+    closes = 0
+
+    class _Context:
+        async def close(self) -> None:
+            nonlocal closes
+            closes += 1
+            await release.wait()
+
+    worker._context = _Context()
+    worker._pw = None
+    monkeypatch.setattr(runtime, "_archive_dir_to_file", lambda _dir, _dest: ("ph", 3, 2))
+    monkeypatch.setattr(
+        runtime, "_encrypt_checkpoint_file", lambda _dek, _nonce, _pt, _ct: ("ch", 19, True)
+    )
+
+    async def uploaded(_target, _path, _size) -> bool:
+        return True
+
+    monkeypatch.setattr(runtime, "_upload_checkpoint_file", uploaded)
+    monkeypatch.setattr(runtime, "_write_profile_checkpoint_marker", lambda *_a: None)
+
+    first = asyncio.create_task(worker.checkpoint(_checkpoint_request()))
+    for _ in range(20):
+        await asyncio.sleep(0)
+        if closes:
+            break
+    assert closes == 1, "the first checkpoint must be inside context.close()"
+
+    # Without the exclusion the second call awaits the same close() forever;
+    # a bounded wait turns that hang into a failure.
+    second = await asyncio.wait_for(worker.checkpoint(_checkpoint_request()), timeout=3)
+    assert second.ok is False
+    assert second.error is not None and second.error.code == "checkpoint_in_progress"
+
+    release.set()
+    resp = await first
+    assert resp.ok is True and resp.chromium_exited_cleanly is True
+    assert closes == 1
+    assert worker._checkpoint_in_progress is False
+
+
+async def test_a_non_protocol_command_failure_never_leaks_the_in_flight_count(
+    monkeypatch, tmp_path
+) -> None:
+    """Break caught: a Playwright exception left ``_in_flight`` at 1 forever, so
+    every later checkpoint drain waited out its full timeout and abandoned a
+    command that was not there."""
+    worker = BrowserWorker(worker_id="worker-test-inflight")
+    _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
+
+    async def explode(_request):
+        raise RuntimeError("playwright exploded")
+
+    monkeypatch.setattr(worker, "_execute_command", explode)
+    request = M.CommandRequest(
+        run_id="run-checkpoint",
+        profile_id="profile-checkpoint",
+        fencing_token="fence",
+        fencing_revision=1,
+        sequence=1,
+        issued_at=datetime.now(UTC),
+        origin="agent",
+        command=C.NavigateCommand(url="https://example.com"),
+    )
+    with pytest.raises(RuntimeError, match="exploded"):
+        await worker.command(request)
+    assert worker._in_flight == 0
+
+
+# ── Streaming checkpoints: tar+zstd through files, both formats restore ────────
+
+
+def _profile_fixture(root: Path) -> Path:
+    profile = root / "profile"
+    (profile / "Default" / "IndexedDB").mkdir(parents=True)
+    (profile / "Default" / "Cache" / "Cache_Data").mkdir(parents=True)
+    (profile / "Default" / "IndexedDB" / "auth-state").write_bytes(b"signed-in " * 5000)
+    (profile / "Default" / "Preferences").write_text('{"a": 1}' * 2000)
+    (profile / "Default" / "Cache" / "Cache_Data" / "junk").write_bytes(b"x" * 100)
+    return profile
+
+
+def _restore_facts(key: bytes, nonce: bytes, plaintext_hash: str, ciphertext_hash: str):
+    return M.CheckpointRestore(
+        download_url="https://download.invalid/checkpoint",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        dek_plaintext_b64=base64.b64encode(key).decode("ascii"),
+        nonce_b64=base64.b64encode(nonce).decode("ascii"),
+        ciphertext_hash=ciphertext_hash,
+        plaintext_hash=plaintext_hash,
+    )
+
+
+def test_streaming_checkpoint_round_trip_is_compressed_and_never_in_memory(tmp_path) -> None:
+    """Archive → encrypt → decrypt → install, every step file-to-file; the
+    ciphertext is byte-compatible with ``AESGCM.encrypt`` (the format every
+    checkpoint before 2026-09-20 was written in) and the archive is a fraction
+    of the profile."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    profile = _profile_fixture(tmp_path)
+    profile_bytes = sum(f.stat().st_size for f in profile.rglob("*") if f.is_file())
+    key, nonce = b"k" * 32, b"n" * 12
+    plain = tmp_path / "archive"
+    cipher = tmp_path / "archive.enc"
+
+    plaintext_hash, plaintext_size, fmt = runtime._archive_dir_to_file(str(profile), str(plain))
+    assert fmt == runtime.ARCHIVE_FORMAT_TAR_ZSTD
+    assert plaintext_size < profile_bytes / 4, "zstd must actually shrink a text-heavy profile"
+    assert plaintext_hash == runtime._sha256_hex(plain.read_bytes())
+
+    ciphertext_hash, ciphertext_size, encrypted = runtime._encrypt_checkpoint_file(
+        base64.b64encode(key).decode("ascii"), nonce, str(plain), str(cipher)
+    )
+    assert encrypted and ciphertext_size == plaintext_size + 16
+    assert cipher.read_bytes() == AESGCM(key).encrypt(nonce, plain.read_bytes(), None)
+    assert (plain.stat().st_mode & 0o777) == 0o600 and (cipher.stat().st_mode & 0o777) == 0o600
+
+    restore = _restore_facts(key, nonce, plaintext_hash, ciphertext_hash)
+    decrypted = tmp_path / "decrypted"
+    runtime._decrypt_and_verify_checkpoint_file(restore, str(cipher), str(decrypted))
+    assert decrypted.read_bytes() == plain.read_bytes()
+
+    target = tmp_path / "restored" / "profile"
+    target.parent.mkdir()
+    runtime._install_restored_profile_from_file(str(target), str(decrypted))
+    assert (target / "Default" / "IndexedDB" / "auth-state").read_bytes() == b"signed-in " * 5000
+    assert (target / "Default" / "Preferences").exists()
+    assert not (target / "Default" / "Cache").exists(), "regenerable cache is never archived"
+
+
+def test_streaming_decrypt_refuses_a_tampered_ciphertext(tmp_path) -> None:
+    profile = _profile_fixture(tmp_path)
+    key, nonce = b"k" * 32, b"n" * 12
+    plain, cipher = tmp_path / "archive", tmp_path / "archive.enc"
+    plaintext_hash, _, _ = runtime._archive_dir_to_file(str(profile), str(plain))
+    ciphertext_hash, _, _ = runtime._encrypt_checkpoint_file(
+        base64.b64encode(key).decode("ascii"), nonce, str(plain), str(cipher)
+    )
+    raw = bytearray(cipher.read_bytes())
+    raw[10] ^= 0xFF
+    cipher.write_bytes(bytes(raw))
+    with pytest.raises(ValueError, match="ciphertext hash mismatch"):
+        runtime._decrypt_and_verify_checkpoint_file(
+            _restore_facts(key, nonce, plaintext_hash, ciphertext_hash),
+            str(cipher),
+            str(tmp_path / "out"),
+        )
+    # Same bytes, but a hash that "matches": the AEAD tag still refuses it.
+    from cryptography.exceptions import InvalidTag
+
+    lying = _restore_facts(key, nonce, plaintext_hash, runtime._sha256_hex(bytes(raw)))
+    with pytest.raises(InvalidTag):
+        runtime._decrypt_and_verify_checkpoint_file(lying, str(cipher), str(tmp_path / "out2"))
+
+
+def test_restore_reads_the_pre_zstd_plain_tar_format(tmp_path) -> None:
+    """Every checkpoint written before 2026-09-20 is a plain tar; it must keep
+    restoring after the worker started writing tar+zstd."""
+    profile = _profile_fixture(tmp_path)
+    legacy = tmp_path / "legacy.tar"
+    with tarfile.open(legacy, mode="w") as tar:
+        tar.add(profile, arcname="profile")
+    assert legacy.read_bytes()[:4] != runtime._ZSTD_MAGIC
+
+    target = tmp_path / "restored" / "profile"
+    target.parent.mkdir()
+    runtime._install_restored_profile_from_file(str(target), str(legacy))
+    assert (target / "Default" / "IndexedDB" / "auth-state").read_bytes() == b"signed-in " * 5000
+
+
+def test_restore_refuses_an_archive_that_escapes_the_profile(tmp_path) -> None:
+    evil = tmp_path / "evil.tar"
+    with tarfile.open(evil, mode="w") as tar:
+        info = tarfile.TarInfo("profile/../../escape")
+        info.size = 1
+        tar.addfile(info, io.BytesIO(b"x"))
+    target = tmp_path / "restored" / "profile"
+    target.parent.mkdir()
+    with pytest.raises(ValueError, match="unsafe|escapes"):
+        runtime._install_restored_profile_from_file(str(target), str(evil))
+    assert not target.exists()
+
+
+# ── Self-protection: crash detection, termination, adoption, watchdog ────────
+
+
+async def test_a_context_that_closes_on_its_own_is_a_crash_not_healthy(monkeypatch, tmp_path) -> None:
+    worker = BrowserWorker(worker_id="worker-test-crash")
+    _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
+    monkeypatch.setattr(worker, "_guard_command_admission", BrowserWorker._guard_command_admission.__get__(worker))
+
+    class _DeadContext:
+        async def close(self) -> None:
+            raise AssertionError("a crashed context must never be closed again")
+
+    worker._context = _DeadContext()
+    worker._pw = None
+    worker._on_context_closed()
+
+    assert worker.health == "browser_crashed"
+    assert worker.queue_state == "closed"
+    with pytest.raises(WorkerProtocolError) as refused:
+        worker._guard_command_admission("agent")
+    assert refused.value.code == "browser_crashed"
+    # The checkpoint that repairs it does not try to close the dead handle.
+    assert await worker._close_context_cleanly() is True
+    assert worker._context is None
+
+
+async def test_an_intentional_close_is_not_a_crash(monkeypatch, tmp_path) -> None:
+    worker = BrowserWorker(worker_id="worker-test-intentional")
+    _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
+    closed = []
+
+    class _Context:
+        async def close(self) -> None:
+            closed.append(True)
+            worker._on_context_closed()  # Playwright fires "close" for our own close too
+
+    worker._context = _Context()
+    worker._pw = None
+    assert await worker._close_context_cleanly() is True
+    assert closed == [True]
+    assert worker.health == "healthy"
+
+
+async def test_terminate_gracefully_closes_chromium_and_refuses_new_work(monkeypatch, tmp_path) -> None:
+    worker = BrowserWorker(worker_id="worker-test-term")
+    _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
+    monkeypatch.setattr(worker, "_guard_command_admission", BrowserWorker._guard_command_admission.__get__(worker))
+    closed = []
+
+    class _Context:
+        async def close(self) -> None:
+            closed.append(True)
+
+    worker._context = _Context()
+    worker._pw = None
+
+    await worker.terminate_gracefully(reason="sigterm")
+    await worker.terminate_gracefully(reason="sigterm")  # idempotent
+
+    assert closed == [True]
+    assert worker.health == "stopped" and worker.queue_state == "closed"
+    with pytest.raises(WorkerProtocolError) as refused:
+        worker._guard_command_admission("agent")
+    assert refused.value.code == "worker_shutting_down"
+
+
+def test_next_worker_adopts_the_profile_left_on_disk_after_the_same_checkpoint(tmp_path) -> None:
+    """Break caught (G6): a task ECS stopped lost everything since the last
+    save — the next bootstrap downloaded the checkpoint and REPLACED the
+    profile the dead task left on the shared volume. Now the live marker says
+    which checkpoint that profile descends from; when it is the one being
+    restored, the on-disk profile (newer) wins and the stale Chromium lock
+    files are removed."""
+    profile = tmp_path / "profile"
+    (profile / "Default").mkdir(parents=True)
+    (profile / "Default" / "Cookies").write_bytes(b"signed-in-after-checkpoint")
+    (profile / "SingletonLock").symlink_to("dead-host-12345")
+    runtime._write_profile_checkpoint_marker(str(profile), "abc123")
+    runtime._mark_profile_live(str(profile))  # Chromium launched on it
+    assert not (profile / runtime._PROFILE_CHECKPOINT_MARKER).exists()
+
+    assert runtime._adopt_live_profile(str(profile), "abc123") is True
+    assert (profile / "Default" / "Cookies").read_bytes() == b"signed-in-after-checkpoint"
+    assert not (profile / "SingletonLock").exists()
+    # A NEWER checkpoint (different hash) means another task saved since: download wins.
+    assert runtime._adopt_live_profile(str(profile), "newer999") is False
+
+
+async def test_restore_skips_the_download_for_an_adoptable_profile(monkeypatch, tmp_path) -> None:
+    profile = tmp_path / "profile"
+    (profile / "Default").mkdir(parents=True)
+    runtime._write_profile_checkpoint_marker(str(profile), "base777")
+    runtime._mark_profile_live(str(profile))
+
+    class RefuseNetwork:
+        def __init__(self, *a, **k):  # noqa: ANN002, ANN003
+            raise AssertionError("an adoptable profile must not be downloaded")
+
+    monkeypatch.setattr(runtime.httpx, "AsyncClient", RefuseNetwork)
+    restore = M.CheckpointRestore(
+        download_url="https://download.invalid/checkpoint",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        dek_plaintext_b64=base64.b64encode(b"k" * 32).decode("ascii"),
+        nonce_b64=base64.b64encode(b"n" * 12).decode("ascii"),
+        ciphertext_hash="c",
+        plaintext_hash="base777",
+    )
+    await runtime._restore_profile_once(str(profile), restore)
+    # Adopted, not restored: no checkpoint marker (the directory is a descendant,
+    # not a copy), and the lineage survives the next launch's live marker.
+    assert not (profile / runtime._PROFILE_CHECKPOINT_MARKER).exists()
+    runtime._mark_profile_live(str(profile))
+    assert runtime._profile_live_base(str(profile)) == "base777"
+
+
+async def test_lease_watchdog_ends_the_task_when_nobody_renews(monkeypatch, tmp_path) -> None:
+    worker = BrowserWorker(worker_id="worker-test-watchdog")
+    _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
+    ended = []
+    worker._end_process = lambda: ended.append(True)
+    closed = []
+
+    class _Context:
+        async def close(self) -> None:
+            closed.append(True)
+
+    worker._context = _Context()
+    worker._pw = None
+    now = datetime.now(UTC)
+    worker._lease_expires_at = now - timedelta(seconds=10)
+    assert worker._lease_watchdog_should_fire(now) is False  # inside the grace
+    late = now + timedelta(seconds=runtime.LEASE_WATCHDOG_GRACE_SECONDS + 1)
+    assert worker._lease_watchdog_should_fire(late) is True
+
+    monkeypatch.setattr(runtime, "LEASE_WATCHDOG_TICK_SECONDS", 0.01)
+    monkeypatch.setattr(runtime, "LEASE_WATCHDOG_GRACE_SECONDS", 0.0)
+    worker._lease_expires_at = now - timedelta(seconds=1)
+    worker._start_lease_watchdog()
+    assert worker._lease_watchdog is None, "a bare worker object never arms the watchdog"
+    worker.enable_lease_watchdog()
+    worker._start_lease_watchdog()
+    await asyncio.wait_for(worker._lease_watchdog, timeout=2)
+    assert closed == [True] and ended == [True]
+    assert worker.health == "stopped"

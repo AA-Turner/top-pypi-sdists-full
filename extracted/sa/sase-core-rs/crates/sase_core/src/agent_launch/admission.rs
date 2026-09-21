@@ -1,0 +1,1236 @@
+//! Durable launch-admission journal, fingerprints, and next-action planner.
+//!
+//! The coordinator journals per-unit phases before it waits, evaluates a
+//! condition, or dispatches. Replay is pure: terminal outcomes are never
+//! silently re-run, and dispatch uses a stable request fingerprint.
+
+use super::{
+    AgentUnitWire, LaunchOutcomeWire, LaunchPlanWire, LaunchUnitPayloadWire,
+    LaunchUnitResultWire, WaitTargetWire,
+};
+use crate::agent_hold::AgentHoldBlockWire;
+use crate::hold_directive::format_hold_directive;
+use crate::queue_directive::{format_queue_directive, QueueFieldsWire};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+
+pub const LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION: u32 = 1;
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum LaunchUnitPhaseWire {
+    #[default]
+    Reserved,
+    Waiting,
+    Checking,
+    Eligible,
+    Dispatching,
+    Launched,
+    Skipped,
+    ConditionError,
+    LaunchError,
+    Cancelled,
+}
+
+impl LaunchUnitPhaseWire {
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Launched
+                | Self::Skipped
+                | Self::ConditionError
+                | Self::LaunchError
+                | Self::Cancelled
+        )
+    }
+
+    pub fn outcome(self) -> Option<LaunchOutcomeWire> {
+        match self {
+            Self::Eligible => Some(LaunchOutcomeWire::Eligible),
+            Self::Launched => Some(LaunchOutcomeWire::Launched),
+            Self::Skipped => Some(LaunchOutcomeWire::Skipped),
+            Self::ConditionError => Some(LaunchOutcomeWire::ConditionError),
+            Self::LaunchError | Self::Cancelled => {
+                Some(LaunchOutcomeWire::LaunchError)
+            }
+            Self::Reserved
+            | Self::Waiting
+            | Self::Checking
+            | Self::Dispatching => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WaitedOutcomeWire {
+    pub target: WaitTargetWire,
+    pub outcome: LaunchOutcomeWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct LaunchAdmissionJournalEntryWire {
+    pub schema_version: u32,
+    pub seq: u64,
+    pub logical_id: String,
+    pub phase: LaunchUnitPhaseWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waited_outcomes: Option<Vec<WaitedOutcomeWire>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatch_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_reference: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_key: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locator: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uncertain: Option<bool>,
+    pub recorded_at_unix: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct LaunchAdmissionUnitStateWire {
+    pub logical_id: String,
+    pub phase: LaunchUnitPhaseWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_recorded_at_unix: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+    #[serde(default)]
+    pub waited_outcomes: Vec<WaitedOutcomeWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dispatch_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_reference: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_key: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locator: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uncertain: Option<bool>,
+    pub last_seq: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LaunchAdmissionWaitFactWire {
+    pub target: WaitTargetWire,
+    pub resolved: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<LaunchOutcomeWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LaunchAdmissionHoldBlockWire {
+    pub logical_id: String,
+    pub block: AgentHoldBlockWire,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LaunchAdmissionSummaryWire {
+    pub total: u32,
+    pub eligible: u32,
+    pub launched: u32,
+    pub skipped: u32,
+    pub condition_errors: u32,
+    pub launch_errors: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LaunchAdmissionActionWire {
+    Reserve {
+        logical_id: String,
+    },
+    Wait {
+        logical_id: String,
+    },
+    Check {
+        logical_id: String,
+        waited_outcomes: Vec<WaitedOutcomeWire>,
+    },
+    Eligible {
+        logical_id: String,
+        waited_outcomes: Vec<WaitedOutcomeWire>,
+    },
+    Dispatch {
+        logical_id: String,
+        fingerprint: String,
+        unit_kind: String,
+    },
+    FailCheck {
+        logical_id: String,
+        message: String,
+    },
+    FailDispatch {
+        logical_id: String,
+        message: String,
+    },
+    RecordLaunched {
+        logical_id: String,
+        identity: String,
+    },
+}
+
+pub fn wait_target_key(target: &WaitTargetWire) -> String {
+    match target {
+        WaitTargetWire::Logical { logical_id, .. } => {
+            format!("logical:{logical_id}")
+        }
+        WaitTargetWire::Agent { name } => format!("agent:{name}"),
+        WaitTargetWire::Proc { identifier } => format!("proc:{identifier}"),
+        WaitTargetWire::Bead { bead_id } => format!("bead:{bead_id}"),
+        WaitTargetWire::Time { value } => format!("time:{value}"),
+    }
+}
+
+pub fn dispatch_fingerprint(
+    plan_digest: &str,
+    logical_id: &str,
+    payload: &LaunchUnitPayloadWire,
+) -> String {
+    let value = serde_json::json!({
+        "plan_digest": plan_digest,
+        "logical_id": logical_id,
+        "payload": payload,
+    });
+    hex::encode(Sha256::digest(value.to_string().as_bytes()))
+}
+
+pub fn reconcile_admission_journal(
+    entries: &[LaunchAdmissionJournalEntryWire],
+) -> BTreeMap<String, LaunchAdmissionUnitStateWire> {
+    let mut states = BTreeMap::new();
+    for entry in entries {
+        let state =
+            states.entry(entry.logical_id.clone()).or_insert_with(|| {
+                LaunchAdmissionUnitStateWire {
+                    logical_id: entry.logical_id.clone(),
+                    phase: entry.phase,
+                    first_recorded_at_unix: Some(entry.recorded_at_unix),
+                    last_seq: entry.seq,
+                    ..Default::default()
+                }
+            });
+        state.phase = entry.phase;
+        state.last_seq = entry.seq;
+        if let Some(fingerprint) = &entry.fingerprint {
+            state.fingerprint = Some(fingerprint.clone());
+        }
+        if let Some(identity) = &entry.identity {
+            state.identity = Some(identity.clone());
+        }
+        if let Some(waited) = &entry.waited_outcomes {
+            state.waited_outcomes = waited.clone();
+        }
+        if let Some(message) = &entry.message {
+            state.message = Some(message.clone());
+        } else if matches!(
+            entry.phase,
+            LaunchUnitPhaseWire::Dispatching | LaunchUnitPhaseWire::Launched
+        ) {
+            state.message = None;
+        }
+        if let Some(dispatch_target) = &entry.dispatch_target {
+            state.dispatch_target = Some(dispatch_target.clone());
+        }
+        if let Some(workspace_reference) = &entry.workspace_reference {
+            state.workspace_reference = Some(workspace_reference.clone());
+        }
+        if let Some(operation_key) = &entry.operation_key {
+            state.operation_key = Some(operation_key.clone());
+        }
+        if let Some(locator) = &entry.locator {
+            state.locator = Some(locator.clone());
+        }
+        if let Some(receipt_state) = &entry.receipt_state {
+            state.receipt_state = Some(receipt_state.clone());
+        }
+        if let Some(uncertain) = entry.uncertain {
+            state.uncertain = Some(uncertain);
+        }
+    }
+    states
+}
+
+pub fn next_admission_actions(
+    plan: &LaunchPlanWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+    wait_facts: &[LaunchAdmissionWaitFactWire],
+) -> Vec<LaunchAdmissionActionWire> {
+    next_admission_actions_with_holds(plan, states, wait_facts, &[])
+}
+
+pub fn next_admission_actions_with_holds(
+    plan: &LaunchPlanWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+    wait_facts: &[LaunchAdmissionWaitFactWire],
+    hold_blocks: &[LaunchAdmissionHoldBlockWire],
+) -> Vec<LaunchAdmissionActionWire> {
+    let facts = facts_by_key(wait_facts);
+    let holds = hold_blocks_by_logical_id(hold_blocks);
+    let mut actions = Vec::new();
+    for unit in &plan.units {
+        match states.get(&unit.logical_id) {
+            None => actions.push(LaunchAdmissionActionWire::Reserve {
+                logical_id: unit.logical_id.clone(),
+            }),
+            Some(state) => match state.phase {
+                LaunchUnitPhaseWire::Reserved => {
+                    actions.push(LaunchAdmissionActionWire::Wait {
+                        logical_id: unit.logical_id.clone(),
+                    });
+                }
+                LaunchUnitPhaseWire::Waiting => {
+                    if let Some(waited) =
+                        resolved_wait_outcomes(unit, states, &facts)
+                    {
+                        if proc_unit_held(unit, &holds) {
+                            continue;
+                        }
+                        if unit.condition.is_some() {
+                            actions.push(LaunchAdmissionActionWire::Check {
+                                logical_id: unit.logical_id.clone(),
+                                waited_outcomes: waited,
+                            });
+                        } else {
+                            actions.push(LaunchAdmissionActionWire::Eligible {
+                                logical_id: unit.logical_id.clone(),
+                                waited_outcomes: waited,
+                            });
+                        }
+                    }
+                }
+                LaunchUnitPhaseWire::Checking => {
+                    actions.push(LaunchAdmissionActionWire::FailCheck {
+                        logical_id: unit.logical_id.clone(),
+                        message: "check_interrupted".to_string(),
+                    });
+                }
+                LaunchUnitPhaseWire::Eligible => {
+                    if proc_unit_held(unit, &holds) {
+                        continue;
+                    }
+                    actions.push(dispatch_action(plan, unit));
+                }
+                LaunchUnitPhaseWire::Dispatching => {
+                    if let Some(identity) = &state.identity {
+                        actions.push(
+                            LaunchAdmissionActionWire::RecordLaunched {
+                                logical_id: unit.logical_id.clone(),
+                                identity: identity.clone(),
+                            },
+                        );
+                    } else if unit_is_remote_agent(unit) {
+                        // Reconcile the same remote operation instead of
+                        // failing or spawning a local fallback.
+                        actions.push(dispatch_action(plan, unit));
+                    } else {
+                        actions.push(LaunchAdmissionActionWire::FailDispatch {
+                            logical_id: unit.logical_id.clone(),
+                            message: "dispatch_interrupted".to_string(),
+                        });
+                    }
+                }
+                LaunchUnitPhaseWire::Launched
+                | LaunchUnitPhaseWire::Skipped
+                | LaunchUnitPhaseWire::ConditionError
+                | LaunchUnitPhaseWire::LaunchError
+                | LaunchUnitPhaseWire::Cancelled => {}
+            },
+        }
+    }
+    actions
+}
+
+pub fn summarize_admission(
+    plan: &LaunchPlanWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+) -> LaunchAdmissionSummaryWire {
+    let mut summary = LaunchAdmissionSummaryWire {
+        total: plan.units.len() as u32,
+        eligible: 0,
+        launched: 0,
+        skipped: 0,
+        condition_errors: 0,
+        launch_errors: 0,
+    };
+    for unit in &plan.units {
+        let Some(state) = states.get(&unit.logical_id) else {
+            continue;
+        };
+        match state.phase {
+            LaunchUnitPhaseWire::Eligible
+            | LaunchUnitPhaseWire::Dispatching => {
+                summary.eligible += 1;
+            }
+            LaunchUnitPhaseWire::Launched => {
+                summary.eligible += 1;
+                summary.launched += 1;
+            }
+            LaunchUnitPhaseWire::Skipped => summary.skipped += 1,
+            LaunchUnitPhaseWire::ConditionError => {
+                summary.condition_errors += 1
+            }
+            LaunchUnitPhaseWire::LaunchError
+            | LaunchUnitPhaseWire::Cancelled => summary.launch_errors += 1,
+            LaunchUnitPhaseWire::Reserved
+            | LaunchUnitPhaseWire::Waiting
+            | LaunchUnitPhaseWire::Checking => {}
+        }
+    }
+    summary
+}
+
+pub fn admission_unit_results(
+    plan: &LaunchPlanWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+) -> Vec<LaunchUnitResultWire> {
+    plan.units
+        .iter()
+        .filter_map(|unit| {
+            let state = states.get(&unit.logical_id)?;
+            let outcome = state.phase.outcome()?;
+            Some(LaunchUnitResultWire {
+                logical_id: unit.logical_id.clone(),
+                outcome,
+                message: state.message.clone(),
+                identity: state.identity.clone(),
+                dispatch_target: state.dispatch_target.clone().or_else(|| {
+                    match &unit.payload {
+                        LaunchUnitPayloadWire::Agent(agent) => {
+                            agent.dispatch_target.clone()
+                        }
+                        LaunchUnitPayloadWire::Proc(_) => None,
+                    }
+                }),
+                workspace_reference: state.workspace_reference.clone().or_else(
+                    || match &unit.payload {
+                        LaunchUnitPayloadWire::Agent(agent) => {
+                            agent.workspace_reference.clone()
+                        }
+                        LaunchUnitPayloadWire::Proc(_) => None,
+                    },
+                ),
+                operation_key: state.operation_key.clone(),
+                locator: state.locator.clone(),
+                receipt_state: state.receipt_state.clone(),
+                uncertain: state.uncertain,
+            })
+        })
+        .collect()
+}
+
+pub fn agent_unit_dispatch_prompt(agent: &AgentUnitWire) -> String {
+    agent_unit_dispatch_prompt_with_flags(agent, &[])
+}
+
+pub fn agent_unit_dispatch_prompt_with_flags(
+    agent: &AgentUnitWire,
+    _enabled_feature_flags: &[String],
+) -> String {
+    let mut lines = Vec::new();
+    if let Some(target) = agent.dispatch_target.as_deref() {
+        if !target.is_empty() {
+            lines.push(format!("%dispatch:{target}"));
+        }
+    }
+    lines.extend(agent.identity_directive_lines());
+    match (&agent.model, &agent.reasoning_effort) {
+        (Some(model), Some(effort)) => {
+            lines.push(format!("%model:{model}@{effort}"));
+        }
+        (Some(model), None) => lines.push(format!("%model:{model}")),
+        (None, Some(effort)) => lines.push(format!("%effort:{effort}")),
+        (None, None) => {}
+    }
+    if agent.auto_enabled {
+        match &agent.auto_mode {
+            Some(mode) if mode != "plan" => {
+                lines.push(format!("%auto:{mode}"));
+            }
+            _ => lines.push("%auto".to_string()),
+        }
+    }
+    if !agent.finalizers.is_empty() {
+        lines.push(format!("%final:{}", agent.finalizers.join(",")));
+    }
+    if agent.hidden {
+        lines.push("%hide".to_string());
+    }
+    if let Some(directive) = format_queue_directive(&QueueFieldsWire {
+        queue_capacity: agent.authored_queue_capacity(),
+        priority: agent.wait_priority,
+        weight: if agent.queue_weight_explicit {
+            agent.queue_weight
+        } else {
+            None
+        },
+    }) {
+        lines.push(directive);
+    }
+    if let Some(directive) = agent.hold.as_ref().and_then(format_hold_directive)
+    {
+        lines.push(directive);
+    }
+    if let Some(workspace) = agent.workspace_reference.as_deref() {
+        if !workspace.is_empty() {
+            lines.push(workspace.to_string());
+        }
+    }
+    if !agent.prompt.is_empty() {
+        lines.push(agent.prompt.clone());
+    }
+    lines.join("\n")
+}
+
+fn unit_is_remote_agent(unit: &super::LaunchUnitWire) -> bool {
+    match &unit.payload {
+        LaunchUnitPayloadWire::Agent(agent) => agent.dispatch_target.is_some(),
+        LaunchUnitPayloadWire::Proc(_) => false,
+    }
+}
+
+fn dispatch_action(
+    plan: &LaunchPlanWire,
+    unit: &super::LaunchUnitWire,
+) -> LaunchAdmissionActionWire {
+    let unit_kind = match unit.payload {
+        LaunchUnitPayloadWire::Agent(_) => "agent",
+        LaunchUnitPayloadWire::Proc(_) => "proc",
+    };
+    LaunchAdmissionActionWire::Dispatch {
+        logical_id: unit.logical_id.clone(),
+        fingerprint: dispatch_fingerprint(
+            &plan.content_digest,
+            &unit.logical_id,
+            &unit.payload,
+        ),
+        unit_kind: unit_kind.to_string(),
+    }
+}
+
+fn facts_by_key(
+    wait_facts: &[LaunchAdmissionWaitFactWire],
+) -> BTreeMap<String, LaunchAdmissionWaitFactWire> {
+    let mut facts = BTreeMap::new();
+    for fact in wait_facts {
+        facts.insert(wait_target_key(&fact.target), fact.clone());
+    }
+    facts
+}
+
+fn hold_blocks_by_logical_id(
+    hold_blocks: &[LaunchAdmissionHoldBlockWire],
+) -> BTreeMap<String, Vec<AgentHoldBlockWire>> {
+    let mut blocks: BTreeMap<String, Vec<AgentHoldBlockWire>> = BTreeMap::new();
+    for block in hold_blocks {
+        blocks
+            .entry(block.logical_id.clone())
+            .or_default()
+            .push(block.block.clone());
+    }
+    blocks
+}
+
+fn proc_unit_held(
+    unit: &super::LaunchUnitWire,
+    holds: &BTreeMap<String, Vec<AgentHoldBlockWire>>,
+) -> bool {
+    matches!(unit.payload, LaunchUnitPayloadWire::Proc(_))
+        && holds
+            .get(&unit.logical_id)
+            .is_some_and(|blocks| !blocks.is_empty())
+}
+
+fn resolved_wait_outcomes(
+    unit: &super::LaunchUnitWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+    facts: &BTreeMap<String, LaunchAdmissionWaitFactWire>,
+) -> Option<Vec<WaitedOutcomeWire>> {
+    let mut waited = Vec::new();
+    for target in &unit.waits {
+        waited.push(resolved_wait_outcome(target, states, facts)?);
+    }
+    Some(waited)
+}
+
+fn resolved_wait_outcome(
+    target: &WaitTargetWire,
+    states: &BTreeMap<String, LaunchAdmissionUnitStateWire>,
+    facts: &BTreeMap<String, LaunchAdmissionWaitFactWire>,
+) -> Option<WaitedOutcomeWire> {
+    if let WaitTargetWire::Logical { logical_id, .. } = target {
+        let state = states.get(logical_id)?;
+        let outcome = state.phase.outcome()?;
+        return Some(WaitedOutcomeWire {
+            target: target.clone(),
+            outcome,
+            identity: state.identity.clone(),
+            message: state.message.clone(),
+        });
+    }
+    let fact = facts.get(&wait_target_key(target))?;
+    if !fact.resolved {
+        return None;
+    }
+    Some(WaitedOutcomeWire {
+        target: target.clone(),
+        outcome: fact.outcome.unwrap_or(LaunchOutcomeWire::Launched),
+        identity: fact.identity.clone(),
+        message: fact.message.clone(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agent_hold::{
+        AgentHoldArmerKindWire, AgentHoldBlockArmerWire, AgentHoldBlockWire,
+        AGENT_HOLD_WIRE_SCHEMA_VERSION,
+    };
+    use crate::agent_launch::{
+        AgentUnitWire, LaunchConditionWire, LaunchUnitWire, ProcUnitWire,
+        LAUNCH_PLAN_WIRE_SCHEMA_VERSION,
+    };
+    use crate::fenced_code::CodeValueWire;
+
+    fn agent_unit(logical_id: &str, source_order: u32) -> LaunchUnitWire {
+        LaunchUnitWire {
+            logical_id: logical_id.to_string(),
+            source_order,
+            waits: Vec::new(),
+            condition: None,
+            payload: LaunchUnitPayloadWire::Agent(AgentUnitWire {
+                prompt: "Do work".to_string(),
+                identity: Some("reviewer".to_string()),
+                identity_explicit: true,
+                model: Some("opus".to_string()),
+                ..Default::default()
+            }),
+        }
+    }
+
+    fn proc_unit(logical_id: &str, source_order: u32) -> LaunchUnitWire {
+        LaunchUnitWire {
+            logical_id: logical_id.to_string(),
+            source_order,
+            waits: Vec::new(),
+            condition: None,
+            payload: LaunchUnitPayloadWire::Proc(ProcUnitWire {
+                code: CodeValueWire {
+                    schema_version: 1,
+                    source: "just check".to_string(),
+                    language: "bash".to_string(),
+                    info_string: None,
+                    digest: "b".repeat(64),
+                    preview: "just check".to_string(),
+                },
+                shell_name: Some("check".to_string()),
+                label: None,
+                timeout: None,
+                idle_timeout: None,
+                cwd: None,
+                workspace: true,
+                workspace_explicit: false,
+                selected_project: Some("sase".to_string()),
+                queue_capacity: None,
+                wait_priority: None,
+                queue_weight: None,
+                queue_weight_explicit: false,
+                hold: None,
+            }),
+        }
+    }
+
+    fn hold_block(logical_id: &str) -> LaunchAdmissionHoldBlockWire {
+        LaunchAdmissionHoldBlockWire {
+            logical_id: logical_id.to_string(),
+            block: AgentHoldBlockWire {
+                schema_version: AGENT_HOLD_WIRE_SCHEMA_VERSION,
+                armer: AgentHoldBlockArmerWire {
+                    kind: AgentHoldArmerKindWire::Agent,
+                    key: "agent:holder".to_string(),
+                    display: "holder".to_string(),
+                    project: "sase".to_string(),
+                },
+                expires_at: 1_800_000_060.0,
+                matches: Vec::new(),
+            },
+        }
+    }
+
+    fn plan_with(units: Vec<LaunchUnitWire>) -> LaunchPlanWire {
+        LaunchPlanWire {
+            schema_version: LAUNCH_PLAN_WIRE_SCHEMA_VERSION,
+            launch_kind: "multi_prompt".to_string(),
+            selected_project: Some("sase".to_string()),
+            units,
+            approval_preview: Vec::new(),
+            content_digest: "d".repeat(64),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn entry(
+        seq: u64,
+        logical_id: &str,
+        phase: LaunchUnitPhaseWire,
+    ) -> LaunchAdmissionJournalEntryWire {
+        LaunchAdmissionJournalEntryWire {
+            schema_version: LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION,
+            seq,
+            logical_id: logical_id.to_string(),
+            phase,
+            recorded_at_unix: seq as f64,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn dispatch_fingerprint_is_stable_for_same_payload() {
+        let payload = LaunchUnitPayloadWire::Agent(AgentUnitWire {
+            prompt: "Review".to_string(),
+            ..Default::default()
+        });
+        let first = dispatch_fingerprint("abc", "unit-1", &payload);
+        let second = dispatch_fingerprint("abc", "unit-1", &payload);
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 64);
+        assert_ne!(first, dispatch_fingerprint("abc", "unit-2", &payload));
+    }
+
+    #[test]
+    fn reconcile_keeps_latest_phase_and_identity() {
+        let mut second = entry(2, "unit-1", LaunchUnitPhaseWire::Launched);
+        second.identity = Some("reviewer".to_string());
+        second.fingerprint = Some("fp".to_string());
+        let states = reconcile_admission_journal(&[
+            entry(1, "unit-1", LaunchUnitPhaseWire::Dispatching),
+            second,
+        ]);
+        let state = states.get("unit-1").unwrap();
+        assert_eq!(state.phase, LaunchUnitPhaseWire::Launched);
+        assert_eq!(state.identity.as_deref(), Some("reviewer"));
+        assert_eq!(state.fingerprint.as_deref(), Some("fp"));
+        assert_eq!(state.first_recorded_at_unix, Some(1.0));
+    }
+
+    #[test]
+    fn next_actions_reserve_then_wait_then_dispatch_agent() {
+        let plan = plan_with(vec![agent_unit("unit-1", 0)]);
+        let empty = BTreeMap::new();
+        let reserved = next_admission_actions(&plan, &empty, &[]);
+        assert_eq!(
+            reserved,
+            vec![LaunchAdmissionActionWire::Reserve {
+                logical_id: "unit-1".to_string()
+            }]
+        );
+
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Reserved,
+                last_seq: 1,
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            next_admission_actions(&plan, &states, &[]),
+            vec![LaunchAdmissionActionWire::Wait {
+                logical_id: "unit-1".to_string()
+            }]
+        );
+
+        states.get_mut("unit-1").unwrap().phase = LaunchUnitPhaseWire::Waiting;
+        match &next_admission_actions(&plan, &states, &[])[0] {
+            LaunchAdmissionActionWire::Eligible {
+                logical_id,
+                waited_outcomes,
+            } => {
+                assert_eq!(logical_id, "unit-1");
+                assert!(waited_outcomes.is_empty());
+            }
+            other => panic!("expected eligible, got {other:?}"),
+        }
+
+        states.get_mut("unit-1").unwrap().phase = LaunchUnitPhaseWire::Eligible;
+        match &next_admission_actions(&plan, &states, &[])[0] {
+            LaunchAdmissionActionWire::Dispatch {
+                logical_id,
+                unit_kind,
+                fingerprint,
+            } => {
+                assert_eq!(logical_id, "unit-1");
+                assert_eq!(unit_kind, "agent");
+                assert_eq!(fingerprint.len(), 64);
+            }
+            other => panic!("expected dispatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn proc_hold_blocks_waiting_to_eligible_and_eligible_to_dispatch() {
+        let plan = plan_with(vec![proc_unit("unit-1", 0)]);
+        let hold_blocks = vec![hold_block("unit-1")];
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Waiting,
+                last_seq: 2,
+                ..Default::default()
+            },
+        );
+        assert!(next_admission_actions_with_holds(
+            &plan,
+            &states,
+            &[],
+            &hold_blocks
+        )
+        .is_empty());
+        assert!(matches!(
+            next_admission_actions_with_holds(&plan, &states, &[], &[])[0],
+            LaunchAdmissionActionWire::Eligible { .. }
+        ));
+
+        states.get_mut("unit-1").unwrap().phase = LaunchUnitPhaseWire::Eligible;
+        assert!(next_admission_actions_with_holds(
+            &plan,
+            &states,
+            &[],
+            &hold_blocks
+        )
+        .is_empty());
+        assert!(matches!(
+            next_admission_actions_with_holds(&plan, &states, &[], &[])[0],
+            LaunchAdmissionActionWire::Dispatch { .. }
+        ));
+    }
+
+    #[test]
+    fn skipped_predecessor_is_terminal_and_does_not_retarget() {
+        let mut dependent = agent_unit("unit-2", 1);
+        dependent.waits = vec![WaitTargetWire::Logical {
+            logical_id: "unit-1".to_string(),
+            source: Some("%wait".to_string()),
+        }];
+        let plan = plan_with(vec![agent_unit("unit-1", 0), dependent]);
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Skipped,
+                message: Some("predicate exited 1".to_string()),
+                last_seq: 4,
+                ..Default::default()
+            },
+        );
+        states.insert(
+            "unit-2".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-2".to_string(),
+                phase: LaunchUnitPhaseWire::Waiting,
+                last_seq: 3,
+                ..Default::default()
+            },
+        );
+
+        match &next_admission_actions(&plan, &states, &[])[0] {
+            LaunchAdmissionActionWire::Eligible {
+                logical_id,
+                waited_outcomes,
+            } => {
+                assert_eq!(logical_id, "unit-2");
+                assert_eq!(waited_outcomes.len(), 1);
+                assert_eq!(
+                    waited_outcomes[0].target,
+                    WaitTargetWire::Logical {
+                        logical_id: "unit-1".to_string(),
+                        source: Some("%wait".to_string()),
+                    }
+                );
+                assert_eq!(
+                    waited_outcomes[0].outcome,
+                    LaunchOutcomeWire::Skipped
+                );
+            }
+            other => panic!("expected eligible on unit-2, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn condition_units_check_after_waits_and_fail_interrupted_checks() {
+        let mut unit = agent_unit("unit-1", 0);
+        unit.condition = Some(LaunchConditionWire {
+            code: CodeValueWire {
+                schema_version: 1,
+                source: "true".to_string(),
+                language: "bash".to_string(),
+                info_string: None,
+                digest: "c".repeat(64),
+                preview: "true".to_string(),
+            },
+            cwd: None,
+            context_fields: vec!["waited_outcomes".to_string()],
+        });
+        let plan = plan_with(vec![unit]);
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Waiting,
+                last_seq: 2,
+                ..Default::default()
+            },
+        );
+        match &next_admission_actions(&plan, &states, &[])[0] {
+            LaunchAdmissionActionWire::Check { logical_id, .. } => {
+                assert_eq!(logical_id, "unit-1");
+            }
+            other => panic!("expected check, got {other:?}"),
+        }
+
+        states.get_mut("unit-1").unwrap().phase = LaunchUnitPhaseWire::Checking;
+        assert_eq!(
+            next_admission_actions(&plan, &states, &[])[0],
+            LaunchAdmissionActionWire::FailCheck {
+                logical_id: "unit-1".to_string(),
+                message: "check_interrupted".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dispatching_without_identity_fails_instead_of_redoing_spawn() {
+        let plan = plan_with(vec![agent_unit("unit-1", 0)]);
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Dispatching,
+                fingerprint: Some("fp".to_string()),
+                last_seq: 5,
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            next_admission_actions(&plan, &states, &[])[0],
+            LaunchAdmissionActionWire::FailDispatch {
+                logical_id: "unit-1".to_string(),
+                message: "dispatch_interrupted".to_string(),
+            }
+        );
+        states.get_mut("unit-1").unwrap().identity =
+            Some("reviewer".to_string());
+        assert_eq!(
+            next_admission_actions(&plan, &states, &[])[0],
+            LaunchAdmissionActionWire::RecordLaunched {
+                logical_id: "unit-1".to_string(),
+                identity: "reviewer".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn remote_dispatching_without_identity_retries_same_fingerprint() {
+        let mut unit = agent_unit("unit-1", 0);
+        match &mut unit.payload {
+            LaunchUnitPayloadWire::Agent(agent) => {
+                agent.dispatch_target = Some("apollo".to_string());
+                agent.workspace_reference = Some("#gh:sase".to_string());
+            }
+            other => panic!("expected agent payload, got {other:?}"),
+        }
+        let plan = plan_with(vec![unit.clone()]);
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Dispatching,
+                fingerprint: Some("fp".to_string()),
+                last_seq: 5,
+                ..Default::default()
+            },
+        );
+        match &next_admission_actions(&plan, &states, &[])[0] {
+            LaunchAdmissionActionWire::Dispatch {
+                logical_id,
+                fingerprint,
+                unit_kind,
+            } => {
+                assert_eq!(logical_id, "unit-1");
+                assert_eq!(unit_kind, "agent");
+                assert_eq!(
+                    fingerprint,
+                    &dispatch_fingerprint(
+                        &plan.content_digest,
+                        "unit-1",
+                        &unit.payload,
+                    )
+                );
+            }
+            other => panic!("expected dispatch retry, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn agent_dispatch_prompt_restores_workspace_and_dispatch() {
+        let prompt = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Watch Apollo".to_string(),
+            identity: Some("observer".to_string()),
+            identity_explicit: true,
+            dispatch_target: Some("apollo".to_string()),
+            workspace_provider: Some("gh".to_string()),
+            workspace_reference: Some("#gh:sase".to_string()),
+            ..Default::default()
+        });
+        assert!(prompt.starts_with("%dispatch:apollo\n"));
+        assert!(prompt.contains("%id:observer"));
+        assert!(prompt.contains("#gh:sase"));
+        assert!(prompt.contains("Watch Apollo"));
+    }
+
+    #[test]
+    fn external_wait_facts_gate_admission() {
+        let mut unit = agent_unit("unit-1", 0);
+        unit.waits = vec![WaitTargetWire::Agent {
+            name: "builder".to_string(),
+        }];
+        let plan = plan_with(vec![unit]);
+        let mut states = BTreeMap::new();
+        states.insert(
+            "unit-1".to_string(),
+            LaunchAdmissionUnitStateWire {
+                logical_id: "unit-1".to_string(),
+                phase: LaunchUnitPhaseWire::Waiting,
+                last_seq: 2,
+                ..Default::default()
+            },
+        );
+        assert!(next_admission_actions(&plan, &states, &[]).is_empty());
+        let facts = vec![LaunchAdmissionWaitFactWire {
+            target: WaitTargetWire::Agent {
+                name: "builder".to_string(),
+            },
+            resolved: true,
+            outcome: Some(LaunchOutcomeWire::Launched),
+            identity: Some("builder".to_string()),
+            message: None,
+        }];
+        match &next_admission_actions(&plan, &states, &facts)[0] {
+            LaunchAdmissionActionWire::Eligible {
+                waited_outcomes, ..
+            } => {
+                assert_eq!(
+                    waited_outcomes[0].identity.as_deref(),
+                    Some("builder")
+                );
+            }
+            other => panic!("expected eligible, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn summary_counts_partial_success_without_collapsing_errors() {
+        let plan = plan_with(vec![
+            agent_unit("unit-1", 0),
+            agent_unit("unit-2", 1),
+            agent_unit("unit-3", 2),
+            agent_unit("unit-4", 3),
+        ]);
+        let mut states = BTreeMap::new();
+        for (id, phase) in [
+            ("unit-1", LaunchUnitPhaseWire::Launched),
+            ("unit-2", LaunchUnitPhaseWire::Skipped),
+            ("unit-3", LaunchUnitPhaseWire::ConditionError),
+            ("unit-4", LaunchUnitPhaseWire::LaunchError),
+        ] {
+            states.insert(
+                id.to_string(),
+                LaunchAdmissionUnitStateWire {
+                    logical_id: id.to_string(),
+                    phase,
+                    last_seq: 1,
+                    ..Default::default()
+                },
+            );
+        }
+        let summary = summarize_admission(&plan, &states);
+        assert_eq!(
+            summary,
+            LaunchAdmissionSummaryWire {
+                total: 4,
+                eligible: 1,
+                launched: 1,
+                skipped: 1,
+                condition_errors: 1,
+                launch_errors: 1,
+            }
+        );
+        assert_eq!(admission_unit_results(&plan, &states).len(), 4);
+    }
+
+    #[test]
+    fn agent_dispatch_prompt_restores_identity_with_queue_directive() {
+        let prompt = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review the diff".to_string(),
+            identity: Some("reviewer".to_string()),
+            identity_explicit: true,
+            model: Some("opus".to_string()),
+            reasoning_effort: Some("high".to_string()),
+            bead_id: Some("sase-1".to_string()),
+            hidden: true,
+            auto_enabled: true,
+            auto_mode: Some("plan".to_string()),
+            finalizers: vec!["commit".to_string()],
+            queue_capacity: Some(2),
+            wait_priority: Some(1),
+            queue_weight: Some(2.0),
+            queue_weight_explicit: true,
+            ..Default::default()
+        });
+        assert!(prompt.contains("%id(reviewer, bead=sase-1)"));
+        assert!(prompt.contains("%model:opus@high"));
+        assert!(prompt.contains("%auto"));
+        assert!(prompt.contains("%final:commit"));
+        assert!(prompt.contains("%hide"));
+        assert!(prompt.contains("%queue(capacity=2, priority=1, weight=2)"));
+        assert!(!prompt.contains("%wait(runners="));
+        assert!(!prompt.contains("%queue(runners="));
+        assert!(!prompt.contains("%wait(priority="));
+        assert!(prompt.contains("Review the diff"));
+        assert!(!prompt.contains("%wait:"));
+        assert!(!prompt.contains("%if"));
+    }
+
+    #[test]
+    fn agent_dispatch_prompt_keeps_resolved_default_weight_implicit() {
+        let prompt = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review".to_string(),
+            queue_weight: Some(1.0),
+            queue_weight_explicit: false,
+            ..Default::default()
+        });
+        assert_eq!(prompt, "Review");
+    }
+
+    #[test]
+    fn agent_dispatch_prompt_restores_clan_declaration_and_join() {
+        let declaration = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Lead the split".to_string(),
+            identity: Some("toobig-3j.foo.0".to_string()),
+            identity_explicit: true,
+            clan: Some("toobig-3j".to_string()),
+            clan_declared: true,
+            clan_tribe: Some("chop".to_string()),
+            clan_summary: Some("[bold]Large modules[/bold]".to_string()),
+            ..Default::default()
+        });
+        assert!(declaration.contains("%id:toobig-3j.foo.0"));
+        assert!(declaration.contains(
+            "%clan(toobig-3j, tribe=chop, summary=[[[bold]Large modules[/bold]]])"
+        ));
+        assert!(!declaration.contains("%if"));
+
+        let join = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Join the split".to_string(),
+            identity: Some("bar.0".to_string()),
+            identity_explicit: true,
+            clan: Some("toobig-3j".to_string()),
+            ..Default::default()
+        });
+        assert!(join.contains("%id(bar.0, clan=toobig-3j)"));
+        assert!(!join.contains("%clan"));
+    }
+
+    #[test]
+    fn agent_dispatch_prompt_restores_family_and_direct_tribe() {
+        let family = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review".to_string(),
+            family_attach_parent: Some("parent".to_string()),
+            family_attach_suffix: Some("reviewer".to_string()),
+            bead_id: Some("sase-1".to_string()),
+            ..Default::default()
+        });
+        assert!(family.contains("%id(reviewer, family=parent, bead=sase-1)"));
+
+        let named_tribe = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review".to_string(),
+            identity: Some("worker".to_string()),
+            identity_explicit: true,
+            tribe: Some("review".to_string()),
+            ..Default::default()
+        });
+        assert!(named_tribe.contains("%id(worker, tribe=review)"));
+
+        let auto_tribe = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review".to_string(),
+            tribe: Some("review".to_string()),
+            ..Default::default()
+        });
+        assert!(auto_tribe.contains("%id(tribe=review)"));
+        assert!(!auto_tribe.contains("%id:"));
+    }
+
+    #[test]
+    fn proc_payload_fingerprint_uses_code_digest() {
+        let payload = LaunchUnitPayloadWire::Proc(ProcUnitWire {
+            code: CodeValueWire {
+                schema_version: 1,
+                source: "just check".to_string(),
+                language: "bash".to_string(),
+                info_string: None,
+                digest: "b".repeat(64),
+                preview: "just check".to_string(),
+            },
+            shell_name: Some("check".to_string()),
+            label: None,
+            timeout: None,
+            idle_timeout: None,
+            cwd: None,
+            workspace: true,
+            workspace_explicit: false,
+            selected_project: Some("sase".to_string()),
+            queue_capacity: None,
+            wait_priority: None,
+            queue_weight: None,
+            queue_weight_explicit: false,
+            hold: None,
+        });
+        assert_eq!(dispatch_fingerprint("plan", "unit-1", &payload).len(), 64);
+    }
+}

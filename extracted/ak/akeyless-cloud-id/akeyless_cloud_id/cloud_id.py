@@ -5,7 +5,112 @@ import datetime
 import hashlib
 import hmac
 import json
-import requests
+import os
+from urllib.error import URLError
+from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
+
+
+_ALIBABA_DEFAULT_REGION = "cn-hangzhou"
+_ALIBABA_STS_DOMAIN = "sts.aliyuncs.com"
+_ALIBABA_STS_API_VERSION = "2015-04-01"
+_ALIBABA_STS_API_ACTION = "GetCallerIdentity"
+_ALIBABA_STS_API_FORMAT = "JSON"
+_ALIBABA_SIGNATURE_METHOD = "HMAC-SHA1"
+_ALIBABA_ECS_METADATA_TOKEN_URL = "http://100.100.100.200/latest/api/token"
+_ALIBABA_ECS_ROLE_URL = "http://100.100.100.200/latest/meta-data/ram/security-credentials/"
+_ALIBABA_ECS_METADATA_TOKEN_TTL_SECONDS = "21600"
+_ALIBABA_RAM_ROLE_NAME_ALLOWED = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+=,.@_-"
+)
+
+
+def _alibaba_query_escape(value):
+    return (
+        quote_plus(str(value), safe="-._~")
+        .replace("+", "%20")
+        .replace("*", "%2A")
+        .replace("%7E", "~")
+    )
+
+
+def _alibaba_encode_query_params(params):
+    return "&".join(
+        "{}={}".format(_alibaba_query_escape(key), _alibaba_query_escape(params[key]))
+        for key in sorted(params)
+    )
+
+
+def _alibaba_rpc_string_to_sign(method, query_params):
+    encoded = _alibaba_encode_query_params(query_params)
+    return method + "&%2F&" + _alibaba_query_escape(encoded)
+
+
+def _alibaba_sha_hmac1(source, secret):
+    digest = hmac.new(secret.encode("utf-8"), source.encode("utf-8"), hashlib.sha1).digest()
+    return base64.b64encode(digest).decode()
+
+
+def _resolve_alibaba_region():
+    for key in ("ALIBABA_CLOUD_REGION_ID", "ALIBABA_CLOUD_REGION", "REGION_ID"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _resolve_alibaba_credentials():
+    access_key_id = (os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID") or os.environ.get("ALICLOUD_ACCESS_KEY") or "").strip()
+    access_key_secret = (os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET") or os.environ.get("ALICLOUD_SECRET_KEY") or "").strip()
+    security_token = (os.environ.get("ALIBABA_CLOUD_SECURITY_TOKEN") or os.environ.get("ALICLOUD_SECURITY_TOKEN") or "").strip()
+    if access_key_id and access_key_secret:
+        return access_key_id, access_key_secret, security_token
+    return _resolve_alibaba_ecs_ram_role()
+
+
+def _alibaba_imdsv1_disabled():
+    return os.environ.get("ALIBABA_CLOUD_IMDSV1_DISABLED", "").strip().lower() in ("1", "true", "yes")
+
+
+def _alibaba_ecs_open(url, method="GET", headers=None):
+    request = Request(url, method=method, headers=headers or {})
+    return urlopen(request, timeout=2).read().decode("utf-8")
+
+
+def _alibaba_ecs_metadata_token():
+    token = _alibaba_ecs_open(
+        _ALIBABA_ECS_METADATA_TOKEN_URL,
+        method="PUT",
+        headers={"X-aliyun-ecs-metadata-token-ttl-seconds": _ALIBABA_ECS_METADATA_TOKEN_TTL_SECONDS},
+    ).strip()
+    if not token:
+        raise ValueError("alibaba ecs metadata token is empty")
+    return token
+
+
+def _alibaba_ecs_get(url, token=""):
+    headers = {}
+    if token:
+        headers["X-aliyun-ecs-metadata-token"] = token
+    return _alibaba_ecs_open(url, headers=headers)
+
+
+def _alibaba_valid_ram_role_name(role_name):
+    return bool(role_name) and all(ch in _ALIBABA_RAM_ROLE_NAME_ALLOWED for ch in role_name)
+
+
+def _resolve_alibaba_ecs_ram_role():
+    token = ""
+    try:
+        token = _alibaba_ecs_metadata_token()
+    except (URLError, OSError, ValueError):
+        if _alibaba_imdsv1_disabled():
+            raise
+    role_name = _alibaba_ecs_get(_ALIBABA_ECS_ROLE_URL, token).strip()
+    if not _alibaba_valid_ram_role_name(role_name):
+        raise ValueError("alibaba credentials are missing access key id or secret")
+    creds = json.loads(_alibaba_ecs_get(_ALIBABA_ECS_ROLE_URL + role_name, token))
+    return creds.get("AccessKeyId", ""), creds.get("AccessKeySecret", ""), creds.get("SecurityToken", "")
 
 
 # Key derivation functions. See:
@@ -41,11 +146,57 @@ class CloudId:
         request = google.auth.transport.requests.Request()
         
         # Fetch ID token using default credentials
-        # This automatically handles service accounts, ADC, and compute engine
+        # This automatically handles service accounts and compute engine
         token = id_token.fetch_id_token(request, audience)
         
         cloud_id = base64.b64encode(token.encode()).decode()
         return cloud_id
+
+    def generateAlibaba(self, access_key_id="", access_key_secret="", security_token="", region="",
+                        timestamp="", nonce=""):
+        if not access_key_id or not access_key_secret:
+            access_key_id, access_key_secret, security_token = _resolve_alibaba_credentials()
+        if not region:
+            region = _resolve_alibaba_region() or _ALIBABA_DEFAULT_REGION
+        if not timestamp:
+            timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        if not nonce:
+            nonce = hashlib.sha1(os.urandom(16)).hexdigest()
+
+        if not access_key_id or not access_key_secret:
+            raise ValueError("alibaba credentials are missing access key id or secret")
+
+        query_params = {
+            "AccessKeyId": access_key_id,
+            "Action": _ALIBABA_STS_API_ACTION,
+            "Format": _ALIBABA_STS_API_FORMAT,
+            "RegionId": region,
+            "SignatureMethod": _ALIBABA_SIGNATURE_METHOD,
+            "SignatureNonce": nonce,
+            "SignatureType": "",
+            "SignatureVersion": "1.0",
+            "Timestamp": timestamp,
+            "Version": _ALIBABA_STS_API_VERSION,
+        }
+        if security_token:
+            query_params["SecurityToken"] = security_token
+
+        string_to_sign = _alibaba_rpc_string_to_sign("POST", query_params)
+        query_params["Signature"] = _alibaba_sha_hmac1(string_to_sign, access_key_secret + "&")
+
+        request_url = "https://{}/?{}".format(_ALIBABA_STS_DOMAIN, _alibaba_encode_query_params(query_params))
+        headers = {
+            "Content-Type": ["application/x-www-form-urlencoded"],
+            "X-Acs-Action": [_ALIBABA_STS_API_ACTION],
+            "X-Acs-Version": [_ALIBABA_STS_API_VERSION],
+        }
+        alibaba_data = {
+            "sts_request_method": "POST",
+            "sts_request_url": base64.b64encode(request_url.encode("utf-8")).decode(),
+            "sts_request_body": base64.b64encode(b"").decode(),
+            "sts_request_headers": base64.b64encode(json.dumps(headers).encode()).decode(),
+        }
+        return base64.b64encode(json.dumps(alibaba_data).encode()).decode()
 
     def generate(self, aws_access_id="", aws_secret_access_key="", security_token=""):
         import boto3

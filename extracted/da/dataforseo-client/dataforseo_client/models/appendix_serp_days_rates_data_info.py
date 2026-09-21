@@ -27,6 +27,8 @@ class AppendixSerpDaysRatesDataInfo(BaseModel):
     tasks_fixed: Optional[StrictFloat] = Field(default=None, description=r"")
     jobs: Optional[AppendixJobsSerpLimitsRatesDataInfo] = Field(default=None, description=r"")
     screenshot: Optional[StrictFloat] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
+    ai_summary: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "task_post", 
         "task_get", 
@@ -38,6 +40,8 @@ class AppendixSerpDaysRatesDataInfo(BaseModel):
         "tasks_fixed", 
         "jobs", 
         "screenshot", 
+        "id_list", 
+        "ai_summary", 
         ]
 
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
@@ -74,6 +78,8 @@ class AppendixSerpDaysRatesDataInfo(BaseModel):
         _dict['tasks_fixed'] = self.tasks_fixed
         _dict['jobs'] = self.jobs.to_dict() if self.jobs else None
         _dict['screenshot'] = self.screenshot
+        _dict['id_list'] = self.id_list
+        _dict['ai_summary'] = self.ai_summary
         return _dict
 
 
@@ -96,6 +102,8 @@ class AppendixSerpDaysRatesDataInfo(BaseModel):
             "tasks_fixed": obj.get("tasks_fixed"),
             "jobs": AppendixJobsSerpLimitsRatesDataInfo.from_dict(obj["jobs"]) if obj.get("jobs") is not None else None,
             "screenshot": obj.get("screenshot"),
+            "id_list": obj.get("id_list"),
+            "ai_summary": obj.get("ai_summary"),
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

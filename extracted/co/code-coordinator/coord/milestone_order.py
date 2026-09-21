@@ -181,7 +181,26 @@ _SUB_ISSUES_HEADING_RE = re.compile(r"^#{1,6}\s*Sub-issues\s*$", re.IGNORECASE)
 # grammar is migrating to drop it (`- #N {...}` instead of `- [ ] #N {...}`).
 # Both forms parse identically during the migration; `coord milestone sync`
 # is what rewrites existing bodies to the checkbox-free form.
-_ITEM_RE = re.compile(r"^-\s*(?:\[([ xX])\]\s*)?#(\d+)\s*(\{([^}]*)\})?")
+# #3426: a leading emphasis marker (`**`, `*`, `_`) between the checkbox and
+# `#N` is stripped before matching — `- [ ] **#1206 — tranche 2 of
+# #1191**: ...` is a reasonable thing for a human to type (bolding the lead
+# item is normal markdown) and used to raise `WorkOrderError` on the whole
+# section, silently voiding every sibling line too (vimcode#1170).
+#
+# A *closing* emphasis marker immediately after the digits (e.g.
+# `- [ ] **#765** {after: #762,#763}`, where only the issue number itself is
+# bolded) is also optionally consumed here, before the annotation. Without
+# this, `.match()` (not `.fullmatch()`) would still successfully match just
+# the `- [ ] **#765` prefix, silently dropping the `{after: ...}` annotation
+# instead of raising — trading a loud whole-block failure for a silent
+# wrong answer (review finding on #3426). The real vimcode#1170 shape
+# (`- [ ] **#1206 -- tranche 2 of #1191**: ...`, where the closing `**` is
+# not adjacent to the digits) is unaffected: there the digits are followed by
+# " -- tranche...", not `**`, so this optional group simply doesn't match
+# there and the rest of the line is still ignored by `.match`.
+_ITEM_RE = re.compile(
+    r"^-\s*(?:\[([ xX])\]\s*)?(?:\*\*|\*|_)?#(\d+)(?:\*\*|\*|_)?\s*(\{([^}]*)\})?"
+)
 # Splits `key: value` pairs on commas that precede the *next* key, so an
 # `after: #762,#763` value (itself comma-separated) isn't cut mid-list.
 _PAIR_RE = re.compile(r"(\w+)\s*:\s*(.*?)(?=,\s*\w+\s*:|$)")

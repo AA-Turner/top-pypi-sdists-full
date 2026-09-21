@@ -403,6 +403,12 @@ def run(path_config_files):
     if obj.run_models and not design.empty:
         model_dir = out_dir / "models"
         model_dir.mkdir(parents=True, exist_ok=True)
+        # Same staleness hazard as the top-level tree: this directory is not
+        # covered by the out_dir sweep, and model_failures.csv used to be
+        # written only when something failed -- so a previous run's failures
+        # survived a clean run and reported a working model as broken.
+        for old_csv in model_dir.glob("*.csv"):
+            old_csv.unlink()
         schemes = cv.build_schemes(
             design,
             n_splits=obj.n_splits,
@@ -424,10 +430,11 @@ def run(path_config_files):
         design.to_csv(model_dir / "design_matrix.csv", index=False)
         evaluation.predictions.to_csv(model_dir / "predictions.csv", index=False)
         evaluation.metrics.to_csv(model_dir / "metrics.csv", index=False)
-        if evaluation.failures:
-            pd.DataFrame({"failure": evaluation.failures}).to_csv(
-                model_dir / "model_failures.csv", index=False
-            )
+        # Always written, even empty: an absent file is ambiguous, and a stale
+        # one is worse than either.
+        pd.DataFrame({"failure": evaluation.failures}).to_csv(
+            model_dir / "model_failures.csv", index=False
+        )
         _print_model_table(console, evaluation.metrics, obj.max_delta)
 
     if obj.make_plots and diagnostics:

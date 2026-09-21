@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.12,<4"]
+requires = ["flit_core >=3.12,<5"]
 build-backend = "flit_core.buildapi"
 
 [project]
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -61,4 +62,6 @@ exclude = [
     "pyparsing_archive.py",
     "tests/.mypy_cache",
     "update_pyparsing_timestamp.py",
+    "**/*.png",         # exclude all .png files
+    "examples/*.html",  # exclude generated railroad diagram files
 ]

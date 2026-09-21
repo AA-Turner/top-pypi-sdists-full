@@ -236,6 +236,8 @@ pub fn assign_complete_stereochemistry(mol: &Molecule) -> Molecule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chematic_core::BondIdx;
+    use chematic_perception::find_sssr;
     use chematic_smiles::parse;
 
     fn mol(s: &str) -> Molecule {
@@ -610,6 +612,194 @@ mod tests {
             .find(|(_, a)| a.atom_map == Some(map_num))
             .map(|(idx, _)| idx)
             .expect("atom map tag not found")
+    }
+
+    fn potential_center_maps(m: &Molecule) -> std::collections::BTreeSet<u16> {
+        crate::potential_stereocenter_indices(m)
+            .into_iter()
+            .map(|idx| {
+                m.atom(idx).atom_map.expect(
+                    "the regression fixture must retain an atom-map identity for every center",
+                )
+            })
+            .collect()
+    }
+
+    /// Rebuild a graph in a supplied storage order for order-invariance tests.
+    ///
+    /// This fixture only exercises graph perception: the mapped bicyclic
+    /// amines deliberately carry no stereo side tables, so copying atoms and
+    /// bonds is sufficient and avoids presenting this test helper as a general
+    /// molecule-reordering API.
+    fn reorder_graph_for_perception(mol: &Molecule, order: &[AtomIdx]) -> Molecule {
+        assert_eq!(order.len(), mol.atom_count());
+        let mut builder = MoleculeBuilder::new();
+        let mut old_to_new = HashMap::with_capacity(order.len());
+        for &old_idx in order {
+            old_to_new.insert(old_idx, builder.add_atom(mol.atom(old_idx).clone()));
+        }
+        for bond_number in 0..mol.bond_count() {
+            let bond = mol.bond(BondIdx(bond_number as u32));
+            builder
+                .add_bond(old_to_new[&bond.atom1], old_to_new[&bond.atom2], bond.order)
+                .expect("permutation must preserve valid bonds");
+        }
+        builder.build()
+    }
+
+    fn seeded_order(atom_count: usize, seed: u64) -> Vec<AtomIdx> {
+        let mut order: Vec<_> = (0..atom_count as u32).map(AtomIdx).collect();
+        let mut state = seed.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        for upper in (1..order.len()).rev() {
+            // Fixed xorshift64* stream: deterministic across platforms and
+            // deliberately local to this regression fixture.
+            state ^= state >> 12;
+            state ^= state << 25;
+            state ^= state >> 27;
+            let index = (state.wrapping_mul(0x2545_f491_4f6c_dd1d) as usize) % (upper + 1);
+            order.swap(upper, index);
+        }
+        order
+    }
+
+    #[test]
+    fn potential_stereocenters_are_invariant_to_identity_and_atom_order_renumbering() {
+        // Regression for the atom-order state bug reported as RDKit #9629.
+        // The three SMILES below are RDKit serializations of the same
+        // bicyclic amine after identity, rotation, and reversal permutations.
+        // Atom-map IDs (rather than transient AtomIdx values) make the
+        // assertion about the same chemical atom across each spelling.
+        let spellings = [
+            "[CH2:1]1[CH2:2][CH2:3][N:4]2[CH2:5][CH2:6][CH2:7][CH:8]2[CH2:9]1",
+            "[N:4]12[CH2:5][CH2:6][CH2:7][CH:8]1[CH2:9][CH2:1][CH2:2][CH2:3]2",
+            "[CH2:9]1[CH:8]2[CH2:7][CH2:6][CH2:5][N:4]2[CH2:3][CH2:2][CH2:1]1",
+        ];
+        let baseline = potential_center_maps(&mol(spellings[0]));
+        for spelling in &spellings[1..] {
+            assert_eq!(
+                potential_center_maps(&mol(spelling)),
+                baseline,
+                "potential-center identity must not depend on the SMILES atom order"
+            );
+        }
+    }
+
+    #[test]
+    fn bicyclic_amine_perception_is_invariant_across_32_storage_orders_and_call_orders() {
+        // Broader regression for the state/order class reported by RDKit
+        // #9629. These are genuine graph-storage permutations, not merely
+        // alternate textual spellings. Atom-map IDs define chemical identity
+        // across the permutations.
+        let base = mol("[CH2:1]1[CH2:2][CH2:3][N:4]2[CH2:5][CH2:6][CH2:7][CH:8]2[CH2:9]1");
+        let expected_centers = potential_center_maps(&base);
+        assert_eq!(expected_centers, [8].into_iter().collect());
+        assert_eq!(crate::num_stereocenters(&base), 1);
+
+        let mut orders = vec![
+            (0..base.atom_count() as u32)
+                .map(AtomIdx)
+                .collect::<Vec<_>>(),
+        ];
+        orders.extend((1..32).map(|seed| seeded_order(base.atom_count(), seed)));
+        let distinct: std::collections::BTreeSet<Vec<u32>> = orders
+            .iter()
+            .map(|order| order.iter().map(|idx| idx.0).collect())
+            .collect();
+        assert_eq!(
+            distinct.len(),
+            32,
+            "fixed seeds must yield 32 distinct orders"
+        );
+
+        for (case, order) in orders.iter().enumerate() {
+            let permuted = reorder_graph_for_perception(&base, order);
+            // Exercise ring perception first, then stereo/CIP and the inverse
+            // order after a clone/reparse. A cache or traversal-order change
+            // must not invent the tertiary nitrogen as a second center.
+            let _rings_before = find_sssr(&permuted);
+            assert_eq!(
+                potential_center_maps(&permuted),
+                expected_centers,
+                "case {case}"
+            );
+            assert_eq!(crate::num_stereocenters(&permuted), 1, "case {case}");
+            let _cip_before = crate::assign_cip(&permuted);
+
+            let clone = permuted.clone();
+            let serialized = chematic_smiles::canonical_smiles(&clone);
+            let reparsed = parse(&serialized).expect("canonical SMILES must reparse");
+            let _cip_after = crate::assign_cip(&reparsed);
+            let _rings_after = find_sssr(&reparsed);
+            assert_eq!(
+                potential_center_maps(&reparsed),
+                expected_centers,
+                "case {case}"
+            );
+            assert_eq!(crate::num_stereocenters(&reparsed), 1, "case {case}");
+        }
+    }
+
+    #[test]
+    fn tertiary_amine_negative_control_is_invariant_across_32_storage_orders_and_call_orders() {
+        // Near-negative companion to the bridged bicyclic amine above. A
+        // tertiary N in an ordinary saturated ring has no tetrahedral center;
+        // neither graph storage order nor a ring/CIP/cache call sequence may
+        // manufacture one. Atom maps keep this an identity assertion rather
+        // than an incidental AtomIdx comparison.
+        let base = mol("[N:1]1([CH3:2])[CH2:3][CH2:4][CH2:5][CH2:6]1");
+        let expected_centers = potential_center_maps(&base);
+        assert!(expected_centers.is_empty());
+        assert_eq!(crate::num_stereocenters(&base), 0);
+
+        let identity = (0..base.atom_count() as u32)
+            .map(AtomIdx)
+            .collect::<Vec<_>>();
+        let mut orders = vec![identity.clone()];
+        let mut distinct = std::collections::BTreeSet::from([identity
+            .iter()
+            .map(|idx| idx.0)
+            .collect::<Vec<_>>()]);
+        // A six-atom graph has fewer permutations than the bicyclic fixture,
+        // so a fixed seed sequence can collide. Keep the test contract about
+        // storage orders by taking the first 32 *distinct* deterministic
+        // permutations rather than weakening it to 31 cases.
+        for seed in 1..=256 {
+            let order = seeded_order(base.atom_count(), seed);
+            if distinct.insert(order.iter().map(|idx| idx.0).collect()) {
+                orders.push(order);
+            }
+            if orders.len() == 32 {
+                break;
+            }
+        }
+        assert_eq!(
+            orders.len(),
+            32,
+            "fixed seeds must yield 32 distinct orders"
+        );
+
+        for (case, order) in orders.iter().enumerate() {
+            let permuted = reorder_graph_for_perception(&base, order);
+            let _rings_before = find_sssr(&permuted);
+            assert_eq!(
+                potential_center_maps(&permuted),
+                expected_centers,
+                "case {case}"
+            );
+            assert_eq!(crate::num_stereocenters(&permuted), 0, "case {case}");
+            let _cip_before = crate::assign_cip(&permuted);
+
+            let serialized = chematic_smiles::canonical_smiles(&permuted.clone());
+            let reparsed = parse(&serialized).expect("canonical SMILES must reparse");
+            let _cip_after = crate::assign_cip(&reparsed);
+            let _rings_after = find_sssr(&reparsed);
+            assert_eq!(
+                potential_center_maps(&reparsed),
+                expected_centers,
+                "case {case}"
+            );
+            assert_eq!(crate::num_stereocenters(&reparsed), 0, "case {case}");
+        }
     }
 
     #[test]

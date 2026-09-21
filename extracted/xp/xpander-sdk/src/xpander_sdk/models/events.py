@@ -99,6 +99,10 @@ class TaskUpdateEventType(str, Enum):
     # agent gateway
     AgentGatewayDecision = "agent_gateway_decision"
 
+    # resident processes: the state of a long-lived harness process and the agent's own progress notes
+    ProcessStateChanged = "process_state_changed"
+    ProcessUpdate = "process_update"
+
     # a steer reached this task's model at a tool-call boundary
     GatewaySteerApplied = "gateway_steer_applied"
 

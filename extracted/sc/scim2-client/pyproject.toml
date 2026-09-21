@@ -1,15 +1,21 @@
 [build-system]
-requires = ["uv_build>=0.8.9,<0.9.0"]
+requires = ["uv_build>=0.12.16,<0.13.0"]
 build-backend = "uv_build"
 
 [project]
 name = "scim2-client"
-version = "0.7.5"
+version = "0.8.0"
 description = "Pythonically build SCIM requests and parse SCIM responses"
-authors = [{name="Yaal Coop", email="contact@yaal.coop"}]
-license = {file = "LICENSE.md"}
 readme = "README.md"
-keywords = ["scim", "scim2", "provisioning", "rfc7643", "rfc7644", "httpx", "api"]
+keywords = [
+    "scim",
+    "scim2",
+    "provisioning",
+    "rfc7643",
+    "rfc7644",
+    "httpx2",
+    "api",
+]
 classifiers = [
     "Intended Audience :: Developers",
     "Development Status :: 3 - Alpha",
@@ -24,20 +30,20 @@ classifiers = [
     "Programming Language :: Python",
     "Operating System :: OS Independent",
 ]
-
 requires-python = ">= 3.10"
-dependencies = [
-    "scim2-models>=0.6.7",
-]
+dependencies = ["scim2-models>=0.7.0,<0.8"]
+
+[[project.authors]]
+name = "Yaal Coop"
+email = "contact@yaal.coop"
+
+[project.license]
+file = "LICENSE.md"
 
 [project.optional-dependencies]
-httpx = [
-    "httpx>=0.28.0",
-]
-
-werkzeug = [
-    "werkzeug>=3.1.3",
-]
+httpx2 = ["httpx2>=2.12"]
+httpx = ["httpx>=0.28.0"]
+werkzeug = ["werkzeug>=3.1.3"]
 
 [project.urls]
 documentation = "https://scim2-client.readthedocs.io"
@@ -47,28 +53,6 @@ funding = "https://github.com/sponsors/python-scim"
 
 [tool.uv.build-backend]
 module-root = ""
-
-[dependency-groups]
-dev = [
-    "mypy>=1.13.0",
-    "portpicker>=1.6.0",
-    "prek>=0.1.0",
-    "pytest>=8.2.1",
-    "pytest-asyncio>=0.24.0",
-    "pytest-coverage>=0.0",
-    "pytest-httpserver>=1.1.0",
-    "scim2-server >= 0.1.8",
-    "tox-uv>=1.16.0",
-    "werkzeug>=3.1.3",
-]
-doc = [
-    "autodoc-pydantic>=2.2.0",
-    "myst-parser>=3.0.1",
-    "shibuya>=2024.5.15",
-    "sphinx-issues >= 5.0.0",
-    "sphinx>=7.3.7",
-    "sphinx-paramlinks>=0.6.0",
-]
 
 [tool.coverage.run]
 source = [
@@ -84,31 +68,31 @@ exclude_lines = [
     "pragma: no cover",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
-    "\\.\\.\\.\\s*$", # ignore ellipsis
+    '\.\.\.\s*$',
 ]
 
 [tool.ruff.lint]
 select = [
-    "B", # flake8-bugbear
-    "D", # pydocstyle
-    "E", # pycodestyle
-    "F", # pyflakes
-    "I", # isort
-    "UP", # pyupgrade
+    "B",
+    "D",
+    "E",
+    "F",
+    "I",
+    "UP",
 ]
 ignore = [
-    "E501", # line-too-long
-    "E722", # bare-except
-    "D100", # public module
-    "D101", # public class
-    "D102", # public method
-    "D103", # public function
-    "D104", # public package
-    "D105", # magic method
-    "D106", # nested class
-    "D107", # public init
-    "D203", # no-blank-line-before-class
-    "D213", # multi-line-summary-second-line
+    "E501",
+    "E722",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D203",
+    "D213",
 ]
 
 [tool.ruff.lint.isort]
@@ -118,15 +102,11 @@ force-single-line = true
 docstring-code-format = true
 
 [tool.mypy]
-plugins = [
-  "pydantic.mypy"
-]
-exclude = [
-  "tests/",
-]
+plugins = ["pydantic.mypy"]
+exclude = ["tests/"]
 
 [tool.pytest.ini_options]
-asyncio_mode="auto"
+asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.tox]
@@ -138,23 +118,39 @@ env_list = [
     "py312",
     "py313",
     "py314",
+    "legacy",
     "minversions",
     "doc",
     "coverage",
 ]
 
 [tool.tox.env_run_base]
-extras = ["httpx", "werkzeug"]
+extras = [
+    "httpx2",
+    "werkzeug",
+]
 runner = "uv-venv-lock-runner"
 dependency_groups = ["dev"]
-commands = [
-    ["pytest", "--showlocals", "--full-trace", "{posargs}"],
-]
+commands = [[
+    "pytest",
+    "--showlocals",
+    "--full-trace",
+    "{posargs}",
+]]
 
 [tool.tox.env.style]
 runner = "uv-venv-runner"
-commands = [
-    ["prek", "run", "--all-files", "--show-diff-on-failure"],
+commands = [[
+    "prek",
+    "run",
+    "--all-files",
+    "--show-diff-on-failure",
+]]
+
+[tool.tox.env.legacy]
+extras = [
+    "httpx",
+    "werkzeug",
 ]
 
 [tool.tox.env.minversions]
@@ -164,12 +160,58 @@ uv_resolution = "lowest-direct"
 [tool.tox.env.doc]
 dependency_groups = ["doc"]
 commands = [
-    ["sphinx-build", "--builder", "html", "doc", "build/sphinx/html"],
-    ["sphinx-build", "--builder", "man", "doc", "build/sphinx/html"],
+    [
+    "sphinx-build",
+    "--builder",
+    "html",
+    "doc",
+    "build/sphinx/html",
+],
+    [
+    "sphinx-build",
+    "--builder",
+    "man",
+    "doc",
+    "build/sphinx/html",
+],
 ]
 
 [tool.tox.env.coverage]
 commands = [
-    ["pytest", "--cov", "--cov-fail-under=100", "--cov-report", "term:skip-covered", "{posargs}"],
-    ["coverage", "html"],
+    [
+    "pytest",
+    "--cov",
+    "--cov-fail-under=100",
+    "--cov-report",
+    "term:skip-covered",
+    "{posargs}",
+],
+    [
+    "coverage",
+    "html",
+],
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0",
+    "mypy>=1.13.0",
+    "portpicker>=1.6.0",
+    "prek>=0.1.0",
+    "pytest>=8.2.1",
+    "pytest-asyncio>=0.24.0",
+    "pytest-coverage>=0.0",
+    "pytest-httpserver>=1.1.0",
+    "scim2-server >= 0.1.8",
+    "tox-uv>=1.16.0",
+    "werkzeug>=3.1.3",
+]
+doc = [
+    "autodoc-pydantic>=2.2.0",
+    "myst-parser>=3.0.1",
+    "shibuya>=2024.5.15",
+    "sphinx-design>=0.6.1",
+    "sphinx-issues >= 5.0.0",
+    "sphinx>=7.3.7",
+    "sphinx-paramlinks>=0.6.0",
 ]

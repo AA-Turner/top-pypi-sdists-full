@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brother"
-version = "6.1.2"
+version = "6.2.0"
 license = "Apache-2.0"
 description = "Python wrapper for getting data from Brother laser and inkjet printers via SNMP."
 readme = "README.md"
@@ -28,9 +28,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "prek==0.4.14",
-  "ruff==0.16.4",
-  "ty==0.0.74",
+  "prek==0.5.3",
+  "ruff==0.16.7",
+  "ty==0.0.81",
 ]
 test = [
   "freezegun==1.5.5",
@@ -39,7 +39,7 @@ test = [
   "pytest-error-for-skips==2.0.2",
   "pytest-timeout==2.4.0",
   "pytest==9.1.1",
-  "syrupy==6.0.0",
+  "syrupy==6.1.1",
 ]
 
 [project.urls]

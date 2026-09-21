@@ -34,6 +34,10 @@ _CONFIG_VERSION: Literal[1] = 1
 _VALID_MODES = frozenset({"monitor", "protect", "enforce"})
 _MAX_PROJECT_DEPTH = 20
 _MAX_PROJECT_TIMEOUT = 300
+# Mirrors scan.artifact_cache.MAX_SKILL_RESUBMIT_WINDOW_SECONDS and the backend
+# clamp (not imported: this module is on the startup path, see the lazy-import
+# note below); test_aiwatch_config_cache pins the two equal.
+_MAX_SKILL_RESUBMIT_WINDOW_SECONDS = 4 * 60 * 60
 
 SyncedAIWatchMode = Literal["monitor", "protect", "enforce"]
 
@@ -62,6 +66,8 @@ class SyncedAIWatchConfig(TypedDict):
     artifact_lookup_cache: bool
     project_depth: int
     project_timeout: int
+    # Skill re-submit throttle window; 0 = off, absent → compiled-in window.
+    skill_resubmit_window_seconds: NotRequired[int]
 
 
 def parse_aiwatch_config(data: object) -> SyncedAIWatchConfig:
@@ -128,6 +134,11 @@ def parse_aiwatch_config(data: object) -> SyncedAIWatchConfig:
     # gates like this one fail dark to absent — downstream falls back to the
     # locally-managed value. Pick the weakest tier a new field can live with.
     gzip_hooks = payload.get("gzip_hooks")
+    skill_resubmit_window_seconds = _optional_bounded_int(
+        payload,
+        "skill_resubmit_window_seconds",
+        maximum=_MAX_SKILL_RESUBMIT_WINDOW_SECONDS,
+    )
 
     browser_extension_enabled = payload.get("browser_extension_enabled")
     if (
@@ -184,6 +195,8 @@ def parse_aiwatch_config(data: object) -> SyncedAIWatchConfig:
         config["browser_extension_enabled"] = browser_extension_enabled
     if type(gzip_hooks) is bool:
         config["gzip_hooks"] = gzip_hooks
+    if skill_resubmit_window_seconds is not None:
+        config["skill_resubmit_window_seconds"] = skill_resubmit_window_seconds
     if "llm_routing" in payload:
         config["llm_routing"] = llm_routing
     if isinstance(llm_routing_base_url, str):
@@ -256,6 +269,19 @@ def _require_bounded_int(
     if type(value) is not int or value < 1 or value > maximum:
         raise ValueError(f"invalid AI Watch config field: {key}")
     return value
+
+
+def _optional_bounded_int(
+    payload: dict[str, object],
+    key: str,
+    *,
+    maximum: int,
+) -> int | None:
+    """Non-negative int capped at *maximum*; anything else fails dark to absent."""
+    value = payload.get(key)
+    if type(value) is not int or value < 0:
+        return None
+    return min(value, maximum)
 
 
 def _read_posix(cache_path: Path, org_api_key: str) -> SyncedAIWatchConfig | None:

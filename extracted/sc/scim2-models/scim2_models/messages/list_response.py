@@ -9,13 +9,38 @@ from pydantic_core import PydanticCustomError
 from typing_extensions import Self
 
 from ..context import Context
-from ..path import URN
 from ..resources.resource import AnyResource
+from ..urn import URN
 from .message import Message
 from .message import _GenericMessageMetaclass
+from .message import _ResourceParameterized
 
 
-class ListResponse(Message, Generic[AnyResource], metaclass=_GenericMessageMetaclass):
+class ListResponse(
+    _ResourceParameterized,
+    Message,
+    Generic[AnyResource],
+    metaclass=_GenericMessageMetaclass,
+):
+    """A paginated list response as defined in :rfc:`RFC7644 §3.4.2 <7644#section-3.4.2>`.
+
+    Parameterise the response with the type of resource an endpoint returns,
+    or with a union of them for an endpoint returning several, as in
+    ``ListResponse[User | Group]``. The parameter says which model each entry
+    is read as, so a response cannot be validated without it.
+    The resource list serializes under SCIM's ``Resources`` name:
+
+    >>> from scim2_models import Context, ListResponse, User
+    >>> response = ListResponse[User](
+    ...     total_results=1,
+    ...     start_index=1,
+    ...     items_per_page=1,
+    ...     resources=[User(user_name="bjensen")],
+    ... )
+    >>> response.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE)["Resources"]
+    [{'schemas': ['urn:ietf:params:scim:schemas:core:2.0:User'], 'userName': 'bjensen'}]
+    """
+
     __schema__ = URN("urn:ietf:params:scim:api:messages:2.0:ListResponse")
 
     total_results: int | None = None
@@ -34,12 +59,12 @@ class ListResponse(Message, Generic[AnyResource], metaclass=_GenericMessageMetac
 
     @model_validator(mode="wrap")
     @classmethod
-    def check_results_number(
+    def _check_results_number(
         cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
     ) -> Self:
         """Validate result numbers.
 
-        :rfc:`RFC7644 §3.4.2 <7644#section-3.4.2.4>` indicates that:
+        RFC7644 §3.4.2 indicates that:
 
         - 'totalResults' is required
         - 'resources' must be set if 'totalResults' is non-zero.

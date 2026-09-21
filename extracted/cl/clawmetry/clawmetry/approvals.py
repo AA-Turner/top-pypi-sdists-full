@@ -1865,6 +1865,32 @@ _EXEC_POLICY_BACKOFF_BASE_S = 300      # first retry 5 min after a failure
 _EXEC_POLICY_BACKOFF_MAX_S = 3600     # never back off longer than an hour
 _EXEC_POLICY_BACKOFF = {"fails": 0, "until": 0.0}
 
+# Native approvals are live Gateway state. Keep the CLI poll bounded and
+# cache the result so the kick-driven policy watcher does not create a
+# request storm on machines with a slow Node wrapper.
+#
+# The watcher thread starts on EVERY daemon, so whatever this interval is,
+# it is a permanent background cost on every user's machine: one `openclaw`
+# process (a node wrapper) per tick, forever, whether or not anyone ever
+# opens the Approvals tab. 10 s is the cheapest interval that costs a human
+# nothing — these prompts are read and decided by a person, so seconds of
+# discovery latency are imperceptible, while 3 s would spawn 20 node
+# processes a minute against a perfectly healthy gateway.
+_NATIVE_APPROVAL_POLL_INTERVAL_S = 10.0
+_NATIVE_APPROVAL_TIMEOUT_S = 30
+# The watcher is kicked on every tool_call, so "gateway down" would otherwise
+# mean one `openclaw` (node) spawn every 3 s, forever. Same reasoning as
+# _EXEC_POLICY_BACKOFF above, shorter ceiling: an unreachable gateway has no
+# pending approvals to show, so waiting is free, but a transient blip should
+# recover in seconds rather than minutes.
+_NATIVE_APPROVAL_BACKOFF_BASE_S = 30
+_NATIVE_APPROVAL_BACKOFF_MAX_S = 300
+_NATIVE_APPROVAL_BACKOFF = {"fails": 0, "until": 0.0}
+_native_approval_poll_at = 0.0
+_native_approval_poll_lock = threading.Lock()
+_native_approval_poll_thread: Optional[threading.Thread] = None
+_native_approval_poll_result: Optional[tuple[bool, dict | list | None, str]] = None
+
 
 def _openclaw_env_and_bin():
     """Resolve the `openclaw` binary with an augmented PATH (the daemon runs
@@ -1876,6 +1902,243 @@ def _openclaw_env_and_bin():
     env = os.environ.copy()
     env["PATH"] = ":".join(extra) + ":" + env.get("PATH", "")
     return shutil.which("openclaw", path=env["PATH"]), env
+
+
+def _native_approvals_enabled() -> bool:
+    """Whether to poll OpenClaw for native approvals on this node at all.
+
+    Off by env switch, and skipped outright when there is no `openclaw`
+    here — most nodes run some other runtime, and resolving the binary
+    costs a few stat calls where spawning the CLI to find out costs a node
+    process every tick."""
+    if os.environ.get("CLAWMETRY_NATIVE_APPROVALS", "1").strip().lower() in (
+            "0", "false", "no", "off"):
+        return False
+    ocbin, _ = _openclaw_env_and_bin()
+    return bool(ocbin)
+
+
+def _run_openclaw_approval_command(args: list[str]) -> tuple[bool, dict | list | None, str]:
+    """Run a native approval CLI command without letting it escape the watcher.
+
+    Runs in its own process group and kills the whole GROUP on timeout, for
+    the reason _apply_openclaw_exec_preset does: `openclaw` is a wrapper
+    whose node child survives the wrapper's death as a CPU/RAM-burning
+    orphan (live-hit 2026-07-10). This path polls every few seconds rather
+    than once a minute, so leaking one orphan per timeout is not survivable.
+    """
+    import signal
+    import subprocess
+
+    ocbin, env = _openclaw_env_and_bin()
+    if not ocbin:
+        return False, None, "openclaw binary not found"
+    try:
+        p = subprocess.Popen([ocbin, *args],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, env=env, start_new_session=True)
+        try:
+            out, err = p.communicate(timeout=_NATIVE_APPROVAL_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(p.pid, signal.SIGKILL)  # pgid == pid (new session)
+            except Exception:
+                p.kill()
+            try:
+                p.wait(timeout=10)
+            except Exception:
+                pass
+            return False, None, "openclaw command timed out"
+    except Exception as exc:
+        return False, None, str(exc)
+    if p.returncode != 0:
+        return False, None, (err or out or "command failed")[-500:]
+    if "--json" not in args:
+        return True, None, ""
+    try:
+        return True, json.loads(out or "{}"), ""
+    except (TypeError, ValueError) as exc:
+        return False, None, f"invalid JSON: {exc}"
+
+
+def _native_approval_cli_worker() -> None:
+    global _native_approval_poll_result
+    result = _run_openclaw_approval_command(
+        ["approvals", "pending", "--json"]
+    )
+    with _native_approval_poll_lock:
+        _native_approval_poll_result = result
+
+
+def poll_openclaw_approvals() -> int:
+    """Import OpenClaw's live pending approvals into the local queue.
+
+    Reads the contract `openclaw approvals pending --json` documents: a
+    top-level ``approvals`` list of normalized entries shaped
+    ``{id, kind, agentId, sessionKey, createdAtMs, expiresAtMs, summary}``
+    (docs/cli/approvals.md, `readPendingApprovalEntry` in the CLI bundle).
+
+    Native approvals are deliberately marked in ``args`` so the dashboard's
+    existing decision endpoint can route them back to OpenClaw. A CLI failure
+    is observational only and never blocks the watcher.
+    """
+    global _native_approval_poll_at, _native_approval_poll_thread
+    global _native_approval_poll_result
+    now = time.time()
+    with _native_approval_poll_lock:
+        if (_native_approval_poll_thread is not None
+                and _native_approval_poll_thread.is_alive()):
+            return 0
+        result = _native_approval_poll_result
+        _native_approval_poll_result = None
+        if _native_approval_poll_thread is not None:
+            _native_approval_poll_thread = None
+        if result is None:
+            # Nothing to consume. Start the next poll if the interval has
+            # elapsed and we are not backing off a failing gateway; either
+            # way this iteration has no snapshot to reconcile against.
+            if (now - _native_approval_poll_at >= _NATIVE_APPROVAL_POLL_INTERVAL_S
+                    and now >= _NATIVE_APPROVAL_BACKOFF["until"]
+                    and _native_approvals_enabled()):
+                _native_approval_poll_at = now
+                _native_approval_poll_thread = threading.Thread(
+                    target=_native_approval_cli_worker,
+                    name="clawmetry-openclaw-approvals",
+                    daemon=True,
+                )
+                _native_approval_poll_thread.start()
+            # The watcher is kick-driven (every tool_call), so it re-enters
+            # well inside the poll interval — returning here instead of
+            # falling through is what keeps that from unpacking None.
+            return 0
+    ok, payload, error = result
+    if not ok:
+        _native_approval_backoff_note(error)
+        return 0
+    entries = payload.get("approvals", []) if isinstance(payload, dict) else payload
+    if not isinstance(entries, list):
+        log.warning("openclaw approvals pending returned no approvals list")
+        return 0
+    _NATIVE_APPROVAL_BACKOFF["fails"] = 0
+    _NATIVE_APPROVAL_BACKOFF["until"] = 0.0
+    try:
+        from clawmetry import local_store
+        store = local_store.get_store()
+    except Exception as exc:
+        log.debug("openclaw native approval store unavailable: %s", exc)
+        return 0
+
+    rows_by_id = {row.get("id"): row
+                  for row in store.query_approvals(limit=1000)}
+    # The stale sweep asks for pending rows specifically rather than
+    # filtering the window above: only a pending row can go stale, and on a
+    # node with a long decision history the 1000 most recent rows can be
+    # entirely resolved ones.
+    pending_rows = store.query_approvals(status="pending", limit=1000)
+    pending_ids = set()
+    imported = 0
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        approval_id = str(entry.get("rawId") or entry.get("id") or "").strip()
+        if not approval_id:
+            continue
+        pending_ids.add(approval_id)
+        existing = rows_by_id.get(approval_id)
+        if existing is not None and existing.get("status") != "pending":
+            # Decided here already. preserve_resolved would keep it decided
+            # anyway; skipping saves the write and keeps ``imported`` honest.
+            continue
+        # OpenClaw names these sessionKey / agentId; the snake_case spellings
+        # are accepted only as a forward-compatible fallback.
+        session_id = (entry.get("sessionKey") or entry.get("sessionId")
+                      or entry.get("session_id"))
+        summary = str(entry.get("summary") or entry.get("tool")
+                      or "OpenClaw approval")
+        store.ingest_approval({
+            "id": approval_id,
+            "requestor_session_id": f"openclaw:{session_id}" if session_id else None,
+            "action": summary,
+            "args": {
+                "source": "openclaw-native",
+                "runtime": "openclaw",
+                # The runtime itself stopped to ask — not a ClawMetry policy
+                # firing. routes/policy.py::_approval_kind surfaces the
+                # difference, and the two mean different things to whoever
+                # is deciding.
+                "kind": "permission_prompt",
+                "tool_name": str(entry.get("kind") or "exec"),
+                "command": summary,
+                "policy": "OpenClaw native approval",
+                "agent_id": entry.get("agentId"),
+                "expires_at_ms": entry.get("expiresAtMs"),
+                "native": entry,
+            },
+            "status": "pending",
+            "created_at": _native_approval_created_at(entry.get("createdAtMs")),
+        }, preserve_resolved=True)
+        imported += 1
+    for row in pending_rows:
+        args = row.get("args") if isinstance(row.get("args"), dict) else {}
+        if (args.get("source") == "openclaw-native"
+                and row.get("id") not in pending_ids):
+            store.update_approval_decision(
+                row["id"], "expired", "openclaw-sync",
+                "no longer pending in OpenClaw",
+            )
+    return imported
+
+
+def _native_approval_created_at(created_ms) -> str:
+    """OpenClaw reports epoch milliseconds; the approvals table holds ISO-8601
+    everywhere else (and the UI renders the column verbatim). Convert, and
+    fall back to now for a value the CLI did not give us."""
+    try:
+        if created_ms is not None:
+            return time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                 time.gmtime(float(created_ms) / 1000.0))
+    except (TypeError, ValueError, OSError, OverflowError):
+        pass
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _native_approval_backoff_note(error: str) -> None:
+    """Record one failed poll and widen the retry window. Gateway-down is the
+    ordinary case on a box where OpenClaw is installed but not running."""
+    _NATIVE_APPROVAL_BACKOFF["fails"] += 1
+    delay = min(_NATIVE_APPROVAL_BACKOFF_MAX_S,
+                _NATIVE_APPROVAL_BACKOFF_BASE_S
+                * (2 ** (_NATIVE_APPROVAL_BACKOFF["fails"] - 1)))
+    _NATIVE_APPROVAL_BACKOFF["until"] = time.time() + delay
+    log.debug("openclaw native approval poll failed (%s); next attempt in %ss",
+              error, delay)
+
+
+def resolve_openclaw_approval(approval_id: str, decision: str,
+                              reason: str | None = None,
+                              remember: str | None = None) -> bool:
+    """Resolve one native OpenClaw approval through its documented CLI.
+
+    ``remember="always"`` maps an "Approve & always allow" click onto
+    OpenClaw's own ``allow-always``. Without it the decision goes back as
+    ``allow-once`` and OpenClaw asks again on the next identical command,
+    while ClawMetry's side shows a remembered rule — a control that looks
+    like it worked and did not. (OpenClaw scopes an exec ``allow-always``
+    grant to the command's exact arguments and working directory.)
+    """
+    action = {"approve": "allow-once", "deny": "deny"}.get(
+        str(decision or "").strip().lower())
+    if action is None:
+        return False
+    if action == "allow-once" and str(remember or "").strip().lower() == "always":
+        action = "allow-always"
+    args = ["approvals", "resolve", str(approval_id), action]
+    if action == "deny" and reason:
+        args.extend(["--reason", str(reason)[:300]])
+    ok, _payload, error = _run_openclaw_approval_command(args)
+    if not ok:
+        log.warning("openclaw approval %s failed to resolve: %s", approval_id, error)
+    return ok
 
 
 def _policies_want_exec_gate(policies) -> bool:
@@ -2161,6 +2424,12 @@ def watcher_loop(api_key: str, node_id: str,
             return
         try:
             policies = load_policies(api_key=api_key)
+            try:
+                imported = poll_openclaw_approvals()
+                if imported:
+                    log.debug("approvals: imported %d native OpenClaw approvals", imported)
+            except Exception as _na:
+                log.debug("native OpenClaw approval poll skipped: %s", _na)
             # Drive every runtime's native pre-execution gate from the same
             # policy set (the reactive watcher below can't PREVENT a command,
             # only catch it after the fact). openclaw's exec preset flip and

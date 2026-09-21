@@ -13,7 +13,6 @@ from typing import (
     SupportsIndex,
     TypedDict,
     overload,
-    override,
     type_check_only,
 )
 from typing_extensions import TypeVar
@@ -210,10 +209,8 @@ class BrunnerMunzelResult(_TestResult[np.float64, np.float64]): ...
 class SenSeasonalSlopesResult(  # zuban: ignore[type-var]
     BaseBunch[onp.MArray1D[_SlopeT_co], _SlopeT_co], Generic[_SlopeT_co]
 ):
-    @override
-    def __new__(_cls, intra_slope: onp.MArray1D[_SlopeT_co], inter_slope: _SlopeT_co) -> Self: ...  # pyrefly:ignore[bad-override]
-    @override
-    def __init__(self, /, intra_slope: onp.MArray1D[_SlopeT_co], inter_slope: _SlopeT_co) -> None: ...  # pyrefly:ignore[bad-override]
+    def __new__(_cls, intra_slope: onp.MArray1D[_SlopeT_co], inter_slope: _SlopeT_co) -> Self: ...
+    def __init__(self, /, intra_slope: onp.MArray1D[_SlopeT_co], inter_slope: _SlopeT_co) -> None: ...
 
     #
     @property
@@ -308,11 +305,15 @@ def pearsonr(x: onp.ToJustFloat64_ND | onp.ToIntND, y: onp.ToFloatND) -> Pearson
 @overload  # +floating, ~f64 | +integer
 def pearsonr(x: onp.ToFloatND, y: onp.ToJustFloat64_ND | onp.ToIntND) -> PearsonRResult[np.float64, np.float64]: ...
 @overload  # ~f32, +float32
-def pearsonr(x: onp.ToJustFloat32_ND, y: onp.ToFloat32_ND) -> PearsonRResult[np.float32, np.float64]: ...
+def pearsonr(x: onp.ToJustFloat32_ND, y: onp.ToFloat32_ND) -> PearsonRResult[np.float32, np.float32]: ...
 @overload  # +float32, ~f32
-def pearsonr(x: onp.ToFloat32_ND, y: onp.ToJustFloat32_ND) -> PearsonRResult[np.float32, np.float64]: ...
+def pearsonr(x: onp.ToFloat32_ND, y: onp.ToJustFloat32_ND) -> PearsonRResult[np.float32, np.float32]: ...
+@overload  # ~f16, +float16
+def pearsonr(x: onp.ToJustFloat16_ND, y: onp.ToFloat16_ND) -> PearsonRResult[np.float16, np.float32]: ...
+@overload  # +float16, ~f16
+def pearsonr(x: onp.ToFloat16_ND, y: onp.ToJustFloat16_ND) -> PearsonRResult[np.float16, np.float32]: ...
 @overload  # +floating, +floating
-def pearsonr(x: onp.ToFloatND, y: onp.ToFloatND) -> PearsonRResult[npc.floating, np.float64]: ...
+def pearsonr(x: onp.ToFloatND, y: onp.ToFloatND) -> PearsonRResult[np.float64 | Any, np.float64 | Any]: ...
 
 #
 # NOTE: `y` is required with `axis=None` (default)

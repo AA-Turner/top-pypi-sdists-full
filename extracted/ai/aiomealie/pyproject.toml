@@ -1,6 +1,6 @@
 [project]
 name = "aiomealie"
-version = "2.1.0"
+version = "2.1.2"
 description = "Asynchronous Python client for Mealie."
 authors = [{ name = "Joost Lekkerkerker", email = "joostlek@outlook.com" }]
 requires-python = ">=3.13,<4"

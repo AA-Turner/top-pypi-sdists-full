@@ -137,7 +137,7 @@ def test_setup_config_reports_incomplete_when_preferences_have_not_flushed(
         all_events=False,
     )
     assert "hook reconciliation is incomplete" in result.output
-    assert "hourly bootstrap daemon will retry" in result.output
+    assert "bootstrap daemon will retry within 15 minutes" in result.output
     assert "rl_org_secret" not in result.output
 
 
@@ -213,7 +213,7 @@ class TestInstallWindowExitCode:
 
     * ``NO_STAMP`` (dev / non-pkg host) ⇒ exit 4 (today's strict behavior)
     * ``INSIDE`` (within 10 min of pkg install) ⇒ exit 4 (KeepAlive fast-retries)
-    * ``OUTSIDE`` (stamp older than 10 min) ⇒ exit 0 (KeepAlive idles, hourly StartInterval takes over)
+    * ``OUTSIDE`` (stamp older than 10 min) ⇒ exit 0 (KeepAlive idles, 15-min StartInterval takes over)
     """
 
     def _failure_count_path(self, tmp_path, monkeypatch, initial=None):

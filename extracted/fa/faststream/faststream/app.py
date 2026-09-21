@@ -44,7 +44,7 @@ class FastStream(Application):
 
     def __init__(
         self,
-        *brokers: "BrokerUsecase[Any, Any]",
+        *brokers: "BrokerUsecase[Any, Any, Any]",
         logger: Optional["LoggerProto"] = logger,
         provider: Optional["Provider"] = None,
         serializer: Optional["SerializerProto"] = EMPTY,
@@ -86,7 +86,7 @@ class FastStream(Application):
         async with self.lifespan_context(**(run_extra_options or {})):
             try:
                 async with anyio.create_task_group() as tg:
-                    tg.start_soon(self._startup, log_level, run_extra_options)
+                    _ = tg.start_soon(self._startup, log_level, run_extra_options)
 
                     while not self._should_exit:  # noqa: ASYNC110 (requested by creator)
                         await anyio.sleep(sleep_time)

@@ -332,3 +332,23 @@ def test_zone_metadata_deduplicates_on_the_normalised_key():
     source = inspect.getsource(calendar_validator.CalendarValidator.zone_metadata)
     assert 'drop_duplicates("_join", keep="first")' in source
     assert "Conflicting values for" in source, "a silent dedup is how this got missed"
+
+
+def test_model_outputs_are_cleared_and_failures_always_written():
+    """Regression: a stale model_failures.csv outlived a clean run.
+
+    The file was written only when something failed, and ``models/`` was not
+    covered by the output-directory sweep. After cubist was fixed, the previous
+    run's failure file survived and still reported cubist as broken while
+    predictions.csv held its full results.
+    """
+    import inspect
+
+    from geocif import calendar_validator
+
+    source = inspect.getsource(calendar_validator.run)
+    assert 'for old_csv in model_dir.glob("*.csv")' in source
+    # The write must not be guarded by `if evaluation.failures:`.
+    write_at = source.index('model_dir / "model_failures.csv"')
+    preceding = source[max(0, write_at - 400):write_at]
+    assert "if evaluation.failures:" not in preceding

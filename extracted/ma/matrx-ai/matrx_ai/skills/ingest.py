@@ -1017,6 +1017,22 @@ async def ingest_filesystem(
     admin_id = str(admin_user_id)
     parsed_ids = {p.skill_id for p in parsed}
 
+    # skill.definition.organization_id is NOT NULL. Every current caller
+    # ingests with is_system=True (builtin/admin/dev skills, visible to every
+    # agent) -- those rows belong to the platform tenant, never a default or a
+    # lookup. A future is_system=False (per-sandbox personal skill) caller
+    # would need its own resolved organization_id; refuse rather than guess.
+    if is_system:
+        from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
+
+        organization_id = SYSTEM_ORGANIZATION_ID
+    else:
+        report["errors"].append(
+            "ingest_filesystem(is_system=False) has no organization_id source; "
+            "refusing rather than defaulting one."
+        )
+        return report
+
     for p in parsed:
         try:
             # Duplicate skill_ids DO exist in this table (kind_seo_meta_options,
@@ -1136,7 +1152,9 @@ async def ingest_filesystem(
                 report["updated"] += 1
             else:
                 if not dry_run:
-                    created = await defs_mgr.create_item(skill_id=p.skill_id, **row_data)
+                    created = await defs_mgr.create_item(
+                        skill_id=p.skill_id, organization_id=organization_id, **row_data
+                    )
                     entry["id"] = str(getattr(created, "id", ""))
                 entry["status"] = "created"
                 report["created"] += 1

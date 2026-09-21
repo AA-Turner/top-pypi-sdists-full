@@ -18,6 +18,7 @@ from faststream.confluent.publisher.producer import (
 
 if TYPE_CHECKING:
     from faststream._internal.logger import LoggerState
+    from faststream.confluent.schemas import Topic
 
 
 @dataclass
@@ -26,7 +27,7 @@ class ConsumerBuilder:
     admin: "AdminService"
     logger: "LoggerState"
 
-    def __call__(self, *topics: str, **kwargs: Any) -> "AsyncConfluentConsumer":
+    def __call__(self, *topics: "Topic", **kwargs: Any) -> "AsyncConfluentConsumer":
         return AsyncConfluentConsumer(
             *topics,
             config=self.config,
@@ -51,6 +52,8 @@ class KafkaBrokerConfig(BrokerConfig):
     )
 
     def __post_init__(self) -> None:
+        super().__post_init__()
+
         self.builder = ConsumerBuilder(
             config=self.connection_config,
             admin=self.admin,

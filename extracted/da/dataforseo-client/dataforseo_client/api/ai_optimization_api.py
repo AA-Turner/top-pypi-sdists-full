@@ -39,6 +39,9 @@ if TYPE_CHECKING:
     from dataforseo_client.models.ai_optimization_gemini_llm_responses_task_get_response_info import AiOptimizationGeminiLlmResponsesTaskGetResponseInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_responses_live_request_info import AiOptimizationGeminiLlmResponsesLiveRequestInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_responses_live_response_info import AiOptimizationGeminiLlmResponsesLiveResponseInfo
+    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_models_response_info import AiOptimizationPerplexityLlmResponsesModelsResponseInfo
+    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_request_info import AiOptimizationPerplexityLlmResponsesLiveRequestInfo
+    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_response_info import AiOptimizationPerplexityLlmResponsesLiveResponseInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_locations_response_info import AiOptimizationGeminiLlmScraperLocationsResponseInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_languages_response_info import AiOptimizationGeminiLlmScraperLanguagesResponseInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_task_post_request_info import AiOptimizationGeminiLlmScraperTaskPostRequestInfo
@@ -50,9 +53,6 @@ if TYPE_CHECKING:
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_live_advanced_response_info import AiOptimizationGeminiLlmScraperLiveAdvancedResponseInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_live_html_request_info import AiOptimizationGeminiLlmScraperLiveHtmlRequestInfo
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_live_html_response_info import AiOptimizationGeminiLlmScraperLiveHtmlResponseInfo
-    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_models_response_info import AiOptimizationPerplexityLlmResponsesModelsResponseInfo
-    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_request_info import AiOptimizationPerplexityLlmResponsesLiveRequestInfo
-    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_response_info import AiOptimizationPerplexityLlmResponsesLiveResponseInfo
     from dataforseo_client.models.ai_optimization_ai_keyword_data_available_filters_response_info import AiOptimizationAiKeywordDataAvailableFiltersResponseInfo
     from dataforseo_client.models.ai_optimization_ai_keyword_data_locations_and_languages_response_info import AiOptimizationAiKeywordDataLocationsAndLanguagesResponseInfo
     from dataforseo_client.models.ai_optimization_ai_keyword_data_keywords_search_volume_live_request_info import AiOptimizationAiKeywordDataKeywordsSearchVolumeLiveRequestInfo
@@ -4227,6 +4227,354 @@ class AiOptimizationApi:
             _request_auth=_request_auth
         )
 
+    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_models_response_info import AiOptimizationPerplexityLlmResponsesModelsResponseInfo
+    @validate_call
+    def perplexity_llm_responses_models(
+        self,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> AiOptimizationPerplexityLlmResponsesModelsResponseInfo:
+
+        _param = self._perplexity_llm_responses_models_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiOptimizationPerplexityLlmResponsesModelsResponseInfo",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+    @validate_call
+    def perplexity_llm_responses_models_with_http_info(
+        self,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> 'ApiResponse[AiOptimizationPerplexityLlmResponsesModelsResponseInfo]':
+
+        _param = self._perplexity_llm_responses_models_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiOptimizationPerplexityLlmResponsesModelsResponseInfo",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+    @validate_call
+    def perplexity_llm_responses_models_without_preload_content(
+        self,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+
+        _param = self._perplexity_llm_responses_models_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiOptimizationPerplexityLlmResponsesModelsResponseInfo",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _perplexity_llm_responses_models_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[str, Union[str, bytes]] = {}
+        _body_params: Optional[bytes] = None
+
+
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        _auth_settings: List[str] = [
+            'basicAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/v3/ai_optimization/perplexity/llm_responses/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_request_info import AiOptimizationPerplexityLlmResponsesLiveRequestInfo
+    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_response_info import AiOptimizationPerplexityLlmResponsesLiveResponseInfo
+    @validate_call
+    def perplexity_llm_responses_live(
+        self,
+        list_optional_ai_optimization_perplexity_llm_responses_live_request_info: 'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]' = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> AiOptimizationPerplexityLlmResponsesLiveResponseInfo:
+
+        _param = self._perplexity_llm_responses_live_serialize(
+            list_optional_ai_optimization_perplexity_llm_responses_live_request_info=list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiOptimizationPerplexityLlmResponsesLiveResponseInfo",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    
+    @validate_call
+    def perplexity_llm_responses_live_with_http_info(
+        self,
+        list_optional_ai_optimization_perplexity_llm_responses_live_request_info: 'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]' = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> 'ApiResponse[AiOptimizationPerplexityLlmResponsesLiveResponseInfo]':
+
+        _param = self._perplexity_llm_responses_live_serialize(
+            list_optional_ai_optimization_perplexity_llm_responses_live_request_info=list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiOptimizationPerplexityLlmResponsesLiveResponseInfo",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def perplexity_llm_responses_live_without_preload_content(
+        self,
+        list_optional_ai_optimization_perplexity_llm_responses_live_request_info: 'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]' = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+
+        _param = self._perplexity_llm_responses_live_serialize(
+            list_optional_ai_optimization_perplexity_llm_responses_live_request_info=list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiOptimizationPerplexityLlmResponsesLiveResponseInfo",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _perplexity_llm_responses_live_serialize(
+        self,
+        list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]': '',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[str, Union[str, bytes]] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if list_optional_ai_optimization_perplexity_llm_responses_live_request_info is not None:
+            _body_params = list_optional_ai_optimization_perplexity_llm_responses_live_request_info
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'basicAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/v3/ai_optimization/perplexity/llm_responses/live',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
     from dataforseo_client.models.ai_optimization_gemini_llm_scraper_locations_response_info import AiOptimizationGeminiLlmScraperLocationsResponseInfo
     @validate_call
     def gemini_llm_scraper_locations(
@@ -5589,354 +5937,6 @@ class AiOptimizationApi:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/v3/ai_optimization/gemini/llm_scraper/live/html',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_models_response_info import AiOptimizationPerplexityLlmResponsesModelsResponseInfo
-    @validate_call
-    def perplexity_llm_responses_models(
-        self,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AiOptimizationPerplexityLlmResponsesModelsResponseInfo:
-
-        _param = self._perplexity_llm_responses_models_serialize(
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "AiOptimizationPerplexityLlmResponsesModelsResponseInfo",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-    @validate_call
-    def perplexity_llm_responses_models_with_http_info(
-        self,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> 'ApiResponse[AiOptimizationPerplexityLlmResponsesModelsResponseInfo]':
-
-        _param = self._perplexity_llm_responses_models_serialize(
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "AiOptimizationPerplexityLlmResponsesModelsResponseInfo",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-    @validate_call
-    def perplexity_llm_responses_models_without_preload_content(
-        self,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-
-        _param = self._perplexity_llm_responses_models_serialize(
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "AiOptimizationPerplexityLlmResponsesModelsResponseInfo",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _perplexity_llm_responses_models_serialize(
-        self,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-        _auth_settings: List[str] = [
-            'basicAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/v3/ai_optimization/perplexity/llm_responses/models',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_request_info import AiOptimizationPerplexityLlmResponsesLiveRequestInfo
-    from dataforseo_client.models.ai_optimization_perplexity_llm_responses_live_response_info import AiOptimizationPerplexityLlmResponsesLiveResponseInfo
-    @validate_call
-    def perplexity_llm_responses_live(
-        self,
-        list_optional_ai_optimization_perplexity_llm_responses_live_request_info: 'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]' = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AiOptimizationPerplexityLlmResponsesLiveResponseInfo:
-
-        _param = self._perplexity_llm_responses_live_serialize(
-            list_optional_ai_optimization_perplexity_llm_responses_live_request_info=list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "AiOptimizationPerplexityLlmResponsesLiveResponseInfo",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    
-    @validate_call
-    def perplexity_llm_responses_live_with_http_info(
-        self,
-        list_optional_ai_optimization_perplexity_llm_responses_live_request_info: 'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]' = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> 'ApiResponse[AiOptimizationPerplexityLlmResponsesLiveResponseInfo]':
-
-        _param = self._perplexity_llm_responses_live_serialize(
-            list_optional_ai_optimization_perplexity_llm_responses_live_request_info=list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "AiOptimizationPerplexityLlmResponsesLiveResponseInfo",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    def perplexity_llm_responses_live_without_preload_content(
-        self,
-        list_optional_ai_optimization_perplexity_llm_responses_live_request_info: 'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]' = None,
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-
-        _param = self._perplexity_llm_responses_live_serialize(
-            list_optional_ai_optimization_perplexity_llm_responses_live_request_info=list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "AiOptimizationPerplexityLlmResponsesLiveResponseInfo",
-        }
-        response_data = self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _perplexity_llm_responses_live_serialize(
-        self,
-        list_optional_ai_optimization_perplexity_llm_responses_live_request_info,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-            'List[Optional[AiOptimizationPerplexityLlmResponsesLiveRequestInfo]]': '',
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-        if list_optional_ai_optimization_perplexity_llm_responses_live_request_info is not None:
-            _body_params = list_optional_ai_optimization_perplexity_llm_responses_live_request_info
-
-
-        # set the HTTP header `Accept`
-        if 'Accept' not in _header_params:
-            _header_params['Accept'] = self.api_client.select_header_accept(
-                [
-                    'application/json'
-                ]
-            )
-
-        # set the HTTP header `Content-Type`
-        if _content_type:
-            _header_params['Content-Type'] = _content_type
-        else:
-            _default_content_type = (
-                self.api_client.select_header_content_type(
-                    [
-                        'application/json'
-                    ]
-                )
-            )
-            if _default_content_type is not None:
-                _header_params['Content-Type'] = _default_content_type
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'basicAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='POST',
-            resource_path='/v3/ai_optimization/perplexity/llm_responses/live',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

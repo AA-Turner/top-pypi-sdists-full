@@ -26,11 +26,13 @@ from asyncio import Lock, sleep
 from tesla_fleet_api.exceptions import (
     MESSAGE_FAULTS,
     SIGNED_MESSAGE_INFORMATION_FAULTS,
+    WHITELIST_OPERATION_STATUS,
     NotOnWhitelistFault,
     SessionInfoAuthenticationFault,
     SignedCommandResponseReplayed,
     SigningDisabled,
     TeslaFleetError,
+    WhitelistOperationStatus,
     # TeslaFleetMessageFaultInvalidSignature,
     TeslaFleetMessageFaultIncorrectEpoch,
     TeslaFleetMessageFaultInvalidTokenOrCounter,
@@ -788,6 +790,16 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                     vcsec.commandStatus.operationStatus
                     == OperationStatus_E.OPERATIONSTATUS_OK
                 ):
+                    info = vcsec.commandStatus.whitelistOperationStatus.whitelistOperationInformation
+                    if info:
+                        if info < len(WHITELIST_OPERATION_STATUS):
+                            exception = WHITELIST_OPERATION_STATUS[info]
+                            if exception:
+                                raise exception
+                        else:
+                            raise WhitelistOperationStatus(
+                                f"Unknown whitelist operation failure: {info}"
+                            )
                     return {"response": {"result": True, "reason": ""}}
                 elif (
                     vcsec.commandStatus.operationStatus
@@ -2980,16 +2992,25 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         )
 
     async def add_managed_charging_site(
-        self, public_key: str, lat: float, lon: float
+        self, public_key: str, din: str, lat: float, lon: float
     ) -> dict[str, Any]:
-        """Registers a managed charging site (utility managed-charging program) for this vehicle."""
+        """Registers a managed charging site (utility managed-charging program) for this vehicle.
+
+        `public_key` is the raw EC point string the vehicle expects, not the DER
+        the gateway's `get_signed_commands_public_key` returns; convert DER to a
+        raw EC point before calling this (the Fleet API's equivalent route does
+        this conversion server-side). `din` is the gateway's DIN, which the
+        vehicle uses to match this registration to the site controller.
+        """
         return await self._sendInfotainment(
             Action(
                 vehicleAction=VehicleAction(
                     addManagedChargingSiteRequest=AddManagedChargingSiteRequest(
                         site=ManagedChargingSite(
                             public_key=public_key,
-                            manager_type=ManagerType(site_controller=SiteController()),
+                            manager_type=ManagerType(
+                                site_controller=SiteController(din=din)
+                            ),
                             lat_lon=LatLong(latitude=lat, longitude=lon),
                         )
                     )

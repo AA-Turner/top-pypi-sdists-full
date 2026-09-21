@@ -4,10 +4,10 @@
 
 mod base14;
 mod clip_boundaries;
-mod content_decode;
+pub(crate) mod content_decode;
 pub(crate) mod content_stream;
 pub(crate) mod display_frame;
-mod fonts;
+pub(crate) mod fonts;
 pub(crate) mod geometry;
 mod layout;
 mod links;
@@ -25,6 +25,7 @@ use crate::types::{PageExtraction, PdfLine, PdfRect, TextItem};
 use crate::PdfError;
 use log::debug;
 use lopdf::{Document, Object, ObjectId};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -45,9 +46,10 @@ pub use display_frame::PositionFrame;
 ///
 /// let options = PositionOptions::new()
 ///     .frame(PositionFrame::Display)
-///     .bold_from_weight(true);
+///     .bold_from_weight(true)
+///     .bold_weight_threshold(700);
 /// ```
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct PositionOptions {
     /// Coordinate frame items are reported in and region rects are read
@@ -55,17 +57,36 @@ pub struct PositionOptions {
     pub frame: PositionFrame,
     /// Read bold from the font's weight class as well. When set,
     /// `TextItem::is_bold` is also `true` for items whose
-    /// `TextItem::font_weight` is 600 (SemiBold) or more, and adjacent runs
-    /// whose `font_weight` differs stay separate items instead of merging,
-    /// so a heavier run inside a lighter paragraph keeps its own item. Off
-    /// by default: `is_bold` and item merging are then exactly what they
-    /// were before the option existed, and `font_weight` is reported
-    /// either way.
+    /// `TextItem::font_weight` is `bold_weight_threshold` (600, SemiBold,
+    /// by default) or more, `TextItem::bold_source` says so, and adjacent
+    /// runs are merged by that verdict: a run the weight makes bold stays
+    /// apart from its plain neighbours, so a heavier run inside a lighter
+    /// paragraph keeps its own item, while runs whose weights differ but
+    /// agree on bold — both below the threshold, or both at or above it —
+    /// merge as usual. Off by default: `is_bold` and item merging are then
+    /// exactly what they were before the option existed, and `font_weight`
+    /// is reported either way.
     pub bold_from_weight: bool,
+    /// The weight class from which `bold_from_weight` reads bold, on the
+    /// 100..=900 scale: 600 by default, so SemiBold and heavier faces are
+    /// bold. It matters only when `bold_from_weight` is set; a value outside
+    /// the scale is clamped into it either way.
+    pub bold_weight_threshold: u16,
+}
+
+impl Default for PositionOptions {
+    fn default() -> Self {
+        Self {
+            frame: PositionFrame::default(),
+            bold_from_weight: false,
+            bold_weight_threshold: content_stream::DEFAULT_BOLD_WEIGHT_THRESHOLD,
+        }
+    }
 }
 
 impl PositionOptions {
-    /// The defaults: sheet frame, bold not read from the weight class.
+    /// The defaults: sheet frame, bold not read from the weight class, a
+    /// threshold of 600 for when it is.
     pub fn new() -> Self {
         Self::default()
     }
@@ -82,11 +103,19 @@ impl PositionOptions {
         self
     }
 
+    /// Set the weight class from which bold is read when `bold_from_weight`
+    /// is on: 600 by default, valid values 100..=900.
+    pub fn bold_weight_threshold(mut self, threshold: u16) -> Self {
+        self.bold_weight_threshold = threshold;
+        self
+    }
+
     /// The content-stream switches these options ask for.
     pub(crate) fn text_extraction(self, include_invisible: bool) -> TextExtractionOptions {
         TextExtractionOptions {
             include_invisible,
             bold_from_weight: self.bold_from_weight,
+            bold_weight_threshold: self.bold_weight_threshold.clamp(100, 900),
         }
     }
 }
@@ -202,7 +231,12 @@ pub(crate) fn extract_text_with_positions_and_rects_with_password<P: AsRef<Path>
     let (doc, _) = crate::load_document_from_path_with_password(&path, password)?;
     let font_cmaps = FontCMaps::from_doc(&doc);
     let (extraction, _thresholds, _gid_pages, _page_rotations) =
-        extract_positioned_text_from_doc_in_page_box(&doc, &font_cmaps, page_filter, false)?;
+        extract_positioned_text_from_doc_in_page_box(
+            &doc,
+            &font_cmaps,
+            page_filter,
+            PositionOptions::default(),
+        )?;
     Ok(extraction)
 }
 
@@ -306,12 +340,7 @@ pub fn extract_text_with_positions_and_rotations_mem_with_options(
     let (doc, _) = crate::load_document_from_mem(buffer)?;
     let font_cmaps = FontCMaps::from_doc(&doc);
     let ((mut items, _rects, _lines), _thresholds, _gid_pages, page_rotations) =
-        extract_positioned_text_from_doc_in_page_box(
-            &doc,
-            &font_cmaps,
-            page_filter,
-            options.bold_from_weight,
-        )?;
+        extract_positioned_text_from_doc_in_page_box(&doc, &font_cmaps, page_filter, options)?;
     if options.frame == PositionFrame::Display {
         display_frame::document_items_to_display_frame(&doc, &mut items, &page_rotations);
     }
@@ -438,16 +467,13 @@ pub(crate) fn extract_positioned_text_from_doc_in_page_box(
     doc: &Document,
     font_cmaps: &FontCMaps,
     page_filter: Option<&HashSet<u32>>,
-    bold_from_weight: bool,
+    options: PositionOptions,
 ) -> Result<(PageExtraction, PageThresholds, HashSet<u32>, PageRotations), PdfError> {
     extract_positioned_text_impl(
         doc,
         font_cmaps,
         page_filter,
-        TextExtractionOptions {
-            include_invisible: false,
-            bold_from_weight,
-        },
+        options.text_extraction(false),
         None,
         CoordinateFrame::VisiblePageBox,
     )
@@ -1375,13 +1401,97 @@ pub(crate) fn merge_text_items(items: Vec<TextItem>) -> Vec<TextItem> {
     merge_text_items_with_clips(items, &[], false)
 }
 
-/// `keep_weights_apart` refuses to merge runs whose `font_weight` differs
-/// (`PositionOptions::bold_from_weight`), the way bold and plain runs are
-/// already kept apart.
+/// The separators a number is written with: point, comma, colon, slash
+/// and the Arabic decimal and thousands separators.
+fn is_number_separator(c: char) -> bool {
+    matches!(c, '.' | ',' | ':' | '/' | '\u{066B}' | '\u{066C}')
+}
+
+/// A fragment of a number: digits of any script, at least one, with the
+/// separators that join them and nothing else.
+fn numeric_fragment(text: &str) -> bool {
+    let text = text.trim();
+    text.chars().any(char::is_numeric)
+        && text
+            .chars()
+            .all(|c| c.is_numeric() || is_number_separator(c))
+}
+
+/// A fragment of nothing but number separators: a comma or point shown
+/// apart from its digits.
+fn separator_fragment(text: &str) -> bool {
+    let text = text.trim();
+    !text.is_empty() && text.chars().all(is_number_separator)
+}
+
+/// Whether the junction of two neighbouring fragments lies inside a
+/// number: both are number material and at least one holds a digit — a
+/// separator shown apart from its digits belongs to the number beside it,
+/// while two lone separators make no number.
+fn inside_number(a: &str, b: &str) -> bool {
+    let material = |text: &str| numeric_fragment(text) || separator_fragment(text);
+    material(a) && material(b) && (numeric_fragment(a) || numeric_fragment(b))
+}
+
+/// Word-gap floor for a line of right-to-left text shown one glyph per
+/// item, from its own gaps: the letter gaps of such a line cluster below
+/// its word gaps. Declared advance widths are often off for these fonts,
+/// so the fixed em fractions that serve word-by-word runs would put a space
+/// after every narrow letter. The gaps are given and the floor returned in
+/// em — of the smaller font beside each gap, so a word gap next to a
+/// footnote mark or a run of a smaller font is measured by the glyphs it
+/// separates. They are split into two classes where the variance between
+/// them is largest (Otsu's threshold), and the floor sits between the
+/// classes when the upper one is a space's worth apart from the lower —
+/// glyphs of a second font with true widths, digits at zero gap beside
+/// letters at a small one, form no such class. With one class of gaps the
+/// floor is infinite when even the wide ones are mid-word gaps (under the
+/// 0.13 em a junction inside a word may open to), so a line of one word
+/// holds together; gaps of one class that are wider than that could as
+/// well be the word gaps of one-letter words, and the fixed thresholds
+/// decide them: `None`.
+fn glyph_run_word_gap_floor(gaps: &[f32]) -> Option<f32> {
+    if gaps.len() < 3 {
+        return None;
+    }
+    let mut sorted: Vec<f32> = gaps.to_vec();
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    let total: f32 = sorted.iter().sum();
+    let n = sorted.len() as f32;
+    let mut best: Option<(f32, f32, f32)> = None; // (between-class variance, low mean, high mean)
+    let mut low_sum = 0.0f32;
+    for (k, &value) in sorted.iter().enumerate().take(sorted.len() - 1) {
+        low_sum += value;
+        let low_n = (k + 1) as f32;
+        let high_n = n - low_n;
+        let low_mean = low_sum / low_n;
+        let high_mean = (total - low_sum) / high_n;
+        let variance = low_n * high_n * (high_mean - low_mean).powi(2);
+        if best.is_none_or(|(v, _, _)| variance > v) {
+            best = Some((variance, low_mean, high_mean));
+        }
+    }
+    let upper_quartile = sorted[sorted.len() * 3 / 4];
+    match best {
+        Some((_, low_mean, high_mean)) if high_mean - low_mean >= 0.12 && high_mean >= 0.2 => {
+            Some((low_mean + high_mean) / 2.0)
+        }
+        _ if upper_quartile <= 0.13 => Some(f32::INFINITY),
+        _ => None,
+    }
+}
+
+/// Bold and plain runs are kept apart whatever said they were bold: with
+/// `PositionOptions::bold_from_weight` the weight class has already had its
+/// say in `is_bold` (see `content_stream::read_bold_from_weight`), so runs
+/// of different weight split only where the bold verdict changes.
+/// `visual_rtl` says the page's right-to-left runs are stored in visual
+/// order (see `text_utils::fix_visual_order_rtl`): the lines holding them
+/// are then read back into logical order here, as they merge.
 fn merge_text_items_with_clips(
     items: Vec<TextItem>,
     clips: &[Option<clip_boundaries::ClipRect>],
-    keep_weights_apart: bool,
+    visual_rtl: bool,
 ) -> Vec<TextItem> {
     if items.is_empty() {
         return items;
@@ -1410,35 +1520,189 @@ fn merge_text_items_with_clips(
         }
     }
 
-    let mut ordered_line_groups: Vec<(u32, f32, Vec<&TextItem>, bool)> = Vec::new();
+    // Each page's own direction: a line with right-to-left letters on a
+    // right-to-left page reads right to left even when its Latin letters
+    // outnumber them.
+    let page_rtl: HashMap<u32, bool> = items
+        .iter()
+        .map(|item| item.page)
+        .collect::<std::collections::HashSet<u32>>()
+        .into_iter()
+        .map(|page| {
+            let rtl = is_rtl_text(items.iter().filter(|i| i.page == page).map(|i| &i.text));
+            (page, rtl)
+        })
+        .collect();
+
+    /// One line's fragments, in the order they are walked.
+    struct LineGroup<'a> {
+        page: u32,
+        y: f32,
+        group: Vec<&'a TextItem>,
+        /// Each fragment's text as it reads: its own, or on a visual-order
+        /// page the stretch of the line's logical text that is its.
+        texts: Vec<Cow<'a, str>>,
+        preserve_stream_order: bool,
+        /// Holds right-to-left letters: walked in reading order, not along +x.
+        bidi: bool,
+        /// For a `bidi` line, each fragment's position in screen order.
+        display_index: Vec<usize>,
+        /// For a `bidi` line, the gap between each pair of screen
+        /// neighbours, in points, by screen position.
+        display_gaps: Vec<f32>,
+        /// For a `bidi` line shown one glyph per fragment, the word-gap
+        /// floor its own gaps give (`glyph_run_word_gap_floor`), in em of
+        /// the smaller font at a junction.
+        glyph_floor: Option<f32>,
+    }
+    let mut ordered_line_groups: Vec<LineGroup<'_>> = Vec::new();
 
     // Sort each group by X position (direction-aware), except for lines whose
     // content stream intentionally backtracks to overlay ActualText fragments.
     for (page, y, mut group) in line_groups {
-        let rtl = is_rtl_text(group.iter().map(|i| &i.text));
-        let preserve_stream_order = !rtl && should_preserve_overlapping_stream_order(&group);
-        if rtl {
-            group.sort_by(|a, b| b.x.total_cmp(&a.x));
-            // Embedded LTR phrases must recover screen order before merging
-            // bakes the concatenation in — later sort_line_items passes can
-            // no longer separate a merged item.
-            crate::text_utils::restore_embedded_ltr_runs(&mut group, |i| i.text.as_str());
-        } else if !preserve_stream_order {
+        // A line with right-to-left letters, whichever direction dominates
+        // it, is walked in reading order below.
+        let bidi = group
+            .iter()
+            .any(|i| i.text.chars().any(crate::text_utils::is_rtl_char));
+        let preserve_stream_order = !bidi && should_preserve_overlapping_stream_order(&group);
+        let texts: Vec<Cow<'_, str>>;
+        let mut display_index: Vec<usize> = Vec::new();
+        let mut display_gaps: Vec<f32> = Vec::new();
+        let mut glyph_floor: Option<f32> = None;
+        if bidi {
+            // Screen order first; the fragments are then taken in the reading
+            // order the Unicode Bidirectional Algorithm gives the line, so an
+            // embedded Latin phrase or number keeps its own order when the
+            // concatenation below bakes the order in. On a visual-order page
+            // the fragments' glyphs are the display line itself, and each
+            // fragment gets its stretch of the logical text back.
+            let rtl_base = crate::text_utils::rtl_line_base(
+                &group,
+                |i| *i,
+                page_rtl.get(&page).copied().unwrap_or(false),
+            );
             group.sort_by(|a, b| a.x.total_cmp(&b.x));
+            // The gaps between screen neighbours, taken once here: two
+            // glyphs at one x (a mark over its letter) sort either way, and
+            // the reading order below must index the same sequence.
+            display_gaps = group
+                .windows(2)
+                .map(|pair| pair[1].x - (pair[0].x + effective_merge_width(pair[0])))
+                .collect();
+            // Glyph-by-glyph positioned RTL text clusters into words by the
+            // line's own gaps: adjacent glyphs abut, word gaps do not, with
+            // the floor below where declared widths are off. Junctions
+            // inside a number are never word gaps and say nothing about the
+            // letters' gaps either (digits of another font keep true
+            // widths), so they stay out of the sample. The same floor
+            // separates the words for the bidi analysis and, below, for the
+            // merge.
+            let single_glyphs = group
+                .iter()
+                .filter(|i| i.text.trim().chars().count() == 1)
+                .count();
+            if group.len() >= 4 && single_glyphs * 10 >= group.len() * 7 {
+                let gaps: Vec<f32> = group
+                    .windows(2)
+                    .zip(&display_gaps)
+                    .filter(|(pair, _)| !inside_number(&pair[0].text, &pair[1].text))
+                    .map(|(pair, gap)| gap / pair[0].font_size.min(pair[1].font_size).max(1.0))
+                    .collect();
+                glyph_floor = glyph_run_word_gap_floor(&gaps);
+            }
+            let order = crate::bidi::logical_line_order(
+                &group,
+                |i| i.text.as_str(),
+                |i| (i.x, i.width),
+                |i| i.font_size,
+                |_| visual_rtl,
+                glyph_floor,
+                rtl_base,
+            );
+            let reordered: Vec<&TextItem> = order.iter().map(|&(index, _)| group[index]).collect();
+            display_index = order.iter().map(|&(index, _)| index).collect();
+            texts = order
+                .into_iter()
+                .map(|(index, logical)| {
+                    if visual_rtl {
+                        Cow::Owned(logical)
+                    } else {
+                        Cow::Borrowed(group[index].text.as_str())
+                    }
+                })
+                .collect();
+            group = reordered;
+        } else {
+            if !preserve_stream_order {
+                group.sort_by(|a, b| a.x.total_cmp(&b.x));
+            }
+            texts = group
+                .iter()
+                .map(|i| Cow::Borrowed(i.text.as_str()))
+                .collect();
         }
-        ordered_line_groups.push((page, y, group, preserve_stream_order));
+        ordered_line_groups.push(LineGroup {
+            page,
+            y,
+            group,
+            texts,
+            preserve_stream_order,
+            bidi,
+            display_index,
+            display_gaps,
+            glyph_floor,
+        });
     }
 
     // Sort groups by page then Y descending (top of page first)
-    ordered_line_groups.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.total_cmp(&a.1)));
+    ordered_line_groups.sort_by(|a, b| a.page.cmp(&b.page).then_with(|| b.y.total_cmp(&a.y)));
 
     let mut merged = Vec::new();
 
-    for (_, _, group, preserve_stream_order) in &ordered_line_groups {
+    for line in &ordered_line_groups {
+        let LineGroup {
+            group,
+            texts,
+            preserve_stream_order,
+            bidi,
+            display_index,
+            display_gaps,
+            glyph_floor,
+            ..
+        } = line;
+        // A line of right-to-left text is walked in reading order, which
+        // runs leftwards through its RTL words and rightwards through an
+        // embedded Latin phrase or number, but its word gaps are gaps between
+        // neighbours on the page. The gap at a junction of the walk is the
+        // gap between the two fragments when they are neighbours in screen
+        // order; where the walk jumps into or out of an embedded run, it is
+        // the gap between that run's near end and the fragment it turned
+        // from — the wider of the two screen gaps that flank the jump, the
+        // other being inside a run.
+        let junction_gap = |from: usize, to: usize| -> f32 {
+            let (a, b) = (display_index[from], display_index[to]);
+            if a.abs_diff(b) == 1 {
+                return display_gaps[a.min(b)];
+            }
+            let towards = |at: usize, other: usize| {
+                if other > at {
+                    display_gaps.get(at).copied()
+                } else {
+                    at.checked_sub(1).and_then(|k| display_gaps.get(k).copied())
+                }
+            };
+            match (towards(a, b), towards(b, a)) {
+                (Some(x), Some(y)) => x.max(y),
+                (Some(x), None) | (None, Some(x)) => x,
+                (None, None) => 0.0,
+            }
+        };
+        let glyph_floor = *glyph_floor;
         let mut i = 0;
         while i < group.len() {
             let first = group[i];
-            let mut text = first.text.clone();
+            let mut text = texts[i].to_string();
             let mut legacy_symbol_rewrite = first.legacy_symbol_rewrite;
             let mut end_x = first.x + effective_merge_width(first);
             let mut box_right = first.x + first.width;
@@ -1446,7 +1710,7 @@ fn merge_text_items_with_clips(
 
             // Tracked display text: run-local space floor overrides the
             // fixed thresholds for this run's junctions (see helper).
-            let tracked = if *preserve_stream_order {
+            let tracked = if *preserve_stream_order || *bidi {
                 None
             } else {
                 tracked_run_space_floor(group, i)
@@ -1455,10 +1719,15 @@ fn merge_text_items_with_clips(
             let mut j = i + 1;
             while j < group.len() {
                 let next = group[j];
+                let next_text: &str = &texts[j];
+                let gap = if *bidi {
+                    junction_gap(j - 1, j)
+                } else {
+                    next.x - end_x
+                };
                 // A small-caps junction is mid-word: it both survives the
                 // font-size band below and must never take a space.
-                let small_caps_join =
-                    is_small_caps_continuation(&text, first, next, next.x - end_x);
+                let small_caps_join = is_small_caps_continuation(&text, first, next, gap);
                 // Must be similar font size, except for genuine small-caps
                 // runs, where the shrunken capitals are the same word as the
                 // full-size initial (see helper).
@@ -1489,7 +1758,6 @@ fn merge_text_items_with_clips(
                 if next.advance_known != first.advance_known {
                     break;
                 }
-                let gap = next.x - end_x;
                 let x_gap_max = if *preserve_stream_order && is_standalone_bullet_text(&text) {
                     first.font_size * 1.2
                 } else {
@@ -1521,7 +1789,7 @@ fn merge_text_items_with_clips(
                     && (next.y - first.y).abs() > first.font_size * 0.3
                     && gap < -effective_merge_width(next) * 0.5
                     && digits(text.trim())
-                    && digits(next.text.trim())
+                    && digits(next_text.trim())
                 {
                     break;
                 }
@@ -1531,7 +1799,7 @@ fn merge_text_items_with_clips(
                 // that shift advance widths relative to Td positioning.
                 let threshold = {
                     let prev_last = text.trim_end().chars().last();
-                    let next_first = next.text.trim_start().chars().next();
+                    let next_first = next_text.trim_start().chars().next();
                     // Never insert space before joining punctuation
                     if next_first.is_some_and(|c| matches!(c, '.' | ',' | ';' | ')' | ']' | '}')) {
                         first.font_size * 0.25
@@ -1540,27 +1808,36 @@ fn merge_text_items_with_clips(
                     {
                         // Lowercase→lowercase: likely mid-word, use wider threshold
                         first.font_size * 0.13
+                    } else if prev_last.is_some_and(crate::text_utils::is_rtl_char)
+                        && next_first.is_some_and(crate::text_utils::is_rtl_char)
+                    {
+                        // Two pieces of one Hebrew or Arabic word, split where
+                        // the producer kerned or rejoined a glyph run: as
+                        // mid-word as a lowercase junction.
+                        first.font_size * 0.13
                     } else {
                         first.font_size * 0.08
                     }
                 };
                 let needs_bullet_space = *preserve_stream_order
                     && is_standalone_bullet_text(&text)
-                    && !next.text.trim().is_empty();
-                let effective_threshold = match tracked {
-                    Some((run_end, floor)) if j <= run_end => floor,
+                    && !next_text.trim().is_empty();
+                let effective_threshold = match (tracked, glyph_floor) {
+                    (Some((run_end, floor)), _) if j <= run_end => floor,
+                    (_, Some(floor_em)) => {
+                        floor_em * group[j - 1].font_size.min(next.font_size).max(1.0)
+                    }
                     _ => threshold,
                 };
-                let bold_boundary = next.is_bold != first.is_bold
-                    || (keep_weights_apart && next.font_weight != first.font_weight);
+                let bold_boundary = next.is_bold != first.is_bold;
                 let explicit_bold_space = bold_boundary
                     && (text.ends_with(char::is_whitespace)
-                        || next.text.starts_with(char::is_whitespace));
+                        || next_text.starts_with(char::is_whitespace));
                 // Numeric fragments have their own joining thresholds in
                 // line assembly. Injecting a word space here would split a
                 // number whose decimal point or digits use a bold font.
                 let numeric_boundary = bold_boundary
-                    && match (text.chars().last(), next.text.chars().next()) {
+                    && match (text.chars().last(), next_text.chars().next()) {
                         (Some(p), Some(c)) if p.is_ascii_digit() => {
                             c.is_ascii_digit() || matches!(c, '.' | ',' | '%')
                         }
@@ -1588,7 +1865,7 @@ fn merge_text_items_with_clips(
                 if bold_boundary {
                     break;
                 }
-                text.push_str(&next.text);
+                text.push_str(next_text);
                 legacy_symbol_rewrite |= next.legacy_symbol_rewrite;
                 box_right = box_right.max(next.x + next.width);
                 box_left = box_left.min(next.x);
@@ -1601,17 +1878,24 @@ fn merge_text_items_with_clips(
                 j += 1;
             }
 
+            // Hebrew and Arabic presentation forms stand for letters; now
+            // that the text reads in logical order, a ligature's letters
+            // come out in reading order.
+            let text = crate::bidi::normalize_presentation_forms(&text).into_owned();
+
             merged.push(TextItem {
                 text,
                 // An estimated run's item is the union of the estimated boxes
-                // it merged, including any fragment that backtracked in x.
-                x: if first.advance_known {
+                // it merged, including any fragment that backtracked in x; so
+                // is a run with right-to-left text, whose fragments were
+                // walked in reading order rather than along +x.
+                x: if first.advance_known && !*bidi {
                     first.x
                 } else {
                     box_left
                 },
                 y: first.y,
-                width: if first.advance_known {
+                width: if first.advance_known && !*bidi {
                     end_x - first.x
                 } else {
                     box_right - box_left
@@ -1625,6 +1909,8 @@ fn merge_text_items_with_clips(
                 is_bold: first.is_bold,
                 is_italic: first.is_italic,
                 font_weight: first.font_weight,
+                bold_source: first.bold_source,
+                fixed_pitch: first.fixed_pitch,
                 is_underline: first.is_underline,
                 is_strikeout: first.is_strikeout,
                 rotation: first.rotation,
@@ -1658,6 +1944,54 @@ mod tests {
     use layout::{detect_columns, is_newspaper_layout, ColumnRegion};
 
     /// Glyph-per-item run at `fs`=12 with the given inter-glyph gap (pt).
+    #[test]
+    fn numeric_fragments_are_digits_of_any_script_with_their_separators() {
+        assert!(numeric_fragment("12"));
+        assert!(numeric_fragment(" 1,234.5 "));
+        assert!(numeric_fragment("\u{0662}\u{0664}"));
+        assert!(numeric_fragment("\u{0663}\u{066B}\u{0665}"));
+        assert!(!numeric_fragment(""));
+        assert!(!numeric_fragment("a1"));
+        assert!(!numeric_fragment("\u{05D0}"));
+        assert!(!numeric_fragment("-"));
+        // A separator on its own is no number, but belongs to the number
+        // beside it.
+        assert!(!numeric_fragment(","));
+        assert!(separator_fragment(","));
+        assert!(inside_number("21", ","));
+        assert!(inside_number(",", "847"));
+        assert!(inside_number("1", "2"));
+        assert!(!inside_number(".", "."));
+        assert!(!inside_number("a", "1"));
+        assert!(!inside_number("1", "\u{05D0}"));
+    }
+
+    #[test]
+    fn glyph_run_word_gap_floor_splits_letter_gaps_from_word_gaps() {
+        // Letter gaps under a tenth of an em and two word gaps of a third:
+        // the floor sits between the classes.
+        let gaps = [0.06, 0.08, 0.07, 0.34, 0.09, 0.06, 0.32, 0.08];
+        let floor = glyph_run_word_gap_floor(&gaps).expect("two classes");
+        assert!(floor > 0.09 && floor < 0.32, "{floor}");
+    }
+
+    #[test]
+    fn glyph_run_word_gap_floor_holds_one_word_together() {
+        // One class of gaps, all mid-word sized: the line is one word.
+        let gaps = [0.06, 0.09, 0.11, 0.07, 0.10];
+        assert_eq!(glyph_run_word_gap_floor(&gaps), Some(f32::INFINITY));
+    }
+
+    #[test]
+    fn glyph_run_word_gap_floor_leaves_uniform_wide_gaps_to_the_thresholds() {
+        // One class of gaps as wide as word spaces (one-letter words, or a
+        // short run whose gaps do not tell): no floor of its own.
+        let gaps = [0.24, 0.26, 0.25, 0.25];
+        assert_eq!(glyph_run_word_gap_floor(&gaps), None);
+        // Too few gaps to read a distribution from.
+        assert_eq!(glyph_run_word_gap_floor(&[0.05, 0.3]), None);
+    }
+
     fn glyph_run(chars: &str, start_x: f32, glyph_w: f32, gap: f32) -> Vec<TextItem> {
         let mut x = start_x;
         let mut out = Vec::new();
@@ -1773,6 +2107,8 @@ mod tests {
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: false,
             rotation: 0.0,
@@ -1844,44 +2180,95 @@ mod tests {
     }
 
     #[test]
-    fn weight_boundary_splits_runs_only_when_asked() {
-        // A medium-weight label leading a light paragraph: by default the
-        // runs merge into one item as they always did; with the weights
-        // kept apart the label stays its own item, and the merge still
-        // decides the word space the way an unstyled merge would, so the
-        // later line assembler does not glue "Label:" onto "body".
+    fn merge_follows_the_bold_verdict_not_the_weight_class() {
+        use crate::types::BoldSource;
+
+        // A medium-weight label leading a light paragraph: neither is bold,
+        // so the runs merge into one item whatever their weight classes,
+        // and the item carries its first run's weight.
         let mut label = make_merge_item("Label:", 100.0, 36.0);
         label.font_weight = Some(500);
         let mut body = make_merge_item("body", 137.2, 24.0);
         body.font_weight = Some(300);
         let mut more = make_merge_item("text", 163.6, 24.0);
         more.font_weight = Some(300);
-        let items = vec![label, body, more];
-
-        let merged = merge_text_items_with_clips(items.clone(), &[], false);
+        let items = vec![label.clone(), body.clone(), more.clone()];
+        let merged = merge_text_items_with_clips(items, &[], false);
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].text, "Label: body text");
         assert_eq!(merged[0].font_weight, Some(500));
 
-        let apart = merge_text_items_with_clips(items, &[], true);
+        // Once the weight class has made the label bold (the option's pass,
+        // `read_bold_from_weight`), the label stays its own item, and the
+        // merge still decides the word space the way an unstyled merge
+        // would, so the later line assembler does not glue "Label:" onto
+        // "body".
+        let mut items = vec![label, body, more];
+        super::content_stream::read_bold_from_weight(&mut items, 500);
+        let apart = merge_text_items_with_clips(items, &[], false);
         assert_eq!(apart.len(), 2);
         assert_eq!(apart[0].text, "Label: ");
-        assert_eq!(apart[0].font_weight, Some(500));
+        assert!(apart[0].is_bold);
+        assert_eq!(apart[0].bold_source, Some(BoldSource::WeightClass));
         assert_eq!(apart[1].text, "body text");
-        assert_eq!(apart[1].font_weight, Some(300));
-        assert!(!apart[0].is_bold, "the merge reads weights, not bold");
+        assert!(!apart[1].is_bold);
+        assert_eq!(apart[1].bold_source, None);
 
-        // Runs that agree on their weight, or know none, merge as before.
-        let mut a = make_merge_item("same", 100.0, 24.0);
-        a.font_weight = Some(400);
-        let mut b = make_merge_item("weight", 125.2, 36.0);
-        b.font_weight = Some(400);
+        // Runs of different weight that agree on bold merge: a 700 face
+        // beside a 400 face whose name says bold are one item, which keeps
+        // the first run's weight class and bold source.
+        let mut heavy = make_merge_item("Heavy", 100.0, 30.0);
+        heavy.font_weight = Some(700);
+        let mut named = make_merge_item("named", 132.0, 30.0);
+        named.font_weight = Some(400);
+        named.is_bold = true;
+        named.bold_source = Some(BoldSource::FontName);
+        let mut items = vec![heavy, named];
+        super::content_stream::read_bold_from_weight(&mut items, 600);
+        let merged = merge_text_items_with_clips(items, &[], false);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].text, "Heavy named");
+        assert_eq!(merged[0].font_weight, Some(700));
+        assert_eq!(merged[0].bold_source, Some(BoldSource::WeightClass));
+
+        // Runs that know no weight merge as before.
         let unknown = vec![
             make_merge_item("no", 100.0, 12.0),
             make_merge_item("weight", 113.2, 36.0),
         ];
-        assert_eq!(merge_text_items_with_clips(vec![a, b], &[], true).len(), 1);
-        assert_eq!(merge_text_items_with_clips(unknown, &[], true).len(), 1);
+        assert_eq!(merge_text_items_with_clips(unknown, &[], false).len(), 1);
+    }
+
+    #[test]
+    fn read_bold_from_weight_credits_the_weight_class_after_name_and_flags() {
+        use crate::types::BoldSource;
+
+        let mut named = make_merge_item("named", 0.0, 10.0);
+        named.font_weight = Some(700);
+        named.is_bold = true;
+        named.bold_source = Some(BoldSource::FontName);
+        let mut painted = make_merge_item("painted", 20.0, 10.0);
+        painted.font_weight = Some(650);
+        painted.is_bold = true;
+        painted.bold_source = Some(BoldSource::Painted);
+        let mut light = make_merge_item("light", 40.0, 10.0);
+        light.font_weight = Some(300);
+        let unknown = make_merge_item("unknown", 60.0, 10.0);
+        let mut items = vec![named, painted, light, unknown];
+        super::content_stream::read_bold_from_weight(&mut items, 600);
+        // The name outranks the weight class; the weight class outranks the
+        // paint, since the face itself is heavy.
+        assert_eq!(items[0].bold_source, Some(BoldSource::FontName));
+        assert_eq!(items[1].bold_source, Some(BoldSource::WeightClass));
+        assert!(!items[2].is_bold && items[2].bold_source.is_none());
+        assert!(!items[3].is_bold && items[3].bold_source.is_none());
+
+        // The threshold is inclusive and honoured as given.
+        let mut items = vec![make_merge_item("x", 0.0, 10.0)];
+        items[0].font_weight = Some(500);
+        super::content_stream::read_bold_from_weight(&mut items, 500);
+        assert!(items[0].is_bold);
+        assert_eq!(items[0].bold_source, Some(BoldSource::WeightClass));
     }
 
     #[test]
@@ -2208,6 +2595,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -2230,6 +2619,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -2252,6 +2643,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3044,6 +3437,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3066,6 +3461,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3088,6 +3485,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3121,6 +3520,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3143,6 +3544,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3165,6 +3568,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3200,6 +3605,8 @@ mod tests {
                 is_bold: true,
                 is_italic: false,
                 font_weight: None,
+                bold_source: Some(crate::types::BoldSource::FontName),
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3242,6 +3649,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3285,6 +3694,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3307,6 +3718,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3329,6 +3742,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3359,6 +3774,8 @@ mod tests {
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: false,
             rotation: 0.0,
@@ -3504,6 +3921,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3526,6 +3945,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3535,7 +3956,7 @@ mod tests {
                 baseline_shift: 0.0,
             },
         ];
-        sort_line_items(&mut items);
+        sort_line_items(&mut items, false);
         // RTL: rightmost (higher X) comes first
         assert_eq!(items[0].x, 200.0);
         assert_eq!(items[1].x, 100.0);
@@ -3558,6 +3979,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3580,6 +4003,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3589,7 +4014,7 @@ mod tests {
                 baseline_shift: 0.0,
             },
         ];
-        sort_line_items(&mut items);
+        sort_line_items(&mut items, false);
         // LTR: leftmost comes first
         assert_eq!(items[0].x, 100.0);
         assert_eq!(items[1].x, 200.0);
@@ -3628,6 +4053,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3680,6 +4107,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3732,6 +4161,8 @@ mod tests {
                 is_bold: false,
                 is_italic: false,
                 font_weight: None,
+                bold_source: None,
+                fixed_pitch: None,
                 is_underline: false,
                 is_strikeout: false,
                 rotation: 0.0,
@@ -3777,6 +4208,8 @@ mod tests {
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: false,
             rotation: 0.0,

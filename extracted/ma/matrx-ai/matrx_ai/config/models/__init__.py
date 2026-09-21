@@ -23,6 +23,10 @@ from matrx_ai.config.models.content import (
     ToolCallContentModel,
     ToolResultContentModel,
 )
+from matrx_ai.config.models.decision import (
+    DecisionAnswersContentModel,
+    DecisionQuestionsContentModel,
+)
 from matrx_ai.config.models.extra import (
     CodeExecutionContentModel,
     CodeExecutionResultContentModel,
@@ -51,6 +55,8 @@ __all__ = [
     "AudioContentModel",
     "CodeExecutionContentModel",
     "CodeExecutionResultContentModel",
+    "DecisionAnswersContentModel",
+    "DecisionQuestionsContentModel",
     "DocumentContentModel",
     "ImageContentModel",
     "ProviderChargeModel",

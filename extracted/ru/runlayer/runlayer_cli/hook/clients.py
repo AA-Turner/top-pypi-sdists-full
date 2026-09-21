@@ -68,9 +68,13 @@ EVENT_NORMALIZE: dict[str, str] = {
     "pre_run_command": "BeforeShellExecution",
     "post_run_command": "AfterShellExecution",
     "pre_read_code": "BeforeReadFile",
+    "post_read_code": "AfterReadFile",
     "post_write_code": "AfterFileEdit",
     "pre_user_prompt": "UserPromptSubmit",
     "post_cascade_response": "Stop",
+    # Cascade fires this after the worktree exists; unlike Claude Code's
+    # provider-style WorktreeCreate it never has to produce the worktree.
+    "post_setup_worktree": "WorktreeCreate",
     # Cline CLI: the hook *file name* is the authoritative event (the installed
     # script exports HOOK_EVENT_NAME), but its stdin payload carries a
     # snake_case ``hookName``. These map that payload field as a fallback so a
@@ -387,7 +391,61 @@ def detect_client() -> Client:
     return Client.UNKNOWN
 
 
-def should_noop_for_devin(client: Client) -> bool:
+# Claude Code's built-in tool ids. Devin's harness names its own tools in
+# lower snake case (``exec``, ``read``, ``apply_patch``), so a PascalCase
+# built-in in a payload can only have come from a real Claude Code host.
+_CLAUDE_CODE_BUILTIN_TOOLS = frozenset(
+    {
+        "Bash",
+        "BashOutput",
+        "Edit",
+        "ExitPlanMode",
+        "Glob",
+        "Grep",
+        "KillShell",
+        "LS",
+        "MultiEdit",
+        "NotebookEdit",
+        "Read",
+        "Skill",
+        "SlashCommand",
+        "Task",
+        "TodoWrite",
+        "WebFetch",
+        "WebSearch",
+        "Write",
+    }
+)
+
+# Devin's own built-in tool ids (docs.devin.ai/cli/extensibility/hooks). A
+# payload naming one of these came from Devin's harness no matter which
+# process markers the environment carries.
+_DEVIN_BUILTIN_TOOLS = frozenset(
+    {
+        "apply_patch",
+        "edit",
+        "exec",
+        "exit_plan_mode",
+        "get_output",
+        "glob",
+        "grep",
+        "kill_shell",
+        "notebook_edit",
+        "notebook_read",
+        "read",
+        "read_subagent",
+        "request_scope",
+        "run_subagent",
+        "skill",
+        "todo_write",
+        "webfetch",
+        "write",
+        "write_to_process",
+    }
+)
+
+
+def should_noop_for_devin(client: Client, *, tool_name: str = "") -> bool:
     """True when Devin CLI loaded a hook that belongs to another client.
 
     Devin imports Claude Code / Cursor / Windsurf configuration by default
@@ -404,6 +462,21 @@ def should_noop_for_devin(client: Client) -> bool:
     ``~/.claude/settings.json`` would otherwise resolve to Devin and run
     alongside the real Devin hook.
 
+    ``DEVIN_PROJECT_DIR`` also reaches processes Devin's ``exec`` tool spawns.
+    A Claude Code session started that way runs its own (real) hooks with the
+    variable inherited, and those must keep enforcing. Two signals identify
+    that host: a Claude-native PascalCase ``tool_name`` can only have come
+    from Claude Code, and Claude Code exports ``CLAUDECODE=1`` to every
+    subprocess it launches, hooks included. The marker is what keeps the
+    nested session's ``mcp__*`` calls -- an enforcement point Devin itself
+    never sees -- and its lifecycle events on the enforcing path; without it
+    both would stand down as ambiguous. Devin's own snake_case tool names
+    never consult the marker, so a Devin launched *from* Claude Code (both
+    variables set) still stands its imported Claude hook down for every Devin
+    tool call. The one residual gap is that reverse nesting's ``mcp__*``
+    calls, which fire both hooks. ``CLAUDECODE`` is taken from Claude Code's
+    documentation, not a captured Devin session.
+
     Untagged hooks only exist on the legacy shim path -- every installer writes
     ``--client`` -- and standing one down is the safe direction: the tagged
     Devin hook still enforces, and no tool call is double-enforced.
@@ -413,6 +486,10 @@ def should_noop_for_devin(client: Client) -> bool:
     if _explicit_client() == Client.DEVIN_CLI:
         return False
     if any(pat in _normalized_hook_dir() for pat in _DEVIN_CLI_DIR_PATTERNS):
+        return False
+    if tool_name in _CLAUDE_CODE_BUILTIN_TOOLS:
+        return False
+    if tool_name not in _DEVIN_BUILTIN_TOOLS and hook_io.getenv("CLAUDECODE"):
         return False
     return True
 

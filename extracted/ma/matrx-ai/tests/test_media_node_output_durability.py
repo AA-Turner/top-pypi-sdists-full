@@ -30,7 +30,7 @@ import pytest
 from matrx_files import is_signed_url
 
 FILE_ID = "6feae31a-945b-4dcc-8fc0-2041bb76c6b1"
-OWNER = "4cf62e4e-2679-484f-b652-034e697418df"
+OWNER = "00000000-0000-4000-8000-0000000fffe1"
 
 # The exact URL shape our image backend mints (SigV2, no path extension) —
 # copied from the real node_outcome row that exposed this defect.

@@ -106,6 +106,48 @@ class TestClientPresenceGate:
 
         assert client_is_installed(Client.GROK_CLI, scope=InstallScope.USER)
 
+    @pytest.mark.parametrize(
+        ("system", "seed", "expected"),
+        [
+            ("Darwin", "Applications/Devin.app/Contents/Info.plist", True),
+            ("Linux", ".local/share/applications/devin-desktop.desktop", True),
+            # Config alone never proves presence: Runlayer writes it itself.
+            ("Darwin", ".config/devin/config.json", False),
+            ("Linux", ".config/devin/config.json", False),
+        ],
+    )
+    def test_devin_desktop_app_gates_devin_cli_hooks(
+        self, tmp_path, monkeypatch, system, seed, expected
+    ):
+        """Devin Local (inside Devin Desktop) reads the CLI's config.json#hooks,
+        so a desktop-only host must still get the devin-cli hook entry."""
+        from runlayer_cli.hook_install import presence
+        from runlayer_cli.scan import client_presence
+
+        seeded = tmp_path / seed
+        seeded.parent.mkdir(parents=True)
+        seeded.write_text("")
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(presence.platform, "system", lambda: system)
+        monkeypatch.setattr(
+            client_presence, "locate_cli_binary", lambda *_a, **_kw: None
+        )
+        # Only the fake home's roots should count on the developer's machine.
+        monkeypatch.setattr(
+            client_presence,
+            "_macos_app_roots",
+            lambda home: (tmp_path / "nonexistent", home / "Applications"),
+        )
+        monkeypatch.setattr(
+            client_presence,
+            "_linux_desktop_roots",
+            lambda home: (home / ".local/share/applications",),
+        )
+
+        assert (
+            client_is_installed(Client.DEVIN_CLI, scope=InstallScope.USER) is expected
+        )
+
     def test_hidden_sweep_failure_does_not_abort_install_detection(
         self,
         tmp_path,
@@ -3341,8 +3383,10 @@ _WINDSURF_PIPELINE_EVENTS = {
     "pre_user_prompt",
     "post_mcp_tool_use",
     "post_run_command",
+    "post_read_code",
     "post_write_code",
     "post_cascade_response",
+    "post_setup_worktree",
 }
 
 

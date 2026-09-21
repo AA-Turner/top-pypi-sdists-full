@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brother
-Version: 6.1.2
+Version: 6.2.0
 Summary: Python wrapper for getting data from Brother laser and inkjet printers via SNMP.
 Author: Maciej Bieniek
 License-Expression: Apache-2.0

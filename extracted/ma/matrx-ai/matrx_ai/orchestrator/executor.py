@@ -1093,6 +1093,71 @@ async def _flush_assistant_message_mid_loop(
         return None
 
 
+#: How much of a turn's text the gate needs to judge relevance against. A user
+#: question is short; an assistant turn can be an essay, and only its statement
+#: of intent matters here. Bounded so the judging state stays cheap.
+_GATE_NEED_CHARS = 4_000
+
+
+def _build_gate_context(request: AIMatrixRequest, iteration: int) -> Any:
+    """What the agent is currently pursuing, for the tool-result content gate.
+
+    The user's question, the last assistant turn and the mandate goal are all
+    RIGHT HERE on the request — and until now every one of them was dropped at
+    the handle_tool_calls_v2 call below, which is why the size gate could only
+    ever cut by position. Nothing is invented: a field with no source stays
+    None, and the gate treats "nothing states the need" as unanswerable rather
+    than guessing.
+
+    Never raises — a context we cannot assemble costs relevance, never the turn.
+    """
+    from matrx_ai.config.message_config import content_text
+    from matrx_ai.orchestrator.mandate_carrier import MANDATE_KEY_METADATA_KEY
+    from matrx_ai.tools.result_gate import GateContext
+
+    try:
+        user_question: str | None = None
+        last_assistant: str | None = None
+        messages = getattr(request.config, "messages", None) or []
+        for message in reversed(list(messages)):
+            role = (getattr(message, "role", "") or "").lower()
+            if role == "user" and user_question is None:
+                text = content_text(getattr(message, "content", None))
+                if text.strip():
+                    user_question = text.strip()[:_GATE_NEED_CHARS]
+            elif role == "assistant" and last_assistant is None:
+                text = content_text(getattr(message, "content", None))
+                if text.strip():
+                    last_assistant = text.strip()[:_GATE_NEED_CHARS]
+            if user_question is not None and last_assistant is not None:
+                break
+
+        # The mandate GOAL, not its key — a key is a name, and a name is not a
+        # statement of what the run is for. Absent for free chat, never inferred.
+        mandate_goal: str | None = None
+        metadata = getattr(request, "metadata", None) or {}
+        mandate_key = metadata.get(MANDATE_KEY_METADATA_KEY)
+        if mandate_key:
+            goal = metadata.get("mandate_goal")
+            mandate_goal = str(goal).strip()[:_GATE_NEED_CHARS] if goal else None
+
+        return GateContext(
+            user_question=user_question,
+            last_assistant_turn=last_assistant,
+            mandate_goal=mandate_goal,
+            iteration=iteration,
+            organization_id=getattr(request, "organization_id", None),
+        )
+    except Exception as exc:  # noqa: BLE001 — never let this cost the turn
+        vcprint(
+            f"[Executor] Could not assemble the tool-result gate context "
+            f"({type(exc).__name__}: {exc}); oversized results will be cut by "
+            f"position for this turn.",
+            color="yellow",
+        )
+        return None
+
+
 async def handle_tool_calls(
     response: UnifiedResponse,
     request: AIMatrixRequest,
@@ -1183,6 +1248,9 @@ async def handle_tool_calls(
         allowed_tools=allowed_tools,
         message_id=message_id,
         recursion_depth=read_agent_depth(getattr(ctx, "metadata", None)),
+        # The agent's CURRENT NEED, carried to the tool-result content gate. It
+        # has always existed here and was always dropped at this line.
+        gate_context=_build_gate_context(request, iteration),
     )
 
     results = [
@@ -6098,25 +6166,40 @@ async def _execute_until_complete_inner(
             #   3. If we already intervened and it's STILL stuck → hard graceful
             #      exit (belt-and-suspenders; normally unreachable since tools are
             #      gone on the tool-less turn).
-            from matrx_ai.orchestrator.loop_guard import DEFAULT_FAILURE_THRESHOLD
+            from matrx_ai.orchestrator.loop_guard import load_loop_guard_thresholds
 
-            health = evaluate_loop_health(current_request.tool_call_history)
+            # THE CEILINGS ARE SETTINGS NOW (2026-09-20). Resolved ONCE per run
+            # from the org's ``orchestration.loop_guard`` knob rows through the
+            # host-injected settings door; the package defaults answer when no
+            # host is configured (matrx-ai standalone / a client host with no
+            # Postgres), and a configured door that fails says so out loud.
+            if state.loop_guard_thresholds is None:
+                _guard_ctx = get_app_context()
+                state.loop_guard_thresholds = await load_loop_guard_thresholds(
+                    organization_id=getattr(_guard_ctx, "organization_id", None),
+                    user_id=getattr(_guard_ctx, "user_id", None),
+                )
+            _limits = state.loop_guard_thresholds
+
+            health = evaluate_loop_health(
+                current_request.tool_call_history, thresholds=_limits
+            )
 
             if (
                 health.verdict != "stuck"
                 and not state.loop_guard_intervened
                 and not state.loop_guard_warned
-                and health.failures_in_window >= max(1, DEFAULT_FAILURE_THRESHOLD - 2)
+                and health.failures_in_window >= max(1, _limits.failure_threshold - 2)
             ):
                 # Approaching the failure ceiling — caution the model once.
                 state.loop_guard_warned = True
 
-                _remaining = max(1, DEFAULT_FAILURE_THRESHOLD - health.failures_in_window)
+                _remaining = max(1, _limits.failure_threshold - health.failures_in_window)
                 _caution = (
                     f"⚠️ SYSTEM NOTICE (not from the user): {health.failures_in_window} of your "
                     f"last {health.window_size} tool calls have FAILED. If you reach "
-                    f"{DEFAULT_FAILURE_THRESHOLD} failures, all tools will be disabled as a "
-                    f"safety precaution and you'll have to explain the problem to the user. "
+                    f"{_limits.failure_threshold} failures, the tool that keeps failing will be "
+                    f"disabled for the rest of this run and you'll have to finish without it. "
                     f"You have roughly {_remaining} attempt(s) left. Before trying again: "
                     f"re-read the exact error and the tool's input schema, and consider whether "
                     f"the tool itself may be broken/misconfigured rather than your arguments. "
@@ -6134,25 +6217,27 @@ async def _execute_until_complete_inner(
                         recoverable=True,
                         metadata={
                             "failures_in_window": health.failures_in_window,
-                            "threshold": DEFAULT_FAILURE_THRESHOLD,
+                            "threshold": _limits.failure_threshold,
+                            "threshold_source": _limits.source,
                             "iteration": iteration,
                         },
                     )
                 )
 
             if health.verdict == "stuck" and not state.loop_guard_intervened:
-                vcprint(
-                    f"⚠️  Loop guard tripped — disabling tools for one transparent turn: "
-                    f"{health.reason}",
-                    "[AI REQUESTS EXECUTE UNTIL COMPLETE] Loop Guard",
-                    color="yellow",
-                )
-                state.loop_guard_intervened = True
                 # THE GUARD'S REASON TRAVELS (2026-09-12). Capture WHAT broke
-                # now, while the failed calls are still in the window: the
-                # finalizing turn runs with tools stripped and its own fresh
-                # verdict, so by then nothing downstream can name the tool.
-                from matrx_ai.orchestrator.loop_guard import loop_guard_evidence
+                # now, while the failed calls are still in the window: a later
+                # turn runs with its own fresh verdict, so by then nothing
+                # downstream can name the tool.
+                from matrx_ai.orchestrator.loop_guard import (
+                    build_standoff_provision,
+                    decide_tool_standoff,
+                    disable_failing_tool,
+                    disabled_tool_notice,
+                    failing_tool_from_history,
+                    loop_guard_evidence,
+                    standoff_branch,
+                )
 
                 state.loop_guard_health = {
                     "verdict": health.verdict,
@@ -6161,67 +6246,228 @@ async def _execute_until_complete_inner(
                     "window_size": health.window_size,
                     "failures_in_window": health.failures_in_window,
                     "successes_in_window": health.successes_in_window,
+                    "failure_threshold": _limits.failure_threshold,
+                    "threshold_source": _limits.source,
                 }
                 state.loop_guard_evidence = loop_guard_evidence(current_request.tool_call_history)
-                # Hard precaution: strip every tool for the next turn so the model
-                # CANNOT make another call even if it tries. Clearing the tool
-                # lists is sufficient and provider-safe — every translator omits
-                # the tools array (and its tool_choice) when there are no tools.
-                # We deliberately do NOT set tool_choice='none' here: with an
-                # empty tools array some providers/models treat an explicit
-                # tool_choice inconsistently, and Anthropic already defaults to
-                # 'none' when no tools are sent. Leaving it unset is the safe path.
-                current_request.config.tools = []
-                current_request.config.custom_tools = []
 
-                _directive = (
-                    f"⚠️ SYSTEM NOTICE (not from the user): {health.failures_in_window} of your "
-                    f"last {health.window_size} tool calls FAILED. As a safety precaution, ALL "
-                    f"TOOLS HAVE BEEN DISABLED for your next response — you cannot and must not "
-                    f"attempt any further tool calls right now.\n\n"
-                    f"Stop retrying. Instead, write a clear, honest message directly to the user that:\n"
-                    f"  • states plainly that you hit repeated tool errors and have paused;\n"
-                    f"  • summarizes what you were trying to accomplish and the SPECIFIC errors "
-                    f"you received;\n"
-                    f"  • gives your best assessment of WHY — in particular, whether the tool "
-                    f"itself appears to be broken or misconfigured (so a developer should look at "
-                    f"it) versus something about this request that you could fix;\n"
-                    f"  • tells the user they can reply 'continue' (or give new guidance) to resume "
-                    f"with tools restored.\n\n"
-                    f"Be direct and useful — this transparency is more valuable than another failed "
-                    f"attempt."
-                )
-                current_request.config.messages.append(
-                    host_authored_user_turn(_directive, reason="loop_guard_tools_disabled")
+                # ── ONE TOOL, NOT EVERY TOOL ────────────────────────────────
+                # Stripping the whole belt punished four agents out of five for
+                # a single broken tool (measured 2026-09-20: only 20.3% of
+                # adjacent same-tool failures repeat identical arguments). Name
+                # the ONE tool that tripped this, ask the standoff mandate what
+                # to do about it, and let the run carry on with the rest.
+                _failing_tool = failing_tool_from_history(
+                    current_request.tool_call_history,
+                    window_size=_limits.window_size,
+                    exclude=tuple(state.loop_guard_disabled_tools),
                 )
 
-                await exec_ctx.emitter.send_phase("processing")
-                await exec_ctx.emitter.send_warning(
-                    WarningPayload(
-                        code="loop_guard_tools_disabled",
-                        system_message=(
-                            f"Loop guard tripped ({health.reason}). Tools disabled for one "
-                            f"transparent turn; run will pause for user review."
-                        ),
-                        user_message=(
-                            "The assistant hit repeated tool errors, so tools were paused for a "
-                            "moment while it explains what happened. You can reply to continue."
-                        ),
-                        level="medium",
-                        recoverable=True,
-                        metadata={
-                            "loop_health": {
-                                "verdict": health.verdict,
-                                "reason": health.reason,
-                                "failures_in_window": health.failures_in_window,
-                                "window_size": health.window_size,
-                            },
-                            "iteration": iteration,
-                            "tools_disabled": True,
-                        },
+                _pause_all = False
+                _pause_reason = ""
+
+                if _failing_tool is None:
+                    # Everything still failing in the window is a tool this run
+                    # has ALREADY switched off. The guard has answered these
+                    # failures; answering them again would trip on every
+                    # iteration until the window rolls.
+                    vcprint(
+                        f"Loop guard still sees failures, but every blameable tool "
+                        f"({', '.join(state.loop_guard_disabled_tools) or 'none'}) is "
+                        f"already disabled for this run — no further action.",
+                        "[AI REQUESTS EXECUTE UNTIL COMPLETE] Loop Guard",
+                        color="yellow",
                     )
-                )
-                continue  # one more turn, tool-less — the model explains to the user
+                else:
+                    _standoff = build_standoff_provision(
+                        current_request.tool_call_history,
+                        tool_name=_failing_tool,
+                        health=health,
+                        thresholds=_limits,
+                        config=current_request.config,
+                        model_id=getattr(current_request.config, "model_id", None),
+                        assistant_text_between_calls=_assistant_text_from_response(response),
+                        is_unattended=_running_unattended(),
+                        already_intervened=bool(state.loop_guard_disabled_tools),
+                    )
+                    # THE VERDICT IS A DECISION NOW, NOT A COUNT. With no Holder
+                    # bound this returns the fallback — disable only the failing
+                    # tool — and warns naming the mandate.
+                    _verdict = await decide_tool_standoff(_standoff, thresholds=_limits)
+
+                    vcprint(
+                        f"⚠️  Loop guard tripped on '{_failing_tool}' → {_verdict.action} "
+                        f"(from the {_verdict.source}): {health.reason}",
+                        "[AI REQUESTS EXECUTE UNTIL COMPLETE] Loop Guard",
+                        color="yellow",
+                    )
+
+                    _branch = standoff_branch(
+                        _verdict.action,
+                        already_continued=state.loop_guard_standoff_continued,
+                    )
+                    if _branch == "pause_for_human":
+                        _pause_all = True
+                        _pause_reason = _verdict.reason or health.reason
+                    elif _branch == "continue_with_note":
+                        # A real second chance, spent once per run.
+                        state.loop_guard_standoff_continued = True
+                        state.loop_guard_warned = True
+                        _note = (
+                            f"⚠️ SYSTEM NOTICE (not from the user): the '{_failing_tool}' tool "
+                            f"has now failed {_standoff['failures_this_tool']} time(s) in this "
+                            f"run. It stays enabled for one more attempt because the failures "
+                            f"look recoverable — this is your last one before it is switched "
+                            f"off for good."
+                        )
+                        if _verdict.action == "continue_with_hint" and _verdict.hint:
+                            _note += f" Change this before you call it again: {_verdict.hint}"
+                        current_request.config.messages.append(
+                            host_authored_user_turn(
+                                _note, reason="loop_guard_standoff_continue"
+                            )
+                        )
+                        await exec_ctx.emitter.send_warning(
+                            WarningPayload(
+                                code="loop_guard_standoff_continue",
+                                system_message=(
+                                    f"Loop guard standoff on '{_failing_tool}': "
+                                    f"{_verdict.action} (confidence {_verdict.confidence}, "
+                                    f"{_verdict.source})."
+                                ),
+                                user_message="",
+                                level="low",
+                                recoverable=True,
+                                metadata={
+                                    "tool": _failing_tool,
+                                    "action": _verdict.action,
+                                    "confidence": _verdict.confidence,
+                                    "decided_by": _verdict.source,
+                                    "iteration": iteration,
+                                },
+                            )
+                        )
+                    else:
+                        # disable_this_tool — and the same landing for a second
+                        # "continue" this run, which we do not grant.
+                        _outcome = disable_failing_tool(current_request.config, _failing_tool)
+                        if not _outcome.removed or _outcome.was_only_tool:
+                            # Either the tool was the run's ONLY tool (there is
+                            # no "carry on with the rest"), or it is not in this
+                            # request's tool lists at all and cannot be removed.
+                            # The pause-for-a-human path is still the honest one.
+                            _pause_all = True
+                            _pause_reason = (
+                                f"'{_failing_tool}' was the only tool this run had"
+                                if _outcome.removed
+                                else f"'{_failing_tool}' could not be removed from this request"
+                            )
+                        else:
+                            state.loop_guard_disabled_tools.append(_failing_tool)
+                            _why = (
+                                f"it failed {_standoff['failures_this_tool']} time(s) in this run"
+                            )
+                            if _verdict.reason and _verdict.source == "mandate":
+                                _why += f" — {_verdict.reason}"
+                            current_request.config.messages.append(
+                                host_authored_user_turn(
+                                    disabled_tool_notice(_outcome, reason=_why),
+                                    reason="loop_guard_tool_disabled",
+                                )
+                            )
+                            await exec_ctx.emitter.send_warning(
+                                WarningPayload(
+                                    code="loop_guard_tool_disabled",
+                                    system_message=(
+                                        f"Loop guard disabled '{_failing_tool}' "
+                                        f"({health.reason}); {len(_outcome.remaining_tools)} "
+                                        f"tool(s) still available, run continues."
+                                    ),
+                                    user_message=(
+                                        "The assistant kept hitting errors with one of its "
+                                        "tools, so that tool was switched off for the rest of "
+                                        "this request. It is carrying on with the others."
+                                    ),
+                                    level="medium",
+                                    recoverable=True,
+                                    metadata={
+                                        "tool": _failing_tool,
+                                        "remaining_tools": list(_outcome.remaining_tools),
+                                        "decided_by": _verdict.source,
+                                        "confidence": _verdict.confidence,
+                                        "failure_threshold": _limits.failure_threshold,
+                                        "threshold_source": _limits.source,
+                                        "iteration": iteration,
+                                    },
+                                )
+                            )
+
+                if _pause_all:
+                    # THE PAUSE PATH, kept for the two cases that still need a
+                    # human: the verdict said stop, or the failing tool was the
+                    # only tool this run had. Hard precaution: strip every tool
+                    # for the next turn so the model CANNOT call one even if it
+                    # tries. Clearing the lists is sufficient and provider-safe
+                    # — every translator omits the tools array (and its
+                    # tool_choice) when there are no tools. We deliberately do
+                    # NOT set tool_choice='none': with an empty tools array some
+                    # providers treat an explicit tool_choice inconsistently,
+                    # and Anthropic already defaults to 'none' with no tools.
+                    state.loop_guard_intervened = True
+                    current_request.config.tools = []
+                    current_request.config.custom_tools = []
+
+                    _directive = (
+                        f"⚠️ SYSTEM NOTICE (not from the user): {health.failures_in_window} of your "
+                        f"last {health.window_size} tool calls FAILED"
+                        + (f" ({_pause_reason})" if _pause_reason else "")
+                        + ". As a safety precaution, ALL TOOLS HAVE BEEN DISABLED for your next "
+                        "response — you cannot and must not attempt any further tool calls right "
+                        "now.\n\n"
+                        "Stop retrying. Instead, write a clear, honest message directly to the user that:\n"
+                        "  • states plainly that you hit repeated tool errors and have paused;\n"
+                        "  • summarizes what you were trying to accomplish and the SPECIFIC errors "
+                        "you received;\n"
+                        "  • gives your best assessment of WHY — in particular, whether the tool "
+                        "itself appears to be broken or misconfigured (so a developer should look at "
+                        "it) versus something about this request that you could fix;\n"
+                        "  • tells the user they can reply 'continue' (or give new guidance) to resume "
+                        "with tools restored.\n\n"
+                        "Be direct and useful — this transparency is more valuable than another failed "
+                        "attempt."
+                    )
+                    current_request.config.messages.append(
+                        host_authored_user_turn(_directive, reason="loop_guard_tools_disabled")
+                    )
+
+                    await exec_ctx.emitter.send_phase("processing")
+                    await exec_ctx.emitter.send_warning(
+                        WarningPayload(
+                            code="loop_guard_tools_disabled",
+                            system_message=(
+                                f"Loop guard tripped ({health.reason}). Tools disabled for one "
+                                f"transparent turn; run will pause for user review."
+                            ),
+                            user_message=(
+                                "The assistant hit repeated tool errors, so tools were paused for a "
+                                "moment while it explains what happened. You can reply to continue."
+                            ),
+                            level="medium",
+                            recoverable=True,
+                            metadata={
+                                "loop_health": {
+                                    "verdict": health.verdict,
+                                    "reason": health.reason,
+                                    "failures_in_window": health.failures_in_window,
+                                    "window_size": health.window_size,
+                                },
+                                "pause_reason": _pause_reason,
+                                "iteration": iteration,
+                                "tools_disabled": True,
+                            },
+                        )
+                    )
+                continue  # loop back — with the remaining tools, or tool-less to explain
 
             if health.verdict == "stuck" and state.loop_guard_intervened:
                 # Already gave the model its tool-less turn and it is somehow STILL

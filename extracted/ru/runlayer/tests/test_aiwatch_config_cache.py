@@ -319,6 +319,38 @@ def test_missing_or_invalid_artifact_lookup_cache_fails_dark(value):
     assert parsed["artifact_lookup_cache"] is False
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        (-1, None),
+        (1.5, None),
+        ("7200", None),
+        (True, None),
+        (0, 0),
+        (7200, 7200),
+        (10**9, 14_400),
+    ],
+)
+def test_skill_resubmit_window_round_trips_capped_or_fails_dark(value, expected):
+    payload = {**CONFIG, "skill_resubmit_window_seconds": value}
+    if value is None:
+        payload.pop("skill_resubmit_window_seconds")
+
+    parsed = aiwatch_config_cache.parse_aiwatch_config(payload)
+
+    assert parsed.get("skill_resubmit_window_seconds") == expected
+
+
+def test_skill_resubmit_window_ceiling_matches_the_scan_side_clamp():
+    from runlayer_cli.scan.artifact_cache import MAX_SKILL_RESUBMIT_WINDOW_SECONDS
+
+    assert (
+        aiwatch_config_cache._MAX_SKILL_RESUBMIT_WINDOW_SECONDS
+        == MAX_SKILL_RESUBMIT_WINDOW_SECONDS
+    )
+
+
 def test_windows_cache_round_trip_is_one_key_bound_json_value(monkeypatch):
     fake_winreg = _FakeWinreg()
     monkeypatch.setattr("platform.system", lambda: "Windows")

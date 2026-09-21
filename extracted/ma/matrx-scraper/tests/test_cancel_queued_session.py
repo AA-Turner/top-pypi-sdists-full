@@ -49,9 +49,9 @@ from matrx_scraper.web_crawl.persistence import (
 from matrx_scraper.web_crawl.service import WebCrawlService, _session_blocks_new_crawl
 
 NS = "matrx_scraper.web_crawl.persistence"
-ORG_ID = "5dc930e9-bd65-44a1-8369-af773f6e1a5b"
+ORG_ID = "00000000-0000-4000-8000-0000000fffa1"
 SITE_ID = "d0aff5b6-0710-4848-8304-164db3c80ab7"
-USER_ID = "4cf62e4e-2679-484f-b652-034e697418df"
+USER_ID = "00000000-0000-4000-8000-0000000fffe1"
 STALE_LEASE_AGE = RUN_LEASE_TTL + timedelta(minutes=1)
 FRESH_LEASE_AGE = timedelta(seconds=5)
 

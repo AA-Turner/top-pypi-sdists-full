@@ -42,6 +42,8 @@ CLIENT_FLOW_STEPS: frozenset[str] = frozenset(
         "daemon_fallback",
         "credential_rejected_cached",
         "host_override",
+        "harness_closed",
+        "harness_departed",
     }
 )
 # Closed vocabulary for the sanitized failure classification on errored flows.
@@ -69,6 +71,74 @@ CLIENT_FLOW_ERROR_CATEGORIES: frozenset[str] = frozenset(
         "oauth_flow_error",
         "mcp_protocol",
         "cancelled",
+        "other",
+    }
+)
+
+# Detected harness a hook flow ran under (``hook.clients.Client`` values).
+# Duplicated rather than imported: ``clients.py`` drags the response-shaping
+# machinery into this stdlib-only closure. ``tests/test_flow_contract.py``
+# pins the copy to the enum.
+CLIENT_FLOW_CLIENTS: frozenset[str] = frozenset(
+    {
+        "unknown",
+        "cursor",
+        "vscode",
+        "claude_code",
+        "codex",
+        "hermes",
+        "goose",
+        "github-copilot-cli",
+        "windsurf",
+        "qwen-code",
+        "gemini-cli",
+        "grok-cli",
+        "cline-cli",
+        "devin-cli",
+    }
+)
+# Normalized hook event names a hook flow may report: every
+# ``EVENT_NORMALIZE`` target, every ``_DISPATCH_TABLE`` key, and the
+# PascalCase / camelCase observational names the installers register that
+# ``normalize_event_name`` passes through verbatim. Anything else collapses
+# to "other" before it enters a summary so the wire vocabulary stays bounded
+# (the backend drops values outside this set).
+CLIENT_FLOW_HOOK_EVENTS: frozenset[str] = frozenset(
+    {
+        "PreToolUse",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "PermissionRequest",
+        "PermissionDenied",
+        "UserPromptSubmit",
+        "Stop",
+        "SessionStart",
+        "SessionEnd",
+        "SubagentStart",
+        "SubagentStop",
+        "PreCompact",
+        "PostCompact",
+        "Notification",
+        "ErrorOccurred",
+        "BeforeReadFile",
+        "AfterReadFile",
+        "AfterFileEdit",
+        "BeforeShellExecution",
+        "AfterShellExecution",
+        "WorktreeCreate",
+        "TeammateIdle",
+        "TaskCompleted",
+        "ConfigChange",
+        "InstructionsLoaded",
+        "beforeMCPExecution",
+        "afterMCPExecution",
+        "beforeReadFile",
+        "afterFileEdit",
+        "beforeShellExecution",
+        "afterShellExecution",
+        "afterAgentThought",
+        "afterAgentResponse",
+        "beforeTabFileRead",
         "other",
     }
 )

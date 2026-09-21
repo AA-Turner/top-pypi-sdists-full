@@ -17,9 +17,8 @@ from tomlrt._layout_ops import (
     _clone_entry_slots,
     extract_subtree_slots,
     file_own_header,
-    maybe_advance_body_tail,
     owned_slots,
-    record_ref,
+    record_slot,
 )
 from tomlrt._slots import KVSlot, StructuralHeaderSlot, stitch_run
 from tomlrt._values import (
@@ -54,9 +53,9 @@ def _build_containers(root: Container, slots: list[Slot]) -> None:
     current_host = root
     for slot in slots:
         if isinstance(slot, StructuralHeaderSlot):
-            path = slot.path
+            path = slot.key_path
             if path == root._path:  # noqa: SLF001
-                assert root._header_ref is None  # noqa: SLF001
+                assert root._header is None  # noqa: SLF001
                 file_own_header(root, slot)
                 current_host = root
             else:
@@ -91,10 +90,10 @@ def _resolve_parent(
     root_path = root._path  # noqa: SLF001
     assert path[: len(root_path)] == root_path
     parent = root
-    record_ref(parent, header)
+    record_slot(parent, header)
     for name in path[len(root_path) : -1]:
         parent = _resolve_table_child(parent, name, descend_aot=True)
-        record_ref(parent, header)
+        record_slot(parent, header)
     return parent, path[-1]
 
 
@@ -208,19 +207,17 @@ def _apply_kv(slot: KVSlot, *, host: Container) -> None:
     threaded from the most recent header; decoded value attachment
     cascades through ``host._layout_root``.
     """
-    parts = slot.key_parts
+    path = slot.key_path
     target = host
-    record_ref(target, slot)
-    maybe_advance_body_tail(target, slot)
-    for part in parts[:-1]:
+    record_slot(target, slot)
+    for name in path[:-1]:
         target = _resolve_table_child(
             target,
-            part.value,
+            name,
             owner=slot.owner_aot_entry,
         )
-        record_ref(target, slot)
-        maybe_advance_body_tail(target, slot)
-    name = parts[-1].value
+        record_slot(target, slot)
+    name = path[-1]
     assert name not in target, (
         f"duplicate key {name!r} reached builder under {target._path}; "  # noqa: SLF001
         "validator drift"

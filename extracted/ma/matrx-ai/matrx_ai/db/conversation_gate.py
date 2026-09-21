@@ -323,6 +323,86 @@ def _stamp_origin(
         create_kwargs["origin_witness"] = witness
 
 
+# ── THE UNDECLARED SERVER DOOR ───────────────────────────────────────────────
+# A conversation row is born in exactly FOUR places, all of them in this module,
+# and every one of them took ``ctx.source_app`` / ``ctx.source_feature`` at face
+# value. A door that declared neither produced an UNATTRIBUTED row: it cannot be
+# filtered, costed or classified, and ``chat.conversation_lane(...)`` — the live
+# function behind the Work area's ``public.cvx_audience`` buckets — drops a row
+# with a blank ``source_app`` into the 'matrx' lane, where it appears in a
+# person's chat sidebar as if they had started it.
+#
+# The honest answer is never the empty string. The gate cannot know WHICH door
+# forgot, but it always knows the row came from the HOST SERVER and not from a
+# declared client app, so it stamps the host's app plus a feature slug that says
+# exactly what happened — "a server door that did not declare itself". That
+# keeps the row out of the person's lane, keeps it findable, and makes the
+# omission LOUD instead of silent (guard:
+# aidream/scripts/check_conversation_attribution.py --live).
+#
+# Package independence: the host injects its own labels through
+# ``configure_undeclared_attribution``; the defaults below are this package's
+# opinion, never an import of the host.
+_UNDECLARED_SOURCE_APP = "aidream"
+_UNDECLARED_SOURCE_FEATURE = "server-door"
+
+
+def configure_undeclared_attribution(*, source_app: str, source_feature: str) -> None:
+    """Host injection: the labels stamped on a row whose door declared none.
+
+    Called once at startup (aidream: ``package_integration.py``). Both values
+    must be non-empty and registered in the host's attribution vocabulary —
+    stamping an unregistered slug here would defeat the closed vocabulary the
+    whole registry exists to keep.
+    """
+    global _UNDECLARED_SOURCE_APP, _UNDECLARED_SOURCE_FEATURE
+    app = str(source_app or "").strip()
+    feature = str(source_feature or "").strip()
+    if not app or not feature:
+        raise ValueError(
+            "configure_undeclared_attribution requires a non-empty source_app and "
+            f"source_feature; got {source_app!r} / {source_feature!r}. The empty "
+            "string is the defect this exists to close."
+        )
+    _UNDECLARED_SOURCE_APP = app
+    _UNDECLARED_SOURCE_FEATURE = feature
+
+
+def undeclared_attribution() -> tuple[str, str]:
+    """The ``(source_app, source_feature)`` an undeclared server door is stamped with."""
+    return _UNDECLARED_SOURCE_APP, _UNDECLARED_SOURCE_FEATURE
+
+
+def _stamp_attribution(create_kwargs: dict[str, Any], ctx: Any) -> None:
+    """Never let a conversation or request row be born unattributed.
+
+    Fills ONLY what the door left blank — an explicit stamp always wins, and a
+    door that declared its app but not its feature keeps its app. Never raises:
+    attribution must never cost a paid write.
+    """
+    try:
+        for field, fallback in (
+            ("source_app", _UNDECLARED_SOURCE_APP),
+            ("source_feature", _UNDECLARED_SOURCE_FEATURE),
+        ):
+            if str(create_kwargs.get(field) or "").strip():
+                continue
+            create_kwargs[field] = fallback
+            vcprint(
+                f"[ConversationGate] {field} was blank — stamping {fallback!r}. "
+                "The door that created this row does not declare its attribution; "
+                "name it (see aidream/services/conversation_context/"
+                "source_attribution.py) so this row can be filtered and costed.",
+                color="yellow",
+                log_level="WARNING",
+            )
+    except Exception as exc:  # noqa: BLE001 — data first, provenance second
+        vcprint(
+            f"[ConversationGate] attribution stamping failed ({exc}) — row kept",
+            color="red",
+        )
+
+
 _AUTO_TITLE_PREFIX = "Auto: "
 
 # source_feature → sidebar label. Never use bare "Chat" — the labeler replaces
@@ -1169,6 +1249,7 @@ async def create_new_conversation(
         create_kwargs["last_request_id"] = str(ctx.request_id)
     create_kwargs["last_request_status"] = CONVERSATION_START_CLAIM_STATUS
     _stamp_origin(create_kwargs, ctx, with_witness=False)
+    _stamp_attribution(create_kwargs, ctx)
     _stamp_agent_refs(
         create_kwargs,
         ctx,
@@ -1392,6 +1473,7 @@ async def ensure_conversation_exists(
         "conversation_type": _resolve_conversation_type(ctx, parent_conversation_id),
     }
     _stamp_origin(create_kwargs, ctx, with_witness=False)
+    _stamp_attribution(create_kwargs, ctx)
     _stamp_agent_refs(
         create_kwargs,
         ctx,
@@ -1710,6 +1792,7 @@ async def create_pending_user_request(
         "source_feature": ctx.source_feature if ctx else "",
     }
     _stamp_origin(create_kwargs, ctx, with_witness=True)
+    _stamp_attribution(create_kwargs, ctx)
     _stamp_agent_refs(
         create_kwargs,
         ctx,
@@ -1895,6 +1978,7 @@ async def _create_user_request(
         "source_feature": ctx.source_feature if ctx else "",
     }
     _stamp_origin(create_kwargs, ctx, with_witness=True)
+    _stamp_attribution(create_kwargs, ctx)
     _stamp_agent_refs(
         create_kwargs,
         ctx,

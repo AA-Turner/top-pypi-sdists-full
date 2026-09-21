@@ -3,11 +3,11 @@
 //! Walks the page's content stream, tracking the graphics state and text
 //! matrix, and emits `TextItem`s and `PdfRect`s.
 
-use crate::text_utils::{
-    decode_text_string, effective_font_size, expand_ligatures, is_bold_font, is_italic_font,
-};
+use crate::text_utils::{decode_text_string, effective_font_size, expand_ligatures};
 use crate::tounicode::FontCMaps;
-use crate::types::{FontWidthInfo, ItemType, PageExtraction, PdfLine, PdfRect, TextItem};
+use crate::types::{
+    BoldSource, FontWidthInfo, ItemType, PageExtraction, PdfLine, PdfRect, TextItem,
+};
 use crate::PdfError;
 use log::trace;
 use lopdf::{Document, Encoding, Object, ObjectId};
@@ -25,8 +25,8 @@ use super::geometry::{
 use super::text_paint::{PaintResources, TextPaint};
 use super::underline::UnderlineLine;
 use super::word_gaps::{
-    offset_takes_spacing_back, word_gap_candidate, word_gap_threshold, PendingWordGaps,
-    WordGapCandidate,
+    offset_takes_spacing_back, tj_gap_thresholds, tj_tracking, word_gap_candidate,
+    word_gap_threshold, PendingWordGaps, WordGapCandidate,
 };
 use super::xobjects::{extract_form_xobject_text, get_page_xobjects, FormWalkBudget, XObjectType};
 use super::{get_number, image_bbox_from_ctm, multiply_matrices};
@@ -343,18 +343,46 @@ impl ActualTextBounds {
 }
 
 /// Switches of one page's text extraction.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TextExtractionOptions {
     /// Keep invisible (Tr 3) text instead of skipping it.
     pub(crate) include_invisible: bool,
-    /// Read bold from the weight class too and keep runs of different
-    /// weight apart — see `PositionOptions::bold_from_weight`.
+    /// Read bold from the weight class too — see
+    /// `PositionOptions::bold_from_weight`.
     pub(crate) bold_from_weight: bool,
+    /// The weight class from which `bold_from_weight` reads bold — see
+    /// `PositionOptions::bold_weight_threshold`.
+    pub(crate) bold_weight_threshold: u16,
 }
 
-/// Weight class from which `bold_from_weight` reads `is_bold`: SemiBold and
-/// heavier.
-pub(crate) const BOLD_WEIGHT_CLASS: u16 = 600;
+impl Default for TextExtractionOptions {
+    fn default() -> Self {
+        Self {
+            include_invisible: false,
+            bold_from_weight: false,
+            bold_weight_threshold: DEFAULT_BOLD_WEIGHT_THRESHOLD,
+        }
+    }
+}
+
+/// Weight class from which `bold_from_weight` reads `is_bold` unless told
+/// otherwise: SemiBold and heavier.
+pub(crate) const DEFAULT_BOLD_WEIGHT_THRESHOLD: u16 = 600;
+
+/// `PositionOptions::bold_from_weight`: every item whose weight class is
+/// `threshold` or more is bold, on the weight class's account unless the
+/// font's name or flags already said so. Runs are merged after this, so a
+/// run the weight makes bold stays apart from its plain neighbours the way
+/// a run whose name says bold does, and runs of different weight that agree
+/// on the verdict merge as usual.
+pub(crate) fn read_bold_from_weight(items: &mut [TextItem], threshold: u16) {
+    for item in items {
+        if item.font_weight.is_some_and(|weight| weight >= threshold) {
+            item.is_bold = true;
+            item.bold_source = BoldSource::first(item.bold_source, Some(BoldSource::WeightClass));
+        }
+    }
+}
 
 /// [`extract_page_text_items_with_options`] with only `include_invisible`
 /// set — the shape the extraction tests drive pages through.
@@ -411,6 +439,9 @@ pub(crate) fn extract_page_text_items_with_options(
     // evidence of logical-order storage.
     let mut rtl_visual_candidates: Vec<usize> = Vec::new();
     let mut rtl_logical_ops: u32 = 0;
+    // Items whose text is logical whatever the page's storage order:
+    // ActualText replacements.
+    let mut logical_text_items: Vec<usize> = Vec::new();
 
     // Path construction state for m/l/h → S/s line extraction
     let mut path_subpath_start: Option<(f32, f32)> = None;
@@ -449,7 +480,7 @@ pub(crate) fn extract_page_text_items_with_options(
         build_font_encodings(doc, &fonts, font_cmaps, style_cache);
 
     // Build font width info for accurate text positioning
-    let font_widths = build_font_widths(doc, &fonts);
+    let font_widths = build_font_widths(doc, &fonts, style_cache);
     let type3_scales = build_type3_scales(doc, &fonts);
     let type3_y_flips = build_type3_y_flips(doc, &fonts);
 
@@ -471,8 +502,17 @@ pub(crate) fn extract_page_text_items_with_options(
             }
         }
         // Descriptor style flags rescue subset fonts whose BaseFont names
-        // are opaque tags the name heuristics can't read.
-        let style = font_style(doc, font_dict, style_cache);
+        // are opaque tags the name heuristics can't read. The name (the
+        // resource tag for a font without one, which is what an item's
+        // `font` falls back to) and the width table are read once here
+        // rather than for every run.
+        let style = font_style(doc, font_dict, style_cache)
+            .with_name(
+                font_base_names
+                    .get(&resource_name)
+                    .map_or(resource_name.as_str(), String::as_str),
+            )
+            .with_measured_pitch(font_widths.get(&resource_name));
         if style != FontStyle::default() {
             font_styles.insert(resource_name.clone(), style);
         }
@@ -516,12 +556,10 @@ pub(crate) fn extract_page_text_items_with_options(
     // Get XObjects (images) from page resources
     let xobjects = get_page_xobjects(doc, page_id);
 
-    // Get content, bounding decompression so a page-content bomb (a tiny
-    // Flate stream inflating to gigabytes) skips the page instead of
-    // exhausting memory — same degradation as the operator cap below. Real
-    // page content runs a few MB at most; the bound is deliberately far
-    // above that.
-    const MAX_PAGE_CONTENT_BYTES: usize = 64 * 1024 * 1024;
+    // Get content, bounding decompression so a page-content bomb skips the
+    // page instead of exhausting memory — same degradation as the operator
+    // cap below.
+    use crate::extractor::content_decode::MAX_PAGE_CONTENT_BYTES;
     let content_data = match doc.get_page_content_with_limit(page_id, MAX_PAGE_CONTENT_BYTES) {
         Ok(data) => data,
         Err(e) => {
@@ -956,7 +994,6 @@ pub(crate) fn extract_page_text_items_with_options(
                                 .map(|s| s.as_str())
                                 .unwrap_or(&current_font);
                             let style = font_styles.get(&current_font).copied().unwrap_or_default();
-                            let (desc_italic, desc_bold) = style.flags();
                             if crate::text_utils::is_visual_rtl_candidate(&text) {
                                 // combined[0] is the device-space advance
                                 // direction: forward paint order means the
@@ -973,6 +1010,8 @@ pub(crate) fn extract_page_text_items_with_options(
                                     }
                                 }
                             }
+                            let painted_bold = paintable_fonts.contains(&current_font)
+                                && text_paint.adds_bold(&text, rendered_size, base_font, &ctm);
                             items.push(TextItem {
                                 text: expand_ligatures(&text),
                                 x: geometry.x,
@@ -988,17 +1027,13 @@ pub(crate) fn extract_page_text_items_with_options(
                                 legacy_symbol_rewrite,
                                 font_size: rendered_size,
                                 page: page_num,
-                                is_bold: is_bold_font(base_font)
-                                    || desc_bold
-                                    || (paintable_fonts.contains(&current_font)
-                                        && text_paint.adds_bold(
-                                            &text,
-                                            rendered_size,
-                                            base_font,
-                                            &ctm,
-                                        )),
-                                is_italic: is_italic_font(base_font) || desc_italic,
+                                is_bold: style.bold || painted_bold,
+                                is_italic: style.italic,
                                 font_weight: style.weight,
+                                bold_source: style
+                                    .bold_source
+                                    .or(painted_bold.then_some(BoldSource::Painted)),
+                                fixed_pitch: style.fixed_pitch,
                                 is_underline: false,
                                 is_strikeout: false,
                                 rotation: geometry.rotation,
@@ -1065,7 +1100,41 @@ pub(crate) fn extract_page_text_items_with_options(
                         // Word-space threshold for `TJ` offsets and character
                         // spacing alike, from the font metrics when available.
                         let space_threshold = word_gap_threshold(font_info);
-                        let column_gap_threshold = space_threshold * 4.0;
+                        // A tracked display run — one glyph per string, the
+                        // letter spacing as the offset between them — is
+                        // judged over its own tracking (see `tj_tracking`
+                        // and `tj_gap_thresholds`); a run that shows nothing
+                        // is not read for it. The reader decodes the glyphs
+                        // of a run in the tracking band — to weigh its
+                        // letters against its punctuation, and to check the
+                        // case of a widely spaced one — on a copy of the
+                        // CMap decisions, so the glyphs it samples do not
+                        // count twice when the loop below decodes them.
+                        let tracking = if is_invisible {
+                            None
+                        } else {
+                            let mut probe_decisions: Option<CMapDecisionCache> = None;
+                            tj_tracking(array, font_info, space_threshold, |element| {
+                                extract_text_from_operand(
+                                    element,
+                                    &current_font,
+                                    font_base_names.get(&current_font).map(|s| s.as_str()),
+                                    font_cmaps,
+                                    &font_tounicode_refs,
+                                    &inline_cmaps,
+                                    &font_encodings,
+                                    &encoding_cache,
+                                    probe_decisions.get_or_insert_with(|| cmap_decisions.clone()),
+                                    &font_widths,
+                                )
+                            })
+                        };
+                        let baseline_horizontal = {
+                            let combined = multiply_matrices(&text_matrix, &ctm);
+                            combined[0].abs() >= combined[1].abs()
+                        };
+                        let (word_gap, split_gap) =
+                            tj_gap_thresholds(space_threshold, tracking, baseline_horizontal);
 
                         // Track sub-items for column-gap splitting:
                         // (text, start_width_ts, end_width_ts)
@@ -1108,7 +1177,7 @@ pub(crate) fn extract_page_text_items_with_options(
                                         backward_jump = true;
                                     }
                                     if !is_invisible
-                                        && n_val < -column_gap_threshold
+                                        && n_val < -split_gap
                                         && !current_text.is_empty()
                                     {
                                         // Column gap: flush current segment
@@ -1125,7 +1194,7 @@ pub(crate) fn extract_page_text_items_with_options(
                                     } else {
                                         total_width_ts += displacement;
                                         if !is_invisible
-                                            && n_val < -space_threshold
+                                            && n_val < -word_gap
                                             && !current_text.is_empty()
                                             && !current_text.ends_with(' ')
                                         {
@@ -1147,7 +1216,7 @@ pub(crate) fn extract_page_text_items_with_options(
                                         backward_jump = true;
                                     }
                                     if !is_invisible
-                                        && n_val < -column_gap_threshold
+                                        && n_val < -split_gap
                                         && !current_text.is_empty()
                                     {
                                         sub_items.push((
@@ -1163,7 +1232,7 @@ pub(crate) fn extract_page_text_items_with_options(
                                     } else {
                                         total_width_ts += displacement;
                                         if !is_invisible
-                                            && n_val < -space_threshold
+                                            && n_val < -word_gap
                                             && !current_text.is_empty()
                                             && !current_text.ends_with(' ')
                                         {
@@ -1390,7 +1459,6 @@ pub(crate) fn extract_page_text_items_with_options(
                                 .map(|s| s.as_str())
                                 .unwrap_or(&current_font);
                             let style = font_styles.get(&current_font).copied().unwrap_or_default();
-                            let (desc_italic, desc_bold) = style.flags();
                             let scale_x = (text_matrix[0] * ctm[0] + text_matrix[1] * ctm[2])
                                 * horizontal_scale;
                             // Rotated matrices carry no horizontal evidence:
@@ -1457,6 +1525,8 @@ pub(crate) fn extract_page_text_items_with_options(
                                 if let Some(pending) = pending_space.take() {
                                     pending.resolve(&mut items, &geometry, text, rendered_size);
                                 }
+                                let painted_bold = paintable_fonts.contains(&current_font)
+                                    && text_paint.adds_bold(text, rendered_size, base_font, &ctm);
                                 items.push(TextItem {
                                     text: expand_ligatures(text),
                                     x: geometry.x,
@@ -1472,17 +1542,13 @@ pub(crate) fn extract_page_text_items_with_options(
                                     legacy_symbol_rewrite: *legacy_symbol_rewrite,
                                     font_size: rendered_size,
                                     page: page_num,
-                                    is_bold: is_bold_font(base_font)
-                                        || desc_bold
-                                        || (paintable_fonts.contains(&current_font)
-                                            && text_paint.adds_bold(
-                                                text,
-                                                rendered_size,
-                                                base_font,
-                                                &ctm,
-                                            )),
-                                    is_italic: is_italic_font(base_font) || desc_italic,
+                                    is_bold: style.bold || painted_bold,
+                                    is_italic: style.italic,
                                     font_weight: style.weight,
+                                    bold_source: style
+                                        .bold_source
+                                        .or(painted_bold.then_some(BoldSource::Painted)),
+                                    fixed_pitch: style.fixed_pitch,
                                     is_underline: false,
                                     is_strikeout: false,
                                     rotation: geometry.rotation,
@@ -1674,7 +1740,6 @@ pub(crate) fn extract_page_text_items_with_options(
                                 .map(|s| s.as_str())
                                 .unwrap_or(&current_font);
                             let style = font_styles.get(&current_font).copied().unwrap_or_default();
-                            let (desc_italic, desc_bold) = style.flags();
                             if crate::text_utils::is_visual_rtl_candidate(&text)
                                 && combined[0].abs() > combined[1].abs()
                             {
@@ -1684,6 +1749,8 @@ pub(crate) fn extract_page_text_items_with_options(
                                     rtl_logical_ops += 1;
                                 }
                             }
+                            let painted_bold = paintable_fonts.contains(&current_font)
+                                && text_paint.adds_bold(&text, rendered_size, base_font, &ctm);
                             items.push(TextItem {
                                 text: expand_ligatures(&text),
                                 x: geometry.x,
@@ -1699,17 +1766,13 @@ pub(crate) fn extract_page_text_items_with_options(
                                 legacy_symbol_rewrite,
                                 font_size: rendered_size,
                                 page: page_num,
-                                is_bold: is_bold_font(base_font)
-                                    || desc_bold
-                                    || (paintable_fonts.contains(&current_font)
-                                        && text_paint.adds_bold(
-                                            &text,
-                                            rendered_size,
-                                            base_font,
-                                            &ctm,
-                                        )),
-                                is_italic: is_italic_font(base_font) || desc_italic,
+                                is_bold: style.bold || painted_bold,
+                                is_italic: style.italic,
                                 font_weight: style.weight,
+                                bold_source: style
+                                    .bold_source
+                                    .or(painted_bold.then_some(BoldSource::Painted)),
+                                fixed_pitch: style.fixed_pitch,
                                 is_underline: false,
                                 is_strikeout: false,
                                 rotation: geometry.rotation,
@@ -1800,6 +1863,8 @@ pub(crate) fn extract_page_text_items_with_options(
                                         is_bold: false,
                                         is_italic: false,
                                         font_weight: None,
+                                        bold_source: None,
+                                        fixed_pitch: None,
                                         is_underline: false,
                                         is_strikeout: false,
                                         rotation: 0.0,
@@ -1991,7 +2056,27 @@ pub(crate) fn extract_page_text_items_with_options(
                                     .unwrap_or(&current_font);
                                 let style =
                                     font_styles.get(&current_font).copied().unwrap_or_default();
-                                let (desc_italic, desc_bold) = style.flags();
+                                logical_text_items.push(items.len());
+                                // The span's own glyphs were left out as they
+                                // were painted; the paint that made them
+                                // heavier is read now, for the font that painted
+                                // them and only when some glyph was painted. The
+                                // replacement is the text the item carries, so
+                                // it stands in for the glyphs in the check for
+                                // alphanumeric content; a symbol face is ruled
+                                // out by the painting font's name.
+                                let paint_base_font = font_base_names
+                                    .get(&paint_font)
+                                    .map(|s| s.as_str())
+                                    .unwrap_or(&paint_font);
+                                let painted_bold = actual_text_glyph_count > 0
+                                    && paintable_fonts.contains(&paint_font)
+                                    && text_paint.adds_bold(
+                                        &at,
+                                        rendered_size,
+                                        paint_base_font,
+                                        &ctm,
+                                    );
                                 items.push(TextItem {
                                     text: expand_ligatures(&at),
                                     x: geometry.x,
@@ -2007,9 +2092,13 @@ pub(crate) fn extract_page_text_items_with_options(
                                     legacy_symbol_rewrite: false,
                                     font_size: rendered_size,
                                     page: page_num,
-                                    is_bold: is_bold_font(base_font) || desc_bold,
-                                    is_italic: is_italic_font(base_font) || desc_italic,
+                                    is_bold: style.bold || painted_bold,
+                                    is_italic: style.italic,
                                     font_weight: style.weight,
+                                    bold_source: style
+                                        .bold_source
+                                        .or(painted_bold.then_some(BoldSource::Painted)),
+                                    fixed_pitch: style.fixed_pitch,
                                     is_underline: false,
                                     is_strikeout: false,
                                     rotation: geometry.rotation,
@@ -2329,9 +2418,15 @@ pub(crate) fn extract_page_text_items_with_options(
 
     item_clips.resize(items.len(), shown_clip);
 
-    // Reverse visual-order RTL runs while candidate indexes are still valid
-    // (merge_text_items below reshapes the item list).
-    crate::text_utils::fix_visual_order_rtl(&mut items, &rtl_visual_candidates, rtl_logical_ops);
+    // Decide the storage order of the page's RTL runs while candidate
+    // indexes are still valid; merge_text_items below reads visual-order
+    // lines back into logical order as it merges them.
+    let visual_rtl = crate::text_utils::fix_visual_order_rtl(
+        &mut items,
+        &rtl_visual_candidates,
+        rtl_logical_ops,
+        &logical_text_items,
+    );
 
     // Runs painted wholly outside the rectangular clip in force when they
     // were shown are invisible on the rendered page: labels a charting
@@ -2365,18 +2460,14 @@ pub(crate) fn extract_page_text_items_with_options(
     );
 
     if options.bold_from_weight {
-        for item in &mut items {
-            if item.font_weight.is_some_and(|w| w >= BOLD_WEIGHT_CLASS) {
-                item.is_bold = true;
-            }
-        }
+        read_bold_from_weight(&mut items, options.bold_weight_threshold);
     }
     let items = if page_rotation == PageRotation::Upright {
-        super::merge_text_items_with_clips(items, &item_clips, options.bold_from_weight)
+        super::merge_text_items_with_clips(items, &item_clips, visual_rtl)
     } else {
         // Clips use the original page frame; rotated-page correction is an
         // intentionally unsupported provenance case.
-        super::merge_text_items_with_clips(items, &[], options.bold_from_weight)
+        super::merge_text_items_with_clips(items, &[], visual_rtl)
     };
     let items = super::merge_subscript_items(items);
     Ok((
@@ -2573,18 +2664,31 @@ mod tests {
     }
 
     fn simple_doc_with_content(content: &[u8]) -> (lopdf::Document, lopdf::ObjectId) {
+        doc_with_fonts(content, &[("F1", "Helvetica")])
+    }
+
+    /// A one-page document showing `content` with the given `(tag, BaseFont)`
+    /// Type1 faces, every glyph 600 units wide.
+    fn doc_with_fonts(
+        content: &[u8],
+        fonts: &[(&str, &str)],
+    ) -> (lopdf::Document, lopdf::ObjectId) {
         use lopdf::{dictionary, Object, Stream};
 
         let mut doc = lopdf::Document::new();
         let widths: Vec<Object> = (0..=255).map(|_| 600.into()).collect();
-        let font_id = doc.add_object(dictionary! {
-            "Type" => "Font",
-            "Subtype" => "Type1",
-            "BaseFont" => "Helvetica",
-            "FirstChar" => 0,
-            "LastChar" => 255,
-            "Widths" => Object::Array(widths),
-        });
+        let mut font_dict = dictionary! {};
+        for (tag, base_font) in fonts {
+            let font_id = doc.add_object(dictionary! {
+                "Type" => "Font",
+                "Subtype" => "Type1",
+                "BaseFont" => *base_font,
+                "FirstChar" => 0,
+                "LastChar" => 255,
+                "Widths" => Object::Array(widths.clone()),
+            });
+            font_dict.set(tag.as_bytes().to_vec(), Object::Reference(font_id));
+        }
         let content_id = doc.add_object(Object::Stream(Stream::new(
             dictionary! {},
             content.to_vec(),
@@ -2593,9 +2697,7 @@ mod tests {
             "Type" => "Page",
             "Contents" => Object::Reference(content_id),
             "Resources" => dictionary! {
-                "Font" => dictionary! {
-                    "F1" => Object::Reference(font_id),
-                },
+                "Font" => font_dict,
             },
             "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
         });
@@ -2614,9 +2716,13 @@ mod tests {
     }
 
     fn extract_simple_items(content: &[u8]) -> Vec<TextItem> {
+        extract_items_with_fonts(content, &[("F1", "Helvetica")])
+    }
+
+    fn extract_items_with_fonts(content: &[u8], fonts: &[(&str, &str)]) -> Vec<TextItem> {
         use crate::tounicode::FontCMaps;
 
-        let (doc, page_id) = simple_doc_with_content(content);
+        let (doc, page_id) = doc_with_fonts(content, fonts);
         let font_cmaps = FontCMaps::from_doc(&doc);
         let ((items, _, _), _, _, _) = extract_page_text_items(
             &doc,
@@ -2703,6 +2809,54 @@ mod tests {
             assert_eq!(items[0].text, "Styled");
             assert!(items[0].is_bold, "{show}: {items:?}");
         }
+    }
+
+    #[test]
+    fn painted_bold_reaches_an_actual_text_span() {
+        // The span's replacement text is emitted at EMC in place of the
+        // glyphs painted inside it; the fill-and-stroke that made those
+        // glyphs heavier makes the item bold, on the paint's account.
+        let items = extract_simple_items(
+            b"0.3 w 2 Tr BT /F1 12 Tf 72 700 Td /Span << /ActualText (Real) >> BDC (Fake) Tj EMC ET",
+        );
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].text, "Real");
+        assert!(items[0].is_bold);
+        assert_eq!(items[0].bold_source, Some(BoldSource::Painted));
+        let plain = extract_simple_items(
+            b"BT /F1 12 Tf 72 700 Td /Span << /ActualText (Real) >> BDC (Fake) Tj EMC ET",
+        );
+        assert_eq!(plain.len(), 1);
+        assert!(!plain[0].is_bold);
+        assert_eq!(plain[0].bold_source, None);
+
+        // A span that painted no glyph has no paint to read, whatever the
+        // state in force.
+        let empty = extract_simple_items(
+            b"0.3 w 2 Tr BT /F1 12 Tf 72 700 Td /Span << /ActualText (Real) >> BDC EMC ET",
+        );
+        assert_eq!(empty.len(), 1);
+        assert_eq!(empty[0].text, "Real");
+        assert!(!empty[0].is_bold);
+        assert_eq!(empty[0].bold_source, None);
+
+        // The font that painted the glyphs is the one judged: a symbol face
+        // is a glyph drawing, not emphasis, whatever the replacement says,
+        // and the `Tf` in force at EMC does not stand in for it.
+        let fonts = [("F1", "Helvetica"), ("F2", "Wingdings")];
+        let symbols = extract_items_with_fonts(
+            b"0.3 w 2 Tr BT /F2 12 Tf 72 700 Td /Span << /ActualText (Real) >> BDC (n) Tj EMC ET",
+            &fonts,
+        );
+        assert_eq!(symbols.len(), 1);
+        assert!(!symbols[0].is_bold);
+        let switched = extract_items_with_fonts(
+            b"0.3 w 2 Tr BT /F1 12 Tf 72 700 Td /Span << /ActualText (Real) >> BDC (Fake) Tj /F2 12 Tf EMC ET",
+            &fonts,
+        );
+        assert_eq!(switched.len(), 1);
+        assert!(switched[0].is_bold);
+        assert_eq!(switched[0].bold_source, Some(BoldSource::Painted));
     }
 
     #[test]
@@ -3368,15 +3522,15 @@ end"#;
     fn width_less_runs_lay_out_along_their_estimates() {
         // Without width metrics the cursor moves by the estimate the box
         // carries, so the next show operator starts where this one's estimate
-        // ends instead of on top of it — for `Tj` and `TJ` alike.
+        // ends instead of on top of it — for `Tj` and `TJ` alike. The runs
+        // abut, so they merge into one word whose box spans both estimates
+        // (overlapping runs would have stayed apart).
         let items = extract_hebrew_items(b"BT /F1 12 Tf 100 700 Td <4142> Tj <4344> Tj ET");
-        assert_eq!(items.len(), 2, "{items:?}");
-        assert_eq!((items[0].x, items[0].width), (100.0, 12.0));
-        assert_eq!((items[1].x, items[1].width), (112.0, 12.0));
-        let items = extract_hebrew_items(b"BT /F1 12 Tf 100 700 Td [<4142> <4344>] TJ <41> Tj ET");
-        assert_eq!(items.len(), 2, "{items:?}");
+        assert_eq!(items.len(), 1, "{items:?}");
         assert_eq!((items[0].x, items[0].width), (100.0, 24.0));
-        assert_eq!((items[1].x, items[1].width), (124.0, 6.0));
+        let items = extract_hebrew_items(b"BT /F1 12 Tf 100 700 Td [<4142> <4344>] TJ <41> Tj ET");
+        assert_eq!(items.len(), 1, "{items:?}");
+        assert_eq!((items[0].x, items[0].width), (100.0, 30.0));
     }
 
     #[test]
@@ -4057,6 +4211,8 @@ BT /F1 10 Tf 300 30 Td (7) Tj ET";
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: false,
             item_type: ItemType::Text,
@@ -4142,6 +4298,8 @@ BT /F1 12 Tf 0 1 -1 0 240 100 Tm (   ) Tj ET",
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: false,
             item_type: ItemType::Text,
@@ -4459,6 +4617,114 @@ BT /F1 10 Tf 300 30 Td (7) Tj ET";
             (
                 "BT /F1 10 Tf 72 700 Td 3 Tc (dt) Tj ET BT /F1 10 Tf 0 Tc 87 700 Td (o) Tj ET",
                 "dto",
+            ),
+        ] {
+            let items = extract_simple_items(content.as_bytes());
+            let texts: Vec<_> = items.iter().map(|i| i.text.as_str()).collect();
+            assert_eq!(texts, [expected], "{content}: {items:?}");
+        }
+    }
+
+    /// Tracked display text set as a glyph-per-string `TJ` array is judged
+    /// over its own tracking: letter gaps, kerning included, stay inside
+    /// the word and a gap wider by a word space ends the word. The test
+    /// font's space is 0.6 em, so its word-gap threshold is 240 thousandths.
+    #[test]
+    fn tracked_tj_titles_stay_whole_words() {
+        for (content, expected) in [
+            (
+                "BT /F1 24 Tf 72 700 Td [(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y)] TJ ET",
+                "VALLEY",
+            ),
+            (
+                "BT /F1 24 Tf 72 700 Td [(V) -216 (A) -333 (L) -166 (L) -250 (E) -290 (Y)] TJ ET",
+                "VALLEY",
+            ),
+            (
+                "BT /F1 24 Tf 72 700 Td [(V) -216 (A) -333 (L) -166 (L) -250 (E) -290 (Y) -560 (R) -240 (O) -260 (A) -250 (D)] TJ ET",
+                "VALLEY ROAD",
+            ),
+            (
+                "BT /F1 24 Tf 72 700 Td [(V) -125 (a) -135 (l) -120 (l) -125 (e) -130 (y)] TJ ET",
+                "Valley",
+            ),
+            // A negative `Tf` size reads the offsets the same way.
+            (
+                "BT /F1 -24 Tf -1 0 0 -1 72 700 Tm [(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y)] TJ ET",
+                "VALLEY",
+            ),
+        ] {
+            let items = extract_simple_items(content.as_bytes());
+            let texts: Vec<_> = items.iter().map(|i| i.text.as_str()).collect();
+            assert_eq!(texts.join(" "), expected, "{content}: {items:?}");
+        }
+    }
+
+    /// Each word of a tracked run keeps the box its glyphs span: the
+    /// letters of "VALLEY" advance 0.6 em each plus 0.25 em of tracking at
+    /// 24 pt, and "ROAD" starts a 0.56 em word gap after the last letter.
+    #[test]
+    fn tracked_tj_words_keep_their_glyph_boxes() {
+        let items = extract_simple_items(
+            b"BT /F1 24 Tf 72 700 Td [(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y) -560 (R) -250 (O) -250 (A) -250 (D)] TJ ET",
+        );
+        let valley = find_item(&items, "VALLEY");
+        assert_close(valley.x, 72.0, "x");
+        assert_close(valley.width, 6.0 * 14.4 + 5.0 * 6.0, "width");
+        let road = find_item(&items, "ROAD");
+        assert_close(road.x, 72.0 + valley.width + 0.56 * 24.0, "x");
+        assert_close(road.width, 4.0 * 14.4 + 3.0 * 6.0, "width");
+        assert!(valley.advance_known && road.advance_known);
+    }
+
+    /// A rotated tracked run — a chart's axis title — keeps its words in
+    /// one item with a space at the word gap: rotated items are not merged
+    /// again, and one run per line is what the line assembly expects.
+    #[test]
+    fn rotated_tracked_tj_run_stays_one_item_with_its_spaces() {
+        let items = upright_page_with(
+            "BT /F1 10 Tf 0 1 -1 0 40 100 Tm [(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y) -560 (R) -250 (O) -250 (A) -250 (D)] TJ ET",
+        );
+        let title = find_item(&items, "VALLEY ROAD");
+        assert_close(title.rotation, 90.0, "rotation");
+        assert_close(title.x, 30.0, "x");
+        assert_close(title.width, 10.0, "width");
+        // Ten 0.6 em glyphs, nine gaps: 8 × 0.25 em of tracking and the
+        // 0.56 em word gap.
+        assert_close(title.height, 60.0 + 8.0 * 2.5 + 5.6, "height");
+    }
+
+    /// Offsets that are not tracking are read as before: words positioned
+    /// by offsets, kerning between single glyphs with a word gap among
+    /// them, and lowercase one-letter words half a space width apart or
+    /// more.
+    #[test]
+    fn tj_offsets_that_are_not_tracking_read_as_before() {
+        for (content, expected) in [
+            (
+                "BT /F1 12 Tf 72 700 Td [(The) -258 (quick) -300 (brown) -280 (f) -20 (ox)] TJ ET",
+                "The quick brown fox",
+            ),
+            (
+                "BT /F1 12 Tf 72 700 Td [(T) 20 (h) -5 (e) -278 (q) 10 (u) -3 (i) -8 (c) (k)] TJ ET",
+                "The quick",
+            ),
+            (
+                "BT /F1 12 Tf 72 700 Td [(a) -600 (b) -600 (c) -600 (d)] TJ ET",
+                "a b c d",
+            ),
+            (
+                "BT /F1 12 Tf 72 700 Td [(a) -300 (b) -300 (c) -300 (d)] TJ ET",
+                "a b c d",
+            ),
+            // Math spacing between single glyphs, whatever their case.
+            (
+                "BT /F1 12 Tf 72 700 Td [(a) -278 (<) -278 (b)] TJ ET",
+                "a < b",
+            ),
+            (
+                "BT /F1 12 Tf 72 700 Td [(E) -278 (\\() -278 (N)] TJ ET",
+                "E ( N",
             ),
         ] {
             let items = extract_simple_items(content.as_bytes());

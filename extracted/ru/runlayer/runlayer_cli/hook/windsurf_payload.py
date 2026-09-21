@@ -83,6 +83,9 @@ def adapt_windsurf_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if event_name == "pre_read_code":
         derived["tool_name"] = "BeforeReadFile"
         derived["tool_input"] = {"file_path": file_path}
+    if event_name == "post_read_code":
+        derived["tool_name"] = "AfterReadFile"
+        derived["tool_input"] = {"file_path": file_path}
 
     user_prompt = _str_field(tool_info, "user_prompt")
     if user_prompt:

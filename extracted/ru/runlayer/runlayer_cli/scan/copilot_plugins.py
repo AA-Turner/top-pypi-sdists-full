@@ -28,6 +28,7 @@ from runlayer_cli.scan.config_parser import (
 from runlayer_cli.scan.plugin_scanner import (
     DiscoveredPluginArtifact,
     PluginMCPServer,
+    _accessible_dir,
     _collect_plugin_files,
     _read_json_safe,
     compute_plugin_identifier,
@@ -198,7 +199,7 @@ def _scan_direct_plugins(
     direct_dir: Path,
 ) -> tuple[list[MCPClientConfig], list[DiscoveredPluginArtifact]]:
     """Walk _direct/<source-id>/ directories."""
-    if not direct_dir.is_dir():
+    if not _accessible_dir(direct_dir):
         return [], []
 
     configs: list[MCPClientConfig] = []
@@ -281,7 +282,7 @@ def scan_copilot_plugins(
                 mark_plugin_scan_incomplete("copilot_plugin_home_resolution_failed")
                 return [], []
 
-    if not plugins_base.is_dir():
+    if not _accessible_dir(plugins_base):
         return [], []
 
     m_configs, m_artifacts = _scan_marketplace_plugins(plugins_base)

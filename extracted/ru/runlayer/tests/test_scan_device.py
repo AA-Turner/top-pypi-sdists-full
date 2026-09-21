@@ -1158,7 +1158,99 @@ class TestGetWSLUserHomes:
 
         get_wsl_user_homes("Ubuntu", scan_status=status)
 
-        assert "wsl_home_access_failed" in status.reasons
+        assert "wsl_home_access_denied" in status.reasons
+
+    def test_untraversable_user_home_dropped_as_access_denied(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """A 0750 home stats fine over the UNC share but cannot be listed."""
+        home_base = tmp_path / "home"
+        alice = home_base / "alice"
+        bob = home_base / "bob"
+        alice.mkdir(parents=True)
+        bob.mkdir()
+
+        def fake_path(path):
+            return Path(str(path).replace(R"\\wsl.localhost\Ubuntu", str(tmp_path)))
+
+        path_type = type(tmp_path)
+        original_iterdir = path_type.iterdir
+
+        def denied_iterdir(path):
+            if path == alice:
+                raise PermissionError("[WinError 5] Access is denied")
+            return original_iterdir(path)
+
+        monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
+        monkeypatch.setattr(path_type, "iterdir", denied_iterdir)
+        status = ScanCompletionStatus()
+
+        homes = get_wsl_user_homes("Ubuntu", scan_status=status)
+
+        assert homes == [bob]
+        assert status.reasons == ["wsl_home_access_denied"]
+
+    def test_untraversable_root_home_dropped_as_access_denied(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """``/root`` is 0700; the default WSL user cannot read it via UNC."""
+        root_home = tmp_path / "root"
+        root_home.mkdir()
+        alex = tmp_path / "home" / "alex"
+        alex.mkdir(parents=True)
+
+        def fake_path(path):
+            return Path(str(path).replace(R"\\wsl.localhost\Ubuntu", str(tmp_path)))
+
+        path_type = type(tmp_path)
+        original_iterdir = path_type.iterdir
+
+        def denied_iterdir(path):
+            if path == root_home:
+                raise PermissionError("[WinError 5] Access is denied")
+            return original_iterdir(path)
+
+        monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
+        monkeypatch.setattr(path_type, "iterdir", denied_iterdir)
+        status = ScanCompletionStatus()
+
+        homes = get_wsl_user_homes("Ubuntu", scan_status=status)
+
+        assert homes == [alex]
+        assert status.reasons == ["wsl_home_access_denied"]
+
+    def test_other_traversal_errors_keep_access_failed_reason(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        home_base = tmp_path / "home"
+        flaky = home_base / "flaky"
+        flaky.mkdir(parents=True)
+
+        def fake_path(path):
+            return Path(str(path).replace(R"\\wsl.localhost\Ubuntu", str(tmp_path)))
+
+        path_type = type(tmp_path)
+        original_iterdir = path_type.iterdir
+
+        def flaky_iterdir(path):
+            if path == flaky:
+                raise OSError("network name no longer available")
+            return original_iterdir(path)
+
+        monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
+        monkeypatch.setattr(path_type, "iterdir", flaky_iterdir)
+        status = ScanCompletionStatus()
+
+        homes = get_wsl_user_homes("Ubuntu", scan_status=status)
+
+        assert homes == []
+        assert status.reasons == ["wsl_home_access_failed"]
 
     def test_successful_legacy_unc_fallback_suppresses_primary_root_errors(
         self,

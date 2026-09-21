@@ -32,6 +32,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from matrx_utils.person_sentence import person_sentence
+
 from matrx_scraper.blocks.store import BlockStore
 from matrx_scraper.blocks.unblock import unblock_for
 from matrx_scraper.blocks.vocabulary import ENGINES, RUNGS, SOURCE_TYPES
@@ -150,10 +152,38 @@ async def _record(
         return None
 
     input_ref = _clean(input_ref, 4000)
-    sentence = _clean(error_sentence, _SENTENCE_LIMIT)
-    if not input_ref or not sentence:
+    if not input_ref or not str(error_sentence or "").strip():
         _log.error("a block arrived without an input or without a sentence and was dropped")
         return None
+
+    # ── 🚨 DRIVER TEXT IS NEVER THE SENTENCE (fourteenth cold walk, 2026-09-20) ──
+    # `/acquisition` printed a raw `INSERT INTO docproc.processed_documents … VALUES
+    # ($1, $2, … Args: ('03e3dab7-…', …)` inside a block row, because the caller that
+    # caught a `QueryTimeoutError` assigned `str(exc)` straight to `error_sentence`
+    # and every reader downstream faithfully rendered what it was handed. A schema,
+    # a statement and its bound argument values, on a screen otherwise written in
+    # careful English.
+    #
+    # Fixing the caller alone would be fixing the instance: `error_sentence` is a
+    # PERSON-FACING column and there are ~14 callers, any of which is one bad
+    # `except` away from doing it again. So the rule is structural and lives HERE,
+    # at the one seam every block passes through — raw exception text becomes a
+    # sentence from its classified cause, and the raw text rides in `detail`, which
+    # is diagnostic-only and never rendered as prose.
+    spoken = person_sentence(error_sentence)
+    sentence = _clean(spoken.text, _SENTENCE_LIMIT)
+    detail = dict(detail or {})
+    if spoken.diagnostic:
+        _log.warning(
+            "a block arrived with machine text as its sentence (%s on %s) — the person reads "
+            "the classified cause and the raw text is in detail.diagnostic",
+            error_class,
+            input_ref,
+        )
+        detail["diagnostic"] = {
+            **(detail.get("diagnostic") if isinstance(detail.get("diagnostic"), dict) else {}),
+            "raw_error": spoken.diagnostic,
+        }
 
     # The lawful route is looked up, never invented. An explicit note from the caller wins,
     # because the engine that failed knows more about this one than the table does.

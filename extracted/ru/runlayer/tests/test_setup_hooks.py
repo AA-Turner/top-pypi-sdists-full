@@ -2043,8 +2043,10 @@ _WINDSURF_EXPECTED_PIPELINE_EVENTS = {
     "pre_user_prompt",
     "post_mcp_tool_use",
     "post_run_command",
+    "post_read_code",
     "post_write_code",
     "post_cascade_response",
+    "post_setup_worktree",
 }
 
 

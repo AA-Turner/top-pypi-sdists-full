@@ -308,12 +308,26 @@ fn rdkit_avg_mass(element: Element) -> f64 {
 
 /// Explicit isotope masses used by RDKit's average molecular-weight API.
 ///
-/// The compatibility profile is intentionally finite: an isotope not in this
-/// table remains fail-closed instead of being approximated by its mass number.
-/// Values are the nuclide masses in daltons; the common labels cover the
-/// isotope-bearing molecules in the current compatibility corpus.
-fn rdkit_isotope_mass(element: Element, isotope: u16) -> Option<f64> {
-    let mass = match (element.atomic_number(), isotope) {
+/// Values are the nuclide masses in daltons.  RDKit's periodic table falls
+/// back to the isotope mass number for a syntactically valid label that has no
+/// nuclide entry; retain that behavior rather than returning an ambiguous
+/// unsupported value.
+fn rdkit_isotope_mass(element: Element, isotope: u16) -> f64 {
+    use crate::rdkit_isotope_mass_table::RDKIT_ISOTOPE_MASS_TABLE;
+
+    RDKIT_ISOTOPE_MASS_TABLE
+        .binary_search_by_key(&(element.atomic_number(), isotope), |&(z, a, _)| (z, a))
+        .map(|index| RDKIT_ISOTOPE_MASS_TABLE[index].2)
+        // RDKit uses the mass number for a syntactically valid but unknown
+        // isotope label. Preserve this documented compatibility boundary.
+        .unwrap_or(isotope as f64)
+}
+
+/// High-precision nuclide masses for explicit labels common in descriptor
+/// fixtures. The complete pinned isotope table is used for every other known
+/// label before falling back to its mass number.
+fn exact_mass_isotope(element: Element, isotope: u16) -> f64 {
+    match (element.atomic_number(), isotope) {
         (1, 2) => 2.01410177812,
         (1, 3) => 3.01604928199,
         (6, 12) => 12.0,
@@ -328,134 +342,133 @@ fn rdkit_isotope_mass(element: Element, isotope: u16) -> Option<f64> {
         (16, 34) => 33.967867004,
         (17, 37) => 36.965902602,
         (35, 81) => 80.9162897,
-        _ => return None,
-    };
-    Some(mass)
+        _ => rdkit_isotope_mass(element, isotope),
+    }
 }
 
 /// Monoisotopic (most-abundant-isotope) mass table (Da), indexed the same
-/// way as [`AVG_MASS_TABLE`] -- see its doc comment for provenance, the bug
-/// this replaced, and why the pre-existing ~12 covered elements keep their
-/// original values rather than being silently re-derived from RDKit.
+/// way as [`AVG_MASS_TABLE`]. Exact mass keeps a separate, high-precision
+/// contract from average molecular weight, so common descriptor elements use
+/// their nuclide masses rather than rounded display values.
 static MONO_MASS_TABLE: [f64; 118] = [
-    1.00783,   // 1 H (pre-existing)
-    4.00260,   // 2 He (RDKit)
-    7.01600,   // 3 Li (RDKit)
-    9.01218,   // 4 Be (RDKit)
-    11.00931,  // 5 B (RDKit)
-    12.00000,  // 6 C (pre-existing)
-    14.00310,  // 7 N (pre-existing)
-    15.99490,  // 8 O (pre-existing)
-    18.99840,  // 9 F (pre-existing)
-    19.99244,  // 10 Ne (RDKit)
-    22.98977,  // 11 Na (RDKit)
-    23.98504,  // 12 Mg (RDKit)
-    26.98154,  // 13 Al (RDKit)
-    27.97690,  // 14 Si (pre-existing)
-    30.97380,  // 15 P (pre-existing)
-    31.97210,  // 16 S (pre-existing)
-    34.96890,  // 17 Cl (pre-existing)
-    39.96238,  // 18 Ar (RDKit)
-    38.96371,  // 19 K (RDKit)
-    39.96259,  // 20 Ca (RDKit)
-    44.95591,  // 21 Sc (RDKit)
-    47.94795,  // 22 Ti (RDKit)
-    50.94396,  // 23 V (RDKit)
-    51.94051,  // 24 Cr (RDKit)
-    54.93805,  // 25 Mn (RDKit)
-    55.93494,  // 26 Fe (RDKit)
-    58.93319,  // 27 Co (RDKit)
-    57.93534,  // 28 Ni (RDKit)
-    62.92960,  // 29 Cu (RDKit)
-    63.92914,  // 30 Zn (RDKit)
-    68.92557,  // 31 Ga (RDKit)
-    73.92118,  // 32 Ge (RDKit)
-    74.92160,  // 33 As (RDKit)
-    79.91650,  // 34 Se (pre-existing)
-    78.91830,  // 35 Br (pre-existing)
-    83.91151,  // 36 Kr (RDKit)
-    84.91179,  // 37 Rb (RDKit)
-    87.90561,  // 38 Sr (RDKit)
-    88.90585,  // 39 Y (RDKit)
-    89.90470,  // 40 Zr (RDKit)
-    92.90638,  // 41 Nb (RDKit)
-    97.90541,  // 42 Mo (RDKit)
-    96.90636,  // 43 Tc (RDKit)
-    101.90435, // 44 Ru (RDKit)
-    102.90550, // 45 Rh (RDKit)
-    105.90349, // 46 Pd (RDKit)
-    106.90510, // 47 Ag (RDKit)
-    113.90336, // 48 Cd (RDKit)
-    114.90388, // 49 In (RDKit)
-    119.90219, // 50 Sn (RDKit)
-    120.90382, // 51 Sb (RDKit)
-    129.90622, // 52 Te (RDKit)
-    126.90450, // 53 I (pre-existing)
-    131.90415, // 54 Xe (RDKit)
-    132.90545, // 55 Cs (RDKit)
-    137.90525, // 56 Ba (RDKit)
-    138.90635, // 57 La (RDKit)
-    139.90544, // 58 Ce (RDKit)
-    140.90765, // 59 Pr (RDKit)
-    141.90772, // 60 Nd (RDKit)
-    144.91275, // 61 Pm (RDKit)
-    151.91973, // 62 Sm (RDKit)
-    152.92123, // 63 Eu (RDKit)
-    157.92410, // 64 Gd (RDKit)
-    158.92535, // 65 Tb (RDKit)
-    163.92917, // 66 Dy (RDKit)
-    164.93032, // 67 Ho (RDKit)
-    165.93029, // 68 Er (RDKit)
-    168.93421, // 69 Tm (RDKit)
-    173.93886, // 70 Yb (RDKit)
-    174.94077, // 71 Lu (RDKit)
-    179.94655, // 72 Hf (RDKit)
-    180.94800, // 73 Ta (RDKit)
-    183.95093, // 74 W (RDKit)
-    186.95575, // 75 Re (RDKit)
-    191.96148, // 76 Os (RDKit)
-    192.96293, // 77 Ir (RDKit)
-    194.96479, // 78 Pt (RDKit)
-    196.96657, // 79 Au (RDKit)
-    201.97064, // 80 Hg (RDKit)
-    204.97443, // 81 Tl (RDKit)
-    207.97665, // 82 Pb (RDKit)
-    208.98040, // 83 Bi (RDKit)
-    208.98243, // 84 Po (RDKit)
-    209.98715, // 85 At (RDKit)
-    222.01757, // 86 Rn (RDKit)
-    223.01974, // 87 Fr (RDKit)
-    226.02540, // 88 Ra (RDKit)
-    227.02775, // 89 Ac (RDKit)
-    232.03806, // 90 Th (RDKit)
-    231.03588, // 91 Pa (RDKit)
-    238.05079, // 92 U (RDKit)
-    236.04657, // 93 Np (RDKit)
-    238.04956, // 94 Pu (RDKit)
-    241.05683, // 95 Am (RDKit)
-    243.06139, // 96 Cm (RDKit)
-    247.07031, // 97 Bk (RDKit)
-    249.07485, // 98 Cf (RDKit)
-    252.08298, // 99 Es (RDKit)
-    257.09510, // 100 Fm (RDKit)
-    258.09843, // 101 Md (RDKit)
-    259.10103, // 102 No (RDKit)
-    262.10963, // 103 Lr (RDKit)
-    267.12153, // 104 Rf (RDKit)
-    268.12545, // 105 Db (RDKit)
-    271.13347, // 106 Sg (RDKit)
-    270.13362, // 107 Bh (RDKit)
-    269.13406, // 108 Hs (RDKit)
-    278.15481, // 109 Mt (RDKit)
-    281.16206, // 110 Ds (RDKit)
-    281.16537, // 111 Rg (RDKit)
-    285.17411, // 112 Cn (RDKit)
-    284.17873, // 113 Nh (RDKit)
-    289.19042, // 114 Fl (RDKit)
-    288.19274, // 115 Mc (RDKit)
-    293.20449, // 116 Lv (RDKit)
-    292.20746, // 117 Ts (RDKit)
-    294.21392, // 118 Og (RDKit)
+    1.00782503223,  // 1 H; 1H nuclide mass
+    4.00260,        // 2 He (RDKit)
+    7.01600,        // 3 Li (RDKit)
+    9.01218,        // 4 Be (RDKit)
+    11.00930536,    // 5 B; 11B nuclide mass
+    12.00000,       // 6 C (pre-existing)
+    14.00307400443, // 7 N; 14N nuclide mass
+    15.99491461957, // 8 O; 16O nuclide mass
+    18.99840,       // 9 F (pre-existing)
+    19.99244,       // 10 Ne (RDKit)
+    22.98977,       // 11 Na (RDKit)
+    23.98504,       // 12 Mg (RDKit)
+    26.98154,       // 13 Al (RDKit)
+    27.97690,       // 14 Si (pre-existing)
+    30.97376199842, // 15 P; 31P nuclide mass
+    31.9720711744,  // 16 S; 32S nuclide mass
+    34.96890,       // 17 Cl (pre-existing)
+    39.96238,       // 18 Ar (RDKit)
+    38.96371,       // 19 K (RDKit)
+    39.96259,       // 20 Ca (RDKit)
+    44.95591,       // 21 Sc (RDKit)
+    47.94795,       // 22 Ti (RDKit)
+    50.94396,       // 23 V (RDKit)
+    51.94051,       // 24 Cr (RDKit)
+    54.93805,       // 25 Mn (RDKit)
+    55.93494,       // 26 Fe (RDKit)
+    58.93319,       // 27 Co (RDKit)
+    57.93534,       // 28 Ni (RDKit)
+    62.92960,       // 29 Cu (RDKit)
+    63.92914,       // 30 Zn (RDKit)
+    68.92557,       // 31 Ga (RDKit)
+    73.92118,       // 32 Ge (RDKit)
+    74.92160,       // 33 As (RDKit)
+    79.9165218,     // 34 Se; 80Se nuclide mass
+    78.91830,       // 35 Br (pre-existing)
+    83.91151,       // 36 Kr (RDKit)
+    84.91179,       // 37 Rb (RDKit)
+    87.90561,       // 38 Sr (RDKit)
+    88.90585,       // 39 Y (RDKit)
+    89.90470,       // 40 Zr (RDKit)
+    92.90638,       // 41 Nb (RDKit)
+    97.90541,       // 42 Mo (RDKit)
+    96.90636,       // 43 Tc (RDKit)
+    101.90435,      // 44 Ru (RDKit)
+    102.90550,      // 45 Rh (RDKit)
+    105.90349,      // 46 Pd (RDKit)
+    106.90510,      // 47 Ag (RDKit)
+    113.90336,      // 48 Cd (RDKit)
+    114.90388,      // 49 In (RDKit)
+    119.90219,      // 50 Sn (RDKit)
+    120.90382,      // 51 Sb (RDKit)
+    129.90622,      // 52 Te (RDKit)
+    126.90450,      // 53 I (pre-existing)
+    131.90415,      // 54 Xe (RDKit)
+    132.90545,      // 55 Cs (RDKit)
+    137.90525,      // 56 Ba (RDKit)
+    138.90635,      // 57 La (RDKit)
+    139.90544,      // 58 Ce (RDKit)
+    140.90765,      // 59 Pr (RDKit)
+    141.90772,      // 60 Nd (RDKit)
+    144.91275,      // 61 Pm (RDKit)
+    151.91973,      // 62 Sm (RDKit)
+    152.92123,      // 63 Eu (RDKit)
+    157.92410,      // 64 Gd (RDKit)
+    158.92535,      // 65 Tb (RDKit)
+    163.92917,      // 66 Dy (RDKit)
+    164.93032,      // 67 Ho (RDKit)
+    165.93029,      // 68 Er (RDKit)
+    168.93421,      // 69 Tm (RDKit)
+    173.93886,      // 70 Yb (RDKit)
+    174.94077,      // 71 Lu (RDKit)
+    179.94655,      // 72 Hf (RDKit)
+    180.94800,      // 73 Ta (RDKit)
+    183.95093,      // 74 W (RDKit)
+    186.95575,      // 75 Re (RDKit)
+    191.96148,      // 76 Os (RDKit)
+    192.96293,      // 77 Ir (RDKit)
+    194.96479,      // 78 Pt (RDKit)
+    196.96657,      // 79 Au (RDKit)
+    201.97064,      // 80 Hg (RDKit)
+    204.97443,      // 81 Tl (RDKit)
+    207.97665,      // 82 Pb (RDKit)
+    208.98040,      // 83 Bi (RDKit)
+    208.98243,      // 84 Po (RDKit)
+    209.98715,      // 85 At (RDKit)
+    222.01757,      // 86 Rn (RDKit)
+    223.01974,      // 87 Fr (RDKit)
+    226.02540,      // 88 Ra (RDKit)
+    227.02775,      // 89 Ac (RDKit)
+    232.03806,      // 90 Th (RDKit)
+    231.03588,      // 91 Pa (RDKit)
+    238.05079,      // 92 U (RDKit)
+    236.04657,      // 93 Np (RDKit)
+    238.04956,      // 94 Pu (RDKit)
+    241.05683,      // 95 Am (RDKit)
+    243.06139,      // 96 Cm (RDKit)
+    247.07031,      // 97 Bk (RDKit)
+    249.07485,      // 98 Cf (RDKit)
+    252.08298,      // 99 Es (RDKit)
+    257.09510,      // 100 Fm (RDKit)
+    258.09843,      // 101 Md (RDKit)
+    259.10103,      // 102 No (RDKit)
+    262.10963,      // 103 Lr (RDKit)
+    267.12153,      // 104 Rf (RDKit)
+    268.12545,      // 105 Db (RDKit)
+    271.13347,      // 106 Sg (RDKit)
+    270.13362,      // 107 Bh (RDKit)
+    269.13406,      // 108 Hs (RDKit)
+    278.15481,      // 109 Mt (RDKit)
+    281.16206,      // 110 Ds (RDKit)
+    281.16537,      // 111 Rg (RDKit)
+    285.17411,      // 112 Cn (RDKit)
+    284.17873,      // 113 Nh (RDKit)
+    289.19042,      // 114 Fl (RDKit)
+    288.19274,      // 115 Mc (RDKit)
+    293.20449,      // 116 Lv (RDKit)
+    292.20746,      // 117 Ts (RDKit)
+    294.21392,      // 118 Og (RDKit)
 ];
 
 /// See [`avg_mass`]'s doc comment for the fallback rationale.
@@ -492,10 +505,9 @@ pub fn molecular_weight(mol: &Molecule) -> f64 {
 ///
 /// This is deliberately separate from [`molecular_weight`].  It matches the
 /// RDKit periodic-table values for the supported unlabelled-atom profile while
-/// retaining chematic's native defaults for existing callers.  Explicit
-/// isotope-labelled atoms are not silently approximated by this profile and
-/// Explicit isotopes use the finite RDKit-compatible nuclide table; unknown
-/// isotope labels remain fail-closed rather than being approximated.
+/// retaining chematic's native defaults for existing callers. Explicit
+/// isotope-labelled atoms use RDKit's nuclide masses where present and its
+/// mass-number fallback otherwise.
 pub fn rdkit_molecular_weight(mol: &Molecule) -> f64 {
     let mut mw = 0.0f64;
     for (idx, atom) in mol.atoms() {
@@ -503,10 +515,7 @@ pub fn rdkit_molecular_weight(mol: &Molecule) -> f64 {
             continue;
         }
         mw += match atom.isotope {
-            Some(isotope) => match rdkit_isotope_mass(atom.element, isotope) {
-                Some(mass) => mass,
-                None => return f64::NAN,
-            },
+            Some(isotope) => rdkit_isotope_mass(atom.element, isotope),
             None => rdkit_avg_mass(atom.element),
         };
         mw += implicit_hcount(mol, idx) as f64 * 1.008;
@@ -521,27 +530,28 @@ pub fn rdkit_molecular_weight(mol: &Molecule) -> f64 {
 /// Compute the monoisotopic (exact) mass (Da).
 ///
 /// Uses the most-abundant isotope for each element, or the explicit nuclide
-/// mass when the atom carries a supported isotope label.  Unknown isotope
-/// labels return `NaN` rather than treating a mass number as a physical mass.
-/// Implicit hydrogens use the ¹H monoisotopic mass (1.00783).
+/// mass when the atom carries a known isotope label. Unknown isotope labels
+/// use RDKit's mass-number fallback. Implicit hydrogens use the ¹H monoisotopic
+/// mass. Formal charge adjusts the neutral-atom sum by the electron rest mass,
+/// matching RDKit's `ExactMolWt` convention.
 pub fn exact_mass(mol: &Molecule) -> f64 {
+    const ELECTRON_MASS: f64 = 0.000_548_579_909_065;
     let mut mass = 0.0f64;
+    let mut formal_charge = 0i32;
     for (idx, atom) in mol.atoms() {
         if atom.wildcard {
             continue;
         }
         let m = match atom.isotope {
-            Some(iso) => match rdkit_isotope_mass(atom.element, iso) {
-                Some(mass) => mass,
-                None => return f64::NAN,
-            },
+            Some(iso) => exact_mass_isotope(atom.element, iso),
             None => mono_mass(atom.element),
         };
         mass += m;
         let h = implicit_hcount(mol, idx);
-        mass += h as f64 * 1.00783;
+        mass += h as f64 * mono_mass(Element::H);
+        formal_charge += i32::from(atom.charge);
     }
-    mass
+    mass - f64::from(formal_charge) * ELECTRON_MASS
 }
 
 // ---------------------------------------------------------------------------
@@ -559,19 +569,47 @@ pub fn heavy_atom_count(mol: &Molecule) -> usize {
         .count()
 }
 
+/// Number of hydrogens attached to one atom for descriptor atom typing.
+///
+/// `implicit_hcount` already includes bracket H counts (for example `[NH]`),
+/// but an explicit graph atom such as `[2H]O` is a separate neighbour and
+/// therefore must be added here.  Descriptor definitions treat protium and
+/// isotopic hydrogen identically for donor/acceptor and TPSA atom types.
+fn descriptor_attached_hcount(mol: &Molecule, idx: AtomIdx) -> u8 {
+    let explicit_graph_h = mol
+        .neighbors(idx)
+        .filter(|(neighbor, _)| mol.atom(*neighbor).element.atomic_number() == 1)
+        .count() as u8;
+    implicit_hcount(mol, idx).saturating_add(explicit_graph_h)
+}
+
 // ---------------------------------------------------------------------------
 // 4. Hydrogen bond donor count
 // ---------------------------------------------------------------------------
 
-/// Count hydrogen bond donors (N-H or O-H groups).
+/// Count Lipinski hydrogen bond donors (N-H, O-H, or S-H groups).
 ///
 /// Each heavy atom with element N or O that has at least one attached H
-/// counts as one donor (not per H — donors are counted per heavy atom).
+/// counts as one donor (not per H — donors are counted per heavy atom). An
+/// isolated implicit-water oxygen is not a Lipinski donor: RDKit's
+/// `CalcNumHBD` and `Lipinski.NumHDonors` both return zero for the standalone
+/// SMILES `O`, while ordinary hydroxyl groups remain donors.
 pub fn hbd_count(mol: &Molecule) -> usize {
     mol.atoms()
         .filter(|(idx, atom)| {
             let an = atom.element.atomic_number();
-            (is_nitrogen(an) || is_oxygen(an) || an == 16) && implicit_hcount(mol, *idx) > 0
+            if !(is_nitrogen(an) || is_oxygen(an) || an == 16)
+                || descriptor_attached_hcount(mol, *idx) == 0
+            {
+                return false;
+            }
+            // A bare `O` is water in the SMILES model. Retain donor behavior
+            // for O-H attached to any heavy atom (alcohols, acids, hydroxylamine,
+            // and related functional groups).
+            an != 8
+                || mol
+                    .neighbors(*idx)
+                    .any(|(neighbor, _)| mol.atom(neighbor).element.atomic_number() != 1)
         })
         .count()
 }
@@ -1032,6 +1070,10 @@ fn tpsa_nitrogen(
             if has_double_bond_to(mol, idx, 6) {
                 // Imine =NH (N=C with H): 23.85 (RDKit calibrated value, not 23.79)
                 23.85
+            } else if has_double_bond_to(mol, idx, 15) {
+                // P=N-H is the corresponding imine-like Ertl type rather than
+                // an ordinary secondary amine.
+                23.85
             } else {
                 12.03
             }
@@ -1213,12 +1255,45 @@ fn tpsa_phosphorus(mol: &Molecule, idx: AtomIdx, h: u8) -> f64 {
     } else if has_double_bond_to(mol, idx, 16) {
         41.90 // phosphorothioate: P=S (S is counted as zero)
     } else if has_double_bond_to(mol, idx, 7) {
-        9.81 // phosphazene: P=N (cyclic or linear)
+        // The Ertl P=N types distinguish the implicit-hydrogen organic-subset
+        // spelling from both the fully substituted and explicitly bracketed
+        // P-H forms. In particular, `CP(=N)C` has the 23.47 P contribution,
+        // `CP(=N)(C)C` has 9.81, and `[PH](=N)C` has none. `h` alone is not
+        // sufficient because bracket atoms retain their explicit H count.
+        if mol.atom(idx).hydrogen_count.is_some() {
+            0.0
+        } else if h > 0 {
+            23.47
+        } else {
+            9.81
+        }
     } else if h > 0 {
         34.14 // phosphine P-H (secondary/primary phosphine)
     } else {
         13.59 // phosphite/trivalent P, no H (RDKit-calibrated)
     }
+}
+
+/// Whether a Kekulé-spelled ring NH has the RDKit pyridone aromatic-N atom type.
+///
+/// `apply_aromaticity` is intentionally not sufficient on its own: it also
+/// promotes imide nitrogens such as phthalimide, whose TPSA atom type remains
+/// the non-aromatic amide type.  The pyridone boundary is a neutral ring NH
+/// with exactly one directly bonded carbonyl carbon that becomes aromatic after
+/// perception.  This is deliberately narrower than tautomer canonicalization;
+/// it only selects the descriptor atom type for an already parsed graph.
+fn is_kekule_pyridone_n(mol: &Molecule, mol_arom: &Molecule, idx: AtomIdx, h: u8) -> bool {
+    !mol.atom(idx).aromatic
+        && mol_arom.atom(idx).aromatic
+        && h > 0
+        && mol
+            .neighbors(idx)
+            .filter(|(neighbor, _)| {
+                mol.atom(*neighbor).element.atomic_number() == 6
+                    && has_double_bond_to(mol, *neighbor, 8)
+            })
+            .count()
+            == 1
 }
 
 /// Topological Polar Surface Area (Ertl 2000).
@@ -1232,9 +1307,10 @@ fn tpsa_phosphorus(mol: &Molecule, idx: AtomIdx, h: u8) -> f64 {
 /// `Descriptors.TPSA(mol)` excludes S and P; results will differ for molecules
 /// containing these elements.
 pub fn tpsa(mol: &Molecule) -> f64 {
-    // Apply aromaticity for Kekulé-form input. For TPSA, nitrogen aromaticity uses
-    // the ORIGINAL mol's flag: apply_aromaticity can false-promote phthalimide N
-    // (making it give 12.89 instead of 12.03). Other elements use mol_arom.
+    // Apply aromaticity for Kekulé-form input. Nitrogen normally keeps the input
+    // aromaticity flag because perception can false-promote imide N (for example
+    // phthalimide). A narrow single-carbonyl pyridone exception restores RDKit's
+    // aromatic-[nH] atom type without changing the imide boundary.
     let mol_arom = chematic_perception::apply_aromaticity(mol);
     let ring_bonds = ring_bond_indices(&mol_arom);
 
@@ -1242,17 +1318,17 @@ pub fn tpsa(mol: &Molecule) -> f64 {
     for (idx, atom_arom) in mol_arom.atoms() {
         let orig_atom = mol.atom(idx);
         let an = orig_atom.element.atomic_number();
-        // N: prefer SMILES aromatic flag; other elements: use mol_arom flag.
-        let is_aromatic = if an == 7 {
-            orig_atom.aromatic
-        } else {
-            atom_arom.aromatic
-        };
         // H count: for N use original mol (before apply_aromaticity changed valence).
         let h = if an == 7 {
-            implicit_hcount(mol, idx)
+            descriptor_attached_hcount(mol, idx)
         } else {
-            implicit_hcount(&mol_arom, idx)
+            descriptor_attached_hcount(&mol_arom, idx)
+        };
+        // N: prefer SMILES aromatic flag; other elements: use mol_arom flag.
+        let is_aromatic = if an == 7 {
+            orig_atom.aromatic || is_kekule_pyridone_n(mol, &mol_arom, idx, h)
+        } else {
+            atom_arom.aromatic
         };
         let contribution = match an {
             7 => tpsa_nitrogen(mol, idx, is_aromatic, h, orig_atom.charge, &ring_bonds),
@@ -1461,9 +1537,13 @@ fn crippen_anchor_sets(mol: &Molecule, queries: &CrippenQueries) -> Vec<FxHashSe
 /// Index matches mol.atoms().
 pub fn logp_crippen_per_atom(mol: &Molecule) -> Vec<f64> {
     let queries = get_crippen_queries();
+    // RDKit assigns Crippen atom types after aromaticity perception. Match on
+    // that representation so an equivalent Kekulé spelling receives the same
+    // aromatic SMARTS type; contributions stay indexed to the caller's graph.
+    let mol_arom = chematic_perception::apply_aromaticity(mol);
     // Pre-compute once per molecule: for each pattern, which atoms satisfy query-atom-0?
     // Previously O(n_atoms × n_patterns × VF2); now O(n_patterns × VF2 + n_atoms × n_patterns).
-    let anchor_sets = crippen_anchor_sets(mol, queries);
+    let anchor_sets = crippen_anchor_sets(&mol_arom, queries);
 
     let h_fallback = CRIPPEN_SMARTS
         .iter()
@@ -1717,7 +1797,8 @@ fn h_mr_for_parent(
 /// H contributions are folded into the attached heavy atom. Index matches mol.atoms().
 pub fn mr_per_atom(mol: &Molecule) -> Vec<f64> {
     let queries = get_crippen_queries();
-    let anchor_sets = crippen_anchor_sets(mol, queries);
+    let mol_arom = chematic_perception::apply_aromaticity(mol);
+    let anchor_sets = crippen_anchor_sets(&mol_arom, queries);
 
     let h_fallback = CRIPPEN_SMARTS
         .iter()
@@ -1782,7 +1863,8 @@ pub fn molar_refractivity(mol: &Molecule) -> f64 {
 /// computation), making it roughly 2× faster when both values are needed.
 pub fn logp_and_mr(mol: &Molecule) -> (f64, f64) {
     let queries = get_crippen_queries();
-    let anchor_sets = crippen_anchor_sets(mol, queries);
+    let mol_arom = chematic_perception::apply_aromaticity(mol);
+    let anchor_sets = crippen_anchor_sets(&mol_arom, queries);
 
     let h_logp_fallback = CRIPPEN_SMARTS
         .iter()
@@ -2567,7 +2649,7 @@ pub fn tpsa_per_atom(mol: &Molecule) -> Vec<f64> {
     let mut out = vec![0.0f64; n];
     for (idx, atom) in mol.atoms() {
         let an = atom.element.atomic_number();
-        let h = implicit_hcount(mol, idx);
+        let h = descriptor_attached_hcount(mol, idx);
         out[idx.0 as usize] = match an {
             7 => tpsa_nitrogen(mol, idx, atom.aromatic, h, atom.charge, &ring_bonds),
             8 => tpsa_oxygen(mol, idx, atom.aromatic, h, atom.charge),
@@ -3863,11 +3945,108 @@ fn jacobi_eigenvalues(mat: &[Vec<f64>]) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chematic_smiles::parse;
+    use chematic_core::MoleculeBuilder;
+    use chematic_smiles::{parse, write};
 
     /// Parse a SMILES string, panicking on failure.
     fn mol(smiles: &str) -> Molecule {
         parse(smiles).unwrap_or_else(|e| panic!("failed to parse {smiles:?}: {e}"))
+    }
+
+    /// Deterministically relabel a graph while preserving original atom
+    /// identity as atom-map metadata. `permutation[new_index] = old_index`.
+    fn mapped_permutation(mol: &Molecule, permutation: &[usize]) -> Molecule {
+        assert_eq!(permutation.len(), mol.atom_count());
+        let mut builder = MoleculeBuilder::new();
+        let mut old_to_new = vec![0u32; mol.atom_count()];
+
+        for (new_index, &old_index) in permutation.iter().enumerate() {
+            let mut atom = mol.atom(AtomIdx(old_index as u32)).clone();
+            atom.atom_map = Some((old_index + 1) as u16);
+            builder.add_atom(atom);
+            old_to_new[old_index] = new_index as u32;
+        }
+
+        for (_, bond) in mol.bonds() {
+            builder
+                .add_bond(
+                    AtomIdx(old_to_new[bond.atom1.0 as usize]),
+                    AtomIdx(old_to_new[bond.atom2.0 as usize]),
+                    bond.order,
+                )
+                .expect("a relabelled simple graph cannot introduce duplicate bonds");
+        }
+        builder.build()
+    }
+
+    fn fixed_permutation(atom_count: usize, seed: u64) -> Vec<usize> {
+        let mut state = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut permutation: Vec<_> = (0..atom_count).collect();
+        for index in (1..atom_count).rev() {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            permutation.swap(index, (state as usize) % (index + 1));
+        }
+        permutation
+    }
+
+    type MappedStereoObservation = (Vec<u16>, Vec<(u16, String)>, Vec<(u16, u16, String)>);
+
+    fn mapped_observation(mol: &Molecule, rings_first: bool) -> MappedStereoObservation {
+        if rings_first {
+            let _ = chematic_perception::find_sssr(mol);
+        }
+        let potential = potential_stereocenter_indices(mol);
+        let assignments = crate::cip::assign_cip(mol);
+        if !rings_first {
+            let _ = chematic_perception::find_sssr(mol);
+        }
+
+        let mut centers: Vec<_> = potential
+            .into_iter()
+            .map(|index| {
+                mol.atom(index)
+                    .atom_map
+                    .expect("test atoms carry original maps")
+            })
+            .collect();
+        centers.sort_unstable();
+
+        let mut cip: Vec<_> = assignments
+            .assignments
+            .into_iter()
+            .map(|(index, code)| {
+                (
+                    mol.atom(index)
+                        .atom_map
+                        .expect("test atoms carry original maps"),
+                    format!("{code:?}"),
+                )
+            })
+            .collect();
+        cip.sort_unstable();
+
+        let mut bonds: Vec<_> = mol
+            .bonds()
+            .map(|(_, bond)| {
+                let first = mol
+                    .atom(bond.atom1)
+                    .atom_map
+                    .expect("test atoms carry original maps");
+                let second = mol
+                    .atom(bond.atom2)
+                    .atom_map
+                    .expect("test atoms carry original maps");
+                (
+                    first.min(second),
+                    first.max(second),
+                    format!("{:?}", bond.order),
+                )
+            })
+            .collect();
+        bonds.sort_unstable();
+        (centers, cip, bonds)
     }
 
     // Tolerance helpers.
@@ -3923,11 +4102,44 @@ mod tests {
     }
 
     #[test]
-    fn rdkit_mw_supports_common_explicit_isotopes_and_rejects_unknown() {
+    fn rdkit_mw_uses_nuclide_masses_and_mass_number_fallback() {
         let isotope = mol("[13C]");
         assert!(approx(rdkit_molecular_weight(&isotope), 13.00335484, 1e-8));
         let unknown = mol("[99C]");
-        assert!(rdkit_molecular_weight(&unknown).is_nan());
+        assert!(approx(rdkit_molecular_weight(&unknown), 99.0, 1e-12));
+        assert!(approx(exact_mass(&unknown), 99.0, 1e-12));
+    }
+
+    #[test]
+    fn rdkit_mw_uses_complete_generated_isotope_table() {
+        // This representative is deliberately not one of the historical
+        // hand-written entries. RDKit's public PeriodicTable reports
+        // 11.0114336 Da for carbon-11, rather than the label's integer 11.
+        let carbon11 = mol("[11C]");
+        assert!(approx(rdkit_molecular_weight(&carbon11), 11.0114336, 1e-10));
+
+        let table = crate::rdkit_isotope_mass_table::RDKIT_ISOTOPE_MASS_TABLE;
+        assert_eq!(
+            table.len(),
+            3111,
+            "unexpected generated RDKit isotope count"
+        );
+        for pair in table.windows(2) {
+            let (left_z, left_a, _) = pair[0];
+            let (right_z, right_a, _) = pair[1];
+            assert!(
+                (left_z, left_a) < (right_z, right_a),
+                "isotope mass table must be sorted for binary search"
+            );
+        }
+        for &(atomic_number, isotope, expected) in table.iter() {
+            let element = Element::from_atomic_number(atomic_number)
+                .expect("generated table contains a valid element");
+            assert!(
+                approx(rdkit_isotope_mass(element, isotope), expected, 0.0),
+                "isotope mass lookup mismatch for Z={atomic_number}, A={isotope}"
+            );
+        }
     }
 
     #[test]
@@ -4120,6 +4332,33 @@ mod tests {
         assert!(approx(t, 31.50, 0.1), "water TPSA = {t}");
     }
 
+    #[test]
+    fn tpsa_explicit_deuterium_matches_hydroxyl_atom_type() {
+        // Isotopic graph-H and implicit protium represent the same O-H
+        // descriptor atom type. RDKit CalcTPSA is 20.23 for both CCO and
+        // CCO[2H].
+        assert!(approx(tpsa(&mol("CCO[2H]")), 20.23, 1e-6));
+        assert_eq!(hbd_count(&mol("CCO[2H]")), 1);
+    }
+
+    #[test]
+    fn kekule_pyridone_uses_aromatic_descriptor_types_without_promoting_imides() {
+        // RDKit sanitizes this Kekulé spelling to O=c1cccc[nH]1. Its ring NH
+        // is consequently an aromatic descriptor atom, unlike a two-carbonyl
+        // imide such as phthalimide.
+        let pyridone = mol("O=C1C=CC=CN1");
+        assert!(approx(tpsa(&pyridone), 32.86, 1e-12));
+        assert!(approx(logp_crippen(&pyridone), 0.3749, 1e-12));
+        assert!(approx(molar_refractivity(&pyridone), 27.0627, 1e-12));
+        assert!(approx(logp_and_mr(&pyridone).0, 0.3749, 1e-12));
+        assert!(approx(logp_and_mr(&pyridone).1, 27.0627, 1e-12));
+
+        let phthalimide = mol("O=C1NC(=O)c2ccccc12");
+        assert!(approx(tpsa(&phthalimide), 46.17, 1e-12));
+        assert!(approx(logp_crippen(&phthalimide), 0.5702, 1e-12));
+        assert!(approx(molar_refractivity(&phthalimide), 38.2387, 1e-12));
+    }
+
     // -- Test 17: aniline TPSA -----------------------------------------------
     #[test]
     fn test_tpsa_aniline() {
@@ -4165,6 +4404,15 @@ mod tests {
         );
         // N+ in N+–O-–N environments is not the central azide N+ type.
         assert!(approx(tpsa(&mol("C[N+]([O-])=[N+]([O-])C")), 52.14, 1e-12));
+        // P=N TPSA uses three distinct RDKit atom types: implicit-H,
+        // fully-substituted, and explicitly bracketed P-H.
+        let implicit_phosphazene = tpsa(&mol("CP(=N)C"));
+        assert!(
+            approx(implicit_phosphazene, 47.32, 1e-12),
+            "implicit-H phosphazene TPSA = {implicit_phosphazene}"
+        );
+        assert!(approx(tpsa(&mol("CP(=N)(C)C")), 33.66, 1e-12));
+        assert!(approx(tpsa(&mol("[PH](=N)C")), 23.85, 1e-12));
         // An exocyclic C=C must not promote a cyclic ether to RDKit's [o]
         // Crippen/TPSA type merely because one neighbor is aromatic.
         let bridged = mol("COc1cc2c(cc1OC)C1C(=O)c3ccc4c(c3OC1CO2)C(C)(C)C=CO4");
@@ -4208,15 +4456,32 @@ mod tests {
     }
 
     #[test]
-    fn exact_mass_uses_nuclide_mass_and_rejects_unknown_isotopes() {
+    fn exact_mass_uses_nuclide_mass_and_rdkit_mass_number_fallback() {
         let carbon13 = mol("[13C]");
         assert!(approx(exact_mass(&carbon13), 13.00335483507, 1e-10));
+
+        // The complete isotope table also covers nuclides beyond the former
+        // hand-written list. RDKit ExactMolWt([11CH3]CO) = 45.053298412.
+        let carbon11_ethanol = mol("[11CH3]CO");
+        assert!(approx(exact_mass(&carbon11_ethanol), 45.053298412, 1e-9));
 
         let deuterium = mol("[2H]");
         assert!(approx(exact_mass(&deuterium), 2.01410177812, 1e-10));
 
         let unknown = mol("[99C]");
-        assert!(exact_mass(&unknown).is_nan());
+        assert!(approx(exact_mass(&unknown), 99.0, 1e-12));
+    }
+
+    #[test]
+    fn exact_mass_accounts_for_formal_charge_electrons() {
+        // RDKit ExactMolWt adds one electron to a carboxylate and removes one
+        // from a quaternary ammonium relative to neutral-atom masses.
+        assert!(approx(exact_mass(&mol("CC(=O)[O-]")), 59.01385291591, 1e-9));
+        assert!(approx(
+            exact_mass(&mol("C[N+](C)(C)C")),
+            74.09642580409,
+            1e-8
+        ));
     }
 
     // Aspirin logp and Lipinski components
@@ -4730,6 +4995,92 @@ mod tests {
     #[test]
     fn test_num_stereocenters_achiral_zero() {
         assert_eq!(num_stereocenters(&mol("CC(=O)O")), 0);
+    }
+
+    #[test]
+    fn test_num_stereocenters_bicyclic_tertiary_amine() {
+        // RDKit #9629: its legacy perception reported a spurious extra
+        // stereocenter after an identity atom renumbering for this cage.
+        // The bridgehead carbon is a potential center; the tertiary nitrogen
+        // is not. Keep the chemically-derived count fixed independently of
+        // input storage order and ring-cache implementation details.
+        assert_eq!(num_stereocenters(&mol("C1CCN2CCCC2C1")), 1);
+    }
+
+    #[test]
+    fn rdkit_9629_class_is_invariant_across_relabel_clone_reparse_and_call_order() {
+        // This imports the *failure class* of RDKit #9629, not a claim that
+        // this molecule reproduces RDKit's historical result. A potential
+        // center must remain attached to the same atom identity across graph
+        // storage permutations, cache initialization order, cloning, and
+        // SMILES serialization. The ordinary saturated tertiary amine is a
+        // necessary negative control: it must not become a center merely by
+        // reordering or by calling ring perception first.
+        let source = mol("C1CCN2CCCC2C1");
+        let baseline = mapped_observation(
+            &mapped_permutation(&source, &(0..source.atom_count()).collect::<Vec<_>>()),
+            true,
+        );
+        assert_eq!(
+            baseline.0.len(),
+            1,
+            "bridgehead is the one potential center"
+        );
+        assert!(
+            baseline.1.is_empty(),
+            "unspecified input has no assigned CIP code"
+        );
+
+        for seed in 0..32u64 {
+            let permuted =
+                mapped_permutation(&source, &fixed_permutation(source.atom_count(), seed));
+            let reparsed = parse(&write(&permuted)).expect("mapped permutation must round-trip");
+            for (label, candidate) in [
+                ("permuted", permuted.clone()),
+                ("cloned", permuted.clone()),
+                ("reparsed", reparsed),
+            ] {
+                for rings_first in [false, true] {
+                    assert_eq!(
+                        mapped_observation(&candidate, rings_first),
+                        baseline,
+                        "seed {seed}, {label}, rings_first={rings_first} changed mapped stereo observation"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rdkit_9629_class_keeps_ordinary_tertiary_amine_negative_control() {
+        let source = mol("CN(C)CC");
+        let baseline = mapped_observation(
+            &mapped_permutation(&source, &(0..source.atom_count()).collect::<Vec<_>>()),
+            true,
+        );
+        assert!(
+            baseline.0.is_empty(),
+            "ordinary tertiary amine is not a potential center"
+        );
+        assert!(baseline.1.is_empty());
+
+        for seed in 0..32u64 {
+            let permuted =
+                mapped_permutation(&source, &fixed_permutation(source.atom_count(), seed));
+            let reparsed = parse(&write(&permuted)).expect("mapped permutation must round-trip");
+            for candidate in [permuted.clone(), reparsed] {
+                assert_eq!(
+                    mapped_observation(&candidate, false),
+                    baseline,
+                    "seed {seed}"
+                );
+                assert_eq!(
+                    mapped_observation(&candidate, true),
+                    baseline,
+                    "seed {seed}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -5833,6 +6184,7 @@ mod tests {
             "c1ccc2c(c1)cc1ccc3cccc4ccc2c1c34", // pyrene (PAH)
             "O=C(O)c1ccccc1O",                  // salicylic acid
             "CCO",                              // ethanol
+            "O=C1C=CC=CN1",                     // Kekulé 2-pyridone
             "CC(N)Cc1ccccc1",                   // phenylalanine
         ];
         for smi in smiles {

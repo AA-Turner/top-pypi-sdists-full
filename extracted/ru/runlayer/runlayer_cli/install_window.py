@@ -5,7 +5,7 @@ This is a macOS launchd concept: the bootstrap LaunchDaemon's
 every ``ThrottleInterval`` until the postinstall stamp at ``INSTALL_STAMP_PATH``
 ages out, at which point the install command softens its credential-gate exit to
 0 so launchd idles. Windows has no equivalent — the ``AIWatchHooks`` Scheduled
-Task is at-boot + hourly with no KeepAlive (Task Scheduler just records
+Task is at-boot + every 15 min with no KeepAlive (Task Scheduler just records
 ``LastTaskResult`` and waits for the next tick), so there is no window to bound
 and no stamp. The function returns ``NO_STAMP`` off macOS to keep that contract
 explicit (the consumer then takes its strict exit-4 branch everywhere but macOS).

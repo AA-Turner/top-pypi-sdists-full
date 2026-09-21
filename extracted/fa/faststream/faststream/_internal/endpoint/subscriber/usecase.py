@@ -10,6 +10,7 @@ from typing import (
     NamedTuple,
     Optional,
     Union,
+    cast,
 )
 
 from typing_extensions import Self, overload, override
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
 class _CallOptions(NamedTuple):
     parser: Optional["CustomCallable"]
     decoder: Optional["CustomCallable"]
-    dependencies: Iterable["Dependant"]
+    dependencies: Sequence["Dependant"]
     codec: Optional["CodecProto"] = None
 
 
@@ -231,7 +232,7 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
         *,
         parser_: Optional["CustomCallable"],
         decoder_: Optional["CustomCallable"],
-        dependencies_: Iterable["Dependant"],
+        dependencies_: Sequence["Dependant"],
         codec_: Optional["CodecProto"] = None,
     ) -> Self:
         self._call_options = _CallOptions(
@@ -250,7 +251,7 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
         filter: "Filter[Any]" = default_filter,
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
     ) -> "HandlerCallWrapper[P_HandlerParams, T_HandlerReturn]": ...
 
     @overload
@@ -261,7 +262,7 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
         filter: "Filter[Any]" = default_filter,
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
     ) -> Callable[
         [Callable[P_HandlerParams, T_HandlerReturn]],
         "HandlerCallWrapper[P_HandlerParams, T_HandlerReturn]",
@@ -275,7 +276,7 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
         filter: "Filter[Any]" = default_filter,
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
     ) -> Union[
         "HandlerCallWrapper[P_HandlerParams, T_HandlerReturn]",
         Callable[
@@ -284,7 +285,10 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
         ],
     ]:
         total_deps = (*self._call_options.dependencies, *dependencies)
-        async_filter: AsyncFilter[StreamMessage[MsgType]] = to_async(filter)
+        async_filter = cast(
+            "AsyncFilter[StreamMessage[MsgType]]",
+            to_async(filter),
+        )
 
         def real_wrapper(
             func: Callable[P_HandlerParams, T_HandlerReturn],
@@ -325,26 +329,31 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
             # Stop handler at `exit()` call
             await self.stop()
 
-            if app := self._outer_config.fd_config.context.get("app"):
+            if app := self._outer_config.context.get("app"):
                 app.exit()
 
-        except Exception:  # nosec B110
+        except Exception:  # nosec B110  # noqa: S110
             # All other exceptions were logged by CriticalLogMiddleware
             pass
 
     async def process_message(self, msg: MsgType) -> "Response":
         """Execute all message processing stages."""
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         logger_state = self._outer_config.logger
 
         async with AsyncExitStack() as stack:
             stack.enter_context(self.lock)
 
             # Enter context before middlewares
-            stack.enter_context(context.scope("handler_", self))
-            stack.enter_context(context.scope("logger", logger_state.logger.logger))
-            for k, v in self._outer_config.extra_context.items():
-                stack.enter_context(context.scope(k, v))
+            stack.enter_context(
+                context.scopes(
+                    (
+                        ("handler_", self),
+                        ("logger", logger_state.logger.logger),
+                        *self._outer_config.extra_context.items(),
+                    ),
+                ),
+            )
 
             # enter all middlewares
             middlewares: list[BaseMiddleware] = []
@@ -364,9 +373,13 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
 
                 if message is not None:
                     stack.enter_context(
-                        context.scope("log_context", self.get_log_context(message)),
+                        context.scopes(
+                            (
+                                ("log_context", self.get_log_context(message)),
+                                ("message", message),
+                            ),
+                        ),
                     )
-                    stack.enter_context(context.scope("message", message))
 
                     # Middlewares should be exited before scope release
                     for m in middlewares:
@@ -457,10 +470,14 @@ class SubscriberUsecase(Endpoint, Generic[MsgType]):
         raise NotImplementedError
 
     @abstractmethod
-    async def __aiter__(self) -> AsyncIterator["StreamMessage[MsgType]"]:
+    def __aiter__(self) -> AsyncIterator["StreamMessage[MsgType]"]:
+        # NOTE: not `async def` on purpose. Implementations are async generators,
+        # so calling `__aiter__()` returns the iterator itself, not a coroutine.
+        # Declaring it `async` here would type it as `Coroutine[..., AsyncIterator]`,
+        # which the `async for` protocol does not accept.
         raise NotImplementedError
 
-    def get_log_context(
+    def get_log_context(  # noqa: PLR6301
         self,
         message: Optional["StreamMessage[MsgType]"],
     ) -> dict[str, str]:

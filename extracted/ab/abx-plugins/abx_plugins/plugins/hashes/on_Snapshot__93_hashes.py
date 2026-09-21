@@ -20,7 +20,11 @@ from typing import Any
 
 import click
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    load_config,
+    write_text_atomic,
+)
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
@@ -34,13 +38,10 @@ os.chdir(OUTPUT_DIR)
 def sha256_file(filepath: Path) -> str:
     """Compute SHA256 hash of a file."""
     h = hashlib.sha256()
-    try:
-        with open(filepath, "rb") as f:
-            while chunk := f.read(65536):
-                h.update(chunk)
-        return h.hexdigest()
-    except (OSError, PermissionError):
-        return "0" * 64
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def sha256_data(data: bytes) -> str:
@@ -53,15 +54,24 @@ def collect_files(
     exclude_dirs: list[str] | None = None,
 ) -> list[tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
-    exclude_dirs = exclude_dirs or ["hashes", ".git", "__pycache__"]
+    exclude_dirs = exclude_dirs or ["hashes", "opentimestamps", ".git", "__pycache__"]
     files = []
 
     for root, dirs, filenames in os.walk(snapshot_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        if Path(root) == snapshot_dir:
+            # Session state belongs to the runner and can change after this
+            # snapshot finishes (or be shared with the next snapshot).
+            dirs[:] = [d for d in dirs if d not in {".persona", ".abx-dl", "chrome"}]
 
         for filename in filenames:
             filepath = Path(root) / filename
             rel_path = filepath.relative_to(snapshot_dir)
+
+            # The runner keeps appending lifecycle records after hashing. These
+            # are execution bookkeeping, not archived content or evidence.
+            if rel_path == Path("index.jsonl"):
+                continue
 
             if filepath.is_symlink():
                 continue
@@ -194,20 +204,18 @@ def main(url: str):
     total_size = 0
 
     try:
+        # Invalidate completion before any work, including disabled/failed reruns.
+        completion_path = OUTPUT_DIR / "hashes.sha256"
+        completion_path.unlink(missing_ok=True)
         # Check if enabled
-        save_hashes = os.getenv("HASHES_ENABLED", "true").lower() in (
-            "true",
-            "1",
-            "yes",
-            "on",
-        )
+        save_hashes = CONFIG.HASHES_ENABLED
 
         if not save_hashes:
             status = "skipped"
             emit_archive_result_record(status, "HASHES_ENABLED=False")
             sys.exit(0)
 
-        print("Hash generation started", flush=True)
+        print("Hash generation started", file=sys.stderr, flush=True)
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
         # Parent is the snapshot directory
         output_dir = Path.cwd()
@@ -225,8 +233,10 @@ def main(url: str):
         hardlink_duplicates(snapshot_dir, merkle_data["files"])
 
         # Write output
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(merkle_data, f, indent=2)
+        manifest = json.dumps(merkle_data, indent=2)
+        write_text_atomic(output_path, manifest)
+        # Consumers require this last, atomic publication and check its digest.
+        write_text_atomic(completion_path, sha256_data(manifest.encode("utf-8")) + "\n")
 
         status = "succeeded"
         root_hash = merkle_data["root_hash"]

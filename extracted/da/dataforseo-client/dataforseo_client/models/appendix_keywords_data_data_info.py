@@ -36,6 +36,7 @@ class AppendixKeywordsDataDataInfo(BaseModel):
     keyword_performance: Optional[AppendixInfo] = Field(default=None, description=r"")
     locations_and_languages: Optional[StrictFloat] = Field(default=None, description=r"")
     google_ads: Optional[AppendixGoogleAdsKeywordsDataLimitsRatesDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
     dataforseo_trends: Optional[AppendixDataforseoTrendsKeywordsDataLimitsRatesDataInfo] = Field(default=None, description=r"")
     clickstream_data: Optional[AppendixClickstreamDataKeywordsDataLimitsRatesDataInfo] = Field(default=None, description=r"")
     audience_estimation: Optional[AppendixInfo] = Field(default=None, description=r"")
@@ -58,6 +59,7 @@ class AppendixKeywordsDataDataInfo(BaseModel):
         "keyword_performance", 
         "locations_and_languages", 
         "google_ads", 
+        "id_list", 
         "dataforseo_trends", 
         "clickstream_data", 
         "audience_estimation", 
@@ -105,6 +107,7 @@ class AppendixKeywordsDataDataInfo(BaseModel):
         _dict['keyword_performance'] = self.keyword_performance.to_dict() if self.keyword_performance else None
         _dict['locations_and_languages'] = self.locations_and_languages
         _dict['google_ads'] = self.google_ads.to_dict() if self.google_ads else None
+        _dict['id_list'] = self.id_list
         _dict['dataforseo_trends'] = self.dataforseo_trends.to_dict() if self.dataforseo_trends else None
         _dict['clickstream_data'] = self.clickstream_data.to_dict() if self.clickstream_data else None
         _dict['audience_estimation'] = self.audience_estimation.to_dict() if self.audience_estimation else None
@@ -138,6 +141,7 @@ class AppendixKeywordsDataDataInfo(BaseModel):
             "keyword_performance": AppendixInfo.from_dict(obj["keyword_performance"]) if obj.get("keyword_performance") is not None else None,
             "locations_and_languages": obj.get("locations_and_languages"),
             "google_ads": AppendixGoogleAdsKeywordsDataLimitsRatesDataInfo.from_dict(obj["google_ads"]) if obj.get("google_ads") is not None else None,
+            "id_list": obj.get("id_list"),
             "dataforseo_trends": AppendixDataforseoTrendsKeywordsDataLimitsRatesDataInfo.from_dict(obj["dataforseo_trends"]) if obj.get("dataforseo_trends") is not None else None,
             "clickstream_data": AppendixClickstreamDataKeywordsDataLimitsRatesDataInfo.from_dict(obj["clickstream_data"]) if obj.get("clickstream_data") is not None else None,
             "audience_estimation": AppendixInfo.from_dict(obj["audience_estimation"]) if obj.get("audience_estimation") is not None else None,

@@ -28,8 +28,8 @@ class TransitionLifecycleRequest(BaseModel):
     """
     TransitionLifecycleRequest
     """ # noqa: E501
-    lifecycle_state: LifecycleState = Field(description="Target lifecycle state for the collection")
-    async_transition: Optional[StrictBool] = Field(default=True, description="If False, block until the transition completes")
+    lifecycle_state: LifecycleState = Field(description="Target lifecycle state for the collection. active and cold move vectors between the live store and object storage; archived is terminal. frozen refuses every document write while reads, search and export keep working, so a training run can pin the collection. Freezing and unfreezing move no data and complete within the request.")
+    async_transition: Optional[StrictBool] = Field(default=True, description="If False, block until the transition completes. Ignored for frozen, which moves no data and always completes within the request.")
     __properties: ClassVar[List[str]] = ["lifecycle_state", "async_transition"]
 
     model_config = ConfigDict(

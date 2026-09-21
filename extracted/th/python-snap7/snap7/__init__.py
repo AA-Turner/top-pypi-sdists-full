@@ -1,8 +1,15 @@
 """
-The Snap7 Python library.
+The snap7 compatibility package.
 
-Pure Python implementation of the S7 protocol for communicating with
-Siemens S7 PLCs without requiring the native Snap7 C library.
+Pure Python implementation of the classic S7 protocol for communicating with
+Siemens S7 PLCs. This package is kept for backwards compatibility. For new
+projects, use the ``s7`` package instead::
+
+    from s7 import Client
+
+    client = Client()
+    client.connect("192.168.1.10", 0, 1)
+    data = client.db_read(1, 0, 4)
 """
 
 from importlib.metadata import version, PackageNotFoundError
@@ -11,16 +18,19 @@ from .client import Client
 from .async_client import AsyncClient
 from .server import Server
 from .partner import Partner
+from .ppi import PPIArea, PPIClient
 from .logo import Logo
 from .util.db import Row, DB
 from .tags import NodeS7Tag, PLC4XTag, Tag, from_browse, load_csv, load_json, load_tia_xml, parse_tag
-from .type import Area, Block, WordLen, SrvEvent, SrvArea
+from .type import Area, Block, ForceEntry, WordLen, SrvEvent, SrvArea
 
 __all__ = [
     "Client",
     "AsyncClient",
     "Server",
     "Partner",
+    "PPIClient",
+    "PPIArea",
     "Logo",
     "Row",
     "DB",
@@ -34,6 +44,7 @@ __all__ = [
     "from_browse",
     "Area",
     "Block",
+    "ForceEntry",
     "WordLen",
     "SrvEvent",
     "SrvArea",

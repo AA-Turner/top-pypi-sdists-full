@@ -42,6 +42,7 @@ class BucketResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the bucket")
     storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier for this bucket's objects: standard | nearline | coldline | archive. Provider-agnostic (GCS STANDARD/NEARLINE/COLDLINE/ARCHIVE; S3/MinIO STANDARD/STANDARD_IA/GLACIER). NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct/presigned uploads and retroactive re-tiering of existing objects are in progress. None = provider default.")
     object_count: StrictInt = Field(description="Number of objects in the bucket")
+    failed_object_count: Optional[StrictInt] = Field(default=0, description="Objects that permanently failed to become documents. They stay lifecycle_state=active and are counted in object_count, so without this a bucket where nothing can process reads as healthy.")
     total_size_bytes: StrictInt = Field(description="Total size of all objects in the bucket in bytes")
     created_at: Optional[datetime] = Field(default=None, description="When the bucket was created")
     updated_at: Optional[datetime] = Field(default=None, description="Last modification time of bucket metadata")
@@ -52,7 +53,7 @@ class BucketResponse(BaseModel):
     batch_stats: Optional[BatchStatistics] = Field(default=None, description="Batch statistics for this bucket (calculated asynchronously, stored in DB)")
     storage_stats: Optional[StorageStatistics] = Field(default=None, description="Storage statistics for this bucket (calculated asynchronously, stored in DB)")
     source_adapter: Optional[Dict[str, Any]] = Field(default=None, description="Source adapter configuration for inbound webhook-driven ingestion")
-    __properties: ClassVar[List[str]] = ["bucket_id", "bucket_name", "description", "bucket_schema", "unique_key", "metadata", "storage_class", "object_count", "total_size_bytes", "created_at", "updated_at", "last_upload_at", "stats_updated_at", "status", "is_locked", "batch_stats", "storage_stats", "source_adapter"]
+    __properties: ClassVar[List[str]] = ["bucket_id", "bucket_name", "description", "bucket_schema", "unique_key", "metadata", "storage_class", "object_count", "failed_object_count", "total_size_bytes", "created_at", "updated_at", "last_upload_at", "stats_updated_at", "status", "is_locked", "batch_stats", "storage_stats", "source_adapter"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -125,6 +126,7 @@ class BucketResponse(BaseModel):
             "metadata": obj.get("metadata"),
             "storage_class": obj.get("storage_class"),
             "object_count": obj.get("object_count"),
+            "failed_object_count": obj.get("failed_object_count") if obj.get("failed_object_count") is not None else 0,
             "total_size_bytes": obj.get("total_size_bytes"),
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),

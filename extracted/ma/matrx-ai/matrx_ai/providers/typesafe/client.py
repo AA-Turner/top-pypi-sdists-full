@@ -25,6 +25,11 @@ DEFAULT_BASE_URL = "https://api.typesafe.ai"
 SYSTEM_ONE_PATH = "/v1/systemone"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_RETRIES = 2
+# Vendor limits (docs.typesafe.ai/api, 2026-09-20): a Choice takes at most 255
+# options and a Score at most 10 levels.  Refuse locally with the remedy rather
+# than paying a round trip for a 422 whose body we deliberately do not surface.
+MAX_CHOICE_OPTIONS = 255
+MAX_SCORE_LEVELS = 10
 
 type SystemOneState = StrictStr | dict[str, JsonValue] | list[JsonValue]
 type SystemOneEntry = StrictStr | dict[str, JsonValue] | list[JsonValue] | None
@@ -43,7 +48,7 @@ class NoulQuestion(_StrictModel):
 class ChoiceQuestion(_StrictModel):
     type: Literal["choice"] = "choice"
     instructions: SystemOneEntry
-    criteria: dict[StrictStr, SystemOneEntry] = Field(min_length=2)
+    criteria: dict[StrictStr, SystemOneEntry] = Field(min_length=2, max_length=MAX_CHOICE_OPTIONS)
 
     @model_validator(mode="after")
     def _unique_nonblank_choices(self) -> ChoiceQuestion:
@@ -55,7 +60,7 @@ class ChoiceQuestion(_StrictModel):
 class ScoreQuestion(_StrictModel):
     type: Literal["score"] = "score"
     instructions: SystemOneEntry
-    criteria: list[SystemOneEntry] = Field(min_length=2)
+    criteria: list[SystemOneEntry] = Field(min_length=2, max_length=MAX_SCORE_LEVELS)
 
 
 type Question = Annotated[

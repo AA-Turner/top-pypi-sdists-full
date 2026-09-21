@@ -68,6 +68,28 @@ on:
         type: number
         required: false
         default: 30
+      terminal-decline-fast-exit:
+        # OMN-18647, CANARY-SCOPED ON PURPOSE. When the occ-autobind producer
+        # has TERMINALLY declined to mint for this head SHA, the wait ends in
+        # seconds with the producer's own reason instead of polling to the
+        # 1500s deadline and reporting `stamp_absent` -- a reason that names a
+        # symptom and sends the author looking for an outage that is not
+        # happening. Measured 2026-09-20: six PRs, ~25 minutes of runner time
+        # each, and one hand-authored companion raced an in-flight mint into a
+        # supersession-binding collision that evicted a consumer for four and
+        # a half hours (OMN-18881).
+        #
+        # Defaults FALSE so that merging this changes nothing for any caller.
+        # Exactly one caller sets it true (see the follow-up on OMN-18647,
+        # which removes this input and the script flag together once the
+        # canary readback holds). It is NOT a bypass: it can only shorten a
+        # wait that was going to fail, every fail-closed branch is identical
+        # in both positions, and no PR passes this gate that would not have
+        # passed it before.
+        description: End the wait immediately on a TERMINAL occ-autobind decline for this head SHA, instead of polling to the deadline (OMN-18647).
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -312,6 +334,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           DEADLINE_SECONDS: ${{ inputs.eligibility-deadline-seconds }}
           POLL_INTERVAL_SECONDS: ${{ inputs.eligibility-poll-interval-seconds }}
+          TERMINAL_DECLINE_FAST_EXIT: ${{ inputs.terminal-decline-fast-exit }}
         run: |
           set -euo pipefail
 
@@ -328,18 +351,40 @@ jobs:
             wait_script="$GITHUB_WORKSPACE/.occ-preflight-deps/omnibase_core_wait/scripts/ci/occ_preflight_wait.py"
           fi
 
+          # OMN-18647: the flag is PASSED only when the caller asked for it,
+          # so a caller on the default runs an argv byte-identical to the one
+          # it ran before this input existed.
+          fast_exit_flag=""
+          if [ "$TERMINAL_DECLINE_FAST_EXIT" = "true" ]; then
+            fast_exit_flag="--terminal-decline-fast-exit"
+          fi
+
           python3 "$wait_script" \
             --repo "$GH_REPO" \
             --pr-number "$pr_number" \
             --event-name "$EVENT_NAME" \
             --deadline-seconds "$DEADLINE_SECONDS" \
             --poll-interval-seconds "$POLL_INTERVAL_SECONDS" \
-            --github-output-path "$GITHUB_OUTPUT"
+            --github-output-path "$GITHUB_OUTPUT" \
+            ${fast_exit_flag}
 
       # I3: OCC's own PRs use in-tree checkout; other repos check out pinned OCC evidence.
       # I4: OCC fetch failure is a hard FAIL — no fallback to stale/cached evidence.
+      # OMN-18848: the second exemption, exactly parallel to bot_exempt above
+      # and gating exactly the same steps. `evidence_not_required` is a DERIVED
+      # verdict: the occ-autobind producer classified this head's diff as
+      # dependency-pin-only (a post-release manifest+lockfile bump, which carries
+      # no behavioural claim and so can never have a RED-derivable check) and
+      # recorded that on an `occ-autobind / outcome` check-run bound to the PR's
+      # CURRENT head SHA, which occ_preflight_wait.py reads. It is NOT a token
+      # anyone can write in a PR body -- nothing in the body is read for it -- and
+      # a new commit invalidates it, because the new SHA carries no outcome and
+      # the wait returns to its ordinary poll-then-fail-closed path. Such a PR has
+      # no OCC evidence to check out, so every step below must honour the flag;
+      # tests/ci/test_occ_preflight_wait_workflow_shape_omn17864.py pins that
+      # exhaustively so a newly added step cannot silently miss it.
       - name: Check out onex_change_control (for contracts + receipts)
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && github.repository != 'OmniNode-ai/onex_change_control'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true' && github.repository != 'OmniNode-ai/onex_change_control'
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/onex_change_control
@@ -352,7 +397,7 @@ jobs:
       # subsequent steps use this exact SHA — never re-fetching. (I1, I2)
       - name: Resolve OCC evidence SHA
         id: occ_sha
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         run: |
           set -euo pipefail
           repo_short="${GITHUB_REPOSITORY##*/}"
@@ -379,13 +424,13 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Python 3.13
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
       - name: Install uv
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         uses: astral-sh/setup-uv@v7
 
       # OMN-12565: Runner Python write-contract preflight.
@@ -402,7 +447,7 @@ jobs:
       # on a fresh runner). This preflight asserts that contract up front and
       # fails loudly if it is violated, before any install or gate step runs.
       - name: Preflight runner Python write contract
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         env:
           OCC_PREFLIGHT_VENV: ${{ github.workspace }}/.occ-preflight-venv
         run: |
@@ -436,7 +481,7 @@ jobs:
       # Install omnibase_compat and omnibase_core from source so the validator
       # module is available. Pattern mirrors receipt-gate.yml install block.
       - name: Check out omnibase_compat (transitive dep)
-        if: "steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && ! hashFiles('./src/omnibase_compat/__init__.py') && ! hashFiles('./omnibase_compat/pyproject.toml')"
+        if: "steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true' && ! hashFiles('./src/omnibase_compat/__init__.py') && ! hashFiles('./omnibase_compat/pyproject.toml')"
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_compat
@@ -446,7 +491,7 @@ jobs:
           persist-credentials: false
 
       - name: Check out omnibase_core (for eligibility validator)
-        if: "steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && ! hashFiles('./src/omnibase_core/__init__.py') && ! hashFiles('./omnibase_core/pyproject.toml')"
+        if: "steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true' && ! hashFiles('./src/omnibase_core/__init__.py') && ! hashFiles('./omnibase_core/pyproject.toml')"
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_core
@@ -456,7 +501,7 @@ jobs:
           persist-credentials: false
 
       - name: Install omnibase_core
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         # OMN-12565: install into a uv-managed virtual environment under
         # $GITHUB_WORKSPACE instead of the system interpreter. `uv pip install
         # --system` wrote /usr/local/lib/python3.12/dist-packages, which a
@@ -527,7 +572,7 @@ jobs:
           echo "OCC_PREFLIGHT_PY=$venv_py" >> "$GITHUB_ENV"
 
       - name: Verify eligibility validator importable
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         run: |
           "$OCC_PREFLIGHT_PY" - <<'PY' || {
           import inspect
@@ -551,7 +596,7 @@ jobs:
       # Auto-merge MUST NOT arm when this step exits non-zero.
       - name: Run OCC eligibility check
         id: occ_eligibility
-        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true'
+        if: steps.event_scope.outputs.required == 'true' && steps.bot_exempt.outputs.exempt != 'true' && steps.resolve_evidence_source.outputs.evidence_not_required != 'true'
         run: |
           set -euo pipefail
 

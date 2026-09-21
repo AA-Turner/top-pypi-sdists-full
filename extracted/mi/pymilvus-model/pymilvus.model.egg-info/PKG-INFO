@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymilvus.model
-Version: 0.3.2
+Version: 0.3.3
 Summary: Model components for PyMilvus, the Python SDK for Milvus
 Author-email: Milvus Team <milvus-team@zilliz.com>
 Project-URL: repository, https://github.com/milvus-io/milvus-model

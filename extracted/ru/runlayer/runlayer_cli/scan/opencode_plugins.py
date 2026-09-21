@@ -26,6 +26,8 @@ from runlayer_cli.scan.plugin_scanner import (
     _OPENCODE_CONFIG_RELATIVE,
     _OPENCODE_LOCAL_PLUGINS_RELATIVE,
     _OPENCODE_NPM_CACHE_RELATIVE,
+    _accessible_dir,
+    _exists_probe,
     _read_opencode_npm_plugin_names,
     compute_plugin_identifier,
     mark_plugin_scan_incomplete,
@@ -61,7 +63,7 @@ def _scan_plugin_dir_for_mcp(
     """Check a single plugin directory for mcp.json / .mcp.json."""
     for mcp_filename in _MCP_FILENAMES:
         mcp_path = plugin_dir / mcp_filename
-        if not mcp_path.exists():
+        if not _exists_probe(mcp_path):
             continue
         servers = parse_plugin_mcp_file(mcp_path, plugin_name)
         if not servers:
@@ -80,7 +82,7 @@ def _discover_local_plugins(
     plugins_base: Path,
 ) -> list[DiscoveredOpenCodePlugin]:
     """Walk ~/.config/opencode/plugins/ subdirectories for MCP configs."""
-    if not plugins_base.is_dir():
+    if not _accessible_dir(plugins_base):
         return []
 
     discovered: list[DiscoveredOpenCodePlugin] = []
@@ -119,13 +121,13 @@ def _discover_npm_plugins(
             if n not in names:
                 names.append(n)
 
-    if not names or not npm_cache.is_dir():
+    if not names or not _accessible_dir(npm_cache):
         return []
 
     discovered: list[DiscoveredOpenCodePlugin] = []
     for pkg_name in names:
         pkg_dir = npm_cache / pkg_name
-        if not pkg_dir.is_dir():
+        if not _accessible_dir(pkg_dir):
             continue
         result = _scan_plugin_dir_for_mcp(pkg_dir, pkg_name)
         if result:

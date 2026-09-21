@@ -79,7 +79,7 @@ def test_version_mismatch_is_a_miss(tmp_path: Path) -> None:
     cache = _cache(path)
     cache.record("known")
     payload = json.loads(path.read_text(encoding="utf-8"))
-    payload["version"] = 2
+    payload["version"] = artifact_cache._CACHE_VERSION + 1
     path.write_text(json.dumps(payload), encoding="utf-8")
 
     assert _cache(path).contains("known") is False
@@ -179,3 +179,83 @@ def test_cache_file_is_owner_only(tmp_path: Path) -> None:
     _cache(path).record("known")
 
     assert os.stat(path).st_mode & 0o777 == 0o600
+
+
+WINDOW = artifact_cache.SKILL_RESUBMIT_WINDOW_SECONDS
+
+
+def test_submission_window_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "artifact-cache.json"
+    clock = [1_000.0]
+    cache = _cache(path, now=lambda: clock[0])
+
+    assert cache.recently_submitted("skill:payload") is False
+    cache.record("known", "skill:payload")
+    assert cache.recently_submitted("skill:payload") is True
+
+    reloaded = _cache(path, now=lambda: clock[0])
+    clock[0] = 1_000.0 + WINDOW - 1
+    assert reloaded.recently_submitted("skill:payload") is True
+    clock[0] = 1_000.0 + WINDOW
+    assert reloaded.recently_submitted("skill:payload") is False
+    # Entries and submissions are independent tables.
+    assert reloaded.contains("skill:payload") is False
+    # A clock that moved backwards must not read as recent.
+    clock[0] = 900.0
+    assert reloaded.recently_submitted("skill:payload") is False
+
+
+def test_zero_submission_window_never_reads_as_recent(tmp_path: Path) -> None:
+    path = tmp_path / "artifact-cache.json"
+    cache = ArtifactCache(
+        "https://example.runlayer.com",
+        "rl_org_test",
+        cache_path=path,
+        now=lambda: 1_000.0,
+        resubmit_window_seconds=0,
+    )
+
+    cache.record("known", "skill:payload")
+
+    assert cache.recently_submitted("skill:payload") is False
+    assert cache.contains("known") is True
+
+
+def test_retain_submissions_forgets_unplanned_keys_of_that_kind(tmp_path: Path) -> None:
+    path = tmp_path / "artifact-cache.json"
+    cache = _cache(path)
+    for identifier, key in (("a", "skill:a"), ("b", "skill:b"), ("p", "plugin:p")):
+        cache.record(identifier, key)
+
+    cache.retain_submissions({"skill:b"}, kind="skill")
+
+    reloaded = _cache(path)
+    assert reloaded.recently_submitted("skill:a") is False
+    assert reloaded.recently_submitted("skill:b") is True
+    assert reloaded.recently_submitted("plugin:p") is True
+    assert reloaded.contains("a") is True
+
+
+def test_version_1_file_verifies_and_upgrades_in_place(tmp_path: Path) -> None:
+    path = tmp_path / "artifact-cache.json"
+    cache = _cache(path)
+    unsigned = {
+        "version": 1,
+        "host": "https://example.runlayer.com",
+        "entries": {"known": 1_000.0},
+    }
+    path.write_text(
+        json.dumps({**unsigned, "signature": cache._signature(unsigned)}),
+        encoding="utf-8",
+    )
+
+    reloaded = _cache(path)
+    assert reloaded.contains("known") is True
+    assert reloaded.recently_submitted("known") is False
+
+    # The first write upgrades the file and keeps the identifier.
+    reloaded.record("other", "skill:payload")
+    assert json.loads(path.read_text(encoding="utf-8"))["version"] == 2
+    upgraded = _cache(path)
+    assert upgraded.contains("known") is True
+    assert upgraded.recently_submitted("skill:payload") is True

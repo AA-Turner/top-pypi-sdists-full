@@ -8,7 +8,7 @@ from matrx_utils import vcprint
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 
-from matrx_ai.db.ownership_fields import stamp_row_owner
+from matrx_ai.db.ownership_fields import stamp_org_id, stamp_row_owner
 from matrx_ai.tools import db_hints as _db_hints
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models.db_args import (
@@ -283,9 +283,16 @@ def _resolve_write_model(schema: str, name: str) -> Any:
 
 
 async def _stamp_auto_fields(schema: str, name: str, rows: list[Any], ctx: ToolContext) -> None:
-    """Schema-aware identity stamping: set ownership on every write row for columns
-    the table actually owns. Prefers ``created_by``; keeps ``user_id`` on dual-
-    column tables until the DB contract phase drops it."""
+    """Schema-aware identity stamping: set ownership AND organization on every
+    write row for columns the table actually owns. Prefers ``created_by``;
+    keeps ``user_id`` on dual-column tables until the DB contract phase drops
+    it.
+
+    This is the generic, any-table admin db_insert/upsert tool — the table it
+    lands on is resolved at call time from the agent's own arguments, so an
+    org-scoped target's ``organization_id`` (NOT NULL platform-wide) can only
+    be carried from the verified request context here, never defaulted or
+    left to a DB trigger (Data Doctrine, Arman 2026-09-19)."""
     try:
         columns = await _get_table_columns(schema, name)
     except Exception as exc:  # schema lookup is best-effort
@@ -300,12 +307,19 @@ async def _stamp_auto_fields(schema: str, name: str, rows: list[Any], ctx: ToolC
         columns = None
 
     owner_id = getattr(ctx, "user_id", None)
-    if not owner_id:
-        return
+    organization_id = getattr(ctx, "organization_id", None)
+    # Unlike created_by (canonical platform-wide, safe to assume), organization_id
+    # is NOT universal — stamp it only when the column lookup actually confirms
+    # the table carries it, never as a blind fallback.
+    has_org_column = columns is not None and "organization_id" in columns
 
     for row in rows:
-        if isinstance(row, dict):
+        if not isinstance(row, dict):
+            continue
+        if owner_id:
             stamp_row_owner(row, owner_id, table_columns=columns)
+        if organization_id and has_org_column:
+            stamp_org_id(row, organization_id)
 
 
 #: Tables the server's in-memory AI catalog is built from. A successful write

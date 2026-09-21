@@ -25,8 +25,8 @@ def test_xy_z_t():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == x / t
     assert out.y == y / t
     assert out.z == z / t
@@ -45,8 +45,8 @@ def test_xy_z_tau():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == x / sympy.sqrt(
         x**2 + y**2 + z**2 + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
     )
@@ -71,8 +71,8 @@ def test_xy_theta_t():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == x / t
     assert out.y == y / t
     assert out.z.simplify() == z / sympy.Abs(t)
@@ -93,19 +93,16 @@ def test_xy_theta_tau():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x.simplify() == x / sympy.sqrt(
         x**2 + y**2 + z**2 + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
     )
     assert out.y.simplify() == y / sympy.sqrt(
         x**2 + y**2 + z**2 + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
     )
-    assert out.z.simplify() == z * sympy.sqrt(x**2 + y**2) / sympy.sqrt(
-        x**2 * (x**2 + y**2 + z**2)
-        + x**2 * sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-        + y**2 * (x**2 + y**2 + z**2)
-        + y**2 * sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
+    assert out.z.simplify() == z / sympy.sqrt(
+        x**2 + y**2 + z**2 + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
     )
     assert out.x.subs(values).evalf() == pytest.approx(3 / 20)
     assert out.y.subs(values).evalf() == pytest.approx(4 / 20)
@@ -122,8 +119,8 @@ def test_xy_eta_t():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == x / t
     assert out.y == y / t
     assert out.z == z * sympy.sqrt(x**2 / t**2 + y**2 / t**2) / sympy.sqrt(x**2 + y**2)
@@ -144,39 +141,23 @@ def test_xy_eta_tau():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
-    assert out.x == x / sympy.sqrt(
-        (0.5 + 0.5 * sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))) ** 2
-        * (x**2 + y**2)
-        * sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-        + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-    )
-    assert out.y == y / sympy.sqrt(
-        (0.5 + 0.5 * sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))) ** 2
-        * (x**2 + y**2)
-        * sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-        + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-    )
-    # TODO: why won't sympy equate the expressions without double
-    # simplifying?
-    assert (
-        sympy.simplify(
-            out.z
-            - z
-            * sympy.sqrt(
-                sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-                / (
-                    0.25
-                    * (x**2 + y**2)
-                    * (sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2))) + 1) ** 2
-                    + sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-                    * sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-                )
-            )
-        )
-        == 0
-    )
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
+    _eta = sympy.asinh(z / sympy.sqrt(x**2 + y**2))
+    _t2_inner = (0.5 + 0.5 * sympy.exp(-2 * _eta)) ** 2 * (x**2 + y**2) * sympy.exp(
+        2 * _eta
+    ) + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
+    assert out.x == x / sympy.sqrt(sympy.Max(0, _t2_inner))
+    assert out.y == y / sympy.sqrt(sympy.Max(0, _t2_inner))
+    # out.z simplifies to z/sqrt(Max(0, inner)) but the inner uses a factored
+    # 0.25*(x**2+y**2) form that sympy won't equate structurally; use expand.
+    _e2 = sympy.exp(2 * _eta)
+    _em2 = sympy.exp(-2 * _eta)
+    _z_inner = (
+        sympy.Float(0.25) * (x**2 + y**2) * (_e2 + 1) ** 2
+        + _e2 * sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
+    ) * _em2
+    assert sympy.expand(out.z.simplify() - z / sympy.sqrt(sympy.Max(0, _z_inner))) == 0
     assert out.x.subs(values).evalf() == pytest.approx(3 / 20)
     assert out.y.subs(values).evalf() == pytest.approx(4 / 20)
     assert out.z.subs(values).evalf() == pytest.approx(10 / 20)
@@ -190,8 +171,8 @@ def test_rhophi_z_t():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == rho * sympy.cos(phi) / t
     assert out.y == rho * sympy.sin(phi) / t
     assert out.z == z / t
@@ -210,8 +191,8 @@ def test_rhophi_z_tau():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == rho * sympy.cos(phi) / sympy.sqrt(
         rho**2 + z**2 + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
     )
@@ -236,8 +217,8 @@ def test_rhophi_theta_t():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == rho * sympy.cos(phi) / t
     assert out.y == rho * sympy.sin(phi) / t
     assert out.z.simplify() == rho * z / (t * sympy.sqrt(x**2 + y**2))
@@ -258,19 +239,15 @@ def test_rhophi_theta_tau():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
-    assert out.x == rho * sympy.cos(phi) / sympy.sqrt(
-        rho**2 / (-(z**2) / (x**2 + y**2 + z**2) + 1)
-        + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-    )
-    assert out.y == rho * sympy.sin(phi) / sympy.sqrt(
-        rho**2 / (-(z**2) / (x**2 + y**2 + z**2) + 1)
-        + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-    )
-    assert out.z.simplify() == rho * z / sympy.sqrt(
-        rho**2 * (x**2 + y**2 + z**2)
-        + (x**2 + y**2) * sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
+    _abs = sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
+    _t2_inner = rho**2 / (-(z**2) / (x**2 + y**2 + z**2) + 1) + _abs
+    assert out.x == rho * sympy.cos(phi) / sympy.sqrt(sympy.Max(0, _t2_inner))
+    assert out.y == rho * sympy.sin(phi) / sympy.sqrt(sympy.Max(0, _t2_inner))
+    _z_inner = (rho**2 * (x**2 + y**2 + z**2) + (x**2 + y**2) * _abs) / (x**2 + y**2)
+    assert out.z.simplify() == rho * z / (
+        sympy.sqrt(x**2 + y**2) * sympy.sqrt(sympy.Max(0, _z_inner))
     )
     assert out.x.subs(values).evalf() == pytest.approx(5 / 20)
     assert out.y.subs(values).evalf() == pytest.approx(0 / 20)
@@ -287,8 +264,8 @@ def test_rhophi_eta_t():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
     assert out.x == rho * sympy.cos(phi) / t
     assert out.y == rho * sympy.sin(phi) / t
     assert out.z == rho * z / (t * sympy.sqrt(x**2 + y**2))
@@ -309,29 +286,16 @@ def test_rhophi_eta_tau():
     )
     out = vec.to_beta3()
     assert isinstance(out, vector.backends.sympy.VectorSympy3D)
-    assert type(vec.azimuthal) == type(out.azimuthal)  # noqa: E721
-    assert type(vec.longitudinal) == type(out.longitudinal)  # noqa: E721
-    assert out.x == rho * sympy.cos(phi) / sympy.sqrt(
-        rho**2
-        * (0.5 + 0.5 * sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))) ** 2
-        * sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-        + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-    )
-    assert out.y == rho * sympy.sin(phi) / sympy.sqrt(
-        rho**2
-        * (0.5 + 0.5 * sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))) ** 2
-        * sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-        + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-    )
+    assert type(vec.azimuthal) == type(out.azimuthal)
+    assert type(vec.longitudinal) == type(out.longitudinal)
+    _eta = sympy.asinh(z / sympy.sqrt(x**2 + y**2))
+    _t2_inner = rho**2 * (0.5 + 0.5 * sympy.exp(-2 * _eta)) ** 2 * sympy.exp(
+        2 * _eta
+    ) + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
+    assert out.x == rho * sympy.cos(phi) / sympy.sqrt(sympy.Max(0, _t2_inner))
+    assert out.y == rho * sympy.sin(phi) / sympy.sqrt(sympy.Max(0, _t2_inner))
     assert out.z == rho * z / (
-        sympy.sqrt(x**2 + y**2)
-        * sympy.sqrt(
-            rho**2
-            * (0.5 + 0.5 * sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2))))
-            ** 2
-            * sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
-            + sympy.Abs(-(t**2) + x**2 + y**2 + z**2)
-        )
+        sympy.sqrt(x**2 + y**2) * sympy.sqrt(sympy.Max(0, _t2_inner))
     )
     assert out.x.subs(values).evalf() == pytest.approx(5 / 20)
     assert out.y.subs(values).evalf() == pytest.approx(0 / 20)

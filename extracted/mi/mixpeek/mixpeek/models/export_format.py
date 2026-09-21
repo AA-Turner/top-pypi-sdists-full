@@ -30,6 +30,7 @@ class ExportFormat(str, Enum):
     JSON = 'json'
     CSV = 'csv'
     PARQUET = 'parquet'
+    WEBDATASET = 'webdataset'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

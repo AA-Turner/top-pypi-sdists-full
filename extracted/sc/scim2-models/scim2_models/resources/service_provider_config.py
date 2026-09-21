@@ -1,17 +1,15 @@
 from typing import Annotated
 from typing import Any
 
-from pydantic import Field
-
 from ..annotations import Mutability
 from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
 from ..attributes import ExtensibleStringEnum
-from ..path import URN
 from ..reference import External
 from ..reference import Reference
+from ..urn import URN
 from .resource import Resource
 
 
@@ -62,10 +60,7 @@ class AuthenticationScheme(ComplexAttribute):
         httpbasic = "httpbasic"
         httpdigest = "httpdigest"
 
-    type: Annotated[Type | None, Mutability.read_only, Required.true] = Field(
-        None,
-        examples=["oauth", "oauth2", "oauthbearertoken", "httpbasic", "httpdigest"],
-    )
+    type: Annotated[Type | None, Mutability.read_only, Required.true] = None
     """The authentication scheme."""
 
     name: Annotated[str | None, Mutability.read_only, Required.true] = None

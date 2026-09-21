@@ -43,7 +43,33 @@ class TestCollectionExportResponse(unittest.TestCase):
                 file_size_bytes = 0.0,
                 exported_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 vectors_download_url = '',
-                vectors_s3_path = ''
+                vectors_s3_path = '',
+                shard_count = 0.0,
+                shard_pattern = '',
+                shards = [
+                    mixpeek.models.export_shard.ExportShard(
+                        filename = '', 
+                        s3_path = '', 
+                        download_url = '', 
+                        sample_count = 0.0, 
+                        file_size_bytes = 0.0, )
+                    ],
+                media = mixpeek.models.export_media_summary.ExportMediaSummary(
+                    samples_with_media = 0.0, 
+                    samples_without_media = 0.0, 
+                    members_written = 0.0, 
+                    members_skipped_too_large = 0.0, 
+                    objects_not_found = 0.0, 
+                    download_failures = 0.0, 
+                    media_bytes = 0.0, ),
+                destination = mixpeek.models.export_destination_result.ExportDestinationResult(
+                    connection_id = '', 
+                    prefix = '', 
+                    files = [
+                        ''
+                        ], 
+                    manifest_key = '', 
+                    bytes_written = 0.0, )
             )
         else:
             return CollectionExportResponse(

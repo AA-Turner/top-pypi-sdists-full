@@ -86,6 +86,11 @@ if TYPE_CHECKING:
     import asyncio
     import logging
 
+    from coord.drive_sessions_snapshot import (
+        DriveSessionsRefresher,
+        DriveSessionsSnapshot,
+    )
+
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -2485,6 +2490,12 @@ def _board_response_schema(components: dict) -> dict:
 
     planned_merge_ref = dataclass_schema(PlannedMerge, components)
     staging_item_ref = dataclass_schema(StagingItem, components)
+    # #3428: registers BoardConcurrency + its nested BoardCeiling/
+    # BoardCeilingSource (dataclass_schema walks nested dataclass fields
+    # recursively, including the `dict[str, BoardCeiling]` on
+    # `repo_overrides` and the `list[BoardCeilingSource]` on
+    # `BoardCeiling.losing`) — see the `concurrency` property below.
+    concurrency_ref = dataclass_schema(board_schema.BoardConcurrency, components)
 
     def _list_of(key: str) -> dict:
         return {"type": "array", "items": {"$ref": f"#/components/schemas/{key}"}}
@@ -2721,6 +2732,32 @@ def _board_response_schema(components: dict) -> dict:
                 },
                 "required": ["target_version", "set_at"],
             },
+            "concurrency": {
+                **concurrency_ref,
+                "nullable": True,
+                "description": (
+                    "#3428 (#3408 item 3): every concurrency ceiling `coord "
+                    "drive-queue tick` actually enforces — `max_parallel`, "
+                    "`max_parallel_per_repo`, `max_workers` — resolved on "
+                    "THIS daemon host (the systemd-flag source is "
+                    "machine-local and invisible to a thin client), plus "
+                    "current occupancy against each "
+                    "(`coord.drive_queue.compute_running_occupancy`, the "
+                    "SAME verdict `plan_tick` itself enforces — never a "
+                    "second, independently-counted number). Occupancy comes "
+                    "from the tick-refreshed live-session snapshot "
+                    "(`coord.drive_sessions_snapshot`), never an inline "
+                    "`tmux` call on this read path: when no reading has been "
+                    "taken yet, or the last one has gone stale, "
+                    "`occupied`/`repo_occupied` are `null` and "
+                    "`occupancy_state` says which — the ceilings stay "
+                    "populated regardless. `null` (the whole block) when it "
+                    "could not be resolved this build (advisory-only, never "
+                    "blanks the rest of the board); ABSENT on a daemon "
+                    "older than #3428, which never emitted this key at all "
+                    "— a client must tolerate both."
+                ),
+            },
             "milestone_work_orders": {
                 "type": "array",
                 "description": (
@@ -2783,6 +2820,32 @@ def _board_response_schema(components: dict) -> dict:
                         },
                     },
                     "required": ["repo_name", "tracking_issue", "children"],
+                },
+            },
+            "children_errors": {
+                "type": "array",
+                "description": (
+                    "#3426: per-epic parse failures for the same `## "
+                    "Sub-issues`/`## Work order` checklist `children` above "
+                    "resolves — one entry per tracking issue whose checklist "
+                    "raised coord.milestone_order.WorkOrderError (e.g. a "
+                    "duplicate `#N`, an `after` edge to an undeclared issue, "
+                    "a dependency cycle) instead of yielding zero/some "
+                    "children. Surfaces the failure instead of the silent "
+                    "'zero children' `children` would otherwise report for "
+                    "the same epic (vimcode#1170)."
+                ),
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "repo_name": {"type": "string"},
+                        "tracking_issue": {"type": "integer"},
+                        "error": {
+                            "type": "string",
+                            "description": "the WorkOrderError message, naming the offending line",
+                        },
+                    },
+                    "required": ["repo_name", "tracking_issue", "error"],
                 },
             },
         },
@@ -5874,6 +5937,109 @@ def openapi_spec() -> dict:
     )
 
 
+def _compute_board_concurrency(
+    cfg: Config,
+    projection: dict,
+    sessions: "DriveSessionsSnapshot | None" = None,
+) -> dict | None:
+    """#3428 (#3408 item 3): the `/board` payload's `concurrency` sibling
+    key — every ceiling `coord drive-queue tick` enforces, resolved on THIS
+    (the daemon) host, plus current occupancy.
+
+    Calls `coord.drive_queue.resolve_concurrency_report`, the SAME
+    resolution `coord config --effective`
+    (`coord.commands.setup._print_effective_concurrency`) already applies —
+    never a second, independently-derived answer (#2085 "one question, one
+    answer"). The systemd-flag source it reads is machine-local: resolving
+    it HERE, server-side, is the entire point (#3408's reported incident —
+    a thin client cannot see this host's own installed unit).
+
+    *projection* is the board dict already built so far in `_build()` below
+    — `assignments` and `drive_queue` are read straight off it (both are
+    wire-shaped dicts `coord.drive_queue.build_board_view`/
+    `entries_from_rows` already accept, per their own docstrings) rather
+    than re-querying the DB a second time in the same request.
+
+    *sessions* is the tick-refreshed `coord.drive_sessions_snapshot.
+    DriveSessionsSnapshot` — the live-tmux-session reading occupancy needs.
+    It is a parameter, not a call, because taking that reading is a
+    ``tmux list-sessions`` SUBPROCESS and this function runs on the `/board`
+    read path, where invariant 1 (`tests/test_board_read_path.py::
+    test_board_read_makes_zero_gh_calls`) forbids third-party I/O outright —
+    same reason the CI gate is served from `GateSnapshotRefresher` here
+    rather than fetched inline. When the snapshot is absent or too stale to
+    be evidence about now (#2862's unsupervised-loop failure), the CEILINGS
+    are still resolved and reported; only `occupied`/`repo_occupied` go
+    ``None``, labelled by `occupancy_state` — never a fabricated ``0``
+    (#2096: a number nobody observed is not a measurement).
+
+    Best-effort / fail-open, matching `roll_pending`/`fleet_health`'s own
+    posture elsewhere in this file: ANY failure (an unreadable systemd unit,
+    a queue-row parse error, a missing `concurrency` config section) returns
+    ``None`` rather than raising, so a broken read here can never blank the
+    rest of the board — an absent-tolerant client already has to handle a
+    daemon too old to emit this key at all.
+    """
+    try:
+        from dataclasses import asdict as _asdict  # noqa: PLC0415
+
+        from coord.board_schema import (  # noqa: PLC0415
+            BoardConcurrency,
+            board_ceiling_from_resolution,
+        )
+        from coord.drive_queue import (  # noqa: PLC0415
+            DEFAULT_MAX_ATTEMPTS,
+            build_board_view,
+            entries_from_rows,
+            resolve_concurrency_report,
+        )
+        from coord.drive_sessions_snapshot import (  # noqa: PLC0415
+            DriveSessionsSnapshot as _Snapshot,
+        )
+
+        snapshot = sessions if sessions is not None else _Snapshot()
+        observed = snapshot.is_current()
+
+        repo_overrides = {r.name: r.max_parallel for r in cfg.repos}
+        entries = entries_from_rows(projection.get("drive_queue") or [])
+        # Occupancy is computed ONLY from a current reading: feeding an empty
+        # `live_sessions` set into `compute_running_occupancy` would not
+        # abstain, it would answer — reporting every live drive's slot as
+        # free, which is the 2026-08-01 stacking incident's exact input.
+        board_view = (
+            build_board_view(projection, snapshot.keys) if observed else None
+        )
+
+        report = resolve_concurrency_report(
+            repo_overrides=repo_overrides,
+            pipeline_max_parallel=cfg.pipeline.max_parallel,
+            pipeline_max_parallel_per_repo=cfg.pipeline.max_parallel_per_repo,
+            max_workers_cap=cfg.concurrency.max_workers,
+            entries=entries,
+            board=board_view,
+            max_attempts=DEFAULT_MAX_ATTEMPTS,
+        )
+        return _asdict(
+            BoardConcurrency(
+                max_parallel=board_ceiling_from_resolution(report.max_parallel),
+                max_parallel_per_repo=board_ceiling_from_resolution(
+                    report.max_parallel_per_repo
+                ),
+                max_workers=board_ceiling_from_resolution(report.max_workers),
+                repo_overrides={
+                    name: board_ceiling_from_resolution(report.repo_resolutions[name])
+                    for name in sorted(report.repo_overrides)
+                },
+                occupied=report.occupied if observed else None,
+                repo_occupied=report.repo_occupied if observed else None,
+                occupancy_state=snapshot.state(),
+                occupancy_observed_at=snapshot.observed_at,
+            )
+        )
+    except Exception:  # noqa: BLE001 — advisory-only; never blank the board
+        return None
+
+
 # #3293: keys whose values are inherently volatile per-build (a sliding
 # window count) but carry no board-state signal of their own — excluded from
 # the ``/board`` ETag DIGEST INPUT only (see ``_board_digest_projection``
@@ -5899,11 +6065,18 @@ def _board_digest_projection(result: dict) -> dict:
       measures THIS /board response's own fetch latency and serialized size
       and stores that measurement inside the response, which is structurally
       self-invalidating for a content digest.
+    - ``concurrency.occupancy_observed_at``: stamped fresh by
+      ``DriveSessionsRefresher.refresh()`` on every tick pass (default 15s,
+      ``COORD_DRIVE_SESSIONS_REFRESH_INTERVAL``) even when the live-session
+      set read is byte-identical to the previous one — the same
+      self-moving-clock shape as ``fleet_health.refreshed_at`` above.
 
     Deliberately narrow: per-machine health severities/results/headrooms are
     left in the digest, because a real state change there (a machine going
     offline, a disk filling up) SHOULD bump the ETag — only the fields that
     move on their own, independent of any real state change, are excluded.
+    Likewise ``concurrency``'s ``occupied``/``repo_occupied``/ceilings stay in
+    the digest — those ARE real state and should bump the version.
     """
     projection = {
         k: v for k, v in result.items() if k not in _BOARD_DIGEST_VOLATILE_TOP_KEYS
@@ -5920,6 +6093,10 @@ def _board_digest_projection(result: dict) -> dict:
     fleet_health = projection.get("fleet_health")
     if isinstance(fleet_health, dict):
         projection["fleet_health"] = _board_digest_fleet_health(fleet_health)
+
+    concurrency = projection.get("concurrency")
+    if isinstance(concurrency, dict):
+        projection["concurrency"] = _board_digest_concurrency(concurrency)
 
     return projection
 
@@ -5956,6 +6133,20 @@ def _board_digest_health_row(row: dict) -> dict:
     return {k: v for k, v in row.items() if k not in ("received_at", "checked_at")}
 
 
+def _board_digest_concurrency(concurrency: dict) -> dict:
+    """Drop ``concurrency``'s own self-moving clock, ``occupancy_observed_at``.
+
+    See ``_board_digest_projection`` — digest input only, never the wire
+    body. ``occupied``/``repo_occupied``/the ceilings + their provenance all
+    stay in the digest: those are real state and a genuine change SHOULD bump
+    the ETag. Only the wall-clock stamp of *when* the last tick took its
+    tmux reading is excluded, since it moves every refresh pass regardless of
+    whether the live-session set actually changed (#3428 review finding,
+    same class as #3293).
+    """
+    return {k: v for k, v in concurrency.items() if k != "occupancy_observed_at"}
+
+
 def _board_digest_check_result(check: dict) -> dict:
     """Drop ``fleet_board_latency``'s self-measurement from the digest input.
 
@@ -5978,6 +6169,7 @@ def build_app(
     *,
     token: str | None = None,
     machine_metrics_sampler: MachineMetricsSampler | None = None,
+    drive_sessions_refresher: "DriveSessionsRefresher | None" = None,
 ) -> Starlette:
     """Build the read-only control-center Starlette app bound to *store* + *config*.
 
@@ -5989,6 +6181,13 @@ def build_app(
     omitted, exactly as before. Passing a pre-seeded instance lets a test
     drive ``GET /machines/metrics`` against known ring-buffer contents
     without waiting on the tick loop or a live agent poll.
+
+    *drive_sessions_refresher* — same shape, for #3428's ``concurrency``
+    block: a fresh (never-refreshed, so "occupancy unobserved")
+    :class:`~coord.drive_sessions_snapshot.DriveSessionsRefresher` is created
+    when omitted. Passing a pre-refreshed instance lets a test assert on real
+    occupancy numbers without the tick loop — and without a ``tmux``
+    subprocess on the read path, which invariant 1 forbids.
     """
     # #1081: track the backing coordinator.yml's mtime so the handlers below
     # can swap in a freshly-reloaded Config when it changes on disk, instead
@@ -6029,6 +6228,19 @@ def build_app(
     from coord.machine_metrics import MachineMetricsSampler  # noqa: PLC0415
 
     _machine_metrics_sampler = machine_metrics_sampler or MachineMetricsSampler()
+
+    # #3428: same invariant one more time — the live-drive-session reading
+    # behind the `concurrency` block's occupancy numbers is a `tmux
+    # list-sessions` subprocess, so it runs on the tick loop's cadence
+    # (`_drive_sessions_refresh_loop` below) and /board only ever reads the
+    # last-published snapshot. Until one has been published (or once it has
+    # gone stale) the board reports occupancy as unknown rather than zero —
+    # see `coord.drive_sessions_snapshot`'s module docstring.
+    from coord.drive_sessions_snapshot import (  # noqa: PLC0415
+        DriveSessionsRefresher as _DriveSessionsRefresher,
+    )
+
+    _drive_sessions_refresher = drive_sessions_refresher or _DriveSessionsRefresher()
 
     # Cache for the computed /board projection so burst polls from the TUI
     # don't each pay the full board_projection + merge-plan + stage-projection
@@ -6672,6 +6884,7 @@ def build_app(
 
                 _parentage = _MarkdownParentage()
                 _epic_children: list[dict] = []
+                _epic_children_errors: list[dict] = []
                 for _ci_ti in projection.get("issues", []):
                     _ci_labels = _ci_ti.get("labels") or []
                     if _TRACKING_LABEL not in _ci_labels:
@@ -6684,7 +6897,19 @@ def build_app(
                             "", _ci_ti["number"], body=_ci_ti.get("body") or "",
                             fallback_to_work_order=True,
                         )
-                    except Exception:  # noqa: BLE001 — bad sub-issues block: skip this epic only
+                    except Exception as _ci_exc:  # noqa: BLE001 — #3426: surface, don't swallow
+                        # A malformed `## Sub-issues` (or, via the fallback,
+                        # `## Work order`) block on THIS epic must not blank
+                        # ITS children nor any sibling epic's — fail this one
+                        # epic open (report it, zero children) rather than
+                        # letting the exception mean "silently no children"
+                        # (vimcode#1170: three bad lines hid all 24 real
+                        # children with nothing reporting it anywhere).
+                        _epic_children_errors.append({
+                            "repo_name": _ci_repo_name,
+                            "tracking_issue": _ci_ti["number"],
+                            "error": str(_ci_exc),
+                        })
                         continue
                     if _ci_kids:
                         _epic_children.append({
@@ -6695,8 +6920,10 @@ def build_app(
                             ],
                         })
                 projection["children"] = _epic_children
+                projection["children_errors"] = _epic_children_errors
             except Exception:  # noqa: BLE001 — children failure must not blank the board
                 projection["children"] = []
+                projection["children_errors"] = []
             # #975: milestone plan-roster — reuse coord.plans.aggregate_repo_plans
             # server-side so the Plans TUI panel gets one row per milestone/epic
             # (ready / blocked / in-flight / done counts, needs_you attention
@@ -6845,6 +7072,15 @@ def build_app(
                 )
             except Exception:  # noqa: BLE001 — advisory-only; never blank the board
                 projection["roll_pending"] = None
+            # #3428 (#3408 item 3): effective concurrency ceilings +
+            # provenance + occupancy, resolved on THIS daemon host — see
+            # `_compute_board_concurrency`'s own docstring. Sibling key, same
+            # fail-open/absent-tolerant posture as `roll_pending` above:
+            # `None` when it could not be resolved this build, never a
+            # blanked board.
+            projection["concurrency"] = _compute_board_concurrency(
+                _cfg, projection, _drive_sessions_refresher.snapshot()
+            )
             # #1337 invariant 2: no collection endpoint returns unbounded text.
             # #1791 adds a second bound — collection CARDINALITY, not just
             # per-row width — dropping old terminal `assignments` rows (and
@@ -10722,6 +10958,30 @@ def build_app(
                 except Exception:  # noqa: BLE001 — keep serving the old snapshot
                     log.warning("fleet-health refresh failed", exc_info=True)
 
+        # #3428: live-drive-session reading for the `concurrency` block's
+        # occupancy — default 15s (env COORD_DRIVE_SESSIONS_REFRESH_INTERVAL;
+        # 0 disables, which leaves occupancy permanently "unobserved" rather
+        # than silently reporting 0). Own loop for the same reason as the two
+        # above: `tmux list-sessions` is a subprocess with a 5s timeout, and
+        # neither it nor the reconcile/enqueue/drain steps may hold up the
+        # other. Interval stays well under
+        # `drive_sessions_snapshot.STALE_AFTER_SECONDS` so an ordinary slow
+        # pass does not flap the freshness label.
+        try:
+            drive_sessions_refresh_interval = float(
+                os.environ.get("COORD_DRIVE_SESSIONS_REFRESH_INTERVAL", "15")
+            )
+        except ValueError:
+            drive_sessions_refresh_interval = 15.0
+
+        async def _drive_sessions_refresh_loop() -> None:
+            while True:
+                await asyncio.sleep(drive_sessions_refresh_interval)
+                try:
+                    await run_in_threadpool(_drive_sessions_refresher.refresh)
+                except Exception:  # noqa: BLE001 — keep serving the old snapshot
+                    log.warning("drive-sessions refresh failed", exc_info=True)
+
         # #3020: CPU/mem sampler for the coord-web Machines panel — default
         # 15s (env COORD_METRICS_POLL_INTERVAL; 0 disables). Own loop, not a
         # `_tick_loop` step, for the identical reason as `_health_refresh_loop`
@@ -11514,12 +11774,19 @@ def build_app(
                 else None,
                 "machine-metrics",
             )
+            drive_sessions_task = _watch(
+                asyncio.create_task(_drive_sessions_refresh_loop())
+                if interval > 0 and drive_sessions_refresh_interval > 0
+                else None,
+                "drive-sessions-refresh",
+            )
             try:
                 yield
             finally:
                 for t in (
                     task, gate_task, health_task, phantom_heal_task,
                     auto_revalidate_task, machine_metrics_task,
+                    drive_sessions_task,
                 ):
                     if t is not None:
                         t.cancel()

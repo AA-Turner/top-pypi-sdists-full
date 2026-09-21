@@ -3056,13 +3056,30 @@ class TestWindsurfEventNormalization:
             ("pre_run_command", "BeforeShellExecution"),
             ("post_run_command", "AfterShellExecution"),
             ("pre_read_code", "BeforeReadFile"),
+            ("post_read_code", "AfterReadFile"),
             ("post_write_code", "AfterFileEdit"),
             ("pre_user_prompt", "UserPromptSubmit"),
             ("post_cascade_response", "Stop"),
+            ("post_setup_worktree", "WorktreeCreate"),
         ],
     )
     def test_cascade_event_normalizes(self, raw_event, expected):
         assert normalize_event_name(raw_event) == expected
+
+    def test_every_registered_cascade_event_normalizes(self):
+        from runlayer_cli.hook.clients import EVENT_NORMALIZE
+        from runlayer_cli.hook_install.clients import (
+            _ENFORCEMENT_HOOKS,
+            _PIPELINE_HOOKS,
+        )
+        from runlayer_cli.hook_install.clients import Client as InstallClient
+
+        registered = set(_ENFORCEMENT_HOOKS[InstallClient.WINDSURF]) | set(
+            _PIPELINE_HOOKS[InstallClient.WINDSURF]
+        )
+        assert registered <= EVENT_NORMALIZE.keys(), sorted(
+            registered - EVENT_NORMALIZE.keys()
+        )
 
 
 class TestWindsurfPayloadAdapter:
@@ -3114,6 +3131,41 @@ class TestWindsurfPayloadAdapter:
 
         assert adapted["response"] == "done thinking"
         assert adapted["last_assistant_message"] == "done thinking"
+
+    @pytest.mark.parametrize(
+        ("event", "tool_name"),
+        [("pre_read_code", "BeforeReadFile"), ("post_read_code", "AfterReadFile")],
+    )
+    def test_read_events_get_synthetic_tool_name_and_input(self, event, tool_name):
+        adapted = adapt_windsurf_payload(
+            {
+                "agent_action_name": event,
+                "trajectory_id": "traj-1",
+                "tool_info": {"file_path": "/repo/app.py"},
+            }
+        )
+
+        assert adapted["tool_name"] == tool_name
+        assert adapted["tool_input"] == {"file_path": "/repo/app.py"}
+        assert adapted["file_path"] == "/repo/app.py"
+
+    def test_setup_worktree_keeps_native_tool_info(self):
+        adapted = adapt_windsurf_payload(
+            {
+                "agent_action_name": "post_setup_worktree",
+                "trajectory_id": "traj-1",
+                "tool_info": {
+                    "worktree_path": "/h/.windsurf/worktrees/repo/abc",
+                    "root_workspace_path": "/h/repo",
+                },
+            }
+        )
+
+        assert adapted["hook_event_name"] == "post_setup_worktree"
+        assert "tool_name" not in adapted
+        assert (
+            adapted["tool_info"]["worktree_path"] == "/h/.windsurf/worktrees/repo/abc"
+        )
 
     def test_mcp_tool_use_flattens_to_canonical_tool_name_and_input(self):
         adapted = adapt_windsurf_payload(
@@ -7043,6 +7095,48 @@ class TestToolLifecycleRouting:
         assert "Security Violation Detected" not in reason
         assert "Do not retry" not in reason
 
+    def test_tool_pre_api_unreachable_denies_with_retryable_message(
+        self, monkeypatch, capsys
+    ):
+        """A client-side timeout is the same class of event as
+        scan_unavailable: fail-closed infra, not a violation, so the agent
+        gets retry-once guidance instead of a do-not-retry hard stop."""
+        from runlayer_cli.hook.failure import FailureContext
+
+        self._capture_detached(monkeypatch)
+
+        def _timeout(*args, **kwargs):
+            raise relay.RelayError(
+                2,
+                "timeout",
+                failure=FailureContext(kind="timeout", elapsed_s=28.0, attempts=2),
+            )
+
+        monkeypatch.setattr(hook_dispatch, "check_tool_lifecycle", _timeout)
+        resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
+        with pytest.raises(SystemExit) as exc:
+            hook_dispatch._handle_pre_tool_use(
+                client=Client.CLAUDE_CODE,
+                resp=resp,
+                input_data={
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "echo hi"},
+                },
+                original_hook_type="PreToolUse",
+                mode=AIWatchMode.ENFORCE,
+                debug=False,
+            )
+        assert exc.value.code == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "# Action Blocked: Runlayer API Unreachable" in reason
+        assert "No complete response arrived within 28s, after 2 attempts." in reason
+        assert "retry this exact action once" in reason
+        assert "Security Violation Detected" not in reason
+        assert "Violation type: Infrastructure" not in reason
+        assert "Do not retry" not in reason
+
     def test_tool_pre_relay_auth_failure_forwards_event_before_deny(
         self, monkeypatch, capsys
     ):
@@ -9331,7 +9425,7 @@ class TestDevinCLIHooks:
         env = {
             k: v
             for k, v in os.environ.items()
-            if k not in ("CURSOR_VERSION", "DEVIN_PROJECT_DIR")
+            if k not in ("CURSOR_VERSION", "DEVIN_PROJECT_DIR", "CLAUDECODE")
         }
         env.update(overrides)
         return env
@@ -9464,6 +9558,45 @@ class TestDevinCLIHooks:
         with patch.dict(os.environ, env, clear=True):
             with patch("sys.argv", argv):
                 assert should_noop_for_devin(detect_client()) is expected, case
+
+    @pytest.mark.parametrize(
+        ("case", "tool_name", "claudecode", "expected"),
+        [
+            # Devin's own vocabulary reaching an imported Claude hook: stand down.
+            ("devin exec", "exec", False, True),
+            ("devin read", "read", False, True),
+            ("devin mcp tool", "mcp__linear__list_issues", False, True),
+            ("lifecycle event without tool", "", False, True),
+            # Claude Code spawned via Devin exec inherits DEVIN_PROJECT_DIR but
+            # emits its own PascalCase tools; that session must stay enforced.
+            ("claude Bash", "Bash", False, False),
+            ("claude Read", "Read", False, False),
+            ("claude Task", "Task", False, False),
+            # Ambiguous names resolve through Claude Code's CLAUDECODE marker:
+            # a nested real Claude host keeps enforcing its MCP calls and
+            # forwarding lifecycle events.
+            ("nested claude mcp tool", "mcp__linear__list_issues", True, False),
+            ("nested claude lifecycle event", "", True, False),
+            # Devin launched from inside Claude Code carries both markers; its
+            # own tool names still stand the imported hook down.
+            ("devin under claude exec", "exec", True, True),
+            ("devin under claude read", "read", True, True),
+        ],
+    )
+    def test_noop_guard_yields_to_real_claude_code_host(
+        self, case, tool_name, claudecode, expected
+    ):
+        env = self._clean_env(DEVIN_PROJECT_DIR="/repo")
+        if claudecode:
+            env["CLAUDECODE"] = "1"
+        argv = ["/h/.claude/hook", "--client", "claude_code"]
+        with patch.dict(os.environ, env, clear=True):
+            with patch("sys.argv", argv):
+                client = detect_client()
+                assert client == Client.CLAUDE_CODE
+                assert should_noop_for_devin(client, tool_name=tool_name) is expected, (
+                    case
+                )
 
     # -- MCP source resolution ------------------------------------------
 

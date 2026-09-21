@@ -21,7 +21,7 @@ if TYPE_CHECKING:
         BrokerMiddleware,
         CustomCallable,
     )
-    from faststream.confluent.schemas import TopicPartition
+    from faststream.confluent.schemas import Topic, TopicPartition
 
 
 class KafkaPublisher(ArgsContainer):
@@ -32,7 +32,7 @@ class KafkaPublisher(ArgsContainer):
 
     def __init__(
         self,
-        topic: str,
+        topic: Union[str, "Topic"],
         *,
         key: bytes | str | None = None,
         partition: int | None = None,
@@ -85,13 +85,13 @@ class KafkaPublisher(ArgsContainer):
 
 
 class KafkaRoute(SubscriberRoute):
-    """Class to store delaied KafkaBroker subscriber registration."""
+    """Class to store delayed KafkaBroker subscriber registration."""
 
     def __init__(
         self,
         call: Callable[..., "SendableMessage"]
         | Callable[..., Awaitable["SendableMessage"]],
-        *topics: str,
+        *topics: Union[str, "Topic"],
         publishers: Iterable[KafkaPublisher] = (),
         partitions: Sequence["TopicPartition"] = (),
         polling_interval: float = 0.1,
@@ -119,7 +119,7 @@ class KafkaRoute(SubscriberRoute):
         batch: bool = False,
         max_records: int | None = None,
         # broker args
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         ack_policy: AckPolicy = EMPTY,
@@ -134,7 +134,8 @@ class KafkaRoute(SubscriberRoute):
 
         Args:
             call: Message handler function.
-            *topics: Kafka topics to consume messages from.
+            *topics: Kafka topics to consume messages from. Pass a `Topic` object
+                instead of a plain name to configure how the topic is created.
             publishers: Kafka publishers to broadcast the handler result.
             partitions: Sequence of topic partitions.
             polling_interval: Polling interval in seconds.
@@ -302,7 +303,8 @@ class KafkaRouter(
         Union[
             "Message",
             tuple["Message", ...],
-        ]
+        ],
+        KafkaBrokerConfig,
     ],
 ):
     """Includable to KafkaBroker router."""
@@ -312,7 +314,7 @@ class KafkaRouter(
         prefix: str = "",
         handlers: Iterable[KafkaRoute] = (),
         *,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         routers: Iterable[KafkaRegistrator] = (),
         parser: Optional["CustomCallable"] = None,

@@ -1717,10 +1717,26 @@ class TestDevinCliClientDefinition:
         assert "~/.devin" not in dirs
         assert "~/.config/devin" in dirs
 
-    def test_no_invented_windows_uninstall_entry(self):
-        """The Windows package is a winget portable, so there is no ARP entry."""
+    def test_desktop_app_is_executable_evidence_for_the_cli_surface(self):
+        """Devin Desktop bundles Devin Local, which reads config.json#hooks.
+
+        The CLI's own Windows package is a winget portable with no ARP entry;
+        the registry prefix and install dirs here are the desktop app's.
+        """
         probe = get_client_by_name("devin_cli").install_probe
-        assert probe.windows_display_name_prefixes == []
+        windsurf = get_client_by_name("windsurf").install_probe
+        assert probe.macos_app_bundles == ["Devin.app"]
+        assert probe.windows_display_name_prefixes == ["Devin"]
+        assert probe.linux_desktop_ids == ["devin-desktop.desktop"]
+        assert set(probe.windows_install_dirs) <= set(windsurf.windows_install_dirs)
+        assert set(probe.macos_app_bundles) <= set(windsurf.macos_app_bundles)
+        assert set(probe.linux_desktop_ids) <= set(windsurf.linux_desktop_ids)
+
+    def test_gui_launcher_is_not_probed_for_version(self):
+        """``devin-desktop`` would be executed with --version; only the CLI is."""
+        probe = get_client_by_name("devin_cli").install_probe
+        assert probe.cli_binaries == ["devin"]
+        assert probe.probe_cli_version is True
 
 
 class TestNewlyAddedClientsAreConfigScanning:

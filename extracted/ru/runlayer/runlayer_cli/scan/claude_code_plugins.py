@@ -15,6 +15,7 @@ from runlayer_cli.scan.config_parser import (
 )
 from runlayer_cli.scan.plugin_scanner import (
     INSTALLED_PLUGINS_RELATIVE,
+    _accessible_dir,
     _iter_enabled_claude_marketplace_plugin_dirs,
     _read_enabled_plugins,
     _read_installed_plugins_registry,
@@ -88,8 +89,6 @@ def scan_claude_code_plugins(
             if home is not None
             else get_installed_plugins_path()
         )
-    if not path.exists():
-        logger.debug("No installed_plugins.json found", path=str(path))
     plugins = _read_installed_plugins_registry(path)
 
     configurations: list[MCPClientConfig] = []
@@ -114,7 +113,7 @@ def scan_claude_code_plugins(
                 registry_install_paths.add(install_dir.resolve())
             except (OSError, RuntimeError):
                 pass
-            if not install_dir.is_dir():
+            if not _accessible_dir(install_dir):
                 logger.debug(
                     "Plugin install path missing",
                     plugin=plugin_name,

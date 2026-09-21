@@ -21,6 +21,7 @@ from runlayer_cli.scan.config_parser import (
     parse_plugin_mcp_file,
 )
 from runlayer_cli.scan.plugin_scanner import (
+    _accessible_dir,
     _version_sort_key,
     compute_plugin_identifier,
     mark_plugin_scan_incomplete,
@@ -48,7 +49,7 @@ def _discover_codex_plugins(
 
     Traverses <base>/<marketplace>/<plugin>/<version>/ looking for MCP files.
     """
-    if not plugin_cache_base.is_dir():
+    if not _accessible_dir(plugin_cache_base):
         return []
 
     discovered: list[DiscoveredCodexPlugin] = []

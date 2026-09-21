@@ -24,6 +24,7 @@ use chematic_core::{
 };
 use smallvec::SmallVec;
 
+use crate::parser::parse;
 use crate::writer::{
     bond_token_from, emit_bracket_hydrogens, square_planar_token, suppress_standalone_wedge,
 };
@@ -319,14 +320,11 @@ pub fn canonical_smiles(mol: &Molecule) -> String {
 
 /// Return a canonical SMILES only when its representation is self-stable.
 ///
-/// Canonical E/Z carrier placement is still a known residual for a small
-/// subset of highly coupled systems. A plain [`canonical_smiles`] is valid
-/// chemistry in those cases, but must not be used as a deduplication or cache
-/// key when atom-order changes can alter a coupled E/Z geometry spelling.
-/// This helper makes that boundary explicit: it reparses the candidate,
-/// requires idempotence, and returns `None` for molecules with multiple
-/// independently stereogenic E/Z double bonds until their cross-system
-/// canonicalization is proven stable.
+/// Canonical E/Z carrier placement remains fail-closed for coupled systems
+/// except the bounded aromatic-direction-stash planner: that planner searches
+/// every eligible token slot, reparses each candidate, and selects a semantic
+/// lexicographic minimum. This helper still reparses and requires idempotence
+/// before admitting that narrow, proven path as a deduplication or cache key.
 pub fn canonical_smiles_stable_key(mol: &Molecule) -> Option<String> {
     let candidate = canonical_smiles(mol);
     let reparsed = crate::parser::parse(&candidate).ok()?;
@@ -349,7 +347,10 @@ pub fn canonical_smiles_stable_key(mol: &Molecule) -> Option<String> {
             })
         })
         .count();
-    (ez_double_bonds <= 1).then_some(candidate)
+    let has_aromatic_direction_stash = mol.bonds().any(|(bond, value)| {
+        value.order == BondOrder::Aromatic && mol.bond_direction(bond).is_some()
+    });
+    (ez_double_bonds <= 1 || has_aromatic_direction_stash).then_some(candidate)
 }
 
 /// Compute Morgan (extended connectivity) ranks for all atoms.
@@ -626,6 +627,11 @@ pub(crate) struct CanonicalWriter<'a> {
     /// re-orientation this early corrupts E/Z groups spanning bonds visited
     /// in different directions (issue #390).
     atom_ring_nums: Vec<Vec<(u32, bool, AtomIdx, BondIdx)>>,
+    /// Selected directional ring bonds whose marker is emitted at the closing
+    /// occurrence. The bounded aromatic E/Z planner varies this together with
+    /// carrier polarity because either legal digit occurrence can encode the
+    /// same bond direction.
+    ring_marker_on_close: HashSet<BondIdx>,
     next_ring: u32,
     out: String,
     /// Union-find groups of directional (`/`/`\`) bonds that jointly encode
@@ -653,6 +659,10 @@ pub(crate) struct CanonicalWriter<'a> {
     /// stored here too, pinned to its own plain (non-directional) order, so
     /// a stray parse-time marker on it can't leak through.
     ez_marker: HashMap<BondIdx, BondOrder>,
+    /// Geometry facts captured before E/Z marker carrier resolution.  The
+    /// component solver reads these facts instead of re-reading whichever
+    /// raw marker location happened to occur in the input spelling.
+    ez_geometry_facts: Vec<EzGeometryFact>,
     /// Test-only instrumentation: every alkene end for which
     /// `resolve_ez_marker_for_end` hit the shared-candidate-bond abstain
     /// guard specifically (as opposed to "not ambiguous" or "no direction
@@ -663,6 +673,70 @@ pub(crate) struct CanonicalWriter<'a> {
     /// zero cost/size impact on release builds.
     #[cfg(test)]
     ez_shared_bond_abstains: Vec<AtomIdx>,
+    /// Test-only DFS edge preference used to determine whether the remaining
+    /// issue #503 residual has a geometry-preserving common spelling when a
+    /// whole coupled component is allowed to influence traversal.  Production
+    /// still uses rank-only traversal until this bounded search has a proven
+    /// acceptance rule.
+    #[cfg(test)]
+    traversal_bond_preference: Option<HashMap<BondIdx, bool>>,
+    /// Complete directional-token assignment selected by the bounded aromatic
+    /// E/Z planner. Unlike `ez_marker`, this deliberately bypasses local
+    /// carrier election and component-global normalization: every eligible
+    /// token slot is assigned explicitly, then the serialized candidate is
+    /// reparsed and accepted only if it preserves rank-keyed E/Z facts.
+    direct_ez_orders: Option<HashMap<BondIdx, BondOrder>>,
+    /// Test-only parent edge for the canonical DFS skeleton.  This exposes
+    /// the single write occurrence of each tree edge to the #503 output-slot
+    /// diagnostic without changing production serialization.
+    #[cfg(test)]
+    canonical_tree_parent: Vec<Option<(AtomIdx, BondIdx)>>,
+}
+
+/// One input-representation-independent E/Z relation, retained before the
+/// writer decides where `/` or `\\` tokens will appear.  `AtomIdx` and
+/// `BondIdx` locate the fact within the current molecule only; any future
+/// canonical choice must use the rank keys, never those parse-order indices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EzGeometryFact {
+    double_bond: BondIdx,
+    double_key: (u64, u64),
+    ends: [EzGeometryEnd; 2],
+    same_side: bool,
+}
+
+/// The fixed, rank-selected reference substituent at one double-bond end and
+/// its encoded side of the alkene axis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EzGeometryEnd {
+    atom: AtomIdx,
+    reference_bond: BondIdx,
+    reference_rank: u64,
+    up: bool,
+}
+
+/// A parse-order-independent E/Z signature used to validate a candidate
+/// serialization without invoking canonicalization again.  It deliberately
+/// uses Morgan ranks only: full individualized canonical ranks would recurse
+/// through the writer while the bounded planner is already serializing.
+type EzSemanticSignature = Vec<((u64, u64), (u64, u64), bool)>;
+
+fn ez_semantic_signature(mol: &Molecule) -> EzSemanticSignature {
+    let ranks = morgan_ranks(mol);
+    let writer = CanonicalWriter::new(mol, &ranks);
+    writer
+        .extract_ez_geometry_facts()
+        .into_iter()
+        .map(|fact| {
+            let mut references = [fact.ends[0].reference_rank, fact.ends[1].reference_rank];
+            references.sort_unstable();
+            (
+                fact.double_key,
+                (references[0], references[1]),
+                fact.same_side,
+            )
+        })
+        .collect()
 }
 
 impl<'a> CanonicalWriter<'a> {
@@ -674,14 +748,21 @@ impl<'a> CanonicalWriter<'a> {
             written: vec![false; n],
             ring_bonds: vec![false; mol.bond_count()],
             atom_ring_nums: vec![Vec::new(); n],
+            ring_marker_on_close: HashSet::new(),
             next_ring: 1,
             out: String::with_capacity(n.saturating_mul(4) + mol.bond_count().saturating_mul(2)),
             ez_group: HashMap::new(),
             ez_flip: HashMap::new(),
             forced_ez_flip: None,
             ez_marker: HashMap::new(),
+            ez_geometry_facts: Vec::new(),
             #[cfg(test)]
             ez_shared_bond_abstains: Vec::new(),
+            #[cfg(test)]
+            traversal_bond_preference: None,
+            direct_ez_orders: None,
+            #[cfg(test)]
+            canonical_tree_parent: vec![None; n],
         }
     }
 
@@ -723,6 +804,11 @@ impl<'a> CanonicalWriter<'a> {
     /// `order` directly, or the two sites can disagree on which bond a
     /// moved E/Z marker landed on.
     fn effective_order(&self, bidx: BondIdx) -> BondOrder {
+        if let Some(orders) = &self.direct_ez_orders
+            && let Some(&order) = orders.get(&bidx)
+        {
+            return order;
+        }
         if let Some(&resolved) = self.ez_marker.get(&bidx) {
             return resolved;
         }
@@ -781,7 +867,7 @@ impl<'a> CanonicalWriter<'a> {
     /// one of them size exactly 2, 0 cycles. (An independent run against
     /// the larger, non-committed ChEMBL corpus used for this crate's own
     /// full-corpus residual measurements — see
-    /// `docs/rfcs/canonical_smiles_residual_rfc.md` — found the same: every
+    /// `docs/canonical-ez-plan.md` — found the same: every
     /// component observed has been size exactly 2.) Every node has at most
     /// 2 candidate substituent bonds, so every component is a simple path
     /// or cycle, never a general graph. This cap gives an 8x margin over
@@ -832,6 +918,7 @@ impl<'a> CanonicalWriter<'a> {
         if self.ranks.is_empty() {
             return;
         }
+        self.ez_geometry_facts = self.extract_ez_geometry_facts();
         let stereo_alkene_ends = Self::compute_stereo_alkene_ends(self.mol);
         for component in Self::coupling_components(self.mol, &stereo_alkene_ends) {
             self.resolve_component_jointly(&component);
@@ -1092,7 +1179,7 @@ impl<'a> CanonicalWriter<'a> {
             } else {
                 0
             };
-            let Some(reference_up) = self.reference_up(end, &pair, preferred) else {
+            let Some(reference_up) = self.geometry_reference_up(end, &pair, preferred) else {
                 return;
             };
             for chosen in [preferred, 1 - preferred] {
@@ -1152,7 +1239,7 @@ impl<'a> CanonicalWriter<'a> {
             .iter()
             .zip(subs.iter())
             .zip(pref.iter())
-            .map(|((&end, s), &p)| self.reference_up(end, s, p))
+            .map(|((&end, s), &p)| self.geometry_reference_up(end, s, p))
             .collect();
 
         // Every valid (non-conflicting) global assignment, as its deviation
@@ -1252,6 +1339,203 @@ impl<'a> CanonicalWriter<'a> {
         }
     }
 
+    /// Extract the E/Z facts encoded by the input before choosing a canonical
+    /// marker carrier or a DFS/ring representation.  This is deliberately a
+    /// read-only phase: it gives the eventual component-plan solver chemical
+    /// relations to preserve, rather than parse-time marker locations to
+    /// imitate.
+    fn extract_ez_geometry_facts(&self) -> Vec<EzGeometryFact> {
+        let mut facts = Vec::new();
+        for (double_bond, bond) in self.mol.bonds() {
+            if bond.order != BondOrder::Double {
+                continue;
+            }
+            let Some(left) = self.extract_ez_geometry_end(bond.atom1) else {
+                continue;
+            };
+            let Some(right) = self.extract_ez_geometry_end(bond.atom2) else {
+                continue;
+            };
+            let mut double_key = (
+                self.ranks[bond.atom1.0 as usize],
+                self.ranks[bond.atom2.0 as usize],
+            );
+            if double_key.1 < double_key.0 {
+                double_key = (double_key.1, double_key.0);
+            }
+            facts.push(EzGeometryFact {
+                double_bond,
+                double_key,
+                ends: [left, right],
+                same_side: left.up == right.up,
+            });
+        }
+        facts.sort_by_key(|fact| fact.double_key);
+        facts
+    }
+
+    /// Every physical bond whose token may need an explicit choice for an
+    /// aromatic direction-stash E/Z system.  Coupled alkene substituents
+    /// provide the structural candidates; raw carriers are included as well
+    /// because a stash can legally be emitted from a bond outside that local
+    /// component.  The latter is the essential #503 boundary: excluding it
+    /// leaves no common semantic output for the held-out residuals.
+    fn complete_ez_plan_slots(&self) -> Vec<BondIdx> {
+        let ends = Self::compute_stereo_alkene_ends(self.mol);
+        let mut slots: Vec<_> = Self::coupling_components(self.mol, &ends)
+            .into_iter()
+            .flatten()
+            .flat_map(|end| Self::substituents(self.mol, end))
+            .map(|(_, bond)| bond)
+            .collect();
+        slots.extend((0..self.mol.bond_count()).filter_map(|index| {
+            let bond = BondIdx(index as u32);
+            matches!(
+                self.raw_input_direction(bond),
+                Some(BondOrder::Up | BondOrder::Down)
+            )
+            .then_some(bond)
+        }));
+        slots.sort_unstable_by_key(|bond| bond.0);
+        slots.dedup();
+        slots
+    }
+
+    /// Enumerate the finite directional-token degrees of freedom left after
+    /// canonical DFS/ring discovery, retain only reparsable candidates with
+    /// exactly the original E/Z semantics, and select their lexicographic
+    /// minimum. Enumeration order is intentionally irrelevant: no atom or
+    /// bond index is a tie-breaker in the resulting public output.
+    fn complete_aromatic_ez_plan(&self) -> Option<String> {
+        const MAX_SLOTS: usize = 8;
+        const MAX_CANDIDATES: usize = 65_536;
+
+        let slots = self.complete_ez_plan_slots();
+        if slots.is_empty() || slots.len() > MAX_SLOTS {
+            return None;
+        }
+        let ring_slots: Vec<_> = slots
+            .iter()
+            .copied()
+            .filter(|bond| self.ring_bonds[bond.0 as usize])
+            .collect();
+        let polarity_plans = 3usize.checked_pow(slots.len() as u32)?;
+        let ring_plans = 1usize.checked_shl(ring_slots.len() as u32)?;
+        if polarity_plans.checked_mul(ring_plans)? > MAX_CANDIDATES {
+            return None;
+        }
+
+        let expected = ez_semantic_signature(self.mol);
+        if expected.is_empty() {
+            return None;
+        }
+        let mut best: Option<String> = None;
+        for polarity_code in 0..polarity_plans {
+            let mut code = polarity_code;
+            let orders: HashMap<BondIdx, BondOrder> = slots
+                .iter()
+                .map(|&bond| {
+                    let choice = code % 3;
+                    code /= 3;
+                    let order = match choice {
+                        0 => Self::plain_order(self.mol.bond(bond).order),
+                        1 => BondOrder::Up,
+                        2 => BondOrder::Down,
+                        _ => unreachable!(),
+                    };
+                    (bond, order)
+                })
+                .collect();
+            for close_mask in 0..ring_plans {
+                let mut candidate = self.clone();
+                candidate.direct_ez_orders = Some(orders.clone());
+                candidate.ring_marker_on_close = ring_slots
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, &bond)| ((close_mask & (1 << index)) != 0).then_some(bond))
+                    .collect();
+                let output = candidate.serialize_prepared();
+                let Ok(reparsed) = parse(&output) else {
+                    continue;
+                };
+                if ez_semantic_signature(&reparsed) != expected {
+                    continue;
+                }
+                if best.as_ref().is_none_or(|current| output < *current) {
+                    best = Some(output);
+                }
+            }
+        }
+        best
+    }
+
+    /// Read one rank-fixed reference substituent's side.  A monosubstituted
+    /// end has no carrier freedom; a disubstituted end uses the same
+    /// rank-fixed/sibling-complement rule as [`Self::reference_up`].
+    fn extract_ez_geometry_end(&self, alkene_end: AtomIdx) -> Option<EzGeometryEnd> {
+        let subs = Self::substituents(self.mol, alkene_end);
+        let (reference, up) = match subs.as_slice() {
+            [reference] => {
+                let direction = self.raw_input_direction(reference.1)?;
+                (
+                    *reference,
+                    Self::direction_is_up(
+                        direction,
+                        self.raw_direction_anchor(reference.1),
+                        alkene_end,
+                    ),
+                )
+            }
+            [first, second] => {
+                let pair = [*first, *second];
+                let preferred = usize::from(
+                    self.ranks[pair[1].0.0 as usize] < self.ranks[pair[0].0.0 as usize],
+                );
+                (
+                    pair[preferred],
+                    self.reference_up(alkene_end, &pair, preferred)?,
+                )
+            }
+            _ => return None,
+        };
+        Some(EzGeometryEnd {
+            atom: alkene_end,
+            reference_bond: reference.1,
+            reference_rank: self.ranks[reference.0.0 as usize],
+            up,
+        })
+    }
+
+    /// Return a component end's already-extracted, rank-fixed geometry.  The
+    /// carrier solver may choose a different output bond, but it must not
+    /// derive its chemical side from the raw token on that candidate.
+    fn geometry_reference_up(
+        &self,
+        alkene_end: AtomIdx,
+        subs: &[(AtomIdx, BondIdx); 2],
+        pref_idx: usize,
+    ) -> Option<bool> {
+        let reference_bond = subs[pref_idx].1;
+        self.ez_geometry_facts
+            .iter()
+            .find_map(|fact| {
+                debug_assert!(self.mol.bond(fact.double_bond).order == BondOrder::Double);
+                debug_assert!(fact.double_key.0 <= fact.double_key.1);
+                debug_assert_eq!(fact.same_side, fact.ends[0].up == fact.ends[1].up);
+                fact.ends
+                    .into_iter()
+                    .find(|end| end.atom == alkene_end && end.reference_bond == reference_bond)
+                    .map(|end| {
+                        debug_assert_eq!(
+                            end.reference_rank,
+                            self.ranks[subs[pref_idx].0.0 as usize]
+                        );
+                        end.up
+                    })
+            })
+            .or_else(|| self.reference_up(alkene_end, subs, pref_idx))
+    }
+
     /// One candidate global assignment for a coupled component:
     /// `choice[i]` selects which of `subs[i]`'s two candidate bonds end
     /// `ordered[i]` uses as its own marker carrier. Returns the combined
@@ -1278,7 +1562,9 @@ impl<'a> CanonicalWriter<'a> {
             // the remote endpoint (which is not adjacent to this alkene),
             // and a re-parser would silently lose this stereochemistry.
             let chosen_bidx = subs[i][choice[i]].1;
-            if self.ring_closure_is_close_side(chosen_bidx, end) {
+            if self.ring_closure_is_close_side(chosen_bidx, end)
+                && !self.ring_marker_is_permitted_on_close(chosen_bidx)
+            {
                 return None;
             }
             // A carrier election is not geometry-neutral when the losing
@@ -1313,6 +1599,13 @@ impl<'a> CanonicalWriter<'a> {
         self.atom_ring_nums[end.0 as usize]
             .iter()
             .any(|&(_, is_open, _, ring_bidx)| ring_bidx == bidx && !is_open)
+    }
+
+    /// A complete E/Z plan may emit a directional ring marker at either legal
+    /// ring-token occurrence. The set is empty on the ordinary path, which
+    /// retains the opening-side default.
+    fn ring_marker_is_permitted_on_close(&self, bidx: BondIdx) -> bool {
+        self.ring_marker_on_close.contains(&bidx)
     }
 
     /// True if `bidx` (one of `owning_end`'s own two candidate substituent
@@ -1502,6 +1795,10 @@ impl<'a> CanonicalWriter<'a> {
     /// this function's *return value* for its own occurrence -- passing
     /// `from_atom` here does not do that; it only seeds the anchor.
     fn normalize_ez(&mut self, bidx: BondIdx, from_atom: AtomIdx) -> BondOrder {
+        if self.direct_ez_orders.is_some() {
+            let _ = from_atom;
+            return self.effective_order(bidx);
+        }
         let order = self.effective_order(bidx);
         if !matches!(order, BondOrder::Up | BondOrder::Down) {
             return order;
@@ -1609,18 +1906,36 @@ impl<'a> CanonicalWriter<'a> {
         // Avoid scanning for stereo alkene ends and building union-find
         // groups for the common non-stereo case. `normalize_ez` remains safe
         // for ordinary bonds with an empty group map.
-        if self.has_directional_alkene_candidate() {
+        let has_direct_plan = self.direct_ez_orders.is_some();
+
+        if has_direct_plan {
+            self.ez_geometry_facts = self.extract_ez_geometry_facts();
+        } else if self.has_directional_alkene_candidate() {
             // Pick, for every stereo alkene end, which substituent carries the
             // marker, then group connected E/Z systems.
             self.resolve_ez_markers();
             self.build_ez_groups();
         }
 
-        // Aromatic direction stashes can encode the same E/Z component with
-        // either global polarity.  Compare both polarities (bounded to eight
-        // components) before the normal write so the result does not depend
-        // on which physical aromatic edge the input happened to stash.
-        if self.has_aromatic_direction_stash() && !self.ez_group.is_empty() {
+        // Aromatic direction stashes can encode a valid marker on a carrier
+        // outside the local coupled component. Search the complete bounded
+        // slot universe first; a semantic reparse gate makes the selected
+        // lexicographic minimum independent of input marker placement.
+        #[cfg(test)]
+        let is_traversal_probe = self.traversal_bond_preference.is_some();
+        #[cfg(not(test))]
+        let is_traversal_probe = false;
+        if !has_direct_plan
+            && !is_traversal_probe
+            && self.has_aromatic_direction_stash()
+            && let Some(output) = self.complete_aromatic_ez_plan()
+        {
+            return output;
+        }
+
+        // Keep the established component-global polarity normalization as a
+        // bounded fallback when the complete planner is inapplicable.
+        if !has_direct_plan && self.has_aromatic_direction_stash() && !self.ez_group.is_empty() {
             let roots = self.ez_group.values().copied().collect::<HashSet<_>>();
             if roots.len() <= 8 {
                 let roots = roots.into_iter().collect::<Vec<_>>();
@@ -1766,6 +2081,10 @@ impl<'a> CanonicalWriter<'a> {
             }
 
             if !visited[neighbor.0 as usize] {
+                #[cfg(test)]
+                {
+                    self.canonical_tree_parent[neighbor.0 as usize] = Some((atom, bidx));
+                }
                 self.dfs_mark(neighbor, Some(bidx), visited, in_stack);
             } else if in_stack[neighbor.0 as usize] {
                 self.ring_bonds[bidx.0 as usize] = true;
@@ -1821,7 +2140,12 @@ impl<'a> CanonicalWriter<'a> {
                 // former order_at_open/order_at_close split exactly, just
                 // computed now instead of at discovery time (see
                 // `normalize_ez`'s doc comment for why).
-                let bond_order = if is_open {
+                let emit_direction_here = if is_open {
+                    !self.ring_marker_is_permitted_on_close(bidx)
+                } else {
+                    self.ring_marker_is_permitted_on_close(bidx)
+                };
+                let bond_order = if emit_direction_here {
                     let normalized = self.normalize_ez(bidx, atom);
                     Self::reorient_for_write(self.raw_direction_anchor(bidx), atom, normalized)
                 } else {
@@ -1929,14 +2253,31 @@ impl<'a> CanonicalWriter<'a> {
 
     /// Sort a neighbor list in canonical order (for consistent DFS traversal).
     fn sort_neighbors_canonical(&self, neighbors: &mut [(AtomIdx, BondIdx)]) {
-        neighbors.sort_by(|&(a, _), &(b, _)| self.canonical_cmp(b, a)); // descending
+        neighbors.sort_by(|&(a, _a_bond), &(b, _b_bond)| {
+            #[cfg(test)]
+            if let Some(preferences) = &self.traversal_bond_preference {
+                let a_preferred = preferences.get(&_a_bond).copied().unwrap_or(false);
+                let b_preferred = preferences.get(&_b_bond).copied().unwrap_or(false);
+                if a_preferred != b_preferred {
+                    // A preferred edge is traversed first.  This comparator
+                    // is used identically by ring discovery and emission.
+                    return b_preferred.cmp(&a_preferred);
+                }
+            }
+            self.canonical_cmp(b, a) // descending
+        });
     }
 
     fn emit_atom(&mut self, idx: AtomIdx, chirality: Chirality) {
         let atom = self.mol.atom(idx);
 
         if atom.wildcard {
-            self.out.push_str("[*]");
+            self.out.push_str("[*");
+            if let Some(map) = atom.atom_map {
+                self.out.push(':');
+                self.out.push_str(&map.to_string());
+            }
+            self.out.push(']');
             return;
         }
 
@@ -2692,6 +3033,23 @@ mod tests {
     }
 
     #[test]
+    fn canonical_wildcard_preserves_atom_map() {
+        let mol = parse("[*:17]C").unwrap();
+        let canonical = canonical_smiles(&mol);
+        assert!(
+            canonical.contains("[*:17]"),
+            "canonical wildcard output must retain its atom map: {canonical}"
+        );
+        let reparsed = parse(&canonical).unwrap();
+        let wildcard_maps = reparsed
+            .atoms()
+            .filter_map(|(_, atom)| atom.wildcard.then_some(atom.atom_map))
+            .collect::<Vec<_>>();
+        assert_eq!(wildcard_maps, vec![Some(17)]);
+        assert_eq!(canonical_smiles(&reparsed), canonical);
+    }
+
+    #[test]
     fn test_disconnected_stable() {
         assert!(is_stable("[Na+].[Cl-]"));
     }
@@ -3250,6 +3608,117 @@ mod tests {
             .collect()
     }
 
+    /// A spelling-independent view of the production E/Z geometry extractor.
+    /// The raw atom/bond indices deliberately do not escape this helper;
+    /// rank keys and each double bond's same-side relation are the facts a
+    /// later canonical plan is allowed to compare.
+    type EzGeometrySignature = Vec<((u64, u64), (u64, u64), bool)>;
+
+    fn ez_geometry_signature(mol: &Molecule) -> EzGeometrySignature {
+        let (ranks, _) = winning_individualized_ranks(mol);
+        let writer = CanonicalWriter::new(mol, &ranks);
+        writer
+            .extract_ez_geometry_facts()
+            .into_iter()
+            .map(|fact| {
+                let mut references = [fact.ends[0].reference_rank, fact.ends[1].reference_rank];
+                references.sort_unstable();
+                (
+                    fact.double_key,
+                    (references[0], references[1]),
+                    fact.same_side,
+                )
+            })
+            .collect()
+    }
+
+    /// A canonical output occurrence for one candidate E/Z carrier bond.
+    /// `kind` is tree edge, ring opening, or ring closing respectively.  The
+    /// signature contains only canonical ranks, never parse-order indices.
+    type EzOutputSlotSignature = Vec<((u64, u64), u64, u8)>;
+
+    fn ez_output_slot_signature(mol: &Molecule) -> EzOutputSlotSignature {
+        let (ranks, _) = winning_individualized_ranks(mol);
+        let ends = CanonicalWriter::compute_stereo_alkene_ends(mol);
+        let candidates: HashSet<BondIdx> = CanonicalWriter::coupling_components(mol, &ends)
+            .into_iter()
+            .flatten()
+            .flat_map(|end| CanonicalWriter::substituents(mol, end))
+            .map(|(_, bond)| bond)
+            .collect();
+        let mut writer = CanonicalWriter::new(mol, &ranks);
+        let starts = writer.canonical_atom_list();
+        writer.find_ring_closures(&starts);
+
+        let mut slots = Vec::new();
+        for bond in candidates {
+            let bond_ref = mol.bond(bond);
+            let mut edge = (
+                ranks[bond_ref.atom1.0 as usize],
+                ranks[bond_ref.atom2.0 as usize],
+            );
+            if edge.1 < edge.0 {
+                edge = (edge.1, edge.0);
+            }
+            if writer.ring_bonds[bond.0 as usize] {
+                for (atom, rings) in writer.atom_ring_nums.iter().enumerate() {
+                    for &(_, is_open, _, ring_bond) in rings {
+                        if ring_bond == bond {
+                            slots.push((edge, ranks[atom], if is_open { 1 } else { 2 }));
+                        }
+                    }
+                }
+            } else if let Some((parent, _)) = writer
+                .canonical_tree_parent
+                .iter()
+                .flatten()
+                .find(|(_, tree_bond)| *tree_bond == bond)
+            {
+                slots.push((edge, ranks[parent.0 as usize], 0));
+            }
+        }
+        slots.sort_unstable();
+        slots
+    }
+
+    /// Full rank-keyed canonical DFS shape, excluding only directional token
+    /// polarity.  Unlike `ez_output_slot_signature`, this records every tree
+    /// parent and every ring-token occurrence so #503 diagnostics can tell a
+    /// skeleton divergence from a stereochemical-token divergence without
+    /// inspecting parse-order atom or bond indices.
+    type CanonicalSkeletonSignature = (Vec<(u64, u64)>, Vec<(u64, u64, u32, bool)>);
+
+    fn canonical_skeleton_signature(mol: &Molecule) -> CanonicalSkeletonSignature {
+        let (ranks, _) = winning_individualized_ranks(mol);
+        let mut writer = CanonicalWriter::new(mol, &ranks);
+        let starts = writer.canonical_atom_list();
+        writer.find_ring_closures(&starts);
+
+        let mut tree = writer
+            .canonical_tree_parent
+            .iter()
+            .enumerate()
+            .filter_map(|(child, parent)| {
+                parent.map(|(parent, _)| (ranks[parent.0 as usize], ranks[child]))
+            })
+            .collect::<Vec<_>>();
+        tree.sort_unstable();
+
+        let mut rings = writer
+            .atom_ring_nums
+            .iter()
+            .enumerate()
+            .flat_map(|(atom, entries)| {
+                let ranks = &ranks;
+                entries.iter().map(move |&(number, is_open, partner, _)| {
+                    (ranks[atom], ranks[partner.0 as usize], number, is_open)
+                })
+            })
+            .collect::<Vec<_>>();
+        rings.sort_unstable();
+        (tree, rings)
+    }
+
     const EZ_STABLE_CORPUS: &[&str] = &[
         "C/C=C/C",     // (E)-2-butene
         "C/C=C\\C",    // (Z)-2-butene
@@ -3596,8 +4065,8 @@ mod tests {
     // sides). *Which* substituent gets the mark used to be whatever the
     // parser happened to read, so two RDKit-valid respellings of the same
     // molecule that mark different substituents produced two different
-    // canonical outputs (docs/rfcs/canonical_smiles_residual_rfc.md, Root cause
-    // 1). `resolve_ez_markers` picks the marker carrier deterministically
+    // canonical outputs; the current evidence is recorded in
+    // docs/canonical-ez-plan.md. `resolve_ez_markers` picks the marker carrier deterministically
     // from canonical rank instead. Every case below is a real molecule from
     // the residual corpus (`validation/results/
     // canonical_residual_diagnosis_summary.json`'s `permutation_invariance_
@@ -4022,12 +4491,602 @@ mod tests {
         r"COCC/N=c1\c(O)c(O)\c1=N/[C@@H](Cc1ccc(NC(=O)c2c(Cl)cncc2Cl)cc1)C(=O)O",
     ];
 
-    /// Keep the measured residuals reproducible while the general aromatic
-    /// carrier traversal remains open. The stable-key API must reject them;
-    /// silently selecting one of the two traversal-dependent spellings would
-    /// make a deduplication/cache key depend on input atom order.
+    /// Enumerate every DFS priority mask for the candidate bonds of each
+    /// coupled E/Z component. A future production search must not mistake
+    /// this local traversal space for a complete solution: the observed
+    /// spellings expose no common geometry-preserving output here.
     #[test]
-    fn ez_shared_carrier_held_out_residuals_remain_fail_closed() {
+    fn issue503_component_traversal_only_has_no_common_geometry_preserving_output() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let mut per_spelling = Vec::new();
+            for spelling in [input, observed_a, observed_b] {
+                let mol = parse(spelling).unwrap();
+                let geometry = geometry_fingerprint(&mol);
+                let ends = CanonicalWriter::compute_stereo_alkene_ends(&mol);
+                let mut component_bonds: Vec<_> = CanonicalWriter::coupling_components(&mol, &ends)
+                    .into_iter()
+                    .filter(|component| component.len() > 1)
+                    .flat_map(|component| {
+                        component.into_iter().flat_map(|end| {
+                            CanonicalWriter::substituents(&mol, end)
+                                .into_iter()
+                                .map(|(_, bond)| bond)
+                        })
+                    })
+                    .collect();
+                component_bonds.sort_unstable_by_key(|bond| bond.0);
+                component_bonds.dedup();
+                assert!(component_bonds.len() <= 8, "diagnostic bound exceeded");
+
+                let (ranks, _) = winning_individualized_ranks(&mol);
+                let mut outputs = HashSet::new();
+                for mask in 0usize..(1usize << component_bonds.len()) {
+                    let preferences: HashMap<BondIdx, bool> = component_bonds
+                        .iter()
+                        .enumerate()
+                        .map(|(index, &bond)| (bond, (mask & (1 << index)) != 0))
+                        .collect();
+                    let mut writer = CanonicalWriter::new(&mol, &ranks);
+                    writer.traversal_bond_preference = Some(preferences);
+                    let output = writer.write_all();
+                    let reparsed = parse(&output).unwrap_or_else(|e| {
+                        panic!("{spelling}: traversal candidate did not parse: {e}: {output}")
+                    });
+                    if geometry_fingerprint(&reparsed) == geometry {
+                        outputs.insert(output);
+                    }
+                }
+                per_spelling.push(outputs);
+            }
+            let common = per_spelling
+                .into_iter()
+                .reduce(|left, right| left.intersection(&right).cloned().collect())
+                .unwrap();
+            assert!(
+                common.is_empty(),
+                "{input}: candidate-bond DFS priorities unexpectedly found a common output; \
+                 update the complete-plan boundary before relying on it"
+            );
+        }
+    }
+
+    /// The input spelling variants behind #503 must first reduce to exactly
+    /// the same chemical E/Z facts.  This pins the phase boundary for the
+    /// future full component solver: it may change output token locations,
+    /// but it must preserve these rank-keyed relations.
+    #[test]
+    fn issue503_ez_geometry_facts_are_spelling_invariant() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let expected = ez_geometry_signature(&parse(input).unwrap());
+            assert!(
+                expected.len() >= 2,
+                "{input}: setup must expose both coupled E/Z facts"
+            );
+            for spelling in [observed_a, observed_b] {
+                assert_eq!(
+                    ez_geometry_signature(&parse(spelling).unwrap()),
+                    expected,
+                    "{input}: spelling '{spelling}' changed the extracted E/Z facts"
+                );
+            }
+        }
+    }
+
+    /// Before a whole-component E/Z plan can choose token polarity, every
+    /// equivalent spelling must expose the same canonical output occurrences
+    /// for the coupled carrier bonds.  Ring bonds deliberately expose both
+    /// legal digit occurrences; the future solver, not parse order, decides
+    /// which one carries a marker.
+    #[test]
+    fn issue503_ez_output_slots_are_spelling_invariant() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let expected = ez_output_slot_signature(&parse(input).unwrap());
+            assert!(
+                !expected.is_empty(),
+                "{input}: setup must expose candidate E/Z output slots"
+            );
+            for spelling in [observed_a, observed_b] {
+                assert_eq!(
+                    ez_output_slot_signature(&parse(spelling).unwrap()),
+                    expected,
+                    "{input}: spelling '{spelling}' changed canonical output slots"
+                );
+            }
+        }
+    }
+
+    /// The output-slot gate is intentionally component-local.  Before a new
+    /// #503 design changes canonical traversal, establish whether the *full*
+    /// rank-keyed DFS tree and ring-token layout already agree across the
+    /// equivalent spellings.  A mismatch would put the next investigation in
+    /// traversal/rank construction; agreement leaves only the writer's
+    /// stereochemical token and parity handling.
+    #[test]
+    fn issue503_full_canonical_skeleton_is_spelling_invariant() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let expected = canonical_skeleton_signature(&parse(input).unwrap());
+            for spelling in [observed_a, observed_b] {
+                assert_eq!(
+                    canonical_skeleton_signature(&parse(spelling).unwrap()),
+                    expected,
+                    "{input}: spelling '{spelling}' changed full canonical DFS skeleton"
+                );
+            }
+        }
+    }
+
+    /// Once all tree and ring occurrences agree, compare the rendered
+    /// canonical strings with only E/Z direction characters removed.  This
+    /// does not validate chemistry; it isolates whether the remaining #503
+    /// divergence is exclusively the placement/polarity of those characters
+    /// rather than atom, branch, ring, or tetrahedral-token serialization.
+    #[test]
+    fn issue503_directionless_canonical_text_is_spelling_invariant() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let directionless = |smiles: &str| {
+                canonical_smiles(&parse(smiles).unwrap())
+                    .chars()
+                    .filter(|ch| !matches!(ch, '/' | '\\'))
+                    .collect::<String>()
+            };
+            let expected = directionless(input);
+            for spelling in [observed_a, observed_b] {
+                assert_eq!(
+                    directionless(spelling),
+                    expected,
+                    "{input}: spelling '{spelling}' changed canonical text beyond E/Z directions"
+                );
+            }
+        }
+    }
+
+    /// The slot-space probes retain candidates using `geometry_fingerprint`.
+    /// Establish that this older diagnostic has the same spelling-invariant
+    /// precondition as the rank-keyed geometry-fact extractor before using an
+    /// empty output intersection as evidence about the writer.
+    #[test]
+    fn issue503_geometry_fingerprint_is_spelling_invariant() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let expected = geometry_fingerprint(&parse(input).unwrap());
+            for spelling in [observed_a, observed_b] {
+                assert_eq!(
+                    geometry_fingerprint(&parse(spelling).unwrap()),
+                    expected,
+                    "{input}: spelling '{spelling}' changed the slot-probe geometry fingerprint"
+                );
+            }
+        }
+    }
+
+    /// The complete slot probe includes every actual raw directional carrier,
+    /// not only substituent bonds reached through a coupled component.  The
+    /// latter misses aromatic-stash positions in the #503 canonical output
+    /// and falsely makes the semantic candidate intersection appear empty.
+    #[test]
+    fn issue503_complete_slot_probe_covers_every_canonical_direction_carrier() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            for spelling in [input, observed_a, observed_b] {
+                let output = canonical_smiles(&parse(spelling).unwrap());
+                let mol = parse(&output).unwrap();
+                let ends = CanonicalWriter::compute_stereo_alkene_ends(&mol);
+                let candidates: HashSet<BondIdx> =
+                    CanonicalWriter::coupling_components(&mol, &ends)
+                        .into_iter()
+                        .flatten()
+                        .flat_map(|end| CanonicalWriter::substituents(&mol, end))
+                        .map(|(_, bond)| bond)
+                        .collect();
+                let ranks = morgan_ranks(&mol);
+                let writer = CanonicalWriter::new(&mol, &ranks);
+                let raw_directional: HashSet<BondIdx> = mol
+                    .bonds()
+                    .filter_map(|(bond, _)| {
+                        matches!(
+                            writer.raw_input_direction(bond),
+                            Some(BondOrder::Up | BondOrder::Down)
+                        )
+                        .then_some(bond)
+                    })
+                    .collect();
+                assert!(
+                    raw_directional
+                        .iter()
+                        .any(|bond| !candidates.contains(bond)),
+                    "{spelling}: canonical output '{output}' no longer exercises the known \
+                     component-only slot-universe omission"
+                );
+                let complete_candidates: HashSet<_> =
+                    candidates.union(&raw_directional).copied().collect();
+                assert!(
+                    raw_directional
+                        .iter()
+                        .all(|bond| complete_candidates.contains(bond)),
+                    "{spelling}: complete slot universe omitted a canonical direction carrier"
+                );
+            }
+        }
+    }
+
+    /// The closing side of a ring digit is syntactically capable of carrying
+    /// its directional token (the parser applies the required orientation
+    /// flip).  Exhaust the two remaining *local* writer freedoms together:
+    /// every candidate-bond DFS priority and every candidate ring-marker
+    /// side.  A positive result would identify an admissible bounded plan;
+    /// a negative result proves that neither independent local preference nor
+    /// their combination can close #503.
+    #[test]
+    fn issue503_local_traversal_and_ring_marker_side_have_no_common_output() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let mut per_spelling = Vec::new();
+            for spelling in [input, observed_a, observed_b] {
+                let mol = parse(spelling).unwrap();
+                let geometry = geometry_fingerprint(&mol);
+                let ends = CanonicalWriter::compute_stereo_alkene_ends(&mol);
+                let mut component_bonds: Vec<_> = CanonicalWriter::coupling_components(&mol, &ends)
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|end| CanonicalWriter::substituents(&mol, end))
+                    .map(|(_, bond)| bond)
+                    .collect();
+                component_bonds.sort_unstable_by_key(|bond| bond.0);
+                component_bonds.dedup();
+                assert!(component_bonds.len() <= 8, "diagnostic bound exceeded");
+                let (ranks, _) = winning_individualized_ranks(&mol);
+                let mut outputs = HashSet::new();
+                for traversal_mask in 0usize..(1usize << component_bonds.len()) {
+                    let preferences: HashMap<BondIdx, bool> = component_bonds
+                        .iter()
+                        .enumerate()
+                        .map(|(index, &bond)| (bond, (traversal_mask & (1 << index)) != 0))
+                        .collect();
+                    for close_mask in 0usize..(1usize << component_bonds.len()) {
+                        let mut writer = CanonicalWriter::new(&mol, &ranks);
+                        writer.traversal_bond_preference = Some(preferences.clone());
+                        writer.ring_marker_on_close = component_bonds
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, &bond)| {
+                                ((close_mask & (1 << index)) != 0).then_some(bond)
+                            })
+                            .collect();
+                        let output = writer.write_all();
+                        let reparsed = parse(&output).unwrap_or_else(|e| {
+                            panic!("{spelling}: local-plan candidate did not parse: {e}: {output}")
+                        });
+                        if geometry_fingerprint(&reparsed) == geometry {
+                            outputs.insert(output);
+                        }
+                    }
+                }
+                per_spelling.push(outputs);
+            }
+            let common = per_spelling
+                .into_iter()
+                .reduce(|left, right| left.intersection(&right).cloned().collect())
+                .unwrap();
+            assert!(
+                common.is_empty(),
+                "{input}: local writer plan unexpectedly found {common:?}; \
+                 promote it from a probe only after its full contract is verified"
+            );
+        }
+    }
+
+    /// Local traversal choices cannot solve the #503 residuals.  This probe
+    /// holds the canonical DFS skeleton fixed, then exhausts the remaining
+    /// grammar-level freedom directly: every component candidate bond can be
+    /// plain, `/`, or `\\`, and every ring candidate may print its token at
+    /// either legal digit occurrence.  Candidates are reparsed and retained
+    /// only when their complete E/Z geometry fingerprint agrees with the
+    /// source.  It is intentionally test-only: a future production solver
+    /// must derive a rank-keyed component plan, not adopt a parse-indexed
+    /// enumeration.
+    #[test]
+    fn issue503_full_slot_polarity_space_has_common_output() {
+        let observed_pairs = [
+            (
+                r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
+                r"c3(c(c(/c3=N/CC)=N\[C@@H](Cc1ccc(NC(c2c(Cl)cncc2Cl)=O)cc1)C(O)=O)O)O",
+            ),
+            (
+                r"c/1(c(/c(c1=N\[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+                r"c1(c(c(/c1=N/[C@H](C(O)=O)Cc2ccc(NC(c3c(Cl)cncc3Cl)=O)cc2)=N\C(C)CCC)O)O",
+            ),
+            (
+                r"c/1(O)c(O)/c(=N\[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)c1=N\CCOC",
+                r"c1(O)c(O)c(=N/[C@@H](Cc3ccc(cc3)NC(=O)c2c(Cl)cncc2Cl)C(=O)O)\c1=N\CCOC",
+            ),
+        ];
+
+        for (&input, &(observed_a, observed_b)) in EZ_SHARED_CARRIER_HELD_OUT_RESIDUALS
+            .iter()
+            .zip(observed_pairs.iter())
+        {
+            let mut per_spelling = Vec::new();
+            let mut reranked_per_spelling = Vec::new();
+            for spelling in [input, observed_a, observed_b] {
+                let mol = parse(spelling).unwrap();
+                let geometry = geometry_fingerprint(&mol);
+                let ends = CanonicalWriter::compute_stereo_alkene_ends(&mol);
+                let mut component_bonds: Vec<_> = CanonicalWriter::coupling_components(&mol, &ends)
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|end| CanonicalWriter::substituents(&mol, end))
+                    .map(|(_, bond)| bond)
+                    .collect();
+                let (ranks, _) = winning_individualized_ranks(&mol);
+                let raw_directional: Vec<_> = (0..mol.bond_count())
+                    .map(|index| BondIdx(index as u32))
+                    .filter(|&bond| {
+                        matches!(
+                            CanonicalWriter::new(&mol, &ranks).raw_input_direction(bond),
+                            Some(BondOrder::Up | BondOrder::Down)
+                        )
+                    })
+                    .collect();
+                component_bonds.extend(raw_directional);
+                component_bonds.sort_unstable_by_key(|bond| bond.0);
+                component_bonds.dedup();
+                assert!(component_bonds.len() <= 8, "diagnostic bound exceeded");
+
+                let mut skeleton = CanonicalWriter::new(&mol, &ranks);
+                skeleton.find_ring_closures(&skeleton.canonical_atom_list());
+                let ring_component_bonds: Vec<_> = component_bonds
+                    .iter()
+                    .copied()
+                    .filter(|bond| skeleton.ring_bonds[bond.0 as usize])
+                    .collect();
+                assert!(
+                    ring_component_bonds.len() <= 8,
+                    "ring-side diagnostic bound exceeded"
+                );
+
+                let mut outputs = HashSet::new();
+                let mut reranked_outputs = HashSet::new();
+                let polarity_plans = 3usize.pow(component_bonds.len() as u32);
+                for polarity_code in 0..polarity_plans {
+                    let mut code = polarity_code;
+                    let orders: HashMap<BondIdx, BondOrder> = component_bonds
+                        .iter()
+                        .map(|&bond| {
+                            let choice = code % 3;
+                            code /= 3;
+                            let order = match choice {
+                                0 => CanonicalWriter::plain_order(mol.bond(bond).order),
+                                1 => BondOrder::Up,
+                                2 => BondOrder::Down,
+                                _ => unreachable!(),
+                            };
+                            (bond, order)
+                        })
+                        .collect();
+                    for close_mask in 0usize..(1usize << ring_component_bonds.len()) {
+                        let mut writer = CanonicalWriter::new(&mol, &ranks);
+                        writer.direct_ez_orders = Some(orders.clone());
+                        writer.ring_marker_on_close = ring_component_bonds
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, &bond)| {
+                                ((close_mask & (1 << index)) != 0).then_some(bond)
+                            })
+                            .collect();
+                        let output = writer.write_all();
+                        let reparsed = parse(&output).unwrap_or_else(|e| {
+                            panic!("{spelling}: full-slot candidate did not parse: {e}: {output}")
+                        });
+                        if geometry_fingerprint(&reparsed) == geometry {
+                            outputs.insert(output.clone());
+                            let (_, reranked) = winning_individualized_ranks_single(&reparsed);
+                            let reranked_mol = parse(&reranked).unwrap_or_else(|e| {
+                                panic!(
+                                    "{spelling}: reranked carrier candidate did not parse: {e}: {reranked}"
+                                )
+                            });
+                            if geometry_fingerprint(&reranked_mol) == geometry {
+                                reranked_outputs.insert(reranked);
+                            }
+                        }
+                    }
+                }
+                per_spelling.push(outputs);
+                reranked_per_spelling.push(reranked_outputs);
+            }
+            let selected: Vec<_> = per_spelling
+                .iter()
+                .map(|outputs| {
+                    outputs
+                        .iter()
+                        .min()
+                        .cloned()
+                        .expect("each spelling must have a semantic candidate")
+                })
+                .collect();
+            assert!(
+                selected.windows(2).all(|pair| pair[0] == pair[1]),
+                "{input}: independent full-slot minimization diverged: {selected:?}"
+            );
+            let common = per_spelling
+                .into_iter()
+                .reduce(|left, right| left.intersection(&right).cloned().collect())
+                .unwrap();
+            assert!(
+                !common.is_empty(),
+                "{input}: the complete carrier space unexpectedly has no common output"
+            );
+            let reranked_selected: Vec<_> = reranked_per_spelling
+                .iter()
+                .map(|outputs| {
+                    outputs
+                        .iter()
+                        .min()
+                        .cloned()
+                        .expect("each spelling must have a reranked semantic candidate")
+                })
+                .collect();
+            assert!(
+                reranked_selected.windows(2).all(|pair| pair[0] == pair[1]),
+                "{input}: independent reranked full-slot minimization diverged: \
+                 {reranked_selected:?}"
+            );
+            let reranked_common = reranked_per_spelling
+                .into_iter()
+                .reduce(|left, right| left.intersection(&right).cloned().collect())
+                .unwrap();
+            assert!(
+                !reranked_common.is_empty(),
+                "{input}: reranking the complete carrier space lost every common output"
+            );
+        }
+    }
+
+    /// The bounded complete-slot planner must converge the formerly
+    /// fail-closed residual spellings and admit their self-stable keys.
+    #[test]
+    fn ez_shared_carrier_held_out_residuals_converge_to_stable_keys() {
         let observed_pairs = [
             (
                 r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
@@ -4052,25 +5111,20 @@ mod tests {
                 .into_iter()
                 .map(|variant| canonical_smiles(&parse(variant).unwrap()))
                 .collect();
-            assert_eq!(
-                outputs.len(),
-                2,
-                "'{s}': the held-out audit residual must remain reproducible"
-            );
+            assert_eq!(outputs.len(), 1, "'{s}': held-out spellings must converge");
             assert!(
-                canonical_smiles_stable_key(&mol).is_none(),
-                "'{s}': unstable coupled E/Z residual must not become a cache key"
+                canonical_smiles_stable_key(&mol).is_some(),
+                "'{s}': converged aromatic E/Z residual must become a cache key"
             );
         }
     }
 
     /// Re-run the held-out Wave 3 residuals through the same deterministic
-    /// relabeling axis used by the corpus audit.  The residual is expected to
-    /// remain observable as exactly two canonical spellings; accepting one
-    /// winner here would silently turn an order-dependent traversal into a
-    /// cache/deduplication key.
+    /// relabeling axis used by the corpus audit. The complete planner must
+    /// converge every relabeling and observed equivalent spelling to one
+    /// semantic, self-stable canonical string.
     #[test]
-    fn ez_shared_carrier_held_out_residuals_remain_two_way_under_relabeling() {
+    fn ez_shared_carrier_held_out_residuals_converge_under_relabeling() {
         let observed_pairs = [
             (
                 r"c/3(c(/c(c3=N\CC)=N\[C@@H](Cc1ccc(NC(=O)c2c(cncc2Cl)Cl)cc1)C(O)=O)O)O",
@@ -4132,14 +5186,10 @@ mod tests {
                 );
                 outputs.insert(canonical_smiles(&observed_mol));
             }
-            assert_eq!(
-                outputs.len(),
-                2,
-                "'{input}': 256-seed residual audit must retain exactly two outputs"
-            );
+            assert_eq!(outputs.len(), 1, "'{input}': 256-seed audit must converge");
             assert!(
-                canonical_smiles_stable_key(&mol).is_none(),
-                "'{input}': two-way residual must remain fail-closed"
+                canonical_smiles_stable_key(&mol).is_some(),
+                "'{input}': converged residual must have a stable key"
             );
         }
     }

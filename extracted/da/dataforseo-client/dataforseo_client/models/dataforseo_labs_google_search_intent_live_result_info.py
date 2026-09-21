@@ -16,11 +16,9 @@ class DataforseoLabsGoogleSearchIntentLiveResultInfo(BaseModel):
     """
     DataforseoLabsGoogleSearchIntentLiveResultInfo
     """ # noqa: E501
-    language_code: Optional[StrictStr] = Field(default=None, description=r"*language code in a POST array*. if there is no data, then the value is_`null`n")
     items_count: Optional[StrictInt] = Field(default=None, description=r"*the number of results returned in the `items` array*")
     items: Optional[List[Optional[DataforseoLabsGoogleSearchIntentLiveItem]]] = Field(default=None, description=r"*array of items with relevant traffic estimation data*")
     __properties: ClassVar[List[str]] = [
-        "language_code", 
         "items_count", 
         "items", 
         ]
@@ -49,7 +47,6 @@ class DataforseoLabsGoogleSearchIntentLiveResultInfo(BaseModel):
 
         _dict = {}
 
-        _dict['language_code'] = self.language_code
         _dict['items_count'] = self.items_count
         items_items = []
         if self.items:
@@ -69,7 +66,6 @@ class DataforseoLabsGoogleSearchIntentLiveResultInfo(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "language_code": obj.get("language_code"),
             "items_count": obj.get("items_count"),
             "items": [DataforseoLabsGoogleSearchIntentLiveItem.from_dict(_item) for _item in obj["items"]] if obj.get("items") is not None else None,
         })

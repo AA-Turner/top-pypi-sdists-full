@@ -20,7 +20,7 @@ from faststream.kafka.configs import KafkaBrokerConfig
 from faststream.middlewares import AckPolicy
 
 if TYPE_CHECKING:
-    from aiokafka import ConsumerRecord, TopicPartition
+    from aiokafka import ConsumerRecord
     from aiokafka.abc import ConsumerRebalanceListener
     from aiokafka.coordinator.assignors.abstract import AbstractPartitionAssignor
     from fast_depends.dependencies import Dependant
@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         BrokerMiddleware,
         CustomCallable,
     )
+    from faststream.kafka.schemas import TopicPartition
 
 
 class KafkaPublisher(ArgsContainer):
@@ -137,7 +138,7 @@ class KafkaRoute(SubscriberRoute):
         pattern: str | None = None,
         partitions: Iterable["TopicPartition"] | None = (),
         # broker args
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         ack_policy: AckPolicy = EMPTY,
@@ -389,9 +390,10 @@ class KafkaRouter(
     KafkaRegistrator,
     BrokerRouter[
         Union[
-            "ConsumerRecord",
-            tuple["ConsumerRecord", ...],
-        ]
+            "ConsumerRecord[Any, Any]",
+            tuple["ConsumerRecord[Any, Any]", ...],
+        ],
+        KafkaBrokerConfig,
     ],
 ):
     """Includable to KafkaBroker router."""
@@ -401,7 +403,7 @@ class KafkaRouter(
         prefix: str = "",
         handlers: Iterable[KafkaRoute] = (),
         *,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         routers: Iterable[KafkaRegistrator] = (),
         parser: Optional["CustomCallable"] = None,

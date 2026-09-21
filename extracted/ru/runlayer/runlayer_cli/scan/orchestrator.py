@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future
 from dataclasses import dataclass, field, replace
+from itertools import chain
 from pathlib import Path
 import threading
 from typing import TypedDict, TypeVar
@@ -660,37 +661,88 @@ def _scan_cursor_plugin_phase(
     return configurations
 
 
+def _scan_native_and_wsl_homes(
+    scanner: Callable[..., _PhaseResult],
+    extra_home_roots: Sequence[Path],
+    *,
+    scan_status: ScanCompletionStatus,
+) -> list[_PhaseResult]:
+    """Run ``scanner`` natively, then once per WSL home, isolating each home.
+
+    A native failure still escapes to ``_best_effort_phase`` (the whole phase
+    is broken). One unreadable WSL home only drops that home's slice and marks
+    ``wsl_home_plugin_scan_failed`` so native and sibling-home results survive.
+    """
+    results = [scanner()]
+    for home in extra_home_roots:
+        try:
+            results.append(scanner(home=home))
+        except ScanResourceLimitExceeded:
+            raise
+        except Exception:
+            scan_status.mark_incomplete("wsl_home_plugin_scan_failed")
+            logger.warning("wsl_home_plugin_scan_failed", home=str(home), exc_info=True)
+    return results
+
+
+def _scan_plugin_configurations(
+    scanner: Callable[..., list[MCPClientConfig]],
+    message: str,
+    extra_home_roots: Sequence[Path],
+    *,
+    scan_status: ScanCompletionStatus,
+) -> list[MCPClientConfig]:
+    configurations = list(
+        chain.from_iterable(
+            _scan_native_and_wsl_homes(
+                scanner, extra_home_roots, scan_status=scan_status
+            )
+        )
+    )
+    _log_found_servers(message, configurations)
+    return configurations
+
+
 def _scan_claude_plugin_phase(
     extra_home_roots: Sequence[Path] = (),
+    *,
+    scan_status: ScanCompletionStatus,
 ) -> list[MCPClientConfig]:
     """Phase 3: scan Claude Code plugins."""
-    configurations = scan_claude_code_plugins()
-    for home in extra_home_roots:
-        configurations.extend(scan_claude_code_plugins(home=home))
-    _log_found_servers("Found MCP servers in Claude Code plugins", configurations)
-    return configurations
+    return _scan_plugin_configurations(
+        scan_claude_code_plugins,
+        "Found MCP servers in Claude Code plugins",
+        extra_home_roots,
+        scan_status=scan_status,
+    )
 
 
 def _scan_codex_plugin_phase(
     extra_home_roots: Sequence[Path] = (),
+    *,
+    scan_status: ScanCompletionStatus,
 ) -> list[MCPClientConfig]:
     """Phase 5: scan Codex plugins."""
-    configurations = scan_codex_plugins()
-    for home in extra_home_roots:
-        configurations.extend(scan_codex_plugins(home=home))
-    _log_found_servers("Found MCP servers in Codex plugins", configurations)
-    return configurations
+    return _scan_plugin_configurations(
+        scan_codex_plugins,
+        "Found MCP servers in Codex plugins",
+        extra_home_roots,
+        scan_status=scan_status,
+    )
 
 
 def _scan_opencode_plugin_phase(
     extra_home_roots: Sequence[Path] = (),
+    *,
+    scan_status: ScanCompletionStatus,
 ) -> list[MCPClientConfig]:
     """Phase 6: scan OpenCode plugins."""
-    configurations = scan_opencode_plugins()
-    for home in extra_home_roots:
-        configurations.extend(scan_opencode_plugins(home=home))
-    _log_found_servers("Found MCP servers in OpenCode plugins", configurations)
-    return configurations
+    return _scan_plugin_configurations(
+        scan_opencode_plugins,
+        "Found MCP servers in OpenCode plugins",
+        extra_home_roots,
+        scan_status=scan_status,
+    )
 
 
 def _scan_gemini_extension_phase() -> tuple[
@@ -708,13 +760,15 @@ def _scan_gemini_extension_phase() -> tuple[
 
 def _scan_copilot_plugin_phase(
     extra_home_roots: Sequence[Path] = (),
+    *,
+    scan_status: ScanCompletionStatus,
 ) -> tuple[list[MCPClientConfig], list[DiscoveredPluginArtifact]]:
     """Phase 8: scan Copilot plugins."""
-    configurations, artifacts = scan_copilot_plugins()
-    for home in extra_home_roots:
-        home_configurations, home_artifacts = scan_copilot_plugins(home=home)
-        configurations.extend(home_configurations)
-        artifacts.extend(home_artifacts)
+    results = _scan_native_and_wsl_homes(
+        scan_copilot_plugins, extra_home_roots, scan_status=scan_status
+    )
+    configurations = list(chain.from_iterable(configs for configs, _ in results))
+    artifacts = list(chain.from_iterable(found for _, found in results))
     _log_found_servers("Found MCP servers in Copilot plugins", configurations)
     return configurations, artifacts
 
@@ -1065,7 +1119,9 @@ def run_concurrent_scan_phases(
             timer,
             "phase_03_claude_code_plugins",
             lambda: _best_effort_phase(
-                lambda: _scan_claude_plugin_phase(wsl_homes),
+                lambda: _scan_claude_plugin_phase(
+                    wsl_homes, scan_status=phase_statuses.plugin_configurations
+                ),
                 default=[],
                 scan_status=phase_statuses.plugin_configurations,
                 reason="claude_plugin_scan_failed",
@@ -1077,7 +1133,9 @@ def run_concurrent_scan_phases(
             timer,
             "phase_05_codex_plugins",
             lambda: _best_effort_phase(
-                lambda: _scan_codex_plugin_phase(wsl_homes),
+                lambda: _scan_codex_plugin_phase(
+                    wsl_homes, scan_status=phase_statuses.plugin_configurations
+                ),
                 default=[],
                 scan_status=phase_statuses.plugin_configurations,
                 reason="codex_plugin_scan_failed",
@@ -1089,7 +1147,9 @@ def run_concurrent_scan_phases(
             timer,
             "phase_06_opencode_plugins",
             lambda: _best_effort_phase(
-                lambda: _scan_opencode_plugin_phase(wsl_homes),
+                lambda: _scan_opencode_plugin_phase(
+                    wsl_homes, scan_status=phase_statuses.plugin_configurations
+                ),
                 default=[],
                 scan_status=phase_statuses.plugin_configurations,
                 reason="opencode_plugin_scan_failed",
@@ -1113,7 +1173,9 @@ def run_concurrent_scan_phases(
             timer,
             "phase_08_copilot_plugins",
             lambda: _best_effort_phase(
-                lambda: _scan_copilot_plugin_phase(wsl_homes),
+                lambda: _scan_copilot_plugin_phase(
+                    wsl_homes, scan_status=phase_statuses.plugin_configurations
+                ),
                 default=([], []),
                 scan_status=phase_statuses.plugin_configurations,
                 reason="copilot_plugin_scan_failed",

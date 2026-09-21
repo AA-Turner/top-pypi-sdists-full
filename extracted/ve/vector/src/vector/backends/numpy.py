@@ -46,6 +46,8 @@ from vector._methods import (
     Vector4D,
     VectorProtocol,
     _aztype,
+    _check_coordinate_names,
+    _check_field_names,
     _coordinate_class_to_names,
     _coordinate_order,
     _handler_of,
@@ -58,7 +60,6 @@ from vector._typeutils import BoolCollection, FloatArray, ScalarCollection
 ArrayLike = ScalarCollection
 
 T = typing.TypeVar("T", bound="VectorNumpy")
-V = typing.TypeVar("V")
 
 SameVectorNumpyType = typing.TypeVar("SameVectorNumpyType", bound="VectorNumpy")
 
@@ -183,11 +184,52 @@ def _setitem(
                 "the same fields as " + type(array).__name__
             )
 
-        tofill = array[where]
+        base = array.view(numpy.ndarray)
         for name in what.dtype.names:
-            if is_momentum:
-                generic = _repr_momentum_to_generic.get(name, name)
-            tofill[generic] = what[name]
+            generic = _repr_momentum_to_generic.get(name, name) if is_momentum else name
+            # Index the field first so the assignment mutates ``array`` in place;
+            # ``base[where]`` would return a copy for boolean/fancy indices.
+            base[generic][where] = what[name]
+
+
+_COORDINATE_MARKERS = (
+    AzimuthalXY,
+    AzimuthalRhoPhi,
+    LongitudinalZ,
+    LongitudinalTheta,
+    LongitudinalEta,
+    TemporalT,
+    TemporalTau,
+)
+
+
+def _coordinate_marker_of(array: typing.Any) -> type[typing.Any]:
+    """
+    Resolves the coordinate marker class (e.g. ``AzimuthalXY``, ``LongitudinalZ``)
+    for a coordinate-class array via its MRO, so its field names can be looked up
+    in ``_coordinate_class_to_names``.
+    """
+    for t in type(array).__mro__:
+        if t in _COORDINATE_MARKERS:
+            return t
+    raise AssertionError(repr(array))
+
+
+def _coordinates_eq(self: typing.Any, other: typing.Any, cls: type[typing.Any]) -> bool:
+    """
+    Equality for coordinate-class arrays. Returns ``False`` for objects that are
+    not instances of the same coordinate class (e.g. comparing against a scalar)
+    or that have a different shape, then compares the semantic coordinate fields
+    of the two arrays element-wise.
+    """
+    if not isinstance(other, cls):
+        return False
+    if self.shape != other.shape:
+        return False
+    names = _coordinate_class_to_names[_coordinate_marker_of(self)]
+    self_base = self.view(numpy.ndarray)
+    other_base = other.view(numpy.ndarray)
+    return all(numpy.array_equal(self_base[f], other_base[f]) for f in names)
 
 
 def _getitem(
@@ -219,11 +261,11 @@ def _getitem(
             return out
 
         azimuthal, longitudinal, temporal = None, None, None
-        if isinstance(array, (VectorNumpy2D | VectorNumpy3D | VectorNumpy4D)):
+        if isinstance(array, (VectorNumpy2D, VectorNumpy3D, VectorNumpy4D)):
             azimuthal = array._azimuthal_type.ObjectClass(
                 *(out[x] for x in _coordinate_class_to_names[_aztype(array)])
             )
-        if isinstance(array, (VectorNumpy3D | VectorNumpy4D)):
+        if isinstance(array, (VectorNumpy3D, VectorNumpy4D)):
             longitudinal = array._longitudinal_type.ObjectClass(
                 *(out[x] for x in _coordinate_class_to_names[_ltype(array)])
             )
@@ -242,21 +284,14 @@ def _getitem(
         elif isinstance(array, VectorNumpy2D):
             return array.ObjectClass(azimuthal=azimuthal)
         elif issubclass(array.ObjectClass, vector.backends.object.AzimuthalObject):
-            return array.ObjectClass(*tuple(out)[:2])  # type: ignore[arg-type]
-        elif issubclass(array.ObjectClass, vector.backends.object.LongitudinalObject):
-            coords = (
-                out.view(numpy.ndarray)[0]
-                if len(out) == 1  # type: ignore[arg-type]
-                else out.view(numpy.ndarray)[2]
-            )
-            return array.ObjectClass(coords)  # type: ignore[call-arg]
+            names = _coordinate_class_to_names[_coordinate_marker_of(array)]
+            return array.ObjectClass(*(out[name] for name in names))
         else:
-            coords = (
-                out.view(numpy.ndarray)[0]
-                if len(out) == 1  # type: ignore[arg-type]
-                else out.view(numpy.ndarray)[3]
-            )
-            return array.ObjectClass(coords)  # type: ignore[call-arg]
+            # Coordinate-class arrays (longitudinal/temporal) may be views that
+            # retain the full vector dtype, so index by field name rather than
+            # position to support non-canonical field orderings.
+            (name,) = _coordinate_class_to_names[_coordinate_marker_of(array)]
+            return array.ObjectClass(out[name])  # type: ignore[call-arg]
 
 
 def _array_repr(
@@ -270,6 +305,29 @@ def _array_repr(
     name = type(array).__name__
     vanilla_array = array.view(numpy.ndarray)
     return name + repr(vanilla_array)[5:].replace("\n     ", "\n" + " " * len(name))
+
+
+def _momentum_to_generic_dtype(
+    dtype: numpy.dtype[typing.Any],
+) -> numpy.dtype[typing.Any]:
+    """
+    Builds a *new* structured dtype that maps momentum field names (``px``,
+    ``py``, ...) to their generic equivalents (``x``, ``y``, ...), preserving
+    formats and offsets. Returns a fresh object so the input dtype (which may be
+    shared with a base array) is never mutated.
+    """
+    names = dtype.names
+    fields = dtype.fields
+    if names is None or fields is None:
+        return dtype
+    return numpy.dtype(
+        {
+            "names": [_repr_momentum_to_generic.get(name, name) for name in names],
+            "formats": [fields[name][0] for name in names],
+            "offsets": [fields[name][1] for name in names],
+            "itemsize": dtype.itemsize,
+        }
+    )
 
 
 def _has(
@@ -462,13 +520,8 @@ class AzimuthalNumpyXY(AzimuthalNumpy, AzimuthalXY, GetItem, FloatArray):  # typ
 
     ObjectClass = vector.backends.object.AzimuthalObjectXY
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype(
-        [("x", numpy.float64), ("y", numpy.float64)]
-    )
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> AzimuthalNumpyXY:
-        if "dtype" in kwargs:
-            AzimuthalNumpyXY.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -478,15 +531,11 @@ class AzimuthalNumpyXY(AzimuthalNumpy, AzimuthalXY, GetItem, FloatArray):  # typ
                 'fields ("x", "y")'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, AzimuthalNumpyXY):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, AzimuthalNumpyXY)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, AzimuthalNumpyXY):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray, FloatArray]:
@@ -528,13 +577,8 @@ class AzimuthalNumpyRhoPhi(AzimuthalNumpy, AzimuthalRhoPhi, GetItem, FloatArray)
 
     ObjectClass = vector.backends.object.AzimuthalObjectRhoPhi
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype(
-        [("rho", numpy.float64), ("phi", numpy.float64)]
-    )
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> AzimuthalNumpyRhoPhi:
-        if "dtype" in kwargs:
-            AzimuthalNumpyRhoPhi.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -544,15 +588,11 @@ class AzimuthalNumpyRhoPhi(AzimuthalNumpy, AzimuthalRhoPhi, GetItem, FloatArray)
                 'fields ("rho", "phi")'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, AzimuthalNumpyRhoPhi):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, AzimuthalNumpyRhoPhi)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, AzimuthalNumpyRhoPhi):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray, FloatArray]:
@@ -593,11 +633,8 @@ class LongitudinalNumpyZ(LongitudinalNumpy, LongitudinalZ, GetItem, FloatArray):
 
     ObjectClass = vector.backends.object.LongitudinalObjectZ
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype([("z", numpy.float64)])
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> LongitudinalNumpyZ:
-        if "dtype" in kwargs:
-            LongitudinalNumpyZ.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -607,15 +644,11 @@ class LongitudinalNumpyZ(LongitudinalNumpy, LongitudinalZ, GetItem, FloatArray):
                 'field "z"'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, LongitudinalNumpyZ):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, LongitudinalNumpyZ)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, LongitudinalNumpyZ):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray]:
@@ -651,11 +684,8 @@ class LongitudinalNumpyTheta(LongitudinalNumpy, LongitudinalTheta, GetItem, Floa
 
     ObjectClass = vector.backends.object.LongitudinalObjectTheta
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype([("theta", numpy.float64)])
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> LongitudinalNumpyTheta:
-        if "dtype" in kwargs:
-            LongitudinalNumpyTheta.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -665,15 +695,11 @@ class LongitudinalNumpyTheta(LongitudinalNumpy, LongitudinalTheta, GetItem, Floa
                 'field "theta"'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, LongitudinalNumpyTheta):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, LongitudinalNumpyTheta)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, LongitudinalNumpyTheta):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray]:
@@ -709,11 +735,8 @@ class LongitudinalNumpyEta(LongitudinalNumpy, LongitudinalEta, GetItem, FloatArr
 
     ObjectClass = vector.backends.object.LongitudinalObjectEta
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype([("eta", numpy.float64)])
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> LongitudinalNumpyEta:
-        if "dtype" in kwargs:
-            LongitudinalNumpyEta.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -723,15 +746,11 @@ class LongitudinalNumpyEta(LongitudinalNumpy, LongitudinalEta, GetItem, FloatArr
                 'field "eta"'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, LongitudinalNumpyEta):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, LongitudinalNumpyEta)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, LongitudinalNumpyEta):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray]:
@@ -767,11 +786,8 @@ class TemporalNumpyT(TemporalNumpy, TemporalT, GetItem, FloatArray):  # type: ig
 
     ObjectClass = vector.backends.object.TemporalObjectT
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype([("t", numpy.float64)])
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> TemporalNumpyT:
-        if "dtype" in kwargs:
-            TemporalNumpyT.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -781,15 +797,11 @@ class TemporalNumpyT(TemporalNumpy, TemporalT, GetItem, FloatArray):  # type: ig
                 'field "t"'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, TemporalNumpyT):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, TemporalNumpyT)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, TemporalNumpyT):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray]:
@@ -817,11 +829,8 @@ class TemporalNumpyTau(TemporalNumpy, TemporalTau, GetItem, FloatArray):  # type
 
     ObjectClass = vector.backends.object.TemporalObjectTau
     _IS_MOMENTUM = False
-    dtype: numpy.dtype[typing.Any] = numpy.dtype([("tau", numpy.float64)])
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> TemporalNumpyTau:
-        if "dtype" in kwargs:
-            TemporalNumpyTau.dtype = numpy.dtype(kwargs["dtype"])
         return numpy.array(*args, **kwargs).view(cls)
 
     def __array_finalize__(self, obj: typing.Any) -> None:
@@ -831,15 +840,11 @@ class TemporalNumpyTau(TemporalNumpy, TemporalTau, GetItem, FloatArray):  # type
                 'field "tau"'
             )
 
-    def __eq__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, TemporalNumpyTau):
-            return False
-        return all(coord1 == coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __eq__(self, other: object) -> bool:
+        return _coordinates_eq(self, other, TemporalNumpyTau)
 
-    def __ne__(self, other: typing.Any) -> bool:
-        if self.dtype != other.dtype or not isinstance(other, TemporalNumpyTau):
-            return True
-        return any(coord1 != coord2 for coord1, coord2 in zip(self, other, strict=True))
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
 
     @property
     def elements(self) -> tuple[FloatArray]:
@@ -862,11 +867,64 @@ class TemporalNumpyTau(TemporalNumpy, TemporalTau, GetItem, FloatArray):  # type
         return self["tau"]
 
 
+_azimuthal_numpy_type: dict[str, type[AzimuthalNumpyXY | AzimuthalNumpyRhoPhi]] = {
+    "x": AzimuthalNumpyXY,
+    "rho": AzimuthalNumpyRhoPhi,
+}
+_longitudinal_numpy_type: dict[
+    str,
+    type[LongitudinalNumpyZ | LongitudinalNumpyTheta | LongitudinalNumpyEta],
+] = {
+    "z": LongitudinalNumpyZ,
+    "theta": LongitudinalNumpyTheta,
+    "eta": LongitudinalNumpyEta,
+}
+_temporal_numpy_type: dict[str, type[TemporalNumpyT | TemporalNumpyTau]] = {
+    "t": TemporalNumpyT,
+    "tau": TemporalNumpyTau,
+}
+
+
+def _finalize_vector(array: typing.Any) -> None:
+    """
+    The ``__array_finalize__`` of every vector class: validates the structured
+    dtype against the coordinates that ``array``'s class expects, renames
+    momentum-aliases to their generic names, and picks the coordinate types.
+    """
+    if array.dtype.names is None:
+        raise TypeError(
+            f"{type(array).__name__} must have a structured dtype containing "
+            "its coordinates as fields"
+        )
+    coordinates = _check_field_names(array, array.dtype.names)
+
+    # Install a fresh dtype on ``array`` rather than mutating the dtype object,
+    # which is shared with the base array and would rename the caller's fields.
+    # Views and slices of what was already renamed have nothing left to rename.
+    if any(generic != given for generic, given in coordinates):
+        array.dtype = _momentum_to_generic_dtype(array.dtype)
+
+    generic_names = [generic for generic, _ in coordinates]
+    array._azimuthal_type = _azimuthal_numpy_type[generic_names[0]]
+    if len(generic_names) > 2:
+        array._longitudinal_type = _longitudinal_numpy_type[generic_names[2]]
+    if len(generic_names) > 3:
+        array._temporal_type = _temporal_numpy_type[generic_names[3]]
+
+    _is_type_safe(array)
+
+
 class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
     """Mixin class for NumPy vectors."""
 
     lib = numpy
     dtype: numpy.dtype[typing.Any]
+
+    def __array_finalize__(self, obj: typing.Any) -> None:
+        if obj is None:
+            return
+
+        _finalize_vector(self)
 
     def allclose(
         self,
@@ -900,11 +958,11 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
             ),  # type: ignore[call-overload]
         )
 
-    def __eq__(self, other: typing.Any) -> typing.Any:
+    def __eq__(self, other: object) -> typing.Any:
         # numpy does not have typing overload for `other` of the type `Any`
         return numpy.equal(self, other)  # type: ignore[call-overload]
 
-    def __ne__(self, other: typing.Any) -> typing.Any:
+    def __ne__(self, other: object) -> typing.Any:
         # numpy does not have typing overload for `other` of the type `Any`
         return numpy.not_equal(self, other)  # type: ignore[call-overload]
 
@@ -1048,7 +1106,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
             and isinstance(inputs[0], Vector)
             and not isinstance(inputs[1], Vector)
         ):
-            result = numpy.absolute(inputs[0]) ** inputs[1]
+            result = numpy.absolute(inputs[0]) ** inputs[1]  # type: ignore[call-overload]
             for output in outputs:
                 assert output.dtype.names is not None
                 for name in output.dtype.names:
@@ -1060,7 +1118,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
         ):
             if len(outputs) != 0:
                 raise TypeError(
-                    "output of 'numpy.square' is scalar, cannot fill a VectorObject with 'out'"
+                    "output of 'numpy.square' is scalar, cannot fill a VectorNumpy with 'out'"
                 )
             if isinstance(inputs[0], Vector2D):
                 return inputs[0].rho2
@@ -1072,7 +1130,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
         elif ufunc is numpy.sqrt and len(inputs) == 1 and isinstance(inputs[0], Vector):
             if len(outputs) != 0:
                 raise TypeError(
-                    "output of 'numpy.sqrt' is scalar, cannot fill a VectorObject with 'out'"
+                    "output of 'numpy.sqrt' is scalar, cannot fill a VectorNumpy with 'out'"
                 )
             if isinstance(inputs[0], Vector2D):
                 return inputs[0].rho2 ** 0.25
@@ -1084,7 +1142,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
         elif ufunc is numpy.cbrt and len(inputs) == 1 and isinstance(inputs[0], Vector):
             if len(outputs) != 0:
                 raise TypeError(
-                    "output of 'numpy.cbrt' is scalar, cannot fill a VectorObject with 'out'"
+                    "output of 'numpy.cbrt' is scalar, cannot fill a VectorNumpy with 'out'"
                 )
             if isinstance(inputs[0], Vector2D):
                 return inputs[0].rho2 ** 0.16666666666666666
@@ -1101,7 +1159,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
         ):
             if len(outputs) != 0:
                 raise TypeError(
-                    "output of 'numpy.matmul' is scalar, cannot fill a VectorObject with 'out'"
+                    "output of 'numpy.matmul' is scalar, cannot fill a VectorNumpy with 'out'"
                 )
             return inputs[0].dot(inputs[1])
 
@@ -1113,7 +1171,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
         ):
             if len(outputs) != 0:
                 raise TypeError(
-                    "output of 'numpy.equal' is scalar, cannot fill a VectorObject with 'out'"
+                    "output of 'numpy.equal' is scalar, cannot fill a VectorNumpy with 'out'"
                 )
             return inputs[0].equal(inputs[1])
 
@@ -1125,7 +1183,7 @@ class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
         ):
             if len(outputs) != 0:
                 raise TypeError(
-                    "output of 'numpy.equal' is scalar, cannot fill a VectorObject with 'out'"
+                    "output of 'numpy.not_equal' is scalar, cannot fill a VectorNumpy with 'out'"
                 )
             return inputs[0].not_equal(inputs[1])
 
@@ -1176,7 +1234,7 @@ class VectorNumpy2D(VectorNumpy, Planar, Vector2D, FloatArray):  # type: ignore[
 
     ObjectClass = vector.backends.object.VectorObject2D
     _IS_MOMENTUM = False
-    _azimuthal_type: type[AzimuthalNumpyXY] | type[AzimuthalNumpyRhoPhi]
+    _azimuthal_type: type[AzimuthalNumpyXY | AzimuthalNumpyRhoPhi]
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> VectorNumpy2D:
         """Returns the object of ``VectorNumpy2D``. Behaves as ``__init__`` in this case."""
@@ -1185,22 +1243,6 @@ class VectorNumpy2D(VectorNumpy, Planar, Vector2D, FloatArray):  # type: ignore[
         else:
             array = numpy.array(*args, **kwargs)
         return array.view(cls)
-
-    def __array_finalize__(self, obj: typing.Any) -> None:
-        if obj is None:
-            return
-
-        if _has(self, ("x", "y")):
-            self._azimuthal_type = AzimuthalNumpyXY
-        elif _has(self, ("rho", "phi")):
-            self._azimuthal_type = AzimuthalNumpyRhoPhi
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'fields ("x", "y") or ("rho", "phi")'
-            )
-
-        _is_type_safe(self)
 
     def __str__(self) -> str:
         return str(self.view(numpy.ndarray))
@@ -1246,8 +1288,8 @@ class VectorNumpy2D(VectorNumpy, Planar, Vector2D, FloatArray):  # type: ignore[
         if returns in ([float], [bool]):
             return result
 
-        elif len(returns) == 1 or (
-            (len(returns) == 2 and returns[1] is None)
+        elif (
+            (len(returns) == 1 or (len(returns) == 2 and returns[1] is None))
             and isinstance(returns[0], type)
             and issubclass(returns[0], Azimuthal)
         ):
@@ -1359,26 +1401,6 @@ class MomentumNumpy2D(PlanarMomentum, VectorNumpy2D):  # type: ignore[misc]
     _IS_MOMENTUM = True
     dtype: numpy.dtype[typing.Any]
 
-    def __array_finalize__(self, obj: typing.Any) -> None:
-        if obj is None:
-            return
-
-        self.dtype.names = tuple(
-            _repr_momentum_to_generic.get(x, x) for x in (self.dtype.names or ())
-        )
-
-        if _has(self, ("x", "y")):
-            self._azimuthal_type = AzimuthalNumpyXY
-        elif _has(self, ("rho", "phi")):
-            self._azimuthal_type = AzimuthalNumpyRhoPhi
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'fields ("x", "y") or ("rho", "phi") or ("px", "py") or ("pt", "phi")'
-            )
-
-        _is_type_safe(self)
-
     def __repr__(self) -> str:
         return _array_repr(self, True)
 
@@ -1412,12 +1434,10 @@ class VectorNumpy3D(VectorNumpy, Spatial, Vector3D, FloatArray):  # type: ignore
     ObjectClass = vector.backends.object.VectorObject3D
     _IS_MOMENTUM = False
 
-    _azimuthal_type: type[AzimuthalNumpyXY] | type[AzimuthalNumpyRhoPhi]
-    _longitudinal_type: (
-        type[LongitudinalNumpyZ]
-        | type[LongitudinalNumpyTheta]
-        | type[LongitudinalNumpyEta]
-    )
+    _azimuthal_type: type[AzimuthalNumpyXY | AzimuthalNumpyRhoPhi]
+    _longitudinal_type: type[
+        LongitudinalNumpyZ | LongitudinalNumpyTheta | LongitudinalNumpyEta
+    ]
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> VectorNumpy3D:
         """Returns the object of ``VectorNumpy3D``. Behaves as ``__init__`` in this case."""
@@ -1426,33 +1446,6 @@ class VectorNumpy3D(VectorNumpy, Spatial, Vector3D, FloatArray):  # type: ignore
         else:
             array = numpy.array(*args, **kwargs)
         return array.view(cls)
-
-    def __array_finalize__(self, obj: typing.Any) -> None:
-        if obj is None:
-            return
-
-        if _has(self, ("x", "y")):
-            self._azimuthal_type = AzimuthalNumpyXY
-        elif _has(self, ("rho", "phi")):
-            self._azimuthal_type = AzimuthalNumpyRhoPhi
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'fields ("x", "y") or ("rho", "phi")'
-            )
-        if _has(self, ("z",)):
-            self._longitudinal_type = LongitudinalNumpyZ
-        elif _has(self, ("theta",)):
-            self._longitudinal_type = LongitudinalNumpyTheta
-        elif _has(self, ("eta",)):
-            self._longitudinal_type = LongitudinalNumpyEta
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'field "z" or "theta" or "eta"'
-            )
-
-        _is_type_safe(self)
 
     def __str__(self) -> str:
         return str(self.view(numpy.ndarray))
@@ -1478,7 +1471,8 @@ class VectorNumpy3D(VectorNumpy, Spatial, Vector3D, FloatArray):  # type: ignore
             ... )
             >>> vec.azimuthal
             AzimuthalNumpyXY([(1.1, 2.1), (1.2, 2.2), (1.3, 2.3), (1.4, 2.4),
-                  (1.5, 2.5)], dtype=[('x', '<f8'), ('y', '<f8')])
+                              (1.5, 2.5)],
+                             dtype=[('x', '<f8'), ('y', '<f8'), ('z', '<f8')])
         """
         return self.view(self._azimuthal_type)
 
@@ -1486,6 +1480,9 @@ class VectorNumpy3D(VectorNumpy, Spatial, Vector3D, FloatArray):  # type: ignore
     def longitudinal(self) -> LongitudinalNumpy:
         """
         Returns the longitudinal type class for the given ``VectorNumpy3D`` object.
+
+        The returned view shares storage with the original vector, so it reports
+        the full backing ``dtype`` even though it exposes only its own coordinate.
 
         Example:
             >>> import vector
@@ -1500,7 +1497,7 @@ class VectorNumpy3D(VectorNumpy, Spatial, Vector3D, FloatArray):  # type: ignore
             ... )
             >>> vec.longitudinal
             LongitudinalNumpyZ([(3.1,), (3.2,), (3.3,), (4.4,), (5.5,)],
-                   dtype=[('z', '<f8')])
+                               dtype=[('x', '<f8'), ('y', '<f8'), ('z', '<f8')])
         """
         return self.view(self._longitudinal_type)
 
@@ -1660,36 +1657,6 @@ class MomentumNumpy3D(SpatialMomentum, VectorNumpy3D):  # type: ignore[misc]
     _IS_MOMENTUM = True
     dtype: numpy.dtype[typing.Any]
 
-    def __array_finalize__(self, obj: typing.Any) -> None:
-        if obj is None:
-            return
-
-        self.dtype.names = tuple(
-            _repr_momentum_to_generic.get(x, x) for x in (self.dtype.names or ())
-        )
-        if _has(self, ("x", "y")):
-            self._azimuthal_type = AzimuthalNumpyXY
-        elif _has(self, ("rho", "phi")):
-            self._azimuthal_type = AzimuthalNumpyRhoPhi
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'fields ("x", "y") or ("rho", "phi") or ("px", "py") or ("pt", "phi")'
-            )
-        if _has(self, ("z",)):
-            self._longitudinal_type = LongitudinalNumpyZ
-        elif _has(self, ("theta",)):
-            self._longitudinal_type = LongitudinalNumpyTheta
-        elif _has(self, ("eta",)):
-            self._longitudinal_type = LongitudinalNumpyEta
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'field "z" or "theta" or "eta" or "pz"'
-            )
-
-        _is_type_safe(self)
-
     def __repr__(self) -> str:
         return _array_repr(self, True)
 
@@ -1725,13 +1692,11 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
     ObjectClass = vector.backends.object.VectorObject4D
     _IS_MOMENTUM = False
 
-    _azimuthal_type: type[AzimuthalNumpyXY] | type[AzimuthalNumpyRhoPhi]
-    _longitudinal_type: (
-        type[LongitudinalNumpyZ]
-        | type[LongitudinalNumpyTheta]
-        | type[LongitudinalNumpyEta]
-    )
-    _temporal_type: type[TemporalNumpyT] | type[TemporalNumpyTau]
+    _azimuthal_type: type[AzimuthalNumpyXY | AzimuthalNumpyRhoPhi]
+    _longitudinal_type: type[
+        LongitudinalNumpyZ | LongitudinalNumpyTheta | LongitudinalNumpyEta
+    ]
+    _temporal_type: type[TemporalNumpyT | TemporalNumpyTau]
 
     def __new__(cls, *args: typing.Any, **kwargs: typing.Any) -> VectorNumpy4D:
         """Returns the object of ``VectorNumpy4D``. Behaves as ``__init__`` in this case."""
@@ -1740,44 +1705,6 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
         else:
             array = numpy.array(*args, **kwargs)
         return array.view(cls)
-
-    def __array_finalize__(self, obj: typing.Any) -> None:
-        if obj is None:
-            return
-
-        if _has(self, ("x", "y")):
-            self._azimuthal_type = AzimuthalNumpyXY
-        elif _has(self, ("rho", "phi")):
-            self._azimuthal_type = AzimuthalNumpyRhoPhi
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'fields ("x", "y") or ("rho", "phi")'
-            )
-
-        if _has(self, ("z",)):
-            self._longitudinal_type = LongitudinalNumpyZ
-        elif _has(self, ("theta",)):
-            self._longitudinal_type = LongitudinalNumpyTheta
-        elif _has(self, ("eta",)):
-            self._longitudinal_type = LongitudinalNumpyEta
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'field "z" or "theta" or "eta"'
-            )
-
-        if _has(self, ("t",)):
-            self._temporal_type = TemporalNumpyT
-        elif _has(self, ("tau",)):
-            self._temporal_type = TemporalNumpyTau
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'field "t" or "tau"'
-            )
-
-        _is_type_safe(self)
 
     def __str__(self) -> str:
         return str(self.view(numpy.ndarray))
@@ -1803,7 +1730,8 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
             ... )
             >>> vec.azimuthal
             AzimuthalNumpyXY([(1.1, 2.1), (1.2, 2.2), (1.3, 2.3), (1.4, 2.4),
-                  (1.5, 2.5)], dtype=[('x', '<f8'), ('y', '<f8')])
+                              (1.5, 2.5)],
+                             dtype=[('x', '<f8'), ('y', '<f8'), ('z', '<f8'), ('t', '<f8')])
         """
         return self.view(self._azimuthal_type)
 
@@ -1811,6 +1739,9 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
     def longitudinal(self) -> LongitudinalNumpy:
         """
         Returns the longitudinal type class for the given ``VectorNumpy4D`` object.
+
+        The returned view shares storage with the original vector, so it reports
+        the full backing ``dtype`` even though it exposes only its own coordinate.
 
         Example:
             >>> import vector
@@ -1825,7 +1756,7 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
             ... )
             >>> vec.longitudinal
             LongitudinalNumpyZ([(3.1,), (3.2,), (3.3,), (3.4,), (3.5,)],
-                   dtype=[('z', '<f8')])
+                               dtype=[('x', '<f8'), ('y', '<f8'), ('z', '<f8'), ('t', '<f8')])
         """
         return self.view(self._longitudinal_type)
 
@@ -1833,6 +1764,9 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
     def temporal(self) -> TemporalNumpy:
         """
         Returns the temporal type class for the given ``VectorNumpy4D`` object.
+
+        The returned view shares storage with the original vector, so it reports
+        the full backing ``dtype`` even though it exposes only its own coordinate.
 
         Example:
             >>> import vector
@@ -1846,7 +1780,7 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
             ... )
             >>> vec.temporal
             TemporalNumpyT([(4.1,), (4.2,), (4.3,), (4.4,)],
-                   dtype=[('t', '<f8')])
+                           dtype=[('x', '<f8'), ('y', '<f8'), ('z', '<f8'), ('t', '<f8')])
         """
         return self.view(self._temporal_type)
 
@@ -2043,48 +1977,6 @@ class MomentumNumpy4D(LorentzMomentum, VectorNumpy4D):  # type: ignore[misc]
     _IS_MOMENTUM = True
     dtype: numpy.dtype[typing.Any]
 
-    def __array_finalize__(self, obj: typing.Any) -> None:
-        if obj is None:
-            return
-
-        self.dtype.names = tuple(
-            _repr_momentum_to_generic.get(x, x) for x in (self.dtype.names or ())
-        )
-
-        if _has(self, ("x", "y")):
-            self._azimuthal_type = AzimuthalNumpyXY
-        elif _has(self, ("rho", "phi")):
-            self._azimuthal_type = AzimuthalNumpyRhoPhi
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'fields ("x", "y") or ("rho", "phi") or ("px", "py") or ("pt", "phi")'
-            )
-
-        if _has(self, ("z",)):
-            self._longitudinal_type = LongitudinalNumpyZ
-        elif _has(self, ("theta",)):
-            self._longitudinal_type = LongitudinalNumpyTheta
-        elif _has(self, ("eta",)):
-            self._longitudinal_type = LongitudinalNumpyEta
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'field "z" or "theta" or "eta" or "pz"'
-            )
-
-        if _has(self, ("t",)):
-            self._temporal_type = TemporalNumpyT
-        elif _has(self, ("tau",)):
-            self._temporal_type = TemporalNumpyTau
-        else:
-            raise TypeError(
-                f"{type(self).__name__} must have a structured dtype containing "
-                'field "t" or "tau" or "E" or "e" or "energy" or "M" or "m" or "mass"'
-            )
-
-        _is_type_safe(self)
-
     def __repr__(self) -> str:
         return _array_repr(self, True)
 
@@ -2144,6 +2036,13 @@ def array(*args: typing.Any, **kwargs: typing.Any) -> VectorNumpy:
     - ``mass`` may be substituted for ``tau``
 
     to make the vector a momentum vector.
+
+    A coordinate may be given only once, whether by its generic name or through
+    a momentum-alias, and the names must form exactly one of the combinations
+    above; anything else raises a ``TypeError``.
+
+    Names that are not coordinates become extra fields of the array, which can be
+    used to carry properties of a particle other than its momentum.
     """
     names: tuple[str, ...]
     if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], dict):
@@ -2152,16 +2051,18 @@ def array(*args: typing.Any, **kwargs: typing.Any) -> VectorNumpy:
         names = numpy.dtype(kwargs["dtype"]).names or ()
     elif len(args) >= 2:
         names = numpy.dtype(args[1]).names or ()
+    elif len(args) == 1:
+        names = numpy.asarray(args[0]).dtype.names or ()
     else:
         names = ()
 
     cls: type[VectorNumpy]
 
-    is_momentum = any(x in _repr_momentum_to_generic for x in names)
+    is_momentum, dimension, _, _ = _check_coordinate_names(names, allow_extra=True)
 
-    if any(x in ("t", "E", "e", "energy", "tau", "M", "m", "mass") for x in names):
+    if dimension == 4:
         cls = MomentumNumpy4D if is_momentum else VectorNumpy4D
-    elif any(x in ("z", "pz", "theta", "eta") for x in names):
+    elif dimension == 3:
         cls = MomentumNumpy3D if is_momentum else VectorNumpy3D
     else:
         cls = MomentumNumpy2D if is_momentum else VectorNumpy2D

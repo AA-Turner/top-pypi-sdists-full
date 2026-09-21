@@ -10,8 +10,8 @@ from ..annotations import CaseExact
 from ..annotations import Mutability
 from ..annotations import Required
 from ..attributes import ComplexAttribute
-from ..path import URN
 from ..reference import Reference
+from ..urn import URN
 from .resource import Resource
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ class GroupMember(ComplexAttribute):
     ref: Annotated[  # type: ignore[type-arg]
         Reference[Union["User", "Group"]] | None,
         Mutability.immutable,
-    ] = Field(None, serialization_alias="$ref")
+    ] = Field(None, serialization_alias="$ref", validation_alias="$ref")
     """The reference URI of a target resource, if the attribute is a
     reference."""
 
@@ -34,7 +34,7 @@ class GroupMember(ComplexAttribute):
     )
     """A label indicating the attribute's function, e.g., "work" or "home"."""
 
-    display: Annotated[str | None, Mutability.read_only] = None
+    display: str | None = None
 
 
 class Group(Resource[Any]):

@@ -560,6 +560,29 @@ class AiCatalogManager:
         window = state.get("context_window")
         return int(window) if isinstance(window, int) and window > 0 else None
 
+    def model_display_name(self, model_ref: str | None) -> str | None:
+        """THE NAME A PERSON READS for a model id, name or alias.
+
+        ``ai.model_definition.common_name`` — "Claude Opus 5", not
+        ``claude-opus-5``. Returns None when the catalog is not loaded or the
+        ref does not resolve to a row that declares one: a caller then shows
+        the raw ref rather than inventing a prettier name for it, because a
+        made-up display name is a worse lie than a technical one.
+
+        🚨 IT IS THE CATALOG'S JOB, NOT EACH SURFACE'S (sixteenth cold walk,
+        2026-09-21, defect D). The Bench screen printed ``claude-opus-5`` and
+        ``claude-sonnet-4-5`` at a non-technical Expert because the only thing
+        the server had to hand was the routing ref. Every surface that names a
+        model to a person calls this; nobody keeps a second table of names.
+        """
+        if not model_ref:
+            return None
+        state = self._model_state.get(self.resolve_model_ref(str(model_ref)))
+        if not state:
+            return None
+        common = str(state.get("common_name") or "").strip()
+        return common or None
+
     def model_states(self) -> dict[str, dict[str, Any]]:
         """Every live model's state row (id -> dict) — the input to
         ``matrx_ai.catalog.lifecycle`` (deprecated warning / retired refusal /

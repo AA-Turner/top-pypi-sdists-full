@@ -91,17 +91,42 @@ _SKILL_NAME_RE = regex_safe.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def _write(s: str | None) -> None:
-    if s:
+    """Write a protocol response, tolerating a harness that has already left.
+
+    A response nobody reads is not a hook failure: the harness has moved on,
+    so the flow records a ``harness_closed`` marker and stays status="ok"
+    instead of counting toward the hook-failure alerts. Only the stdout write
+    is covered; pipe errors from HTTP or subprocess paths still raise.
+    """
+    if not s:
+        return
+    try:
         hook_io.write_stdout(s)
+    except OSError as exc:
+        if not hook_io.harness_gone(exc):
+            raise
+        hook_io.discard_process_stdout()
+        flow_trace.marker("harness_closed")
 
 
 # Flow operation per normalized hook event (bounded cardinality; everything
 # else is an observational event). Contract with the backend ingest allowlist
-# (flow_trace.CLIENT_FLOW_OPERATIONS).
+# (flow_contract.CLIENT_FLOW_OPERATIONS).
+#
+# Every event that can deny is an enforcement flow; the fleet hook-failure
+# alerts rely on it, because only enforcement flows can fail closed. The
+# shell/file-read events carry Cursor's and Goose's local policy checks and
+# route Windsurf through the relay-backed pre-tool check, so they are pre-tool
+# flows even though they are not spelled PreToolUse. Cursor's camelCase
+# spellings pass through normalization unchanged and need their own rows.
 _HOOK_FLOW_OPERATIONS = {
     "PreToolUse": "cli.hook_pre_tool",
     "beforeMCPExecution": "cli.hook_pre_tool",
     "PermissionRequest": "cli.hook_pre_tool",
+    "BeforeShellExecution": "cli.hook_pre_tool",
+    "beforeShellExecution": "cli.hook_pre_tool",
+    "BeforeReadFile": "cli.hook_pre_tool",
+    "beforeReadFile": "cli.hook_pre_tool",
     "PostToolUse": "cli.hook_post_tool",
     "PostToolUseFailure": "cli.hook_post_tool",
     "Stop": "cli.hook_stop",
@@ -257,6 +282,9 @@ def _deny_and_exit(resp: HookResponse, user_msg: str, agent_msg: str) -> NoRetur
     if stderr_msg is not None:
         hook_io.write_stderr(stderr_msg + "\n")
         sys.exit(2)
+    # The exit status is kept even when the deny body never reached the harness:
+    # a client that stopped reading stdout may still honour exit codes (Grok
+    # blocks on 2), and no Runlayer signal observes the code either way.
     _write(resp.deny(user_msg, agent_msg))
     sys.exit(resp.deny_exit_code())
 
@@ -506,6 +534,8 @@ def _is_shell_tool(tool_name: str) -> bool:
         "run_shell_command",
         # Cline CLI's built-in shell tool id.
         "run_commands",
+        # Devin CLI / Devin Local shell tool; input is ``{command, shell_id}``.
+        "exec",
     }
 
 
@@ -876,19 +906,13 @@ def run_hook() -> None:
 
     argv = hook_io.argv()
     if len(argv) >= 2 and argv[1] in ("--version", "-v"):
-        hook_io.write_stdout(f"aiwatch version {__version__}\n")
+        _write(f"aiwatch version {__version__}\n")
         sys.exit(0)
 
     client = detect_client()
 
     if should_noop_for_cursor(client):
         _write('{"permission":"allow"}')
-        sys.exit(0)
-
-    if should_noop_for_devin(client):
-        # Devin treats exit 0 with no stdout as "continue"; the hook Devin
-        # imported from another client's config is handled by Runlayer's own
-        # ``--client devin-cli`` entry instead.
         sys.exit(0)
 
     env_hook_event_name = hook_io.getenv("HOOK_EVENT_NAME", "")
@@ -898,6 +922,8 @@ def run_hook() -> None:
     try:
         raw_input = hook_io.read_stdin()
     except Exception:
+        if should_noop_for_devin(client):
+            sys.exit(0)
         _deny_and_exit(
             HookResponse(client, env_hook_event_name or "PreToolUse"),
             messages.DEFAULT_USER_MSG,
@@ -911,6 +937,17 @@ def run_hook() -> None:
     # now take the same path instead of a traceback.
     decoded = parse_json(raw_input)["value"] if raw_input else {}
     input_data: dict[str, Any] = decoded if isinstance(decoded, dict) else {}
+
+    # Devin treats exit 0 with no stdout as "continue"; a hook Devin imported
+    # from another client's config is handled by Runlayer's own
+    # ``--client devin-cli`` entry instead. The check waits for the payload
+    # because a Claude-native tool name marks a real Claude Code host that
+    # Devin merely spawned; for ambiguous names (``mcp__*``, lifecycle
+    # events) the guard falls back to Claude Code's ``CLAUDECODE`` marker.
+    if should_noop_for_devin(
+        client, tool_name=str(input_data.get("tool_name", "") or "")
+    ):
+        sys.exit(0)
 
     if client == Client.WINDSURF:
         # Cascade nests detail under tool_info and names the event
@@ -965,6 +1002,8 @@ def run_hook() -> None:
 
     with flow_trace.flow(_hook_operation(hook_type)):
         flow_trace.set_session_id(_session_id_from_payload(input_data))
+        flow_trace.set_client(client.value)
+        flow_trace.set_hook_event(hook_type)
         # The entry-path stamp (shim/thin client) covers what the flow timer
         # cannot: process exec, stdin read, and the IPC handoff before now.
         _record_startup_ms()
@@ -977,6 +1016,10 @@ def run_hook() -> None:
             # Includes version-skew drain windows: rollout spikes are expected;
             # sustained elevation indicates supervision failure.
             flow_trace.marker("daemon_fallback")
+        if hook_io.stdout_reader_gone():
+            # Cohort marker only; the flow still runs in full because the
+            # event POST is the audit record, whoever reads the response.
+            flow_trace.marker("harness_departed")
         credentials_rejected = (
             mode is AIWatchMode.MONITOR and _monitor_credentials_rejected()
         )
@@ -1312,7 +1355,6 @@ _DISPATCH_TABLE: dict[str, Callable[[_DispatchCtx], None]] = {
     ),
     "beforeReadFile": _handle_file_read,
     "BeforeReadFile": _handle_file_read,
-    "beforeTabFileRead": _handle_file_read,
     "Stop": _handle_stop,
     "beforeShellExecution": _handle_shell_execution,
     "BeforeShellExecution": _handle_shell_execution,

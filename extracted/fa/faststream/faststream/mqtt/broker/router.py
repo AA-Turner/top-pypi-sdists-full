@@ -1,7 +1,7 @@
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from typing import TYPE_CHECKING, Any, Optional
 
-from zmqtt import QoS
+from zmqtt import Message, QoS
 
 from faststream._internal.broker.router import (
     ArgsContainer,
@@ -69,7 +69,7 @@ class MQTTRoute(SubscriberRoute):
         # broker arguments
         ack_policy: AckPolicy = EMPTY,
         no_reply: bool = False,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         max_workers: int = 1,
@@ -100,7 +100,7 @@ class MQTTRoute(SubscriberRoute):
 
 class MQTTRouter(
     MQTTRegistrator,
-    BrokerRouter["Any"],
+    BrokerRouter[Message, MQTTBrokerConfig],
 ):
     """Includable to MQTTBroker router."""
 
@@ -109,7 +109,7 @@ class MQTTRouter(
         prefix: str = "",
         handlers: Iterable[MQTTRoute] = (),
         *,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         routers: Iterable[MQTTRegistrator] = (),
         parser: Optional["CustomCallable"] = None,

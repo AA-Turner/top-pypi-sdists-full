@@ -28,8 +28,11 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
+from matrx_graph.content_ir.envelope import KIND_KEY
+
 from matrx_ai.config.citations import NormalizedCitation
 from matrx_ai.db.content_types.data_ref import DataRef
+from matrx_ai.decisions.kinds import DecisionAnswer, DecisionQuestion, DecisionUsage
 
 # ---------------------------------------------------------------------------
 # Base
@@ -650,6 +653,81 @@ class ContextInputPart(_MessagePartBase):
 
 
 # ---------------------------------------------------------------------------
+# DecisionQuestionsPart
+# Stored as: { "type": "decision_questions", "__kind": "decision_questions",
+#              "questions": [ {name, type, instructions, criteria, ...} ] }
+#
+# The QUESTION side of the decision modality. It is a PART and not a control or
+# a resource because it is what is being ASKED inside the conversation content
+# (`common-docs/systems/agents/typed-messages/FEATURE.md`, the primitives
+# table): the raw provider call puts it in the body beside the state.
+#
+# The state a decision reasons over is the OTHER parts of the SAME message —
+# there is deliberately no `state` field here to get out of sync with them.
+#
+# The question models are the registered `decision_questions` kind's own models
+# (`matrx_ai.decisions.kinds`), so the part, the kind, the registry row and the
+# generated TypeScript all validate one shape. The contract rules — snake_case
+# unique names, noul/choice/score, 2-255 choice options, 2-10 score levels —
+# live in that model and are enforced here for free.
+# ---------------------------------------------------------------------------
+
+
+class DecisionQuestionsPart(_MessagePartBase):
+    type: Literal["decision_questions"] = "decision_questions"
+    # The kind marker is DATA (the __kind law). Declared, so a payload that
+    # already carries it validates and every dump keeps it.
+    kind: Literal["decision_questions"] = Field(
+        default="decision_questions",
+        alias=KIND_KEY,
+        serialization_alias=KIND_KEY,
+    )
+    questions: list[DecisionQuestion] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _names_are_unique(self) -> "DecisionQuestionsPart":
+        seen: set[str] = set()
+        for question in self.questions:
+            if question.name in seen:
+                raise ValueError(
+                    f"Decision question name {question.name!r} appears twice in one "
+                    "part. Each name is one output field, so names must be unique."
+                )
+            seen.add(question.name)
+        return self
+
+
+# ---------------------------------------------------------------------------
+# DecisionAnswersPart
+# Stored as: { "type": "decision_answers", "__kind": "decision_answers",
+#              "model": ..., "method": ..., "answers": {...},
+#              "unanswerable": {...}, "usage": {...}, "cost_usd": ... }
+#
+# The ASSISTANT side of the decision modality: one part, never prose. The whole
+# answer is one typed kind instance so the runner renders it with a primitive
+# and battle puts two of them side by side with a verdict column.
+# ---------------------------------------------------------------------------
+
+
+class DecisionAnswersPart(_MessagePartBase):
+    type: Literal["decision_answers"] = "decision_answers"
+    kind: Literal["decision_answers"] = Field(
+        default="decision_answers",
+        alias=KIND_KEY,
+        serialization_alias=KIND_KEY,
+    )
+    model: str = Field(min_length=1)
+    # native = the holder computed the probability itself; verbalized = a text
+    # model stated its own; verbalized_calibrated = that, corrected by a
+    # per-agent-version calibration. Never inferred at read time.
+    method: Literal["native", "verbalized", "verbalized_calibrated"]
+    answers: dict[str, DecisionAnswer] = Field(default_factory=dict)
+    unanswerable: dict[str, str] = Field(default_factory=dict)
+    usage: DecisionUsage
+    cost_usd: float = Field(ge=0.0)
+
+
+# ---------------------------------------------------------------------------
 # Persisted union + validated request-side union
 # ---------------------------------------------------------------------------
 
@@ -676,6 +754,8 @@ MessagePart = (
     | ListInputPart
     | DataInputPart
     | ContextInputPart
+    | DecisionQuestionsPart
+    | DecisionAnswersPart
 )
 
 
@@ -798,6 +878,8 @@ _UserInputPartModel = (
     | ListInputPart
     | DataInputPart
     | ContextInputPart
+    | DecisionQuestionsPart
+    | DecisionAnswersPart
 )
 
 _MEDIA_TYPE_ALIASES: dict[str, str] = {
@@ -909,6 +991,8 @@ MESSAGE_PART_REGISTRY: dict[str, type[_MessagePartBase]] = {
     "input_list": ListInputPart,
     "input_data": DataInputPart,
     "input_context": ContextInputPart,
+    "decision_questions": DecisionQuestionsPart,
+    "decision_answers": DecisionAnswersPart,
 }
 
 # All concrete (non-media-union) types for codegen
@@ -939,6 +1023,8 @@ MESSAGE_PART_MODELS: list[type[_MessagePartBase]] = [
     ListInputPart,
     DataInputPart,
     ContextInputPart,
+    DecisionQuestionsPart,
+    DecisionAnswersPart,
 ]
 
 
@@ -1020,6 +1106,13 @@ def validate_message_content(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 f"validation failed — {exc}"
             ) from exc
 
-        validated.append(part.model_dump(mode="json", exclude_none=True))
+        # by_alias=True or the `__kind` MARKER IS LOST. The two decision parts
+        # declare their marker as a FIELD named `kind` carrying
+        # `serialization_alias=KIND_KEY`; a dump without by_alias emits the
+        # field name, so a persisted decision_answers row came back keyed
+        # `kind` and NO client could resolve it to its kind component (the
+        # __kind law: the marker is part of the data). The only aliases in this
+        # module are those two markers, so this changes nothing else.
+        validated.append(part.model_dump(mode="json", exclude_none=True, by_alias=True))
 
     return validated

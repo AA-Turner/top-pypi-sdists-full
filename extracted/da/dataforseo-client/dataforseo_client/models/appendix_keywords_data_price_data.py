@@ -30,6 +30,7 @@ class AppendixKeywordsDataPriceData(BaseModel):
     clickstream_data: Optional[AppendixClickstreamDataKeywordsDataPriceData] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     google_ads: Optional[AppendixGoogleAdsKeywordsDataPriceData] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     keyword_performance: Optional[AppendixAKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     keywords_for_keywords: Optional[AppendixAKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     keywords_for_site: Optional[AppendixAKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -49,6 +50,7 @@ class AppendixKeywordsDataPriceData(BaseModel):
         "clickstream_data", 
         "errors", 
         "google_ads", 
+        "id_list", 
         "keyword_performance", 
         "keywords_for_keywords", 
         "keywords_for_site", 
@@ -93,6 +95,7 @@ class AppendixKeywordsDataPriceData(BaseModel):
         _dict['clickstream_data'] = self.clickstream_data.to_dict() if self.clickstream_data else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
         _dict['google_ads'] = self.google_ads.to_dict() if self.google_ads else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['keyword_performance'] = self.keyword_performance.to_dict() if self.keyword_performance else None
         _dict['keywords_for_keywords'] = self.keywords_for_keywords.to_dict() if self.keywords_for_keywords else None
         _dict['keywords_for_site'] = self.keywords_for_site.to_dict() if self.keywords_for_site else None
@@ -123,6 +126,7 @@ class AppendixKeywordsDataPriceData(BaseModel):
             "clickstream_data": AppendixClickstreamDataKeywordsDataPriceData.from_dict(obj["clickstream_data"]) if obj.get("clickstream_data") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
             "google_ads": AppendixGoogleAdsKeywordsDataPriceData.from_dict(obj["google_ads"]) if obj.get("google_ads") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
             "keyword_performance": AppendixAKeywordsDataPriceDataInfo.from_dict(obj["keyword_performance"]) if obj.get("keyword_performance") is not None else None,
             "keywords_for_keywords": AppendixAKeywordsDataPriceDataInfo.from_dict(obj["keywords_for_keywords"]) if obj.get("keywords_for_keywords") is not None else None,
             "keywords_for_site": AppendixAKeywordsDataPriceDataInfo.from_dict(obj["keywords_for_site"]) if obj.get("keywords_for_site") is not None else None,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.12.324
+Version: 1.12.359
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -42,8 +42,8 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.57
-Requires-Dist: abxpkg==1.12.129
-Requires-Dist: abx-plugins==1.12.285
+Requires-Dist: abxpkg==1.12.142
+Requires-Dist: abx-plugins==1.12.323
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -274,6 +274,31 @@ uvx abx-dl version
 ```bash
 abx-dl install wget title
 ```
+
+#### Docker
+
+The image includes the downloader plugins and their dependencies. Mount an
+output directory at `/out` to keep the downloaded files:
+
+<!--pytest.mark.docker_required-->
+```bash
+set -Eeuo pipefail
+output_dir="$(mktemp -d)"
+image="${ABXDL_IMAGE:-archivebox/abx-dl:latest}"
+trap 'rm -rf "$output_dir"' EXIT
+docker run --rm \
+  --volume "$output_dir:/out" \
+  "$image" \
+  --no-install --max-urls=1 --plugins=title,wget 'https://example.com'
+test -s "$output_dir/index.jsonl"
+test -s "$output_dir/title/title.txt"
+test -s "$output_dir/wget/example.com/index.html"
+grep -q 'Example Domain' "$output_dir/title/title.txt"
+grep -q 'Example Domain' "$output_dir/wget/example.com/index.html"
+```
+
+To persist browser personas, also mount their directory at `/data/personas`.
+The image does not create an anonymous persona volume.
 
 <br/>
 

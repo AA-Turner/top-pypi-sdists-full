@@ -1061,15 +1061,8 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         threshold_dir="crop_t0", crops=("maize", "beans"), today=None,
         hvstat_csv=None, calendar_xlsx=None, countries=None,
         eval_years=None, out_dir=None, n_perm=N_PERM, figures=True,
-        feature_set=None, forecast_offset=None):
-    """Enumerate, score and forecast every eligible HarvestStat combination.
-
-    ``forecast_offset`` pins the init used for the forecast to that many
-    months before planting, instead of taking the freshest usable one.
-    """
-    if forecast_offset is not None and not 1 <= forecast_offset <= MAX_OFFSET:
-        raise ValueError(f"forecast_offset must be 1..{MAX_OFFSET}, "
-                         f"got {forecast_offset}")
+        feature_set=None):
+    """Enumerate, score and forecast every eligible HarvestStat combination."""
     if parser is None:
         from geocif import logger as log
         logger_obj, parser = log.setup_logger_parser(path_config_files)
@@ -1103,11 +1096,6 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         # Region goes in the directory name: two regional runs launched in
         # the same minute would otherwise land in the same timestamped dir.
         suffix += "_" + re.sub(r"\W+", "_", region_label.lower()).strip("_")
-    if forecast_offset:
-        # A pinned-offset run must not land on the free-running run's path:
-        # the two differ only in the forecast, and the maps look identical
-        # at a glance.
-        suffix += f"_off{forecast_offset}"
     out = Path(out_dir) if out_dir else (
         root / "ml" / "analysis" / ts / "explore" / f"s2s_africa{suffix}")
     out.mkdir(parents=True, exist_ok=True)
@@ -1249,15 +1237,8 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             continue
 
         # --- forecast the pending season with the freshest usable init ---
-        # `forecast_offset` pins the init instead: the freshest one is not
-        # always the most skilful, and comparing the map at the best
-        # hindcast offset against the issued one is a routine question.
-        # Pinning is DIAGNOSTIC — the offset is chosen on the same years the
-        # skill is measured on, so a pinned run is not an honest forecast.
-        cand_offsets = ([forecast_offset] if forecast_offset
-                        else range(1, MAX_OFFSET + 1))
         fx_f = None
-        for off in cand_offsets:
+        for off in range(1, MAX_OFFSET + 1):
             cand = build_features(tp, t2, cal["planting_month"], cal["wraps"],
                                   off, [hy], fnids)
             if not cand.empty:
@@ -1265,10 +1246,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                 break
         if fx_f is None:
             rec.update(status="no_init",
-                       reason=(f"offset {forecast_offset} builds no features "
-                               f"for the pending season" if forecast_offset
-                               else "no published init covers the pending "
-                                    "season"))
+                       reason="no published init covers the pending season")
             combos.append(rec)
             excluded.append(rec)
             continue

@@ -7,8 +7,8 @@ from ..annotations import CaseExact
 from ..annotations import Mutability
 from ..annotations import Required
 from ..attributes import ComplexAttribute
-from ..path import URN
 from ..reference import Reference
+from ..urn import URN
 from .resource import Extension
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ class Manager(ComplexAttribute):
     ref: Annotated[  # type: ignore[type-arg]
         Reference["User"] | None,
         Required.true,
-    ] = Field(None, serialization_alias="$ref")
+    ] = Field(None, serialization_alias="$ref", validation_alias="$ref")
     """The URI of the SCIM resource representing the User's manager."""
 
     display_name: Annotated[str | None, Mutability.read_only] = None

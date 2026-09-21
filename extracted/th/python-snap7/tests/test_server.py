@@ -1,18 +1,20 @@
-from ctypes import c_char
 import logging
 import socket
 import time
+import unittest
+from ctypes import c_char
 from datetime import datetime
+from threading import Thread
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
-import unittest
-from threading import Thread
-from unittest.mock import MagicMock
 
 from snap7.client import Client
-from snap7.error import server_errors, error_text, S7ConnectionError
-from snap7.server import Server, ServerISOConnection
-from snap7.type import SrvEvent, mkEvent, mkLog, SrvArea, Parameter, Block
+from snap7.datatypes import S7Area, S7WordLen
+from snap7.error import S7ConnectionError, S7ProtocolError, error_text, server_errors
+from snap7.server import EVC_DATA_READ, EVC_DATA_WRITE, EVC_SERVER_STARTED, EVC_SERVER_STOPPED, Server, ServerISOConnection
+from snap7.type import Block, Parameter, SrvArea, SrvEvent, mkEvent, mkLog
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -98,16 +100,86 @@ class TestServer(unittest.TestCase):
         self.server.unregister_area(area_code, index)
 
     def test_events_callback(self) -> None:
+        events: list[SrvEvent] = []
+
         def event_call_back(event: SrvEvent) -> None:
-            logging.debug(event)
+            events.append(event)
 
         self.server.set_events_callback(event_call_back)
+        self.server.clear_events()
+
+        self.server.register_area(SrvArea.DB, 1, bytearray(8))
+        address = ("127.0.0.1", 102)
+
+        read_pdu = self.server.protocol.build_read_request(S7Area.DB, 1, 2, S7WordLen.BYTE, 3)
+        self.server._handle_read_area(self.server._parse_request(read_pdu), address)
+
+        write_pdu = self.server.protocol.build_write_request(S7Area.DB, 1, 4, S7WordLen.BYTE, b"\x01\x02")
+        self.server._handle_write_area(self.server._parse_request(write_pdu), address)
+
+        self.assertEqual([event.EvtCode for event in events], [EVC_DATA_READ, EVC_DATA_WRITE])
+        self.assertEqual(
+            [(event.EvtParam1, event.EvtParam2, event.EvtParam3, event.EvtParam4) for event in events],
+            [(SrvArea.DB, 1, 2, 3), (SrvArea.DB, 1, 4, 2)],
+        )
+        read_event = self.server.pick_event()
+        write_event = self.server.pick_event()
+        assert isinstance(read_event, SrvEvent)
+        assert isinstance(write_event, SrvEvent)
+        self.assertEqual((read_event, write_event), tuple(events))
+        self.assertEqual(read_event.EvtCode, EVC_DATA_READ)
+        self.assertEqual(write_event.EvtCode, EVC_DATA_WRITE)
+        self.assertFalse(self.server.pick_event())
+
+    def test_event_queue_is_bounded(self) -> None:
+        self.server.clear_events()
+
+        for param in range(1025):
+            self.server._emit_event(EVC_DATA_READ, param1=param)
+
+        first_event = self.server.pick_event()
+        assert isinstance(first_event, SrvEvent)
+        self.assertEqual(first_event.EvtParam1, 1)
+
+        events = [first_event]
+        while event := self.server.pick_event():
+            assert isinstance(event, SrvEvent)
+            events.append(event)
+        self.assertEqual(len(events), 1024)
 
     def test_read_events_callback(self) -> None:
+        events: list[SrvEvent] = []
+
         def read_events_call_back(event: SrvEvent) -> None:
-            logging.debug(event)
+            events.append(event)
 
         self.server.set_read_events_callback(read_events_call_back)
+        self.server.register_area(SrvArea.DB, 1, bytearray(4))
+
+        read_pdu = self.server.protocol.build_read_request(S7Area.DB, 1, 0, S7WordLen.BYTE, 4)
+        self.server._handle_read_area(self.server._parse_request(read_pdu), ("127.0.0.1", 102))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].EvtCode, EVC_DATA_READ)
+
+    def test_lifecycle_events_reach_callback_and_queue(self) -> None:
+        server = Server(log=False)
+        events: list[SrvEvent] = []
+        server.set_events_callback(events.append)
+
+        try:
+            server.start(tcp_port=0)
+            server.stop()
+        finally:
+            server.destroy()
+
+        self.assertEqual([event.EvtCode for event in events], [EVC_SERVER_STARTED, EVC_SERVER_STOPPED])
+        started_event = server.pick_event()
+        stopped_event = server.pick_event()
+        assert isinstance(started_event, SrvEvent)
+        assert isinstance(stopped_event, SrvEvent)
+        self.assertEqual(started_event.EvtCode, EVC_SERVER_STARTED)
+        self.assertEqual(stopped_event.EvtCode, EVC_SERVER_STOPPED)
 
     def test_pick_event(self) -> None:
         event = self.server.pick_event()
@@ -316,6 +388,69 @@ SERVER_PORT = 12200
 
 @pytest.mark.server
 class TestServerISOConnectionLimits:
+    def test_connection_confirm_has_valid_length_and_tpdu_size(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection.dst_ref = 0x000F
+        connection.tpdu_size = 0x09
+
+        connection_confirm = connection._build_cotp_cc()
+
+        assert connection_confirm == bytes.fromhex("09d0000f000100c00109")
+        assert connection_confirm[0] == len(connection_confirm) - 1
+
+    def test_connection_confirm_echoes_request_tsaps(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection_request = bytes.fromhex("11e00000000f00c1020100c2020102c0010a")
+
+        assert connection._parse_cotp_cr(connection_request)
+
+        connection_confirm = connection._build_cotp_cc()
+        assert connection_confirm == bytes.fromhex("11d0000f000100c0010ac1020100c2020102")
+        assert connection_confirm[0] == len(connection_confirm) - 1
+
+    def test_disconnect_confirm_has_valid_length(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection.dst_ref = 0x000F
+        connection.src_ref = 0x0001
+
+        disconnect_confirm = connection._build_cotp_dc()
+
+        assert disconnect_confirm == bytes.fromhex("05c0000f0001")
+        assert disconnect_confirm[0] == len(disconnect_confirm) - 1
+
+    def test_a_disconnect_request_ends_the_connection_normally(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection._recv_exact = MagicMock(
+            side_effect=[
+                b"\x03\x00\x00\x0b",
+                b"\x06\x80\x00\x00\x01\x00\x00",
+            ]
+        )
+
+        with pytest.raises(ConnectionAbortedError):
+            connection.receive_data()
+
+        sent = b"".join(call.args[0] for call in client_socket.sendall.call_args_list)
+        assert sent[5:6] == bytes([connection.COTP_DC]), "the disconnect is confirmed"
+
+    def test_a_disconnect_request_is_confirmed_even_if_the_peer_is_gone(self) -> None:
+        client_socket = MagicMock()
+        client_socket.sendall.side_effect = OSError("broken pipe")
+        connection = ServerISOConnection(client_socket)
+        connection._recv_exact = MagicMock(
+            side_effect=[
+                b"\x03\x00\x00\x0b",
+                b"\x06\x80\x00\x00\x01\x00\x00",
+            ]
+        )
+
+        with pytest.raises(ConnectionAbortedError):
+            connection.receive_data()
+
     def test_partial_frame_timeout_closes_connection(self) -> None:
         client_socket = MagicMock()
         client_socket.recv.side_effect = [b"\x03", TimeoutError()]
@@ -323,6 +458,39 @@ class TestServerISOConnectionLimits:
 
         with pytest.raises(S7ConnectionError, match="partial frame"):
             connection._recv_exact(4, time.monotonic() + 1)
+
+    def test_payload_gets_fresh_deadline_after_header(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection._recv_exact = MagicMock(side_effect=[b"\x03\x00\x00\x08", b"\x02\xf0\x80x"])
+
+        with patch("snap7.server.time.monotonic", side_effect=[100.0, 104.0]):
+            assert connection.receive_data() == b"x"
+
+        assert connection._recv_exact.call_args_list[0].args == (4, 105.0)
+        assert connection._recv_exact.call_args_list[1].args == (4, 109.0)
+
+    def test_timeout_after_header_closes_connection(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection._recv_exact = MagicMock(side_effect=[b"\x03\x00\x00\x08", TimeoutError("timed out")])
+
+        with pytest.raises(S7ConnectionError, match="after TPKT header"):
+            connection.receive_data()
+
+    def test_timeout_between_fragments_closes_connection(self) -> None:
+        client_socket = MagicMock()
+        connection = ServerISOConnection(client_socket)
+        connection._recv_exact = MagicMock(
+            side_effect=[
+                b"\x03\x00\x00\x08",
+                b"\x02\xf0\x00x",
+                TimeoutError("timed out"),
+            ]
+        )
+
+        with pytest.raises(S7ConnectionError, match="between COTP fragments"):
+            connection.receive_data()
 
     def test_reassembled_request_size_is_bounded(self) -> None:
         client_socket = MagicMock()
@@ -501,6 +669,136 @@ class TestServerUserdataOperations(unittest.TestCase):
         szl = self.client.read_szl(0x0011, 0)
         self.assertGreater(szl.Header.LengthDR, 0)
 
+    def test_parse_order_code_s71516f(self) -> None:
+        """Parse a real S7-1516F dump — should use 0x0007 firmware, not 0x0081 boot loader.
+
+        Verified by @fls-witturcom: TIA Portal shows V2.9.2 (record 0x0007),
+        not V3.3.0 (record 0x0081 boot loader).
+        """
+        from snap7.szl import parse_order_code_szl
+        from snap7.type import S7SZL
+
+        # Real trimmed hex dump from CPU 1516F-3 PN/DP, courtesy of @fls-witturcom
+        payload = (
+            b"\x00\x1c\x00\x05"
+            b"\x00\x01\x36\x45\x53\x37\x20\x35\x31\x36\x2d\x33\x46\x4e\x30\x32\x2d\x30\x41\x42\x30\x20\x00\x00\x00\x02\x00\x00"
+            b"\x00\x06\x36\x45\x53\x37\x20\x35\x31\x36\x2d\x33\x46\x4e\x30\x32\x2d\x30\x41\x42\x30\x20\x00\x00\x00\x02\x00\x00"
+            b"\x00\x07\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x00\x00\x56\x02\x09\x02"
+            b"\x00\x80\x36\x45\x53\x37\x39\x35\x34\x2d\x38\x4c\x45\x30\x33\x2d\x30\x41\x41\x30\x20\x20\x00\x00\x01\x00\x00\x00"
+            b"\x00\x81\x42\x6f\x6f\x74\x20\x4c\x6f\x61\x64\x65\x72\x20\x20\x20\x20\x20\x20\x20\x20\x20\x00\x00\x56\x03\x03\x00"
+        )
+        szl = S7SZL()
+        szl.Header.LengthDR = len(payload)
+        for i, b in enumerate(payload):
+            szl.Data[i] = b
+
+        result = parse_order_code_szl(szl)
+        self.assertIn(b"6ES7 516-3FN02-0AB0", result.OrderCode)
+        # Firmware V2.9.2 from record 0x0007 (NOT boot loader V3.3.0 from 0x0081)
+        self.assertEqual(result.V1, 2)
+        self.assertEqual(result.V2, 9)
+        self.assertEqual(result.V3, 2)
+
+    def test_parse_order_code_s71510sp(self) -> None:
+        """Parse a real S7-1510SP dump — should use 0x0007 firmware, not 0x0081 boot loader.
+
+        Verified by @fls-witturcom: TIA Portal identifies the firmware from
+        record 0x0007, not the boot loader in 0x0081.
+        """
+        from snap7.szl import parse_order_code_szl
+        from snap7.type import S7SZL
+
+        # Real trimmed hex dump from CPU 1510SP F-1 PN, courtesy of @fls-witturcom
+        payload = (
+            b"\x00\x1c\x00\x05"
+            b"\x00\x01\x36\x45\x53\x37\x20\x35\x31\x30\x2d\x31\x53\x4b\x30\x33\x2d\x30\x41\x42\x30\x20\x00\x00\x00\x03\x00\x00"
+            b"\x00\x06\x36\x45\x53\x37\x20\x35\x31\x30\x2d\x31\x53\x4b\x30\x33\x2d\x30\x41\x42\x30\x20\x00\x00\x00\x03\x00\x00"
+            b"\x00\x07\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x00\x00\x56\x03\x00\x03"
+            b"\x00\x80\x36\x45\x53\x37\x39\x35\x34\x2d\x38\x4c\x45\x30\x33\x2d\x30\x41\x41\x30\x20\x20\x00\x00\x01\x00\x00\x00"
+            b"\x00\x81\x42\x6f\x6f\x74\x20\x4c\x6f\x61\x64\x65\x72\x20\x20\x20\x20\x20\x20\x20\x20\x20\x00\x00\x56\x04\x02\x03"
+        )
+        szl = S7SZL()
+        szl.Header.LengthDR = len(payload)
+        for i, b in enumerate(payload):
+            szl.Data[i] = b
+
+        result = parse_order_code_szl(szl)
+        self.assertIn(b"6ES7 510-1SK03-0AB0", result.OrderCode)
+        # Firmware V3.0.3 from record 0x0007 (NOT boot loader V4.2.3 from 0x0081)
+        self.assertEqual(result.V1, 3)
+        self.assertEqual(result.V2, 0)
+        self.assertEqual(result.V3, 3)
+
+    def test_parse_order_code_s71214c(self) -> None:
+        """Parse a real S7-1214C dump whose installed firmware is in 0x0007."""
+        from snap7.szl import parse_order_code_szl
+        from snap7.type import S7SZL
+
+        # Real trimmed hex dump from CPU 1214C, courtesy of @fls-witturcom
+        payload = (
+            b"\x00\x1c\x00\x03"
+            b"\x00\x01\x36\x45\x53\x37\x20\x32\x31\x34\x2d\x31\x41\x47\x34\x30\x2d\x30\x58\x42\x30\x20\x00\x00\x00\x10\x20\x20"
+            b"\x00\x06\x36\x45\x53\x37\x20\x32\x31\x34\x2d\x31\x41\x47\x34\x30\x2d\x30\x58\x42\x30\x20\x00\x00\x00\x10\x20\x20"
+            b"\x00\x07\x36\x45\x53\x37\x20\x32\x31\x34\x2d\x31\x41\x47\x34\x30\x2d\x30\x58\x42\x30\x20\x00\x00\x56\x04\x06\x00"
+        )
+        szl = S7SZL()
+        szl.Header.LengthDR = len(payload)
+        for i, b in enumerate(payload):
+            szl.Data[i] = b
+
+        result = parse_order_code_szl(szl)
+        self.assertIn(b"6ES7 214-1AG40-0XB0", result.OrderCode)
+        self.assertEqual(result.V1, 4)
+        self.assertEqual(result.V2, 6)
+        self.assertEqual(result.V3, 0)
+
+    def test_parse_order_code_s7300_flat_text(self) -> None:
+        """parse_order_code_szl handles S7-300 flat ASCII text layout."""
+        from snap7.szl import parse_order_code_szl
+        from snap7.type import S7SZL
+
+        # Real hex dump from CPU 315-2 PN/DP, courtesy of @fls-witturcom
+        payload = (
+            b"\x00\x1c\x00\x03"
+            b"\x43\x50\x55\x20\x33\x31\x35\x2d\x32\x20\x50\x4e\x2f\x44\x50\x20\x20\x20\x20\x20"
+            b"\x36\x45\x53\x37\x20\x33\x31\x35\x2d\x32\x4e\x44\x30\x37\x2d\x30\x41\x42\x30\x20"
+            b"\x00\x01\x00\x04\x00\x04"
+            b"\x4d\x50\x49\x2f\x44\x50\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20"
+            b"\x20\x20\x20\x20\x20\x20\x00\x02\x00\x00\x00\x04\x50\x4e\x2d\x4a\x4f\x20"
+        )
+        szl = S7SZL()
+        szl.Header.LengthDR = len(payload)
+        for i, b in enumerate(payload):
+            szl.Data[i] = b
+
+        result = parse_order_code_szl(szl)
+        self.assertIn(b"6ES7 315-2ND07-0AB0", result.OrderCode)
+
+    def test_parse_order_code_s7300_structured(self) -> None:
+        """parse_order_code_szl with real S7-300 CPU 318-3 structured records."""
+        from snap7.szl import parse_order_code_szl
+        from snap7.type import S7SZL
+
+        # Real hex dump from CPU 318-3EL01-0AB0, courtesy of @b1163646804
+        payload = (
+            b"\x00\x1c\x00\x04"
+            b"\x00\x016ES7 318-3EL01-0AB0 \x00\xc0\x00\x03\x00\x01"
+            b"\x00\x066ES7 318-3EL01-0AB0 \x00\xc0\x00\x03\x00\x01"
+            b"\x00\x07                    \x00\xc0V\x03\x02\x04"
+            b'\x00\x81Boot Loader         \x00\x00A"\x09\x09'
+        )
+        szl = S7SZL()
+        szl.Header.LengthDR = len(payload)
+        for i, b in enumerate(payload):
+            szl.Data[i] = b
+
+        result = parse_order_code_szl(szl)
+        self.assertIn(b"6ES7 318-3EL01-0AB0", result.OrderCode)
+        # Should use 0x0007 firmware (V3.2.4), NOT 0x0081 boot loader (V34.9.9)
+        self.assertEqual(result.V1, 3)
+        self.assertEqual(result.V2, 2)
+        self.assertEqual(result.V3, 4)
+
     def test_read_szl_0x0131(self) -> None:
         """read_szl(0x0131) should return communication parameters."""
         szl = self.client.read_szl(0x0131, 0)
@@ -647,6 +945,71 @@ class TestServerPLCControl(unittest.TestCase):
 
 
 @pytest.mark.server
+class TestHandshakeLogging(unittest.TestCase):
+    """A peer that leaves before the ISO handshake completes must not raise the log level."""
+
+    server: Server = None  # type: ignore
+    port: int = 0
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.server = Server()
+        cls.server.start(0)
+        assert cls.server.server_socket is not None
+        cls.port = cls.server.server_socket.getsockname()[1]
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if cls.server:
+            cls.server.stop()
+            cls.server.destroy()
+
+    def _wait_for_record(self, logs: Any, fragment: str, timeout: float = 10.0) -> None:
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if any(fragment in record.getMessage() for record in logs.records):
+                return
+            time.sleep(0.02)
+        self.fail(f"log containing {fragment!r} did not appear, got: {[r.getMessage() for r in logs.records]}")
+
+    def _assert_no_warnings(self, logs: Any) -> None:
+        warnings = [r.getMessage() for r in logs.records if r.levelno >= logging.WARNING]
+        self.assertEqual(warnings, [])
+
+    def test_connect_and_close_logs_no_warning(self) -> None:
+        with self.assertLogs("snap7.server", level="DEBUG") as logs:
+            sock = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+            sock.close()
+            self._wait_for_record(logs, "Peer left before the ISO connection")
+        self._assert_no_warnings(logs)
+
+    def test_partial_tpkt_then_close_logs_no_warning(self) -> None:
+        with self.assertLogs("snap7.server", level="DEBUG") as logs:
+            sock = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+            sock.sendall(b"\x03\x00")
+            sock.close()
+            self._wait_for_record(logs, "Peer left before the ISO connection")
+        self._assert_no_warnings(logs)
+
+    def test_malformed_tpkt_still_logs_an_error(self) -> None:
+        with self.assertLogs("snap7.server", level="DEBUG") as logs:
+            sock = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+            sock.sendall(b"\x05\x00\x00\x08garbage!")
+            self._wait_for_record(logs, "Invalid TPKT version")
+            sock.close()
+        self.assertTrue(any(r.levelno == logging.ERROR for r in logs.records))
+        self.assertFalse(any(r.levelno == logging.WARNING for r in logs.records))
+
+    def test_client_connect_and_disconnect_logs_no_warning(self) -> None:
+        with self.assertLogs("snap7.server", level="DEBUG") as logs:
+            client = Client()
+            client.connect(ip, 0, 1, self.port)
+            client.disconnect()
+            self._wait_for_record(logs, "disconnected")
+        self._assert_no_warnings(logs)
+
+
+@pytest.mark.server
 class TestServerErrorScenarios(unittest.TestCase):
     """Test error handling paths in the server."""
 
@@ -674,10 +1037,29 @@ class TestServerErrorScenarios(unittest.TestCase):
         self.client.destroy()
 
     def test_read_unregistered_db(self) -> None:
-        """Reading from an unregistered DB should still return data (server returns dummy data)."""
-        # The server returns dummy data for unregistered areas rather than an error
-        data = self.client.db_read(99, 0, 4)
-        self.assertEqual(len(data), 4)
+        """Reading from an unregistered DB returns item-not-available."""
+        with self.assertRaisesRegex(S7ProtocolError, "0x0a"):
+            self.client.db_read(99, 0, 4)
+
+    def test_read_start_beyond_area_bounds(self) -> None:
+        """Reading beyond a registered DB returns address-out-of-range."""
+        with self.assertRaisesRegex(S7ProtocolError, "0x05"):
+            self.client.db_read(1, 100, 4)
+
+    def test_read_crossing_area_bounds(self) -> None:
+        """A read crossing the end of a DB returns address-out-of-range."""
+        with self.assertRaisesRegex(S7ProtocolError, "0x05"):
+            self.client.db_read(1, 8, 4)
+
+    def test_multi_read_preserves_item_error(self) -> None:
+        """A multi-read reports the failing item's return code."""
+        items = [
+            {"area": S7Area.DB, "db_number": 1, "start": 0, "size": 1},
+            {"area": S7Area.DB, "db_number": 99, "start": 0, "size": 1},
+        ]
+
+        with self.assertRaisesRegex(S7ProtocolError, r"item 1 failed.*0x0a"):
+            self.client.read_multi_vars(items)
 
     def test_write_beyond_area_bounds(self) -> None:
         """Writing beyond area bounds should raise an error."""

@@ -447,6 +447,33 @@ def reset_provider_client_cache() -> None:
     _provider_client_cache.clear()
 
 
+# The per-request slot the verbalized-decision overlay rides in. It is a
+# private metadata key rather than client state because UnifiedAIClient
+# instances are shared across concurrent requests — one client, many turns.
+_VERBALIZED_DECISION_KEY = "__verbalized_decision"
+
+
+async def _catalog_cost_of(usage: Any) -> float:
+    """What the turn cost at catalog prices, for the decision answer's cost_usd.
+
+    A decision agent must bill exactly like every other agent, so this reads
+    the SAME catalog pricing every other path does rather than inventing a
+    decision-specific number. An unpriced route returns 0.0 — a real zero, and
+    the usage row still carries the offering so the gap is visible in spend,
+    never hidden behind a made-up figure.
+    """
+    if usage is None:
+        return 0.0
+    try:
+        from matrx_ai.config.usage_config import ensure_pricing_lookup
+
+        pricing = await ensure_pricing_lookup()
+        cost = usage.calculate_catalog_cost(pricing)
+    except Exception:  # noqa: BLE001 — pricing must never fail a completed turn
+        return 0.0
+    return float(cost or 0.0)
+
+
 class UnifiedAIClient:
     """Unified client for all AI providers.
 
@@ -557,7 +584,38 @@ class UnifiedAIClient:
         self,
         request: AIMatrixRequest,
     ) -> dict[str, Any]:
+        """Dispatch one request, and make a decision turn out of it when asked.
+
+        THE SAME PART, TWO WIRES. A `decision_questions` part is semantic: a
+        native decision route answers it with its own probabilities, and a text
+        model answers the identical questions as prose plus a bound structured
+        output. Which one happened is recorded in the answer's `method`, never
+        inferred later. The overlay is prepared inside the dispatch (only there
+        is the resolved route known) and consumed here, because the rewrite has
+        to survive every return path the dispatch has.
+        """
+        from matrx_ai.decisions.translate import finalize_verbalized_decision
+
+        response = await self._execute_dispatch(request)
+        metadata = getattr(request.config, "metadata", None)
+        overlay = (
+            metadata.pop(_VERBALIZED_DECISION_KEY, None) if isinstance(metadata, dict) else None
+        )
+        if overlay is None:
+            return response
+        return finalize_verbalized_decision(
+            response,
+            overlay,
+            model_name=str(getattr(request.config, "model", "") or ""),
+            cost_usd=await _catalog_cost_of(getattr(response, "usage", None)),
+        )
+
+    async def _execute_dispatch(
+        self,
+        request: AIMatrixRequest,
+    ) -> dict[str, Any]:
         from matrx_ai.catalog.resolve import resolve_tts_call_profile
+        from matrx_ai.decisions.translate import prepare_verbalized_decision
         from matrx_ai.processing.audio.audio_preprocessing import (
             preprocess_audio_in_messages,
             should_preprocess_audio,
@@ -583,14 +641,33 @@ class UnifiedAIClient:
         caps = profile.capabilities
         wire_format = profile.wire_format
 
-        # System One is a non-turn decision API. Refuse before chat
-        # preprocessing can reinterpret its state/question contract.
+        # System One is a non-turn decision API, and THIS is its translator.
+        #
+        # It used to be a refusal. Arman ruled the refusal the defect
+        # (2026-09-20): a decision model is a model in the AGENT system, exactly
+        # like image, video and TTS models, which ride this same client through
+        # a per-model wire translator and thereby inherit the builder, the
+        # runner, battle, mandates and cost tracking for free. Keeping decisions
+        # outside this client meant rebuilding every one of those for them.
+        #
+        # The translation is: a `decision_questions` part in the request becomes
+        # System One's typed question map; the OTHER text-bearing parts of that
+        # same message (plus the system instruction and earlier user text)
+        # become its state; the provider's answers come back as ONE
+        # `decision_answers` part on an assistant message. The paid call itself
+        # still runs through `matrx_ai.decisions.execute_decision` — one place
+        # pays TypeSafe, with one admission, pricing and billed-usage path.
+        #
+        # It runs BEFORE chat preprocessing for the original reason the refusal
+        # did: media fallback, audio transcription and the tool/structured-output
+        # gates would all reinterpret a state/question contract they do not
+        # speak. A part this model cannot consume is REFUSED by name instead
+        # (the typed-messages compatibility law), never silently converted.
         if caps.interaction == "decision" or profile.client_attr == "decision":
-            raise ValueError(
-                f"Model {model_name!r} uses the 'decision' execution channel "
-                f"(wire_format={wire_format!r}) and cannot run through "
-                "UnifiedAIClient.execute(); route it through the decision runtime "
-                "with a typed SystemOneRequest."
+            return self._stamp_offering_usage(
+                await self._execute_decision(config, profile, model_name, debug),
+                profile,
+                config,
             )
 
         # Some callers (page extraction) require the physical PDF/document
@@ -661,6 +738,37 @@ class UnifiedAIClient:
                 f"(wire_format={wire_format!r}) and cannot run through "
                 f"UnifiedAIClient.execute(); route it through {destination}."
             )
+
+        # A decision_questions part asked of a model that is NOT a decision
+        # route. The part is semantic, so this model gets the SAME questions —
+        # rendered as prose (state, then each question with its criteria) and
+        # bound to a structured output that returns the decision_answers shape
+        # with method=verbalized. Probabilities are ASKED FOR directly: no
+        # logprobs, no self-consistency sampling (Arman, 2026-09-21). Runs
+        # before media fallback and the response-format gates so the binding it
+        # installs is negotiated like any other structured output.
+        # THE ONE field that answers this: ``structured_output_mode``.
+        # ``SCHEMA`` is the only mode that can carry the per-question schema
+        # the overlay binds (``verbalized_response_schema`` names every
+        # question as a required field); ``JSON`` promises well-formed JSON of
+        # no particular shape, which is exactly the prose-nobody-can-score the
+        # contract exists to stop. Until 2026-09-20 this read three attribute
+        # names that ResolvedModelCapabilities has never had, each through a
+        # ``getattr(..., False)`` — so it was ALWAYS False and EVERY text model
+        # was refused by name, including claude-sonnet-5, whose catalog row
+        # declares ``structured_output``. A fallback ladder over guessed
+        # attribute names cannot fail loudly; a real field can.
+        _decision_overlay = prepare_verbalized_decision(
+            config,
+            model_name=model_name,
+            supports_structured_output=(
+                caps.structured_output_mode is StructuredOutputMode.SCHEMA
+            ),
+        )
+        if _decision_overlay is not None:
+            if not isinstance(config.metadata, dict):
+                config.metadata = {}
+            config.metadata[_VERBALIZED_DECISION_KEY] = _decision_overlay
 
         # Media fallback: convert any media this provider/model can't accept
         # (e.g. extract a PDF to text) BEFORE dispatch, emitting an inline stream
@@ -918,6 +1026,104 @@ class UnifiedAIClient:
         if request_documents:
             enrich_document_citations_with_request_documents(request_documents, response)
         return response
+
+    async def _execute_decision(
+        self,
+        config: Any,
+        profile: Any,
+        model_name: str,
+        debug: bool | None = False,
+    ) -> UnifiedResponse:
+        """Run a native decision model as an agent turn.
+
+        Mirrors a chat provider's ``execute`` contract: one ``UnifiedResponse``
+        carrying ONE assistant message whose single content part is a
+        ``decision_answers`` kind instance — never prose, because a decision
+        turn that came back as text could not be rendered by a primitive,
+        compared in battle, or trusted about its own certainty.
+
+        Usage and cost are the engine's real numbers (catalog pricing on the
+        provider's reported tokens), so a decision agent bills exactly like
+        every other agent.
+        """
+        from matrx_ai.config import TokenUsage, UnifiedMessage
+        from matrx_ai.config.decision_input_config import DecisionAnswersContent
+        from matrx_ai.decisions import execute_decision
+        from matrx_ai.decisions.runner import DecisionRequest
+        from matrx_ai.decisions.translate import (
+            build_decision_state,
+            decision_answers_from_system_one,
+            find_decision_questions,
+            refuse_incompatible_parts,
+            system_one_questions,
+        )
+
+        messages = list(config.messages or [])
+        index, batch = find_decision_questions(messages)
+        refuse_incompatible_parts(messages[index], model_name=model_name)
+        state = build_decision_state(
+            messages,
+            index,
+            system_instruction=getattr(config, "system_instruction", None),
+        )
+
+        result = await execute_decision(
+            DecisionRequest(
+                model=model_name,
+                state=state,
+                questions=system_one_questions(batch),
+            ),
+            profile=profile,
+        )
+
+        answers = decision_answers_from_system_one(
+            result.answers,
+            batch,
+            model=result.model,
+            input_tokens=result.usage.input_tokens,
+            output_tokens=result.usage.output_tokens,
+            cost_usd=result.cost_usd,
+        )
+        if debug:
+            vcprint(
+                data={
+                    "model": result.model,
+                    "questions": [question.name for question in batch.questions],
+                    "answered": sorted(answers.answers),
+                    "unanswerable": sorted(answers.unanswerable),
+                    "cost_usd": result.cost_usd,
+                },
+                title=f"[UnifiedClient] decision run ({model_name})",
+                color="cyan",
+                verbose=True,
+            )
+
+        usage = TokenUsage(
+            input_tokens=result.usage.input_tokens,
+            output_tokens=result.usage.output_tokens,
+            matrx_model_name=result.usage.matrx_model_name,
+            provider_model_name=result.usage.provider_model_name,
+            api=result.usage.api,
+            response_id=result.usage.response_id,
+            offering_id=result.usage.offering_id,
+            offering_route=result.usage.offering_route,
+            raw_usage=result.usage.raw_usage,
+        )
+        message = UnifiedMessage(
+            role="assistant",
+            content=[DecisionAnswersContent(answers=answers)],
+        )
+        return UnifiedResponse(
+            messages=[message],
+            usage=usage,
+            stop_reason="stop",
+            finish_reason="stop",
+            metadata={
+                "decision": True,
+                "method": answers.method,
+                "request_id": result.request_id,
+            },
+        )
 
     async def _execute_extraction(
         self,

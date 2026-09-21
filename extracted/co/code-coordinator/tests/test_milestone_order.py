@@ -551,6 +551,76 @@ class TestParseSubIssuesErrors:
             parse_sub_issues(body)
 
 
+class TestParseSubIssuesEmphasisMarkers:
+    """#3426: a leading `**`/`*`/`_` between the checkbox and `#N` is normal
+    markdown (bolding the lead item is a reasonable thing for a human to
+    type) and used to raise `WorkOrderError` for the whole line — and,
+    because `_parse_checklist_section` raises rather than skipping just that
+    line, silently voided every OTHER (well-formed) sibling line in the same
+    `## Sub-issues` block too. The fixture below pins the actual vimcode#1170
+    text: three bold-prefixed lines hid all 24 real children, 21 of which
+    parsed perfectly, until the three were corrected by hand.
+    """
+
+    # Real text from vimcode#1170 (trimmed to a representative slice — the
+    # exact three offending lines plus enough plain siblings to prove they
+    # stop being collateral damage).
+    VIMCODE_1170_BODY = """\
+Epic intro prose.
+
+## Sub-issues
+- [ ] #1201  {group: A}
+- [ ] #1202  {group: A}
+- [ ] #1203  {group: A}
+- [ ] **#1206 — tranche 2 of #1191**: the 8 remaining value options land here
+- [ ] **#1207 — tranche 3 of #1191**: another bold-prefixed line
+- [ ] **#1208 — tranche 4 of #1191**: a third bold-prefixed line
+- [ ] #1209  {group: B}
+"""
+
+    def test_bold_prefixed_lines_parse_alongside_plain_siblings(self) -> None:
+        wo = parse_sub_issues(self.VIMCODE_1170_BODY)
+        assert wo.issue_numbers == (1201, 1202, 1203, 1206, 1207, 1208, 1209)
+
+    def test_bold_prefixed_line_yields_the_same_node_as_a_plain_line(self) -> None:
+        bold = "## Sub-issues\n- [ ] **#42 — prose here**: more prose\n"
+        plain = "## Sub-issues\n- [ ] #42\n"
+        assert parse_sub_issues(bold).node(42) == parse_sub_issues(plain).node(42)
+
+    def test_single_asterisk_and_underscore_emphasis_also_strip(self) -> None:
+        assert parse_sub_issues("## Sub-issues\n- [ ] *#7 — prose*\n").issue_numbers == (7,)
+        assert parse_sub_issues("## Sub-issues\n- [ ] _#7 — prose_\n").issue_numbers == (7,)
+
+    def test_bold_wrapped_number_with_trailing_annotation_keeps_the_after_edge(
+        self,
+    ) -> None:
+        """Review finding on #3426: a line that bolds *only* the issue number
+        and then carries an annotation right after the closing `**` (e.g.
+        `- [ ] **#765** {after: #762,#763}`) must not silently drop the
+        `after` edge. Before the fix, `.match()` (not `.fullmatch()`) still
+        matched just the `- [ ] **#765` prefix and returned `after=()` —
+        parsing "successfully" while quietly discarding a real dependency
+        edge, which `ready_frontier` consumes for dispatch ordering."""
+        body = (
+            "## Work order\n"
+            "- [ ] #762\n"
+            "- [ ] #763\n"
+            "- [ ] **#765** {after: #762,#763}\n"
+        )
+        wo = parse_work_order(body)
+        assert wo.node(765).after == (762, 763)
+
+    def test_a_line_that_is_still_malformed_still_raises(self) -> None:
+        """Widening the grammar removes ONE failure class, not all of them —
+        a genuinely malformed line (no `#N` at all) still raises, and it
+        still voids the whole section (that fail-loud behavior at this
+        layer is unchanged; #3426's fix-open behavior lives one layer up,
+        at the callers of `parse_sub_issues`)."""
+        body = "## Sub-issues\n- [ ] #1\n- this is not a sub-issue item\n"
+        with pytest.raises(WorkOrderError, match="unparseable line"):
+            parse_sub_issues(body)
+
+
 class TestRenderSubIssues:
     def test_is_render_work_order(self) -> None:
         """render_sub_issues is an alias — heading-agnostic rendering means

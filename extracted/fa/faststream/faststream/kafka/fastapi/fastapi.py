@@ -14,7 +14,7 @@ from typing import (
 from aiokafka import ConsumerRecord
 from aiokafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from aiokafka.partitioner import DefaultPartitioner
-from aiokafka.producer.producer import _missing
+from aiokafka.producer.producer import _missing  # noqa: PLC2701
 from fastapi.datastructures import Default
 from fastapi.routing import APIRoute
 from fastapi.utils import generate_unique_id
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from asyncio import AbstractEventLoop
     from enum import Enum
 
-    from aiokafka import TopicPartition
     from aiokafka.abc import AbstractTokenProvider, ConsumerRebalanceListener
     from aiokafka.coordinator.assignors.abstract import AbstractPartitionAssignor
     from fastapi import params
@@ -51,6 +50,7 @@ if TYPE_CHECKING:
         BatchPublisher,
         DefaultPublisher,
     )
+    from faststream.kafka.schemas import TopicPartition
     from faststream.kafka.subscriber.usecase import (
         BatchSubscriber,
         ConcurrentBetweenPartitionsSubscriber,
@@ -64,7 +64,9 @@ if TYPE_CHECKING:
 Partition = TypeVar("Partition")
 
 
-class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
+class KafkaRouter(
+    StreamRouter[ConsumerRecord[Any, Any] | tuple[ConsumerRecord[Any, Any], ...]]
+):
     """A class to represent a Kafka router."""
 
     broker_class = KB

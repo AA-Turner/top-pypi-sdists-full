@@ -36,7 +36,11 @@ from fast_agent.interfaces import (
 )
 from fast_agent.llm.memory import Memory, SimpleMemory
 from fast_agent.llm.model_database import ModelDatabase, ModelParameters
-from fast_agent.llm.provider.streaming_timeouts import StreamTiming
+from fast_agent.llm.provider.streaming_timeouts import (
+    StreamIdleTimeoutError,
+    StreamTiming,
+    stream_timing_payload,
+)
 from fast_agent.llm.provider_types import Provider
 from fast_agent.llm.reasoning_effort import (
     ReasoningEffortSetting,
@@ -96,6 +100,7 @@ _RETRYABLE_PROVIDER_KEY_ERROR_TERMS = (
     "timeout",
 )
 _NON_RETRYABLE_CONTEXT_ERROR_CODES = ("context_length_exceeded",)
+_NON_RETRYABLE_REQUEST_ERROR_CODES = (*_NON_RETRYABLE_CONTEXT_ERROR_CODES, "model_not_supported")
 
 # Forward reference for type annotations
 if TYPE_CHECKING:
@@ -212,6 +217,12 @@ class FastAgentLLM(ContextDependent, FastAgentLLMProtocol, Generic[MessageParamT
         # Set by providers when a streaming attempt fails part-way through, so
         # retry telemetry can report how far the stream got (provider-neutral).
         self._stream_failure_events_received: int | None = None
+        # Trial-local (call, attempt, max_attempts) for the attempt currently running under
+        # _execute_with_retry, so per-attempt stream logs can be told apart from retries.
+        self._stream_call_sequence = 0
+        self._stream_attempt: tuple[int, int, int] | None = None
+        # Timing of the most recent successful stream, attached to provider diagnostics.
+        self._last_stream_timing: dict[str, int | float | bool | None] | None = None
 
         # Reasoning effort configuration (provider-neutral)
         self._reasoning_effort: ReasoningEffortSetting | None = None
@@ -689,9 +700,12 @@ class FastAgentLLM(ContextDependent, FastAgentLLMProtocol, Generic[MessageParamT
         last_error = None
         retry_records: list[ProviderRetry] = []
         boundary = retry_boundary(args[0] if args else None)
+        self._stream_call_sequence += 1
 
         for attempt in range(retries + 1):
             self._stream_failure_events_received = None
+            self._last_stream_timing = None
+            self._stream_attempt = (self._stream_call_sequence, attempt + 1, retries + 1)
             try:
                 result = await func(*args, **kwargs)
             except Exception as e:
@@ -731,6 +745,47 @@ class FastAgentLLM(ContextDependent, FastAgentLLMProtocol, Generic[MessageParamT
         """Record how far a failed provider stream got, for retry telemetry."""
         self._stream_failure_events_received = timing.events_received
 
+    def _record_stream_outcome(
+        self,
+        timing: StreamTiming | None,
+        *,
+        error: BaseException | None,
+        model: str,
+        timeout_seconds: float | None,
+        **data: Any,
+    ) -> None:
+        """Persist one streaming attempt's timing.
+
+        Failures (including the last attempt when retries exhaust) are logged with
+        trial-local call/attempt identifiers. ``timing`` is ``None`` when the stream
+        never started, which distinguishes start failures from idle established streams.
+        Successful timing is kept for the provider diagnostics channel.
+        """
+        established = timing is not None
+        timing = timing or StreamTiming(0, None, None, 0, None)
+        timed_out = isinstance(error, StreamIdleTimeoutError if established else TimeoutError)
+        payload = stream_timing_payload(timing, timed_out=timed_out)
+        call, attempt, max_attempts = self._stream_attempt or (0, 1, 1)
+        data = {
+            "model": model,
+            "phase": "stream" if established else "start",
+            "timeout_seconds": timeout_seconds,
+            "call": call,
+            "attempt": attempt,
+            "max_attempts": max_attempts,
+            "stream_timing": payload,
+            **data,
+        }
+        if error is not None:
+            if established:
+                self._record_stream_failure(timing)
+            data["error_type"] = type(error).__name__
+            self.logger.error("Provider stream attempt failed", data=data)
+            return
+        self._last_stream_timing = payload
+        if timing.inter_event_waits_over_threshold:
+            self.logger.warning("Provider stream observed extended inter-event gap", data=data)
+
     @staticmethod
     def _append_retry_telemetry(result: Any, retries: list[ProviderRetry]) -> None:
         if not retries:
@@ -748,6 +803,18 @@ class FastAgentLLM(ContextDependent, FastAgentLLMProtocol, Generic[MessageParamT
     def _is_fatal_retry_error(error: Exception) -> bool:
         if isinstance(error, (KeyboardInterrupt, AgentConfigError, ServerConfigError)):
             return True
+
+        # Deferred: this module must stay importable without the OpenAI/WebSocket SDKs.
+        from fast_agent.llm.provider.openai.responses_websocket import ResponsesWebSocketError
+
+        if isinstance(error, ResponsesWebSocketError):
+            if error.status == 400:
+                return True
+            if (
+                error.error_code
+                and casefold_text(error.error_code) in _NON_RETRYABLE_REQUEST_ERROR_CODES
+            ):
+                return True
 
         exception_module_roots = {
             exception_type.__module__.partition(".")[0] for exception_type in type(error).__mro__
@@ -767,7 +834,7 @@ class FastAgentLLM(ContextDependent, FastAgentLLMProtocol, Generic[MessageParamT
                 return True
             if isinstance(error, OpenAIAPIError) and isinstance(error.code, str):
                 code = casefold_text(error.code)
-                if code in _NON_RETRYABLE_CONTEXT_ERROR_CODES:
+                if code in _NON_RETRYABLE_REQUEST_ERROR_CODES:
                     return True
 
         message = casefold_text(str(error))
@@ -1669,7 +1736,6 @@ class FastAgentLLM(ContextDependent, FastAgentLLMProtocol, Generic[MessageParamT
     def _provider_api_key(self):
         from fast_agent.llm.provider_key_manager import ProviderKeyManager
 
-        assert self.provider
         return ProviderKeyManager.get_api_key(self.provider.config_name, self.context.config)
 
     def _base_url(self) -> str | None:

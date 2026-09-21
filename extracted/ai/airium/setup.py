@@ -14,7 +14,7 @@ long_description = read('README.md')
 dev_requires = read('requirements_dev.txt').splitlines()
 parse_requires = read('requirements_for_parsing.txt').splitlines()
 
-version_identifier = '0.2.7'
+version_identifier = '0.3.2'
 
 setup(
     name='airium',
@@ -30,9 +30,13 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     packages=find_packages(exclude=["tests"]),
+    package_data={
+        'airium': ['py.typed', '*.pyi'],
+    },
     requires=[],
     install_requires=[],
     keywords='natural html generator compiler template-less',
+    python_requires='>=3.8',
     classifiers=[
         # https://pypi.org/classifiers/
         'Development Status :: 4 - Beta',
@@ -49,6 +53,7 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Programming Language :: Python',
         'Topic :: Database :: Front-Ends',

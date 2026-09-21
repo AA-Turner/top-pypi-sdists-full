@@ -30,6 +30,7 @@ class LifecycleState(str, Enum):
     ACTIVE = 'active'
     COLD = 'cold'
     ARCHIVED = 'archived'
+    FROZEN = 'frozen'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

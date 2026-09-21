@@ -567,8 +567,10 @@ _WINDSURF_PIPELINE_HOOKS = [
     "pre_user_prompt",
     "post_mcp_tool_use",
     "post_run_command",
+    "post_read_code",
     "post_write_code",
     "post_cascade_response",
+    "post_setup_worktree",
 ]
 
 _WINDSURF_ALL_HOOKS = _WINDSURF_ENFORCEMENT_HOOKS + _WINDSURF_PIPELINE_HOOKS

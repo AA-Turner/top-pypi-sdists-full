@@ -75,15 +75,21 @@ def stash_overflow(
     user_id: str | None,
     conversation_id: str | None,
     tool_name: str,
+    max_chars: int | None = None,
 ) -> bool:
     """Stash the full (up to the retention cap) result for later paged retrieval.
+
+    ``max_chars`` is the org's ``tools.result_gate.overflow_stash_max_chars`` row
+    (``db/migrations/0974_tool_result_gate_caps_become_knobs.sql``), resolved by
+    the caller. Omitted, the module constant applies — the standalone default for
+    matrx-ai installed without a host, and what every pre-knob caller gets.
 
     Returns True if stored, False if there was no usable call_id (without one the
     agent has no handle to fetch by). Best-effort: never raises.
     """
     if not call_id:
         return False
-    retained = content[:OVERFLOW_STASH_MAX_CHARS]
+    retained = content[: max(1, max_chars or OVERFLOW_STASH_MAX_CHARS)]
     _store.set(
         _key(conversation_id, call_id),
         _OverflowEntry(

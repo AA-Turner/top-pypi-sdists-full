@@ -273,16 +273,7 @@ def emit_process_reap_receipt(
         )
 
 
-def _sanitise_for_log(value: str) -> str:
-    """Strip CR/LF from ``value`` so attacker-controlled input cannot
-    inject fake log lines.
-
-    Used at every log site that touches data read out of the pending
-    pushes file or subprocess stderr (CodeQL/Sonar py/log-injection
-    S5145). Keep this function cheap and side-effect-free - it is
-    called inside the spawner hot path.
-    """
-    return value.replace("\r", "").replace("\n", "") if value else value
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -5362,6 +5353,7 @@ class AgentSpawner:
                             session.provider = adapter_name
                         else:
                             session.provider = None
+                        session.model_vendor = getattr(target_adapter, "model_vendor", "") or ""
                         session.model_config = model_config
                         break
                     except RateLimitError as exc:
@@ -5845,6 +5837,7 @@ class AgentSpawner:
             role=role,
             task_ids=[t.id for t in tasks],
             model_config=model_config,
+            model_vendor=getattr(self._adapter, "model_vendor", "") or "",
             status="starting",
             timeout_s=self._resolve_spawn_timeout(tasks),
             context_receipt=receipt.to_dict()["entries"],

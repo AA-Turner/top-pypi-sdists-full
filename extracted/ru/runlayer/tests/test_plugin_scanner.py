@@ -15,8 +15,10 @@ from runlayer_cli.scan.clients import (
     ConfigPath,
     PluginPath,
 )
+from runlayer_cli.scan.copilot_plugins import scan_copilot_plugins
 from runlayer_cli.scan.cursor_plugins import scan_cursor_plugins
 from runlayer_cli.scan.completeness import ScanCompletionStatus
+from runlayer_cli.scan.opencode_plugins import scan_opencode_plugins
 from runlayer_cli.scan.plugin_scanner import (
     DiscoveredPluginArtifact,
     _CLAUDE_DESKTOP_CONFIG_PATHS,
@@ -42,6 +44,39 @@ def test_cursor_plugin_cache_read_failure_marks_incomplete(tmp_path, monkeypatch
     assert scan_cursor_native_plugins(plugin_cache_base=tmp_path) == []
     assert status.reasons == ["cursor_plugin_cache_enumeration_failed"]
     reset_plugin_scan_state()
+
+
+@pytest.mark.parametrize(
+    ("scanner", "empty"),
+    [
+        (scan_codex_plugins, []),
+        (scan_opencode_plugins, []),
+        (scan_copilot_plugins, ([], [])),
+    ],
+)
+def test_unreadable_wsl_home_marks_incomplete_without_raising(
+    tmp_path, monkeypatch, scanner, empty
+):
+    """Every probe under an untraversable UNC home raises ``PermissionError``,
+    which ``Path.exists()``/``is_dir()`` re-raise on Python 3.13."""
+    denied_home = tmp_path / "root"
+    original_stat = Path.stat
+
+    def denied_stat(path, *args, **kwargs):
+        if denied_home in (path, *path.parents):
+            raise PermissionError(13, "Access is denied", str(path))
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", denied_stat)
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    try:
+        result = scanner(home=denied_home)
+    finally:
+        reset_plugin_scan_state()
+
+    assert result == empty
+    assert status.reasons == ["plugin_manifest_access_failed"]
 
 
 def test_cursor_user_local_read_failure_marks_incomplete(tmp_path, monkeypatch):
@@ -97,6 +132,7 @@ def test_claude_marketplace_read_failure_marks_incomplete(tmp_path, monkeypatch)
     status = ScanCompletionStatus()
     reset_plugin_scan_state(scan_status=status)
     installed_plugins_path = tmp_path / ".claude" / "plugins" / "installed.json"
+    (installed_plugins_path.parent / "marketplaces").mkdir(parents=True)
     original_glob = Path.glob
 
     def fail_marketplace_glob(path: Path, pattern: str):

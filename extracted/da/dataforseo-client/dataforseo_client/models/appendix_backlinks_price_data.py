@@ -18,6 +18,7 @@ class AppendixBacklinksPriceData(BaseModel):
     AppendixBacklinksPriceData
     """ # noqa: E501
     anchors: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    available_filters: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     backlinks: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     bulk_backlinks: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     bulk_new_lost_backlinks: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -28,11 +29,14 @@ class AppendixBacklinksPriceData(BaseModel):
     bulk_spam_score: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     competitors: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     content_duplicates: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    domain_backlinks: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     domain_intersection: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     domain_pages: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     domain_pages_summary: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     history: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    links_intersection: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     page_intersection: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     referring_domains: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     referring_networks: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -41,6 +45,7 @@ class AppendixBacklinksPriceData(BaseModel):
     timeseries_summary: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "anchors", 
+        "available_filters", 
         "backlinks", 
         "bulk_backlinks", 
         "bulk_new_lost_backlinks", 
@@ -51,11 +56,14 @@ class AppendixBacklinksPriceData(BaseModel):
         "bulk_spam_score", 
         "competitors", 
         "content_duplicates", 
+        "domain_backlinks", 
         "domain_intersection", 
         "domain_pages", 
         "domain_pages_summary", 
         "errors", 
         "history", 
+        "id_list", 
+        "links_intersection", 
         "page_intersection", 
         "referring_domains", 
         "referring_networks", 
@@ -89,6 +97,7 @@ class AppendixBacklinksPriceData(BaseModel):
         _dict = {}
 
         _dict['anchors'] = self.anchors.to_dict() if self.anchors else None
+        _dict['available_filters'] = self.available_filters.to_dict() if self.available_filters else None
         _dict['backlinks'] = self.backlinks.to_dict() if self.backlinks else None
         _dict['bulk_backlinks'] = self.bulk_backlinks.to_dict() if self.bulk_backlinks else None
         _dict['bulk_new_lost_backlinks'] = self.bulk_new_lost_backlinks.to_dict() if self.bulk_new_lost_backlinks else None
@@ -99,11 +108,14 @@ class AppendixBacklinksPriceData(BaseModel):
         _dict['bulk_spam_score'] = self.bulk_spam_score.to_dict() if self.bulk_spam_score else None
         _dict['competitors'] = self.competitors.to_dict() if self.competitors else None
         _dict['content_duplicates'] = self.content_duplicates.to_dict() if self.content_duplicates else None
+        _dict['domain_backlinks'] = self.domain_backlinks.to_dict() if self.domain_backlinks else None
         _dict['domain_intersection'] = self.domain_intersection.to_dict() if self.domain_intersection else None
         _dict['domain_pages'] = self.domain_pages.to_dict() if self.domain_pages else None
         _dict['domain_pages_summary'] = self.domain_pages_summary.to_dict() if self.domain_pages_summary else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
         _dict['history'] = self.history.to_dict() if self.history else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
+        _dict['links_intersection'] = self.links_intersection.to_dict() if self.links_intersection else None
         _dict['page_intersection'] = self.page_intersection.to_dict() if self.page_intersection else None
         _dict['referring_domains'] = self.referring_domains.to_dict() if self.referring_domains else None
         _dict['referring_networks'] = self.referring_networks.to_dict() if self.referring_networks else None
@@ -123,6 +135,7 @@ class AppendixBacklinksPriceData(BaseModel):
 
         _obj = cls.model_validate({
             "anchors": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["anchors"]) if obj.get("anchors") is not None else None,
+            "available_filters": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["available_filters"]) if obj.get("available_filters") is not None else None,
             "backlinks": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["backlinks"]) if obj.get("backlinks") is not None else None,
             "bulk_backlinks": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["bulk_backlinks"]) if obj.get("bulk_backlinks") is not None else None,
             "bulk_new_lost_backlinks": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["bulk_new_lost_backlinks"]) if obj.get("bulk_new_lost_backlinks") is not None else None,
@@ -133,11 +146,14 @@ class AppendixBacklinksPriceData(BaseModel):
             "bulk_spam_score": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["bulk_spam_score"]) if obj.get("bulk_spam_score") is not None else None,
             "competitors": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["competitors"]) if obj.get("competitors") is not None else None,
             "content_duplicates": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["content_duplicates"]) if obj.get("content_duplicates") is not None else None,
+            "domain_backlinks": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_backlinks"]) if obj.get("domain_backlinks") is not None else None,
             "domain_intersection": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_intersection"]) if obj.get("domain_intersection") is not None else None,
             "domain_pages": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_pages"]) if obj.get("domain_pages") is not None else None,
             "domain_pages_summary": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_pages_summary"]) if obj.get("domain_pages_summary") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
             "history": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["history"]) if obj.get("history") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
+            "links_intersection": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["links_intersection"]) if obj.get("links_intersection") is not None else None,
             "page_intersection": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["page_intersection"]) if obj.get("page_intersection") is not None else None,
             "referring_domains": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["referring_domains"]) if obj.get("referring_domains") is not None else None,
             "referring_networks": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["referring_networks"]) if obj.get("referring_networks") is not None else None,

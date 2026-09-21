@@ -5062,6 +5062,136 @@ def _claude_md_system_prompt_suffix(repo_path: str) -> str:
     return "\n\n## Project rules (from CLAUDE.md)\n\n" + claude_md.strip() + "\n"
 
 
+# #3420: every `claude -p` leg loads the full JSON schema for all built-in
+# tools regardless of `--allowedTools`, which is a *permission* filter, not a
+# tool-surface one — a leg with `Read,Bash` in `--allowedTools` still pays
+# the prompt-token cost of the `Workflow`/`Skill`/etc. schemas it can never
+# call. Measured with controlled `claude -p` probes on this repo's own
+# `default_worker_command` flags (Claude Code 2.1.278, `type="work"`): the
+# schemas for these tools cost 12,134 tokens/turn (44% of the static
+# prefix), re-read at cache-read rates on every turn of every leg. None of
+# them has a legitimate use from a headless coord leg:
+#   - `Workflow`: requires explicit user opt-in; a headless leg has no user.
+#   - `Skill`: all `coord` skills are operator-only runbooks.
+#   - `ScheduleWakeup`: every leg is one-shot (WORKER_SYSTEM_PROMPT's
+#     ONE-SHOT section, #1394) — there is no future turn to wake up into.
+#   - `Task`: CLAUDE.md mandates `graphify query` + grep for navigation
+#     instead of spawning a subagent.
+#   - `ReportFindings`, `ListAgents`: unreferenced by any coord system
+#     prompt; no fleet-messaging or review-findings-reporting surface is
+#     exposed to a leg.
+#   - The remainder (`Cron*`, `DesignSync`, `EnterWorktree`/`ExitWorktree`,
+#     `NotebookEdit`, `PushNotification`, `RemoteTrigger`, `SendMessage`):
+#     operator/coordinator-session tools with no worker-leg counterpart —
+#     already deferred behind `ToolSearch` so each costs only ~6-9 tokens,
+#     but included for a consistent, minimal tool surface.
+#
+# Deliberately EXCLUDED, despite being equally unusable:
+#   - `Monitor`: 0 marginal token cost, and WORKER_SYSTEM_PROMPT's ONE-SHOT
+#     polling guidance depends on it (it's the sanctioned way to await a
+#     backgrounded command in bounded steps).
+#   - `ToolSearch`: cheap on its own, and removing it is untested — it's the
+#     mechanism that resolves every deferred tool name at all.
+#   - `TaskOutput`/`TaskStop`: look like `Task`'s output/cancel pair at
+#     first glance, but WORKER_SYSTEM_PROMPT's ONE-SHOT section and
+#     coord/smoke.py's SMOKE_SYSTEM_PROMPT both explicitly teach
+#     `TaskOutput` as the bounded-poll alternative to `Monitor` for a
+#     backgrounded Bash command (`run_in_background`) — disallowing it
+#     would make that documented guidance a dead end. `TaskStop` is kept
+#     alongside it since it's the same background-job-management pair.
+#   - `WebFetch`/`WebSearch`: ~6 tokens each either way (negligible), and a
+#     worker may legitimately need to look up library docs or an error
+#     message mid-task — kept allowed rather than trading real capability
+#     for a rounding error in prompt size.
+UNUSABLE_TOOL_SCHEMAS: list[str] = [
+    "Workflow",
+    "Skill",
+    "ScheduleWakeup",
+    "Task",
+    "ReportFindings",
+    "ListAgents",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "DesignSync",
+    "EnterWorktree",
+    "ExitWorktree",
+    "NotebookEdit",
+    "PushNotification",
+    "RemoteTrigger",
+    "SendMessage",
+]
+
+
+def worker_disallowed_tools(spec: AssignmentSpec, allowed_tools: str) -> list[str]:
+    """Return the ordered ``--disallowedTools`` entries for *spec*.
+
+    **Single source of truth.** Both argv builders that emit
+    ``--disallowedTools`` — :func:`default_worker_command` and
+    :meth:`coord.providers.claude.ClaudeProvider.build_command` — call
+    this, rather than each reimplementing the same four-layer stack. The
+    two previously transcribed the logic independently, which is exactly
+    how #3420's ``UNUSABLE_TOOL_SCHEMAS`` layer landed in one and not the
+    other; the parity suite in ``tests/test_providers.py`` caught it, but
+    a shared function makes the divergence unrepresentable instead of
+    merely detectable.
+
+    Layers, in argv order (each skips entries an earlier layer already
+    added, so the result is de-duplicated but order-stable):
+
+    1. #3420 ``UNUSABLE_TOOL_SCHEMAS`` — unconditional, every spec type.
+    2. #1315 sealed-oracle write guard, from ``spec.files_forbidden``.
+    3. #1642 base-checkout write guard — only when *allowed_tools*
+       actually grants ``Edit``; for the Read/Bash-only chat types the
+       guard would be a no-op cluttering the argv.
+    4. #2461 ``REVIEW_DENY_COMMANDS`` — only for ``spec.type ==
+       "review"``, wiring the mutating-command deny list into the
+       CLI-enforced flag and not just the soft prompt reminder.
+
+    Args:
+        spec: The assignment being dispatched.
+        allowed_tools: The ``--allowedTools`` value computed for this
+            spec — inspected for ``Edit`` to decide layer 3. Passing the
+            caller's own computed value (rather than re-deriving it here)
+            keeps the two flags consistent even when a caller overrides
+            ``--allowedTools`` explicitly, as ``build_command`` allows.
+
+    Returns:
+        A fresh list; callers may mutate it. Empty only in the
+        impossible case where every layer contributes nothing — since
+        #3420, layer 1 is unconditional, so in practice this is always
+        non-empty and ``--disallowedTools`` is always emitted.
+    """
+    # #3420: strip the unusable-tool schemas from every spec type, including
+    # the Read/Bash-only chat legs (plan, refinement, test-chat,
+    # new-issue-chat, smoke, review) — they carry the same
+    # Workflow/Skill/Task/etc. schemas as a work leg and benefit identically.
+    # This is FIRST so the guards below, which each append to this same
+    # list, keep working unchanged.
+    disallowed_tools = list(UNUSABLE_TOOL_SCHEMAS)
+    # #1315: structural sealing enforcement — see _sealed_write_guard_tools.
+    for pattern in _sealed_write_guard_tools(spec.files_forbidden):
+        if pattern not in disallowed_tools:
+            disallowed_tools.append(pattern)
+    # #1642: block Edit/Write on the shared base checkout for any spec.type
+    # that actually gets Edit/Write in --allowedTools — the Read/Bash-only
+    # chat types can't touch files regardless, and adding the guard there
+    # would be a no-op cluttering their argv for nothing.
+    if "Edit" in allowed_tools:
+        for pattern in _base_checkout_write_guard_tools(spec.repo_path):
+            if pattern not in disallowed_tools:
+                disallowed_tools.append(pattern)
+    # #2461: review gets its mutating-command deny list wired into
+    # --disallowedTools too, not just the soft system-prompt reminder from
+    # build_deny_prompt — the CLI enforces this one even if the model
+    # decides to ignore its own prompt.
+    if spec.type == "review":
+        for pattern in REVIEW_DENY_COMMANDS:
+            if pattern not in disallowed_tools:
+                disallowed_tools.append(pattern)
+    return disallowed_tools
+
+
 def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER_BINARY) -> list[str]:
     """Build the argv for invoking the worker on this assignment.
 
@@ -5347,24 +5477,10 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
     ]
     if spec.model:
         argv.extend(["--model", spec.model])
-    # #1315: structural sealing enforcement — see _sealed_write_guard_tools.
-    disallowed_tools = _sealed_write_guard_tools(spec.files_forbidden)
-    # #1642: block Edit/Write on the shared base checkout for any spec.type
-    # that actually gets Edit/Write in --allowedTools — the Read/Bash-only
-    # chat types above can't touch files regardless, and adding the guard
-    # there would be a no-op cluttering their argv for nothing.
-    if "Edit" in allowed_tools:
-        for pattern in _base_checkout_write_guard_tools(spec.repo_path):
-            if pattern not in disallowed_tools:
-                disallowed_tools.append(pattern)
-    # #2461: review gets its mutating-command deny list wired into
-    # --disallowedTools too, not just the soft system-prompt reminder from
-    # build_deny_prompt above — the CLI enforces this one even if the model
-    # decides to ignore its own prompt.
-    if spec.type == "review":
-        for pattern in REVIEW_DENY_COMMANDS:
-            if pattern not in disallowed_tools:
-                disallowed_tools.append(pattern)
+    # #3420 / #1315 / #1642 / #2461: all four --disallowedTools layers live
+    # in worker_disallowed_tools, shared with ClaudeProvider.build_command so
+    # the two argv builders cannot drift apart (see that function's docstring).
+    disallowed_tools = worker_disallowed_tools(spec, allowed_tools)
     if disallowed_tools:
         argv.extend(["--disallowedTools", ",".join(disallowed_tools)])
     # #315: when resuming a prior chat session, load the prior conversation so

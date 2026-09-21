@@ -1,4 +1,5 @@
-//! Word gaps written as character spacing.
+//! Word gaps written as character spacing, and letter gaps written as `TJ`
+//! offsets.
 //!
 //! Some producers carry a word space as character spacing instead of a
 //! space glyph: the two glyphs on either side of the boundary are shown as
@@ -15,9 +16,17 @@
 //! two boundaries) whose junction spacing is a word gap by the `TJ` offset
 //! threshold is a candidate, and its junctions become spaces only once the
 //! spacing after its last glyph is seen to be taken back.
+//!
+//! Tracked display text is also set as a `TJ` array with one glyph per
+//! string and the letter spacing as the offset between them
+//! (`[(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y)] TJ`). Judged one
+//! offset at a time against the word-gap threshold, every letter becomes a
+//! word. The run's own offsets tell letter gaps from word gaps: see
+//! [`tj_tracking`].
 
 use lopdf::{Object, StringFormat};
 
+use super::fonts::get_operand_bytes;
 use super::{get_number, is_spaceless_cjk, multiply_matrices};
 use crate::text_utils::{expand_ligatures, is_rtl_char};
 use crate::types::{FontWidthInfo, TextItem};
@@ -311,6 +320,237 @@ impl PendingWordGaps {
     }
 }
 
+/// Least typical letter gap, as a share of the word-gap threshold, for a
+/// `TJ` array to read as tracked: below it the offsets are kerning, and the
+/// thresholds apply to them as they are.
+const TRACKING_MIN: f32 = 0.5;
+
+/// Most typical letter gap, as a share of the word-gap threshold, for a
+/// `TJ` array to read as tracked — about 1.2 space widths. Wider offsets
+/// between single glyphs are word or column spacing.
+const TRACKING_MAX: f32 = 3.0;
+
+/// Typical letter gap, as a share of the word-gap threshold, from which a
+/// glyph-per-string array is as likely a run of one-letter words as a
+/// tracked word — half a space width. From there tracking is read only in
+/// capitals, digits, title punctuation and Han/Kana: the display convention
+/// such tracking follows, and the one the merge of separately shown glyphs
+/// already applies.
+const TRACKING_NEEDS_CAPITALS: f32 = 1.25;
+
+/// Ceiling on [`TRACKING_NEEDS_CAPITALS`], in thousandths of the font size:
+/// half of a wide space. A font without a space glyph reports another
+/// glyph's width for its space, and the band must not open up with it.
+const TRACKING_NEEDS_CAPITALS_MAX: f32 = 140.0;
+
+/// Ceiling on [`TRACKING_MAX`], in thousandths of the font size, for the
+/// same reason: the heaviest display tracking, about 1.6 space widths of
+/// a wide space.
+const TRACKING_MAX_ABSOLUTE: f32 = 450.0;
+
+/// A `TJ` offset of this many word-gap thresholds or more ends the sub-run
+/// instead of adding a space: column positioning, not a word gap.
+const COLUMN_GAP_THRESHOLDS: f32 = 4.0;
+
+/// Punctuation a tracked title carries between its letters: joining and
+/// closing marks, hyphens and dashes, the ampersand and the slash. An
+/// operator, a relation sign or a bracket between single glyphs is a
+/// formula set with math spacing, not a tracked word.
+fn is_title_punctuation(c: char) -> bool {
+    matches!(
+        c,
+        '.' | ','
+            | ':'
+            | ';'
+            | '!'
+            | '?'
+            | '\''
+            | '\u{2019}'
+            | '"'
+            | '\u{201C}'
+            | '\u{201D}'
+            | '-'
+            | '\u{2010}'
+            | '\u{2013}'
+            | '\u{2014}'
+            | '&'
+            | '/'
+            | '\u{00B7}'
+            | '\u{2022}'
+            | '\u{2026}'
+    )
+}
+
+/// Whether a glyph of a run set half a space width or more apart from its
+/// neighbours reads as display tracking: a capital, a digit, Han/Kana,
+/// title punctuation or a space.
+fn is_tracked_display_glyph(c: char) -> bool {
+    c.is_uppercase()
+        || c.is_numeric()
+        || is_spaceless_cjk(c)
+        || c.is_whitespace()
+        || is_title_punctuation(c)
+}
+
+/// Whether `raw` shows exactly one glyph: one code, two bytes per code for
+/// CID fonts.
+fn is_single_glyph(raw: &[u8], font_info: Option<&FontWidthInfo>) -> bool {
+    let code_len = if font_info.is_some_and(|font_info| font_info.is_cid) {
+        2
+    } else {
+        1
+    };
+    raw.len() == code_len
+}
+
+/// Lower median: the middle value, or the lower of the two middle values.
+fn lower_median(sorted: &[f32]) -> f32 {
+    sorted[(sorted.len() - 1) / 2]
+}
+
+/// Tracking, in thousandths of the font size, read from a `TJ` array that
+/// shows tracked display text: one glyph per string, with the letter
+/// spacing as the offset between strings. Judged one at a time against the
+/// word-gap threshold, such offsets make a word of every letter; the caller
+/// judges each offset over the tracking instead, so the letter gaps stay
+/// inside the word and only a gap wider by a word gap ends it.
+///
+/// The run's own offsets tell letter gaps from word gaps: the letter gaps
+/// cluster around one value and a word gap stands a space width above the
+/// cluster. Gaps above the lower median by more than `space_threshold` are
+/// word gaps; the tracking is the median of the rest.
+///
+/// `None` — the offsets are read as they are — when the array is not such a
+/// run: a string of two glyphs or more (words, or kerned pairs), fewer than
+/// two junctions, an offset written as several numbers (which the walkers
+/// judge one at a time), a junction the offset closes up (a kern, which
+/// formulas and kerned words carry and tracking never does), or a typical
+/// gap under [`TRACKING_MIN`] (kerning) or over [`TRACKING_MAX`] (word and
+/// column spacing) thresholds. `decode` decodes one string element, and
+/// the glyphs of every run in that band are decoded — one call per string
+/// of an array already found to be such a run; an element it cannot
+/// decode — a code the font does not map, a CMap choice still being
+/// sampled — is not vouched for, so the run keeps the fixed thresholds.
+/// The run must be display text whatever its tracking: an array with more
+/// punctuation than letters, digits and Han/Kana — math punctuation set
+/// off by thin spaces, a row of leader dots — is spaced by kerns that only
+/// look like tracking, and keeps the fixed thresholds. A typical gap of
+/// [`TRACKING_NEEDS_CAPITALS`] thresholds or more is ambiguous with a run
+/// of one-letter words besides, and counts as tracking only when every
+/// glyph is a capital, a digit, title punctuation or Han/Kana (see
+/// [`is_tracked_display_glyph`]). Both bands are capped in absolute terms,
+/// since a font without a space glyph reports another glyph's width for
+/// its space. Offsets are read the same way at a negative `Tf` size, as
+/// the thresholds are.
+pub(crate) fn tj_tracking(
+    array: &[Object],
+    font_info: Option<&FontWidthInfo>,
+    space_threshold: f32,
+    mut decode: impl FnMut(&Object) -> Option<(String, bool)>,
+) -> Option<f32> {
+    // Junction gaps between consecutive glyph strings, positive when the
+    // offset widens the gap (a negative `TJ` number moves the pen on).
+    let mut gaps: Vec<f32> = Vec::new();
+    let mut strings: Vec<&Object> = Vec::new();
+    let mut pending = 0.0f32;
+    let mut numbers_since_string = 0usize;
+    for element in array {
+        if let Some(offset) = get_number(element) {
+            pending -= offset;
+            numbers_since_string += 1;
+            continue;
+        }
+        let Some(raw) = get_operand_bytes(element) else {
+            continue;
+        };
+        if raw.is_empty() {
+            continue;
+        }
+        if !is_single_glyph(raw, font_info) {
+            return None;
+        }
+        if !strings.is_empty() {
+            if numbers_since_string > 1 {
+                return None;
+            }
+            gaps.push(pending);
+        }
+        pending = 0.0;
+        numbers_since_string = 0;
+        strings.push(element);
+    }
+    if gaps.len() < 2 || gaps.iter().any(|gap| *gap < 0.0) {
+        return None;
+    }
+    let mut sorted = gaps;
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    let seed = lower_median(&sorted);
+    let letter_gaps: Vec<f32> = sorted
+        .iter()
+        .copied()
+        .filter(|gap| *gap <= seed + space_threshold)
+        .collect();
+    let tracking = lower_median(&letter_gaps);
+    let tracking_max = (space_threshold * TRACKING_MAX).min(TRACKING_MAX_ABSOLUTE);
+    if tracking < space_threshold * TRACKING_MIN || tracking > tracking_max {
+        return None;
+    }
+    // Tracked display text is letters, digits or Han/Kana with the odd
+    // punctuation mark among them. An array with more punctuation than
+    // that — math punctuation set off by thin spaces, a row of leader dots
+    // — is spaced by kerns that only look like tracking, and keeps the
+    // fixed thresholds.
+    let mut texts: Vec<String> = Vec::with_capacity(strings.len());
+    let (mut letters, mut punctuation) = (0usize, 0usize);
+    for element in strings {
+        let (text, _) = decode(element)?;
+        for c in text.chars() {
+            if c.is_alphanumeric() {
+                letters += 1;
+            } else if !c.is_whitespace() {
+                punctuation += 1;
+            }
+        }
+        texts.push(text);
+    }
+    if letters < punctuation {
+        return None;
+    }
+    let needs_capitals =
+        (space_threshold * TRACKING_NEEDS_CAPITALS).min(TRACKING_NEEDS_CAPITALS_MAX);
+    if tracking >= needs_capitals
+        && !texts
+            .iter()
+            .all(|text| text.chars().all(is_tracked_display_glyph))
+    {
+        return None;
+    }
+    Some(tracking)
+}
+
+/// The word-gap and sub-run-ending thresholds, in thousandths of the font
+/// size, that a walker applies to the offsets of a `TJ` array. Without
+/// tracking they are the fixed thresholds: a word gap adds a space, a
+/// column gap ends the sub-run. Over the `tracking` read from the array
+/// (see [`tj_tracking`]) both move up by it, and for a run reading along x
+/// (`horizontal`) the word gap ends the sub-run as well, so each word keeps
+/// the box its glyphs span — a rotated run stays one item with its spaces,
+/// as the lines it joins are assembled from whole runs.
+pub(crate) fn tj_gap_thresholds(
+    space_threshold: f32,
+    tracking: Option<f32>,
+    horizontal: bool,
+) -> (f32, f32) {
+    match tracking {
+        Some(tracking) if horizontal => (space_threshold + tracking, space_threshold + tracking),
+        Some(tracking) => (
+            space_threshold + tracking,
+            space_threshold * COLUMN_GAP_THRESHOLDS + tracking,
+        ),
+        None => (space_threshold, space_threshold * COLUMN_GAP_THRESHOLDS),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -380,6 +620,8 @@ mod tests {
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: false,
             rotation: 0.0,
@@ -585,5 +827,232 @@ mod tests {
         )
         .resolve(&mut items, &[1.0, 0.0, 0.0, 1.0, 79.5, 700.0], &identity);
         assert_eq!(items[0].text, "d t");
+    }
+
+    /// A `TJ` array from a compact spec: strings in parentheses, numbers
+    /// as offsets — `"(V) -250 (A) -250 (L)"`.
+    fn tj(spec: &str) -> Vec<Object> {
+        spec.split_whitespace()
+            .map(
+                |token| match token.strip_prefix('(').and_then(|t| t.strip_suffix(')')) {
+                    Some(text) => Object::String(text.as_bytes().to_vec(), StringFormat::Literal),
+                    None => Object::Real(token.parse().unwrap()),
+                },
+            )
+            .collect()
+    }
+
+    /// Tracking read from `spec` with the 600-unit test font: its space is
+    /// 300 units, so the word-gap threshold is 120 thousandths.
+    fn tracking(spec: &str) -> Option<f32> {
+        let font = font();
+        tj_tracking(
+            &tj(spec),
+            Some(&font),
+            word_gap_threshold(Some(&font)),
+            latin,
+        )
+    }
+
+    /// A math-italic array of commas and ellipsis dots kerned by thin
+    /// spaces, with one letter at its end, is not tracked display text and
+    /// keeps the fixed thresholds, whatever its typical gap; a title whose
+    /// letters carry a period each still reads its tracking.
+    #[test]
+    fn punctuation_led_arrays_are_not_tracking() {
+        assert_eq!(
+            tracking("(,) -167 (.) -167 (.) -167 (.) -167 (,) -167 (D)"),
+            None
+        );
+        assert_eq!(
+            tracking("(,) -100 (.) -100 (.) -100 (.) -100 (,) -100 (D)"),
+            None
+        );
+        assert_eq!(
+            tracking("(R) -300 (.) -300 (E) -300 (.) -300 (V)"),
+            Some(300.0)
+        );
+    }
+
+    #[test]
+    fn tracked_display_runs_read_their_letter_spacing() {
+        // Uniform tracking, tracking with kerning on top, and a word gap a
+        // space width above the letter gaps: the tracking is the typical
+        // letter gap each time.
+        assert_eq!(
+            tracking("(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y)"),
+            Some(250.0)
+        );
+        assert_eq!(
+            tracking("(V) -216 (A) -333 (L) -166 (L) -250 (E) -290 (Y)"),
+            Some(250.0)
+        );
+        assert_eq!(
+            tracking(
+                "(V) -216 (A) -333 (L) -166 (L) -250 (E) -290 (Y) -560 (R) -240 (O) -260 (A) -250 (D)"
+            ),
+            Some(250.0)
+        );
+        // A junction without an offset is a letter gap of zero; it does
+        // not unseat the typical gap.
+        assert_eq!(
+            tracking("(V) (A) -250 (L) -250 (L) -250 (E) -250 (Y)"),
+            Some(250.0)
+        );
+        // Light tracking on a mixed-case word needs no capitals.
+        assert_eq!(
+            tracking("(V) -120 (a) -140 (l) -100 (l) -120 (e) -130 (y)"),
+            Some(120.0)
+        );
+    }
+
+    #[test]
+    fn half_a_space_width_between_single_glyphs_is_tracking_only_in_capitals() {
+        // Half the space width and more: one-letter words look the same in
+        // lowercase, so only the display convention reads as tracking.
+        assert_eq!(tracking("(a) -300 (b) -300 (c) -300 (d)"), None);
+        assert_eq!(tracking("(a) -200 (b) -200 (c) -200 (d)"), None);
+        assert_eq!(tracking("(A) -300 (b) -300 (c) -300 (d)"), None);
+        assert_eq!(tracking("(U) -300 (S) -300 (A)"), Some(300.0));
+        assert_eq!(tracking("(2) -300 (0) -300 (2) -300 (4)"), Some(300.0));
+        let han = |code: &Object| match code {
+            Object::String(bytes, _) if bytes == b"A" => Some(("\u{4E2D}".to_string(), false)),
+            Object::String(_, _) => Some(("\u{6587}".to_string(), false)),
+            _ => None,
+        };
+        let font = font();
+        assert_eq!(
+            tj_tracking(
+                &tj("(A) -300 (B) -300 (A)"),
+                Some(&font),
+                word_gap_threshold(Some(&font)),
+                han
+            ),
+            Some(300.0)
+        );
+        // A glyph the font cannot decode is not vouched for: the run keeps
+        // the fixed thresholds.
+        let partial = |code: &Object| match code {
+            Object::String(bytes, _) if bytes == b"S" => None,
+            other => latin(other),
+        };
+        assert_eq!(
+            tj_tracking(
+                &tj("(U) -300 (S) -300 (A)"),
+                Some(&font),
+                word_gap_threshold(Some(&font)),
+                partial
+            ),
+            None
+        );
+        // Below half a space width, tracking is read whatever the case.
+        assert_eq!(tracking("(a) -120 (b) -120 (c) -120 (d)"), Some(120.0));
+        // A hyphen or an ampersand belongs in a tracked title; an operator,
+        // a relation sign or a bracket is a formula set with math spacing.
+        assert_eq!(tracking("(A) -300 (-) -300 (B)"), Some(300.0));
+        assert_eq!(tracking("(A) -300 (&) -300 (B)"), Some(300.0));
+        assert_eq!(tracking("(E) -278 ([) -278 (N)"), None);
+        assert_eq!(tracking("(A) -278 (=) -278 (B)"), None);
+        assert_eq!(tracking("(A) -278 (+) -278 (1)"), None);
+    }
+
+    /// A font without a space glyph reports another glyph's width for its
+    /// space: the bands are capped so a formula's math spacing between
+    /// lowercase letters, and spaced single letters, keep their spaces.
+    #[test]
+    fn a_wide_reported_space_does_not_open_the_bands() {
+        let mut wide = font();
+        wide.space_width = 600;
+        let threshold = word_gap_threshold(Some(&wide));
+        assert_eq!(threshold, 240.0);
+        let read = |spec: &str| tj_tracking(&tj(spec), Some(&wide), threshold, latin);
+        assert_eq!(read("(a) -278 (<) -278 (b)"), None);
+        assert_eq!(read("(a) -200 (b) -200 (c) -200 (d)"), None);
+        assert_eq!(read("(A) -600 (B) -600 (C) -600 (D)"), None);
+        assert_eq!(
+            read("(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y)"),
+            Some(250.0)
+        );
+        assert_eq!(
+            read("(V) -125 (a) -135 (l) -120 (l) -125 (e) -130 (y)"),
+            Some(125.0)
+        );
+    }
+
+    #[test]
+    fn offsets_that_are_not_tracking_are_left_alone() {
+        // Words positioned by offsets, and a kerned pair in a word.
+        assert_eq!(tracking("(The) -258 (quick) -300 (brown)"), None);
+        assert_eq!(tracking("(A) 83 (VALLEY)"), None);
+        // Kerning between single glyphs, with a word gap among them: a
+        // closed-up junction is never tracking, and neither is a typical
+        // gap of kerning size.
+        assert_eq!(
+            tracking("(T) 20 (h) -5 (e) -278 (q) 10 (u) -3 (i) -8 (c) (k)"),
+            None
+        );
+        assert_eq!(tracking("(A) 20 (V) -333 (I) 10 (S) -333 (A)"), None);
+        assert_eq!(
+            tracking("(D) 27 (1) -166 (,) -166 (D) 27 (2) -166 (,)"),
+            None
+        );
+        assert_eq!(tracking("(A) -30 (B) -20 (C) -40 (D)"), None);
+        // An offset written as several numbers, which the walkers judge one
+        // at a time.
+        assert_eq!(tracking("(V) -125 -125 (A) -250 (L) -250 (L)"), None);
+        // Column-wide positioning, and too few junctions to tell.
+        assert_eq!(tracking("(A) -1500 (B) -1500 (C)"), None);
+        assert_eq!(tracking("(A) -250 (B)"), None);
+        assert_eq!(tracking("(A)"), None);
+        assert_eq!(tracking(""), None);
+    }
+
+    #[test]
+    fn cid_fonts_count_two_bytes_per_glyph() {
+        let mut cid = font();
+        cid.is_cid = true;
+        let threshold = word_gap_threshold(Some(&cid));
+        // Two-byte codes whose low byte is the character.
+        let latin = |code: &Object| match code {
+            Object::String(bytes, _) => Some((
+                bytes
+                    .iter()
+                    .filter(|&&b| b != 0)
+                    .map(|&b| b as char)
+                    .collect(),
+                false,
+            )),
+            _ => None,
+        };
+        let glyph = |code: u16| Object::String(code.to_be_bytes().to_vec(), StringFormat::Literal);
+        let array = vec![
+            glyph(0x41),
+            Object::Integer(-250),
+            glyph(0x42),
+            Object::Integer(-250),
+            glyph(0x43),
+        ];
+        assert_eq!(
+            tj_tracking(&array, Some(&cid), threshold, latin),
+            Some(250.0)
+        );
+        // Two glyphs in one string: a word, not a tracked run.
+        let pair = Object::String(vec![0, 0x41, 0, 0x42], StringFormat::Literal);
+        let array = vec![
+            pair,
+            Object::Integer(-250),
+            glyph(0x43),
+            Object::Integer(-250),
+            glyph(0x44),
+        ];
+        assert_eq!(tj_tracking(&array, Some(&cid), threshold, latin), None);
+    }
+
+    #[test]
+    fn gap_thresholds_follow_the_tracking() {
+        assert_eq!(tj_gap_thresholds(120.0, None, true), (120.0, 480.0));
+        assert_eq!(tj_gap_thresholds(120.0, None, false), (120.0, 480.0));
+        assert_eq!(tj_gap_thresholds(120.0, Some(250.0), true), (370.0, 370.0));
+        assert_eq!(tj_gap_thresholds(120.0, Some(250.0), false), (370.0, 730.0));
     }
 }

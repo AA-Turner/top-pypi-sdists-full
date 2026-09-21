@@ -282,6 +282,20 @@ async def report_trace_incident(
             ),
         )
 
+    # user_feedback.organization_id is NOT NULL — carry it from the verified
+    # request context; never default it (Arman, 2026-09-19). No parent record
+    # exists for a freshly reported incident, so the request context is the
+    # only legitimate source.
+    organization_id = ctx.organization_id
+    if not organization_id:
+        return ToolResult(
+            success=False,
+            error=ToolError(
+                error_type="configuration",
+                message="ctx.organization_id unavailable; cannot attribute row",
+            ),
+        )
+
     # ── Dedup check ────────────────────────────────────────────────────
     # SELECT existing open rows in the same category that carry our
     # dedupe marker. If we find one, UPDATE rather than INSERT.
@@ -355,6 +369,7 @@ async def report_trace_incident(
     # ── Fresh insert ──────────────────────────────────────────────────
     row = {
         "user_id": user_id,
+        "organization_id": organization_id,
         "feedback_type": "bug",
         "route": f"tool:{tool_name}",
         "description": description,

@@ -49,8 +49,11 @@ logger = logging.getLogger(__name__)
 # earlier, before the provider's own hard edge.
 #
 # It is a ROW, not a constant: ``platform.feature_knob``
-# ``prompt_preflight.context_window_trip_fraction`` (org-overridable,
-# ``propagation = next_load``), seeded by aidream's
+# ``prompt_preflight.context_window_trip_fraction`` (PLATFORM-LOCKED —
+# ``overridable_by = '{}'``; this comment said "org-overridable" until
+# 2026-09-20 and that was never achievable, because the value below is
+# process-global state shared by every tenant in the process, so the last
+# injection wins for everybody, ``propagation = next_load``), seeded by aidream's
 # ``db/migrations/0644_prompt_preflight_trip_fraction_knob.sql`` and injected at
 # boot through ``configure_context_preflight``
 # (``aidream/startup/preflight_knob.py``). The package cannot read our database,

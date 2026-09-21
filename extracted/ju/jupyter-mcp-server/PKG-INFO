@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter_mcp_server
-Version: 2.1.16
+Version: 2.2.1
 Project-URL: Home, https://github.com/datalayer/jupyter-mcp-server
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -41,7 +41,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Requires-Dist: code-sandboxes>=1.9.0
-Requires-Dist: datalayer-reactor
+Requires-Dist: datalayer-reactor>=1.0.2
 Requires-Dist: fastapi
 Requires-Dist: jupyter-collaboration>=5
 Requires-Dist: jupyter-nbmodel-client>=1.5.1
@@ -53,6 +53,7 @@ Requires-Dist: opentelemetry-api>=1.24.0
 Requires-Dist: opentelemetry-sdk>=1.24.0
 Requires-Dist: pycrdt>=0.14.3
 Requires-Dist: pydantic
+Requires-Dist: reactor-mcp-server>=1.0.0
 Requires-Dist: typer
 Requires-Dist: uvicorn
 Provides-Extra: cloudflare

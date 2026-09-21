@@ -4714,3 +4714,221 @@ def test_clustered_rebuild_survives_a_permission_error_on_replace(tmp_path, monk
     graph_path = corpus / "graphify-out" / "graph.json"
     labels = {n["label"] for n in json.loads(graph_path.read_text(encoding="utf-8"))["nodes"]}
     assert "added()" in labels, "the fallback must still land the new content"
+
+
+# ── #3695: fail-closed preserved nodes survive AST ownership & shrink guard ───
+
+
+def test_full_rebuild_preserves_alive_source_removed_from_detected_corpus(
+    tmp_path, monkeypatch, capsys
+):
+    """#3695 invariant 1: An alive source removed from the detected corpus survives
+    a full rebuild under fail-closed preservation."""
+    from graphify import detect as detect_mod
+    from graphify.watch import _rebuild_code
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "a.py").write_text("def alpha():\n    return 1\n", encoding="utf-8")
+    (corpus / "b.py").write_text("def beta():\n    return 2\n", encoding="utf-8")
+
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    graph_path = corpus / "graphify-out" / "graph.json"
+    data = json.loads(graph_path.read_text(encoding="utf-8"))
+    nodes_before = {n["id"]: n for n in data["nodes"]}
+    assert any(n.get("source_file") == "b.py" for n in nodes_before.values())
+
+    # Simulate b.py being dropped from detected corpus while remaining alive on disk
+    real_detect = detect_mod.detect
+
+    def narrowed(root, **kwargs):
+        res = real_detect(root, **kwargs)
+        res["files"]["code"] = [
+            f for f in res["files"]["code"] if not str(f).endswith("b.py")
+        ]
+        return res
+
+    monkeypatch.setattr(detect_mod, "detect", narrowed)
+    capsys.readouterr()
+
+    # Explicit full rebuild (changed_paths=None)
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    out = capsys.readouterr().out
+    assert "fail-closed: kept" in out
+
+    after = json.loads(graph_path.read_text(encoding="utf-8"))
+    sources = {n.get("source_file") for n in after["nodes"]}
+    assert "b.py" in sources
+    labels = {n.get("label") for n in after["nodes"]}
+    assert "beta()" in labels
+
+
+def test_ast_ownership_does_not_evict_fail_closed_preserved_node(
+    tmp_path, monkeypatch, capsys
+):
+    """#3695 invariant 1 & 2: AST ownership pass must not evict AST-tier nodes
+    belonging to a source that fail-closed explicitly preserved, even when full_rebuild
+    is True and AST ownership filtering evaluates."""
+    from graphify import detect as detect_mod
+    from graphify.watch import _rebuild_code
+    import graphify.watch as watch_mod
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    worker = corpus / "worker.py"
+    worker.write_text(
+        "def work():\n    pass\n\nclass Job:\n    pass\n", encoding="utf-8"
+    )
+    (corpus / "main.py").write_text("def start():\n    pass\n", encoding="utf-8")
+
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    graph_path = corpus / "graphify-out" / "graph.json"
+    data = json.loads(graph_path.read_text(encoding="utf-8"))
+    worker_ast_ids = {
+        n["id"] for n in data["nodes"] if n.get("source_file") == "worker.py"
+    }
+    assert len(worker_ast_ids) >= 2
+
+    # Drop worker.py from scan corpus while alive on disk
+    real_detect = detect_mod.detect
+
+    def narrowed(root, **kwargs):
+        res = real_detect(root, **kwargs)
+        res["files"]["code"] = [
+            f for f in res["files"]["code"] if not str(f).endswith("worker.py")
+        ]
+        return res
+
+    monkeypatch.setattr(detect_mod, "detect", narrowed)
+
+    # When worker.py is evaluated against AST ownership eviction (e.g. from an
+    # unlinked/replaced file event in deleted_source_identities):
+    worker_id = Path(os.path.abspath(worker)).as_posix()
+    real_reconcile = watch_mod._reconcile_existing_graph
+
+    def reconcile_with_eviction(existing_graph, result, **kwargs):
+        kwargs["deleted_source_identities"] = set(kwargs.get("deleted_source_identities", ())) | {worker_id}
+        return real_reconcile(existing_graph, result, **kwargs)
+
+    monkeypatch.setattr(watch_mod, "_reconcile_existing_graph", reconcile_with_eviction)
+    capsys.readouterr()
+
+    # Trigger full rebuild: AST ownership pass runs with full_rebuild=True
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    after = json.loads(graph_path.read_text(encoding="utf-8"))
+    after_ids = {n["id"] for n in after["nodes"]}
+    for ast_id in worker_ast_ids:
+        assert ast_id in after_ids, (
+            f"AST node {ast_id} was evicted by AST ownership despite fail-closed"
+        )
+    assert "fail-closed: kept" in capsys.readouterr().out
+
+
+def test_reextracted_source_still_evicts_stale_ast_nodes(tmp_path):
+    """#3695 invariant 2: Genuine re-extracted sources must retain existing AST
+    ownership behavior (#1116/#2333), evicting stale AST nodes."""
+    from graphify.watch import _rebuild_code
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "service.py").write_text(
+        "def old_handler():\n    pass\ndef permanent():\n    pass\n",
+        encoding="utf-8",
+    )
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    graph_path = corpus / "graphify-out" / "graph.json"
+    ids_before = {
+        n["id"] for n in json.loads(graph_path.read_text(encoding="utf-8"))["nodes"]
+    }
+    assert "service_old_handler" in ids_before
+
+    # Modify service.py removing old_handler and adding new_handler
+    (corpus / "service.py").write_text(
+        "def new_handler():\n    pass\ndef permanent():\n    pass\n",
+        encoding="utf-8",
+    )
+
+    # Full rebuild: re-extracts service.py
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    ids_after = {
+        n["id"] for n in json.loads(graph_path.read_text(encoding="utf-8"))["nodes"]
+    }
+    assert "service_new_handler" in ids_after
+    assert "service_old_handler" not in ids_after, (
+        "stale AST node from re-extracted source must be evicted (#1116/#2333)"
+    )
+
+
+def test_shrink_involving_fail_closed_sources_does_not_deadlock_shrink_guard(
+    tmp_path, monkeypatch, capsys
+):
+    """#3695 invariant 3: When a shrink occurs on a rebuild that also has fail-closed
+    sources, the shrink guard does not deadlock with 'Refusing to overwrite'."""
+    from graphify import detect as detect_mod
+    from graphify.watch import _rebuild_code
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    # a.py has 3 functions, b.py has 1 function
+    (corpus / "a.py").write_text(
+        "def f1(): pass\ndef f2(): pass\ndef f3(): pass\n", encoding="utf-8"
+    )
+    (corpus / "b.py").write_text("def helper(): pass\n", encoding="utf-8")
+
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    graph_path = corpus / "graphify-out" / "graph.json"
+    initial_count = len(json.loads(graph_path.read_text(encoding="utf-8"))["nodes"])
+
+    # Now shrink a.py: remove 2 functions (net shrink from initial_count)
+    (corpus / "a.py").write_text("def f1(): pass\n", encoding="utf-8")
+
+    # And simulate b.py leaving the detected corpus while alive
+    real_detect = detect_mod.detect
+
+    def narrowed(root, **kwargs):
+        res = real_detect(root, **kwargs)
+        res["files"]["code"] = [
+            f for f in res["files"]["code"] if not str(f).endswith("b.py")
+        ]
+        return res
+
+    monkeypatch.setattr(detect_mod, "detect", narrowed)
+    capsys.readouterr()
+
+    # Full rebuild: net shrink occurs (a.py lost nodes), and b.py is fail-closed.
+    # Must NOT deadlock on shrink guard!
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    data = json.loads(graph_path.read_text(encoding="utf-8"))
+    new_count = len(data["nodes"])
+    assert new_count < initial_count
+    # b.py's helper() node survived
+    labels = {n.get("label") for n in data["nodes"]}
+    assert "helper()" in labels
+    assert "f1()" in labels
+    assert "f2()" not in labels
+
+def test_requires_symlinks_rebuild_symlink_worker(requires_symlinks, tmp_path, capsys):
+    """Exercise true OS symlinks for #3695 on platforms supporting them."""
+    from graphify.watch import _rebuild_code
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+
+    fpm_worker = corpus / "plugins" / "fpm-core" / "services" / "hub" / "worker.py"
+    fpm_worker.parent.mkdir(parents=True)
+    fpm_worker.write_text(
+        "def run_worker():\n    pass\n\ndef process_task():\n    pass\n",
+        encoding="utf-8",
+    )
+    hub_worker = corpus / "services" / "hub" / "worker.py"
+    hub_worker.parent.mkdir(parents=True)
+    hub_worker.symlink_to(fpm_worker)
+
+    app = corpus / "app.py"
+    app.write_text("def main():\n    pass\n", encoding="utf-8")
+
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    graph_path = corpus / "graphify-out" / "graph.json"
+    data = json.loads(graph_path.read_text(encoding="utf-8"))
+    labels = {n.get("label") for n in data["nodes"]}
+    assert "run_worker()" in labels

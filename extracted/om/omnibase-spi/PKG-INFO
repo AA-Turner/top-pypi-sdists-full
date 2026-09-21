@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: omnibase_spi
-Version: 0.23.4
+Version: 0.23.5
 Summary: ONEX Service Provider Interface - Protocol definitions
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnibase_spi
 Project-URL: Repository, https://github.com/OmniNode-ai/omnibase_spi
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.12
-Requires-Dist: omnibase-core<0.48.0,>=0.46.1
+Requires-Dist: omnibase-core<0.48.0,>=0.47.20
 Requires-Dist: pydantic>=2.11.7
 Requires-Dist: typing-extensions>=4.5.0
 Description-Content-Type: text/markdown

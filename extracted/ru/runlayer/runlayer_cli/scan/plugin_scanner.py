@@ -210,6 +210,27 @@ def _dir_probe(path: Path) -> bool | None:
     return stat.S_ISDIR(mode)
 
 
+# ``Path.exists()`` / ``is_dir()`` swallow only not-found errors and re-raise
+# ``PermissionError``. Home-derived plugin paths on an unreadable WSL home (UNC
+# share served as the distro's default user) hit exactly that, so probes there
+# must degrade to "absent + incomplete" instead of aborting the scanner.
+
+
+def _accessible_dir(path: Path) -> bool:
+    is_dir = _dir_probe(path)
+    if is_dir is None:
+        mark_plugin_scan_incomplete("plugin_manifest_access_failed")
+    return is_dir is True
+
+
+def _exists_probe(path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        mark_plugin_scan_incomplete("plugin_manifest_access_failed")
+        return False
+
+
 def _read_json_safe(path: Path) -> dict[str, Any] | None:
     try:
         path.stat()
@@ -604,6 +625,19 @@ def _iter_enabled_claude_marketplace_plugin_dirs(
     absent from the registry paths. ``plugin_name`` is the resolved catalog /
     manifest name so callers attribute servers consistently."""
     marketplaces_dir = installed_plugins_path.parent / "marketplaces"
+    # Probe before globbing: ``Path.glob`` swallows an unreadable root on
+    # Python 3.13 but raises on 3.10-3.12, so only an explicit stat reports
+    # a denied marketplaces dir consistently.
+    marketplaces_is_dir = _dir_probe(marketplaces_dir)
+    if marketplaces_is_dir is None:
+        mark_plugin_scan_incomplete("claude_marketplace_enumeration_failed")
+        logger.warning(
+            "Failed to scan Claude Code marketplace plugins",
+            path=str(marketplaces_dir),
+        )
+    if marketplaces_is_dir is not True:
+        return
+
     catalogs: dict[Path, tuple[str | None, dict[Path, str]]] = {}
     for collection in ("plugins", "external_plugins"):
         try:

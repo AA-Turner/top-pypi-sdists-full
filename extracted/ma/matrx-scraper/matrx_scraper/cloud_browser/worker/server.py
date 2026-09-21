@@ -36,6 +36,9 @@ def build_app():
         token_verifier=verifier,
         xvfb_display=os.environ.get("DISPLAY", ":99"),
     )
+    # One task, one browser: a lease nobody renews means the control plane is
+    # gone, and this process ends itself after closing Chromium cleanly.
+    worker.enable_lease_watchdog()
     return create_worker_app(worker, stream=SelkiesSupervisor())
 
 

@@ -1040,6 +1040,23 @@ def test_scan_no_artifact_lookup_cache_overrides_env(tmp_path: Path):
     assert kwargs["artifact_lookup_cache"] is False
 
 
+def test_scan_skill_resubmit_window_absent_falls_back(tmp_path: Path):
+    kwargs = _scan_capturing_command_options(
+        tmp_path, [], env={"RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS": None}
+    )
+    assert kwargs["skill_resubmit_window_seconds"] is None
+
+
+@pytest.mark.parametrize(("synced", "expected"), [("0", 0), ("999999", 14_400)])
+def test_scan_skill_resubmit_window_from_env_is_clamped(
+    tmp_path: Path, synced: str, expected: int
+):
+    kwargs = _scan_capturing_command_options(
+        tmp_path, [], env={"RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS": synced}
+    )
+    assert kwargs["skill_resubmit_window_seconds"] == expected
+
+
 def test_scan_explicit_flag_overrides_env_project_bounds(tmp_path: Path):
     kwargs = _scan_capturing_project_bounds(
         tmp_path,
@@ -1391,6 +1408,7 @@ def test_scan_continues_when_enforce_validation_checkin_fails(tmp_path: Path):
         scan_result,
         artifact_cache=None,
         failed_surfaces=ANY,
+        throttled_surfaces=ANY,
     )
     mock_submit_plugins.assert_called_once_with(
         client,
@@ -1444,6 +1462,7 @@ def test_scan_continues_when_detect_checkin_fails(tmp_path: Path):
         scan_result,
         artifact_cache=None,
         failed_surfaces=ANY,
+        throttled_surfaces=ANY,
     )
     mock_submit_plugins.assert_called_once_with(
         client,

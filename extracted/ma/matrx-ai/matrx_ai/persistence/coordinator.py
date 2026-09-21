@@ -309,6 +309,7 @@ class Coordinator:
         "_late_one_shot_tail",
         "_late_one_shots",
         "_late_boundary_captured",
+        "_atomic",
     )
 
     def __init__(
@@ -319,13 +320,17 @@ class Coordinator:
         user_id: str | None = None,
         conversation_id: str | None = None,
         late_write_only: bool = False,
+        atomic: bool = False,
     ) -> None:
         # Lazy import keeps matrx_ai.persistence importable when matrx-orm
         # isn't present (e.g. minimal install).
         from matrx_orm.session.managed import _coordinator_session
         from matrx_orm.session.session import _session_stack
 
-        self._session: Any = _coordinator_session(database=database)
+        self._atomic = atomic
+        self._session: Any = _coordinator_session(
+            database=database, recover_individually=not atomic
+        )
         # A coordinator first discovered after its RequestLane began draining
         # has no future finalizer.  Start it terminal so every queued operation
         # takes the existing fresh-Session one-shot path instead of entering an
@@ -1316,6 +1321,14 @@ class Coordinator:
         # already captured to system_write_failure by the one-shot itself.
         await self.drain_late_writes()
 
+    async def abort(self) -> None:
+        """Roll back queued work when an atomic scope fails before flush."""
+        if not self._atomic:
+            raise RuntimeError("abort is reserved for atomic coordinators")
+        async with self._lock:
+            self._session.abort()
+            self._phase = CoordinatorPhase.ERRORED
+
     async def drain_and_confirm(self, *, reason: str = "degrade") -> list[str]:
         """DEGRADE to synchronous — DATA FIRST, never raises. On ANY anomaly the
         caller invokes this BEFORE error-handling/unwinding: it flushes the cache
@@ -1482,7 +1495,9 @@ class Coordinator:
         from matrx_orm.session.session import _session_stack
 
         old = self._session
-        new = _coordinator_session(database=self._database)
+        new = _coordinator_session(
+            database=self._database, recover_individually=not self._atomic
+        )
         self._session = new
         stack = _session_stack.get()
         if any(s is old for s in stack):

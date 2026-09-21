@@ -301,3 +301,15 @@ async def test_explicit_zero_usage_is_valid():
     async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))) as http:
         result = await call_system_one(_request(), api_key="test-key", http=http)
     assert result.usage.input_tokens == result.usage.output_tokens == 0
+
+
+def test_vendor_option_and_level_caps_are_refused_before_transport() -> None:
+    """docs.typesafe.ai/api: Choice ≤ 255 options, Score ≤ 10 levels."""
+    from pydantic import ValidationError
+
+    ChoiceQuestion(instructions="pick", criteria={f"o{i}": None for i in range(255)})
+    with pytest.raises(ValidationError, match="at most 255"):
+        ChoiceQuestion(instructions="pick", criteria={f"o{i}": None for i in range(256)})
+    ScoreQuestion(instructions="rate", criteria=[f"l{i}" for i in range(10)])
+    with pytest.raises(ValidationError, match="at most 10"):
+        ScoreQuestion(instructions="rate", criteria=[f"l{i}" for i in range(11)])

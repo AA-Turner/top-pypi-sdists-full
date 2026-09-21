@@ -41,6 +41,7 @@ class TestStorageConnectionCreateRequest(unittest.TestCase):
                 provider_config = { },
                 description = '',
                 metadata = { },
+                write_enabled = True,
                 test_before_save = True
             )
         else:

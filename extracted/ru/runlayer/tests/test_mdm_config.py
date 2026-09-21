@@ -109,6 +109,7 @@ def test_read_macos_backend_snapshot_overrides_only_synced_fields(
                 "hook_wire_encodings": ("zstd", "gzip"),
                 "project_depth": 12,
                 "project_timeout": 90,
+                "skill_resubmit_window_seconds": 0,
             }
             if org_api_key == "rl_org_secret"
             else None
@@ -142,6 +143,7 @@ def test_read_macos_backend_snapshot_overrides_only_synced_fields(
         "hook_wire_encodings": ("zstd", "gzip"),
         "project_depth": 12,
         "project_timeout": 90,
+        "skill_resubmit_window_seconds": 0,
         "auto_update": False,
     }
     assert mdm_config.resolve_include_pipeline(False, result) is True
@@ -1800,6 +1802,17 @@ def test_apply_managed_config_injects_project_env(monkeypatch):
         _apply_managed_config()
     assert os.environ["RUNLAYER_PROJECT_DEPTH"] == "12"
     assert os.environ["RUNLAYER_PROJECT_TIMEOUT"] == "120"
+
+
+def test_apply_managed_config_injects_skill_resubmit_window_env(monkeypatch):
+    monkeypatch.setenv("RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS", "__placeholder__")
+    monkeypatch.delenv("RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS")
+    with patch(
+        "runlayer_cli.aiwatch.read_managed_config",
+        return_value={"skill_resubmit_window_seconds": 0},
+    ):
+        _apply_managed_config()
+    assert os.environ["RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS"] == "0"
 
 
 def test_apply_managed_config_does_not_override_existing_project_env(monkeypatch):

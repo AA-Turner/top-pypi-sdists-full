@@ -11,9 +11,36 @@ def test_coordinator_hard_deadline_is_auto_replayable() -> None:
     assert any("commit hard-deadline" in marker for marker in RECOVERABLE_RETRY_ERRORS)
 
 
-def test_query_timeout_is_not_an_auto_replay_candidate() -> None:
-    """Unknown COMMIT outcomes require an explicit human recovery decision."""
-    assert not any("QueryTimeoutError" in marker for marker in RECOVERABLE_RETRY_ERRORS)
+def test_query_timeout_replays_the_operation_but_never_a_timed_out_capture() -> None:
+    """The line moved on 2026-09-17, and it moved to a FINER place, not a laxer one.
+
+    This test used to assert the blanket opposite — that "QueryTimeoutError"
+    never appears in RECOVERABLE_RETRY_ERRORS — on the rationale that an
+    unknown COMMIT outcome needs a human. `6fa1cb67bc` split that case in two
+    and left the test behind, so the file has been contradicting itself and
+    its own third test ever since:
+
+      * The OPERATION timed out, its transaction has already ROLLED BACK, and
+        the failure was captured on a fresh connection. The outcome is known,
+        not ambiguous, so a bounded replay is the recovery — and a persistent
+        failure still hits the five-attempt quarantine.
+      * The CAPTURE itself timed out, so what the row says about the
+        transaction cannot be trusted. That row is still excluded, by
+        `_is_query_timeout_capture_text` at the fetch boundary.
+
+    The exclusion is what protects the unknown-COMMIT case, and
+    `test_timeout_head_excludes_recoverable_marker_in_bound_arguments` below
+    proves it end to end — including against a marker spoofed into bound
+    arguments. So this assertion pins the marker's presence, and that one pins
+    the boundary that keeps it honest.
+    """
+    assert any("QueryTimeoutError" in marker for marker in RECOVERABLE_RETRY_ERRORS)
+    assert replay._is_query_timeout_capture_text(
+        "matrx_orm.exceptions.QueryTimeoutError: statement timed out"
+    )
+    assert not replay._is_query_timeout_capture_text(
+        "ForeignKeyViolationError: parent not committed [SQLSTATE 23503]"
+    )
 
 
 @pytest.mark.asyncio

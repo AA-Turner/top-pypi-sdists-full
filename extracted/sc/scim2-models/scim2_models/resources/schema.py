@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from datetime import datetime
 from enum import Enum
 from typing import Annotated
@@ -23,14 +24,13 @@ from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
-from ..attributes import is_complex_attribute
+from ..attributes import _is_complex_attribute
 from ..base import BaseModel
 from ..constants import RESERVED_WORDS
-from ..path import URN
 from ..reference import URI
 from ..reference import External
 from ..reference import Reference
-from ..utils import _normalize_attribute_name
+from ..urn import URN
 from .resource import Resource
 
 T = TypeVar("T", bound=BaseModel)
@@ -47,32 +47,78 @@ def _make_python_identifier(identifier: str) -> str:
     return sanitized
 
 
+def _field_names(attributes: "list[Attribute]") -> list[str]:
+    """Return the Python name each attribute is held under.
+
+    Two SCIM names may yield one Python name, as ``employee_id`` and
+    ``employeeId`` both yield ``employee_id``. The one already spelled as that
+    name keeps it and the others are held under their SCIM name, so that no
+    attribute is dropped and the order the schema declares them in changes
+    nothing. Such a name is no Python identifier when it carries a dash, which
+    costs nothing: an attribute is read under the name SCIM gives it, as in
+    ``resource["employee-Id"]``.
+    """
+    natural = [
+        to_snake(_make_python_identifier(attr.name or "")) for attr in attributes
+    ]
+    shared = Counter(natural)
+    return [
+        name if shared[name] == 1 or name == attr.name else attr.name or ""
+        for attr, name in zip(attributes, natural, strict=True)
+    ]
+
+
+def _python_attributes(
+    attributes: "list[Attribute] | None", declared_by: str
+) -> dict[str, Any]:
+    """Return the fields a schema or a complex attribute declares.
+
+    ``declared_by`` is what declares them, quoted by the error. Two
+    attributes whose names only differ by case are refused: RFC7643 §2.1 makes
+    them one attribute, so a schema declaring both describes it twice.
+    """
+    declared = []
+    named: dict[str, str] = {}
+    for attr in attributes or []:
+        if not attr.name:
+            continue
+
+        claimed = named.get(attr.name.lower())
+        if claimed is not None:
+            raise ValueError(
+                f"{declared_by} declares {claimed!r} and {attr.name!r}, "
+                f"which name the same attribute"
+            )
+        named[attr.name.lower()] = attr.name
+        declared.append(attr)
+
+    return {
+        field_name: attr._to_python()
+        for field_name, attr in zip(_field_names(declared), declared, strict=True)
+    }
+
+
 def _make_python_model(
     obj: Union["Schema", "Attribute"],
     base: type[T],
 ) -> type[T]:
     """Build a Python model from a Schema or an Attribute object."""
-    if isinstance(obj, Attribute):
-        pydantic_attributes = {
-            to_snake(_make_python_identifier(attr.name)): attr._to_python()
-            for attr in (obj.sub_attributes or [])
-            if attr.name
-        }
-
-    else:
-        pydantic_attributes = {
-            to_snake(_make_python_identifier(attr.name)): attr._to_python()
-            for attr in (obj.attributes or [])
-            if attr.name
-        }
-
     if not obj.name:
         raise ValueError("Schema or Attribute 'name' must be defined")
+
+    if isinstance(obj, Attribute):
+        pydantic_attributes = _python_attributes(
+            obj.sub_attributes, f"the attribute {obj.name!r}"
+        )
+    else:
+        pydantic_attributes = _python_attributes(
+            obj.attributes, f"the schema {obj.id or obj.name}"
+        )
 
     model_name = to_pascal(to_snake(obj.name))
     model = cast(
         type[T],
-        create_model(model_name, __base__=base, **pydantic_attributes),  # type: ignore[call-overload]
+        create_model(model_name, __base__=base, **pydantic_attributes),
     )
 
     if isinstance(obj, Schema) and obj.id:
@@ -82,7 +128,7 @@ def _make_python_model(
 
     for attr_name in model.model_fields:
         attr_type = model.get_field_root_type(attr_name)
-        if attr_type and is_complex_attribute(attr_type):
+        if attr_type and _is_complex_attribute(attr_type):
             setattr(model, attr_type.__name__, attr_type)
 
     return model
@@ -132,7 +178,7 @@ class Attribute(ComplexAttribute):
             if isinstance(pytype, type) and issubclass(pytype, Reference):
                 return cls.reference
 
-            if pytype and is_complex_attribute(pytype):
+            if pytype and _is_complex_attribute(pytype):
                 return cls.complex
 
             if pytype in (Required, CaseExact):
@@ -153,9 +199,7 @@ class Attribute(ComplexAttribute):
     )
     """The attribute's name."""
 
-    type: Annotated[Type | None, Mutability.read_only, Required.true] = Field(
-        None, examples=[item.value for item in Type]
-    )
+    type: Annotated[Type | None, Mutability.read_only, Required.true] = None
     """The attribute's data type."""
 
     multi_valued: Annotated[bool | None, Mutability.read_only, Required.true] = None
@@ -184,20 +228,20 @@ class Attribute(ComplexAttribute):
 
     mutability: Annotated[
         Mutability, Mutability.read_only, Required.false, CaseExact.true
-    ] = Field(Mutability.read_write, examples=[item.value for item in Mutability])
+    ] = Mutability.read_write
     """A single keyword indicating the circumstances under which the value of
     the attribute can be (re)defined."""
 
     returned: Annotated[
         Returned, Mutability.read_only, Required.false, CaseExact.true
-    ] = Field(Returned.default, examples=[item.value for item in Returned])
+    ] = Returned.default
     """A single keyword that indicates when an attribute and associated values
     are returned in response to a GET request or in response to a PUT, POST, or
     PATCH request."""
 
     uniqueness: Annotated[
         Uniqueness, Mutability.read_only, Required.false, CaseExact.true
-    ] = Field(Uniqueness.none, examples=[item.value for item in Uniqueness])
+    ] = Uniqueness.none
     """A single keyword value that specifies how the service provider enforces
     uniqueness of attribute values."""
 
@@ -238,7 +282,7 @@ class Attribute(ComplexAttribute):
             description=self.description,
             examples=self.canonical_values,
             serialization_alias=self.name,
-            validation_alias=_normalize_attribute_name(self.name),
+            validation_alias=self.name,
             default=None,
         )
 
@@ -247,10 +291,8 @@ class Attribute(ComplexAttribute):
     def _implicit_case_exact(self) -> CaseExact:
         """Return the case sensitivity the built field must be annotated with.
 
-        Binary and reference values are case exact per
-        :rfc:`RFC7643 §2.3.6 <7643#section-2.3.6>` and
-        :rfc:`§2.3.7 <7643#section-2.3.7>`, unless the schema explicitly states
-        otherwise.
+        Binary and reference values are case exact per RFC7643 §2.3.6 and
+        §2.3.7, unless the schema explicitly states otherwise.
         """
         if "case_exact" in self.model_fields_set:
             return self.case_exact
@@ -296,7 +338,7 @@ class Schema(Resource[Any]):
 
     @field_validator("id")
     @classmethod
-    def urn_id(cls, value: str) -> str:
+    def _urn_id(cls, value: str) -> str:
         """Ensure that schema ids are URI, as defined in RFC7643 §7."""
         return str(Url(value))
 

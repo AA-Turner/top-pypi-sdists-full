@@ -1,4 +1,4 @@
-from collections.abc import Callable, Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -22,7 +22,6 @@ from faststream.kafka.subscriber.factory import create_subscriber
 from faststream.middlewares import AckPolicy
 
 if TYPE_CHECKING:
-    from aiokafka import TopicPartition
     from aiokafka.abc import ConsumerRebalanceListener
     from aiokafka.coordinator.assignors.abstract import AbstractPartitionAssignor
     from fast_depends.dependencies import Dependant
@@ -36,6 +35,7 @@ if TYPE_CHECKING:
         BatchPublisher,
         DefaultPublisher,
     )
+    from faststream.kafka.schemas import TopicPartition
     from faststream.kafka.subscriber.usecase import (
         BatchSubscriber,
         ConcurrentBetweenPartitionsSubscriber,
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
 class KafkaRegistrator(
     Registrator[
-        ConsumerRecord | tuple[ConsumerRecord, ...],
+        ConsumerRecord[Any, Any] | tuple[ConsumerRecord[Any, Any], ...],
         KafkaBrokerConfig,
     ],
 ):
@@ -89,7 +89,7 @@ class KafkaRegistrator(
         partitions: Collection["TopicPartition"] = (),
         # broker args
         persistent: bool = True,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
@@ -139,7 +139,7 @@ class KafkaRegistrator(
         partitions: Collection["TopicPartition"] = (),
         # broker args
         persistent: bool = True,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
@@ -189,7 +189,7 @@ class KafkaRegistrator(
         partitions: Collection["TopicPartition"] = (),
         # broker args
         persistent: bool = True,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
@@ -239,7 +239,7 @@ class KafkaRegistrator(
         partitions: Collection["TopicPartition"] = (),
         # broker args
         persistent: bool = True,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
@@ -289,7 +289,7 @@ class KafkaRegistrator(
         partitions: Collection["TopicPartition"] = (),
         # broker args
         persistent: bool = True,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
@@ -344,7 +344,7 @@ class KafkaRegistrator(
         partitions: Collection["TopicPartition"] = (),
         # broker args
         persistent: bool = True,
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         parser: Optional["CustomCallable"] = None,
         decoder: Optional["CustomCallable"] = None,
         codec: Optional["CodecProto"] = None,
@@ -771,7 +771,7 @@ class KafkaRegistrator(
         router: "KafkaRegistrator",  # type: ignore[override]
         *,
         prefix: str = "",
-        dependencies: Iterable["Dependant"] = (),
+        dependencies: Sequence["Dependant"] = (),
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         include_in_schema: bool | None = None,
     ) -> None:

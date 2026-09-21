@@ -21,5 +21,11 @@ class EmptyPlaceholder:
     def __eq__(self, other: object) -> bool:
         return isinstance(other, EmptyPlaceholder)
 
+    def __hash__(self) -> int:
+        return hash(EmptyPlaceholder)
+
 
 EMPTY: Any = EmptyPlaceholder()
+
+PATH_CONTEXT_PREFIX = "message.path."
+"""Where a `Path()` parameter reads from: the Path parameters an Address captured."""

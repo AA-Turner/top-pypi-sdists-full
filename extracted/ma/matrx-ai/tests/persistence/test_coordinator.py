@@ -231,6 +231,29 @@ async def test_standalone_coordinator_isolated_and_restores_context(
 
 
 @pytest.mark.asyncio
+async def test_atomic_standalone_body_failure_discards_copy(monkeypatch):
+    from matrx_orm.session.session import _session_stack
+
+    from matrx_ai.persistence import queue_helpers
+
+    monkeypatch.setattr(queue_helpers, "_ensure_cx_registered", lambda: None)
+    stack_before = _session_stack.get()
+    scoped = None
+    with pytest.raises(RuntimeError, match="copy failed"):
+        async with queue_helpers.standalone_coordinator(
+            reason="copy", atomic=True
+        ) as coordinator:
+            scoped = coordinator
+            coordinator.queue("public.cx_fake_a", {"id": "a-failed"})
+            raise RuntimeError("copy failed")
+
+    assert scoped is not None
+    assert scoped.ops_count == 0
+    assert scoped.phase is CoordinatorPhase.ERRORED
+    assert _session_stack.get() == stack_before
+
+
+@pytest.mark.asyncio
 async def test_flush_with_no_ops_succeeds(captured_tiers):
     coord = Coordinator()
     report = await coord.flush(reason="stream_end")

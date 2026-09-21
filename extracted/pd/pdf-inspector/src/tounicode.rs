@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 
-use crate::glyph_names::glyph_to_char;
+use crate::glyph_names::glyph_name_to_string;
 
 #[cfg(target_arch = "wasm32")]
 static BUILTIN_CMAPS: include_dir::Dir<'_> =
@@ -980,8 +980,8 @@ pub fn build_cmap_from_truetype(font_data: &[u8]) -> Option<ToUnicodeCMap> {
     );
 
     let mut cmap = ToUnicodeCMap::new();
-    for (gid, ch) in &gid_to_unicode {
-        cmap.char_map.insert(*gid, ch.to_string());
+    for (gid, text) in &gid_to_unicode {
+        cmap.char_map.insert(*gid, text.clone());
     }
     cmap.code_byte_length = 2; // Identity-H uses 2-byte CIDs
 
@@ -1008,9 +1008,10 @@ fn build_simple_cmap_from_truetype(font_data: &[u8]) -> Option<ToUnicodeCMap> {
             {
                 for code in 0x20..=0xFF_u32 {
                     if let Some(gid) = subtable.glyph_index(code) {
-                        if let Some(&ch) = gid_to_unicode.get(&gid.0) {
-                            let ch = strip_pua_char(ch);
-                            cmap.char_map.entry(code as u16).or_insert(ch.to_string());
+                        if let Some(text) = gid_to_unicode.get(&gid.0) {
+                            cmap.char_map
+                                .entry(code as u16)
+                                .or_insert_with(|| strip_pua_text(text));
                         }
                     }
                 }
@@ -1026,9 +1027,10 @@ fn build_simple_cmap_from_truetype(font_data: &[u8]) -> Option<ToUnicodeCMap> {
                 {
                     for code in 0x20..=0xFF_u32 {
                         if let Some(gid) = subtable.glyph_index(code + 0xF000) {
-                            if let Some(&ch) = gid_to_unicode.get(&gid.0) {
-                                let ch = strip_pua_char(ch);
-                                cmap.char_map.entry(code as u16).or_insert(ch.to_string());
+                            if let Some(text) = gid_to_unicode.get(&gid.0) {
+                                cmap.char_map
+                                    .entry(code as u16)
+                                    .or_insert_with(|| strip_pua_text(text));
                             }
                         }
                     }
@@ -1048,9 +1050,10 @@ fn build_simple_cmap_from_truetype(font_data: &[u8]) -> Option<ToUnicodeCMap> {
                 {
                     for code in 0x20..=0xFF_u32 {
                         if let Some(gid) = subtable.glyph_index(code) {
-                            if let Some(&ch) = gid_to_unicode.get(&gid.0) {
-                                let ch = strip_pua_char(ch);
-                                cmap.char_map.entry(code as u16).or_insert(ch.to_string());
+                            if let Some(text) = gid_to_unicode.get(&gid.0) {
+                                cmap.char_map
+                                    .entry(code as u16)
+                                    .or_insert_with(|| strip_pua_text(text));
                             }
                         }
                     }
@@ -1063,9 +1066,9 @@ fn build_simple_cmap_from_truetype(font_data: &[u8]) -> Option<ToUnicodeCMap> {
 
     if !used_encoding_cmap {
         // No encoding cmap found — fall back to treating GID as code.
-        for (&gid, &ch) in &gid_to_unicode {
+        for (&gid, text) in &gid_to_unicode {
             if gid <= 0xFF {
-                cmap.char_map.insert(gid, ch.to_string());
+                cmap.char_map.insert(gid, text.clone());
             }
         }
         // Fill missing single-byte codes from glyph names (helps with ligatures like "t_i").
@@ -1095,6 +1098,16 @@ fn build_simple_cmap_from_truetype(font_data: &[u8]) -> Option<ToUnicodeCMap> {
 }
 
 /// Strip Private Use Area F000 offset (Windows Symbol encoding convention).
+/// [`strip_pua_char`] over a glyph's text: a lone private-use code point is
+/// brought back to the byte it stands for, longer texts are left alone.
+fn strip_pua_text(text: &str) -> String {
+    let mut chars = text.chars();
+    match (chars.next(), chars.next()) {
+        (Some(ch), None) => strip_pua_char(ch).to_string(),
+        _ => text.to_string(),
+    }
+}
+
 fn strip_pua_char(ch: char) -> char {
     let cp = ch as u32;
     if (0xF000..=0xF0FF).contains(&cp) {
@@ -1104,67 +1117,35 @@ fn strip_pua_char(ch: char) -> char {
     }
 }
 
-fn glyph_name_to_string(name: &str) -> Option<String> {
-    let base = name.split('.').next().unwrap_or(name);
-    if let Some(ch) = glyph_to_char(base) {
-        return Some(ch.to_string());
-    }
-    if base.contains('_') {
-        let mut out = String::new();
-        for part in base.split('_') {
-            if part.is_empty() {
-                return None;
-            }
-            if let Some(ch) = glyph_to_char(part) {
-                out.push(ch);
-            } else if part.len() == 1 {
-                out.push(part.chars().next().unwrap());
-            } else {
-                return None;
-            }
+/// Glyph index → character for an embedded TrueType or OpenType font:
+/// from its Unicode and Windows Symbol cmap subtables, then from its glyph
+/// names. A name from the Adobe Glyph List or a `uniXXXX`/`uXXXX` form says
+/// what a glyph is more reliably than the private-use code point a symbol
+/// cmap gives it, and names the glyphs the cmap leaves out.
+pub(crate) fn build_gid_to_unicode(face: &ttf_parser::Face<'_>) -> Option<HashMap<u16, String>> {
+    let cmap_chars = cmap_glyph_chars(face);
+    let mut gid_to_unicode: HashMap<u16, String> = HashMap::new();
+    for gid in (0..face.number_of_glyphs()).chain(cmap_chars.keys().copied()) {
+        if gid_to_unicode.contains_key(&gid) {
+            continue;
         }
-        if !out.is_empty() {
-            return Some(out);
-        }
-    }
-    if matches!(base, "ti" | "tt" | "tz") {
-        return Some(base.to_string());
-    }
-    None
-}
-
-/// Build a ToUnicodeCMap from a font's glyph names (post table).
-/// Uses Adobe Glyph List to map glyph names to Unicode.
-fn build_cmap_from_glyph_names(face: &ttf_parser::Face<'_>) -> Option<ToUnicodeCMap> {
-    let mut cmap = ToUnicodeCMap::new();
-
-    for gid in 0..face.number_of_glyphs() {
-        let gid = ttf_parser::GlyphId(gid);
-        if let Some(name) = face.glyph_name(gid) {
-            if let Some(ch) = glyph_to_char(name) {
-                cmap.char_map.insert(gid.0, ch.to_string());
-            }
+        if let Some(text) = glyph_text(face, &cmap_chars, gid) {
+            gid_to_unicode.insert(gid, text);
         }
     }
 
-    if cmap.char_map.is_empty() {
+    if gid_to_unicode.is_empty() {
         return None;
     }
 
-    debug!(
-        "TrueType post glyph names: {} GID→Unicode entries",
-        cmap.char_map.len()
-    );
-    cmap.code_byte_length = 2;
-    Some(cmap)
+    Some(gid_to_unicode)
 }
 
-fn build_gid_to_unicode(face: &ttf_parser::Face<'_>) -> Option<HashMap<u16, char>> {
-    let mut gid_to_unicode: HashMap<u16, char> = HashMap::new();
-
-    // Iterate all Unicode codepoints that have a glyph mapping.
-    // For each codepoint, the face gives us a GlyphId; reverse that to GID→Unicode.
-    // We prefer the first (lowest) codepoint for each GID to handle duplicates.
+/// Glyph index → the character the font's Unicode and Windows Symbol cmap
+/// subtables give it, the first (lowest) code point of each glyph: the
+/// part of [`build_gid_to_unicode`] that has to read the whole font.
+pub(crate) fn cmap_glyph_chars(face: &ttf_parser::Face<'_>) -> HashMap<u16, char> {
+    let mut chars: HashMap<u16, char> = HashMap::new();
     for subtable in face.tables().cmap.iter().flat_map(|cmap| cmap.subtables) {
         let is_symbol =
             subtable.platform_id == ttf_parser::PlatformId::Windows && subtable.encoding_id == 0;
@@ -1174,26 +1155,32 @@ fn build_gid_to_unicode(face: &ttf_parser::Face<'_>) -> Option<HashMap<u16, char
         subtable.codepoints(|cp| {
             if let Some(ch) = char::from_u32(cp) {
                 if let Some(gid) = subtable.glyph_index(cp) {
-                    let gid_val = gid.0;
-                    gid_to_unicode.entry(gid_val).or_insert(ch);
+                    chars.entry(gid.0).or_insert(ch);
                 }
             }
         });
     }
+    chars
+}
 
-    if gid_to_unicode.is_empty() {
-        return build_cmap_from_glyph_names(face).map(|cmap| {
-            let mut map = HashMap::new();
-            for (gid, s) in cmap.char_map {
-                if let Some(ch) = s.chars().next() {
-                    map.insert(gid, ch);
-                }
-            }
-            map
-        });
+/// What one glyph reads as, given the cmap's characters
+/// ([`cmap_glyph_chars`]): the glyph's name wins over a private-use code
+/// point from the cmap, and a name of several letters (a ligature) reads
+/// as all of them; a glyph with neither reads as nothing. Read per glyph,
+/// so a caller after a few glyphs of a large font pays for those alone.
+pub(crate) fn glyph_text(
+    face: &ttf_parser::Face<'_>,
+    cmap_chars: &HashMap<u16, char>,
+    gid: u16,
+) -> Option<String> {
+    let private_use = |c: char| matches!(c, '\u{E000}'..='\u{F8FF}');
+    let from_cmap = cmap_chars.get(&gid).copied();
+    if let Some(ch) = from_cmap.filter(|ch| !private_use(*ch)) {
+        return Some(ch.to_string());
     }
-
-    Some(gid_to_unicode)
+    face.glyph_name(ttf_parser::GlyphId(gid))
+        .and_then(glyph_name_to_string)
+        .or_else(|| from_cmap.map(|ch| ch.to_string()))
 }
 
 /// Build a ToUnicodeCMap from pdf.js built-in binary CMaps (bcmaps).
@@ -2696,6 +2683,38 @@ fn build_fallback_cmap_for_simple(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embedded_glyph_names_of_several_letters_map_their_glyphs() {
+        // The ligature fixture's program names its glyphs by components
+        // (`f_t`, `f_f_i`, `T_h`, `t_z`), with a suffix (`a.sc`, `f_i.liga`)
+        // and as a uni sequence, and gives them no cmap entry: the glyph
+        // map reads every one of them as its letters.
+        let doc = lopdf::Document::load("tests/fixtures/ligature_glyph_names.pdf").unwrap();
+        let program = doc
+            .objects
+            .values()
+            .find_map(|object| {
+                let stream = object.as_stream().ok()?;
+                stream.dict.get(b"Length1").ok()?;
+                stream.decompressed_content().ok()
+            })
+            .expect("embedded program");
+        let face = ttf_parser::Face::parse(&program, 0).unwrap();
+        let map = build_gid_to_unicode(&face).expect("glyph map");
+        for (name, text) in [
+            ("f_t", "ft"),
+            ("f_f_i", "ffi"),
+            ("T_h", "Th"),
+            ("a.sc", "a"),
+            ("uni00660069", "fi"),
+            ("f_i.liga", "fi"),
+            ("t_z", "tz"),
+        ] {
+            let gid = face.glyph_index_by_name(name).expect(name).0;
+            assert_eq!(map.get(&gid).map(String::as_str), Some(text), "{name}");
+        }
+    }
 
     #[test]
     fn test_parse_bfchar_2byte() {

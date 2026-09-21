@@ -4,7 +4,8 @@ import hashlib
 import inspect
 import json
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import AbstractAsyncContextManager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -16,7 +17,7 @@ from anthropic import (
     AuthenticationError,
     transform_schema,
 )
-from anthropic.lib.streaming import BetaAsyncMessageStream
+from anthropic.lib.streaming import BetaMessageStreamEvent
 from anthropic.types.beta import (
     BetaContentBlockParam,
     BetaInputJSONDelta,
@@ -58,6 +59,7 @@ from opentelemetry.semconv_ai import LLMRequestTypeValues, SpanAttributes
 from opentelemetry.trace import Span, Status, StatusCode
 from pydantic import BaseModel
 
+from fast_agent.config import AnthropicSettings
 from fast_agent.constants import (
     ANTHROPIC_ASSISTANT_RAW_CONTENT,
     ANTHROPIC_CITATIONS_CHANNEL,
@@ -91,6 +93,7 @@ from fast_agent.llm.provider.anthropic.web_tools import (
 )
 from fast_agent.llm.provider.error_utils import build_stream_failure_response
 from fast_agent.llm.provider.streaming_timeouts import (
+    _IdleTimeoutAsyncStream,
     await_stream_start,
     enter_stream_with_timeout,
     with_stream_idle_timeout,
@@ -299,7 +302,7 @@ def _stream_capture_filename(turn: int) -> Path | None:
     if not STREAM_CAPTURE_ENABLED:
         return None
     STREAM_CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return STREAM_CAPTURE_DIR / f"anthropic_{timestamp}_turn{turn}"
 
 
@@ -470,6 +473,14 @@ def _transform_anthropic_schema(schema: type[BaseModel] | dict[str, Any]) -> dic
     return transform_schema(schema)
 
 
+class _AnthropicMessageStream(Protocol):
+    """Capabilities shared by SDK streams and the idle-timeout wrapper."""
+
+    def __aiter__(self) -> AsyncIterator[BetaMessageStreamEvent]: ...
+
+    async def get_final_message(self) -> BetaMessage: ...
+
+
 class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
     MAX_CONVERSATION_CACHE_BLOCKS = 2
     # Anthropic-specific parameter exclusions
@@ -508,7 +519,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
         self._cache_diagnostics_previous_message_id: str | None = None
 
         raw_setting = kwargs.get("reasoning_effort")
-        config = self.context.config.anthropic if self.context and self.context.config else None
+        config = self._anthropic_settings()
         model_name = self.default_request_params.model or DEFAULT_ANTHROPIC_MODEL
         reasoning_source = self._configure_anthropic_reasoning(
             raw_setting,
@@ -704,6 +715,12 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
 
         return ModelDatabase.list_long_context_models()
 
+    def _anthropic_settings(self) -> AnthropicSettings | None:
+        return self.context.config.anthropic if self.context.config else None
+
+    async def _prepare_anthropic_client(self, model: str) -> None:
+        """Resolve request-scoped provider routing before constructing a client."""
+
     def _provider_base_url(self) -> str | None:
         assert self.context.config
         return self.context.config.anthropic.base_url if self.context.config.anthropic else None
@@ -783,7 +800,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
         return cache_mode
 
     def _cache_diagnostics_enabled(self) -> bool:
-        config = self.context.config.anthropic if self.context and self.context.config else None
+        config = self._anthropic_settings()
         return bool(
             config
             and config.cache_diagnostics
@@ -1053,7 +1070,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
             return None
         if self._structured_output_mode_override is not None:
             return self._structured_output_mode_override
-        config = self.context.config.anthropic if self.context and self.context.config else None
+        config = self._anthropic_settings()
         if config and config.structured_output_mode != "auto":
             return config.structured_output_mode
 
@@ -1096,7 +1113,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
             return False
         if self._structured_output_mode_override is not None:
             return False
-        config = self.context.config.anthropic if self.context and self.context.config else None
+        config = self._anthropic_settings()
         if config and config.structured_output_mode != "auto":
             return False
         return self._get_model_json_mode(model) != "schema"
@@ -1838,7 +1855,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
 
     async def _final_anthropic_stream_message(
         self,
-        stream: BetaAsyncMessageStream,
+        stream: _AnthropicMessageStream,
         model: str,
         state: _AnthropicStreamState,
     ) -> BetaMessage:
@@ -1875,7 +1892,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
 
     async def _process_stream(
         self,
-        stream: BetaAsyncMessageStream,
+        stream: _AnthropicMessageStream,
         model: str,
         capture_filename: Path | None = None,
     ) -> tuple[BetaMessage, list[str], list[str]]:
@@ -2270,6 +2287,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
         otel_span: Span | None = None
         otel_span_error = False
         response: BetaMessage | None = None
+        timed_stream: _IdleTimeoutAsyncStream[Any] | None = None
 
         try:
             stream_method = _maybe_unwrap_otel_beta_stream(anthropic.beta.messages.stream)
@@ -2286,66 +2304,54 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
                 if asyncio.iscoroutine(stream_call)
                 else stream_call
             )
-            stream_manager = cast("BetaAsyncMessageStream", stream_manager)
-
-            if otel_span is not None:
-                with trace.use_span(otel_span, end_on_exit=False):
-                    async with enter_stream_with_timeout(
-                        stream_manager,
-                        timeout_seconds=timeout_seconds,
-                        timeout_message=(
-                            f"Anthropic stream did not start within {timeout_seconds} seconds."
-                        ),
-                    ) as raw_stream:
-                        stream = cast(
-                            "BetaAsyncMessageStream",
-                            with_stream_idle_timeout(
-                                raw_stream,
-                                idle_timeout_seconds=timeout_seconds,
-                            ),
-                        )
-                        (
-                            response,
-                            thinking_segments,
-                            streamed_text_segments,
-                        ) = await self._process_stream(stream, model, capture_filename)
-            else:
+            stream_manager = cast(
+                "AbstractAsyncContextManager[_AnthropicMessageStream]", stream_manager
+            )
+            span_context = (
+                trace.use_span(otel_span, end_on_exit=False)
+                if otel_span is not None
+                else nullcontext()
+            )
+            with span_context:
                 async with enter_stream_with_timeout(
                     stream_manager,
                     timeout_seconds=timeout_seconds,
                     timeout_message=f"Anthropic stream did not start within {timeout_seconds} seconds.",
                 ) as raw_stream:
-                    stream = cast(
-                        "BetaAsyncMessageStream",
-                        with_stream_idle_timeout(
-                            raw_stream,
-                            idle_timeout_seconds=timeout_seconds,
-                        ),
+                    timed_stream = with_stream_idle_timeout(
+                        raw_stream,
+                        idle_timeout_seconds=timeout_seconds,
                     )
+                    # The timeout wrapper forwards get_final_message to the SDK stream.
+                    stream = cast("_AnthropicMessageStream", timed_stream)
                     (
                         response,
                         thinking_segments,
                         streamed_text_segments,
                     ) = await self._process_stream(stream, model, capture_filename)
-        except APIError as error:
-            if otel_span is not None and otel_span.is_recording():
-                otel_span.record_exception(error)
-                otel_span.set_status(Status(StatusCode.ERROR))
-                otel_span_error = True
-            logger.error("Streaming APIError during Anthropic completion", exc_info=error)
-            raise
         except Exception as error:
             if otel_span is not None and otel_span.is_recording():
                 otel_span.record_exception(error)
                 otel_span.set_status(Status(StatusCode.ERROR))
                 otel_span_error = True
+            if isinstance(error, APIError):
+                logger.error("Streaming APIError during Anthropic completion", exc_info=error)
+            self._record_stream_outcome(
+                timed_stream.timing if timed_stream is not None else None,
+                error=error,
+                model=model,
+                timeout_seconds=timeout_seconds,
+            )
             raise
         finally:
             if otel_span is not None:
                 _finalize_fallback_stream_span(otel_span, response, otel_span_error)
 
-        if response is None:
+        if response is None or timed_stream is None:
             raise RuntimeError("Anthropic stream completed without a final message.")
+        self._record_stream_outcome(
+            timed_stream.timing, error=None, model=model, timeout_seconds=timeout_seconds
+        )
         return response, thinking_segments, streamed_text_segments
 
     def _anthropic_response_text_blocks(
@@ -2657,8 +2663,9 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
                 ANTHROPIC_CONTAINER_CHANNEL,
                 [TextContent(type="text", text=json.dumps({"id": response.container.id}))],
             )
+        diagnostics: dict[str, Any] = {}
         if cache_diagnostics_enabled or response.diagnostics is not None:
-            diagnostics: dict[str, Any] = (
+            diagnostics = (
                 response.diagnostics.model_dump(mode="json", exclude_none=False)
                 if response.diagnostics is not None
                 else {"cache_miss_reason": None}
@@ -2672,6 +2679,9 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
                     ),
                 }
             )
+        if self._last_stream_timing is not None:
+            diagnostics["stream_timing"] = self._last_stream_timing
+        if diagnostics:
             channels = self._add_anthropic_channel(
                 channels,
                 ANTHROPIC_CACHE_DIAGNOSTICS_CHANNEL,
@@ -2852,6 +2862,9 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
         """
 
         try:
+            await self._prepare_anthropic_client(
+                self.default_request_params.model or DEFAULT_ANTHROPIC_MODEL
+            )
             anthropic = self._initialize_anthropic_client()
             request = await self._prepare_anthropic_completion_request(
                 anthropic,
@@ -3129,7 +3142,7 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
 
         for content_block in message.content:
             if isinstance(content_block, BetaTextBlock):
-                text_value = getattr(content_block, "text", None)
+                text_value = content_block.text
                 if not isinstance(text_value, str):
                     logger.warning(
                         "Skipping Anthropic text block with non-string text while converting message",
@@ -3146,10 +3159,6 @@ class AnthropicLLM(FastAgentLLM[BetaMessageParam, BetaMessage]):
                         id=content_block.id,
                     )
                 )
-            elif isinstance(content_block, BetaServerToolUseBlock):
-                payload = serialize_anthropic_block_payload(content_block)
-                if payload is not None and is_server_tool_trace_payload(payload):
-                    content.append(cast("BetaContentBlockParam", payload))
             else:
                 payload = serialize_anthropic_block_payload(content_block)
                 if payload is not None and is_server_tool_trace_payload(payload):

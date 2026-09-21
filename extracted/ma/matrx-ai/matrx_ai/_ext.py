@@ -645,3 +645,97 @@ _AUTHORING_MANDATE_POLICY_KEY = "authoring_mandate_policy"
 def get_authoring_mandate_policy() -> Any:
     """Return the host-injected authoring-mandate policy resolver, or None."""
     return _registry.get(_AUTHORING_MANDATE_POLICY_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Tool-failure loop guard (settings door + standoff decision)
+# ---------------------------------------------------------------------------
+#
+# Two OPTIONAL host hooks that let the orchestrator's loop guard read admin
+# settings and ask a mandate for a verdict, without matrx-ai importing the host
+# (it may not: the settings live in Postgres behind aidream's feature-knob
+# resolver, and the mandate registry is aidream's).
+#
+#   * ``loop_guard_threshold_reader`` — ``async (*, organization_id, user_id)
+#     -> dict[str, Any] | None``. Resolves the ``orchestration.loop_guard``
+#     knob rows (window_size, min_calls_before_check, failure_threshold,
+#     recovery_window, standoff_decision_confidence) for this principal. Keys it
+#     omits keep the package default. Unconfigured → the package defaults, in
+#     silence (matrx-ai standalone, or a client host with no Postgres).
+#
+#   * ``tool_failure_standoff_decider`` — ``async (provision: dict) -> dict |
+#     None``. Runs the ``orchestration.tool_failure_standoff_decision`` mandate
+#     over the in-memory provision and returns its parsed answer, or None when
+#     NO Holder is bound to it (the case today). None is not an error and not a
+#     silence: the guard falls back to the count rule, disables ONLY the failing
+#     tool, and warns naming the mandate.
+#
+# Neither may raise as a matter of contract, but both call sites treat a raised
+# exception as "fall back, loudly" rather than as a broken run.
+
+_LOOP_GUARD_THRESHOLD_READER_KEY = "loop_guard_threshold_reader"
+_TOOL_FAILURE_STANDOFF_DECIDER_KEY = "tool_failure_standoff_decider"
+
+
+def get_loop_guard_threshold_reader() -> Any:
+    """Return the host-injected loop-guard settings reader, or None when unset."""
+    return _registry.get(_LOOP_GUARD_THRESHOLD_READER_KEY)
+
+
+def get_tool_failure_standoff_decider() -> Any:
+    """Return the host-injected tool-standoff decider, or None when unset."""
+    return _registry.get(_TOOL_FAILURE_STANDOFF_DECIDER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Tool-result content gate (caps door + section-relevance decision + verdict sink)
+# ---------------------------------------------------------------------------
+#
+# Three OPTIONAL host hooks that let the tool-result size gate read admin
+# settings, ask a mandate which SECTIONS of an oversized result the agent
+# actually needs, and record what it withheld — without matrx-ai importing the
+# host (it may not: the settings live in Postgres behind aidream's feature-knob
+# resolver, and the mandate registry is aidream's).
+#
+#   * ``result_gate_limits_reader`` — ``async (*, organization_id, user_id) ->
+#     dict[str, Any] | None``. Resolves the ``tools.result_gate`` knob rows
+#     (soft_cap_chars, canary_chars, list_default_limit,
+#     overflow_stash_max_chars, max_sections_per_result,
+#     section_relevance_threshold) for this principal. Keys it omits keep the
+#     package default. Unconfigured → the package defaults, in silence
+#     (matrx-ai standalone, or a client host with no Postgres).
+#
+#   * ``section_relevance_decider`` — ``async (provisions: list[dict]) ->
+#     list[dict] | None``. Runs the ``content_gate.section_relevance_decision``
+#     mandate over one BATCH of section provisions (one call per result, not per
+#     section) and returns one verdict dict per section IN ORDER, or None when NO
+#     Holder is bound to it (the case today). None is not an error and not a
+#     silence: the gate falls back to today's positional cut and the notice NAMES
+#     the mandate that would otherwise have decided it.
+#
+#   * ``gate_verdict_recorder`` — ``(call_id: str, conversation_id: str | None,
+#     verdict: dict) -> None``. Stamps the gate's decision onto the tool-call row
+#     so the re-fetch surface can show WHY a section is missing rather than only
+#     that something is. Best-effort and non-blocking by contract.
+#
+# None may raise as a matter of contract, but every call site treats a raised
+# exception as "fall back, loudly" rather than as a broken result.
+
+_RESULT_GATE_LIMITS_READER_KEY = "result_gate_limits_reader"
+_SECTION_RELEVANCE_DECIDER_KEY = "section_relevance_decider"
+_GATE_VERDICT_RECORDER_KEY = "gate_verdict_recorder"
+
+
+def get_result_gate_limits_reader() -> Any:
+    """Return the host-injected result-gate settings reader, or None when unset."""
+    return _registry.get(_RESULT_GATE_LIMITS_READER_KEY)
+
+
+def get_section_relevance_decider() -> Any:
+    """Return the host-injected section-relevance decider, or None when unset."""
+    return _registry.get(_SECTION_RELEVANCE_DECIDER_KEY)
+
+
+def get_gate_verdict_recorder() -> Any:
+    """Return the host-injected gate-verdict recorder, or None when unset."""
+    return _registry.get(_GATE_VERDICT_RECORDER_KEY)

@@ -38,10 +38,14 @@ class TestPricingConfigResponse(unittest.TestCase):
             return PricingConfigResponse(
                 credit_rate_usd = 1.337,
                 managed_plans = [
-                    { }
+                    {
+                        'key' : null
+                        }
                     ],
                 mvs_plans = [
-                    { }
+                    {
+                        'key' : null
+                        }
                     ],
                 mvs_usage_rates = { },
                 enterprise_defaults = { },
@@ -73,10 +77,14 @@ class TestPricingConfigResponse(unittest.TestCase):
             return PricingConfigResponse(
                 credit_rate_usd = 1.337,
                 managed_plans = [
-                    { }
+                    {
+                        'key' : null
+                        }
                     ],
                 mvs_plans = [
-                    { }
+                    {
+                        'key' : null
+                        }
                     ],
                 mvs_usage_rates = { },
                 enterprise_defaults = { },

@@ -586,7 +586,10 @@ def set_wstring(bytearray_: Buffer, byte_index: int, value: str, max_size: int =
         raise ValueError(f"max_size: {max_size} > max. allowed 16382 chars")
 
     if any(ord(c) > 0xFFFF for c in value):
-        raise ValueError("WSTRING only supports BMP characters (U+0000 to U+FFFF)")
+        raise ValueError(
+            "Value contains characters outside the Basic Multilingual Plane (codepoint > U+FFFF), "
+            "which are not supported by the PLC WSTRING type."
+        )
 
     size = len(value)
     if size > max_size:

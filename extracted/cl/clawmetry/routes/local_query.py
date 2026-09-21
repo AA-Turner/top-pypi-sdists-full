@@ -718,7 +718,6 @@ def http_query():
 # which is a smaller foot-gun but still a foot-gun.
 
 _DAEMON_METHODS = frozenset({
-    "query_startup_status",
     # `clawmetry maintenance rescrub-spans` (REQ-OBS-OTG-001): the operator's
     # explicit rescrub of spans stored before scrubbing existed. A dry run
     # unless apply=True; pages by span_id so each call stays bounded.

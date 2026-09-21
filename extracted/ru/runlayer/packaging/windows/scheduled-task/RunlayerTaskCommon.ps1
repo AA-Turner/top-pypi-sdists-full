@@ -146,12 +146,15 @@ function Set-RunlayerTaskSecurity {
 
 function Register-AiWatchHooksTask {
     # SYSTEM settings fetch + hook re-assert — the local-task replacement for
-    # the assert/Intune Remediations pair. Hourly + at-boot keeps desired
-    # settings and hooks current. Registered at install by register-tasks.ps1.
+    # the assert/Intune Remediations pair. Every 15 min + at-boot keeps desired
+    # settings and hooks current on the same cadence as the scan check-in. The
+    # 2-min initial delay staggers the repeating tick off AIWatchScan's; the
+    # first run is not delayed because register-tasks.ps1 starts this task
+    # explicitly at install. Registered at install by register-tasks.ps1.
     $action = New-ScheduledTaskAction -Execute $script:ExePath -Argument "setup hooks install --mdm"
     $triggers = @(
         (New-ScheduledTaskTrigger -AtStartup),
-        (New-RunlayerRepeatingTrigger -IntervalMinutes 60)
+        (New-RunlayerRepeatingTrigger -IntervalMinutes 15 -InitialDelayMinutes 2)
     )
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     $settings = New-RunlayerTaskSettings

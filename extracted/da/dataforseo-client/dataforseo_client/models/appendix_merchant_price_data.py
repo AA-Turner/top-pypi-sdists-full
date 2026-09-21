@@ -22,6 +22,7 @@ class AppendixMerchantPriceData(BaseModel):
     google: Optional[AppendixGoogleMerchantPriceData] = Field(default=None, description=r"")
     amazon: Optional[AppendixAmazonMerchantPriceData] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     languages: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     locations: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     reviews: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
@@ -30,6 +31,7 @@ class AppendixMerchantPriceData(BaseModel):
         "google", 
         "amazon", 
         "errors", 
+        "id_list", 
         "languages", 
         "locations", 
         "reviews", 
@@ -63,6 +65,7 @@ class AppendixMerchantPriceData(BaseModel):
         _dict['google'] = self.google.to_dict() if self.google else None
         _dict['amazon'] = self.amazon.to_dict() if self.amazon else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['languages'] = self.languages.to_dict() if self.languages else None
         _dict['locations'] = self.locations.to_dict() if self.locations else None
         _dict['reviews'] = self.reviews.to_dict() if self.reviews else None
@@ -82,6 +85,7 @@ class AppendixMerchantPriceData(BaseModel):
             "google": AppendixGoogleMerchantPriceData.from_dict(obj["google"]) if obj.get("google") is not None else None,
             "amazon": AppendixAmazonMerchantPriceData.from_dict(obj["amazon"]) if obj.get("amazon") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
             "languages": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["languages"]) if obj.get("languages") is not None else None,
             "locations": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["locations"]) if obj.get("locations") is not None else None,
             "reviews": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["reviews"]) if obj.get("reviews") is not None else None,

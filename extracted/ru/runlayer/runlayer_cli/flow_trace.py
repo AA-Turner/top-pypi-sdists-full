@@ -47,6 +47,7 @@ from dataclasses import dataclass, field
 from types import TracebackType
 from typing import Any, Literal, TypeVar, cast
 
+from runlayer_cli.flow_contract import CLIENT_FLOW_CLIENTS, CLIENT_FLOW_HOOK_EVENTS
 from runlayer_cli.flow_summary import build_summary
 from runlayer_cli.hook import hook_io
 
@@ -217,6 +218,10 @@ class FlowTrace:
     server_id: str | None = None
     # Hostname the flow's relay calls target (hook path; see set_target_host).
     target_host: str | None = None
+    # Detected harness + normalized hook event (hook path only; closed
+    # vocabularies in flow_contract so the backend can log them as-is).
+    client: str | None = None
+    hook_event: str | None = None
     steps: list[StepRecord] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _next_id: int = 0
@@ -302,6 +307,37 @@ def set_target_host(host: str | None) -> None:
     # 128 characters, but the spool drain compares against the full hostname
     # (DNS allows 253), so a truncated stamp would never match its own host.
     trace.target_host = (host.strip() if isinstance(host, str) else "") or None
+
+
+def set_client(client: str | None) -> None:
+    """Stamp the detected harness (``hook.clients.Client.value``) on the
+    active flow summary.
+
+    The vocabulary check is defense in depth at the wire boundary, not
+    behaviour: the only caller passes an enum value the lockstep test pins to
+    ``CLIENT_FLOW_CLIENTS``, so in production it never fires.
+    """
+    trace = _flow_var.get()
+    if trace is None:
+        return
+    trace.client = client if client in CLIENT_FLOW_CLIENTS else None
+
+
+def set_hook_event(hook_event: str | None) -> None:
+    """Stamp the normalized hook event name on the active flow summary.
+
+    ``normalize_event_name`` passes unknown names through verbatim, so anything
+    outside ``CLIENT_FLOW_HOOK_EVENTS`` collapses to ``"other"`` here — the
+    wire vocabulary stays bounded and the flow still says "some event we do
+    not classify" instead of losing the field.
+    """
+    trace = _flow_var.get()
+    if trace is None:
+        return
+    if not isinstance(hook_event, str) or not hook_event:
+        trace.hook_event = None
+        return
+    trace.hook_event = hook_event if hook_event in CLIENT_FLOW_HOOK_EVENTS else "other"
 
 
 def set_startup_ms(startup_ms: float) -> None:

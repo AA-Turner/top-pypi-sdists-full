@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-snap7"
-version = "3.1.2"
+version = "3.2.0"
 description = "Pure Python S7 communication library for Siemens PLCs"
 readme = "README.rst"
 authors = [
@@ -37,12 +37,13 @@ cli = ["rich", "click" ]
 demo = ["psutil", "rich", "click"]
 doc = ["sphinx", "sphinx_rtd_theme"]
 discovery = ["pnio-dcp"]
+ppi = ["pyserial>=3.5"]
 
 [tool.setuptools.package-data]
 snap7 = ["py.typed"]
 
 [tool.setuptools.packages.find]
-include = ["snap7*"]
+include = ["snap7*", "s7*"]
 
 [project.scripts]
 snap7-server = "snap7.server:mainloop"
@@ -60,14 +61,23 @@ markers =[
     "partner",
     "routing",
     "server",
-    "util"
+    "util",
+    "conformance: protocol conformance tests"
     ]
+asyncio_mode = "auto"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
 
 [tool.mypy]
 ignore_missing_imports = true
 strict = true
 # https://github.com/python/mypy/issues/2427#issuecomment-1419206807
 disable_error_code = ["method-assign", "attr-defined"]
+
+[tool.coverage.report]
+fail_under = 75
 
 [tool.ruff]
 output-format = "full"

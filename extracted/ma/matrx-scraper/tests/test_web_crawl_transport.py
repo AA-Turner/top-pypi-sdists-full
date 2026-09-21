@@ -466,9 +466,9 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
     state = CrawlPersistenceState(
         site_id="d0aff5b6-0710-4848-8304-164db3c80ab7",
         session_id="2b262f8c-1fbe-4575-81f5-c99c0709bd61",
-        user_id="4cf62e4e-2679-484f-b652-034e697418df",
-        file_owner_id="4cf62e4e-2679-484f-b652-034e697418df",
-        organization_id="5dc930e9-bd65-44a1-8369-af773f6e1a5b",
+        user_id="00000000-0000-4000-8000-0000000fffe1",
+        file_owner_id="00000000-0000-4000-8000-0000000fffe1",
+        organization_id="00000000-0000-4000-8000-0000000fffa1",
         coverage_qualified=True,
     )
     persister = CanonicalBodyPersister(
@@ -617,9 +617,9 @@ async def test_canonical_persister_archives_xml_with_its_real_format_and_mime(
     state = CrawlPersistenceState(
         site_id="d0aff5b6-0710-4848-8304-164db3c80ab7",
         session_id="2b262f8c-1fbe-4575-81f5-c99c0709bd61",
-        user_id="4cf62e4e-2679-484f-b652-034e697418df",
-        file_owner_id="4cf62e4e-2679-484f-b652-034e697418df",
-        organization_id="5dc930e9-bd65-44a1-8369-af773f6e1a5b",
+        user_id="00000000-0000-4000-8000-0000000fffe1",
+        file_owner_id="00000000-0000-4000-8000-0000000fffe1",
+        organization_id="00000000-0000-4000-8000-0000000fffa1",
         coverage_qualified=False,
     )
     persister = CanonicalBodyPersister(
@@ -685,9 +685,9 @@ async def test_canonical_persister_never_deletes_an_access_denied_duplicate(
     state = CrawlPersistenceState(
         site_id="d0aff5b6-0710-4848-8304-164db3c80ab7",
         session_id="2b262f8c-1fbe-4575-81f5-c99c0709bd61",
-        user_id="4cf62e4e-2679-484f-b652-034e697418df",
-        file_owner_id="4cf62e4e-2679-484f-b652-034e697418df",
-        organization_id="5dc930e9-bd65-44a1-8369-af773f6e1a5b",
+        user_id="00000000-0000-4000-8000-0000000fffe1",
+        file_owner_id="00000000-0000-4000-8000-0000000fffe1",
+        organization_id="00000000-0000-4000-8000-0000000fffa1",
         coverage_qualified=False,
     )
     persister = CanonicalBodyPersister(
@@ -741,9 +741,9 @@ async def test_failed_persistence_purges_every_new_artifact_by_exact_identity() 
     state = CrawlPersistenceState(
         site_id="d0aff5b6-0710-4848-8304-164db3c80ab7",
         session_id="2b262f8c-1fbe-4575-81f5-c99c0709bd61",
-        user_id="4cf62e4e-2679-484f-b652-034e697418df",
-        file_owner_id="4cf62e4e-2679-484f-b652-034e697418df",
-        organization_id="5dc930e9-bd65-44a1-8369-af773f6e1a5b",
+        user_id="00000000-0000-4000-8000-0000000fffe1",
+        file_owner_id="00000000-0000-4000-8000-0000000fffe1",
+        organization_id="00000000-0000-4000-8000-0000000fffa1",
         coverage_qualified=False,
     )
     persister = CanonicalBodyPersister(

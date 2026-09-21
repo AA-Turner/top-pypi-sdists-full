@@ -28,10 +28,7 @@ select = [
 ]
 
 [tool.coverage.run]
-source_pkgs = [
-    "sqladmin",
-    "tests",
-]
+source_pkgs = ["sqladmin"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -50,9 +47,13 @@ method = "jinja2"
 pattern = "sqladmin/templates/**.html"
 extensions = "jinja2.ext.i18n"
 
+[[tool.babel.mappings]]
+method = "python"
+pattern = "sqladmin/contrib/**.py"
+
 [project]
 name = "sqladmin"
-version = "0.31.1"
+version = "0.32.0"
 description = "SQLAlchemy admin for FastAPI and Starlette"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -131,7 +132,7 @@ dev = [
     "bandit",
 ]
 lint = [
-    "mypy==2.3.0",
+    "mypy==2.3.1",
     "ruff==0.15.20",
     "types-wtforms>=3.2.1.20250809",
 ]

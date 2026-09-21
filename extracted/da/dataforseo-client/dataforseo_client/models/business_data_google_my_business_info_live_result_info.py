@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
-from dataforseo_client.models.items_google_business_info import ItemsGoogleBusinessInfo
+from dataforseo_client.models.google_business_info import GoogleBusinessInfo
 
 
 
@@ -24,7 +24,7 @@ class BusinessDataGoogleMyBusinessInfoLiveResultInfo(BaseModel):
     datetime: Optional[StrictStr] = Field(default=None, description=r"*date and time when the result was received*. in the UTC format: “yyyy-mm-dd hh-mm-ss +00:00”. example:. `2019-11-15 12:57:46 +00:00`")
     item_types: Optional[List[Optional[StrictStr]]] = Field(default=None, description=r"*item types*. types of search engine results encountered in the `items` array;. possible item types: `google_business_info`")
     items_count: Optional[StrictInt] = Field(default=None, description=r"*item types*. the number of items in the `items` array")
-    items: Optional[List[Optional[ItemsGoogleBusinessInfo]]] = Field(default=None, description=r"*encountered item types*. types of search engine results encountered in the `items` array;. possible item types: `google_business_info`")
+    items: Optional[List[Optional[GoogleBusinessInfo]]] = Field(default=None, description=r"*encountered item types*. types of search engine results encountered in the `items` array;. possible item types: `google_business_info`")
     __properties: ClassVar[List[str]] = [
         "keyword", 
         "se_domain", 
@@ -95,7 +95,7 @@ class BusinessDataGoogleMyBusinessInfoLiveResultInfo(BaseModel):
             "datetime": obj.get("datetime"),
             "item_types": obj.get("item_types"),
             "items_count": obj.get("items_count"),
-            "items": [ItemsGoogleBusinessInfo.from_dict(_item) for _item in obj["items"]] if obj.get("items") is not None else None,
+            "items": [GoogleBusinessInfo.from_dict(_item) for _item in obj["items"]] if obj.get("items") is not None else None,
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

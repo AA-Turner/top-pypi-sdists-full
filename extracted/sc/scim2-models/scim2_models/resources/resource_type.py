@@ -10,9 +10,9 @@ from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
-from ..path import URN
 from ..reference import URI
 from ..reference import Reference
+from ..urn import URN
 from .resource import Resource
 
 
@@ -100,7 +100,11 @@ class ResourceType(Resource[Any]):
             schema_extensions=[
                 SchemaExtension(
                     schema_=Reference[URI](extension.__schema__),
-                    required=False,
+                    required=bool(
+                        resource_model.get_field_annotation(
+                            extension.__name__, Required
+                        )
+                    ),
                 )
                 for extension in extensions
             ],

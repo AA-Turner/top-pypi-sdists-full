@@ -858,8 +858,21 @@ fn analyze_page_content(doc: &Document, page_id: ObjectId) -> PageAnalysis {
     // very few because each glyph is a path, not a Tj/TJ text op. Pages with
     // real selectable text plus decorative paths (column borders, dividers)
     // have many unique alphanum chars — these are NOT vector-outlined text.
-    let has_vector_text =
-        path_ops >= 1000 && path_ops > text_ops.saturating_mul(200) && unique_alphanum_chars < 30;
+    //
+    // The byte count says nothing about text shown through a CID-keyed
+    // font: its two-byte codes are glyph indices whose bytes are rarely
+    // ASCII letters or digits, however much text they carry. A page the
+    // byte count would flag is therefore judged on its decoded text when
+    // any of it came through such a font's ToUnicode CMap (see
+    // `DecodedTextCounts::is_page_text`); decoding walks the content
+    // streams again, so it is not done for the other pages.
+    let mut has_vector_text = path_ops >= 1000
+        && path_ops > text_ops.saturating_mul(200)
+        && (unique_alphanum_chars as usize) < VECTOR_TEXT_MIN_ALPHANUMERICS;
+    if has_vector_text {
+        let decoded = decoded_text_counts(doc, page_id);
+        has_vector_text = !(decoded.through_cid_cmap && decoded.is_page_text(path_ops));
+    }
 
     // Check for Identity-H/V fonts without ToUnicode — these produce garbage text.
     // Only consider fonts actually USED by Tf operators in content streams (P1 fix),
@@ -893,6 +906,360 @@ fn analyze_page_content(doc: &Document, page_id: ObjectId) -> PageAnalysis {
         font_change_count: font_changes,
         has_decodable_text_fonts,
     }
+}
+
+/// Distinct alphanumeric characters a page must show for its text to count
+/// as real text next to a mass of path operators — below it, the paths are
+/// taken for outlined glyphs and the page for vector text. Applied to the
+/// bytes of string operands, and to the decoded text of pages that show
+/// text through a CID-keyed font with a ToUnicode CMap.
+const VECTOR_TEXT_MIN_ALPHANUMERICS: usize = 30;
+
+/// Path operators per decoded alphanumeric character beyond which a page's
+/// text is a header or footer next to a drawing rather than the page's
+/// content: outlined body text with a live title and address line runs into
+/// the hundreds, a title over an illustration or a paragraph beside a chart
+/// stays well under.
+const VECTOR_TEXT_MAX_PATH_OPS_PER_CHARACTER: u32 = 100;
+
+/// Form XObjects read at most when counting a page's decoded text; a page
+/// invoking more is counted as far as that. The page and its forms
+/// together are also held to the extractor's page budgets of decompressed
+/// bytes and of operations.
+const DECODED_TEXT_MAX_FORMS: usize = 1_000;
+
+/// What a page's text amounts to once every string is decoded.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct DecodedTextCounts {
+    /// Distinct alphanumeric characters.
+    distinct_alphanumerics: usize,
+    /// Alphanumeric characters, repeats included.
+    alphanumerics: usize,
+    /// Whether any string was decoded through the ToUnicode CMap of a
+    /// CID-keyed (Type0) font — the strings whose bytes the byte count
+    /// cannot read.
+    through_cid_cmap: bool,
+}
+
+impl DecodedTextCounts {
+    /// Whether text this diverse and this plentiful is the content of a
+    /// page carrying `path_ops` path operators, rather than the caption,
+    /// title or footer of a drawing: as many distinct letters and digits as
+    /// the byte count asks of a simple font, and at most
+    /// [`VECTOR_TEXT_MAX_PATH_OPS_PER_CHARACTER`] path operators per
+    /// character.
+    fn is_page_text(self, path_ops: u32) -> bool {
+        self.distinct_alphanumerics >= VECTOR_TEXT_MIN_ALPHANUMERICS
+            && (self.alphanumerics as u64) * u64::from(VECTOR_TEXT_MAX_PATH_OPS_PER_CHARACTER)
+                >= u64::from(path_ops)
+    }
+}
+
+/// How a font's string operands are read for the decoded text counts.
+enum FontDecoder {
+    /// Codes mapped through the font's ToUnicode CMap; `cid` when the font
+    /// is CID-keyed.
+    CMap {
+        cmap: crate::tounicode::ToUnicodeCMap,
+        cid: bool,
+    },
+    /// A simple font without a usable CMap: one character per byte.
+    Bytes,
+}
+
+/// The decoder for the font dictionary `font`: its ToUnicode CMap when it
+/// has one that parses, direct or referenced; the bytes themselves for a
+/// simple font without one; `None` for a font whose text cannot be decoded
+/// here (a CID-keyed font without a CMap, a Type3 font), whose strings
+/// count for nothing.
+fn font_decoder(doc: &Document, font: &lopdf::Dictionary) -> Option<FontDecoder> {
+    let subtype = font.get(b"Subtype").ok().and_then(|s| s.as_name().ok());
+    let to_unicode = match font.get(b"ToUnicode") {
+        Ok(Object::Stream(stream)) => Some(stream),
+        Ok(Object::Reference(id)) => match doc.get_object(*id) {
+            Ok(Object::Stream(stream)) => Some(stream),
+            _ => None,
+        },
+        _ => None,
+    };
+    if let Some(stream) = to_unicode {
+        // Decompressed within the loader's per-stream bound, which the
+        // largest real CMaps come nowhere near: a stream inflating past it
+        // is not read, and the font goes undecoded rather than costing
+        // more memory than the document's own streams may.
+        let data = match stream
+            .decompressed_content_with_limit(crate::MAX_STREAM_DECOMPRESSED_BYTES)
+        {
+            Ok(data) => data,
+            Err(lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded {
+                ..
+            })) => return None,
+            Err(_) if stream.content.len() > crate::MAX_STREAM_DECOMPRESSED_BYTES => return None,
+            Err(_) => stream.content.clone(),
+        };
+        if let Some(cmap) = crate::tounicode::ToUnicodeCMap::parse(&data) {
+            return Some(FontDecoder::CMap {
+                cmap,
+                cid: subtype == Some(b"Type0"),
+            });
+        }
+    }
+    match subtype {
+        Some(b"Type1") | Some(b"TrueType") | Some(b"MMType1") => Some(FontDecoder::Bytes),
+        _ => None,
+    }
+}
+
+/// The font dictionary `name` resolves to in `resources`, with its object
+/// id when it is an indirect object; an inline dictionary has none.
+fn lookup_font<'a>(
+    doc: &'a Document,
+    resources: &'a lopdf::Dictionary,
+    name: &[u8],
+) -> Option<(Option<ObjectId>, &'a lopdf::Dictionary)> {
+    let fonts = match resources.get(b"Font").ok()? {
+        Object::Dictionary(dict) => dict,
+        Object::Reference(id) => doc.get_dictionary(*id).ok()?,
+        _ => return None,
+    };
+    match fonts.get(name).ok()? {
+        Object::Reference(id) => Some((Some(*id), doc.get_dictionary(*id).ok()?)),
+        Object::Dictionary(dict) => Some((None, dict)),
+        _ => None,
+    }
+}
+
+/// The Form XObject `name` resolves to in `resources`, when it is one.
+fn lookup_form(doc: &Document, resources: &lopdf::Dictionary, name: &[u8]) -> Option<ObjectId> {
+    let xobjects = match resources.get(b"XObject").ok()? {
+        Object::Dictionary(dict) => dict,
+        Object::Reference(id) => doc.get_dictionary(*id).ok()?,
+        _ => return None,
+    };
+    let id = xobjects.get(name).ok()?.as_reference().ok()?;
+    let Ok(Object::Stream(stream)) = doc.get_object(id) else {
+        return None;
+    };
+    (stream
+        .dict
+        .get(b"Subtype")
+        .ok()
+        .and_then(|s| s.as_name().ok())
+        == Some(b"Form"))
+    .then_some(id)
+}
+
+/// The alphanumeric characters in the text the page shows — in its own
+/// content and in the Form XObjects its content invokes with `Do`, each
+/// once — once every string is decoded through the font in force: its
+/// ToUnicode CMap where it has one, the bytes themselves for a simple font
+/// without one, nothing for a font that cannot be decoded here. Font names
+/// resolve against the stream's own resources, then those of the stream
+/// that invoked it, up to the page's and its ancestors'; the font in force
+/// follows `q`/`Q` like the rest of the graphics state, and a form starts
+/// with the font its invoker had selected, as it does the rest of the text
+/// state. A form is decompressed when its turn comes, so one form's
+/// content is held at a time. Replacement characters, which a CMap that
+/// does not cover its codes produces, are not alphanumeric and do not
+/// count. The page and its forms together are read within the extractor's
+/// page budgets of decompressed bytes and of operations, in the order
+/// invoked — the page, then the forms it invokes, then theirs — so the
+/// budgets go to the text drawn first; what lies beyond them is not
+/// counted, as the extractor would not read it either. A stream that does
+/// not parse is skipped, as the extractor skips it.
+fn decoded_text_counts(doc: &Document, page_id: ObjectId) -> DecodedTextCounts {
+    decoded_text_counts_within(
+        doc,
+        page_id,
+        crate::extractor::content_decode::MAX_PAGE_CONTENT_BYTES,
+        crate::extractor::content_decode::MAX_PAGE_OPERATIONS,
+    )
+}
+
+/// [`decoded_text_counts`] within the budgets given: at most `max_bytes`
+/// of decompressed content and `max_operations` operators, over the page
+/// and the forms it invokes together.
+fn decoded_text_counts_within(
+    doc: &Document,
+    page_id: ObjectId,
+    max_bytes: usize,
+    max_operations: usize,
+) -> DecodedTextCounts {
+    use std::rc::Rc;
+
+    let mut page_scope: Vec<&lopdf::Dictionary> = Vec::new();
+    if let Ok((own, ancestors)) = doc.get_page_resources(page_id) {
+        page_scope.extend(own);
+        page_scope.extend(
+            ancestors
+                .iter()
+                .filter_map(|id| doc.get_dictionary(*id).ok()),
+        );
+    }
+    // A page whose content alone is over the budget is not read here, as
+    // the extractor does not read it.
+    let Ok(page_content) = doc.get_page_content_with_limit(page_id, max_bytes) else {
+        return DecodedTextCounts::default();
+    };
+    let mut bytes_left = max_bytes.saturating_sub(page_content.len());
+    let mut operations_left = max_operations;
+
+    enum Pending {
+        Page(Vec<u8>),
+        Form(ObjectId),
+    }
+    /// A stream waiting to be read: the page, or a form with the resource
+    /// scope and the font in force where it was invoked.
+    struct Invocation<'a> {
+        source: Pending,
+        scope: Vec<&'a lopdf::Dictionary>,
+        font: Option<Rc<FontDecoder>>,
+    }
+    let mut pending = std::collections::VecDeque::from([Invocation {
+        source: Pending::Page(page_content),
+        scope: page_scope,
+        font: None,
+    }]);
+    let mut visited: HashSet<ObjectId> = HashSet::new();
+    let mut counts = DecodedTextCounts::default();
+    let mut seen: HashSet<char> = HashSet::new();
+    let mut decoders: HashMap<ObjectId, Option<Rc<FontDecoder>>> = HashMap::new();
+    while let Some(Invocation {
+        source,
+        scope: invoking_scope,
+        font: inherited,
+    }) = pending.pop_front()
+    {
+        let (content, scope) = match source {
+            Pending::Page(content) => (content, invoking_scope),
+            Pending::Form(id) => {
+                let Ok(Object::Stream(stream)) = doc.get_object(id) else {
+                    continue;
+                };
+                let mut scope: Vec<&lopdf::Dictionary> = match stream.dict.get(b"Resources") {
+                    Ok(Object::Dictionary(dict)) => vec![dict],
+                    Ok(Object::Reference(id)) => doc.get_dictionary(*id).ok().into_iter().collect(),
+                    _ => Vec::new(),
+                };
+                scope.extend(invoking_scope);
+                // Decompressed within what is left of the page's byte
+                // budget; a stream that fails to decode for another reason
+                // is read raw, as the page content is, if that fits too.
+                let content = match stream.decompressed_content_with_limit(bytes_left) {
+                    Ok(content) => content,
+                    Err(lopdf::Error::Decompress(
+                        lopdf::DecompressError::MemoryLimitExceeded { .. },
+                    )) => break,
+                    Err(_) if stream.content.len() > bytes_left => break,
+                    Err(_) => stream.content.clone(),
+                };
+                bytes_left = bytes_left.saturating_sub(content.len());
+                (content, scope)
+            }
+        };
+        let ops = match crate::extractor::content_decode::decode_content_bounded(
+            &content,
+            operations_left,
+        ) {
+            Ok(Some(ops)) => ops,
+            // The operation budget is spent: nothing further is read.
+            Ok(None) => break,
+            // A stream that does not parse is skipped, as the extractor
+            // skips it; the streams after it are still read.
+            Err(_) => continue,
+        };
+        operations_left = operations_left.saturating_sub(ops.operations.len());
+        let mut current: Option<Rc<FontDecoder>> = inherited;
+        let mut saved: Vec<Option<Rc<FontDecoder>>> = Vec::new();
+        for op in &ops.operations {
+            match op.operator.as_str() {
+                "q" => saved.push(current.clone()),
+                "Q" => {
+                    if let Some(restored) = saved.pop() {
+                        current = restored;
+                    }
+                }
+                "Do" => {
+                    if visited.len() >= DECODED_TEXT_MAX_FORMS {
+                        continue;
+                    }
+                    let form = op
+                        .operands
+                        .first()
+                        .and_then(|name| name.as_name().ok())
+                        .and_then(|name| {
+                            scope
+                                .iter()
+                                .find_map(|resources| lookup_form(doc, resources, name))
+                        });
+                    if let Some(id) = form {
+                        if visited.insert(id) {
+                            pending.push_back(Invocation {
+                                source: Pending::Form(id),
+                                scope: scope.clone(),
+                                font: current.clone(),
+                            });
+                        }
+                    }
+                }
+                "Tf" => {
+                    current = op
+                        .operands
+                        .first()
+                        .and_then(|name| name.as_name().ok())
+                        .and_then(|name| {
+                            scope
+                                .iter()
+                                .find_map(|resources| lookup_font(doc, resources, name))
+                        })
+                        .and_then(|(id, font)| match id {
+                            Some(id) => decoders
+                                .entry(id)
+                                .or_insert_with(|| font_decoder(doc, font).map(Rc::new))
+                                .clone(),
+                            None => font_decoder(doc, font).map(Rc::new),
+                        });
+                }
+                "Tj" | "'" | "\"" | "TJ" => {
+                    let Some(decoder) = current.as_deref() else {
+                        continue;
+                    };
+                    let mut shown: Vec<&[u8]> = Vec::new();
+                    if op.operator == "TJ" {
+                        if let Some(Ok(array)) = op.operands.first().map(|array| array.as_array()) {
+                            shown.extend(array.iter().filter_map(|element| match element {
+                                Object::String(bytes, _) => Some(bytes.as_slice()),
+                                _ => None,
+                            }));
+                        }
+                    } else if let Some(Object::String(bytes, _)) = op.operands.last() {
+                        shown.push(bytes);
+                    }
+                    for bytes in shown {
+                        let decoded: Vec<char> = match decoder {
+                            FontDecoder::CMap { cmap, cid } => {
+                                counts.through_cid_cmap |= *cid && !bytes.is_empty();
+                                cmap.decode_cids(bytes)
+                                    .chars()
+                                    .filter(|c| c.is_alphanumeric())
+                                    .collect()
+                            }
+                            FontDecoder::Bytes => bytes
+                                .iter()
+                                .map(|&b| b as char)
+                                .filter(|c| c.is_alphanumeric())
+                                .collect(),
+                        };
+                        counts.alphanumerics += decoded.len();
+                        seen.extend(decoded);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    counts.distinct_alphanumerics = seen.len();
+    counts
 }
 
 /// Check if a page has Type0 fonts with Identity-H/V encoding and no ToUnicode CMap.
@@ -3931,6 +4298,534 @@ mod tests {
         assert!(
             analysis.has_decodable_text_fonts,
             "P3: inherited decodable font should be detected as used"
+        );
+    }
+
+    /// Three lines that together show forty distinct letters, digits and
+    /// spaces.
+    const CID_TEXT_LINES: [&str; 3] = [
+        "The quick brown fox jumps over the lazy dog",
+        "Pack my box with five dozen liquor jugs 0123456789",
+        "Sphinx of black quartz judge my vow",
+    ];
+
+    /// Where a page's CID text is shown and how its font is written.
+    #[derive(Clone, Copy, PartialEq)]
+    enum CidTextLayout {
+        /// In the page content, the font an indirect object with a
+        /// referenced ToUnicode stream.
+        Page,
+        /// In the page content, the font dictionary and its ToUnicode
+        /// stream written inline in the resources.
+        InlineFont,
+        /// In a Form XObject with its own font resources.
+        Form,
+        /// In a Form XObject without resources, using the page's font.
+        FormInheritingFonts,
+        /// In the page content after a `q`/`Q` that selected another font
+        /// inside the saved state.
+        AfterRestoredFont,
+        /// In a Form XObject the page's resources name but its content
+        /// never invokes.
+        UninvokedForm,
+        /// In a Form XObject without resources or a `Tf` of its own, shown
+        /// in the font the page selected before invoking it.
+        FormInheritingFontState,
+        /// In a Form XObject with its own font resources, invoked before a
+        /// second, larger form of paths.
+        FormThenLargerForm,
+        /// In a Form XObject with its own font resources, invoked after a
+        /// form whose content breaks off inside a string.
+        MalformedFormThenForm,
+    }
+
+    /// A page of `paths` filled triangles and `lines` of text shown as
+    /// two-byte codes through a Type0 font: an embedded TrueType subset
+    /// under Identity-H whose glyph `i` is the `i`th distinct character of
+    /// the lines, with a ToUnicode CMap saying so — or, when `broken_cmap`,
+    /// mapping every code to the same letter. `layout` says where the text
+    /// is shown and how the font is written.
+    fn cid_text_over_vector_art(
+        lines: &[&str],
+        paths: usize,
+        broken_cmap: bool,
+        layout: CidTextLayout,
+    ) -> (Document, ObjectId) {
+        use lopdf::{dictionary, Stream};
+
+        let mut alphabet: Vec<char> = lines.iter().flat_map(|line| line.chars()).collect();
+        alphabet.sort_unstable();
+        alphabet.dedup();
+        let code_of = |c: char| alphabet.iter().position(|&a| a == c).unwrap() as u16 + 1;
+
+        let mut cmap = String::from(
+            "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n\
+             /CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n\
+             /CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n\
+             1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+        );
+        cmap.push_str(&format!("{} beginbfchar\n", alphabet.len()));
+        for &c in &alphabet {
+            let unicode = if broken_cmap { 'x' as u32 } else { c as u32 };
+            cmap.push_str(&format!("<{:04X}> <{:04X}>\n", code_of(c), unicode));
+        }
+        cmap.push_str(
+            "endbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n",
+        );
+
+        let glyphs: Vec<(bool, u16)> = alphabet.iter().map(|_| (true, 600)).collect();
+        let codes: Vec<u8> = alphabet.iter().map(|&c| c as u8).collect();
+        let font_file =
+            crate::extractor::fonts::blank_glyph_tests::synthetic_truetype(&glyphs, &codes);
+
+        let mut doc = Document::with_version("1.5");
+        let font_file_id = doc.add_object(Object::Stream(Stream::new(
+            dictionary! { "Length1" => font_file.len() as i64 },
+            font_file,
+        )));
+        let descriptor_id = doc.add_object(dictionary! {
+            "Type" => "FontDescriptor",
+            "FontName" => "AAAAAA+Subset",
+            "Flags" => 4,
+            "FontBBox" => vec![0.into(), 0.into(), 600.into(), 700.into()],
+            "ItalicAngle" => 0,
+            "Ascent" => 700,
+            "Descent" => 0,
+            "CapHeight" => 700,
+            "StemV" => 80,
+            "FontFile2" => Object::Reference(font_file_id),
+        });
+        let cid_font_id = doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "CIDFontType2",
+            "BaseFont" => "AAAAAA+Subset",
+            "CIDSystemInfo" => dictionary! {
+                "Registry" => Object::string_literal("Adobe"),
+                "Ordering" => Object::string_literal("Identity"),
+                "Supplement" => 0,
+            },
+            "FontDescriptor" => Object::Reference(descriptor_id),
+            "DW" => 600,
+            "CIDToGIDMap" => "Identity",
+        });
+        let cmap_stream = Stream::new(dictionary! {}, cmap.into_bytes());
+        let font = |to_unicode: Object| {
+            dictionary! {
+                "Type" => "Font",
+                "Subtype" => "Type0",
+                "BaseFont" => "AAAAAA+Subset",
+                "Encoding" => "Identity-H",
+                "DescendantFonts" => vec![Object::Reference(cid_font_id)],
+                "ToUnicode" => to_unicode,
+            }
+        };
+        let font_entry = if layout == CidTextLayout::InlineFont {
+            Object::Dictionary(font(Object::Stream(cmap_stream)))
+        } else {
+            let cmap_id = doc.add_object(Object::Stream(cmap_stream));
+            Object::Reference(doc.add_object(font(Object::Reference(cmap_id))))
+        };
+        let helvetica_id = doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+        });
+
+        let mut art = String::new();
+        for i in 0..paths {
+            let (x, y) = (50 + (i % 40) * 12, 100 + (i / 40) * 20);
+            art.push_str(&format!(
+                "{x} {y} m {} {} l {} {y} l h f\n",
+                x + 5,
+                y + 8,
+                x + 10
+            ));
+        }
+        let mut text = String::new();
+        for (index, line) in lines.iter().enumerate() {
+            let hex: String = line
+                .chars()
+                .map(|c| format!("{:04X}", code_of(c)))
+                .collect();
+            text.push_str(&format!(
+                "BT /F1 12 Tf 72 {} Td <{hex}> Tj ET\n",
+                700 - 20 * index
+            ));
+        }
+        let fonts = dictionary! {
+            "F1" => font_entry,
+            "F2" => Object::Reference(helvetica_id),
+        };
+        let (page_content, page_resources) = match layout {
+            CidTextLayout::Page | CidTextLayout::InlineFont => {
+                (format!("{art}{text}"), dictionary! { "Font" => fonts })
+            }
+            CidTextLayout::AfterRestoredFont => (
+                format!(
+                    "{art}BT /F1 12 Tf ET q BT /F2 12 Tf 72 40 Td (x) Tj ET Q\n{}",
+                    text.replace("/F1 12 Tf ", "")
+                ),
+                dictionary! { "Font" => fonts },
+            ),
+            CidTextLayout::Form
+            | CidTextLayout::FormInheritingFonts
+            | CidTextLayout::UninvokedForm
+            | CidTextLayout::FormInheritingFontState
+            | CidTextLayout::FormThenLargerForm
+            | CidTextLayout::MalformedFormThenForm => {
+                let form_dict = || {
+                    dictionary! {
+                        "Type" => "XObject",
+                        "Subtype" => "Form",
+                        "BBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+                    }
+                };
+                let mut text_form_dict = form_dict();
+                if matches!(
+                    layout,
+                    CidTextLayout::Form
+                        | CidTextLayout::FormThenLargerForm
+                        | CidTextLayout::MalformedFormThenForm
+                ) {
+                    text_form_dict.set("Resources", dictionary! { "Font" => fonts.clone() });
+                }
+                let form_text = if layout == CidTextLayout::FormInheritingFontState {
+                    text.replace("/F1 12 Tf ", "")
+                } else {
+                    text
+                };
+                let form_id = doc.add_object(Object::Stream(Stream::new(
+                    text_form_dict,
+                    form_text.into_bytes(),
+                )));
+                let mut xobjects = dictionary! { "Fm1" => Object::Reference(form_id) };
+                let invoke = match layout {
+                    CidTextLayout::UninvokedForm => String::new(),
+                    CidTextLayout::FormInheritingFontState => {
+                        "BT /F1 12 Tf ET q /Fm1 Do Q\n".to_string()
+                    }
+                    CidTextLayout::FormThenLargerForm => {
+                        // A second form of paths, invoked after the text.
+                        let larger = doc.add_object(Object::Stream(Stream::new(
+                            form_dict(),
+                            art.clone().into_bytes(),
+                        )));
+                        xobjects.set("Fm2", Object::Reference(larger));
+                        "q /Fm1 Do Q q /Fm2 Do Q\n".to_string()
+                    }
+                    CidTextLayout::MalformedFormThenForm => {
+                        // A form whose content breaks off inside a string,
+                        // invoked before the text.
+                        let malformed = doc.add_object(Object::Stream(Stream::new(
+                            form_dict(),
+                            b"BT /F2 12 Tf 72 40 Td (broken".to_vec(),
+                        )));
+                        xobjects.set("Fm0", Object::Reference(malformed));
+                        "q /Fm0 Do Q q /Fm1 Do Q\n".to_string()
+                    }
+                    _ => "q /Fm1 Do Q\n".to_string(),
+                };
+                (
+                    format!("{art}{invoke}"),
+                    dictionary! {
+                        "Font" => fonts,
+                        "XObject" => xobjects,
+                    },
+                )
+            }
+        };
+        let content_id = doc.add_object(Object::Stream(Stream::new(
+            dictionary! {},
+            page_content.into_bytes(),
+        )));
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => Object::Reference(pages_id),
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => page_resources,
+            "Contents" => Object::Reference(content_id),
+        });
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![Object::Reference(page_id)],
+                "Count" => Object::Integer(1),
+            }),
+        );
+        (doc, page_id)
+    }
+
+    /// Text shown through a CID-keyed font with a ToUnicode CMap counts by
+    /// its decoded characters: three lines of prose next to two thousand
+    /// path operators (a drawing of about seventeen operators per
+    /// character) are text, although their two-byte codes hold no ASCII
+    /// letter or digit.
+    #[test]
+    fn cid_text_with_a_working_tounicode_is_not_vector_text() {
+        for layout in [
+            CidTextLayout::Page,
+            CidTextLayout::InlineFont,
+            CidTextLayout::Form,
+            CidTextLayout::FormInheritingFonts,
+            CidTextLayout::AfterRestoredFont,
+            CidTextLayout::FormInheritingFontState,
+            CidTextLayout::FormThenLargerForm,
+            CidTextLayout::MalformedFormThenForm,
+        ] {
+            let (doc, page_id) = cid_text_over_vector_art(&CID_TEXT_LINES, 400, false, layout);
+            let analysis = analyze_page_content(&doc, page_id);
+            assert!(analysis.path_op_count >= 1000, "{}", analysis.path_op_count);
+            assert!(
+                (analysis.unique_alphanum_chars as usize) < VECTOR_TEXT_MIN_ALPHANUMERICS,
+                "the byte count is blind to the codes: {}",
+                analysis.unique_alphanum_chars
+            );
+            assert!(!analysis.has_vector_text, "layout {}", layout as u8);
+            assert_eq!(page_ocr_signals(&doc, page_id), (false, false));
+        }
+    }
+
+    /// A caption's worth of decoded text does not make a page of paths a
+    /// text page; neither does a CMap that maps every code alike, nor a
+    /// title and address line, diverse as they are, over forty thousand
+    /// path operators of outlined body text, nor text in a form the page
+    /// never invokes.
+    #[test]
+    fn little_or_undecodable_cid_text_over_vector_art_stays_vector_text() {
+        let (doc, page_id) = cid_text_over_vector_art(&["Fig 3"], 400, false, CidTextLayout::Page);
+        assert!(analyze_page_content(&doc, page_id).has_vector_text);
+        let (doc, page_id) =
+            cid_text_over_vector_art(&CID_TEXT_LINES, 400, true, CidTextLayout::Page);
+        assert!(analyze_page_content(&doc, page_id).has_vector_text);
+        let (doc, page_id) =
+            cid_text_over_vector_art(&CID_TEXT_LINES, 8_000, false, CidTextLayout::Page);
+        let analysis = analyze_page_content(&doc, page_id);
+        assert!(
+            analysis.path_op_count >= 40_000,
+            "{}",
+            analysis.path_op_count
+        );
+        assert!(analysis.has_vector_text);
+        // Text in a form the page never invokes is not shown.
+        let (doc, page_id) =
+            cid_text_over_vector_art(&CID_TEXT_LINES, 400, false, CidTextLayout::UninvokedForm);
+        assert!(analyze_page_content(&doc, page_id).has_vector_text);
+        assert!(!decoded_text_counts(&doc, page_id).through_cid_cmap);
+    }
+
+    /// The decoded counts cover the whole text: the three lines show
+    /// thirty-nine distinct letters and digits, one hundred and six in all,
+    /// through the CID font's CMap. They are the page's text next to a
+    /// drawing of up to a hundred path operators per character, and a
+    /// header next to a larger one.
+    #[test]
+    fn decoded_text_counts_cover_the_whole_text() {
+        for layout in [
+            CidTextLayout::Page,
+            CidTextLayout::InlineFont,
+            CidTextLayout::FormInheritingFonts,
+            CidTextLayout::AfterRestoredFont,
+            CidTextLayout::FormInheritingFontState,
+            CidTextLayout::FormThenLargerForm,
+            CidTextLayout::MalformedFormThenForm,
+        ] {
+            let (doc, page_id) = cid_text_over_vector_art(&CID_TEXT_LINES, 400, false, layout);
+            let counts = decoded_text_counts(&doc, page_id);
+            assert_eq!(
+                (counts.distinct_alphanumerics, counts.through_cid_cmap),
+                (39, true),
+                "layout {}",
+                layout as u8
+            );
+            // The restored-font layout paints one more glyph in the
+            // simple font before the CID text.
+            let extra = usize::from(layout == CidTextLayout::AfterRestoredFont);
+            assert_eq!(counts.alphanumerics, 106 + extra);
+            let at_the_bar = counts.alphanumerics as u32 * VECTOR_TEXT_MAX_PATH_OPS_PER_CHARACTER;
+            assert!(counts.is_page_text(at_the_bar));
+            assert!(!counts.is_page_text(at_the_bar + 1));
+        }
+        let sparse = DecodedTextCounts {
+            distinct_alphanumerics: 29,
+            alphanumerics: 1_000,
+            through_cid_cmap: true,
+        };
+        assert!(!sparse.is_page_text(1_000));
+    }
+
+    /// The page and the forms it invokes are read together within the
+    /// page's budgets: with the operations, or the bytes, spent on the
+    /// page's own content, the form's text goes uncounted; with room for
+    /// the form, it is counted in full; a page over the byte budget by
+    /// itself counts nothing.
+    #[test]
+    fn decoded_text_counts_stay_within_the_page_budgets() {
+        let (doc, page_id) =
+            cid_text_over_vector_art(&CID_TEXT_LINES, 400, false, CidTextLayout::Form);
+        let page_content = doc.get_page_content(page_id);
+        let page_operations = lopdf::content::Content::decode(&page_content)
+            .unwrap()
+            .operations
+            .len();
+        let form = doc
+            .objects
+            .values()
+            .find_map(|object| match object {
+                Object::Stream(stream)
+                    if stream.dict.get(b"Subtype").ok()
+                        == Some(&Object::Name(b"Form".to_vec())) =>
+                {
+                    Some(stream)
+                }
+                _ => None,
+            })
+            .unwrap();
+        let form_operations = lopdf::content::Content::decode(&form.content)
+            .unwrap()
+            .operations
+            .len();
+        let full = DecodedTextCounts {
+            distinct_alphanumerics: 39,
+            alphanumerics: 106,
+            through_cid_cmap: true,
+        };
+        let bytes = crate::extractor::content_decode::MAX_PAGE_CONTENT_BYTES;
+        let operations = crate::extractor::content_decode::MAX_PAGE_OPERATIONS;
+
+        assert_eq!(
+            decoded_text_counts_within(&doc, page_id, bytes, page_operations),
+            DecodedTextCounts::default()
+        );
+        assert_eq!(
+            decoded_text_counts_within(&doc, page_id, bytes, page_operations + form_operations),
+            full
+        );
+        assert_eq!(
+            decoded_text_counts_within(&doc, page_id, page_content.len(), operations),
+            DecodedTextCounts::default()
+        );
+        assert_eq!(
+            decoded_text_counts_within(
+                &doc,
+                page_id,
+                page_content.len() + form.content.len(),
+                operations
+            ),
+            full
+        );
+        assert_eq!(
+            decoded_text_counts_within(&doc, page_id, page_content.len() / 2, operations),
+            DecodedTextCounts::default()
+        );
+        assert_eq!(decoded_text_counts(&doc, page_id), full);
+    }
+
+    /// The Form XObject streams of `doc`, in no particular order.
+    fn form_streams(doc: &Document) -> Vec<&lopdf::Stream> {
+        doc.objects
+            .values()
+            .filter_map(|object| match object {
+                Object::Stream(stream)
+                    if stream.dict.get(b"Subtype").ok()
+                        == Some(&Object::Name(b"Form".to_vec())) =>
+                {
+                    Some(stream)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The forms a page invokes are read in the order invoked, so the
+    /// budgets go to the text drawn first: with room for the page and the
+    /// text form only, a larger form invoked after it goes unread and the
+    /// text is counted in full. A form whose content breaks off is read up
+    /// to the fault, and the forms invoked after it are still read.
+    #[test]
+    fn forms_are_read_in_invocation_order_within_the_budgets() {
+        let full = DecodedTextCounts {
+            distinct_alphanumerics: 39,
+            alphanumerics: 106,
+            through_cid_cmap: true,
+        };
+        let operations = |content: &[u8]| {
+            lopdf::content::Content::decode(content)
+                .unwrap()
+                .operations
+                .len()
+        };
+        let bytes = crate::extractor::content_decode::MAX_PAGE_CONTENT_BYTES;
+        let ops = crate::extractor::content_decode::MAX_PAGE_OPERATIONS;
+
+        let (doc, page_id) = cid_text_over_vector_art(
+            &CID_TEXT_LINES,
+            400,
+            false,
+            CidTextLayout::FormThenLargerForm,
+        );
+        let page_content = doc.get_page_content(page_id);
+        let text_form = form_streams(&doc)
+            .into_iter()
+            .find(|stream| stream.content.windows(3).any(|w| w == &b" Tj"[..]))
+            .unwrap();
+        let just_enough_operations = operations(&page_content) + operations(&text_form.content);
+        let just_enough_bytes = page_content.len() + text_form.content.len();
+        assert_eq!(
+            decoded_text_counts_within(&doc, page_id, bytes, just_enough_operations),
+            full
+        );
+        assert_eq!(
+            decoded_text_counts_within(&doc, page_id, just_enough_bytes, ops),
+            full
+        );
+        assert_eq!(decoded_text_counts(&doc, page_id), full);
+
+        let (doc, page_id) = cid_text_over_vector_art(
+            &CID_TEXT_LINES,
+            400,
+            false,
+            CidTextLayout::MalformedFormThenForm,
+        );
+        assert_eq!(decoded_text_counts(&doc, page_id), full);
+        assert!(!analyze_page_content(&doc, page_id).has_vector_text);
+    }
+
+    /// A ToUnicode stream is read within the loader's per-stream bound: at
+    /// the bound the CMap is read and the text through it counted; one byte
+    /// over it the stream is not read, the font goes undecoded and the page
+    /// stays vector text.
+    #[test]
+    fn a_tounicode_cmap_over_the_stream_bound_is_not_read() {
+        fn pad_to(doc: &mut Document, id: ObjectId, total: usize) {
+            let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
+                unreachable!()
+            };
+            stream.content.resize(total, b' ');
+        }
+        let (mut doc, page_id) =
+            cid_text_over_vector_art(&CID_TEXT_LINES, 400, false, CidTextLayout::Page);
+        let cmap_id = doc
+            .objects
+            .iter()
+            .find_map(|(id, object)| match object {
+                Object::Stream(stream)
+                    if stream.content.windows(9).any(|w| w == &b"begincmap"[..]) =>
+                {
+                    Some(*id)
+                }
+                _ => None,
+            })
+            .unwrap();
+        let bound = crate::MAX_STREAM_DECOMPRESSED_BYTES;
+        pad_to(&mut doc, cmap_id, bound);
+        assert!(!analyze_page_content(&doc, page_id).has_vector_text);
+        pad_to(&mut doc, cmap_id, bound + 1);
+        assert!(analyze_page_content(&doc, page_id).has_vector_text);
+        assert_eq!(
+            decoded_text_counts(&doc, page_id),
+            DecodedTextCounts::default()
         );
     }
 }

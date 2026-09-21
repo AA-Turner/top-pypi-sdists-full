@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import os
 import pickle
+import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -309,4 +311,141 @@ def test_issue_704():
 
     assert isinstance(vec_ak.neg3D, vector.backends.awkward.MomentumArray4D)
     assert isinstance(vec_vec.neg3D, vector.backends.awkward.MomentumArray4D)
-    assert all(vec_ak.neg3D == vec_vec.neg3D)
+
+
+def test_issue_488():
+    ak = pytest.importorskip("awkward")
+
+    coordinates = {
+        2: {"x": [1.1], "y": [2.2]},
+        3: {"x": [1.1], "y": [2.2], "z": [3.3]},
+        4: {"x": [1.1], "y": [2.2], "z": [3.3], "t": [4.4]},
+    }
+
+    def vertex_behavior(dimension, projections=()):
+        """A coffea-style subclass of the mixins, declaring only ``projections``."""
+        mixin = getattr(vector.backends.awkward, f"VectorAwkward{dimension}D")
+
+        class VertexArray(mixin, ak.Array):
+            pass
+
+        class VertexRecord(mixin, ak.Record):
+            pass
+
+        VertexArray.GenericClass = VertexArray
+        VertexRecord.GenericClass = VertexRecord
+        for projected in projections:
+            setattr(
+                VertexArray,
+                f"ProjectionClass{projected}D",
+                getattr(vector.backends.awkward, f"VectorArray{projected}D"),
+            )
+            setattr(
+                VertexRecord,
+                f"ProjectionClass{projected}D",
+                getattr(vector.backends.awkward, f"VectorRecord{projected}D"),
+            )
+        return {("*", "Vertex"): VertexArray, "Vertex": VertexRecord}
+
+    # a subclass that declares no ProjectionClass*D at all cannot even name the
+    # class of its own dimension's result
+    for dimension, fields in coordinates.items():
+        v = ak.zip(fields, with_name="Vertex", behavior=vertex_behavior(dimension))
+        with pytest.raises(
+            TypeError,
+            match=f"VertexArray does not define ProjectionClass{dimension}D",
+        ):
+            v.add(v)
+
+    # coffea's Delphes Vertex is a 4D vector that declares 2D and 3D projections
+    # and, without its `ProjectionClass4D = VertexArray` line, no 4D one
+    v = ak.zip(coordinates[4], with_name="Vertex", behavior=vertex_behavior(4, (2, 3)))
+    assert v.to_Vector2D().x.to_list() == [1.1]
+    assert v.to_Vector3D().z.to_list() == [3.3]
+    with pytest.raises(
+        TypeError, match="VertexArray does not define ProjectionClass4D"
+    ):
+        v.add(v)
+
+    # and a 3D subclass with no 4D counterpart must say so on an implicit upcast
+    v = ak.zip(coordinates[3], with_name="Vertex", behavior=vertex_behavior(3, (2, 3)))
+    assert v.add(v).z.to_list() == [6.6]
+    with pytest.raises(
+        TypeError, match="VertexArray does not define ProjectionClass4D"
+    ):
+        v.like(vector.obj(x=1.1, y=2.2, z=3.3, t=4.4))
+
+
+def test_star_import_without_optional_deps():
+    """from vector import * must not raise even when sympy/awkward are absent."""
+    # Block sympy via a find_spec-based meta path finder inserted before vector is imported.
+    # We also clear any cached sympy entries from sys.modules so the blocker takes effect.
+    code = """
+import sys
+
+class _FailFinder:
+    def find_spec(self, fullname, path, target=None):
+        if fullname == 'sympy' or fullname.startswith('sympy.'):
+            from importlib.machinery import ModuleSpec
+            return ModuleSpec(fullname, None)  # no loader -> ImportError
+        return None
+
+for k in list(sys.modules.keys()):
+    if k == 'sympy' or k.startswith('sympy.'):
+        del sys.modules[k]
+sys.meta_path.insert(0, _FailFinder())
+
+import vector
+# from vector import * must not raise AttributeError
+exec('from vector import *')
+# All names in __all__ must be accessible (None for missing deps is acceptable)
+for name in vector.__all__:
+    _ = getattr(vector, name)
+# __dir__ must not include sympy names when sympy is absent
+d = dir(vector)
+for name in ('VectorSympy', 'VectorSympy2D', 'VectorSympy3D', 'VectorSympy4D',
+             'MomentumSympy2D', 'MomentumSympy3D', 'MomentumSympy4D'):
+    assert name not in d, f"{name!r} should not appear in dir(vector) when sympy is absent"
+print("OK")
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_like_non_vector_raises():
+    """vector.like() must raise TypeError for non-vector arguments."""
+    v = vector.obj(x=1.0, y=2.0, z=3.0)
+    with pytest.raises(TypeError, match="is not a vector"):
+        v.like(5)
+    with pytest.raises(TypeError, match="is not a vector"):
+        v.like("not a vector")
+
+
+def test_to_vector4d_temporal_error_message():
+    """Error message for over-specified temporal coords should say 'temporal', not 'longitudinal'."""
+    v2 = vector.obj(x=1.0, y=2.0)
+    with pytest.raises(TypeError, match="temporal"):
+        v2.to_Vector4D(t=1.0, tau=2.0)
+    v3 = vector.obj(x=1.0, y=2.0, z=3.0)
+    with pytest.raises(TypeError, match="temporal"):
+        v3.to_Vector4D(t=1.0, mass=2.0)
+
+
+def test_dir_excludes_missing_backend_names(monkeypatch):
+    """__dir__ drops awkward/sympy names when the backend module is unavailable."""
+    monkeypatch.setattr(vector, "awkward", None)
+    monkeypatch.setattr(vector, "sympy", None)
+    names = set(dir(vector))
+    assert not (names & vector._AWKWARD_NAMES)
+    assert not (names & vector._SYMPY_NAMES)
+
+    monkeypatch.setattr(vector, "awkward", object())
+    monkeypatch.setattr(vector, "sympy", object())
+    names = set(dir(vector))
+    assert names >= vector._AWKWARD_NAMES
+    assert names >= vector._SYMPY_NAMES

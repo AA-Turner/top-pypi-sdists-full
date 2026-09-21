@@ -887,6 +887,19 @@ class ToolContext(BaseModel):
     cost_budget_remaining: float | None = None
     calls_remaining_this_conversation: int | None = None
 
+    gate_context: Any = None
+    """What the agent is currently pursuing, for the tool-result content gate.
+
+    A :class:`matrx_ai.tools.result_gate.GateContext`, or None. The user's
+    question, the last assistant turn and the mandate goal live on the request
+    ONE FRAME UP (orchestrator/executor.py) and were dropped before the size
+    gate, which is why the gate could only ever cut by position. The
+    orchestrator builds this once per turn and hands it down; the tool's OWN
+    arguments are merged in at the gate call site, where they are already in
+    scope. Typed ``Any`` on purpose — importing result_gate here would close the
+    tools.models → tools.result_gate → tools.sections import loop.
+    """
+
     model_config = {"arbitrary_types_allowed": True}
 
     @property

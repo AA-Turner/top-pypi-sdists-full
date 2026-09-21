@@ -8,6 +8,7 @@ from matrx_connect import ScopedTokenIssuer
 
 from matrx_scraper.cloud_browser.worker.auth import Es256WorkerTokenVerifier
 from matrx_scraper.cloud_browser.worker.errors import WorkerProtocolError
+from matrx_scraper.cloud_browser.worker import http_app
 from matrx_scraper.cloud_browser.worker.http_app import create_worker_app
 from matrx_scraper.cloud_browser.worker.runtime import BrowserWorker
 
@@ -80,6 +81,46 @@ def test_http_app_exposes_health_and_all_worker_operations() -> None:
         "/checkpoint",
         "/shutdown",
     } <= paths
+
+
+@pytest.mark.asyncio
+async def test_sigterm_shutdown_failure_is_owned_and_still_chains_shutdown(monkeypatch) -> None:
+    worker = BrowserWorker(worker_id="browser-worker-harbor-dental")
+    previous_calls: list[int] = []
+
+    async def fail_termination(*, reason: str) -> None:
+        assert reason == "sigterm"
+        raise OSError("profile volume became read-only")
+
+    worker.terminate_gracefully = fail_termination  # type: ignore[method-assign]
+
+    class Loop:
+        callback = None
+
+        def add_signal_handler(self, _signal, callback) -> None:  # noqa: ANN001
+            self.callback = callback
+
+        def create_task(self, coro, *, name=None):  # noqa: ANN001, ANN202
+            return __import__("asyncio").create_task(coro, name=name)
+
+        def remove_signal_handler(self, _signal) -> bool:  # noqa: ANN001
+            return True
+
+    loop = Loop()
+
+    monkeypatch.setattr(http_app.asyncio, "get_running_loop", lambda: loop)
+    monkeypatch.setattr(
+        http_app.signal,
+        "getsignal",
+        lambda _signal: lambda signum, _frame: previous_calls.append(signum),
+    )
+
+    with pytest.raises(OSError, match="profile volume became read-only"):
+        async with http_app._termination_lifespan(worker, None)(create_worker_app(worker)):
+            assert loop.callback is not None
+            loop.callback()
+
+    assert previous_calls == [http_app.signal.SIGTERM]
 
 
 def test_rtc_preparation_failure_refuses_before_fence_or_human_state_changes() -> None:

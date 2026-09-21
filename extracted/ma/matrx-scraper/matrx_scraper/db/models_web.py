@@ -36,6 +36,8 @@ class Brand(MatrxEntity):
     profile = JSONBField(null=False, default={})
     slug = TextField()
     previous_slugs = TextArrayField(null=False, default=[])
+    integrations = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand"
@@ -215,6 +217,7 @@ class YoutubeVideo(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     visibility = EnumField(enum_class=Visibility, null=False, default='personal')
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "youtube_video"
@@ -287,6 +290,7 @@ class BrandAsset(MatrxEntity):
     data = JSONBField(null=False, default={})
     confirmed_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     confirmed_at = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_asset_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand_asset"
@@ -317,6 +321,7 @@ class BrandOffering(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     parent_id = ForeignKey(to_model='BrandOffering', to_column='id', to_schema='web', )
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'site_offering': {'from_model': 'SiteOffering', 'from_field': 'brand_offering_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand_offering"
@@ -344,6 +349,7 @@ class BusinessFact(MatrxEntity):
     source = TextField(null=False, default='manual')
     confirmed_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     confirmed_at = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_fact_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "business_fact"
@@ -386,6 +392,7 @@ class BusinessLocation(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'location_listing': {'from_model': 'LocationListing', 'from_field': 'location_id', 'referenced_field': 'id', 'related_name': 'location_listing', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "business_location"
@@ -416,6 +423,7 @@ class LocationListing(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "location_listing"
@@ -486,6 +494,7 @@ class CrawlEvent(MatrxEntity):
     crawl_url_id = ForeignKey(to_model='CrawlUrl', to_column='id', to_schema='web', )
     payload = JSONBField(null=False, default={})
     occurred_at = DateTimeField(null=False)
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "crawl_event"
@@ -512,6 +521,7 @@ class CrawlPreset(MatrxEntity):
     config = JSONBField(null=False, default={})
     last_used_at = DateTimeField()
     use_count = IntegerField(null=False, default=0)
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'preset_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "crawl_preset"
@@ -546,6 +556,7 @@ class CrawlSchedule(MatrxEntity):
     last_outcome = TextField()
     last_error = TextField()
     consecutive_failures = IntegerField(null=False, default=0)
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "crawl_schedule"
@@ -574,6 +585,7 @@ class CrawlSession(MatrxEntity):
     started_at = DateTimeField()
     finished_at = DateTimeField()
     error = TextField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'session_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'last_session_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'session_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'session_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "crawl_session"
@@ -614,6 +626,7 @@ class CrawlUrl(MatrxEntity):
     snapshot_id = ForeignKey(to_model='Snapshot', to_column='id', to_schema='web', )
     discovered_at = DateTimeField(null=False)
     completed_at = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'crawl_url_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "crawl_url"
@@ -651,6 +664,7 @@ class DiscoveredItem(MatrxEntity):
     reviewed_at = DateTimeField()
     value_hash = TextField()
     resolved_property_id = ForeignKey(to_model='Property', to_column='id', to_schema='web', )
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "discovered_item"
@@ -661,7 +675,7 @@ class DiscoveredItem(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "component"
 
-class EndpointFamilySweepState(Model):
+class EndpointFamilySweepState(MatrxEntity):
     site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', primary_key=True, null=False)
     last_sweep_at = DateTimeField()
     page_watermark = DateTimeField()
@@ -671,10 +685,16 @@ class EndpointFamilySweepState(Model):
     metadata = JSONBField(null=False, default={})
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "endpoint_family_sweep_state"
     _db_schema = "web"
+    _entity_token = "endpoint_family_sweep_state"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
+    _rls_variant = "component"
 
 class Finding(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -703,6 +723,7 @@ class Finding(MatrxEntity):
     first_detected_at = DateTimeField(null=False)
     last_detected_at = DateTimeField(null=False)
     resolved_at = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "finding"
@@ -730,6 +751,7 @@ class GscPageStat(MatrxEntity):
     impressions = IntegerField(null=False, default=0)
     ctr = DecimalField()
     position = DecimalField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "gsc_page_stat"
@@ -800,6 +822,7 @@ class Page(MatrxEntity):
     launch_tracking = JSONBField()
     link_score = DecimalField()
     link_score_computed_at = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'target_page_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "page"
@@ -823,6 +846,7 @@ class PageContent(MatrxEntity):
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     deleted_at = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "page_content"
@@ -853,6 +877,7 @@ class PageEvidence(MatrxEntity):
     last_seen_at = DateTimeField(null=False)
     last_checked_at = DateTimeField()
     evidence = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "page_evidence"
@@ -881,6 +906,7 @@ class PageSitemap(MatrxEntity):
     priority = DecimalField()
     first_seen = DateTimeField(null=False)
     last_seen = DateTimeField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "page_sitemap"
@@ -910,6 +936,7 @@ class Property(MatrxEntity):
     site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
     connection = JSONBField(null=False, default={})
     settings = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_property_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "property"
@@ -938,6 +965,7 @@ class Screenshot(MatrxEntity):
     height = IntegerField()
     captured_at = DateTimeField(null=False)
     file_id = ForeignKey(to_model='Files', to_column='id', to_schema='files', null=False)
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'site': {'from_model': 'Site', 'from_field': 'homepage_screenshot_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "screenshot"
@@ -986,6 +1014,7 @@ class Site(MatrxEntity):
     plan_profile_id = ForeignKey(to_model='Profile', to_column='id', to_schema='plan', )
     slug = TextField()
     previous_slugs = TextArrayField(null=False, default=[])
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_preset': {'from_model': 'CrawlPreset', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_preset', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_session': {'from_model': 'CrawlSession', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_session', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'endpoint_family_sweep_state': {'from_model': 'EndpointFamilySweepState', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'endpoint_family_sweep_state', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page': {'from_model': 'Page', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'site_endpoint_rule': {'from_model': 'SiteEndpointRule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_endpoint_rule', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}, 'sitemap': {'from_model': 'Sitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'sitemap', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}, 'tag_manager_snapshot': {'from_model': 'TagManagerSnapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'tag_manager_snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "site"
@@ -1016,6 +1045,7 @@ class SiteEndpointRule(MatrxEntity):
     updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "site_endpoint_rule"
@@ -1042,6 +1072,7 @@ class SiteItemConfig(MatrxEntity):
     enabled = BooleanField(null=False, default=True)
     cadence = JSONBField(null=False, default={})
     config = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "site_item_config"
@@ -1065,6 +1096,7 @@ class SiteOffering(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "site_offering"
@@ -1097,6 +1129,7 @@ class Sitemap(MatrxEntity):
     last_seen = DateTimeField()
     last_fetched_at = DateTimeField()
     fetch_error = TextField()
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'sitemap_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "sitemap"
@@ -1164,6 +1197,7 @@ class TagManagerSnapshot(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    custom_fields = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "tag_manager_snapshot"

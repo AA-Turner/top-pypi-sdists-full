@@ -97,7 +97,7 @@ def get_model_and_provider(
                 if dynamic_model is not None:
                     model = dynamic_model
 
-        if not model:
+        if not model or model == "auto":
             if has_images:
                 model = default_vision
                 provider = default_vision.best_provider
@@ -105,9 +105,10 @@ def get_model_and_provider(
                 model = default
                 provider = model.best_provider
         elif isinstance(model, str):
-            if model in ProviderUtils.convert:
-                provider = ProviderUtils.convert[model]
-                model = getattr(provider, "default_model", "")
+            provider = model.split(":")
+            if provider[0] in ProviderUtils.convert:
+                model = provider[1] if len(provider) > 1 else getattr(provider, "default_model", "")
+                provider = ProviderUtils.convert[provider[0]]
             else:
                 raise ModelNotFoundError(f"Model not found: {model}")
         elif isinstance(model, Model):

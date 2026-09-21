@@ -431,7 +431,11 @@ from mixpeek.models.explain_retriever_request import ExplainRetrieverRequest
 from mixpeek.models.explain_retriever_response import ExplainRetrieverResponse
 from mixpeek.models.explain_stage_plan import ExplainStagePlan
 from mixpeek.models.explode_spec import ExplodeSpec
+from mixpeek.models.export_destination import ExportDestination
+from mixpeek.models.export_destination_result import ExportDestinationResult
 from mixpeek.models.export_format import ExportFormat
+from mixpeek.models.export_media_summary import ExportMediaSummary
+from mixpeek.models.export_shard import ExportShard
 from mixpeek.models.external_connection import ExternalConnection
 from mixpeek.models.external_link import ExternalLink
 from mixpeek.models.extractor_breakdown_response import ExtractorBreakdownResponse
@@ -798,6 +802,7 @@ from mixpeek.models.performance_metric import PerformanceMetric
 from mixpeek.models.performance_summary import PerformanceSummary
 from mixpeek.models.permission import Permission
 from mixpeek.models.pipeline_comparison import PipelineComparison
+from mixpeek.models.plan_definition_response import PlanDefinitionResponse
 from mixpeek.models.plan_usage import PlanUsage
 from mixpeek.models.post_processing_phase import PostProcessingPhase
 from mixpeek.models.postgre_sql_config import PostgreSQLConfig

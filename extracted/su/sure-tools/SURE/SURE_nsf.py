@@ -785,7 +785,7 @@ class SURENF(nn.Module):
 
         A = np.concatenate(A)
         return A
-    
+        
     def predict_cluster(self, xs, batch_size=1024, show_progress=True):
         #zs = self.get_cell_embedding(xs, batch_size=batch_size, show_progress=show_progress)
         zs = self.code(xs, batch_size=batch_size, show_progress=show_progress)
@@ -968,7 +968,7 @@ class SURENF(nn.Module):
                 z_latent = zs[idx].to(self.get_device())
                 z_covariate = zfs[idx].to(self.get_device())
                                 
-                z_total = torch.cat([z_latent, z_covariate])
+                z_total = torch.cat([z_latent, z_covariate], dim=1)
                 log_mu = self.decoder_log_mu(z_total)
                 if self.loss_func == 'bernoulli':
                     counts = dist.Bernoulli(logits=log_mu).to_event(1).mean
@@ -983,7 +983,7 @@ class SURENF(nn.Module):
         A = np.concatenate(A)
         return A
     
-    def decode_log_mu(self, xs:np.array, zs:np.array, zfs:np.array, batch_size=1024, show_progress=True):
+    def decode_log_mu(self, zs:np.array, zfs:np.array=None, batch_size=1024, show_progress=True):
         """
         Generate gene expression prediction from given cell data and covariates.
         This function can be used for simulating cells' transcription profiles at new conditions.
@@ -994,24 +994,23 @@ class SURENF(nn.Module):
         :param batch_size: Data size per batch
         :param show_progress: Toggle on or off message output
         """
-        xs = self.preprocess(xs)
-        xs = convert_to_tensor(xs, dtype=self.dtype, device='cpu')
         zs = convert_to_tensor(zs, dtype=self.dtype, device='cpu')
-        zfs = convert_to_tensor(zfs, dtype=self.dtype, device='cpu')
+        if zfs is not None:
+            zfs = convert_to_tensor(zfs, dtype=self.dtype, device='cpu')
         
-        dataset = CustomDataset(xs)
+        dataset = CustomDataset(zs)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
         A = []
         with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
-            for X_batch, idx in dataloader:
-                X_batch = X_batch.to(self.get_device())
-                library_size = torch.sum(X_batch, 1, keepdim=True)
-                
-                z_latent = zs[idx].to(self.get_device())
-                z_covariate = zfs[idx].to(self.get_device())
+            for z_latent, idx in dataloader:
+                z_latent = z_latent.to(self.get_device())
+                if zfs is None:
+                    z_covariate = torch.zeros_like(z_latent)
+                else:
+                    z_covariate = zfs[idx].to(self.get_device())
                                 
-                z_total = torch.cat([z_latent, z_covariate])
+                z_total = torch.cat([z_latent, z_covariate], dim=1)
                 log_mu = self.decoder_log_mu(z_total)
             
                 A.append(tensor_to_numpy(log_mu))

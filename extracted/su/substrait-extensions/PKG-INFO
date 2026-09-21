@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: substrait-extensions
-Version: 0.103.0
+Version: 0.103.1
 Summary: Packaged Substrait Extension Files
 Author-email: Substrait Contributors <substrait@googlegroups.com>
 License-Expression: Apache-2.0

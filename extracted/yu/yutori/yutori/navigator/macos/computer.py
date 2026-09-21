@@ -22,7 +22,7 @@ from typing import Any, Literal
 
 from PIL import Image
 
-from ..n2_actions import require_positive_read_offset
+from ..n2_actions import N2_MAX_WAIT_SECONDS, require_positive_read_offset
 from ..sandbox_tools import PointerKeyLifecycleMixin
 from .frontmost import FrontmostApp, frontmost_app
 from .no_progress import NoProgressWatchdog
@@ -307,23 +307,30 @@ def _refusal_outcome(
     )
 
 
-def _frame_contains(frame: Any, point: tuple[float, float]) -> bool:
+def _frame_bounds(frame: Any) -> "tuple[float, float, float, float] | None":
+    """Parse a driver frame dict's x/y/w/h into floats, or None if malformed."""
     if not isinstance(frame, dict):
-        return False
+        return None
     try:
-        x, y, width, height = float(frame["x"]), float(frame["y"]), float(frame["w"]), float(frame["h"])
+        return float(frame["x"]), float(frame["y"]), float(frame["w"]), float(frame["h"])
     except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _frame_contains(frame: Any, point: tuple[float, float]) -> bool:
+    bounds = _frame_bounds(frame)
+    if bounds is None:
         return False
+    x, y, width, height = bounds
     return x <= point[0] <= x + width and y <= point[1] <= y + height
 
 
 def _frame_area(frame: Any) -> float:
-    if not isinstance(frame, dict):
+    bounds = _frame_bounds(frame)
+    if bounds is None:
         return float("inf")
-    try:
-        return float(frame["w"]) * float(frame["h"])
-    except (KeyError, TypeError, ValueError):
-        return float("inf")
+    _, _, width, height = bounds
+    return width * height
 
 
 def _refusal_message(tool: str, where: str, outcome: MacOSActionOutcome) -> str:
@@ -516,6 +523,12 @@ def _process_identity(pid: int) -> "_ProcessIdentity | None":
     return _ProcessIdentity(pid, group, started_at.strip()) if separator and group > 0 and started_at.strip() else None
 
 
+def _validate_wait_ms(ms: int, method: str) -> None:
+    """Validate a ``hold_key``/``wait`` duration in milliseconds against N2_MAX_WAIT_SECONDS."""
+    if not 0 <= ms <= N2_MAX_WAIT_SECONDS * 1000:
+        raise ValueError(f"{method} must be between 0 and {N2_MAX_WAIT_SECONDS} seconds")
+
+
 class MacOSComputer(PointerKeyLifecycleMixin):
     """Async macOS desktop session with capture, input, presentation, and shell lifecycle."""
 
@@ -527,6 +540,8 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         session: "str | None" = None,
         presentation: bool = True,
         show_stop_button: bool = True,
+        background_focus_overlay: bool = False,
+        show_status_item: bool = True,
         allow_local_shell: bool = False,
         execution_deadline: "float | None" = None,
         cancellation: "CancellationLatch | None" = None,
@@ -548,11 +563,15 @@ class MacOSComputer(PointerKeyLifecycleMixin):
             raise ValueError("scope must be 'desktop' or 'window'")
         if target_window is not None and scope != "window":
             raise ValueError("target_window requires scope='window'")
+        if background_focus_overlay and scope != "window":
+            raise ValueError("background_focus_overlay requires scope='window'")
         self.transport = transport or CuaDriverTransport()
         self.owns_transport = True if transport is None else bool(owns_transport)
         self.session = session or f"yutori-n2-{uuid.uuid4().hex[:12]}"
         self.presentation_requested = presentation
         self.show_stop_button = show_stop_button
+        self.background_focus_overlay = background_focus_overlay
+        self.show_status_item = show_status_item
         # False keeps the overlay in screen recordings and screen shares of the run: the model's
         # desktop frames then come from the overlay host, which leaves its own windows out of the
         # capture (`presentation.capture_source == "overlay"`), and only fall back to hiding it.
@@ -599,6 +618,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         self._left_mouse_down = False
         self._held_mouse_start: "tuple[int, int] | None" = None
         self._pointer: "tuple[int, int] | None" = None
+        self._text_input_point: "tuple[int, int] | None" = None
         self._background: dict[str, _BackgroundProcess] = {}
         self._foreground_processes: set[asyncio.subprocess.Process] = set()
         self._shell_events: list[ShellPresentationEvent] = []
@@ -750,12 +770,16 @@ class MacOSComputer(PointerKeyLifecycleMixin):
 
     async def _announce_target(self) -> None:
         target = self._target_window
-        if self.presentation is not None and target is not None:
+        if self.presentation is None:
+            return
+        if self.background_focus_overlay:
+            await self.presentation.set_window_target(target)
+        if target is not None:
             await self.presentation.present({"type": "status", "text": f"Driving {target.describe()}"})
 
     async def _push_thumbnail(self, observation: N2Observation) -> None:
         """Status mode: hand the menu bar item a small copy of the frame the model just received."""
-        if self.presentation is None:
+        if self.presentation is None or not self.show_status_item:
             return
         target = self._target_window
         caption = f"Frame {observation.capture_id}" + (f" of {target.describe()}" if target is not None else "")
@@ -781,6 +805,8 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         self._current_observation = None
         self._observed_frontmost = None
         self._window_capture = None
+        self._pointer = None
+        self._text_input_point = None
         self._no_progress.reset()
         if target is not None:
             self.target_pid = target.pid
@@ -903,6 +929,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         count: int = 1,
         modifier: "Sequence[str] | None" = None,
     ) -> None:
+        self._text_input_point = None
         self._refuse_stop_point(x, y)
         arguments = self._action_args(x=x, y=y, button=button, count=count)
         modifiers = self._merged_modifiers(modifier)
@@ -917,8 +944,20 @@ class MacOSComputer(PointerKeyLifecycleMixin):
                         "allow; use key_press for the shortcut or an unmodified click instead."
                     )
                 arguments["delivery_mode"] = _DELIVERY_FOREGROUND
+        capture = self._window_capture
         await self._mutate("click", arguments)
         self._pointer = (x, y)
+        outcome = self.last_action_outcome
+        if (
+            self.window_mode
+            and button == "left"
+            and not modifiers
+            and capture is not None
+            and self._window_capture == capture
+            and outcome is not None
+            and outcome.landed
+        ):
+            self._text_input_point = (x, y)
 
     async def double_click(self, x: int, y: int, modifier: "Sequence[str] | None" = None) -> None:
         await self.click(x, y, count=2, modifier=modifier)
@@ -937,6 +976,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
             await self._mutate("move_cursor", self._action_args(x=x, y=y))
 
     async def drag(self, path: list[dict[str, int]]) -> None:
+        self._text_input_point = None
         if len(path) < 2:
             raise ValueError("drag path must contain at least two points")
         if self._emulated_held_keys:
@@ -963,6 +1003,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         return (x, y) if x is not None and y is not None else self._pointer
 
     async def left_mouse_down(self, x: "int | None" = None, y: "int | None" = None) -> None:
+        self._text_input_point = None
         point = self._point_from_optional_coordinates("mouse_down", x, y)
         if point is None:
             raise MacOSRecoverableActionError("mouse_down requires coordinates after the pointer has moved.")
@@ -996,6 +1037,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         scroll_y: int,
         modifier: "Sequence[str] | None" = None,
     ) -> None:
+        self._text_input_point = None
         if self._merged_modifiers(modifier):
             raise MacOSRecoverableActionError(
                 "scroll with a held modifier is not supported; use key_press and an unmodified scroll"
@@ -1017,10 +1059,14 @@ class MacOSComputer(PointerKeyLifecycleMixin):
     async def type(self, text: str) -> None:
         if self._emulated_held_keys:
             raise MacOSRecoverableActionError("The pinned Cua Driver cannot hold a modifier while typing text.")
-        await self._guard_frontmost("type_text")
-        await self._mutate("type_text", self._action_args(text=text, delay_ms=0))
+        try:
+            await self._guard_frontmost("type_text")
+            await self._mutate("type_text", self._action_args(text=text, delay_ms=0))
+        finally:
+            self._text_input_point = None
 
     async def keypress(self, keys: "Sequence[str] | str") -> None:
+        self._text_input_point = None
         sequence = [keys] if isinstance(keys, str) else list(keys)
         if self._emulated_held_keys:
             sequence = self._merged_modifiers(sequence)
@@ -1039,6 +1085,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         the adapter lets those atomic actions preserve n2's held-modifier
         semantics without claiming a physical key remains down across RPCs.
         """
+        self._text_input_point = None
         if key not in {"ctrl", "shift", "alt", "cmd"}:
             raise MacOSRecoverableActionError(
                 f"The pinned Cua Driver can only emulate held modifier keys, not {key!r}."
@@ -1050,8 +1097,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         self._emulated_held_keys = [held_key for held_key in self._emulated_held_keys if held_key != key]
 
     async def hold_key(self, key: str, ms: int = 1000) -> None:
-        if not 0 <= ms <= 300_000:
-            raise ValueError("hold_key must be between 0 and 300 seconds")
+        _validate_wait_ms(ms, "hold_key")
         await self.key_down(key)
         try:
             await self._sleep(ms / 1000)
@@ -1059,8 +1105,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
             await self.key_up(key)
 
     async def wait(self, ms: int = 1000) -> None:
-        if not 0 <= ms <= 300_000:
-            raise ValueError("wait must be between 0 and 300 seconds")
+        _validate_wait_ms(ms, "wait")
         await self._sleep(ms / 1000)
 
     async def wait_for_change(self, requested_ms: int, reference: N2Observation) -> N2Observation:
@@ -1130,6 +1175,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         cwd: "str | None" = None,
         timeout_seconds: int = 10,
     ) -> str:
+        self._text_input_point = None
         if not 1 <= timeout_seconds <= 30:
             raise ValueError("shell_command timeout_seconds must be between 1 and 30")
         return await self._run_foreground_shell(
@@ -1145,6 +1191,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         timeout: float = 120.0,
         run_in_background: bool = False,
     ) -> str:
+        self._text_input_point = None
         if isinstance(timeout, bool) or not 0 <= timeout <= 600:
             raise ValueError("bash timeout must be between 0 and 600")
         self._require_local_shell()
@@ -1416,23 +1463,29 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         return await self.presentation.update_status_metrics(metrics)
 
     async def _start_status_presentation(self) -> None:
-        """Window scope: the menu bar item, the shell rail, and the activity window's transcript."""
+        """Window scope: optional status surfaces and a focus-aware target-window overlay."""
         controller = MacOSPresentationController(
             native_width=0,
             native_height=0,
             cancellation=self.cancellation,
             cache_directory=self.overlay_cache_directory,
             show_stop_button=self.show_stop_button,
+            background_focus_overlay=self.background_focus_overlay,
+            show_status_item=self.show_status_item,
             mode="status",
             title=_STATUS_TITLE,
         )
         try:
             await controller.start()
+            if self.background_focus_overlay:
+                await controller.set_window_target(self._target_window)
             await controller.reveal()
             self.presentation = controller
         except Exception as error:
             self._presentation_failure = f"status_item_start_failed:{type(error).__name__}"
             await controller.stop()
+            return
+        if not self.show_status_item:
             return
         # The live frame: while the menu is open or the activity window is shown, stream the
         # driven window over a dedicated driver connection so the model's own captures and
@@ -1575,6 +1628,8 @@ class MacOSComputer(PointerKeyLifecycleMixin):
             except (ValueError, OSError, MacOSComputerError) as error:
                 last_error = error
                 continue
+            if self._window_capture != (width, height):
+                self._text_input_point = None
             self._window_capture = (width, height)
             return pixels, width, height
         raise MacOSComputerError(
@@ -1625,6 +1680,8 @@ class MacOSComputer(PointerKeyLifecycleMixin):
                 return output.getvalue(), "jpeg"
 
     async def _mutate(self, tool: str, arguments: dict[str, Any]) -> None:
+        if tool != "type_text":
+            self._text_input_point = None
         self.cancellation.raise_if_cancelled()
         started_at = time.monotonic()
         try:
@@ -1695,7 +1752,7 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         Returns ``None`` when no rung applies (a different tool, no snapshot, no text field under
         the pointer), leaving the caller's existing fallback policy untouched.
         """
-        if tool != "type_text" or "text" not in arguments:
+        if tool != "type_text" or "text" not in arguments or self._text_input_point is None:
             return None
         snapshot = await self._window_element_snapshot()
         if snapshot is None:
@@ -1743,8 +1800,8 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         Element frames are screen points and the model's coordinates are window-capture pixels,
         so the pointer is mapped through the window's own AX frame -- the root ``AXWindow`` row
         of this very snapshot -- rather than a separately fetched bounds that could disagree.
-        The smallest field containing the pointer wins; without a usable pointer, a window with
-        exactly one text field is still unambiguous.
+        Only a recent explicit click identifies the intended field. Pointer movement and a
+        window having just one text field do not establish keyboard focus.
         """
         candidates = [
             element
@@ -1756,16 +1813,16 @@ class MacOSComputer(PointerKeyLifecycleMixin):
         ]
         if not candidates:
             return None
-        point = self._pointer_in_screen_points(snapshot)
+        point = self._text_input_point_in_screen_points(snapshot)
         if point is not None:
             under_pointer = [element for element in candidates if _frame_contains(element.get("frame"), point)]
             if under_pointer:
                 return min(under_pointer, key=lambda element: _frame_area(element["frame"]))["element_token"]
-        return candidates[0]["element_token"] if len(candidates) == 1 else None
+        return None
 
-    def _pointer_in_screen_points(self, snapshot: dict[str, Any]) -> "tuple[float, float] | None":
-        """The last pointer position in the screen points AX element frames use."""
-        if self._pointer is None or self._window_capture is None:
+    def _text_input_point_in_screen_points(self, snapshot: dict[str, Any]) -> "tuple[float, float] | None":
+        """The recent text-entry click in the screen points AX element frames use."""
+        if self._text_input_point is None or self._window_capture is None:
             return None
         root = next(
             (
@@ -1776,17 +1833,14 @@ class MacOSComputer(PointerKeyLifecycleMixin):
             None,
         )
         bounds = root.get("frame") if isinstance(root, dict) else None
-        if not isinstance(bounds, dict):
+        frame_bounds = _frame_bounds(bounds)
+        if frame_bounds is None:
             return None
+        origin_x, origin_y, width, height = frame_bounds
         capture_width, capture_height = self._window_capture
-        try:
-            width, height = float(bounds["w"]), float(bounds["h"])
-            origin_x, origin_y = float(bounds["x"]), float(bounds["y"])
-        except (KeyError, TypeError, ValueError):
-            return None
         if capture_width <= 0 or capture_height <= 0 or width <= 0 or height <= 0:
             return None
-        pointer_x, pointer_y = self._pointer
+        pointer_x, pointer_y = self._text_input_point
         return (
             origin_x + pointer_x * width / capture_width,
             origin_y + pointer_y * height / capture_height,

@@ -32,10 +32,13 @@ class AppendixOnPageLimitsRatesDataInfo(BaseModel):
     instant_pages: Optional[StrictFloat] = Field(default=None, description=r"")
     redirect_chains: Optional[StrictFloat] = Field(default=None, description=r"")
     lighthouse: Optional[AppendixInfo] = Field(default=None, description=r"")
+    available_filters: Optional[StrictFloat] = Field(default=None, description=r"")
     keyword_density: Optional[StrictFloat] = Field(default=None, description=r"")
     page_screenshot: Optional[StrictFloat] = Field(default=None, description=r"")
     content_parsing: Optional[StrictFloat] = Field(default=None, description=r"")
     content_parsing_live: Optional[StrictFloat] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
+    uncrawlable_resources: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "task_post", 
         "tasks_ready", 
@@ -53,10 +56,13 @@ class AppendixOnPageLimitsRatesDataInfo(BaseModel):
         "instant_pages", 
         "redirect_chains", 
         "lighthouse", 
+        "available_filters", 
         "keyword_density", 
         "page_screenshot", 
         "content_parsing", 
         "content_parsing_live", 
+        "id_list", 
+        "uncrawlable_resources", 
         ]
 
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
@@ -99,10 +105,13 @@ class AppendixOnPageLimitsRatesDataInfo(BaseModel):
         _dict['instant_pages'] = self.instant_pages
         _dict['redirect_chains'] = self.redirect_chains
         _dict['lighthouse'] = self.lighthouse.to_dict() if self.lighthouse else None
+        _dict['available_filters'] = self.available_filters
         _dict['keyword_density'] = self.keyword_density
         _dict['page_screenshot'] = self.page_screenshot
         _dict['content_parsing'] = self.content_parsing
         _dict['content_parsing_live'] = self.content_parsing_live
+        _dict['id_list'] = self.id_list
+        _dict['uncrawlable_resources'] = self.uncrawlable_resources
         return _dict
 
 
@@ -131,10 +140,13 @@ class AppendixOnPageLimitsRatesDataInfo(BaseModel):
             "instant_pages": obj.get("instant_pages"),
             "redirect_chains": obj.get("redirect_chains"),
             "lighthouse": AppendixInfo.from_dict(obj["lighthouse"]) if obj.get("lighthouse") is not None else None,
+            "available_filters": obj.get("available_filters"),
             "keyword_density": obj.get("keyword_density"),
             "page_screenshot": obj.get("page_screenshot"),
             "content_parsing": obj.get("content_parsing"),
             "content_parsing_live": obj.get("content_parsing_live"),
+            "id_list": obj.get("id_list"),
+            "uncrawlable_resources": obj.get("uncrawlable_resources"),
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

@@ -1,25 +1,111 @@
 from enum import Enum
 from typing import Any
+from typing import Generic
 
 from pydantic import field_validator
 
-from ..path import URN
+from ..exceptions import InvalidFilterException
+from ..exceptions import InvalidPathException
 from ..path import Path
+from ..path import ScimFilter
+from ..path.path import ResourceT
+from ..urn import URN
 from .message import Message
 from .response_parameters import ResponseParameters
 
 
-class SearchRequest(Message, ResponseParameters):
-    """SearchRequest object defined at :rfc:`RFC7644 §3.4.3 <7644#section-3.4.3>`."""
+class SearchRequest(Message, ResponseParameters[ResourceT], Generic[ResourceT]):
+    """SearchRequest object defined at :rfc:`RFC7644 §3.4.3 <7644#section-3.4.3>`.
+
+    Parameterising the request with the resource type an endpoint serves, as in
+    ``SearchRequest[User]`` for ``/Users`` and ``/Users/.search``, resolves
+    :attr:`filter` and :attr:`sort_by` against that model. An endpoint covering
+    several resource types, such as the server root and the ``/.search`` mounted
+    on it, names them all: ``SearchRequest[User | Group]``. An attribute only
+    some of them declare stays valid there, and evaluates to false on the
+    resources of the others, as
+    :rfc:`RFC7644 §3.4.2.1 <7644#section-3.4.2.1>` requires.
+
+    >>> from scim2_models import Context, SearchRequest, User
+    >>> request = SearchRequest[User](
+    ...     filter='userName eq "bjensen"',
+    ...     sort_by="userName",
+    ...     count=100,
+    ... )
+    >>> request.model_dump(scim_ctx=Context.SEARCH_REQUEST)
+    {'schemas': ['urn:ietf:params:scim:api:messages:2.0:SearchRequest'], 'filter': 'userName eq "bjensen"', 'sortBy': 'userName', 'count': 100}
+    """
 
     __schema__ = URN("urn:ietf:params:scim:api:messages:2.0:SearchRequest")
 
-    filter: str | None = None
-    """The filter string used to request a subset of resources."""
+    filter: ScimFilter[ResourceT] | None = None
+    """The filter used to request a subset of resources.
 
-    sort_by: Path[Any] | None = None
+    Assigning a string parses it, so a malformed filter is rejected at
+    validation time rather than by the server. On a parameterised request the
+    filter is checked against the model as well, unknown attributes included,
+    and is ready to be matched::
+
+        SearchRequest[User](filter='userName eq "bjensen"').filter.match(user)
+
+    An unparameterised request only has its syntax checked, there being no
+    model to resolve attribute names against.
+    """
+
+    @field_validator("filter")
+    @classmethod
+    def _resolvable_filter(
+        cls, value: "ScimFilter[Any] | None"
+    ) -> "ScimFilter[Any] | None":
+        """Reject an attribute the bound model does not declare."""
+        # Parameterising the request names the resource types the endpoint
+        # serves, which is what makes an attribute none of them declares a
+        # client error rather than something to evaluate to false.
+        if value is not None and value.models:
+            try:
+                value._validate_semantics()
+            except InvalidFilterException as exc:
+                raise exc.as_pydantic_error() from exc
+        return value
+
+    sort_by: Path[ResourceT] | None = None
     """A string indicating the attribute whose value SHALL be used to order the
-    returned responses."""
+    returned responses.
+
+    On a parameterised request the attribute is resolved against the model, and
+    one none of the resource types declares is refused. Where an unknown entry
+    of :attr:`~scim2_models.ResponseParameters.attributes` is ignored, an order
+    cannot be: a ``sortBy`` left out answers an arbitrary order the client has
+    no way of telling from the one it asked for.
+    """
+
+    @field_validator("sort_by")
+    @classmethod
+    def _sort_by_names_an_attribute(cls, value: Any) -> Any:
+        """Refuse an order over the values an attribute holds.
+
+        RFC7644 §3.4.2.3 requires ``sortBy`` in the attribute notation of
+        §3.10.
+        """
+        if value is not None:
+            try:
+                value._check_attribute_notation()
+            except InvalidPathException as exc:
+                raise exc.as_pydantic_error() from exc
+        return value
+
+    @field_validator("sort_by")
+    @classmethod
+    def _resolvable_sort_by(cls, value: Any) -> Any:
+        """Reject an attribute the bound resource types do not declare."""
+        # Parameterising the request names the resource types the endpoint
+        # serves, which is what makes an attribute none of them declares a
+        # client error rather than something to resolve later.
+        if value is not None and value.models and value.resolve() is None:
+            raise InvalidPathException(
+                path=str(value), detail=f"Cannot sort on {str(value)!r}"
+            ).as_pydantic_error()
+        return value
 
     class SortOrder(str, Enum):
         ascending = "ascending"
@@ -34,8 +120,8 @@ class SearchRequest(Message, ResponseParameters):
 
     @field_validator("start_index")
     @classmethod
-    def start_index_floor(cls, value: int | None) -> int | None:
-        """According to :rfc:`RFC7644 §3.4.2 <7644#section-3.4.2.4>`, start_index values less than 1 are interpreted as 1.
+    def _start_index_floor(cls, value: int | None) -> int | None:
+        """According to RFC7644 §3.4.2, start_index values less than 1 are interpreted as 1.
 
         A value less than 1 SHALL be interpreted as 1.
         """
@@ -47,8 +133,8 @@ class SearchRequest(Message, ResponseParameters):
 
     @field_validator("count")
     @classmethod
-    def count_floor(cls, value: int | None) -> int | None:
-        """According to :rfc:`RFC7644 §3.4.2 <7644#section-3.4.2.4>`, count values less than 0 are interpreted as 0.
+    def _count_floor(cls, value: int | None) -> int | None:
+        """According to RFC7644 §3.4.2, count values less than 0 are interpreted as 0.
 
         A negative value SHALL be interpreted as 0.
         """

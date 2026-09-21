@@ -22,7 +22,6 @@ from tomlrt._values import (
     DateTimeValue,
     FloatValue,
     IntegerValue,
-    KeyPart,
     StringValue,
 )
 
@@ -56,6 +55,13 @@ _HEX_DIGITS: Final[frozenset[str]] = frozenset("0123456789abcdefABCDEF")
 _OCT_DIGITS: Final[frozenset[str]] = frozenset("01234567")
 _BIN_DIGITS: Final[frozenset[str]] = frozenset("01")
 _DEC_DIGITS: Final[frozenset[str]] = frozenset("0123456789")
+
+_RADIX: Final[dict[str, tuple[frozenset[str], int]]] = {
+    "0x": (_HEX_DIGITS, 16),
+    "0o": (_OCT_DIGITS, 8),
+    "0b": (_BIN_DIGITS, 2),
+}
+"""Digit set and base of each integer radix prefix."""
 
 
 def _is_ascii_digits(s: str) -> bool:
@@ -463,21 +469,17 @@ class _Scanner:
 
     def scan_key(
         self,
-    ) -> tuple[tuple[KeyPart, ...], tuple[str, ...], str, tuple[str, ...]]:
-        """Scan a dotted key; return parts, separators, trailing ws, path.
+    ) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[str, ...]]:
+        """Return raw parts, separators, trailing whitespace and decoded path.
 
         Each part is bare, basic-quoted or literal-quoted; each
         separator is the literal ``ws "." ws`` between two parts. The
         whitespace after the last part is consumed too, and can be used
         directly as ``pre_eq`` / ``inner_post``.
-
-        The decoded path is accumulated here, rather than derived from
-        ``parts`` separately by each caller, because every caller needs
-        it to hand to the validator.
         """
         src = self.src
         end = self.end
-        parts: list[KeyPart] = []
+        parts: list[str] = []
         seps: list[str] = []
         path: list[str] = []
         while True:
@@ -485,7 +487,7 @@ class _Scanner:
             ch = src[start] if start < end else ""
             if ch == '"' or ch == "'":
                 quoted = self.scan_string(allow_multiline=False)
-                parts.append(KeyPart(quoted.lexeme, quoted.value))
+                raw = quoted.lexeme
                 path.append(quoted.value)
                 ws = self.scan_inline_ws_text()
             else:
@@ -495,14 +497,15 @@ class _Scanner:
                     raise self.error(msg)
                 raw = m[1]
                 ws = m[2]
-                parts.append(KeyPart(raw, raw))
                 path.append(raw)
                 self.pos = m.end()
+            parts.append(raw)
             pos = self.pos
             if pos >= end or src[pos] != ".":
-                return tuple(parts), tuple(seps), ws, tuple(path)
-            # The separator runs from the end of the part just scanned,
-            # which is where the whitespace already consumed began.
+                key_path = tuple(path)
+                key_parts = key_path if parts == path else tuple(parts)
+                return key_parts, tuple(seps), ws, key_path
+            # The separator starts where the already-consumed whitespace began.
             sep_start = pos - len(ws)
             self.pos = pos + 1
             self.scan_inline_ws_text()
@@ -571,12 +574,11 @@ class _Scanner:
     def _parse_integer_token(self, token: str, *, at: int) -> IntegerValue:
         body = token
         if body.startswith(("0x", "0o", "0b")):
-            prefix = body[:2]
+            allowed, base = _RADIX[body[:2]]
             digits = body[2:]
             if not digits or digits.startswith("_") or digits.endswith("_"):
                 msg = f"invalid integer {token!r}"
                 raise self.error(msg, at=at)
-            allowed = {"0x": _HEX_DIGITS, "0o": _OCT_DIGITS, "0b": _BIN_DIGITS}[prefix]
             for c in digits:
                 if c == "_":
                     continue
@@ -586,7 +588,6 @@ class _Scanner:
             if "__" in digits:
                 msg = f"consecutive underscores in {token!r}"
                 raise self.error(msg, at=at)
-            base = {"0x": 16, "0o": 8, "0b": 2}[prefix]
             value = int(digits.replace("_", ""), base)
             return IntegerValue(token, value)
 

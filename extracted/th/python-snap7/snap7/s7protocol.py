@@ -65,6 +65,10 @@ class S7UserDataSubfunction(IntEnum):
     READ_SZL = 0x01  # SFun_ReadSZL
     SYSTEM_STATE = 0x02  # System state request
 
+    # Security subfunctions
+    SET_SESSION_PASSWORD = 0x01
+    CLEAR_SESSION_PASSWORD = 0x02
+
     # Clock subfunctions
     GET_CLOCK = 0x01
     SET_CLOCK = 0x02
@@ -244,6 +248,7 @@ class S7Protocol:
         raw = response.get("raw_data", b"")
         if not raw:
             raise S7ProtocolError("No raw data in multi-read response")
+        self._validate_area_response(response, S7Function.READ_AREA, block_count)
 
         results: List[bytearray] = []
         offset = 0
@@ -295,6 +300,8 @@ class S7Protocol:
         """
         # Calculate count from data length
         item_size = S7DataTypes.get_size_bytes(word_len, 1)
+        if len(data) % item_size:
+            raise ValueError("Write data length must be a multiple of the element width")
         count = len(data) // item_size
 
         # Parameter length: function + item count + address spec
@@ -330,23 +337,25 @@ class S7Protocol:
         # Data section uses different transport size codes than address specification:
         # - 0x03 = BIT
         # - 0x04 = BYTE/WORD/DWORD (byte-oriented data)
-        # - 0x05 = INT
-        # - 0x06 = DINT
+        # - 0x05 = INT/DINT
         # - 0x07 = REAL
-        # - 0x09 = OCTET STRING
+        # - 0x09 = OCTET STRING (CHAR, COUNTER, TIMER)
         transport_size_map = {
             S7WordLen.BIT: 0x03,
             S7WordLen.BYTE: 0x04,
-            S7WordLen.CHAR: 0x04,
+            S7WordLen.CHAR: 0x09,
             S7WordLen.WORD: 0x04,
             S7WordLen.INT: 0x05,
             S7WordLen.DWORD: 0x04,
-            S7WordLen.DINT: 0x06,
+            S7WordLen.DINT: 0x05,
             S7WordLen.REAL: 0x07,
-            S7WordLen.COUNTER: 0x04,
-            S7WordLen.TIMER: 0x04,
+            S7WordLen.COUNTER: 0x09,
+            S7WordLen.TIMER: 0x09,
         }
         transport_size = transport_size_map.get(word_len, 0x04)
+
+        # BIT values occupy one byte each; BYTE/WORD/INT lengths are in bits.
+        data_length = len(data) if transport_size in (0x03, 0x07, 0x09) else len(data) * 8
 
         # Data section
         data_section = (
@@ -354,7 +363,7 @@ class S7Protocol:
                 ">BBH",
                 0x00,  # Reserved/Error
                 transport_size,  # Transport size (proper S7 data section format)
-                len(data) * 8,  # Bit length (data length in bits)
+                data_length,
             )
             + data
         )
@@ -1337,6 +1346,143 @@ class S7Protocol:
         except ValueError:
             return dt_class.now().replace(microsecond=0)
 
+    # ========================================================================
+    # Session Password PDU Builders (Security / Function Group 5)
+    # ========================================================================
+
+    @staticmethod
+    def encode_password(password: str) -> bytes:
+        """Encode an S7 session password into the 8-byte wire format.
+
+        The encoding pads or truncates the password to 8 characters, XORs each
+        byte with ``0x55``, then rotates each byte left by 3 bits.
+
+        Args:
+            password: Plaintext password (max 8 characters).
+
+        Returns:
+            8-byte encoded password block.
+        """
+        # Pad/truncate to exactly 8 bytes
+        raw = password.encode("ascii")[:8].ljust(8, b"\x00")
+        encoded = bytearray(8)
+        for i in range(8):
+            xored = raw[i] ^ 0x55
+            encoded[i] = ((xored << 3) | (xored >> 5)) & 0xFF
+        return bytes(encoded)
+
+    def build_set_session_password_request(self, encoded_password: bytes) -> bytes:
+        """Build USERDATA request to set the session password.
+
+        Uses function group 5 (Security), subfunction 1.
+
+        Args:
+            encoded_password: 8-byte encoded password from :meth:`encode_password`.
+
+        Returns:
+            Complete S7 PDU.
+        """
+        # Parameter section for USERDATA security request
+        param_data = struct.pack(
+            ">BBBBBBBB",
+            0x00,  # Reserved
+            0x01,  # Parameter count
+            0x12,  # Type/length header
+            0x04,  # Length of following data
+            0x11,  # Method (0x11 = request)
+            0x45,  # Type (4=request) | Group (5=grSecurity)
+            S7UserDataSubfunction.SET_SESSION_PASSWORD,  # Subfunction (0x01)
+            0x00,  # DataRef
+        )
+
+        # Data section: encoded password
+        data_section = (
+            struct.pack(
+                ">BBH",
+                0x0A,  # Return value (request)
+                0x00,  # Transport size
+                len(encoded_password),  # Length
+            )
+            + encoded_password
+        )
+
+        header = struct.pack(
+            ">BBHHHH",
+            0x32,  # Protocol ID
+            S7PDUType.USERDATA,  # PDU type (0x07)
+            0x0000,  # Reserved
+            self._next_sequence(),  # Sequence
+            len(param_data),  # Parameter length
+            len(data_section),  # Data length
+        )
+
+        return header + param_data + data_section
+
+    def build_clear_session_password_request(self) -> bytes:
+        """Build USERDATA request to clear the session password.
+
+        Uses function group 5 (Security), subfunction 2.
+
+        Returns:
+            Complete S7 PDU.
+        """
+        param_data = struct.pack(
+            ">BBBBBBBB",
+            0x00,  # Reserved
+            0x01,  # Parameter count
+            0x12,  # Type/length header
+            0x04,  # Length of following data
+            0x11,  # Method (0x11 = request)
+            0x45,  # Type (4=request) | Group (5=grSecurity)
+            S7UserDataSubfunction.CLEAR_SESSION_PASSWORD,  # Subfunction (0x02)
+            0x00,  # DataRef
+        )
+
+        data_section = struct.pack(
+            ">BBH",
+            0x0A,  # Return value (request)
+            0x00,  # Transport size
+            0x0000,  # Length (0 bytes)
+        )
+
+        header = struct.pack(
+            ">BBHHHH",
+            0x32,  # Protocol ID
+            S7PDUType.USERDATA,  # PDU type (0x07)
+            0x0000,  # Reserved
+            self._next_sequence(),  # Sequence
+            len(param_data),  # Parameter length
+            len(data_section),  # Data length
+        )
+
+        return header + param_data + data_section
+
+    def check_userdata_response(self, response: Dict[str, Any]) -> None:
+        """Check a USERDATA response for errors.
+
+        Verifies both the parameter-level error code and the data section
+        return code.
+
+        Args:
+            response: Parsed S7 response from :meth:`parse_response`.
+
+        Raises:
+            ~snap7.error.S7ProtocolError: If the response indicates an error.
+        """
+        params = response.get("parameters", {})
+        if isinstance(params, dict):
+            param_error = params.get("error_code", 0)
+            if param_error != 0:
+                error_msg = get_protocol_error_message(param_error)
+                raise S7ProtocolError(f"USERDATA request failed: {error_msg} (0x{param_error:04x})")
+
+        data_info = response.get("data", {})
+        if isinstance(data_info, dict):
+            return_code = data_info.get("return_code", 0xFF)
+            if return_code != 0xFF:
+                desc = get_return_code_description(return_code)
+                raise S7ProtocolError(f"USERDATA request failed: {desc} (0x{return_code:02x})")
+
     def build_cpu_state_request(self) -> bytes:
         """
         Build CPU state request.
@@ -1446,7 +1592,15 @@ class S7Protocol:
                 raise S7ProtocolError("Data section extends beyond PDU")
 
             data_section = pdu[offset : offset + data_len]
-            response["data"] = self._parse_data_section(data_section)
+            if (response.get("parameters") or {}).get("function_code") == S7Function.WRITE_AREA:
+                # WRITE data is an array of acknowledgement codes, not a READ item header.
+                response["data"] = {"return_code": data_section[0]}
+            else:
+                # Other functions (notably block upload) do not carry READ item headers.
+                response["data"] = self._parse_data_section(
+                    data_section,
+                    validate_length=(response.get("parameters") or {}).get("function_code") == S7Function.READ_AREA,
+                )
             response["raw_data"] = data_section
 
         return response
@@ -1541,7 +1695,7 @@ class S7Protocol:
             "error_code": error_code,
         }
 
-    def _parse_data_section(self, data_section: bytes) -> Dict[str, Any]:
+    def _parse_data_section(self, data_section: bytes, *, validate_length: bool = True) -> Dict[str, Any]:
         """Parse S7 data section."""
         if len(data_section) == 1:
             # Simple return code (for write responses)
@@ -1556,12 +1710,16 @@ class S7Protocol:
             # Transport size 0x09 (octet string): byte length (USERDATA responses)
             # Transport size 0x00: byte length (USERDATA requests)
             # Transport size 0x04 (byte): bit length (READ_AREA responses)
-            if transport_size in (0x00, 0x09):
+            if transport_size in (0x00, 0x03, 0x06, 0x07, 0x09):
                 # USERDATA uses byte length directly
-                actual_data = data_section[4 : 4 + data_length]
+                byte_length = data_length
             else:
                 # READ_AREA responses use bit length
-                actual_data = data_section[4 : 4 + (data_length // 8)]
+                byte_length = data_length // 8
+
+            if validate_length and 4 + byte_length > len(data_section):
+                raise S7ProtocolError("Read data item is truncated")
+            actual_data = data_section[4 : 4 + byte_length]
 
             return {"return_code": return_code, "transport_size": transport_size, "data_length": data_length, "data": actual_data}
         else:
@@ -1590,9 +1748,30 @@ class S7Protocol:
             raise S7ProtocolError(f"Read operation failed: {desc} (0x{return_code:02x})")
 
         raw_data = data_info.get("data", b"")
+        self._validate_area_response(response, S7Function.READ_AREA, 1)
+        expected = S7DataTypes.get_size_bytes(word_len, count)
+        if len(raw_data) != expected:
+            raise S7ProtocolError(f"Read response size mismatch: expected {expected} bytes, received {len(raw_data)}")
+        transport_size = data_info.get("transport_size")
+        expected_length = count if word_len == S7WordLen.BIT else expected
+        if transport_size in (0x04, 0x05):
+            expected_length = expected * 8
+        elif transport_size not in (0x03, 0x06, 0x07, 0x09):
+            raise S7ProtocolError("Invalid read response transport size")
+        if data_info.get("data_length") != expected_length:
+            raise S7ProtocolError("Read response declared length does not match requested size")
 
         # Return raw bytes directly - caller handles type conversion
         return list(raw_data)
+
+    @staticmethod
+    def _validate_area_response(response: Dict[str, Any], function: S7Function, count: int) -> None:
+        """Require the response to acknowledge the requested operation and item count."""
+        parameters = response.get("parameters") or {}
+        if parameters.get("function_code") != function:
+            raise S7ProtocolError("Unexpected S7 response function")
+        if parameters.get("item_count") != count:
+            raise S7ProtocolError("Unexpected S7 response item count")
 
     def check_write_response(self, response: Dict[str, Any]) -> None:
         """
@@ -1611,15 +1790,20 @@ class S7Protocol:
             error_msg = f"Write operation failed with S7 error code: {header_error:#06x}"
             raise S7ProtocolError(error_msg)
 
-        # For successful writes, check the data section return code if present
+        self._validate_area_response(response, S7Function.WRITE_AREA, 1)
+        if len(response.get("raw_data", b"")) != 1:
+            raise S7ProtocolError("Write response must contain one item acknowledgement")
+
+        # For successful writes, check the data section return code.
         if response.get("data"):
             data_info = response["data"]
-            return_code = data_info.get("return_code", 0xFF)  # Default to success
+            return_code = data_info.get("return_code", 0)
 
             if return_code != 0xFF:  # 0xFF = Success
                 desc = get_return_code_description(return_code)
                 raise S7ProtocolError(f"Write operation failed: {desc} (0x{return_code:02x})")
-        # If no data and no header error, the write was successful (ACK without data)
+        else:
+            raise S7ProtocolError("Missing write acknowledgement")
 
 
 # ---------------------------------------------------------------------------

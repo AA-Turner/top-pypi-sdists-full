@@ -50,10 +50,15 @@ def test_the_closure_is_the_number_the_plan_rests_on():
     # Not a golden-file assertion for its own sake: this number is what PLAN.md
     # and the phase estimate rest on. If it moves, the plan moves with it —
     # a new contract dataclass is a new twin nobody scheduled.
+    # 36 since 2026-09-20: DecisionQuestionsContent + DecisionAnswersContent —
+    # the decision modality's two content blocks, twinned in the same commit as
+    # DecisionQuestionsContentModel / DecisionAnswersContentModel. Their payload
+    # is already a registered kind, so the twin holds the envelope and delegates
+    # the body to the kind models.
     # 34 since 2026-09-14: HostedToolContent (a provider-hosted tool block carried
     # verbatim so an interleaved hosted-search turn replays block-for-block) — its
     # twin is HostedToolContentModel, scheduled in the same commit.
-    assert len(dataclasses_in_contract) == 34, (
+    assert len(dataclasses_in_contract) == 36, (
         "the contract closure changed; update PLAN.md in the same commit. Now: "
         + ", ".join(sorted(f"{c.__module__}.{c.__name__}" for c in dataclasses_in_contract))
     )

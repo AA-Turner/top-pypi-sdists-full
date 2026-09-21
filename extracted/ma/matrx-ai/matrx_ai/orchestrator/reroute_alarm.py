@@ -44,6 +44,11 @@ PROVIDER_OFFERING_REROUTED_KIND = "provider_offering_rerouted"
 #: The ``source_app`` these findings are filed under.
 REROUTE_SOURCE_APP = "ai-routing"
 
+#: The ``source_feature`` these findings are filed under — the SMALLER half of
+#: the one two-level categorization, so a reroute filters apart from every other
+#: routing failure under the same app.
+REROUTE_SOURCE_FEATURE = "reroute"
+
 #: (kind, from_model, to_model, error_type) already filed in this process.
 #: One row per class per process — ``ops.ops_issue_event`` carries the
 #: per-occurrence count, so repeating the row would only bury the alarm.
@@ -143,6 +148,7 @@ def record_provider_reroute(
             error_type=error_type or kind,
             error_text=text,
             source_app=REROUTE_SOURCE_APP,
+            source_feature=REROUTE_SOURCE_FEATURE,
             route=spec_type or "ai.execute",
             user_id=getattr(ctx, "user_id", None) or None,  # orm-getattr-ok: AppContext
             organization_id=getattr(ctx, "organization_id", None),  # orm-getattr-ok: AppContext
@@ -174,6 +180,7 @@ __all__ = [
     "PROVIDER_MODEL_SUBSTITUTED_KIND",
     "PROVIDER_OFFERING_REROUTED_KIND",
     "REROUTE_SOURCE_APP",
+    "REROUTE_SOURCE_FEATURE",
     "ProviderModelSubstituted",
     "record_provider_reroute",
     "reset_reported_reroutes",

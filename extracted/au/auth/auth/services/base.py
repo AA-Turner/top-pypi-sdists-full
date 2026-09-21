@@ -7,7 +7,6 @@ chain of mixins rooted here; see :mod:`auth.services.service`.
 """
 
 import logging
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -15,6 +14,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from auth.encryption import encrypt_sensitive_data
+from auth.rls import bind_tenant
+from auth.validation import validate_client_key
 
 logger = logging.getLogger(__name__)
 
@@ -22,17 +23,6 @@ logger = logging.getLogger(__name__)
 def _utcnow() -> datetime:
     """Naive UTC now — matches the DateTime columns (see auth.audit)."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def validate_client_key(client: str) -> bool:
-    """
-    Validate that the client key is a valid UUID4
-    """
-    try:
-        uuid_obj = uuid.UUID(client, version=4)
-        return str(uuid_obj) == client.lower()
-    except ValueError:
-        return False
 
 
 class ServiceBase:
@@ -63,6 +53,11 @@ class ServiceBase:
         # an explicit bool overrides it for in-process/library callers.
         self._strict_override = strict_users
         self._strict_cache: Optional[bool] = None
+        # Bind this tenant to the session so Row Level Security can see it. Done
+        # here rather than in the HTTP layer so library callers are covered too,
+        # and via an after_begin listener so it survives the per-method commits
+        # those callers make. No-op on SQLite.
+        bind_tenant(self.db, self.client)
 
     def _commit(self) -> None:
         """Commit only when this service owns the transaction (see __init__)."""

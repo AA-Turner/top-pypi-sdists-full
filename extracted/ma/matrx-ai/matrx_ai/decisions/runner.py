@@ -83,21 +83,38 @@ async def execute_decision(
     request: DecisionRequest,
     *,
     offering_id: str | None = None,
+    profile: ResolvedCallProfile | None = None,
     profile_resolver: Callable[..., Awaitable[ResolvedCallProfile]] = resolve_call_profile,
-    caller: Callable[..., Awaitable[SystemOneResult]] = call_system_one,
+    caller: Callable[..., Awaitable[SystemOneResult]] | None = None,
 ) -> DecisionExecutionResult:
     """Resolve and execute exactly one native decision provider call.
+
+    THIS IS THE ENGINE, and it now has two callers: the standalone decision
+    route (HTTP + the workflow action) and ``UnifiedAIClient.execute``'s
+    ``typesafe_systemone`` translator, which hands in the profile it already
+    resolved. Both paths get the same admission, credential selection, pricing
+    and billed-usage handling from here — there is exactly one place that pays
+    TypeSafe.
 
     Invalid request bodies are validated by ``SystemOneRequest`` before any
     credential lookup or transport activity.  This function intentionally does
     not instantiate ``UnifiedConfig`` or use ``UnifiedAIClient``.
     """
+    # Resolved at CALL time, not bound as a default at import time: a default
+    # argument freezes the module attribute, so a caller (or a guard) that
+    # replaces ``call_system_one`` would be silently ignored and a test would
+    # reach the real transport.
+    caller = caller or call_system_one
     wire_request = SystemOneRequest(
         state=request.state,
         model=request.model,
         questions=request.questions,
     )
-    profile = await profile_resolver(request.model, offering_id=offering_id)
+    # ``profile`` is passed by UnifiedAIClient, which has already resolved the
+    # catalog route for this call. Re-resolving would be a second catalog read
+    # that could legally disagree with the one the client dispatched on.
+    if profile is None:
+        profile = await profile_resolver(request.model, offering_id=offering_id)
     _require_decision_profile(profile)
 
     # A per-offering BYOK key is resolved through the normal host/AppContext

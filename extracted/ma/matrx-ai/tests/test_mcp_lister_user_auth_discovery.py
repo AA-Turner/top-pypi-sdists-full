@@ -32,7 +32,7 @@ from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolType
 from matrx_ai.tools.registry import ToolRegistry
 
 SERVER_ID = "c72aec9e-7468-4cf5-83be-32ccd5703faa"
-USER_ID = "4cf62e4e-2679-484f-b652-034e697418df"
+USER_ID = "00000000-0000-4000-8000-0000000fffe1"
 GITHUB_TOOLS = ("mcp.github.create_branch", "mcp.github.get_file_contents")
 
 

@@ -25,12 +25,23 @@ The acting user travels on the transport as a signed, audience-bound claim
 """
 
 from typing import Annotated, Literal
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
 
 # The single opaque profile argument, appended to every tool. Empty string (not
 # None) matches the existing optional-string convention in this module.
 _PROFILE_FIELD_DEFAULT = ""
+
+
+def _canonical_uuid(value: str) -> str:
+    try:
+        parsed = UUID(value)
+    except (TypeError, ValueError):
+        raise ValueError("must be a canonical UUID") from None
+    if str(parsed) != value:
+        raise ValueError("must be a canonical UUID")
+    return value
 
 
 class BrowserNavigateArgs(BaseModel):
@@ -164,6 +175,28 @@ class BrowserListProfilesArgs(BaseModel):
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 
+class BrowserListLocalDevicesArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["list_local_devices"]
+    profile_id: str
+
+    _profile_id = field_validator("profile_id")(_canonical_uuid)
+
+
+class BrowserStartLocalArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["start_local"]
+    profile_id: str
+    app_instance_id: str
+    activation_key: str
+
+    _profile_id = field_validator("profile_id")(_canonical_uuid)
+    _app_instance_id = field_validator("app_instance_id")(_canonical_uuid)
+    _activation_key = field_validator("activation_key")(_canonical_uuid)
+
+
 CloudBrowserVariant = Annotated[
     BrowserNavigateArgs
     | BrowserClickArgs
@@ -175,7 +208,9 @@ CloudBrowserVariant = Annotated[
     | BrowserScreenshotArgs
     | BrowserCloseArgs
     | BrowserDismissHandoffArgs
-    | BrowserListProfilesArgs,
+    | BrowserListProfilesArgs
+    | BrowserListLocalDevicesArgs
+    | BrowserStartLocalArgs,
     Field(discriminator="action"),
 ]
 

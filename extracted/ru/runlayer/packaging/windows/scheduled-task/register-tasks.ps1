@@ -7,8 +7,9 @@
 # mirroring the macOS LaunchAgent + LaunchDaemon bundle.
 #
 # Registers, under the \Runlayer Task Scheduler folder:
-#   AIWatchHooks  SYSTEM, at-boot + hourly — runs `aiwatch setup hooks install
-#                 --mdm` (writes / removes enterprise hook configs).
+#   AIWatchHooks  SYSTEM, at-boot + every 15 min — runs `aiwatch setup hooks
+#                 install --mdm` (fetches backend settings, writes / removes
+#                 enterprise hook configs).
 #   AIWatchScan   SYSTEM, at-boot + any-user logon + every 15 min — runs
 #                 `aiwatch scan --all-users`, which enumerates every real
 #                 profile and scans each AS the user (token-drop when logged on,

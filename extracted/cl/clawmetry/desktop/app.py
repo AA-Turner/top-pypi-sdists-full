@@ -947,8 +947,9 @@ _PIP_FAILURE_HINTS = {
         f"install python.org Python {KNOWN_GOOD_PYTHON_MINOR} and relaunch."
     ),
     "tls_intercepted": (
-        "A firewall or proxy is intercepting TLS to pypi.org — "
-        "check proxy/antivirus settings."
+        "A corporate proxy is intercepting TLS to pypi.org — "
+        "set REQUESTS_CA_BUNDLE=<path/to/ca.pem> and relaunch, "
+        "or ask IT to allowlist pypi.org and files.pythonhosted.org."
     ),
     "network": (
         "Could not reach pypi.org — check this network's "

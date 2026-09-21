@@ -27,6 +27,8 @@ class AppendixSerpDataInfo(BaseModel):
     tasks_fixed: Optional[StrictFloat] = Field(default=None, description=r"")
     jobs: Optional[AppendixJobsSerpLimitsRatesDataInfo] = Field(default=None, description=r"")
     screenshot: Optional[StrictFloat] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
+    ai_summary: Optional[StrictFloat] = Field(default=None, description=r"")
     tasks_ready_queue: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "task_post", 
@@ -39,6 +41,8 @@ class AppendixSerpDataInfo(BaseModel):
         "tasks_fixed", 
         "jobs", 
         "screenshot", 
+        "id_list", 
+        "ai_summary", 
         "tasks_ready_queue", 
         ]
 
@@ -76,6 +80,8 @@ class AppendixSerpDataInfo(BaseModel):
         _dict['tasks_fixed'] = self.tasks_fixed
         _dict['jobs'] = self.jobs.to_dict() if self.jobs else None
         _dict['screenshot'] = self.screenshot
+        _dict['id_list'] = self.id_list
+        _dict['ai_summary'] = self.ai_summary
         _dict['tasks_ready_queue'] = self.tasks_ready_queue
         return _dict
 
@@ -99,6 +105,8 @@ class AppendixSerpDataInfo(BaseModel):
             "tasks_fixed": obj.get("tasks_fixed"),
             "jobs": AppendixJobsSerpLimitsRatesDataInfo.from_dict(obj["jobs"]) if obj.get("jobs") is not None else None,
             "screenshot": obj.get("screenshot"),
+            "id_list": obj.get("id_list"),
+            "ai_summary": obj.get("ai_summary"),
             "tasks_ready_queue": obj.get("tasks_ready_queue"),
         })
 

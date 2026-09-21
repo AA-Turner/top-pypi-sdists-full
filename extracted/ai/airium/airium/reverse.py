@@ -1,15 +1,13 @@
 import keyword
 import pprint
 import sys
-from typing import TYPE_CHECKING, Optional, Union, cast
+from typing import Optional, TYPE_CHECKING, Union, cast
 
 from airium import Tag as AiriumTag
-
 
 try:
     from bs4 import BeautifulSoup, Tag
     from bs4.element import NavigableString, PreformattedString
-
 
     bs4_imported = True
 
@@ -23,10 +21,13 @@ if TYPE_CHECKING:
 
 def _warn_dependencies(fcn):
     if not bs4_imported:  # pragma: no cover
+
         def no_bs4_warning(*_, **__):
-            sys.stderr.write("In order to parse HTML, please install 'parse' extras.\n"
-                             "E.g. `pip install airium[parse]`\n"
-                             "or: `poetry add airium[parse]`")
+            sys.stderr.write(
+                "In order to parse HTML, please install 'parse' extras.\n"
+                "E.g. `pip install airium[parse]`\n"
+                "or: `poetry add airium[parse]`"
+            )
 
         no_bs4_warning.__name__ = f"no_bs4_warning_for_{fcn.__name__}"
         return no_bs4_warning
@@ -36,8 +37,9 @@ def _warn_dependencies(fcn):
 @_warn_dependencies
 def from_html_to_airium(html_str: str, include_module_head: bool = True, include_main: bool = True) -> str:
     from airium import __version__ as version
-    root_ = BeautifulSoup(html_str, 'html.parser')
-    ret = translate_el(root_, 'a') or ""
+
+    root_ = BeautifulSoup(html_str, "html.parser")
+    ret = translate_el(root_, "a") or ""
     if include_module_head:
         ret = f"""\
 #!/usr/bin/env python
@@ -52,7 +54,7 @@ a = Airium()
 {ret}
 """
     if include_module_head and include_main:
-        ret += f"""
+        ret += """
 
 if __name__ == '__main__':
     print(a)
@@ -70,71 +72,70 @@ def translate_arguments(root: Tag):
     clean_args = []
     other_args = {}
     for k, v in sorted(root.attrs.items()):
-
         k = ATTRIBUTE_INVERSION.get(k, k)
         if isinstance(v, list):
-            v = ' '.join(v)
+            v = " ".join(v)
         if not k.isidentifier():
             other_args[k] = v
         else:
-            clean_args.append(f'{k}={v!r}')
+            clean_args.append(f"{k}={v!r}")
 
     if other_args:
         clean_args.append(f"**{pprint.pformat(other_args)}")
 
-    ret = ', '.join(clean_args)
+    ret = ", ".join(clean_args)
 
     return ret
 
 
 @_warn_dependencies
 def translate_el(node: Union[Tag, PreformattedString, NavigableString, str], doc_obj: str) -> Optional[str]:
-    nl = '\n'
+    nl = "\n"
     if isinstance(node, BeautifulSoup):
-        sub_elements = filter(bool, [translate_el(ch, doc_obj) or '' for ch in node.contents])
-        return '\n'.join(sub_elements)
+        sub_elements = filter(bool, [translate_el(ch, doc_obj) or "" for ch in node.contents])
+        return "\n".join(sub_elements)
 
     if isinstance(node, PreformattedString):
-        return f'{doc_obj}({node.output_ready().strip()!r})'
+        return f"{doc_obj}({node.output_ready().strip()!r})"
 
     if isinstance(node, NavigableString):
-        return f'{doc_obj}({node.strip()!r})' if node.strip() else None
+        return f"{doc_obj}({node.strip()!r})" if node.strip() else None
 
     elif not isinstance(node, Tag):
-        raise TypeError(f"Unsupported element type: {type(node).__name__}: {str(node)[:20].replace(nl, ' ')}")
+        raise TypeError(f'Unsupported element type: {type(node).__name__}: {str(node)[:20].replace(nl, " ")}')
 
     args = translate_arguments(node)
-    if node.name.lower() == 'pre':
+    if node.name.lower() == "pre":
         if args:
-            args += ', '
-        lines = [f"{repr(str(c))}" for c in node.contents or [cast("PageElement", '')]]
+            args += ", "
+        lines = [f"{repr(str(c))}" for c in node.contents or [cast("PageElement", "")]]
         if len(lines) > 1 or sum(map(len, lines)) > 100:
             raw_html = "".join(f"\n    {line}" for line in lines)
-            return f'{doc_obj}.{node.name}({args}_t={raw_html})'
+            return f"{doc_obj}.{node.name}({args}_t={raw_html})"
         else:
             raw_html = ", ".join(lines)
-            return f'{doc_obj}.{node.name}({args}_t={raw_html})'
+            return f"{doc_obj}.{node.name}({args}_t={raw_html})"
 
-    sub_elements = filter(None, [translate_el(ch, doc_obj) or '' for ch in node.contents])
+    sub_elements = filter(None, [translate_el(ch, doc_obj) or "" for ch in node.contents])
 
-    children = '\n'.join(map(increase_indent, sub_elements))
+    children = "\n".join(map(increase_indent, sub_elements))
 
     attribute_getter: str = node.name
     if attribute_getter in TAG_NAME_INVERSION:
         attribute_getter = TAG_NAME_INVERSION[attribute_getter]
 
     if not attribute_getter.isidentifier() or attribute_getter in keyword.kwlist:
-        attribute_getter = f'get_tag_({attribute_getter!r})'
+        attribute_getter = f"get_tag_({attribute_getter!r})"
 
     children_types = {type(c).__name__ for c in node.contents if str(c).strip()}
     has_text = any(str(c).strip() for c in node.contents)
 
-    if children_types == {'NavigableString'} and has_text:
-        text = ' '.join(p for c in node.contents for p in str(c).split())
+    if children_types == {"NavigableString"} and has_text:
+        text = " ".join(p for c in node.contents for p in str(c).split())
 
         if len(attribute_getter) + len(args) + len(text) < 100:
             if args:
-                args += ', '
+                args += ", "
             args += f"_t={text!r}"
 
             return f"{doc_obj}.{attribute_getter}({args})"
@@ -146,6 +147,7 @@ def translate_el(node: Union[Tag, PreformattedString, NavigableString, str], doc
 
 
 def increase_indent(multi_line_text: str) -> str:
-    indent_str = ' ' * 4
-    return ''.join(
-        f"{indent_str}{line}" if line.strip() else "\n" for line in str(multi_line_text).splitlines(keepends=True))
+    indent_str = " " * 4
+    return "".join(
+        f"{indent_str}{line}" if line.strip() else "\n" for line in str(multi_line_text).splitlines(keepends=True)
+    )

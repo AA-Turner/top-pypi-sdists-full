@@ -209,8 +209,9 @@ def _apply_ambient(
 # wired, `build_agent_context` behaves exactly as it does today and says so at the one
 # place where the difference is visible (no provenance, no on-screen explanation).
 #
-# The producer's contract: async, keyword-only `(user_id, scope, variables, cells)`,
-# returning {"direct": {...}, "tool_accessible": {...}, "searchable": {...}}.
+# The producer's contract: async, keyword-only `(user_id, scope, variables, cells,
+# entity_type, entity_id)`, returning {"direct": {...}, "tool_accessible": {...},
+# "searchable": {...}}.
 # ---------------------------------------------------------------------------
 _merge_producer: Callable[..., Any] | None = None
 
@@ -353,6 +354,14 @@ async def build_agent_context(
                 scope=context_scope,
                 variables=variables,
                 cells=cell_values,
+                # WHICH THING THIS TURN IS ABOUT. The RPC's `context` map carries the
+                # user, the organization, the project and the task, and deliberately not
+                # the entity itself — but an attachment set ("the Files on THIS
+                # conversation") is addressed by exactly that. Passed beside the scope
+                # rather than merged into it, so nothing downstream starts treating a
+                # conversation id as a resolved scope.
+                entity_type=entity_type,
+                entity_id=entity_id,
             )
         except ContextResolverUnavailable as exc:
             # A host may deliberately leave an injected capability inactive (for

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import functools
 import typing
 from contextlib import suppress
 
@@ -475,7 +476,7 @@ class VectorProtocol:
 
     def to_pxpythetamass(self) -> VectorProtocolLorentz:
         r"""
-        Converts to $px$-$py$-$\theta$-$energy$ coordinates, possibly imputing dimensions
+        Converts to $px$-$py$-$\theta$-$mass$ coordinates, possibly imputing dimensions
         with a projection.
 
         The $theta$ and $mass$ coordinates can be passed as a named argument.
@@ -592,7 +593,7 @@ class VectorProtocol:
 
     def to_ptphietamass(self) -> VectorProtocolLorentz:
         r"""
-        Converts to $pt$-$\phi$-$\theta$-$mass$ coordinates, possibly imputing dimensions
+        Converts to $pt$-$\phi$-$\eta$-$mass$ coordinates, possibly imputing dimensions
         with a projection.
 
         The $eta$ and $mass$ coordinates can be passed as a named argument.
@@ -858,7 +859,8 @@ class VectorProtocolSpatial(VectorProtocolPlanar):
     def eta(self) -> ScalarCollection:
         r"""
         The pseudorapidity $\eta$ coordinate of the vector or every vector
-        in the array (in radians, always between $0$ ($+z$) and $\pi$ ($-z$)).
+        in the array: $\eta = -\ln\tan(\theta/2)$, which is unbounded, positive
+        in the $+z$ direction and negative in the $-z$ direction.
         """
         raise AssertionError
 
@@ -996,7 +998,7 @@ class VectorProtocolSpatial(VectorProtocolPlanar):
 
         - ``"zxz"``, ``"xyx"``, ``"yzy"``, ``"zyz"``, ``"xzx"``, and ``"yxy"``
           are proper Euler angles
-        - ``"zxz"``, ``"xyx"``, ``"yzy"``, ``"zyz"``, ``"xzx"``, and ``"yxy"``
+        - ``"xzy"``, ``"xyz"``, ``"yxz"``, ``"yzx"``, ``"zyx"``, and ``"zxy"``
           are Tait-Bryan angles (see
           :meth:`vector._methods.VectorProtocolSpatial.rotate_nautical`)
 
@@ -1504,7 +1506,7 @@ class MomentumProtocolSpatial(VectorProtocolSpatial, MomentumProtocolPlanar):
 class MomentumProtocolLorentz(VectorProtocolLorentz, MomentumProtocolSpatial):
     @property
     def E(self) -> ScalarCollection:
-        """Momentum-synonyor :attr:`vector._methods.VectorProtocolLorentz.t`."""
+        """Momentum-synonym for :attr:`vector._methods.VectorProtocolLorentz.t`."""
         raise AssertionError
 
     @property
@@ -1519,7 +1521,7 @@ class MomentumProtocolLorentz(VectorProtocolLorentz, MomentumProtocolSpatial):
 
     @property
     def E2(self) -> ScalarCollection:
-        """Momentum-synonym for :attr:`vector._methods.VectorProtocolLorent2`."""
+        """Momentum-synonym for :attr:`vector._methods.VectorProtocolLorentz.t2`."""
         raise AssertionError
 
     @property
@@ -1930,12 +1932,12 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, ptau: float, phi: float, z: float, tau: float
+        cls, *, pt: float, phi: float, z: float, tau: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
     def __new__(
-        cls, *, ptau: float, phi: float, pz: float, tau: float
+        cls, *, pt: float, phi: float, pz: float, tau: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -1965,7 +1967,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, ptau: float, phi: float, theta: float, tau: float
+        cls, *, pt: float, phi: float, theta: float, tau: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -1995,7 +1997,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, ptau: float, phi: float, eta: float, tau: float
+        cls, *, pt: float, phi: float, eta: float, tau: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2050,12 +2052,12 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pE: float, phi: float, z: float, E: float
+        cls, *, pt: float, phi: float, z: float, E: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
     def __new__(
-        cls, *, pE: float, phi: float, pz: float, E: float
+        cls, *, pt: float, phi: float, pz: float, E: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2085,7 +2087,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pE: float, phi: float, theta: float, E: float
+        cls, *, pt: float, phi: float, theta: float, E: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2115,7 +2117,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pE: float, phi: float, eta: float, E: float
+        cls, *, pt: float, phi: float, eta: float, E: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2170,12 +2172,12 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pe: float, phi: float, z: float, e: float
+        cls, *, pt: float, phi: float, z: float, e: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
     def __new__(
-        cls, *, pe: float, phi: float, pz: float, e: float
+        cls, *, pt: float, phi: float, pz: float, e: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2205,7 +2207,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pe: float, phi: float, theta: float, e: float
+        cls, *, pt: float, phi: float, theta: float, e: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2235,7 +2237,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pe: float, phi: float, eta: float, e: float
+        cls, *, pt: float, phi: float, eta: float, e: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2410,12 +2412,12 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pM: float, phi: float, z: float, M: float
+        cls, *, pt: float, phi: float, z: float, M: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
     def __new__(
-        cls, *, pM: float, phi: float, pz: float, M: float
+        cls, *, pt: float, phi: float, pz: float, M: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2445,7 +2447,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pM: float, phi: float, theta: float, M: float
+        cls, *, pt: float, phi: float, theta: float, M: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2475,7 +2477,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pM: float, phi: float, eta: float, M: float
+        cls, *, pt: float, phi: float, eta: float, M: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2530,12 +2532,12 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pm: float, phi: float, z: float, m: float
+        cls, *, pt: float, phi: float, z: float, m: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
     def __new__(
-        cls, *, pm: float, phi: float, pz: float, m: float
+        cls, *, pt: float, phi: float, pz: float, m: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2565,7 +2567,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pm: float, phi: float, theta: float, m: float
+        cls, *, pt: float, phi: float, theta: float, m: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -2595,7 +2597,7 @@ class Vector(VectorProtocol):
 
     @typing.overload
     def __new__(
-        cls, *, pm: float, phi: float, eta: float, m: float
+        cls, *, pt: float, phi: float, eta: float, m: float
     ) -> vector.MomentumObject4D: ...
 
     @typing.overload
@@ -3165,8 +3167,10 @@ class Vector(VectorProtocol):
             return self.to_Vector2D()
         elif isinstance(other, Vector3D):
             return self.to_Vector3D()
-        else:
+        elif isinstance(other, Vector4D):
             return self.to_Vector4D()
+        else:
+            raise TypeError(f"{other!r} is not a vector.Vector")
 
 
 class Vector2D(Vector, VectorProtocolPlanar):
@@ -3257,7 +3261,7 @@ class Vector2D(Vector, VectorProtocolPlanar):
             )
         elif sum(x is not None for x in (t, tau, m, M, mass, e, E, energy)) > 1:
             raise TypeError(
-                "At most one longitudinal coordinate (`t`/`e`/`E`/`energy`, `tau`/`m`/`M`/`mass`) may be assigned (non-None)"
+                "At most one temporal coordinate (`t`/`e`/`E`/`energy`, `tau`/`m`/`M`/`mass`) may be assigned (non-None)"
             )
 
         t_value: float | FloatArray = 0.0
@@ -3346,7 +3350,7 @@ class Vector3D(Vector, VectorProtocolSpatial):
         """
         if sum(x is not None for x in (t, tau, m, M, mass, e, E, energy)) > 1:
             raise TypeError(
-                "At most one longitudinal coordinate (`t`/`e`/`E`/`energy`, `tau`/`m`/`M`/`mass`) may be assigned (non-None)"
+                "At most one temporal coordinate (`t`/`e`/`E`/`energy`, `tau`/`m`/`M`/`mass`) may be assigned (non-None)"
             )
 
         t_value: float | FloatArray = 0.0
@@ -3608,7 +3612,7 @@ class Spatial(Planar, VectorProtocolSpatial):
     ) -> ScalarCollection:
         from vector._compute.spatial import deltaangle
 
-        if dim(other) != 3 and dim(other) != 4:
+        if dim(other) not in (3, 4):
             raise TypeError(f"{other!r} is not a 3D or a 4D vector")
         return deltaangle.dispatch(self, other)
 
@@ -3617,7 +3621,7 @@ class Spatial(Planar, VectorProtocolSpatial):
     ) -> ScalarCollection:
         from vector._compute.spatial import deltaeta
 
-        if dim(other) != 3 and dim(other) != 4:
+        if dim(other) not in (3, 4):
             raise TypeError(f"{other!r} is not a 3D or a 4D vector")
         return deltaeta.dispatch(self, other)
 
@@ -3626,7 +3630,7 @@ class Spatial(Planar, VectorProtocolSpatial):
     ) -> ScalarCollection:
         from vector._compute.spatial import deltaR
 
-        if dim(other) != 3 and dim(other) != 4:
+        if dim(other) not in (3, 4):
             raise TypeError(f"{other!r} is not a 3D or a 4D vector")
         return deltaR.dispatch(self, other)
 
@@ -3635,7 +3639,7 @@ class Spatial(Planar, VectorProtocolSpatial):
     ) -> ScalarCollection:
         from vector._compute.spatial import deltaR2
 
-        if dim(other) != 3 and dim(other) != 4:
+        if dim(other) not in (3, 4):
             raise TypeError(f"{other!r} is not a 3D or a 4D vector")
         return deltaR2.dispatch(self, other)
 
@@ -4354,14 +4358,225 @@ _coordinate_order = [
 ]
 
 
+_azimuthal_combinations = (("x", "y"), ("rho", "phi"))
+_azimuthal_names = ("x", "y", "rho", "phi")
+_longitudinal_names = ("z", "theta", "eta")
+_temporal_names = ("t", "tau")
+_generic_names = (*_azimuthal_names, *_longitudinal_names, *_temporal_names)
+
+
+_repr_all_to_generic = {**{x: x for x in _generic_names}, **_repr_momentum_to_generic}
+
+
+def _fields_of(generic_names: tuple[str, ...]) -> frozenset[str]:
+    """Every name of a geometry tier, including its momentum-aliases."""
+    return frozenset(
+        name
+        for name, generic in _repr_all_to_generic.items()
+        if generic in generic_names
+    )
+
+
+_azimuthal_fields = _fields_of(_azimuthal_names)
+_longitudinal_fields = _fields_of(_longitudinal_names)
+_temporal_fields = _fields_of(_temporal_names)
+
+
+# The 2 + 6 + 12 combinations that describe a vector, in the order reported to users.
+_allowed_coordinates = (
+    *_azimuthal_combinations,
+    *(
+        (*azimuthal, longitudinal)
+        for azimuthal in _azimuthal_combinations
+        for longitudinal in _longitudinal_names
+    ),
+    *(
+        (*azimuthal, longitudinal, temporal)
+        for azimuthal in _azimuthal_combinations
+        for longitudinal in _longitudinal_names
+        for temporal in _temporal_names
+    ),
+)
+
+
+def _coordinate_complaint(
+    dimension: int | None,
+    momentum: bool | None,
+    reason: str = "unrecognized combination of coordinates",
+) -> str:
+    """Lists the combinations a vector of this ``dimension`` may be built from."""
+    complaint = f"{reason}, allowed combinations are:\n\n"
+    complaint += "\n".join(
+        "    "
+        + ("" if dimension is not None else f"({len(names)}D) ")
+        + " ".join(f"{name}=" for name in names)
+        for names in _allowed_coordinates
+        if dimension in (None, len(names))
+    )
+    if momentum is not False:
+        complaint += "\n\nor their momentum equivalents"
+    return complaint
+
+
+# Awkward Array validates on every array it attaches a vector behavior to; bounded
+# because the field names this is keyed on come from user data.
+@functools.lru_cache(maxsize=4096)
+def _check_coordinate_names(
+    fieldnames: tuple[str, ...],
+    dimension: int | None = None,
+    momentum: bool | None = None,
+    allow_extra: bool = False,
+) -> tuple[bool, int, tuple[tuple[str, str], ...], tuple[str, ...]]:
+    """
+    Determines the dimension and the momentum-ness of a set of coordinate names,
+    raising a ``TypeError`` if they do not describe exactly one vector. Every
+    backend validates through this function.
+
+    Args:
+        fieldnames (tuple of str): Coordinate names, as given by the user.
+        dimension (int or None): Dimension that the names must describe, or
+            None to deduce it from the names.
+        momentum (bool or None): Whether momentum-aliases are allowed (True),
+            not allowed (False), or unconstrained (None).
+        allow_extra (bool): If True, names that are not coordinates are
+            returned instead of rejected.
+
+    Returns:
+        tuple: ``(is_momentum, dimension, coordinates, extra)``, in which
+        ``coordinates`` is a tuple of ``(generic name, given name)`` pairs in
+        canonical order and ``extra`` holds the names that are not coordinates.
+
+    Examples:
+        >>> from vector._methods import _check_coordinate_names
+        >>> _check_coordinate_names(("pt", "phi", "eta"))
+        (True, 3, (('rho', 'pt'), ('phi', 'phi'), ('eta', 'eta')), ())
+    """
+    given: dict[str, str] = {}
+    extra: list[str] = []
+    is_momentum = False
+
+    for name in fieldnames:
+        generic = _repr_all_to_generic.get(name)
+        if generic is None:
+            extra.append(name)
+            continue
+        if name in _repr_momentum_to_generic:
+            is_momentum = True
+        if generic in given:
+            raise TypeError(
+                "duplicate coordinates (through momentum-aliases): "
+                f"{given[generic]!r} and {name!r} both map to {generic!r}"
+            )
+        given[generic] = name
+
+    if is_momentum and momentum is False:
+        raise TypeError(
+            "momentum-aliases are not allowed in a generic vector: "
+            + ", ".join(repr(x) for x in fieldnames if x in _repr_momentum_to_generic)
+        )
+    if extra and not allow_extra:
+        raise TypeError(_coordinate_complaint(dimension, momentum))
+
+    # The names that were given are not necessarily the ones in the complaint:
+    # nothing about "specify t= or tau=" points at a 'mass' and an 'energy' field.
+    def got(names: tuple[str, ...]) -> str:
+        return ", ".join(repr(given[x]) for x in names if x in given)
+
+    if ("x" in given or "y" in given) and ("rho" in given or "phi" in given):
+        raise TypeError(
+            "specify x= and y= or rho= and phi=, but not both "
+            f"(got {got(_azimuthal_names)})"
+        )
+    if sum(name in given for name in _longitudinal_names) > 1:
+        raise TypeError(
+            "specify z= or theta= or eta=, but not more than one "
+            f"(got {got(_longitudinal_names)})"
+        )
+    if sum(name in given for name in _temporal_names) > 1:
+        raise TypeError(
+            f"specify t= or tau=, but not more than one (got {got(_temporal_names)})"
+        )
+
+    names = tuple(x for x in _generic_names if x in given)
+    if names not in _allowed_coordinates:
+        raise TypeError(_coordinate_complaint(dimension, momentum))
+
+    # The names are fine, so "unrecognized" would send the reader looking at them.
+    if dimension is not None and dimension != len(names):
+        raise TypeError(
+            _coordinate_complaint(
+                dimension,
+                momentum,
+                f"these are the coordinates of a {len(names)}D vector, "
+                f"not of a {dimension}D vector",
+            )
+        )
+
+    return (
+        is_momentum,
+        len(names),
+        tuple((name, given[name]) for name in names),
+        tuple(extra),
+    )
+
+
+def _check_field_names(
+    v: VectorProtocol, fieldnames: tuple[str, ...]
+) -> tuple[tuple[str, str], ...]:
+    """
+    Validates the field names of data that the class of ``v`` is being attached
+    to, returning the ``(generic name, given name)`` pairs. Unlike a constructor's
+    arguments, neither the class nor the names were necessarily chosen where the
+    complaint surfaces, so it has to name both.
+    """
+    try:
+        _, _, coordinates, _ = _check_coordinate_names(
+            fieldnames, dim(v), isinstance(v, Momentum), True
+        )
+    except TypeError as err:
+        raise TypeError(
+            f"{type(v).__name__} with fields {list(fieldnames)}: {err}"
+        ) from err
+    return coordinates
+
+
+_CoordinateT = typing.TypeVar("_CoordinateT")
+
+
+def _generic_coordinates(
+    v: VectorProtocol, coordinates: dict[str, _CoordinateT]
+) -> dict[str, _CoordinateT]:
+    """Validates the keyword arguments of ``v``'s constructor, keyed by generic name."""
+    _, _, names, _ = _check_coordinate_names(
+        tuple(coordinates), dim(v), isinstance(v, Momentum)
+    )
+    return {name: coordinates[given] for name, given in names}
+
+
+# Caches mapping a concrete coordinate class to its marker type. These are
+# keyed on the concrete ``type(...)`` of a coordinate object, which is fixed at
+# import time apart from rare third-party subclasses; caching by concrete type
+# means later-defined subclasses are looked up correctly on first use. A plain
+# dict is safe under free-threading because the computed values are
+# deterministic, so a racing get-then-set can only ever store identical values.
+_aztype_cache: dict[type, type[Coordinates]] = {}
+_ltype_cache: dict[type, type[Coordinates]] = {}
+_ttype_cache: dict[type, type[Coordinates]] = {}
+
+
 def _aztype(obj: VectorProtocolPlanar) -> type[Coordinates]:
     """
     Determines the Azimuthal type of a vector for use in looking up a
     dispatched function.
     """
     if hasattr(obj, "azimuthal"):
-        for t in type(obj.azimuthal).__mro__:
+        coord_type = type(obj.azimuthal)
+        cached = _aztype_cache.get(coord_type)
+        if cached is not None:
+            return cached
+        for t in coord_type.__mro__:
             if t in (AzimuthalXY, AzimuthalRhoPhi):
+                _aztype_cache[coord_type] = t
                 return t
     raise AssertionError(repr(obj))
 
@@ -4372,8 +4587,13 @@ def _ltype(obj: VectorProtocolSpatial) -> type[Coordinates]:
     dispatched function.
     """
     if hasattr(obj, "longitudinal"):
-        for t in type(obj.longitudinal).__mro__:
+        coord_type = type(obj.longitudinal)
+        cached = _ltype_cache.get(coord_type)
+        if cached is not None:
+            return cached
+        for t in coord_type.__mro__:
             if t in (LongitudinalZ, LongitudinalTheta, LongitudinalEta):
+                _ltype_cache[coord_type] = t
                 return t
     raise AssertionError(repr(obj))
 
@@ -4384,8 +4604,13 @@ def _ttype(obj: VectorProtocolLorentz) -> type[Coordinates]:
     dispatched function.
     """
     if hasattr(obj, "temporal"):
-        for t in type(obj.temporal).__mro__:
+        coord_type = type(obj.temporal)
+        cached = _ttype_cache.get(coord_type)
+        if cached is not None:
+            return cached
+        for t in coord_type.__mro__:
             if t in (TemporalT, TemporalTau):
+                _ttype_cache[coord_type] = t
                 return t
     raise AssertionError(repr(obj))
 
@@ -4434,11 +4659,23 @@ _handler_priority = [
 ]
 
 
+# Caches mapping a concrete vector class to its handler-priority index. Keyed on
+# the concrete ``type(...)`` for the same reasons (and with the same
+# free-threading safety) as the coordinate-type caches above.
+_handler_index_cache: dict[type, int] = {}
+
+
 def _get_handler_index(obj: VectorProtocol) -> int:
     """Returns the index of the first valid handler checking the list of parent classes"""
-    for cls in type(obj).__mro__:
+    obj_type = type(obj)
+    cached = _handler_index_cache.get(obj_type)
+    if cached is not None:
+        return cached
+    for cls in obj_type.__mro__:
         with suppress(ValueError):
-            return _handler_priority.index(cls.__module__)
+            index = _handler_priority.index(cls.__module__)
+            _handler_index_cache[obj_type] = index
+            return index
     raise AssertionError(
         f"Could not find a valid handler for {obj}! This should not happen."
     )

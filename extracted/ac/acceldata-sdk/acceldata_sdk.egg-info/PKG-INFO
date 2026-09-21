@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acceldata_sdk
-Version: 26.8.0
+Version: 26.9.0
 Summary: Acceldata SDK
 Author-email: acceldata <apisupport@acceldata.io>
 License-Expression: MIT
@@ -31,9 +31,9 @@ Refer to the [documentation](https://docs.acceldata.io/documentation/python) for
 Version Log
 ========================
 
-26.8.0 (08/08/2026)
+26.9.0 (20/09/2026)
 ------------------
-- Released **acceldata_sdk** version 26.8.0.
+- Released **acceldata_sdk** version 26.9.0.
 
 <!-- END CHANGELOG -->
 

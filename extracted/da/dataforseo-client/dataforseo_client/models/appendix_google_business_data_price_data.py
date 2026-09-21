@@ -9,8 +9,8 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.appendix_a_keywords_data_price_data_info import AppendixAKeywordsDataPriceDataInfo
-from dataforseo_client.models.appendix_hotel_info_google_business_data_price_data import AppendixHotelInfoGoogleBusinessDataPriceData
-from dataforseo_client.models.appendix_google_business_data_price_data_info import AppendixGoogleBusinessDataPriceDataInfo
+from dataforseo_client.models.appendix_amazon_merchant_price_data_info import AppendixAmazonMerchantPriceDataInfo
+from dataforseo_client.models.appendix_llm_responses_ai_optimization_price_data import AppendixLlmResponsesAiOptimizationPriceData
 
 
 
@@ -19,12 +19,12 @@ class AppendixGoogleBusinessDataPriceData(BaseModel):
     AppendixGoogleBusinessDataPriceData
     """ # noqa: E501
     extended_reviews: Optional[AppendixAKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
-    hotel_info: Optional[AppendixHotelInfoGoogleBusinessDataPriceData] = Field(default=None, description=r"")
-    hotel_searches: Optional[AppendixGoogleBusinessDataPriceDataInfo] = Field(default=None, description=r"")
-    my_business_info: Optional[AppendixGoogleBusinessDataPriceDataInfo] = Field(default=None, description=r"")
-    my_business_updates: Optional[AppendixGoogleBusinessDataPriceDataInfo] = Field(default=None, description=r"")
-    questions_and_answers: Optional[AppendixGoogleBusinessDataPriceDataInfo] = Field(default=None, description=r"")
-    reviews: Optional[AppendixGoogleBusinessDataPriceDataInfo] = Field(default=None, description=r"")
+    hotel_info: Optional[AppendixAmazonMerchantPriceDataInfo] = Field(default=None, description=r"")
+    hotel_searches: Optional[AppendixLlmResponsesAiOptimizationPriceData] = Field(default=None, description=r"")
+    my_business_info: Optional[AppendixLlmResponsesAiOptimizationPriceData] = Field(default=None, description=r"")
+    my_business_updates: Optional[AppendixLlmResponsesAiOptimizationPriceData] = Field(default=None, description=r"")
+    questions_and_answers: Optional[AppendixLlmResponsesAiOptimizationPriceData] = Field(default=None, description=r"")
+    reviews: Optional[AppendixLlmResponsesAiOptimizationPriceData] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "extended_reviews", 
         "hotel_info", 
@@ -79,12 +79,12 @@ class AppendixGoogleBusinessDataPriceData(BaseModel):
 
         _obj = cls.model_validate({
             "extended_reviews": AppendixAKeywordsDataPriceDataInfo.from_dict(obj["extended_reviews"]) if obj.get("extended_reviews") is not None else None,
-            "hotel_info": AppendixHotelInfoGoogleBusinessDataPriceData.from_dict(obj["hotel_info"]) if obj.get("hotel_info") is not None else None,
-            "hotel_searches": AppendixGoogleBusinessDataPriceDataInfo.from_dict(obj["hotel_searches"]) if obj.get("hotel_searches") is not None else None,
-            "my_business_info": AppendixGoogleBusinessDataPriceDataInfo.from_dict(obj["my_business_info"]) if obj.get("my_business_info") is not None else None,
-            "my_business_updates": AppendixGoogleBusinessDataPriceDataInfo.from_dict(obj["my_business_updates"]) if obj.get("my_business_updates") is not None else None,
-            "questions_and_answers": AppendixGoogleBusinessDataPriceDataInfo.from_dict(obj["questions_and_answers"]) if obj.get("questions_and_answers") is not None else None,
-            "reviews": AppendixGoogleBusinessDataPriceDataInfo.from_dict(obj["reviews"]) if obj.get("reviews") is not None else None,
+            "hotel_info": AppendixAmazonMerchantPriceDataInfo.from_dict(obj["hotel_info"]) if obj.get("hotel_info") is not None else None,
+            "hotel_searches": AppendixLlmResponsesAiOptimizationPriceData.from_dict(obj["hotel_searches"]) if obj.get("hotel_searches") is not None else None,
+            "my_business_info": AppendixLlmResponsesAiOptimizationPriceData.from_dict(obj["my_business_info"]) if obj.get("my_business_info") is not None else None,
+            "my_business_updates": AppendixLlmResponsesAiOptimizationPriceData.from_dict(obj["my_business_updates"]) if obj.get("my_business_updates") is not None else None,
+            "questions_and_answers": AppendixLlmResponsesAiOptimizationPriceData.from_dict(obj["questions_and_answers"]) if obj.get("questions_and_answers") is not None else None,
+            "reviews": AppendixLlmResponsesAiOptimizationPriceData.from_dict(obj["reviews"]) if obj.get("reviews") is not None else None,
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

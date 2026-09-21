@@ -27,10 +27,13 @@ else:  # pragma: no cover
     from typing_extensions import TypeAliasType
 
 from pydantic import GetCoreSchemaHandler
+from pydantic import SerializationInfo
+from pydantic import ValidationInfo
 from pydantic_core import CoreSchema
 from pydantic_core import core_schema
 
 from scim2_models.context import Context
+from scim2_models.policy import _policy
 
 T = TypeVar("T")
 
@@ -39,7 +42,7 @@ class SCIMValidator:
     """Annotated marker that injects a SCIM context during Pydantic validation.
 
     When used in a :data:`typing.Annotated` type hint, the incoming data is
-    validated through :meth:`~scim2_models.base.BaseModel.model_validate` with
+    validated through :meth:`~scim2_models.BaseModel.model_validate` with
     the given *ctx*, activating all SCIM-specific validators (mutability,
     required fields, etc.).
 
@@ -55,12 +58,16 @@ class SCIMValidator:
         schema = handler(source_type)
         ctx = self.ctx
 
-        def validate_with_context(value: Any, handler: Any) -> Any:
+        def validate_with_context(
+            value: Any, handler: Any, info: ValidationInfo
+        ) -> Any:
             if isinstance(value, dict):
-                return source_type.model_validate(value, scim_ctx=ctx)
+                return source_type.model_validate(
+                    value, scim_ctx=ctx, scim_policy=_policy(info)
+                )
             return handler(value)
 
-        return core_schema.no_info_wrap_validator_function(
+        return core_schema.with_info_wrap_validator_function(
             validate_with_context, schema
         )
 
@@ -70,7 +77,7 @@ class SCIMSerializer:
 
     When used in a :data:`typing.Annotated` type hint on a return type, the
     response object is serialized through
-    :meth:`~scim2_models.scim_object.SCIMObject.model_dump_json` with the
+    :meth:`~scim2_models.BaseModel.model_dump_json` with the
     given *ctx*, applying returnability and mutability rules.
 
     :param ctx: The SCIM context to use during serialization.
@@ -85,8 +92,10 @@ class SCIMSerializer:
         schema = handler(source_type)
         ctx = self.ctx
 
-        def serialize_with_context(value: Any, _handler: Any) -> Any:
-            return value.model_dump(scim_ctx=ctx)
+        def serialize_with_context(
+            value: Any, _handler: Any, info: SerializationInfo
+        ) -> Any:
+            return value.model_dump(scim_ctx=ctx, scim_policy=_policy(info))
 
         return core_schema.no_info_wrap_validator_function(
             lambda v, h: h(v),
@@ -94,6 +103,7 @@ class SCIMSerializer:
             serialization=core_schema.wrap_serializer_function_ser_schema(
                 serialize_with_context,
                 schema=schema,
+                info_arg=True,
             ),
         )
 
@@ -147,6 +157,16 @@ if TYPE_CHECKING:
     PatchResponseContext = TypeAliasType(
         "PatchResponseContext",
         Annotated[T, SCIMSerializer(Context.RESOURCE_PATCH_RESPONSE)],
+        type_params=(T,),
+    )
+    BulkRequestContext = TypeAliasType(
+        "BulkRequestContext",
+        Annotated[T, SCIMValidator(Context.BULK_REQUEST)],
+        type_params=(T,),
+    )
+    BulkResponseContext = TypeAliasType(
+        "BulkResponseContext",
+        Annotated[T, SCIMSerializer(Context.BULK_RESPONSE)],
         type_params=(T,),
     )
 else:
@@ -216,3 +236,13 @@ else:
         """Shortcut for ``Annotated[T, SCIMSerializer(Context.RESOURCE_PATCH_RESPONSE)]``."""
 
         _ctx = Context.RESOURCE_PATCH_RESPONSE
+
+    class BulkRequestContext(_RequestContextAlias):
+        """Shortcut for ``Annotated[T, SCIMValidator(Context.BULK_REQUEST)]``."""
+
+        _ctx = Context.BULK_REQUEST
+
+    class BulkResponseContext(_ResponseContextAlias):
+        """Shortcut for ``Annotated[T, SCIMSerializer(Context.BULK_RESPONSE)]``."""
+
+        _ctx = Context.BULK_RESPONSE

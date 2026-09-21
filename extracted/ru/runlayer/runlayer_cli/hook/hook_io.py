@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import errno
 import os
+import select
+import stat
 import sys
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TextIO
@@ -84,6 +87,83 @@ def write_stdout(value: str) -> None:
     writer = io.stdout if io is not None and io.stdout is not None else sys.stdout
     writer.write(value)
     writer.flush()
+
+
+def stdout_reader_gone() -> bool:
+    """Whether the harness has already left the other end of the process stdout.
+
+    Harnesses treat some events as fire-and-forget (Cursor: sessionStart,
+    sessionEnd, afterAgentResponse, ...) and close the hook's stdout before
+    a slow hook answers. Knowing that up front lets the flow mark the cohort
+    so the rate of departed harnesses can be measured per client and OS. The
+    flow still runs in full either way: the event POST is the audit record
+    and its value does not depend on who reads the response.
+
+    Zero-timeout ``poll(2)`` on the write end, so O(1) and never blocking.
+    A pipe whose read end is closed reports POLLERR on Linux and POLLHUP on
+    macOS; a socket whose peer closed, or shut its write side, reports
+    POLLHUP. Both flags count as gone: no harness half-closes a child's
+    stdout, so the macOS SHUT_WR case is accepted as a departure too. POSIX
+    only (Windows anonymous pipes have no poll(2)). Everything that is not
+    the harness's channel is False: a request-local writer (daemon request,
+    test) is not the process descriptor, a tty or regular file has no reader
+    to lose, and any error counts as "still listening".
+    """
+    io = _hook_io.get()
+    gone = False
+    if (io is None or io.stdout is None) and sys.platform != "win32":
+        with suppress(Exception):
+            fd = sys.stdout.fileno()
+            mode = os.fstat(fd).st_mode
+            if stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode):
+                hangup = select.POLLERR | select.POLLHUP
+                poller = select.poll()
+                poller.register(fd, hangup)
+                gone = any(events & hangup for _, events in poller.poll(0))
+    return gone
+
+
+def harness_gone(exc: OSError) -> bool:
+    """Whether a stdout write failed because the harness already closed the pipe.
+
+    Clients treat some events as fire-and-forget (Cursor: sessionStart,
+    sessionEnd, afterAgentResponse, ...) and stop reading before a slow hook
+    answers. POSIX reports the departed reader as EPIPE / ECONNRESET. Windows
+    has no SIGPIPE: a pipe whose reader exited fails with ERROR_NO_DATA, which
+    CPython maps to EINVAL rather than EPIPE, so that errno counts there only;
+    elsewhere EINVAL is a genuine programming error and must keep raising.
+    """
+    gone = isinstance(exc, BrokenPipeError | ConnectionResetError)
+    if not gone and sys.platform == "win32":
+        gone = exc.errno == errno.EINVAL
+    return gone
+
+
+def discard_process_stdout() -> None:
+    """Point the process stdout descriptor at devnull; no-op for request-local stdout.
+
+    After a write to a pipe whose reader has gone, ``sys.stdout`` still holds
+    the unflushed bytes and the interpreter retries the flush at exit. That
+    retry fails the same way and prints "Exception ignored ... BrokenPipeError"
+    to stderr, which hook clients treat as a hook error. Redirecting the
+    descriptor at devnull lets the exit-time flush succeed silently. A
+    request-local writer (daemon request, test) has no descriptor the
+    interpreter would flush, so nothing is done for it.
+    """
+    io = _hook_io.get()
+    if io is not None and io.stdout is not None:
+        return
+    try:
+        fd = sys.stdout.fileno()
+    except (OSError, ValueError):
+        # Captured or replaced stream with no descriptor behind it: nothing
+        # the interpreter could flush at exit.
+        return
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull, fd)
+    finally:
+        os.close(devnull)
 
 
 def write_stderr(value: str) -> None:

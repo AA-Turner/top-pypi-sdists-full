@@ -203,7 +203,7 @@ async def _run(inputs: AgentAssignmentBatchInput) -> Any:
         is_authenticated=True,
         conversation_id="test-conv",
         request_id="test-req",
-        organization_id="5dc930e9-bd65-44a1-8369-af773f6e1a5b",
+        organization_id="00000000-0000-4000-8000-0000000fffa1",
     )
     return await run_agent_assignment_batch(
         app,

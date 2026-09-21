@@ -49,6 +49,7 @@ from clawmetry import ccr as _ccr  # reversible event-payload compression (#2843
 from clawmetry import event_shape as _event_shape  # v15 typed event columns
 from clawmetry import nonsecret_hash as _nsh
 from clawmetry.trail_store import TrailStoreMixin  # intent / back-fill / git join
+from clawmetry.local_store_agent_meta import AgentMetaMixin  # agent meta label surface (short module for Drift Bot)
 from clawmetry.local_store_projects import ProjectsMixin  # project attribution + budgets (REQ-OBS-PRJ-001)
 # REQ-OBS-OIA-001: a value the store cannot hold is refused on its own, not a
 # store failure (span batch retry, OTLP record refusal, event token count).
@@ -982,6 +983,11 @@ _DDL = [
         agent_key   VARCHAR PRIMARY KEY,
         owner       VARCHAR,
         notes       VARCHAR,
+        -- Who PAYS, as opposed to who owns. Two questions an enterprise asks
+        -- separately, and before this they shared one free-text field, so
+        -- naming a person meant giving up the team rollup. Nullable: a label
+        -- may set either, both, or neither.
+        team        VARCHAR,
         updated_at  VARCHAR
     )
     """,
@@ -2445,6 +2451,10 @@ _MIGRATIONS_V2 = [
     ("sessions", "eval_judge_model",  "VARCHAR"),
     ("sessions", "eval_scored_at",    "BIGINT"),
     ("sessions", "eval_rubric",       "VARCHAR"),
+    # Team as a field distinct from owner (REQ-OBS-004). The key stays a
+    # free-form VARCHAR, so agent-level, machine-level and runtime-level
+    # labels keep coexisting without a second table.
+    ("agent_meta", "team", "VARCHAR"),
     # Content-grounded faithfulness evaluator (compute in clawmetry-pro).
     # Idempotent column-adds so existing stores pick up the column without a
     # fresh DB. The DDL above carries the same columns for fresh stores.
@@ -3661,7 +3671,7 @@ def _runtime_of_session_id(session_id: str, fallback: str = "openclaw") -> str:
     return fallback or "openclaw"
 
 
-class LocalStore(ProjectsMixin, TrailStoreMixin):
+class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
     """Thread-safe local event store with a background batched flusher.
 
     `read_only=True` opens the DuckDB in RO mode — read paths work the same,
@@ -6113,65 +6123,8 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
                 now_iso,
             ])
 
-    def set_agent_meta(
-        self,
-        agent_key: str,
-        owner: str | None = None,
-        notes: str | None = None,
-    ) -> None:
-        """Upsert one Agent-Inventory label row (owner / notes) for a runtime.
-
-        ``agent_key`` is the runtime key (``_runtime_of_session`` prefix, with
-        ``"openclaw"`` for the default bucket). Partial updates are honored via
-        COALESCE so setting only ``notes`` preserves an existing ``owner`` (and
-        vice versa). An explicit empty string is stored as-is (the client
-        renders an empty owner as "me"); ``None`` means "don't touch this
-        field". Idempotent; mirrors the ``ingest_channel_config`` write-lock
-        idiom. The daemon owns the writer lock, so this goes through the daemon
-        proxy from the dashboard process (see ``set_agent_meta`` in
-        ``routes/local_query._DAEMON_METHODS``)."""
-        if not agent_key:
-            raise ValueError("agent_meta must include 'agent_key'")
-        agent_key = str(agent_key).lower().strip()
-        now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        with self._write_lock:
-            self._conn.execute("""
-                INSERT INTO agent_meta (agent_key, owner, notes, updated_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT (agent_key) DO UPDATE SET
-                    owner      = COALESCE(excluded.owner, agent_meta.owner),
-                    notes      = COALESCE(excluded.notes, agent_meta.notes),
-                    updated_at = excluded.updated_at
-            """, [
-                agent_key,
-                owner,
-                notes,
-                now_iso,
-            ])
-
-    def query_agent_meta(self) -> dict[str, dict[str, Any]]:
-        """Return ``{agent_key: {owner, notes, updated_at}}`` for every labeled
-        runtime. Read-only. Goes through ``self._fetch`` (which already takes
-        the write lock for read+write serialization), so callers MUST NOT wrap
-        this in an outer ``with self._write_lock`` (regular Lock, would deadlock
-        per memory ``feedback_local_store_fetch_takes_writelock``)."""
-        sql = """
-            SELECT agent_key, owner, notes, updated_at
-            FROM agent_meta
-            ORDER BY agent_key ASC
-        """
-        out: dict[str, dict[str, Any]] = {}
-        for r in self._fetch(sql, []):
-            key = r[0]
-            if not key:
-                continue
-            out[str(key)] = {
-                "owner": r[1],
-                "notes": r[2],
-                "updated_at": r[3],
-            }
-        return out
-
+    # set_agent_meta / query_agent_meta / node_scope_key / _NODE_SCOPE_PREFIX
+    # are provided by AgentMetaMixin (imported near the top of this file).
     # Stable prefix for a derived agent principal id. Short, greppable, and
     # obviously not a session id when it shows up in an audit row.
     _PRINCIPAL_PREFIX = "ap_"
@@ -6230,12 +6183,17 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
         Each row::
 
             {principal_id, node_id, runtime, agent_id, sessions, first_seen,
-             last_seen, total_tokens, cost_usd, owner, notes, owner_source}
+             last_seen, total_tokens, cost_usd, owner, notes, owner_source,
+             team, team_source}
 
-        ``owner_source`` is ``"agent"`` when this principal has its own label,
-        ``"runtime"`` when it inherits the runtime's, and ``""`` when nobody
-        has claimed it -- so the UI can show inherited ownership honestly
+        ``owner_source`` / ``team_source`` name the rung each value came from
+        -- ``"agent"`` for this principal's own label, ``"node"`` for a
+        machine-wide one, ``"runtime"`` for its runtime's, and ``""`` when
+        nobody has claimed it. The UI shows inherited ownership honestly
         instead of implying someone named this agent specifically.
+
+        Owner and team resolve INDEPENDENTLY up that ladder (REQ-OBS-004): a
+        machine can belong to a team while a person owns one agent on it.
 
         Never raises: any failure yields ``[]``.
         """
@@ -6299,14 +6257,30 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
                 continue
 
             pid = self.principal_id(r_node, rt, r_agent)
-            own = meta.get(pid) or {}
-            source = "agent" if own else ""
-            if not own:
-                # Fall back to the runtime-level label the Agent Inventory
-                # already writes, so an agent inherits its runtime's owner
-                # rather than rendering as unowned.
-                own = meta.get(rt) or {}
-                source = "runtime" if own else ""
+            # Owner and team resolve INDEPENDENTLY up the same ladder, most
+            # specific rung first. They are different questions -- a machine
+            # can belong to a team while a person owns one agent on it -- so
+            # binding them to one rung would make the pair unexpressible.
+            #
+            # Each answer reports the rung it came from, so an inherited value
+            # is never shown as one somebody chose for this agent. That honesty
+            # existed for the single runtime rung; a deeper ladder makes it
+            # matter more, not less.
+            ladder = (
+                ("agent", meta.get(pid) or {}),
+                ("node", meta.get(self.node_scope_key(r_node)) or {}),
+                ("runtime", meta.get(rt) or {}),
+            )
+            owner_val, owner_src = "", ""
+            team_val, team_src = "", ""
+            notes_val = ""
+            for rung, label in ladder:
+                if not owner_val and label.get("owner"):
+                    owner_val, owner_src = label["owner"], rung
+                if not team_val and label.get("team"):
+                    team_val, team_src = label["team"], rung
+                if not notes_val and label.get("notes"):
+                    notes_val = label["notes"]
 
             out.append({
                 "principal_id": pid,
@@ -6318,12 +6292,21 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
                 "last_seen": last_seen,
                 "total_tokens": int(tokens or 0),
                 "cost_usd": float(cost or 0.0),
-                "owner": own.get("owner") or "",
-                "notes": own.get("notes") or "",
-                "owner_source": source,
+                "owner": owner_val or "",
+                "notes": notes_val or "",
+                "owner_source": owner_src,
+                "team": team_val or "",
+                "team_source": team_src,
             })
 
-        out.sort(key=lambda d: (d.get("last_seen") or "", d["sessions"]), reverse=True)
+        out.sort(
+            key=lambda d: (
+                d.get("last_seen") or "",
+                d["sessions"],
+                d["principal_id"],
+            ),
+            reverse=True,
+        )
         try:
             n = max(1, min(2000, int(limit)))
         except (TypeError, ValueError):
@@ -9210,13 +9193,16 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
             out.append(dict(zip(cols, r)))
         return out
 
-    def ingest_approval(self, approval: dict[str, Any]) -> None:
+    def ingest_approval(self, approval: dict[str, Any],
+                         preserve_resolved: bool = False) -> None:
         """Upsert one approval-queue row. Required: ``id``.
 
         Optional: ``owner_hash``, ``requestor_session_id``, ``action``,
         ``args`` (dict / list / str / bytes — coerced to BLOB via
         ``_to_blob``), ``status`` (default ``"pending"``), ``created_at``,
         ``resolved_at``, ``resolver``, ``decision``, ``decision_reason``.
+        ``preserve_resolved=True`` keeps an existing resolved row resolved
+        when a repeated ingest supplies a pending request.
 
         Re-ingesting the same id updates non-NULL fields and bumps the
         status; pre-existing decision metadata is preserved when the new
@@ -9240,7 +9226,11 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
                     requestor_session_id = COALESCE(excluded.requestor_session_id, approvals.requestor_session_id),
                     action               = COALESCE(excluded.action, approvals.action),
                     args                 = COALESCE(excluded.args, approvals.args),
-                    status               = excluded.status,
+                    status               = CASE
+                        WHEN ? AND approvals.status <> 'pending'
+                        THEN approvals.status
+                        ELSE excluded.status
+                    END,
                     created_at           = COALESCE(approvals.created_at, excluded.created_at),
                     resolved_at          = COALESCE(excluded.resolved_at, approvals.resolved_at),
                     resolver             = COALESCE(excluded.resolver, approvals.resolver),
@@ -9258,6 +9248,7 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
                 approval.get("resolver"),
                 approval.get("decision"),
                 approval.get("decision_reason"),
+                bool(preserve_resolved),
             ])
 
     def update_approval_decision(
@@ -19141,6 +19132,20 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
         Daemon diagnostic events are not evidence of useful agent activity.
         A session row also counts: some runtimes import metadata before events.
         Exceptions propagate so an unreadable store never looks empty.
+
+        Real agent activity IS readiness. The first-install screen exists to
+        replace empty panels, so the moment the panels can fill it has no
+        further job -- waiting past that point hides usable data behind a
+        spinner. Only a store with nothing in it still has to wait, and it
+        waits for guidance ("run your first task"), not for rows.
+
+        Burned 2026-09-20: a new install on a machine with months of Claude
+        Code history sat on the preparation screen for 9m21s (measured:
+        started_at 1789888927 -> updated_at 1789889488 on a real node) while
+        50 already-ingested sessions rendered instantly the second the user
+        pressed "Open dashboard now". Readiness was keyed on the daemon
+        finishing EVERY phase for EVERY runtime, which is unrelated to
+        whether this dashboard has something to show.
         """
         from clawmetry.startup import read_progress
 
@@ -19155,7 +19160,10 @@ class LocalStore(ProjectsMixin, TrailStoreMixin):
             **progress,
             "available": True,
             "has_data": has_data,
-            "initialized": bool(progress.get("initialized")) or (not progress and has_data),
+            # ``has_data`` alone releases the screen: an install over an
+            # existing agent history is an established installation the
+            # moment its rows land, whether or not the sweep has finished.
+            "initialized": bool(progress.get("initialized")) or has_data,
         }
 
     def health(self) -> dict[str, Any]:

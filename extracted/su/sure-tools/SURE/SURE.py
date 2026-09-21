@@ -389,7 +389,7 @@ class SURE(nn.Module):
         """
         return self.engine.decode(xs, zs, zfs, batch_size, show_progress)
     
-    def decode_log_mu(self, xs, zs, zfs, batch_size=1024, show_progress=True)->np.array:
+    def decode_log_mu(self,zs, zfs=None, batch_size=1024, show_progress=True)->np.array:
         """
         Generate gene expression prediction from given cell data and covariates.
         This function can be used for simulating cells' transcription profiles at new conditions.
@@ -400,7 +400,7 @@ class SURE(nn.Module):
         :param batch_size: Data size per batch
         :param show_progress: Toggle on or off message output
         """
-        return self.engine.decode_log_mu(xs, zs, zfs, batch_size, show_progress)
+        return self.engine.decode_log_mu(zs, zfs, batch_size, show_progress)
     
     def preprocess(self, xs, threshold=0):
         return self.engine.preprocess(xs=xs, threshold=threshold) 

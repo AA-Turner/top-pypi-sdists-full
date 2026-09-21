@@ -191,6 +191,7 @@ async def handle_tool_calls_v2(
     client_tools: frozenset[str] | None = None,
     allowed_tools: frozenset[str] | None = None,
     message_id: str | None = None,
+    gate_context: Any = None,
 ) -> tuple[list[dict[str, Any]], list[TokenUsage], list[str]]:
     """Execute tool calls using the current ExecutionContext.
 
@@ -208,6 +209,14 @@ async def handle_tool_calls_v2(
         current iteration's API call.  When provided, any tool call whose name
         is NOT in this set is rejected before execution — the model cannot invoke
         tools it was never given.  ``None`` means no restriction (open set).
+    gate_context:
+        A ``matrx_ai.tools.result_gate.GateContext`` describing what the agent is
+        currently pursuing — the user's question, the last assistant turn, the
+        mandate goal. It exists on the request one frame up and was dropped
+        before the tool-result size gate, which is why that gate could only ever
+        cut by position. Passed straight through onto every ToolContext; the
+        gate treats None (and an empty one) as "relevance is unanswerable" and
+        keeps today's positional cut.
 
     Returns
     -------
@@ -234,6 +243,7 @@ async def handle_tool_calls_v2(
         message_id=message_id,
         recursion_depth=recursion_depth,
         cost_budget_remaining=cost_budget_remaining,
+        gate_context=gate_context,
     )
 
     # ── Handoff batch policy — enforced BEFORE dispatch ─────────────────────

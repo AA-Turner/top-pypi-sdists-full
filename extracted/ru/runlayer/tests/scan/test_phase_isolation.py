@@ -162,6 +162,69 @@ def test_phase_10_governor_abort_propagates(monkeypatch, governor):
         orchestrator._scan_plugin_artifact_phase(governor=governor)
 
 
+_WSL_HOME_PLUGIN_PHASES = [
+    ("_scan_claude_plugin_phase", "scan_claude_code_plugins", False),
+    ("_scan_codex_plugin_phase", "scan_codex_plugins", False),
+    ("_scan_opencode_plugin_phase", "scan_opencode_plugins", False),
+    ("_scan_copilot_plugin_phase", "scan_copilot_plugins", True),
+]
+
+_BAD_WSL_HOME = Path("/wsl/Ubuntu/root")
+_GOOD_WSL_HOME = Path("/wsl/Ubuntu/home/alex")
+
+
+def _stub_plugin_scanner(monkeypatch, scanner_attr: str, *, paired: bool, error):
+    def scanner(home=None):
+        if home == _BAD_WSL_HOME:
+            raise error
+        label = "native" if home is None else home.name
+        configs = [SimpleNamespace(client=label, servers=[])]
+        return (configs, [SimpleNamespace(name=label)]) if paired else configs
+
+    monkeypatch.setattr(orchestrator, scanner_attr, scanner)
+
+
+@pytest.mark.parametrize(("phase", "scanner_attr", "paired"), _WSL_HOME_PLUGIN_PHASES)
+def test_plugin_phase_one_unreadable_wsl_home_keeps_native_and_siblings(
+    monkeypatch, phase, scanner_attr, paired
+):
+    """One ``/root`` the UNC share cannot read must not wipe native results."""
+    _stub_plugin_scanner(
+        monkeypatch,
+        scanner_attr,
+        paired=paired,
+        error=PermissionError("[WinError 5] Access is denied"),
+    )
+    status = orchestrator.ScanCompletionStatus()
+
+    result = getattr(orchestrator, phase)(
+        [_BAD_WSL_HOME, _GOOD_WSL_HOME], scan_status=status
+    )
+
+    configs = result[0] if paired else result
+    assert [config.client for config in configs] == ["native", "alex"]
+    if paired:
+        assert [artifact.name for artifact in result[1]] == ["native", "alex"]
+    assert status.reasons == ["wsl_home_plugin_scan_failed"]
+
+
+@pytest.mark.parametrize(("phase", "scanner_attr", "paired"), _WSL_HOME_PLUGIN_PHASES)
+def test_plugin_phase_wsl_home_governor_abort_propagates(
+    monkeypatch, phase, scanner_attr, paired
+):
+    _stub_plugin_scanner(
+        monkeypatch,
+        scanner_attr,
+        paired=paired,
+        error=ScanResourceLimitExceeded("budget"),
+    )
+    status = orchestrator.ScanCompletionStatus()
+
+    with pytest.raises(ScanResourceLimitExceeded):
+        getattr(orchestrator, phase)([_BAD_WSL_HOME], scan_status=status)
+    assert status.reasons == []
+
+
 def test_one_container_raising_keeps_sibling_containers(monkeypatch):
     visited: list[str] = []
 

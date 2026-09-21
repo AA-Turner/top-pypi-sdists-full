@@ -7,6 +7,7 @@ import logging
 import time
 import traceback as tb
 from collections.abc import Awaitable, Iterable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, get_args
 from uuid import uuid4
@@ -25,7 +26,7 @@ from .lifecycle import ToolLifecycleManager
 from .logger import ToolExecutionLogger
 from .models import ToolContext, ToolDefinition, ToolError, ToolResult, ToolType
 from .registry import ToolRegistry
-from .result_gate import apply_size_gate, tool_kind_label
+from .result_gate import apply_size_gate_async, tool_kind_label
 from .streaming import ToolStreamManager
 
 logger = logging.getLogger(__name__)
@@ -2120,15 +2121,29 @@ class ToolExecutor:
         # fetch_tool_result, and the firing recorded (a defect for tools we own, an
         # expected event for external/MCP). Runs on EVERY output-carrying result —
         # the single convergence point all tool kinds reach.
+        #
+        # WHICH PART reaches the agent is decided here too (2026-09-20). The cut
+        # used to be purely positional — keep the first 50,000 characters — and
+        # position is not relevance: the answer is as likely to be at character
+        # 300,000 as at character 300. Deciding by relevance needs to know what
+        # the agent is currently pursuing, which is exactly what this seam never
+        # had. The orchestrator now hands that down on ctx.gate_context, and the
+        # tool's OWN arguments (in scope right here, dropped before the gate
+        # until now) are merged in. With no Holder bound to the deciding
+        # mandate, the positional cut stays and the notice says so.
         content_dict = result.to_tool_result_content()
         _tool_kind = tool_kind_label(tool_def.tool_type)
-        content_dict, _gate_truncated = apply_size_gate(
+        _gate_context = getattr(ctx, "gate_context", None)
+        if _gate_context is not None and isinstance(arguments, dict) and arguments:
+            _gate_context = replace(_gate_context, tool_input=arguments, iteration=ctx.iteration)
+        content_dict, _gate_truncated = await apply_size_gate_async(
             content_dict,
             output_self_capped=result.output_self_capped,
             tool_name=tool_name,
             tool_kind=_tool_kind,
             conversation_id=_trace_conv_id_full,
             user_id=_trace_user_id,
+            gate_context=_gate_context,
         )
         if _gate_truncated:
             if _tool_kind in ("native", "agent"):

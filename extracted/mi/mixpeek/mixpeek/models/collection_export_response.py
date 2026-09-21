@@ -22,7 +22,10 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.export_destination_result import ExportDestinationResult
 from mixpeek.models.export_format import ExportFormat
+from mixpeek.models.export_media_summary import ExportMediaSummary
+from mixpeek.models.export_shard import ExportShard
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,14 +34,19 @@ class CollectionExportResponse(BaseModel):
     Response model for collection export.  Contains the presigned URL for downloading the exported file. The URL is valid for a limited time (typically 1 hour).
     """ # noqa: E501
     download_url: StrictStr = Field(description="Presigned URL for downloading the exported file. Valid for 1 hour.")
-    s3_path: StrictStr = Field(description="Full S3 path where the export is stored (for internal reference).")
+    s3_path: StrictStr = Field(description="Full S3 path where the export is stored (for internal reference). For webdataset this is the prefix holding the shards, not a single file.")
     format: ExportFormat = Field(description="The format of the exported file.")
     document_count: Annotated[int, Field(strict=True, ge=0)] = Field(description="Number of documents included in the export.")
-    file_size_bytes: Annotated[int, Field(strict=True, ge=0)] = Field(description="Size of the exported file in bytes.")
+    file_size_bytes: Annotated[int, Field(strict=True, ge=0)] = Field(description="Size of the exported file in bytes. For webdataset this is every shard added together.")
     exported_at: datetime = Field(description="Timestamp when the export was completed.")
     vectors_download_url: Optional[StrictStr] = Field(default=None, description="Presigned URL for downloading the vectors file (if include_vectors=True). Vectors are exported separately due to their large size.")
     vectors_s3_path: Optional[StrictStr] = Field(default=None, description="Full S3 path for the vectors file (if include_vectors=True).")
-    __properties: ClassVar[List[str]] = ["download_url", "s3_path", "format", "document_count", "file_size_bytes", "exported_at", "vectors_download_url", "vectors_s3_path"]
+    shard_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="WebDataset only. Number of tar shards written. Always exact, even when the shards list below is capped.")
+    shard_pattern: Optional[StrictStr] = Field(default=None, description="WebDataset only. Brace pattern naming every shard, e.g. documents-{000000..000007}.tar. Most loaders take this directly.")
+    shards: Optional[List[ExportShard]] = Field(default=None, description="WebDataset only. Per-shard paths and presigned URLs, capped at 200 entries. When shard_count exceeds that, address the rest through s3_path and shard_pattern.")
+    media: Optional[ExportMediaSummary] = Field(default=None, description="WebDataset only, present when include_media was set. Counts what media reached the shards and what did not.")
+    destination: Optional[ExportDestinationResult] = Field(default=None, description="Present when the request named a destination. Lists what was written into your storage and where the manifest is.")
+    __properties: ClassVar[List[str]] = ["download_url", "s3_path", "format", "document_count", "file_size_bytes", "exported_at", "vectors_download_url", "vectors_s3_path", "shard_count", "shard_pattern", "shards", "media", "destination"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +87,19 @@ class CollectionExportResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in shards (list)
+        _items = []
+        if self.shards:
+            for _item_shards in self.shards:
+                if _item_shards:
+                    _items.append(_item_shards.to_dict())
+            _dict['shards'] = _items
+        # override the default output from pydantic by calling `to_dict()` of media
+        if self.media:
+            _dict['media'] = self.media.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of destination
+        if self.destination:
+            _dict['destination'] = self.destination.to_dict()
         return _dict
 
     @classmethod
@@ -98,7 +119,12 @@ class CollectionExportResponse(BaseModel):
             "file_size_bytes": obj.get("file_size_bytes"),
             "exported_at": obj.get("exported_at"),
             "vectors_download_url": obj.get("vectors_download_url"),
-            "vectors_s3_path": obj.get("vectors_s3_path")
+            "vectors_s3_path": obj.get("vectors_s3_path"),
+            "shard_count": obj.get("shard_count"),
+            "shard_pattern": obj.get("shard_pattern"),
+            "shards": [ExportShard.from_dict(_item) for _item in obj["shards"]] if obj.get("shards") is not None else None,
+            "media": ExportMediaSummary.from_dict(obj["media"]) if obj.get("media") is not None else None,
+            "destination": ExportDestinationResult.from_dict(obj["destination"]) if obj.get("destination") is not None else None
         })
         return _obj
 

@@ -43,7 +43,12 @@ class TestCollectionExportRequest(unittest.TestCase):
                     ''
                     ],
                 filters = { },
-                sample_size = 1.0
+                sample_size = 1.0,
+                include_media = True,
+                samples_per_shard = 1.0,
+                destination = mixpeek.models.export_destination.ExportDestination(
+                    connection_id = '', 
+                    prefix = '', )
             )
         else:
             return CollectionExportRequest(

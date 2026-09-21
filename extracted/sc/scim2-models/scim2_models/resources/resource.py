@@ -1,7 +1,7 @@
 import copyreg
-import warnings
-from collections.abc import Sequence
+from collections.abc import MutableMapping
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
@@ -10,6 +10,7 @@ from typing import TypeVar
 from typing import Union
 from typing import get_args
 from typing import get_origin
+from weakref import WeakValueDictionary
 
 from pydantic import Field
 from pydantic import SerializationInfo
@@ -27,17 +28,16 @@ from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
-from ..attributes import is_complex_attribute
+from ..attributes import _is_complex_attribute
 from ..base import BaseModel
 from ..context import Context
 from ..exceptions import InvalidPathException
-from ..lookup import get_model_by_payload
-from ..lookup import get_model_by_schema
+from ..exceptions import InvalidValueException
 from ..path import Path
-from ..scim_object import AnyScimObject
+from ..policy import ScimPolicy
+from ..policy import _policy
 from ..scim_object import ScimObject
 from ..utils import UNION_TYPES
-from ..utils import _normalize_attribute_name
 
 if TYPE_CHECKING:
     from .schema import Attribute
@@ -111,7 +111,15 @@ class Extension(ScimObject):
 
 AnyExtension = TypeVar("AnyExtension", bound="Extension")
 
-_PARAMETERIZED_CLASSES: dict[tuple[type, tuple[Any, ...]], type] = {}
+_PARAMETERIZED_CLASSES: "MutableMapping[tuple[type, tuple[Any, ...]], type]" = (
+    WeakValueDictionary()
+)
+"""The classes parameterization has already built, so that parameterizing a
+resource twice with the same extensions answers the same class.
+
+The classes are held weakly: one built on a model discovered at runtime, as a
+server serving the schemas of its tenants does, would otherwise keep that
+model alive for as long as the process runs."""
 
 
 def _extension_serializer(
@@ -119,8 +127,8 @@ def _extension_serializer(
 ) -> Any:
     """Exclude the Resource attributes from the extension dump.
 
-    For instance, attributes 'meta', 'id' or 'schemas' should not be
-    dumped when the model is used as an extension for another model.
+    For instance, attributes 'meta', 'id' or 'schemas' should not be dumped
+    when the model is used as an extension for another model.
     """
     if value is None:
         return None
@@ -137,6 +145,19 @@ def _extension_serializer(
         if attr_name not in Resource.model_fields
     }
     return result or None
+
+
+def _qualified_extension(parameter: Any) -> tuple[Any, tuple[Any, ...]]:
+    """Split an extension parameter from what qualifies it.
+
+    ``User[Annotated[EnterpriseUser, Required.true]]`` names the extension and
+    says a resource of that type must carry it, which RFC7643 §6 lets a
+    resource type declare.
+    """
+    if get_origin(parameter) is Annotated:
+        extension, *qualifiers = get_args(parameter)
+        return extension, tuple(qualifiers)
+    return parameter, ()
 
 
 class Resource(ScimObject, Generic[AnyExtension]):
@@ -169,6 +190,13 @@ class Resource(ScimObject, Generic[AnyExtension]):
         ``immutable`` fields are preserved from *original* when absent,
         or checked for equality when present.
 
+        The same applies to the sub-attributes of a complex attribute, and to
+        those of an entry a multi-valued one keeps. Entries are matched on their
+        ``value`` sub-attribute, and only where it designates one entry on each
+        side. An immutable reference is preserved rather than compared, two
+        spellings of one URI being equivalent per :rfc:`RFC7643 §2.4
+        <7643#section-2.4>`.
+
         :param original: The original resource state to compare against.
         :raises MutabilityException: If an immutable field value differs.
         """
@@ -180,25 +208,33 @@ class Resource(ScimObject, Generic[AnyExtension]):
         if hasattr(cls, "__scim_extension_metadata__"):
             return cls
 
-        extensions = get_args(item) if get_origin(item) in UNION_TYPES else [item]
+        parameters = get_args(item) if get_origin(item) in UNION_TYPES else [item]
 
         # Skip TypeVar parameters and Any (used for generic class definitions)
-        valid_extensions = [
-            extension
-            for extension in extensions
-            if not isinstance(extension, TypeVar) and extension is not Any
+        valid_parameters = [
+            parameter
+            for parameter in parameters
+            if not isinstance(parameter, TypeVar) and parameter is not Any
         ]
 
-        if not valid_extensions:
+        if not valid_parameters:
             return cls
 
-        cache_key = (cls, tuple(valid_extensions))
+        # What qualifies a parameter belongs to the key, so that a required
+        # extension and an optional one are two classes.
+        cache_key = (cls, tuple(valid_parameters))
         if cache_key in _PARAMETERIZED_CLASSES:
             return _PARAMETERIZED_CLASSES[cache_key]
 
-        for extension in valid_extensions:
+        qualified_extensions = [
+            _qualified_extension(parameter) for parameter in valid_parameters
+        ]
+
+        for extension, _ in qualified_extensions:
             if not (isinstance(extension, type) and issubclass(extension, Extension)):
                 raise TypeError(f"{extension} is not a valid Extension type")
+
+        valid_extensions = [extension for extension, _ in qualified_extensions]
 
         class_name = (
             f"{cls.__name__}[{', '.join(ext.__name__ for ext in valid_extensions)}]"
@@ -211,15 +247,18 @@ class Resource(ScimObject, Generic[AnyExtension]):
             class_attrs[extension.__name__] = Field(
                 default=None,  # type: ignore[arg-type]
                 serialization_alias=schema,
-                validation_alias=_normalize_attribute_name(schema),
+                validation_alias=schema,
             )
 
         new_annotations = {
             extension.__name__: Annotated[
-                extension | None,
-                WrapSerializer(_extension_serializer),
+                (
+                    extension | None,
+                    WrapSerializer(_extension_serializer),
+                    *qualifiers,
+                )
             ]
-            for extension in valid_extensions
+            for extension, qualifiers in qualified_extensions
         }
 
         new_class = type(
@@ -247,6 +286,7 @@ class Resource(ScimObject, Generic[AnyExtension]):
             user[EnterpriseUser]  # Get extension
             user["userName"]  # Get attribute
             user["name.familyName"]  # Get nested attribute
+            user["emails.value"]  # Get the value of each email
         """
         if isinstance(item, type) and issubclass(item, Extension):
             item = item.__schema__
@@ -321,44 +361,6 @@ class Resource(ScimObject, Generic[AnyExtension]):
                 return extension
         return None
 
-    @staticmethod
-    def get_by_schema(
-        resource_types: Sequence[type[AnyScimObject]],
-        schema: str,
-        with_extensions: bool = True,
-    ) -> type[AnyScimObject] | type["Extension"] | None:
-        """Given a resource type list and a schema, find the matching resource type.
-
-        .. deprecated:: 0.6.13
-            Use :func:`~scim2_models.get_model_by_schema` instead.
-        """
-        warnings.warn(
-            "Resource.get_by_schema is deprecated, use "
-            "scim2_models.get_model_by_schema instead. Will be removed in 0.8.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return get_model_by_schema(resource_types, schema, with_extensions)
-
-    @staticmethod
-    def get_by_payload(
-        resource_types: Sequence[type[AnyScimObject]],
-        payload: dict[str, Any],
-        **kwargs: Any,
-    ) -> type[AnyScimObject] | type["Extension"] | None:
-        """Given a resource type list and a payload, find the matching resource type.
-
-        .. deprecated:: 0.6.13
-            Use :func:`~scim2_models.get_model_by_payload` instead.
-        """
-        warnings.warn(
-            "Resource.get_by_payload is deprecated, use "
-            "scim2_models.get_model_by_payload instead. Will be removed in 0.8.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return get_model_by_payload(resource_types, payload, **kwargs)
-
     def _model_schemas(self) -> list[str]:
         """List the base schema and the schemas of the declared extensions."""
         return super()._model_schemas() + list(self.get_extension_models())
@@ -373,6 +375,9 @@ class Resource(ScimObject, Generic[AnyExtension]):
 
         scim_ctx = info.context.get("scim") if info.context else None
         if scim_ctx is None or scim_ctx == Context.DEFAULT:
+            return obj
+
+        if _policy(info).unknown != ScimPolicy.Unknown.forbid:
             return obj
 
         base_schema = getattr(cls, "__schema__", None)
@@ -391,6 +396,26 @@ class Resource(ScimObject, Generic[AnyExtension]):
             )
 
         return obj
+
+    @model_validator(mode="after")
+    def _validate_resource_requirements(self, info: ValidationInfo) -> Self:
+        """Check the identifier constraints a service provider must meet.
+
+        The ``id`` attribute is issued by the service provider and is read-
+        only, so these constraints only make sense on the payloads it emits.
+        """
+        scim_ctx = info.context.get("scim") if info.context else None
+        if scim_ctx is None or not Context.is_response(scim_ctx):
+            return self
+
+        # RFC 7643 Section 3.1: "The string "bulkId" is a reserved keyword and
+        # MUST NOT be used within any unique identifier value."
+        if self.id and "bulkId" in self.id:
+            raise InvalidValueException(
+                detail="'bulkId' is reserved for bulk operations"
+            ).as_pydantic_error()
+
+        return self
 
     @classmethod
     def to_schema(cls) -> "Schema":
@@ -432,23 +457,59 @@ def _dedicated_attributes(
     return field_infos
 
 
+def _described_model(model: type[BaseModel]) -> type[BaseModel]:
+    """Return the model a parameterized class describes.
+
+    ``User[EnterpriseUser]`` is a class Resource.__class_getitem__ built to
+    carry extension fields, and type leaves it without a docstring. The
+    resource it describes stays ``User``.
+    """
+    if "__scim_extension_metadata__" in model.__dict__:
+        return model.__bases__[0]
+    return model
+
+
+def _is_extension_field(model: type[BaseModel], attribute_name: str) -> bool:
+    """Tell whether a field holds an extension rather than an attribute."""
+    root_type = model.get_field_root_type(attribute_name)
+    return isinstance(root_type, type) and issubclass(root_type, Extension)
+
+
 def _model_to_schema(model: type[BaseModel]) -> "Schema":
     from scim2_models.resources.schema import Schema
 
+    described = _described_model(model)
     schema_urn = getattr(model, "__schema__", "") or ""
     field_infos = _dedicated_attributes(model, [Resource])
     attributes = [
         _model_attribute_to_scim_attribute(model, attribute_name)
         for attribute_name in field_infos
         if attribute_name != "schemas"
+        and not _is_extension_field(model, attribute_name)
     ]
     schema = Schema(
-        name=model.__name__,
+        name=described.__name__,
         id=schema_urn,
-        description=model.__doc__ or model.__name__,
+        description=described.__doc__ or described.__name__,
         attributes=attributes,
     )
     return schema
+
+
+def _enumerated_canonical_values(root_type: Any) -> list[str] | None:
+    """Return the values a string enumeration declares, as canonical values.
+
+    RFC7643 §7 gives ``canonicalValues`` to string attributes, so an
+    enumeration holding anything else declares none. A value an
+    scim2_models.ExtensibleStringEnum accepted beyond its members never joins
+    them, and thus never reaches a published schema.
+    """
+    if not (isinstance(root_type, type) and issubclass(root_type, Enum)):
+        return None
+    values = [member.value for member in root_type]
+    if not all(isinstance(value, str) for value in values):
+        return None
+    return values
 
 
 def _model_attribute_to_scim_attribute(
@@ -472,16 +533,17 @@ def _model_attribute_to_scim_attribute(
                 or sub_attribute_name != "sub_attributes"
             )
         ]
-        if root_type and is_complex_attribute(root_type)
+        if root_type and _is_complex_attribute(root_type)
         else None
     )
 
     kwargs: dict[str, Any] = {
-        "name": field_info.serialization_alias or attribute_name,
+        "name": model._scim_name(attribute_name),
         "type": Attribute.Type(attribute_type),
         "multi_valued": model.get_field_multiplicity(attribute_name),
         "description": field_info.description,
-        "canonical_values": field_info.examples,
+        "canonical_values": field_info.examples
+        or _enumerated_canonical_values(root_type),
         "required": model.get_field_annotation(attribute_name, Required),
         "case_exact": model.get_field_annotation(attribute_name, CaseExact),
         "mutability": model.get_field_annotation(attribute_name, Mutability),
@@ -491,6 +553,6 @@ def _model_attribute_to_scim_attribute(
     if attribute_type != Attribute.Type.complex:
         kwargs["uniqueness"] = model.get_field_annotation(attribute_name, Uniqueness)
     if attribute_type == Attribute.Type.reference:
-        kwargs["reference_types"] = root_type.get_scim_reference_types()  # type: ignore[attr-defined]
+        kwargs["reference_types"] = root_type._get_scim_reference_types()  # type: ignore[attr-defined]
 
     return Attribute(**kwargs)

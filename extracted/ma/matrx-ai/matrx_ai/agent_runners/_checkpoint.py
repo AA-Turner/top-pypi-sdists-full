@@ -181,10 +181,15 @@ class RunCheckpointer:
         *,
         kind: str = "",
         user_id: str | None = None,
+        organization_id: str | None = None,
     ) -> None:
         self.run_id = run_id
         self.kind = kind
         self.user_id = user_id
+        # The run's organization. Every stage row this checkpointer writes is a
+        # CHILD of the run row and inherits it — chat.agent_run_stage.organization_id
+        # is NOT NULL, and until 2026-09-20 the stage write below passed nothing.
+        self.organization_id = organization_id
         # stage_key -> stored output payload, for stages already completed.
         self._completed: dict[str, StagePayload] = completed
         # Host-spine settle for this run pass (see _open_spine_tracking). None when
@@ -245,6 +250,7 @@ class RunCheckpointer:
         request: dict[str, Any],
         fingerprint: str | None = None,
         require_durable: bool = False,
+        organization_id: str | None = None,
     ) -> RunCheckpointer | NullCheckpointer:
         """Begin a fresh run.
 
@@ -253,7 +259,41 @@ class RunCheckpointer:
         pipeline whose value depends on being findable and resumable later.
         Otherwise this falls back to :class:`NullCheckpointer` and generation
         runs un-resumable but without regression (standalone use, tests).
+
+        ``organization_id`` is the organization this run belongs to. When the
+        caller does not pass one, it is read from the verified request context
+        (``AppContext.organization_id``) — CARRIED from the boundary, never
+        rebuilt or defaulted. See :func:`_organization_for_write`.
         """
+        # 🚨 THE ORGANIZATION IS PART OF THE WRITE, NOT A DECORATION.
+        # ``chat.agent_run.organization_id`` is NOT NULL. Until 2026-09-20 this
+        # call passed no organization at all — it never even read the request
+        # context — so every podcast start answered the person with a raw
+        # Postgres sentence: `null value in column "organization_id" of relation
+        # "agent_run" violates not-null constraint`. Ten an hour, all day.
+        org = _organization_for_write(organization_id)
+        if not org:
+            # A request that names no organization cannot open a run row. Refuse
+            # through THE ONE DOOR (OrganizationRequired) so the client's org
+            # gate asks the person to choose and replays — never a 500, never a
+            # personal-org default chosen on their behalf (Arman, 2026-09-19).
+            if require_durable:
+                from matrx_connect.org_hold import OrganizationRequired
+
+                raise OrganizationRequired(
+                    what=f"start a {kind} run",
+                    set_on="request",
+                    user_id=user_id,
+                    remedy="Send X-Organization-Id naming the organization this run belongs to.",
+                )
+            vcprint(
+                f"[RunCheckpointer] no organization on this request; a {kind} run row "
+                f"cannot be opened (agent_run.organization_id is NOT NULL). Running "
+                f"un-resumable on a NullCheckpointer. A durable pipeline must pass "
+                f"organization_id or run inside a request that carries one.",
+                color="red",
+            )
+            return NullCheckpointer()
         try:
             arm = _arm()
             run = await arm.runs.create_item(
@@ -262,10 +302,13 @@ class RunCheckpointer:
                 status="processing",
                 request=request,
                 input_fingerprint=fingerprint or fingerprint_request(kind, user_id, request),
+                organization_id=org,
             )
             run_id = str(run.id)
             vcprint(f"[RunCheckpointer] started run {run_id} (kind={kind})", color="cyan")
-            ckpt = cls(run_id=run_id, completed={}, kind=kind, user_id=user_id)
+            ckpt = cls(
+                run_id=run_id, completed={}, kind=kind, user_id=user_id, organization_id=org
+            )
             await ckpt._open_spine_tracking()
             return ckpt
         except Exception as exc:
@@ -328,6 +371,10 @@ class RunCheckpointer:
             completed=completed,
             kind=str(getattr(run, "kind", "") or ""),
             user_id=(str(run.user_id) if getattr(run, "user_id", None) else None),
+            # Carried from the run row, the parent of every stage this pass writes.
+            organization_id=(
+                str(run.organization_id) if getattr(run, "organization_id", None) else None
+            ),
         )
         # A resume pass is its OWN spine execution (the failed pass's execution is
         # already terminal — terminal-once CAS); find_by_link shows every pass.
@@ -510,6 +557,9 @@ class RunCheckpointer:
                     error=error,
                     cost=cost,
                     finished_at=now,
+                    # A stage is a child of its run and inherits the run's
+                    # organization — never a default (Arman, 2026-09-19).
+                    organization_id=self.organization_id,
                 )
         except Exception as exc:
             vcprint(
@@ -585,6 +635,29 @@ def stage_cost(payload: dict[str, Any] | None) -> Decimal | None:
         return Decimal(str(raw))
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+def _organization_for_write(explicit: str | None) -> str | None:
+    """The organization a run row is written under: the caller's explicit value,
+    else the VERIFIED request context's. Never a default, never a lookup.
+
+    This is the whole contract of ``context-is-carried-never-rebuilt``: the
+    boundary verified who the caller is acting as, the ContextVar carried it
+    here, and this write stamps exactly that. If neither is present the answer
+    is ``None`` and the caller refuses — it does not go looking for one.
+    """
+    if explicit:
+        return str(explicit).strip() or None
+    try:
+        from matrx_connect import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:
+        return None
+    if ctx is None:
+        return None
+    org = getattr(ctx, "organization_id", None)
+    return str(org).strip() if org else None
 
 
 def _arm() -> Any:

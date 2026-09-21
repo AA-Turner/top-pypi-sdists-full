@@ -30,6 +30,7 @@ const workspace = {
       defaultTitle: 'OpenViking Studio',
     },
     navigation: {
+      compile: { title: 'Compile' },
       home: {
         title: 'Home',
       },
@@ -208,6 +209,23 @@ const workspace = {
     },
   },
   agentExperiencePage: {
+    pageCount: '{{count}} experiences on this page',
+    setup: {
+      expand: 'Expand steps',
+      collapse: 'Collapse',
+      title: 'Give your Agent experience and evolution capabilities',
+      connect: 'Connect OpenViking to your Agent',
+      docs: 'View integration guide',
+      install: 'Install the experience Skill for your Agent',
+      hint: 'Run this command in your terminal and select your Agent when prompted.',
+      copy: 'Copy install command',
+      view: 'View command',
+      copied: 'Install command copied',
+      copyFailed: 'Copy failed. Expand the command and copy it manually.',
+      enable: 'Enable Agent Evolution',
+      enableHint:
+        'Ask an account administrator to enable Agent Evolution so future session commits can generate experiences.',
+    },
     title: 'Agent Experience',
     description:
       'Track experiences distilled from committed sessions, along with the trajectories and outcomes produced after they are applied.',
@@ -370,6 +388,34 @@ const workspace = {
     },
   },
   tasksPage: {
+    labels: {
+      missingResource: 'Missing resource ID for task',
+      requeueFailed: 'Re-queue failed',
+      requeueSubmitted: 'Re-queue request submitted successfully!',
+      successRate: 'Success Rate',
+      avgDuration: 'Avg Duration',
+      avgProcessingTime: 'Avg Processing Time',
+      totalTasks: 'Total Tasks',
+      activePending: 'Active/Pending',
+      runningPending: 'Running / Pending Workloads',
+      taskQueueStatus: 'Task Queue Status',
+      processQueueStatus: 'Process Queue Status',
+      queuePipeline: 'Queue Pipeline',
+      duration: 'Duration',
+      taskSummary: 'Total {{total}} ({{failed}} failed)',
+      taskCount: 'Tasks: {{count}}',
+      completedTasks: 'Completed: {{count}}',
+      serialFlow: 'Sequential process flow',
+      parallelBatch: 'Parallel process batch',
+      serialBatch: 'Sequential process batch',
+      latestPerResource: 'Latest per Resource',
+      individualTasks: 'Individual Tasks',
+    },
+    retry: {
+      noPendingMessages:
+        'No new task created: this session has no pending messages',
+      commitSkipped: 'No new task created: this session commit was skipped',
+    },
     title: 'Task Center',
     description:
       'Track background work such as resource processing, session commits, and reindexing.',
@@ -397,6 +443,15 @@ const workspace = {
       },
       error: 'Failure reason',
       result: 'Result',
+      noResultRunning: 'Task in progress',
+      noResultRunningDescription:
+        'No final result is available yet. See the reported stages and execution log above.',
+      noResultPending: 'Task queued',
+      noResultPendingDescription:
+        'The task has not started yet. Reported stages and execution events will appear when available.',
+      noResultCompleted: 'Task completed',
+      noResultCompletedDescription:
+        'This task did not return a displayable result.',
       noResult: 'No result yet',
       noResultDescription:
         'Results returned by the API will appear here when the task completes.',
@@ -434,6 +489,29 @@ const workspace = {
       allStatuses: 'All statuses',
       clear: 'Clear filters',
     },
+    actions: {
+      retrigger: 'Re-trigger Task',
+    },
+    pipeline: {
+      steps: 'Pipeline Steps',
+      duration: 'Duration',
+      count: '{{count}} items',
+      status: {
+        completed: 'Completed',
+        running: 'Running',
+        failed: 'Failed',
+        pending: 'Pending',
+      },
+      step: {
+        sessionPersistence: 'Session Persistence',
+        sessionCommit: 'Session Commit',
+        connectorAuth: 'Connector Auth',
+        resourceFetching: 'Resource Fetching',
+        externalParse: 'Document Parsing',
+        semantic: 'Semantic Processing',
+        embedding: 'Vector Embedding',
+      },
+    },
     pagination: {
       next: 'Next',
       page: 'Page {{page}}',
@@ -460,6 +538,7 @@ const workspace = {
       unknown: 'Unknown',
     },
     types: {
+      compile: 'Compile',
       session_commit: 'Session commit',
       add_resource: 'Resource processing',
       add_skill: 'Skill import',
@@ -606,6 +685,19 @@ const workspace = {
     unset: 'No account selected',
   },
   common: {
+    ui: {
+      close: 'Close',
+      loading: 'Loading',
+      pagination: 'Pagination',
+      previous: 'Previous',
+      next: 'Next',
+      previousPage: 'Go to previous page',
+      nextPage: 'Go to next page',
+      morePages: 'More pages',
+      sidebar: 'Sidebar',
+      mobileSidebar: 'Mobile navigation sidebar',
+      toggleSidebar: 'Toggle Sidebar',
+    },
     action: {
       cancel: 'Cancel',
       saveConnection: 'Save Connection',
@@ -832,6 +924,19 @@ const workspace = {
       title: 'New API key',
     },
     loading: 'Loading identities...',
+    userList: {
+      search: 'Search all users by username',
+      noResults: 'No matching users',
+      noResultsDescription: 'Try another username or clear the search.',
+      pagination: 'User pagination',
+      summary: '{{total}} users · Page {{page}} of {{pageCount}}',
+      pageSize: 'Users per page',
+      pageSizeValue: '{{count}} per page',
+      first: 'First',
+      previous: 'Previous',
+      next: 'Next',
+      last: 'Last',
+    },
     management: {
       accountFilter: 'Accounts',
       accessDeniedDescription:
@@ -898,9 +1003,9 @@ const workspace = {
     },
     toast: {
       accountCreated: 'Account created',
-      accountDeleted: '{{account}} deleted',
-      accountDeletedRecoveryFailed:
-        'The account was deleted, but the remaining account list could not be loaded: {{error}}',
+      accountDeletionStarted: '{{account}} disabled. Cleanup task: {{taskId}}',
+      accountDeletionRecoveryFailed:
+        'Account cleanup was submitted, but the remaining account list could not be loaded: {{error}}',
       connectionSaved: 'Connection saved',
       copyFailed: 'Copy failed',
       copied: 'Copied',

@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class NotificationChannelConfig(BaseModel):
     """
-    Configuration for a notification channel.  Channels define where notifications are sent when an alert is triggered. Supports multiple channel types including webhooks, Slack, and email.  Attributes:     channel_type: Type of notification channel (webhook, slack, email)     channel_id: Optional reference to a pre-configured channel in the organization     config: Optional channel-specific configuration overrides
+    Configuration for a notification channel.  Channels define what happens when an alert is triggered. Three deliver a notification (webhook, Slack, email). The fourth, 'batch', processes the bucket objects behind the matching documents into a user-defined collection.  Attributes:     channel_type: Type of channel (webhook, slack, email, batch)     channel_id: Optional reference to a pre-configured channel in the organization     config: Optional channel-specific configuration overrides
     """ # noqa: E501
-    channel_type: StrictStr = Field(description="Type of notification channel: 'webhook', 'slack', 'email'")
+    channel_type: StrictStr = Field(description="Type of channel: 'webhook', 'slack', 'email', or 'batch'. 'batch' processes the bucket objects behind the matching documents through a user-defined collection (config: collection_id, and optionally bucket_id and dedup_strategy).")
     channel_id: Optional[StrictStr] = Field(default=None, description="Reference to a pre-configured notification channel in the organization")
-    config: Optional[Dict[str, Any]] = Field(default=None, description="Channel-specific configuration overrides (e.g., webhook URL, Slack channel)")
+    config: Optional[Dict[str, Any]] = Field(default=None, description="Channel-specific configuration overrides (e.g., webhook URL, Slack channel, or the target collection for a 'batch' channel)")
     __properties: ClassVar[List[str]] = ["channel_type", "channel_id", "config"]
 
     model_config = ConfigDict(

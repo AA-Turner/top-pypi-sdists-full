@@ -2,9 +2,9 @@
 
 use super::fonts::{font_style, FontStyle};
 use super::text_paint::{PaintResources, TextPaint};
-use crate::text_utils::{effective_font_size, expand_ligatures, is_bold_font, is_italic_font};
+use crate::text_utils::{effective_font_size, expand_ligatures};
 use crate::tounicode::FontCMaps;
-use crate::types::{ItemType, TextItem};
+use crate::types::{BoldSource, ItemType, TextItem};
 use lopdf::{Document, Encoding, Object, ObjectId};
 use std::collections::HashMap;
 
@@ -19,8 +19,8 @@ use super::geometry::{
     scaled_run_geometry,
 };
 use super::word_gaps::{
-    offset_takes_spacing_back, word_gap_candidate, word_gap_threshold, PendingWordGaps,
-    WordGapCandidate,
+    offset_takes_spacing_back, tj_gap_thresholds, tj_tracking, word_gap_candidate,
+    word_gap_threshold, PendingWordGaps, WordGapCandidate,
 };
 use super::{get_number, image_bbox_from_ctm, multiply_matrices};
 
@@ -301,9 +301,30 @@ fn extract_form_xobject_text_inner(
         return extracted;
     };
 
-    // Decompress the content stream (fall back to raw bytes for uncompressed streams)
-    let content_data = match stream.decompressed_content() {
+    // Decompress the content stream within the page-content bound: a form
+    // inflating past it is skipped, as a page over it is, before anything
+    // is allocated for it. A stream that fails to decode for another
+    // reason is read raw, if that fits the bound too.
+    let content_data = match stream
+        .decompressed_content_with_limit(super::content_decode::MAX_PAGE_CONTENT_BYTES)
+    {
         Ok(data) => data,
+        Err(lopdf::Error::Decompress(lopdf::DecompressError::MemoryLimitExceeded { .. })) => {
+            log::warn!(
+                "form xobject {:?}: skipping — content stream exceeds {} decompressed bytes",
+                form_id,
+                super::content_decode::MAX_PAGE_CONTENT_BYTES
+            );
+            return extracted;
+        }
+        Err(_) if stream.content.len() > super::content_decode::MAX_PAGE_CONTENT_BYTES => {
+            log::warn!(
+                "form xobject {:?}: skipping — raw content stream exceeds {} bytes",
+                form_id,
+                super::content_decode::MAX_PAGE_CONTENT_BYTES
+            );
+            return extracted;
+        }
         Err(_) => stream.content.clone(),
     };
 
@@ -342,7 +363,7 @@ fn extract_form_xobject_text_inner(
         build_font_encodings(doc, &form_fonts, font_cmaps, style_cache);
 
     // Build font width info for the form
-    let font_widths = build_font_widths(doc, &form_fonts);
+    let font_widths = build_font_widths(doc, &form_fonts, style_cache);
     let type3_scales = build_type3_scales(doc, &form_fonts);
     let type3_y_flips = build_type3_y_flips(doc, &form_fonts);
 
@@ -360,7 +381,15 @@ fn extract_form_xobject_text_inner(
                 font_base_names.insert(resource_name.clone(), base_name);
             }
         }
-        let style = font_style(doc, font_dict, style_cache);
+        // The name (the resource tag for a font without one) and the width
+        // table are read once here rather than for every run.
+        let style = font_style(doc, font_dict, style_cache)
+            .with_name(
+                font_base_names
+                    .get(&resource_name)
+                    .map_or(resource_name.as_str(), String::as_str),
+            )
+            .with_measured_pitch(font_widths.get(&resource_name));
         if style != FontStyle::default() {
             font_styles.insert(resource_name.clone(), style);
         }
@@ -562,6 +591,8 @@ fn extract_form_xobject_text_inner(
                                     is_bold: false,
                                     is_italic: false,
                                     font_weight: None,
+                                    bold_source: None,
+                                    fixed_pitch: None,
                                     is_underline: false,
                                     is_strikeout: false,
                                     rotation: 0.0,
@@ -841,7 +872,6 @@ fn extract_form_xobject_text_inner(
                                 .map(|s| s.as_str())
                                 .unwrap_or(&current_font);
                             let style = font_styles.get(&current_font).copied().unwrap_or_default();
-                            let (desc_italic, desc_bold) = style.flags();
                             // Forward paint order (positive device-space
                             // advance) may be visual storage; a mirrored
                             // matrix already paints right-to-left. Rotated
@@ -856,6 +886,8 @@ fn extract_form_xobject_text_inner(
                                     *rtl_logical_ops += 1;
                                 }
                             }
+                            let painted_bold = paintable_fonts.contains(&current_font)
+                                && text_paint.adds_bold(&text, rendered_size, base_font, &ctm);
                             items.push(TextItem {
                                 text: expand_ligatures(&text),
                                 x: geometry.x,
@@ -871,17 +903,13 @@ fn extract_form_xobject_text_inner(
                                 legacy_symbol_rewrite,
                                 font_size: rendered_size,
                                 page: page_num,
-                                is_bold: is_bold_font(base_font)
-                                    || desc_bold
-                                    || (paintable_fonts.contains(&current_font)
-                                        && text_paint.adds_bold(
-                                            &text,
-                                            rendered_size,
-                                            base_font,
-                                            &ctm,
-                                        )),
-                                is_italic: is_italic_font(base_font) || desc_italic,
+                                is_bold: style.bold || painted_bold,
+                                is_italic: style.italic,
                                 font_weight: style.weight,
+                                bold_source: style
+                                    .bold_source
+                                    .or(painted_bold.then_some(BoldSource::Painted)),
+                                fixed_pitch: style.fixed_pitch,
                                 is_underline: false,
                                 is_strikeout: false,
                                 rotation: geometry.rotation,
@@ -948,7 +976,37 @@ fn extract_form_xobject_text_inner(
                         // Word-space threshold for `TJ` offsets and character
                         // spacing alike, from the font metrics when available.
                         let space_threshold = word_gap_threshold(font_info);
-                        let column_gap_threshold = space_threshold * 4.0;
+                        // A tracked display run is judged over its own
+                        // tracking, as on the page (see `tj_tracking` and
+                        // `tj_gap_thresholds`); a hidden run is not read
+                        // for it, and the reader decodes the glyphs of a run
+                        // in the tracking band on a copy of the CMap
+                        // decisions.
+                        let tracking = if hidden {
+                            None
+                        } else {
+                            let mut probe_decisions: Option<CMapDecisionCache> = None;
+                            tj_tracking(array, font_info, space_threshold, |element| {
+                                extract_text_from_operand(
+                                    element,
+                                    &current_font,
+                                    font_base_names.get(&current_font).map(|s| s.as_str()),
+                                    font_cmaps,
+                                    &font_tounicode_refs,
+                                    &inline_cmaps,
+                                    &font_encodings,
+                                    &encoding_cache,
+                                    probe_decisions.get_or_insert_with(|| cmap_decisions.clone()),
+                                    &font_widths,
+                                )
+                            })
+                        };
+                        let baseline_horizontal = {
+                            let combined = multiply_matrices(&text_matrix, &ctm);
+                            combined[0].abs() >= combined[1].abs()
+                        };
+                        let (word_gap, split_gap) =
+                            tj_gap_thresholds(space_threshold, tracking, baseline_horizontal);
 
                         let mut sub_items: Vec<(String, f32, f32, f32, bool)> = Vec::new();
                         let mut current_text = String::new();
@@ -988,10 +1046,7 @@ fn extract_form_xobject_text_inner(
                                     {
                                         backward_jump = true;
                                     }
-                                    if !hidden
-                                        && n_val < -column_gap_threshold
-                                        && !current_text.is_empty()
-                                    {
+                                    if !hidden && n_val < -split_gap && !current_text.is_empty() {
                                         sub_items.push((
                                             std::mem::take(&mut current_text),
                                             sub_start_width_ts,
@@ -1005,7 +1060,7 @@ fn extract_form_xobject_text_inner(
                                     } else {
                                         total_width_ts += displacement;
                                         if !hidden
-                                            && n_val < -space_threshold
+                                            && n_val < -word_gap
                                             && !current_text.is_empty()
                                             && !current_text.ends_with(' ')
                                         {
@@ -1026,10 +1081,7 @@ fn extract_form_xobject_text_inner(
                                     {
                                         backward_jump = true;
                                     }
-                                    if !hidden
-                                        && n_val < -column_gap_threshold
-                                        && !current_text.is_empty()
-                                    {
+                                    if !hidden && n_val < -split_gap && !current_text.is_empty() {
                                         sub_items.push((
                                             std::mem::take(&mut current_text),
                                             sub_start_width_ts,
@@ -1043,7 +1095,7 @@ fn extract_form_xobject_text_inner(
                                     } else {
                                         total_width_ts += displacement;
                                         if !hidden
-                                            && n_val < -space_threshold
+                                            && n_val < -word_gap
                                             && !current_text.is_empty()
                                             && !current_text.ends_with(' ')
                                         {
@@ -1212,7 +1264,6 @@ fn extract_form_xobject_text_inner(
                                 .map(|s| s.as_str())
                                 .unwrap_or(&current_font);
                             let style = font_styles.get(&current_font).copied().unwrap_or_default();
-                            let (desc_italic, desc_bold) = style.flags();
                             let scale_x = (text_matrix[0] * ctm[0] + text_matrix[1] * ctm[2])
                                 * horizontal_scale;
                             // Rotated matrices carry no horizontal evidence:
@@ -1279,6 +1330,8 @@ fn extract_form_xobject_text_inner(
                                 if let Some(pending) = pending_space.take() {
                                     pending.resolve(items, &geometry, text, rendered_size);
                                 }
+                                let painted_bold = paintable_fonts.contains(&current_font)
+                                    && text_paint.adds_bold(text, rendered_size, base_font, &ctm);
                                 items.push(TextItem {
                                     text: expand_ligatures(text),
                                     x: geometry.x,
@@ -1294,17 +1347,13 @@ fn extract_form_xobject_text_inner(
                                     legacy_symbol_rewrite: *legacy_symbol_rewrite,
                                     font_size: rendered_size,
                                     page: page_num,
-                                    is_bold: is_bold_font(base_font)
-                                        || desc_bold
-                                        || (paintable_fonts.contains(&current_font)
-                                            && text_paint.adds_bold(
-                                                text,
-                                                rendered_size,
-                                                base_font,
-                                                &ctm,
-                                            )),
-                                    is_italic: is_italic_font(base_font) || desc_italic,
+                                    is_bold: style.bold || painted_bold,
+                                    is_italic: style.italic,
                                     font_weight: style.weight,
+                                    bold_source: style
+                                        .bold_source
+                                        .or(painted_bold.then_some(BoldSource::Painted)),
+                                    fixed_pitch: style.fixed_pitch,
                                     is_underline: false,
                                     is_strikeout: false,
                                     rotation: geometry.rotation,
@@ -1741,6 +1790,34 @@ mod tests {
                 let found: Vec<&String> = items.iter().map(|i| &i.text).collect();
                 panic!("no item {text:?} in {found:?}")
             })
+    }
+
+    /// A form whose content is over the page-content bound is skipped, as
+    /// a page over it is; the forms invoked beside it are still read.
+    #[test]
+    fn form_content_over_the_byte_bound_is_skipped() {
+        let mut oversized = b"BT /F1 12 Tf 72 700 Td (lost) Tj ET".to_vec();
+        oversized.resize(
+            crate::extractor::content_decode::MAX_PAGE_CONTENT_BYTES + 1,
+            b' ',
+        );
+        let (doc, page_id) = doc_with_page_and_forms(
+            b"q /X1 Do Q q /X2 Do Q",
+            &[&oversized, b"BT /F1 12 Tf 72 600 Td (kept) Tj ET"],
+        );
+        let font_cmaps = FontCMaps::from_doc(&doc);
+        let ((items, _, _), _, _, _) = extract_page_text_items(
+            &doc,
+            page_id,
+            1,
+            &font_cmaps,
+            false,
+            &mut FontStyleCache::new(),
+            &mut FormWalkBudget::new(),
+        )
+        .unwrap();
+        let texts: Vec<&str> = items.iter().map(|item| item.text.as_str()).collect();
+        assert_eq!(texts, ["kept"]);
     }
 
     #[test]
@@ -2429,5 +2506,31 @@ BT /F1 10 Tf 0 1 -1 0 60 200 Tm [(ABCD)] TJ ET",
         .unwrap();
         let texts: Vec<_> = items.iter().map(|i| i.text.as_str()).collect();
         assert_eq!(texts, ["dto", "dto"], "{items:?}");
+    }
+
+    /// Tracked display text set as a glyph-per-string `TJ` array inside a
+    /// form is judged over its own tracking, as on the page; positioning
+    /// between whole words reads as before. The form font's space is 0.6
+    /// em, so its word-gap threshold is 240 thousandths.
+    #[test]
+    fn tracked_tj_title_inside_form_stays_one_word() {
+        for (content, expected) in [
+            (
+                "BT /F1 24 Tf 72 700 Td [(V) -216 (A) -333 (L) -166 (L) -250 (E) -290 (Y)] TJ ET",
+                "VALLEY",
+            ),
+            (
+                "BT /F1 24 Tf 72 700 Td [(V) -250 (A) -250 (L) -250 (L) -250 (E) -250 (Y) -560 (R) -250 (O) -250 (A) -250 (D)] TJ ET",
+                "VALLEY ROAD",
+            ),
+            (
+                "BT /F1 12 Tf 72 700 Td [(The) -258 (quick) -300 (brown)] TJ ET",
+                "The quick brown",
+            ),
+        ] {
+            let items = form_items(content.as_bytes());
+            let texts: Vec<_> = items.iter().map(|i| i.text.as_str()).collect();
+            assert_eq!(texts.join(" "), expected, "{content}: {items:?}");
+        }
     }
 }

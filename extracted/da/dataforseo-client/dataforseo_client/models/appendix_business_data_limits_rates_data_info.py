@@ -9,8 +9,7 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.appendix_business_data_google_info import AppendixBusinessDataGoogleInfo
-from dataforseo_client.models.appendix_business_data_day_limits_rates_data_info import AppendixBusinessDataDayLimitsRatesDataInfo
-from dataforseo_client.models.appendix_social_media_business_data_limits_rates_data_info import AppendixSocialMediaBusinessDataLimitsRatesDataInfo
+from dataforseo_client.models.appendix_tr_business_data_day_limits_rates_data_info import AppendixTrBusinessDataDayLimitsRatesDataInfo
 from dataforseo_client.models.appendix_business_listings_business_data_limits_rates_data_info import AppendixBusinessListingsBusinessDataLimitsRatesDataInfo
 
 
@@ -23,22 +22,22 @@ class AppendixBusinessDataLimitsRatesDataInfo(BaseModel):
     locations: Optional[StrictFloat] = Field(default=None, description=r"")
     languages: Optional[StrictFloat] = Field(default=None, description=r"")
     errors: Optional[StrictFloat] = Field(default=None, description=r"")
-    yelp: Optional[AppendixBusinessDataDayLimitsRatesDataInfo] = Field(default=None, description=r"")
-    social_media: Optional[AppendixSocialMediaBusinessDataLimitsRatesDataInfo] = Field(default=None, description=r"")
-    tripadvisor: Optional[AppendixBusinessDataDayLimitsRatesDataInfo] = Field(default=None, description=r"")
-    trustpilot: Optional[AppendixBusinessDataDayLimitsRatesDataInfo] = Field(default=None, description=r"")
+    tripadvisor: Optional[AppendixTrBusinessDataDayLimitsRatesDataInfo] = Field(default=None, description=r"")
+    trustpilot: Optional[AppendixTrBusinessDataDayLimitsRatesDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
     business_listings: Optional[AppendixBusinessListingsBusinessDataLimitsRatesDataInfo] = Field(default=None, description=r"")
+    available_filters: Optional[StrictFloat] = Field(default=None, description=r"")
     tasks_ready: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "google", 
         "locations", 
         "languages", 
         "errors", 
-        "yelp", 
-        "social_media", 
         "tripadvisor", 
         "trustpilot", 
+        "id_list", 
         "business_listings", 
+        "available_filters", 
         "tasks_ready", 
         ]
 
@@ -70,11 +69,11 @@ class AppendixBusinessDataLimitsRatesDataInfo(BaseModel):
         _dict['locations'] = self.locations
         _dict['languages'] = self.languages
         _dict['errors'] = self.errors
-        _dict['yelp'] = self.yelp.to_dict() if self.yelp else None
-        _dict['social_media'] = self.social_media.to_dict() if self.social_media else None
         _dict['tripadvisor'] = self.tripadvisor.to_dict() if self.tripadvisor else None
         _dict['trustpilot'] = self.trustpilot.to_dict() if self.trustpilot else None
+        _dict['id_list'] = self.id_list
         _dict['business_listings'] = self.business_listings.to_dict() if self.business_listings else None
+        _dict['available_filters'] = self.available_filters
         _dict['tasks_ready'] = self.tasks_ready
         return _dict
 
@@ -92,11 +91,11 @@ class AppendixBusinessDataLimitsRatesDataInfo(BaseModel):
             "locations": obj.get("locations"),
             "languages": obj.get("languages"),
             "errors": obj.get("errors"),
-            "yelp": AppendixBusinessDataDayLimitsRatesDataInfo.from_dict(obj["yelp"]) if obj.get("yelp") is not None else None,
-            "social_media": AppendixSocialMediaBusinessDataLimitsRatesDataInfo.from_dict(obj["social_media"]) if obj.get("social_media") is not None else None,
-            "tripadvisor": AppendixBusinessDataDayLimitsRatesDataInfo.from_dict(obj["tripadvisor"]) if obj.get("tripadvisor") is not None else None,
-            "trustpilot": AppendixBusinessDataDayLimitsRatesDataInfo.from_dict(obj["trustpilot"]) if obj.get("trustpilot") is not None else None,
+            "tripadvisor": AppendixTrBusinessDataDayLimitsRatesDataInfo.from_dict(obj["tripadvisor"]) if obj.get("tripadvisor") is not None else None,
+            "trustpilot": AppendixTrBusinessDataDayLimitsRatesDataInfo.from_dict(obj["trustpilot"]) if obj.get("trustpilot") is not None else None,
+            "id_list": obj.get("id_list"),
             "business_listings": AppendixBusinessListingsBusinessDataLimitsRatesDataInfo.from_dict(obj["business_listings"]) if obj.get("business_listings") is not None else None,
+            "available_filters": obj.get("available_filters"),
             "tasks_ready": obj.get("tasks_ready"),
         })
 

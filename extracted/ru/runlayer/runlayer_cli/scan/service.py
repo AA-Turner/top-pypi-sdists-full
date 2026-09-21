@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime
 import getpass
+import hashlib
+import json
 import os
 import stat
 import subprocess
@@ -2335,11 +2337,12 @@ def _artifact_cache_contains(
 def _artifact_cache_record(
     artifact_cache: ArtifactCache | None,
     identifier: str,
+    submission_key: str | None = None,
 ) -> None:
     if artifact_cache is None:
         return
     try:
-        artifact_cache.record(identifier)
+        artifact_cache.record(identifier, submission_key)
     except Exception:
         logger.warning(
             "artifact_cache_operation_failed",
@@ -2364,6 +2367,30 @@ def _artifact_cache_evict(
             identifier=identifier,
             exc_info=True,
         )
+
+
+# Content is covered by the fingerprint identifier; the scan stamps change on
+# every run. Everything else (path, scope, tool, metadata, device identity)
+# selects or refreshes a server-side installation row, so any change resubmits.
+_VOLATILE_SUBMISSION_KEYS = frozenset({"files", "scan_session_id", "scan_started_at"})
+
+
+def _submission_key(kind: str, payload: Mapping[str, Any]) -> str | None:
+    """Return ``<kind>:<sha256>`` of the stable payload fields.
+
+    ``None`` for a payload that is not plain JSON: that artifact is never
+    throttled and its submit fails on its own terms.
+    """
+    stable = {
+        key: value
+        for key, value in payload.items()
+        if key not in _VOLATILE_SUBMISSION_KEYS
+    }
+    try:
+        canonical = json.dumps(stable, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return None
+    return f"{kind}:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 def _lookup_fingerprints_in_batches(
@@ -2452,6 +2479,128 @@ class _ArtifactSubmissionConfig(Generic[_ArtifactT]):
     strip_duplicate_identifiers: bool = False
 
 
+@dataclass(frozen=True)
+class _PlannedSubmission(Generic[_ArtifactT]):
+    artifact: _ArtifactT
+    identifier: str  # ``artifact.identifier`` narrowed to ``str``
+    surface: ScanManifestSurface
+    full_payload: dict[str, Any]
+    submission_key: str | None  # only set while throttling
+    cache_hit: bool
+    # Oversized and duplicate-identifier copies always go out stripped; they
+    # carry no change signal, so they neither throttle nor force a surface.
+    always_submits: bool
+    skippable: bool
+
+
+def _plan_artifact_submissions(
+    artifacts: list[_ArtifactT],
+    *,
+    device_ctx: Mapping[str, Any],
+    cache_hits: set[str],
+    throttle_cache: ArtifactCache | None,
+    config: _ArtifactSubmissionConfig[_ArtifactT],
+) -> tuple[list[_PlannedSubmission[_ArtifactT]], set[ScanManifestSurface]]:
+    """Return the plan plus the surfaces where something is due.
+
+    Only a payload this device already delivered unchanged, with content the
+    server confirmed, inside the window, may wait.
+    """
+    planned: list[_PlannedSubmission[_ArtifactT]] = []
+    due_surfaces: set[ScanManifestSurface] = set()
+    seen_identifiers: set[str] = set()
+    for artifact in artifacts:
+        identifier = artifact.identifier
+        if identifier is None:
+            continue
+        always_submits = artifact.oversized or (
+            config.strip_duplicate_identifiers and identifier in seen_identifiers
+        )
+        seen_identifiers.add(identifier)
+        full_payload = artifact.to_api_payload()
+        full_payload.update(dict(device_ctx))
+        submission_key = (
+            _submission_key(config.kind, full_payload)
+            if throttle_cache is not None
+            else None
+        )
+        skippable = (
+            submission_key is not None
+            and throttle_cache is not None
+            and not always_submits
+            and identifier in cache_hits
+            and throttle_cache.recently_submitted(submission_key)
+        )
+        surface = _artifact_manifest_surface(artifact, kind=config.kind)
+        if not skippable and not always_submits:
+            due_surfaces.add(surface)
+        planned.append(
+            _PlannedSubmission(
+                artifact=artifact,
+                identifier=identifier,
+                surface=surface,
+                full_payload=full_payload,
+                submission_key=submission_key,
+                cache_hit=identifier in cache_hits,
+                always_submits=always_submits,
+                skippable=skippable,
+            )
+        )
+    if throttle_cache is not None:
+        throttle_cache.retain_submissions(
+            {item.submission_key for item in planned if item.submission_key},
+            kind=config.kind,
+        )
+    return planned, due_surfaces
+
+
+def _submit_planned_artifact(
+    item: _PlannedSubmission[_ArtifactT],
+    *,
+    batch_lookups: dict[str, dict[str, bool]] | None,
+    artifact_cache: ArtifactCache | None,
+    config: _ArtifactSubmissionConfig[_ArtifactT],
+) -> bool:
+    """Look up, submit and record one artifact; ``False`` when unsupported."""
+    if item.cache_hit:
+        result = {"known": True, "has_content": True}
+    elif batch_lookups is not None:
+        result = batch_lookups[item.identifier]
+    else:
+        result = config.lookup_one(item.artifact, item.identifier)
+    if result.get("unsupported"):
+        return False
+
+    strip_known_content = result.get("known") and result.get("has_content", True)
+    payload = dict(item.full_payload)
+    if strip_known_content or item.always_submits:
+        payload["files"] = []
+    submit_response = config.submit(payload)
+    if submit_response.get("unsupported") is True:
+        return False
+
+    cache_backed_content_strip = (
+        artifact_cache is not None
+        and bool(item.full_payload.get("files"))
+        and result.get("known") is True
+        and result.get("has_content") is True
+        and not item.always_submits
+    )
+    if cache_backed_content_strip and submit_response.get("has_content") is not True:
+        logger.warning(
+            "artifact_cache_content_missing",
+            artifact_type=config.kind,
+            identifier=item.identifier,
+        )
+        _artifact_cache_evict(artifact_cache, item.identifier)
+        submit_response = config.submit(item.full_payload)
+        if submit_response.get("unsupported") is True:
+            return False
+    if submit_response.get("has_content") is True:
+        _artifact_cache_record(artifact_cache, item.identifier, item.submission_key)
+    return True
+
+
 def _submit_discovered_artifacts(
     artifacts: list[_ArtifactT],
     *,
@@ -2459,8 +2608,15 @@ def _submit_discovered_artifacts(
     artifact_cache: ArtifactCache | None,
     config: _ArtifactSubmissionConfig[_ArtifactT],
     failed_surfaces: set[ScanManifestSurface] | None = None,
+    throttled_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
-    """Resolve and submit one artifact kind with cache-backed content stripping."""
+    """Resolve and submit one artifact kind with cache-backed content stripping.
+
+    Passing *throttled_surfaces* enables throttling: unchanged payloads submitted
+    inside the re-submit window are skipped and their surfaces added to it so the
+    manifest marks them incomplete; the server counts staleness misses only on
+    complete surfaces. Needs *artifact_cache*; without one nothing is throttled.
+    """
     cache_hits: set[str] = set()
     miss_identifiers: list[str] = []
     seen_misses: set[str] = set()
@@ -2513,64 +2669,34 @@ def _submit_discovered_artifacts(
     def unsupported_status() -> SubmissionStatus:
         return "failed" if any_failed else "unsupported"
 
-    seen_identifiers: set[str] = set()
-    for artifact in artifacts:
-        identifier = artifact.identifier
-        if identifier is None:
+    throttle_cache = artifact_cache if throttled_surfaces is not None else None
+    planned, due_surfaces = _plan_artifact_submissions(
+        artifacts,
+        device_ctx=device_ctx,
+        cache_hits=cache_hits,
+        throttle_cache=throttle_cache,
+        config=config,
+    )
+
+    skipped = 0
+    for item in planned:
+        # A surface where anything changed resubmits wholesale so its manifest
+        # entry stays complete; otherwise its unchanged copies wait for the
+        # window together, which also keeps their clocks aligned.
+        if item.skippable and item.surface not in due_surfaces:
+            if throttled_surfaces is not None:
+                throttled_surfaces.add(item.surface)
+            skipped += 1
             continue
-        duplicate_identifier = (
-            config.strip_duplicate_identifiers and identifier in seen_identifiers
-        )
-        seen_identifiers.add(identifier)
-        artifact_log_context = {config.kind: artifact.name}
+        artifact_log_context = {config.kind: item.artifact.name}
         try:
-            if identifier in cache_hits:
-                result = {"known": True, "has_content": True}
-            elif batch_lookups is not None:
-                result = batch_lookups[identifier]
-            else:
-                result = config.lookup_one(artifact, identifier)
-            if result.get("unsupported"):
-                return unsupported_status()
-
-            full_payload = artifact.to_api_payload()
-            full_payload.update(dict(device_ctx))
-            strip_known_content = result.get("known") and result.get(
-                "has_content", True
-            )
-            should_strip = (
-                strip_known_content or artifact.oversized or duplicate_identifier
-            )
-            payload = dict(full_payload)
-            if should_strip:
-                payload["files"] = []
-            submit_response = config.submit(payload)
-            if submit_response.get("unsupported") is True:
-                return unsupported_status()
-
-            cache_backed_content_strip = (
-                artifact_cache is not None
-                and bool(full_payload.get("files"))
-                and result.get("known") is True
-                and result.get("has_content") is True
-                and not artifact.oversized
-                and not duplicate_identifier
-            )
-            if (
-                cache_backed_content_strip
-                and submit_response.get("has_content") is not True
+            if not _submit_planned_artifact(
+                item,
+                batch_lookups=batch_lookups,
+                artifact_cache=artifact_cache,
+                config=config,
             ):
-                logger.warning(
-                    "artifact_cache_content_missing",
-                    artifact_type=config.kind,
-                    identifier=identifier,
-                )
-                _artifact_cache_evict(artifact_cache, identifier)
-                submit_response = config.submit(full_payload)
-                if submit_response.get("unsupported") is True:
-                    return unsupported_status()
-            if submit_response.get("has_content") is True:
-                _artifact_cache_record(artifact_cache, identifier)
+                return unsupported_status()
         except NotImplementedError:
             logger.debug(
                 f"{config.kind}_submission_not_implemented",
@@ -2589,9 +2715,7 @@ def _submit_discovered_artifacts(
             )
             any_failed = True
             if failed_surfaces is not None:
-                failed_surfaces.add(
-                    _artifact_manifest_surface(artifact, kind=config.kind)
-                )
+                failed_surfaces.add(item.surface)
         except httpx.RequestError as exc:
             logger.warning(
                 f"{config.kind}_submission_failed",
@@ -2602,7 +2726,7 @@ def _submit_discovered_artifacts(
             if failed_surfaces is None:
                 return "failed"
             any_failed = True
-            failed_surfaces.add(_artifact_manifest_surface(artifact, kind=config.kind))
+            failed_surfaces.add(item.surface)
         except Exception as exc:
             logger.warning(
                 f"{config.kind}_submission_failed",
@@ -2612,9 +2736,21 @@ def _submit_discovered_artifacts(
             )
             any_failed = True
             if failed_surfaces is not None:
-                failed_surfaces.add(
-                    _artifact_manifest_surface(artifact, kind=config.kind)
-                )
+                failed_surfaces.add(item.surface)
+    if throttle_cache is not None and planned:
+        # ``due`` items forced their whole surface; a sample of their paths
+        # shows which skill keeps a surface from ever throttling.
+        due = [
+            item for item in planned if not item.skippable and not item.always_submits
+        ]
+        logger.info(
+            f"{config.kind}_resubmit_throttled",
+            skipped=skipped,
+            submitted=len(planned) - skipped,
+            due_count=len(due),
+            forcing_paths=[item.full_payload.get("path") for item in due[:5]],
+            surfaces=sorted(throttled_surfaces or ()),
+        )
     return "failed" if any_failed and failed_surfaces is None else "success"
 
 
@@ -2624,12 +2760,14 @@ def submit_discovered_skills(
     scan_result: ScanResult | None = None,
     artifact_cache: ArtifactCache | None = None,
     failed_surfaces: set[ScanManifestSurface] | None = None,
+    throttled_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
-    """Resolve skill fingerprints in batches, then always submit each skill.
+    """Resolve skill fingerprints in batches, then submit each skill.
 
     Cache hits skip lookup and strip content. The submit response is the
     server-side backstop: if it cannot confirm stored content, evict the hint
-    and immediately resubmit the full payload.
+    and immediately resubmit the full payload. With *throttle*, unchanged
+    skills already submitted inside the re-submit window are skipped.
 
     Returns whether submission succeeded, failed, or is unsupported.
     """
@@ -2672,6 +2810,7 @@ def submit_discovered_skills(
         artifact_cache=artifact_cache,
         config=config,
         failed_surfaces=failed_surfaces,
+        throttled_surfaces=throttled_surfaces,
     )
 
 
@@ -3480,6 +3619,7 @@ def submit_scan_results(
 
     skill_submission: SubmissionStatus = "success"
     failed_skill_surfaces: set[ScanManifestSurface] = set()
+    throttled_skill_surfaces: set[ScanManifestSurface] = set()
     if scan_result.skills:
         skill_submission = submit_discovered_skills(
             client,
@@ -3487,7 +3627,14 @@ def submit_scan_results(
             scan_result,
             artifact_cache=artifact_cache,
             failed_surfaces=failed_skill_surfaces,
+            throttled_surfaces=throttled_skill_surfaces,
         )
+        # A throttled surface did not touch every installation this session, so
+        # it must not claim authority; the server then counts no staleness miss.
+        for surface in throttled_skill_surfaces:
+            submission.incomplete_surfaces.setdefault(
+                ("skill", surface), "resubmit_throttled"
+            )
         _record_artifact_submission_outcome(
             submission,
             category="skill",
@@ -3496,6 +3643,10 @@ def submit_scan_results(
             unsupported_label="Shadow Skill Detection",
             failed_label="skills",
         )
+    elif artifact_cache is not None:
+        # A skill-free scan still resets the throttle baseline, so a lone skill
+        # removed and reinstalled inside the window resubmits.
+        artifact_cache.retain_submissions(set(), kind="skill")
 
     # Per-surface skill failures are collected rather than failing the whole
     # submit; presence must still be gated on them or a failed POST would

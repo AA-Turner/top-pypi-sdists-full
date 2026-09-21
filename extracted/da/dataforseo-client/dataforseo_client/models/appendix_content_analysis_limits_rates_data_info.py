@@ -26,6 +26,8 @@ class AppendixContentAnalysisLimitsRatesDataInfo(BaseModel):
     languages: Optional[StrictFloat] = Field(default=None, description=r"")
     categories: Optional[StrictFloat] = Field(default=None, description=r"")
     errors: Optional[StrictFloat] = Field(default=None, description=r"")
+    available_filters: Optional[StrictFloat] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "search", 
         "summary", 
@@ -37,6 +39,8 @@ class AppendixContentAnalysisLimitsRatesDataInfo(BaseModel):
         "languages", 
         "categories", 
         "errors", 
+        "available_filters", 
+        "id_list", 
         ]
 
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
@@ -73,6 +77,8 @@ class AppendixContentAnalysisLimitsRatesDataInfo(BaseModel):
         _dict['languages'] = self.languages
         _dict['categories'] = self.categories
         _dict['errors'] = self.errors
+        _dict['available_filters'] = self.available_filters
+        _dict['id_list'] = self.id_list
         return _dict
 
 
@@ -95,6 +101,8 @@ class AppendixContentAnalysisLimitsRatesDataInfo(BaseModel):
             "languages": obj.get("languages"),
             "categories": obj.get("categories"),
             "errors": obj.get("errors"),
+            "available_filters": obj.get("available_filters"),
+            "id_list": obj.get("id_list"),
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

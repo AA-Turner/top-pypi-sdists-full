@@ -21,14 +21,9 @@ if sys.version_info >= (3, 12):
 else:  # pragma: no cover -- backport for Python < 3.12
     from typing_extensions import override
 
-from tomlrt._trivia import (
-    retarget_newlines,
-    split_eol_section,
-    split_item_above,
-)
+from tomlrt._trivia import retarget_newlines
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from datetime import tzinfo
     from typing import TypeGuard
 
@@ -161,19 +156,29 @@ class DateTimeValue(ScalarValue[datetime | date | time]):
 # ---------------------------------------------------------------------------
 
 
-class KeyPart:
-    """A single dotted-key component.
-
-    Written but never edited: a slot's ``key_parts`` tuple is replaced
-    wholesale, so one slot's parts can be shared with another -- which
-    a rebase and `Slot.__deepcopy__` both rely on.
-    """
-
-    __slots__ = ("raw", "value")
-
-    def __init__(self, raw: str, value: str) -> None:
-        self.raw = raw  # source representation including any surrounding quotes
-        self.value = value  # the decoded key string
+def respell_key_prefix(
+    parts: tuple[str, ...],
+    seps: tuple[str, ...],
+    path: tuple[str, ...],
+    drop: int,
+    prefix: tuple[str, ...],
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Replace a prefix, preserving the spelling of its unchanged suffix."""
+    shared = 0
+    while (
+        shared < min(drop, len(prefix))
+        and path[drop - shared - 1] == prefix[-shared - 1]
+    ):
+        shared += 1
+    if shared:
+        drop -= shared
+        prefix = prefix[:-shared]
+    if not drop and not prefix:
+        return parts, seps, path
+    tail = parts[drop:]
+    head = make_keyparts(prefix)
+    joins = len(head) - 1 + bool(head and tail)
+    return head + tail, (".",) * max(joins, 0) + seps[drop:], prefix + path[drop:]
 
 
 _KEY_ESCAPES: dict[int, str] = {0x22: '\\"', 0x5C: "\\\\"}
@@ -190,31 +195,26 @@ def quote_basic_key(s: str) -> str:
 _RE_BARE_KEY_FULL = re.compile(r"\A[A-Za-z0-9_\-]+\Z")
 
 
-def make_keypart(name: str) -> KeyPart:
-    """Build a ``KeyPart`` for ``name``, choosing bare vs basic-quoted."""
-    if _RE_BARE_KEY_FULL.match(name):
-        return KeyPart(name, name)
-    return KeyPart(quote_basic_key(name), name)
+def make_keyparts(path: tuple[str, ...]) -> tuple[str, ...]:
+    """Spell a path, sharing it when no component needs quoting."""
+    parts: list[str] = []
+    quoted = False
+    for name in path:
+        if _RE_BARE_KEY_FULL.match(name):
+            parts.append(name)
+        else:
+            parts.append(quote_basic_key(name))
+            quoted = True
+    return tuple(parts) if quoted else path
 
 
-def make_keyparts(path: tuple[str, ...]) -> tuple[KeyPart, ...]:
-    """Build a ``KeyPart`` for each segment of ``path``."""
-    return tuple([make_keypart(p) for p in path])
-
-
-def render_dotted(parts: tuple[KeyPart, ...], seps: tuple[str, ...]) -> str:
-    """Render a dotted key as ``part0 sep0 part1 sep1 ...``.
-
-    ``seps`` has length ``len(parts) - 1``; each entry is the literal
-    whitespace + ``.`` between the surrounding parts (e.g. ``" . "``).
-    """
+def render_dotted(parts: tuple[str, ...], seps: tuple[str, ...]) -> str:
+    """Join verbatim key components and separators."""
     if len(parts) == 1:
-        return parts[0].raw
-    out: list[str] = []
-    for i, p in enumerate(parts):
-        if i:
-            out.append(seps[i - 1])
-        out.append(p.raw)
+        return parts[0]
+    out = [""] * (len(parts) + len(seps))
+    out[::2] = parts
+    out[1::2] = seps
     return "".join(out)
 
 
@@ -293,16 +293,11 @@ class InlineTableEntry(CommaItem):
 
     _copy_fields: ClassVar[tuple[str, ...]] = CommaItem._copy_fields + __slots__  # noqa: SLF001
 
-    key_parts: tuple[KeyPart, ...]
-    key_seps: tuple[str, ...]  # len = len(key_parts) - 1
+    key_parts: tuple[str, ...]
+    key_seps: tuple[str, ...]
+    key_path: tuple[str, ...]
     pre_eq: str
     post_eq: str
-    key_path: tuple[str, ...]
-    """Decoded dotted-key path.
-
-    Set by every construction site and read by inline-table validation,
-    decoding, and cross-document cloning.
-    """
 
     def __init__(
         self,
@@ -311,11 +306,11 @@ class InlineTableEntry(CommaItem):
         trailing: str,
         has_comma: bool,  # noqa: FBT001
         post_comma_trivia: str,
-        key_parts: tuple[KeyPart, ...],
+        key_parts: tuple[str, ...],
         key_seps: tuple[str, ...],
+        key_path: tuple[str, ...],
         pre_eq: str,
         post_eq: str,
-        key_path: tuple[str, ...],
     ) -> None:
         self.leading = leading
         self.value = value
@@ -324,9 +319,9 @@ class InlineTableEntry(CommaItem):
         self.post_comma_trivia = post_comma_trivia
         self.key_parts = key_parts
         self.key_seps = key_seps
+        self.key_path = key_path
         self.pre_eq = pre_eq
         self.post_eq = post_eq
-        self.key_path = key_path
 
     @override
     def render(self) -> str:
@@ -468,58 +463,6 @@ Value = (
 )
 
 
-def item_breaks_before_comma(item: CommaItem) -> bool:
-    """Return whether the row break and any EOL comment precede the comma."""
-    return item.has_comma and "\n" in item.trailing
-
-
-def item_eol_on_trailing(item: CommaItem) -> bool:
-    """Whether ``trailing`` (rather than ``post_comma_trivia``) owns the EOL.
-
-    A comma-first item normally uses ``trailing``. If its pre-comma break is
-    structural while an EOL comment follows the comma, the post-comma channel
-    owns that EOL instead. Deciding it here lets callers read, write, and
-    normalise the EOL without rediscovering the distinction.
-
-    `tomlrt._comma_ops.Boundary._eol` selects the same channel by the same
-    rule, over captured lanes rather than a live item, and layers an
-    "is there an EOL at all?" test on top. The two are deliberately not
-    shared: expressing the rule once would mean spelling `Boundary`'s
-    head/above/tail lane split in this module, and this layer is pure data.
-    Change one and you must change the other.
-    """
-    if item_breaks_before_comma(item):
-        trailing_eol, _rest = split_eol_section(item.trailing)
-        if trailing_eol or "#" not in item.post_comma_trivia:
-            return True
-    return not item.has_comma
-
-
-def item_eol_channel(item: CommaItem) -> str:
-    """The trivia run that owns the item's row-attached EOL section."""
-    return item.trailing if item_eol_on_trailing(item) else item.post_comma_trivia
-
-
-def set_item_eol_channel(item: CommaItem, text: str) -> None:
-    """Write back the run that :func:`item_eol_channel` reads."""
-    if item_eol_on_trailing(item):
-        item.trailing = text
-    else:
-        item.post_comma_trivia = text
-
-
-def inter_item_separator(items: Sequence[CommaItem]) -> str:
-    """Structural-pad portion of ``items[1].leading``; ``" "`` if ``len < 2``.
-
-    Excludes any above-item comment block, which belongs to the item's
-    leading rather than to the separator.
-    """
-    if len(items) >= 2:
-        head, _above, tail = split_item_above(items[1].leading)
-        return head + tail
-    return " "
-
-
 def value_has_any_comment(v: Value) -> bool:
     """Whether any comment appears anywhere within ``v`` (recursively)."""
     if not isinstance(v, CommaValue):
@@ -565,14 +508,8 @@ __all__ = [
     "InlineTableEntry",
     "InlineTableValue",
     "IntegerValue",
-    "KeyPart",
     "StringValue",
     "Value",
-    "inter_item_separator",
-    "item_breaks_before_comma",
-    "item_eol_channel",
-    "item_eol_on_trailing",
     "item_has_any_comment",
     "retarget_value_newlines",
-    "set_item_eol_channel",
 ]

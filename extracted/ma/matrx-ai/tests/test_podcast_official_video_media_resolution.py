@@ -21,7 +21,7 @@ import pytest
 
 from matrx_ai.agent_runners import podcast_generator as pg
 
-CDN_URL = "https://cdn.matrxserver.com/4cf62e4e-2679-484f-b652-034e697418df/db22f2a2-9548-4eb7-946b-19b267bdee09?v=84f485d6"
+CDN_URL = "https://cdn.matrxserver.com/00000000-0000-4000-8000-0000000fffe1/db22f2a2-9548-4eb7-946b-19b267bdee09?v=84f485d6"
 FILE_ID = "db22f2a2-9548-4eb7-946b-19b267bdee09"
 
 

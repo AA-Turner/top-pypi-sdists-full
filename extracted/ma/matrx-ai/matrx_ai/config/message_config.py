@@ -256,6 +256,8 @@ class UnifiedMessage:
                         parsed_content.append(reconstruct_content({**item, "type": "code_exec"}))
                     elif content_type in ("code_execution_result", "code_result"):
                         parsed_content.append(reconstruct_content({**item, "type": "code_result"}))
+                    elif content_type in ("decision_questions", "decision_answers"):
+                        parsed_content.append(reconstruct_content(item))
                     elif content_type in STRUCTURED_INPUT_TYPE_MAP:
                         obj = reconstruct_structured_input(item)
                         if obj is not None:

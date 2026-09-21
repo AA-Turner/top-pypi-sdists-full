@@ -31,7 +31,7 @@ def test_format_deep_implicit(benchmark: BenchmarkFixture) -> None:
 
 
 def test_format_headered_dotted_keys(benchmark: BenchmarkFixture) -> None:
-    path = ".".join(["nested"] * 24)
+    path = " . ".join(["nested"] * 23 + ['"quoted.part"'])
     source = "[a]\n" + "".join(f"{path}.k{i}  ={i}\n" for i in range(200))
     benchmark.pedantic(tomlrt.Table.format, setup=_prepared(source), rounds=100)
 

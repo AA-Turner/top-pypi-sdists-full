@@ -45,6 +45,43 @@ def _active_lane_coordinator() -> Any:
     return _get_active_lane_coordinator()
 
 
+async def _organization_for_failed_turn(conversation_id: str) -> str | None:
+    """The organization the dead-turn row is written under, or ``None``.
+
+    🚨 ``chat.message.organization_id`` is NOT NULL. Until 2026-09-20 this
+    seam built ``fields`` with no organization at all — a sibling of the
+    ``chat.agent_run`` bug fixed the same night in ``_checkpoint.py`` — so a
+    stream crash on an org-scoped conversation would fail a SECOND time
+    trying to record the first failure, hiding the real crash behind a raw
+    23502 instead of showing the user why their turn stopped.
+
+    This runs on the out-of-lane crash branch, where the request that verified
+    an organization may already be long gone — the stream task that died could
+    have outlived the request by minutes. So there is exactly one legitimate
+    source here: the PARENT conversation row's own ``organization_id`` — a
+    failed-turn message is a child of that conversation, never of "whoever
+    happens to still be in scope" — read fresh rather than trusted from a
+    context that might not exist any more. Never a default, never a lookup by
+    user; a conversation that cannot be read yields ``None`` and the caller
+    refuses the write rather than let a null reach Postgres.
+    """
+    try:
+        from matrx_ai.db import cxm
+
+        rows = await cxm.conversation.filter_items(id=conversation_id)
+    except Exception as exc:  # noqa: BLE001 - this seam never raises
+        vcprint(
+            f"[TURN FAILURE] Could not read organization_id off conversation "
+            f"{conversation_id}: {exc}",
+            color="yellow",
+        )
+        return None
+    if not rows:
+        return None
+    org = getattr(rows[0], "organization_id", None)
+    return str(org).strip() if org else None
+
+
 async def persist_stream_turn_failure(
     *,
     conversation_id: str,
@@ -77,6 +114,11 @@ async def persist_stream_turn_failure(
     }
     if request_id:
         error_struct["request_id"] = request_id
+    # chat.message.organization_id is NOT NULL. See
+    # `_organization_for_failed_turn` for why the PARENT conversation row is the
+    # only source trusted here — this branch runs after a crash, possibly long
+    # after the request that verified an organization has ended.
+    organization_id = await _organization_for_failed_turn(conversation_id)
     fields: dict[str, Any] = {
         "id": row_id,
         "conversation_id": conversation_id,
@@ -88,10 +130,23 @@ async def persist_stream_turn_failure(
         "content": [{"type": "text", "text": user_message or message}],
         "error": error_struct,
         "created_by": user_id or None,
+        "organization_id": organization_id,
     }
 
     wrote_message = False
-    if _active_lane_coordinator() is not None:
+    if organization_id is None:
+        # No default, no lookup by user — the write must not happen. This is
+        # the background path the class of bug names explicitly: refuse
+        # loudly (never a silent no-op, never a null reaching Postgres) and
+        # let the caller's own "nothing landed" handling scream.
+        vcprint(
+            f"[TURN FAILURE] Could not determine organization_id for conversation "
+            f"{conversation_id}; the failed-turn row was NOT written "
+            f"(chat.message.organization_id is NOT NULL). The conversation row "
+            f"may itself be missing or org-less.",
+            color="red",
+        )
+    elif _active_lane_coordinator() is not None:
         # In-lane: the ordinary writer. The coordinator flushes on drain, and
         # the streaming wrapper drains AFTER this handler returns.
         try:

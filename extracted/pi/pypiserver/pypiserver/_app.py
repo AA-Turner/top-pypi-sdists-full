@@ -2,24 +2,27 @@ import logging
 import mimetypes
 import os
 import re
-import xml.dom.minidom
 import xmlrpc.client as xmlrpclib
 import zipfile
-from collections import defaultdict
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from io import BytesIO
 from json import dumps
-from urllib.parse import urljoin, urlparse, quote
+from urllib.parse import quote, urljoin, urlparse
+from xml.parsers.expat import ExpatError
+
+import defusedxml.minidom
+from defusedxml.common import DefusedXmlException
 
 from pypiserver.config import RunConfig
+
 from . import __version__
 from .bottle_wrapper import (
-    static_file,
+    Bottle,
+    HTTPError,
     redirect,
     request,
     response,
-    HTTPError,
-    Bottle,
+    static_file,
     template,
 )
 from .pkg_helpers import guess_pkgname_and_version, normalize_pkgname_for_url
@@ -233,7 +236,10 @@ def pep_503_redirects(project=None):
 @auth("list")
 def handle_rpc():
     """Handle pip-style RPC2 search requests"""
-    parser = xml.dom.minidom.parse(request.body)
+    try:
+        parser = defusedxml.minidom.parse(request.body)
+    except (DefusedXmlException, ExpatError):
+        raise HTTPError(400, "Invalid or unsafe XML payload")
     methodname = (
         parser.getElementsByTagName("methodName")[0]
         .childNodes[0]
@@ -294,7 +300,9 @@ def simple(project):
     # PEP 503: require normalized project
     normalized = normalize_pkgname_for_url(project)
     if project != normalized:
-        return redirect(f"/simple/{normalized}/", 301)
+        return redirect(
+            urljoin(request_fullpath(request), f"../{normalized}/"), 301
+        )
 
     packages = sorted(
         config.backend.find_project_packages(project),
@@ -391,7 +399,9 @@ def json_info(project):
     # PEP 503: require normalized project
     normalized = normalize_pkgname_for_url(project)
     if project != normalized:
-        return redirect(f"/{normalized}/json", 301)
+        return redirect(
+            urljoin(request_fullpath(request), f"../{normalized}/json"), 301
+        )
 
     packages = sorted(
         config.backend.find_project_packages(project),
@@ -407,7 +417,10 @@ def json_info(project):
     req_url = request.url
     for x in packages:
         releases[x.version].append(
-            {"url": urljoin(req_url, "../../packages/" + x.relfn)}
+            # The route is ``/:project/json``, so only one level up is needed
+            # to reach ``/packages/``; going two levels up escapes any prefix
+            # the app is mounted under (see ``--server-base-url``).
+            {"url": urljoin(req_url, "../packages/" + x.relfn)}
         )
 
     rv = {"info": {"version": latest_version}, "releases": releases}

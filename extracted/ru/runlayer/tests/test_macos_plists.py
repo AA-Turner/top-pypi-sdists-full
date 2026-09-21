@@ -133,11 +133,28 @@ def test_plist_runs_signed_binary_directly(
 
 
 @pytest.mark.parametrize("plist_name", _PLIST_NAMES)
-def test_plist_keeps_run_at_load_and_hourly_reassert(plist_name: str) -> None:
+def test_plist_keeps_run_at_load(plist_name: str) -> None:
     """Direct-exec must not regress the existing scheduling contract."""
     data = _load_plist(plist_name)
 
     assert data["RunAtLoad"] is True
+
+
+def test_bootstrap_plist_reconciles_on_scan_cadence() -> None:
+    """Settings sync + hook drift correction tick every 15 min, matching the
+    scan check-in, so a dashboard change or drifted hook config converges
+    within one scan interval rather than an hour."""
+    data = _load_plist(_BOOTSTRAP_PLIST)
+
+    assert data["StartInterval"] == 900
+
+
+@pytest.mark.parametrize("plist_name", (_ENROLL_PLIST, _DAEMON_AGENT_PLIST))
+def test_user_agents_keep_hourly_reassert(plist_name: str) -> None:
+    """Enroll + daemon agents stay hourly: bootstrap already kickstarts the
+    daemon when the gate opens, so only the root reconcile needs 15 min."""
+    data = _load_plist(plist_name)
+
     assert data["StartInterval"] == 3600
 
 
@@ -147,7 +164,7 @@ def test_bootstrap_plist_has_bounded_fast_retry() -> None:
     Combined with `runlayer_cli/install_window.py`, this fast-retries every
     60s for the 10-min install window after pkg install, then idles when
     `aiwatch setup hooks install` exits 0 (post-window). Drift correction
-    continues via StartInterval=3600.
+    continues via StartInterval=900.
     """
     data = _load_plist(_BOOTSTRAP_PLIST)
 
@@ -565,7 +582,9 @@ def test_pkg_ships_edge_native_host_with_the_chrome_origin() -> None:
 
     from runlayer_cli.aiwatch_uninstall import _PACKAGE_PATHS
 
-    destination = "Library/Microsoft/Edge/NativeMessagingHosts/com.runlayer.aiwatch.json"
+    destination = (
+        "Library/Microsoft/Edge/NativeMessagingHosts/com.runlayer.aiwatch.json"
+    )
     build_script = (_PACKAGING_MACOS / "build_pkg.sh").read_text()
     folded = build_script.replace("\\\n", " ")
     assert [
@@ -578,9 +597,7 @@ def test_pkg_ships_edge_native_host_with_the_chrome_origin() -> None:
         "chrome-extension://jijfcalfdbnjfpfcalkodmgmfijpfddi/"
     ]
     assert Path(f"/{destination}") in _PACKAGE_PATHS
-    assert f"rm -f /{destination}" in (
-        _PACKAGING_MACOS / "uninstall.sh"
-    ).read_text()
+    assert f"rm -f /{destination}" in (_PACKAGING_MACOS / "uninstall.sh").read_text()
 
 
 def test_pkg_ships_firefox_native_messaging_host() -> None:

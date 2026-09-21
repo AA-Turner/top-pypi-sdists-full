@@ -83,7 +83,7 @@ class KeyValueWatchSubscriber(
             ) is None:
                 await anyio.sleep(sleep_interval)
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         return cast(
@@ -97,7 +97,7 @@ class KeyValueWatchSubscriber(
         )
 
     @override
-    async def __aiter__(self) -> AsyncIterator["NatsKvMessage"]:  # type: ignore[override]
+    async def __aiter__(self) -> AsyncIterator["NatsKvMessage"]:
         assert not self.calls, (
             "You can't use iterator if subscriber has registered handlers."
         )
@@ -123,7 +123,7 @@ class KeyValueWatchSubscriber(
         timeout = 5
         sleep_interval = timeout / 10
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         while True:
@@ -186,6 +186,7 @@ class KeyValueWatchSubscriber(
                 if message:
                     await self.consume(message)
 
+    @override
     def _make_response_publisher(
         self,
         message: "StreamMessage[KeyValue.Entry]",

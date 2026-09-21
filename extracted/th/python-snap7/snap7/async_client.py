@@ -1,8 +1,9 @@
-"""
-Native async S7 client implementation.
+"""Asynchronous client for the classic S7 protocol.
 
 Uses asyncio streams for non-blocking I/O with an asyncio.Lock() to serialize
 send/receive cycles, ensuring safe concurrent use via asyncio.gather().
+
+``s7.AsyncClient`` and ``snap7.AsyncClient`` expose this same implementation.
 """
 
 import asyncio
@@ -15,14 +16,17 @@ from datetime import datetime
 
 from .connection import TPDUSize
 from .s7protocol import S7Protocol, get_return_code_description
-from .datatypes import S7WordLen
+from .datatypes import S7DataTypes, S7WordLen
 from .error import S7Error, S7ConnectionError, S7ProtocolError, S7TimeoutError
 from .client_base import ClientMixin
 from .szl import parse_cp_info_szl, parse_cpu_info_szl, parse_order_code_szl, parse_protection_szl
+from .client import _parse_force_szl
+from .rate_limiter import RateLimitAlgorithm, RateLimitBehavior, RequestRateLimiter
 from .type import (
     Area,
     Block,
     BlocksList,
+    ForceEntry,
     S7CpuInfo,
     TS7BlockInfo,
     S7CpInfo,
@@ -156,7 +160,7 @@ class AsyncISOTCPConnection:
                 raise S7ConnectionError(f"Invalid TPKT version: {version}")
 
             remaining = length - 4
-            if remaining <= 0:
+            if length < 7:
                 raise S7ConnectionError("Invalid TPKT length")
 
             payload = await self._recv_exact(remaining)
@@ -165,6 +169,10 @@ class AsyncISOTCPConnection:
             if len(payload) < 3:
                 raise S7ConnectionError("Invalid COTP DT: too short")
             pdu_len, pdu_type, eot_num = struct.unpack(">BBB", payload[:3])
+            if pdu_len != 2:
+                raise S7ConnectionError("Invalid COTP DT header length")
+            if eot_num & 0x7F:
+                raise S7ConnectionError("Invalid Class 0 COTP TPDU number")
             if pdu_type != self.COTP_DT:
                 raise S7ConnectionError(f"Expected COTP DT, got {pdu_type:#02x}")
             return payload[3:]
@@ -214,6 +222,8 @@ class AsyncISOTCPConnection:
     def _build_tpkt(self, payload: bytes) -> bytes:
         """Build TPKT frame."""
         length = len(payload) + 4
+        if not 7 <= length <= 65535:
+            raise S7ConnectionError("Invalid TPKT length: expected 7..65535 bytes")
         return struct.pack(">BBH", 3, 0, length) + payload
 
     def _parse_cotp_cc(self, data: bytes) -> None:
@@ -285,23 +295,31 @@ class AsyncISOTCPConnection:
 
 
 class AsyncClient(ClientMixin):
-    """
-    Native async S7 client implementation.
+    """Asynchronous client for classic S7 communication.
 
     Uses asyncio streams for non-blocking I/O. An internal asyncio.Lock
     serializes each send+receive cycle so that concurrent coroutines
     (e.g. via asyncio.gather) never interleave on the same TCP socket.
 
+    For new projects, use ``s7.AsyncClient`` instead.
+
     Examples:
-        >>> import snap7
-        >>> async with snap7.AsyncClient() as client:
+        >>> from s7 import AsyncClient
+        >>> async with AsyncClient() as client:
         ...     await client.connect("192.168.1.10", 0, 1)
         ...     data = await client.db_read(1, 0, 4)
     """
 
     MAX_VARS = 20
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_requests_per_second: float = 0,
+        rate_limit_algorithm: RateLimitAlgorithm = "fixed",
+        rate_limit_behavior: RateLimitBehavior = "block",
+        rate_limit_burst: int | None = None,
+    ) -> None:
         self.connection: Optional[AsyncISOTCPConnection] = None
         self.protocol = S7Protocol()
         self.connected = False
@@ -320,6 +338,12 @@ class AsyncClient(ClientMixin):
         self._last_error = 0
 
         self._lock = asyncio.Lock()
+        self._rate_limiter = RequestRateLimiter(
+            max_requests_per_second,
+            algorithm=rate_limit_algorithm,
+            behavior=rate_limit_behavior,
+            burst_capacity=rate_limit_burst,
+        )
 
         self._params = {
             Parameter.RemotePort: 102,
@@ -338,6 +362,11 @@ class AsyncClient(ClientMixin):
         if self.connection is None:
             raise S7ConnectionError("Not connected to PLC")
         return self.connection
+
+    async def _send_data(self, conn: AsyncISOTCPConnection, request: bytes) -> None:
+        """Apply the per-client rate limit and send one S7 request PDU."""
+        await self._rate_limiter.acquire_async()
+        await conn.send_data(request)
 
     async def _send_receive(self, request: bytes, max_stale_retries: int = 3) -> dict[str, Any]:
         """Send a request and receive/parse the response, holding the lock.
@@ -358,7 +387,7 @@ class AsyncClient(ClientMixin):
         expected_seq = struct.unpack(">H", request[4:6])[0]
 
         async with self._lock:
-            await conn.send_data(request)
+            await self._send_data(conn, request)
 
             for attempt in range(max_stale_retries + 1):
                 response_data = await conn.receive_data()
@@ -525,7 +554,7 @@ class AsyncClient(ClientMixin):
         else:
             word_len = S7WordLen.BYTE
 
-        max_chunk = self._max_read_size()
+        max_chunk = self._read_chunk_count(word_len)
         if size <= max_chunk:
             request = self.protocol.build_read_request(
                 area=s7_area, db_number=db_number, start=start, word_len=word_len, count=size
@@ -541,7 +570,11 @@ class AsyncClient(ClientMixin):
         while remaining > 0:
             chunk_size = min(remaining, max_chunk)
             request = self.protocol.build_read_request(
-                area=s7_area, db_number=db_number, start=start + offset, word_len=word_len, count=chunk_size
+                area=s7_area,
+                db_number=db_number,
+                start=start + offset * self._element_address_step(word_len),
+                word_len=word_len,
+                count=chunk_size,
             )
             response = await self._send_receive(request)
             values = self.protocol.extract_read_data(response, word_len, chunk_size)
@@ -567,7 +600,7 @@ class AsyncClient(ClientMixin):
         else:
             word_len = S7WordLen.BYTE
 
-        max_chunk = self._max_write_size()
+        max_chunk = self._write_chunk_bytes(word_len, len(data))
         if len(data) <= max_chunk:
             request = self.protocol.build_write_request(
                 area=s7_area, db_number=db_number, start=start, word_len=word_len, data=bytes(data)
@@ -583,7 +616,11 @@ class AsyncClient(ClientMixin):
             chunk_size = min(remaining, max_chunk)
             chunk_data = data[offset : offset + chunk_size]
             request = self.protocol.build_write_request(
-                area=s7_area, db_number=db_number, start=start + offset, word_len=word_len, data=bytes(chunk_data)
+                area=s7_area,
+                db_number=db_number,
+                start=start + offset // S7DataTypes.get_size_bytes(word_len) * self._element_address_step(word_len),
+                word_len=word_len,
+                data=bytes(chunk_data),
             )
             response = await self._send_receive(request)
             self.protocol.check_write_response(response)
@@ -703,7 +740,7 @@ class AsyncClient(ClientMixin):
 
             async with self._lock:
                 followup = self.protocol.build_userdata_followup_request(group, subfunction, sequence_number)
-                await conn.send_data(followup)
+                await self._send_data(conn, followup)
                 response_data = await conn.receive_data()
 
             response = self.protocol.parse_response(response_data)
@@ -827,7 +864,7 @@ class AsyncClient(ClientMixin):
         )
 
         async with self._lock:
-            await conn.send_data(header + param_data + data_section)
+            await self._send_data(conn, header + param_data + data_section)
             response_data = await conn.receive_data()
         self.protocol.parse_response(response_data)
 
@@ -844,7 +881,7 @@ class AsyncClient(ClientMixin):
         )
 
         async with self._lock:
-            await conn.send_data(header + param_data)
+            await self._send_data(conn, header + param_data)
             response_data = await conn.receive_data()
         self.protocol.parse_response(response_data)
 
@@ -1017,7 +1054,7 @@ class AsyncClient(ClientMixin):
 
             async with self._lock:
                 followup = self.protocol.build_userdata_followup_request(group, subfunction, sequence_number)
-                await conn.send_data(followup)
+                await self._send_data(conn, followup)
                 response_data = await conn.receive_data()
 
             response = self.protocol.parse_response(response_data)
@@ -1073,6 +1110,109 @@ class AsyncClient(ClientMixin):
             raise S7ConnectionError("Not connected to PLC")
         return parse_protection_szl(await self.read_szl(0x0232, 0))
 
+    # ---------------------------------------------------------------
+    # Force I/O
+    # ---------------------------------------------------------------
+
+    _FORCE_AREAS: frozenset[int] = frozenset({Area.PE, Area.PA})
+
+    async def force_bit(self, area: Area, byte_offset: int, bit: int, value: bool) -> None:
+        """Force a single I/O bit in the process image.
+
+        Async equivalent of :meth:`snap7.client.Client.force_bit`.
+        """
+        if area not in self._FORCE_AREAS:
+            raise ValueError(f"Force is only supported for PE (inputs) and PA (outputs), got {area!r}")
+        if not 0 <= bit <= 7:
+            raise ValueError(f"Bit must be 0-7, got {bit}")
+
+        current = await self.read_area(area, 0, byte_offset, 1)
+        if value:
+            current[0] |= 1 << bit
+        else:
+            current[0] &= ~(1 << bit)
+        await self.write_area(area, 0, byte_offset, current)
+        logger.info(f"Forced {area.name} byte {byte_offset} bit {bit} = {value}")
+
+    async def cancel_force(self, area: Area, byte_offset: int, bit: int) -> None:
+        """Cancel a forced I/O bit by clearing it in the process image.
+
+        Async equivalent of :meth:`snap7.client.Client.cancel_force`.
+        """
+        if area not in self._FORCE_AREAS:
+            raise ValueError(f"Cancel force is only supported for PE (inputs) and PA (outputs), got {area!r}")
+        if not 0 <= bit <= 7:
+            raise ValueError(f"Bit must be 0-7, got {bit}")
+
+        current = await self.read_area(area, 0, byte_offset, 1)
+        current[0] &= ~(1 << bit)
+        await self.write_area(area, 0, byte_offset, current)
+        logger.info(f"Cancelled force on {area.name} byte {byte_offset} bit {bit}")
+
+    async def read_force_table(self) -> list[ForceEntry]:
+        """Read the PLC force table via SZL 0x0025.
+
+        Async equivalent of :meth:`snap7.client.Client.read_force_table`.
+        """
+        if not self.get_connected():
+            raise S7ConnectionError("Not connected to PLC")
+
+        try:
+            szl = await self.read_szl(0x0025, 0x0000)
+        except (S7ProtocolError, RuntimeError):
+            logger.debug("SZL 0x0025 not available; returning empty force table")
+            return []
+
+        raw = bytes(szl.Data[: szl.Header.LengthDR])
+        return _parse_force_szl(raw)
+
+    async def set_session_password(self, password: str) -> int:
+        """Set the session password to unlock a password-protected PLC.
+
+        Sends an S7 USERDATA request (function group 5, subfunction 1)
+        with the encoded password.
+
+        Args:
+            password: Plaintext password (max 8 ASCII characters).
+
+        Returns:
+            0 on success.
+
+        Raises:
+            ~snap7.error.S7ConnectionError: If not connected.
+            ~snap7.error.S7ProtocolError: If the PLC rejects the password.
+        """
+        if not self.get_connected():
+            raise S7ConnectionError("Not connected to PLC")
+
+        encoded = self.protocol.encode_password(password)
+        request = self.protocol.build_set_session_password_request(encoded)
+        response = await self._send_receive(request)
+        self.protocol.check_userdata_response(response)
+        logger.info("Session password set successfully")
+        return 0
+
+    async def clear_session_password(self) -> int:
+        """Clear the session password, returning to the default protection level.
+
+        Sends an S7 USERDATA request (function group 5, subfunction 2).
+
+        Returns:
+            0 on success.
+
+        Raises:
+            ~snap7.error.S7ConnectionError: If not connected.
+            ~snap7.error.S7ProtocolError: If the PLC rejects the request.
+        """
+        if not self.get_connected():
+            raise S7ConnectionError("Not connected to PLC")
+
+        request = self.protocol.build_clear_session_password_request()
+        response = await self._send_receive(request)
+        self.protocol.check_userdata_response(response)
+        logger.info("Session password cleared successfully")
+        return 0
+
     async def compress(self, timeout: int) -> int:
         """Compress PLC memory."""
         if not self.get_connected():
@@ -1100,7 +1240,7 @@ class AsyncClient(ClientMixin):
         conn = self._get_connection()
 
         async with self._lock:
-            await conn.send_data(bytes(data))
+            await self._send_data(conn, bytes(data))
             response = await conn.receive_data()
         return bytearray(response)
 

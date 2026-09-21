@@ -596,9 +596,23 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         delivery: str = "next_boundary",
         metadata: dict[str, Any] | None = None,
     ) -> CxPendingInjection:
+        # chat.pending_injection.organization_id is NOT NULL. A pending
+        # injection is a CHILD of its conversation — carry the parent's
+        # organization rather than defaulting or reading the caller's ambient
+        # request context (which need not match the target conversation's
+        # org for a cross-conversation "remember" write). Never assume.
+        rows = await CxConversation.filter(id=conversation_id).values("organization_id")
+        if not rows or not rows[0].get("organization_id"):
+            raise ValueError(
+                f"cannot enqueue a pending injection for conversation {conversation_id!r}: "
+                "its organization_id could not be resolved (conversation missing or "
+                "carries no organization)."
+            )
+        organization_id = rows[0]["organization_id"]
         return await self.create_item(
             id=injection_id,
             conversation_id=conversation_id,
+            organization_id=organization_id,
             created_by=created_by,
             kind=kind,
             content=content,

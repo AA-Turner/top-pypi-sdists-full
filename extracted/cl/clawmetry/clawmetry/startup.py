@@ -26,11 +26,12 @@ def record_progress(store, phase, done=0, total=0, complete=False):
     """Use the daemon's existing writer handle; never open a second writer."""
     previous = read_progress(store)
     now = time.time()
+    # A populated store is never held hostage while the daemon sweeps: that
+    # is decided in ``query_startup_status``, which ORs live ``has_data`` in
+    # on every read, so it covers rows that arrive AFTER this first write
+    # too. This record only has to remember that a sweep once finished --
+    # which is what keeps an empty install out of the screen on restart.
     initialized = bool(previous.get("initialized"))
-    if not previous:
-        # An upgrade is not a fresh install. Do not hold a populated store
-        # hostage while the restarted daemon refreshes its data.
-        initialized = store.query_startup_status()["has_data"]
     store.set_node_setting(SETTING, json.dumps({
         "initialized": initialized or complete,
         "phase": phase,

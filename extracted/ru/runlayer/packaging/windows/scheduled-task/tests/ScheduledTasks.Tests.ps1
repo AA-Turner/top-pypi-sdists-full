@@ -336,6 +336,13 @@ Describe "register-tasks.ps1" {
             Should -Invoke New-ScheduledTaskPrincipal -ParameterFilter {
                 $UserId -eq "SYSTEM" -and $LogonType -eq "ServiceAccount"
             }
+            Should -Invoke New-ScheduledTaskTrigger -Times 1 -Exactly -ParameterFilter { $AtStartup }
+            # Same 15-min cadence as AIWatchScan, staggered ~2 min off it.
+            Should -Invoke New-ScheduledTaskTrigger -Times 1 -Exactly -ParameterFilter {
+                $Once -and $RepetitionInterval.TotalMinutes -eq 15 -and
+                $At -gt (Get-Date).AddMinutes(1) -and
+                $At -lt (Get-Date).AddMinutes(3)
+            }
             Should -Invoke Register-ScheduledTask -ParameterFilter {
                 $TaskName -eq "AIWatchHooks" -and $TaskPath -eq "\Runlayer\" -and $Force -eq $true
             }

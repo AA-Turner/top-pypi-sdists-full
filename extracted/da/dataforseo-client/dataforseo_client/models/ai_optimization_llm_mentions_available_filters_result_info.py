@@ -16,8 +16,32 @@ class AiOptimizationLlmMentionsAvailableFiltersResultInfo(BaseModel):
     AiOptimizationLlmMentionsAvailableFiltersResultInfo
     """ # noqa: E501
     search: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    search_mentions: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    target_metrics: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    multi_target_metrics: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_domains: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_pages: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_brands: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_brand_categories: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    target_metrics_lite: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_domains_lite: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_pages_lite: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_brands_lite: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
+    top_mentioned_brand_categories_lite: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "search", 
+        "search_mentions", 
+        "target_metrics", 
+        "multi_target_metrics", 
+        "top_mentioned_domains", 
+        "top_mentioned_pages", 
+        "top_mentioned_brands", 
+        "top_mentioned_brand_categories", 
+        "target_metrics_lite", 
+        "top_mentioned_domains_lite", 
+        "top_mentioned_pages_lite", 
+        "top_mentioned_brands_lite", 
+        "top_mentioned_brand_categories_lite", 
         ]
 
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
@@ -45,6 +69,18 @@ class AiOptimizationLlmMentionsAvailableFiltersResultInfo(BaseModel):
         _dict = {}
 
         _dict['search'] = self.search
+        _dict['search_mentions'] = self.search_mentions
+        _dict['target_metrics'] = self.target_metrics
+        _dict['multi_target_metrics'] = self.multi_target_metrics
+        _dict['top_mentioned_domains'] = self.top_mentioned_domains
+        _dict['top_mentioned_pages'] = self.top_mentioned_pages
+        _dict['top_mentioned_brands'] = self.top_mentioned_brands
+        _dict['top_mentioned_brand_categories'] = self.top_mentioned_brand_categories
+        _dict['target_metrics_lite'] = self.target_metrics_lite
+        _dict['top_mentioned_domains_lite'] = self.top_mentioned_domains_lite
+        _dict['top_mentioned_pages_lite'] = self.top_mentioned_pages_lite
+        _dict['top_mentioned_brands_lite'] = self.top_mentioned_brands_lite
+        _dict['top_mentioned_brand_categories_lite'] = self.top_mentioned_brand_categories_lite
         return _dict
 
 
@@ -58,6 +94,18 @@ class AiOptimizationLlmMentionsAvailableFiltersResultInfo(BaseModel):
 
         _obj = cls.model_validate({
             "search": obj.get("search"),
+            "search_mentions": obj.get("search_mentions"),
+            "target_metrics": obj.get("target_metrics"),
+            "multi_target_metrics": obj.get("multi_target_metrics"),
+            "top_mentioned_domains": obj.get("top_mentioned_domains"),
+            "top_mentioned_pages": obj.get("top_mentioned_pages"),
+            "top_mentioned_brands": obj.get("top_mentioned_brands"),
+            "top_mentioned_brand_categories": obj.get("top_mentioned_brand_categories"),
+            "target_metrics_lite": obj.get("target_metrics_lite"),
+            "top_mentioned_domains_lite": obj.get("top_mentioned_domains_lite"),
+            "top_mentioned_pages_lite": obj.get("top_mentioned_pages_lite"),
+            "top_mentioned_brands_lite": obj.get("top_mentioned_brands_lite"),
+            "top_mentioned_brand_categories_lite": obj.get("top_mentioned_brand_categories_lite"),
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

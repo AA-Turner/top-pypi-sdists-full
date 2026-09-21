@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.32
+Version: 0.1.33
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -21,12 +21,22 @@ Requires-Dist: aiohttp<4.0,>=3.13.5
 Requires-Dist: openai[aiohttp]<3.0,>=2.45.0
 Requires-Dist: anthropic[aiohttp]<1.0,>=0.118.0
 Requires-Dist: mistralai<=2.4.5,>=2.4.5
-Requires-Dist: xai-sdk<2.0,>=1.7.0
+Requires-Dist: xai-sdk<2.0,>=1.19.0
 Requires-Dist: ai21<5.0,>=4.3.0
 Requires-Dist: boto3<2.0,>=1.38.27
 Requires-Dist: protobuf>=6.30.0
-Requires-Dist: google-genai[aiohttp]<3.0,>=2.2.0
+Requires-Dist: google-genai[aiohttp]<3.0,>=2.12.0
 Requires-Dist: google-cloud-storage<4.0,>=3.9.0
+Requires-Dist: google-auth<3.0,>=2.29.0
+Requires-Dist: websockets<16.0,>=15.0
+Provides-Extra: voice
+Requires-Dist: assemblyai<2.0,>=1.0.0; extra == "voice"
+Requires-Dist: cartesia<5.0,>=4.0.1; extra == "voice"
+Requires-Dist: deepgram-sdk<8.0,>=7.6.0; extra == "voice"
+Requires-Dist: elevenlabs<3.0,>=2.62.0; extra == "voice"
+Requires-Dist: google-cloud-speech<3.0,>=2.40.0; extra == "voice"
+Requires-Dist: amazon-transcribe<1.0,>=0.6.4; extra == "voice"
+Requires-Dist: azure-cognitiveservices-speech<2.0,>=1.42.0; extra == "voice"
 Provides-Extra: redshift-export
 Requires-Dist: pyarrow<23.0.0,>=18.0.0; extra == "redshift-export"
 Provides-Extra: server
@@ -62,6 +72,7 @@ pip install model-library
 | Use the installed Python library | [Usage](#usage) and [Environment setup](#environment-setup) |
 | Browse models from a repo checkout | [Browse models](#browse-models) |
 | Configure provider API keys | [API keys guide](docs/api-keys.md) |
+| Use speech-to-text | [Speech-to-text guide](docs/transcription.md) |
 | Run the gateway | [Gateway guide](docs/gateway.md) |
 | Run examples from a repo checkout | [Examples guide](examples/README.md) |
 | Run tests | [Tests guide](tests/README.md) |

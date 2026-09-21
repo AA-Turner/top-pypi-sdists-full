@@ -19,7 +19,7 @@ from dataforseo_client.models.appendix_business_data_limits_rates_data_info impo
 from dataforseo_client.models.appendix_backlinks_limits_rates_data_info import AppendixBacklinksLimitsRatesDataInfo
 from dataforseo_client.models.appendix_app_data_limits_rates_data_info import AppendixAppDataLimitsRatesDataInfo
 from dataforseo_client.models.appendix_content_analysis_limits_rates_data_info import AppendixContentAnalysisLimitsRatesDataInfo
-from dataforseo_client.models.appendix_content_generation_limits_rates_data_info import AppendixContentGenerationLimitsRatesDataInfo
+from dataforseo_client.models.appendix_ai_optimization_limits_rates_data_info import AppendixAiOptimizationLimitsRatesDataInfo
 
 
 
@@ -50,9 +50,8 @@ class AppendixDayLimitsRatesData(BaseModel):
     total_app_data: Optional[StrictFloat] = Field(default=None, description=r"")
     content_analysis: Optional[AppendixContentAnalysisLimitsRatesDataInfo] = Field(default=None, description=r"")
     total_content_analysis: Optional[StrictFloat] = Field(default=None, description=r"")
-    content_generation: Optional[AppendixContentGenerationLimitsRatesDataInfo] = Field(default=None, description=r"")
-    total_content_generation: Optional[StrictFloat] = Field(default=None, description=r"")
-    total_traffic_analytics: Optional[StrictFloat] = Field(default=None, description=r"")
+    ai_optimization: Optional[AppendixAiOptimizationLimitsRatesDataInfo] = Field(default=None, description=r"")
+    total_ai_optimization: Optional[StrictFloat] = Field(default=None, description=r"")
     total_reviews: Optional[StrictFloat] = Field(default=None, description=r"")
     total_social: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
@@ -79,9 +78,8 @@ class AppendixDayLimitsRatesData(BaseModel):
         "total_app_data", 
         "content_analysis", 
         "total_content_analysis", 
-        "content_generation", 
-        "total_content_generation", 
-        "total_traffic_analytics", 
+        "ai_optimization", 
+        "total_ai_optimization", 
         "total_reviews", 
         "total_social", 
         ]
@@ -133,9 +131,8 @@ class AppendixDayLimitsRatesData(BaseModel):
         _dict['total_app_data'] = self.total_app_data
         _dict['content_analysis'] = self.content_analysis.to_dict() if self.content_analysis else None
         _dict['total_content_analysis'] = self.total_content_analysis
-        _dict['content_generation'] = self.content_generation.to_dict() if self.content_generation else None
-        _dict['total_content_generation'] = self.total_content_generation
-        _dict['total_traffic_analytics'] = self.total_traffic_analytics
+        _dict['ai_optimization'] = self.ai_optimization.to_dict() if self.ai_optimization else None
+        _dict['total_ai_optimization'] = self.total_ai_optimization
         _dict['total_reviews'] = self.total_reviews
         _dict['total_social'] = self.total_social
         return _dict
@@ -173,9 +170,8 @@ class AppendixDayLimitsRatesData(BaseModel):
             "total_app_data": obj.get("total_app_data"),
             "content_analysis": AppendixContentAnalysisLimitsRatesDataInfo.from_dict(obj["content_analysis"]) if obj.get("content_analysis") is not None else None,
             "total_content_analysis": obj.get("total_content_analysis"),
-            "content_generation": AppendixContentGenerationLimitsRatesDataInfo.from_dict(obj["content_generation"]) if obj.get("content_generation") is not None else None,
-            "total_content_generation": obj.get("total_content_generation"),
-            "total_traffic_analytics": obj.get("total_traffic_analytics"),
+            "ai_optimization": AppendixAiOptimizationLimitsRatesDataInfo.from_dict(obj["ai_optimization"]) if obj.get("ai_optimization") is not None else None,
+            "total_ai_optimization": obj.get("total_ai_optimization"),
             "total_reviews": obj.get("total_reviews"),
             "total_social": obj.get("total_social"),
         })

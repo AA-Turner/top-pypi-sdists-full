@@ -1545,6 +1545,40 @@ _NO_PROGRESS_MARKERS = (
     "The agent's container is not running, so its workspace is closed",
     "The agent's container stopped answering and is marked faulty",
     "This agent's container has not been started yet",
+    # harness resident segments: a foreground wait the segment's window cannot hold (harness hooks.py - byte-matched prefixes)
+    "This segment's window closes in",
+    "This segment's window has closed",
+    # resident process tools: the one question door and the wait_for statements (harness process_tools.py / questions.py, byte-matched prefixes)
+    "Questions reach the person through `tell_user` with `questions`",
+    "Nothing was asked: each question needs its `text`",
+    "A wait needs `reason`",
+    "A wait takes exactly one of",
+    "`until` is an ISO-8601 UTC time",
+    "That time has passed",
+    "`event.source` is one of",
+    "`event.repo` names the repository",
+    "The finish is already recorded",
+    # agents service: a self-schedule asked from inside a resident process (self_schedules/crud.py, byte-matched prefix)
+    "This task is a resident process",
+    # shared-work gate on a resident process: the scope check and its stop, an approval hold that parked the segment,
+    # credentials carried in a git URL (harness hooks.py, byte-matched fragments after the tool placeholder)
+    "The person asked to stop here, so",
+    "The scope check (",
+    "waits for the person's approval. This process pauses here",
+    "Credentials for git ride the platform's helper on this machine",
+    # keep_alive without a job to hold the process for (harness process_tools.py)
+    "Noted; a keep-alive names a job",
+    # agent services desk: start/stop/list statements (harness services.py, byte-matched fragments after placeholders)
+    "A service name is lowercase letters, digits and dashes",
+    "A service needs a `command` to run",
+    "services, its cap; stop one with `stop_service`",
+    "Services bind 127.0.0.1 here",
+    "This agent's ports are",
+    "is taken on this machine right now",
+    "`ready` is `http:<url>`, `tcp:<port>` or `log:<regex>`",
+    "`cwd` stays inside your working tree",
+    "runs in this process; `list_services` shows the ones that do",
+    "exited right away with code",
     UNKNOWN_TOOL_PREFIX,
 )
 

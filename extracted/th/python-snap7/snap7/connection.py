@@ -10,7 +10,7 @@ import socket
 import struct
 import logging
 from enum import IntEnum
-from typing import Optional, Type
+from typing import Optional, Type, Union
 from types import TracebackType
 
 from .error import S7ConnectionError, S7TimeoutError
@@ -71,7 +71,7 @@ class ISOTCPConnection:
         host: str,
         port: int = 102,
         local_tsap: int = 0x0100,
-        remote_tsap: int = 0x0102,
+        remote_tsap: Union[int, bytes] = 0x0102,
         tpdu_size: TPDUSize = TPDUSize.S_1024,
     ):
         """
@@ -81,7 +81,8 @@ class ISOTCPConnection:
             host: Target PLC IP address
             port: TCP port (default 102 for S7)
             local_tsap: Local Transport Service Access Point
-            remote_tsap: Remote Transport Service Access Point
+            remote_tsap: Remote Transport Service Access Point (int for 2-byte TSAP,
+                         bytes for variable-length TSAP like b"SIMATIC-ROOT-HMI")
             tpdu_size: TPDU size to request during COTP negotiation
         """
         self.host = host
@@ -183,7 +184,7 @@ class ISOTCPConnection:
         # Send over TCP
         try:
             self.socket.sendall(tpkt_frame)
-            logger.debug(f"Sent {len(tpkt_frame)} bytes")
+            logger.debug(f"Sent {len(tpkt_frame)} bytes: {tpkt_frame.hex(' ')}")
         except socket.error as e:
             self.connected = False
             raise S7ConnectionError(f"Send failed: {e}")
@@ -210,12 +211,13 @@ class ISOTCPConnection:
 
             # Receive remaining data
             remaining = length - 4
-            if remaining <= 0:
+            if length < 7:
                 raise S7ConnectionError("Invalid TPKT length")
 
             payload = self._recv_exact(remaining)
 
             # Parse COTP header and extract data
+            logger.debug(f"Received TPKT: version={version} length={length} payload ({len(payload)} bytes): {payload.hex(' ')}")
             return self._parse_cotp_data(payload)
 
         except socket.timeout:
@@ -284,6 +286,8 @@ class ISOTCPConnection:
         - Length (2 bytes): Total frame length including header
         """
         length = len(payload) + 4
+        if not 7 <= length <= 65535:
+            raise S7ConnectionError("Invalid TPKT length: expected 7..65535 bytes")
         return struct.pack(">BBH", 3, 0, length) + payload
 
     def _build_cotp_cr(self) -> bytes:
@@ -309,11 +313,13 @@ class ISOTCPConnection:
         )
 
         # Add TSAP parameters
-        tsap_length = 2  # TSAP values are 2 bytes (unsigned short)
-        # Calling TSAP (local)
-        calling_tsap = struct.pack(">BBH", self.COTP_PARAM_CALLING_TSAP, tsap_length, self.local_tsap)
-        # Called TSAP (remote)
-        called_tsap = struct.pack(">BBH", self.COTP_PARAM_CALLED_TSAP, tsap_length, self.remote_tsap)
+        # Calling TSAP (local) - always 2 bytes
+        calling_tsap = struct.pack(">BBH", self.COTP_PARAM_CALLING_TSAP, 2, self.local_tsap)
+        # Called TSAP (remote) - can be 2-byte int or variable-length bytes (e.g. "SIMATIC-ROOT-HMI")
+        if isinstance(self.remote_tsap, bytes):
+            called_tsap = struct.pack(">BB", self.COTP_PARAM_CALLED_TSAP, len(self.remote_tsap)) + self.remote_tsap
+        else:
+            called_tsap = struct.pack(">BBH", self.COTP_PARAM_CALLED_TSAP, 2, self.remote_tsap)
         # PDU Size parameter (ISO 8073 code, e.g. 0x0A = 1024 bytes)
         pdu_size_param = struct.pack(">BBB", self.COTP_PARAM_PDU_SIZE, 1, self.tpdu_size)
 
@@ -411,6 +417,11 @@ class ISOTCPConnection:
             raise S7ConnectionError("Invalid COTP DT: too short")
 
         pdu_len, pdu_type, eot_num = struct.unpack(">BBB", cotp_pdu[:3])
+
+        if pdu_len != 2:
+            raise S7ConnectionError("Invalid COTP DT header length")
+        if eot_num & 0x7F:
+            raise S7ConnectionError("Invalid Class 0 COTP TPDU number")
 
         if pdu_type != self.COTP_DT:
             raise S7ConnectionError(f"Expected COTP DT, got {pdu_type:#02x}")

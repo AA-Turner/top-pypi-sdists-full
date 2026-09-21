@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from types import ModuleType
-from typing import Any, Generic, Literal as L, NamedTuple, Never, Protocol, Self, overload, override, type_check_only
+from typing import Any, Generic, Literal as L, NamedTuple, Never, Protocol, Self, overload, type_check_only
 from typing_extensions import TypeVar
 
 import numpy as np
@@ -107,15 +107,11 @@ _SignOrArrayT_co = TypeVar(
 _FloatOrArrayT2_co = TypeVar(
     "_FloatOrArrayT2_co", bound=float | _ScalarOrND[npc.floating], default=float | onp.ArrayND[np.float64], covariant=True
 )
-_F64OrArrayT_co = TypeVar(
-    "_F64OrArrayT_co", bound=np.float64 | onp.ArrayND[np.float64], default=np.float64 | onp.ArrayND[np.float64], covariant=True
-)
 _RealOrArrayT_co = TypeVar("_RealOrArrayT_co", bound=_ScalarOrND[_Real0D], default=_ScalarOrND[Any], covariant=True)
 
 type _Real0D = npc.integer | npc.floating
 
 type _ScalarOrND[SCT: np.generic] = SCT | onp.ArrayND[SCT]
-type _FloatOrND = _ScalarOrND[npc.floating]
 
 type _InterpolationMethod = L[
     "linear",
@@ -174,7 +170,7 @@ class _RVSCallable(Protocol):
 
 @type_check_only
 class _MADCenterFunc(Protocol):
-    def __call__(self, x: onp.Array1D[np.float64], /, *, axis: int | None) -> onp.ToFloat: ...
+    def __call__(self, x: onp.Array1D[np.float64], /, *, axis: Any) -> Any: ...
 
 @type_check_only
 class _TestResultTuple(NamedTuple, Generic[_FloatOrArrayT_co]):
@@ -191,10 +187,8 @@ class _TestResultBunch(  # zuban: ignore[type-var]
     def pvalue(self, /) -> _FloatOrArrayT2_co: ...
 
     #
-    @override
-    def __new__(_cls, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT2_co) -> Self: ...  # pyrefly:ignore[bad-override]
-    @override
-    def __init__(self, /, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT2_co) -> None: ...  # pyrefly:ignore[bad-override]
+    def __new__(_cls, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT2_co) -> Self: ...
+    def __init__(self, /, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT2_co) -> None: ...
 
 ###
 
@@ -283,12 +277,14 @@ class QuantileTestResult(Generic[_FloatT]):
     _nan_out: onp.Array1D[np.bool_]
     _xp: ModuleType
 
-    def confidence_interval(self, /, confidence_level: float = 0.95) -> ConfidenceInterval[_FloatT_co]: ...
+    def confidence_interval(self, /, confidence_level: float = 0.95) -> ConfidenceInterval[_FloatT]: ...
 
 class SignificanceResult(_TestResultBunch[_FloatOrArrayT_co, _FloatOrArrayT_co], Generic[_FloatOrArrayT_co]): ...
-class PearsonRResultBase(_TestResultBunch[_FloatOrArrayT_co, _F64OrArrayT_co], Generic[_FloatOrArrayT_co, _F64OrArrayT_co]): ...
+class PearsonRResultBase(
+    _TestResultBunch[_FloatOrArrayT_co, _FloatOrArrayT2_co], Generic[_FloatOrArrayT_co, _FloatOrArrayT2_co]
+): ...
 
-class PearsonRResult(PearsonRResultBase[_FloatOrArrayT_co, _F64OrArrayT_co], Generic[_FloatOrArrayT_co, _F64OrArrayT_co]):
+class PearsonRResult(PearsonRResultBase[_FloatOrArrayT_co, _FloatOrArrayT2_co], Generic[_FloatOrArrayT_co, _FloatOrArrayT2_co]):
     _alternative: Alternative
     _n: int
     _x: onp.ArrayND[_Real0D]
@@ -300,7 +296,7 @@ class PearsonRResult(PearsonRResultBase[_FloatOrArrayT_co, _F64OrArrayT_co], Gen
         self,
         /,
         statistic: _FloatOrArrayT_co,
-        pvalue: _F64OrArrayT_co,
+        pvalue: _FloatOrArrayT2_co,
         alternative: Alternative,
         n: int,
         x: onp.ArrayND[_Real0D],
@@ -316,10 +312,8 @@ class TtestResultBase(_TestResultBunch[_FloatOrArrayT_co, _FloatOrArrayT_co], Ge
     def df(self, /) -> _IntFloatOrArrayT_co: ...
 
     #
-    @override
-    def __new__(_cls, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT_co, *, df: _FloatOrArrayT_co) -> Self: ...  # pyrefly:ignore[bad-override]
-    @override
-    def __init__(self, /, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT_co, *, df: _FloatOrArrayT_co) -> None: ...  # pyrefly:ignore[bad-override]
+    def __new__(_cls, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT_co, *, df: _FloatOrArrayT_co) -> Self: ...
+    def __init__(self, /, statistic: _FloatOrArrayT_co, pvalue: _FloatOrArrayT_co, *, df: _FloatOrArrayT_co) -> None: ...
 
 class TtestResult(TtestResultBase[_FloatOrArrayT_co, _IntFloatOrArrayT_co], Generic[_FloatOrArrayT_co, _IntFloatOrArrayT_co]):
     _alternative: Alternative
@@ -329,8 +323,7 @@ class TtestResult(TtestResultBase[_FloatOrArrayT_co, _IntFloatOrArrayT_co], Gene
     _dtype: np.dtype[npc.floating]
     _xp: ModuleType
 
-    @override
-    def __init__(  # pyright: ignore[reportInconsistentConstructor]  # pyrefly:ignore[bad-override]
+    def __init__(  # pyright: ignore[reportInconsistentConstructor]
         self,
         /,
         statistic: _FloatOrArrayT_co,
@@ -351,8 +344,7 @@ class KstestResult(_TestResultBunch[_FloatOrArrayT_co, _FloatOrArrayT_co], Gener
     def statistic_sign(self, /) -> _SignOrArrayT_co: ...
 
     #
-    @override
-    def __new__(  # pyrefly:ignore[bad-override]
+    def __new__(
         _cls,
         statistic: _FloatOrArrayT_co,
         pvalue: _FloatOrArrayT_co,
@@ -360,8 +352,7 @@ class KstestResult(_TestResultBunch[_FloatOrArrayT_co, _FloatOrArrayT_co], Gener
         statistic_location: _FloatOrArrayT_co,
         statistic_sign: _SignOrArrayT_co,
     ) -> Self: ...
-    @override
-    def __init__(  # pyrefly:ignore[bad-override]
+    def __init__(
         self,
         /,
         statistic: _FloatOrArrayT_co,
@@ -2145,7 +2136,7 @@ def moment(
     *,
     center: float | None = None,
     keepdims: L[False] = False,
-) -> npc.floating | onp.ArrayND[npc.floating]: ...
+) -> np.float64 | Any | onp.ArrayND[np.float64 | Any]: ...
 @overload  # nd +floating, order: 0d, axis=None  (positional)
 def moment(
     a: onp.ToFloatND,
@@ -2155,7 +2146,7 @@ def moment(
     *,
     center: float | None = None,
     keepdims: L[False] = False,
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload  # nd +floating, order: 0d, axis=None  (keyword)
 def moment(
     a: onp.ToFloatND,
@@ -2165,7 +2156,7 @@ def moment(
     nan_policy: NanPolicy = "propagate",
     center: float | None = None,
     keepdims: L[False] = False,
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload  # nd +floating, order: nd
 def moment(
     a: onp.ToFloatND,
@@ -2175,7 +2166,7 @@ def moment(
     *,
     center: float | None = None,
     keepdims: L[False] = False,
-) -> onp.ArrayND[npc.floating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 @overload  # nd +floating, keepdims=True
 def moment(
     a: onp.ToFloatND,
@@ -2185,7 +2176,7 @@ def moment(
     *,
     center: float | None = None,
     keepdims: L[True],
-) -> onp.ArrayND[npc.floating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 
 # keep in sync with kurtosis
 @overload  # ?d ~f64
@@ -2317,15 +2308,15 @@ def skew[FloatT: npc.floating](
 @overload  # nd +floating
 def skew(
     a: onp.ToFloatND, axis: int = 0, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: L[False] = False
-) -> onp.ArrayND[npc.floating] | Any: ...
+) -> onp.ArrayND[np.float64 | Any] | Any: ...
 @overload  # nd +floating, axis=None
 def skew(
     a: onp.ToFloatND, axis: None, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: L[False] = False
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload  # nd +floating, keepdims=True
 def skew(
     a: onp.ToFloatND, axis: int | None = 0, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: L[True]
-) -> onp.ArrayND[npc.floating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 
 # keep in sync with skew
 @overload  # ?d ~f64
@@ -2477,7 +2468,7 @@ def kurtosis(
     nan_policy: NanPolicy = "propagate",
     *,
     keepdims: L[False] = False,
-) -> onp.ArrayND[npc.floating] | Any: ...
+) -> onp.ArrayND[np.float64 | Any] | Any: ...
 @overload  # nd +floating, axis=None
 def kurtosis(
     a: onp.ToFloatND,
@@ -2487,7 +2478,7 @@ def kurtosis(
     nan_policy: NanPolicy = "propagate",
     *,
     keepdims: L[False] = False,
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload  # nd +floating, keepdims=True
 def kurtosis(
     a: onp.ToFloatND,
@@ -2497,7 +2488,7 @@ def kurtosis(
     nan_policy: NanPolicy = "propagate",
     *,
     keepdims: L[True],
-) -> onp.ArrayND[npc.floating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 
 #
 @overload  # ?d T@integer, axis=None
@@ -3165,7 +3156,7 @@ def sem(
     keepdims: L[False] = False,
 ) -> np.float64: ...
 @overload  # >1d ~inexact64 | +integer, axis: int (default)
-def sem(
+def sem(  # type: ignore[overload-overlap]
     a: onp.CanArray[onp.AtLeast2D, np.dtype[npc.inexact64 | npc.integer | np.bool]] | Sequence[onp.SequenceND[complex]],
     axis: int = 0,
     ddof: int = 1,
@@ -3191,6 +3182,42 @@ def sem(
     *,
     keepdims: L[True],
 ) -> onp.ArrayND[np.float64]: ...
+@overload  # 1d ~inexact32, keepdims=False (default)
+def sem(
+    a: onp.ToArrayStrict1D[Never, npc.inexact32],
+    axis: L[0, -1] | None = 0,
+    ddof: int = 1,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float32: ...
+@overload  # >1d ~inexact32, axis: int (default)
+def sem(
+    a: onp.CanArray[onp.AtLeast2D, np.dtype[npc.inexact32]],
+    axis: int = 0,
+    ddof: int = 1,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: bool = False,
+) -> onp.ArrayND[np.float32]: ...
+@overload  # ?d ~inexact32, axis=None, keepdims=False (default)
+def sem(
+    a: onp.ToArrayND[Never, npc.inexact32],
+    axis: None,
+    ddof: int = 1,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float32: ...
+@overload  # ?d ~inexact32, keepdims=True
+def sem(
+    a: onp.ToArrayND[Never, npc.inexact32],
+    axis: int | None = 0,
+    ddof: int = 1,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[np.float32]: ...
 @overload  # 1d +complex, keepdims=False (default)
 def sem(
     a: onp.ToComplexStrict1D,
@@ -3199,7 +3226,7 @@ def sem(
     nan_policy: NanPolicy = "propagate",
     *,
     keepdims: L[False] = False,
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload  # >1d +complex, axis: int (default)
 def sem(
     a: onp.CanArray[onp.AtLeast2D, np.dtype[npc.number]],
@@ -3208,19 +3235,19 @@ def sem(
     nan_policy: NanPolicy = "propagate",
     *,
     keepdims: bool = False,
-) -> onp.ArrayND[npc.floating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 @overload  # ?d +complex, axis=None, keepdims=False (default)
 def sem(
     a: onp.ToComplexND, axis: None, ddof: int = 1, nan_policy: NanPolicy = "propagate", *, keepdims: L[False] = False
-) -> npc.floating: ...
+) -> np.float64 | Any: ...
 @overload  # ?d +complex, keepdims=True
 def sem(
     a: onp.ToComplexND, axis: int | None = 0, ddof: int = 1, nan_policy: NanPolicy = "propagate", *, keepdims: L[True]
-) -> onp.ArrayND[npc.floating]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 @overload  # ?d +complex
 def sem(
     a: onp.ToComplexND, axis: int | None = 0, ddof: int = 1, nan_policy: NanPolicy = "propagate", *, keepdims: bool = False
-) -> _FloatOrND: ...
+) -> onp.ArrayND[np.float64 | Any] | Any: ...
 
 # NOTE: keep in sync with `gzscore` and `zmap`
 @overload  # +integer, known shape
@@ -3261,11 +3288,11 @@ def zscore(
 @overload  # floating fallback
 def zscore(  # the weird shape-type is a workaround for a bug in pyright's overlapping overload detection on numpy<2.1
     a: onp.ToFloatND, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.floating, tuple[int] | tuple[Any, ...]]: ...
+) -> onp.ArrayND[np.float64 | Any, tuple[int] | tuple[Any, ...]]: ...
 @overload  # complex fallback
 def zscore(
     a: onp.ToJustComplexND, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.complexfloating]: ...
+) -> onp.ArrayND[np.complex128 | Any]: ...
 
 # NOTE: keep in sync with `zscore` and `zmap`
 @overload  # +integer, known shape
@@ -3307,11 +3334,11 @@ def gzscore(
 @overload  # floating fallback
 def gzscore(  # the weird shape-type is a workaround for a bug in pyright's overlapping overload detection on numpy<2.1
     a: onp.ToFloatND, *, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.floating, tuple[int] | tuple[Any, ...]]: ...
+) -> onp.ArrayND[np.float64 | Any, tuple[int] | tuple[Any, ...]]: ...
 @overload  # complex fallback
 def gzscore(
     a: onp.ToJustComplexND, *, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.complexfloating]: ...
+) -> onp.ArrayND[np.complex128 | Any]: ...
 
 # keep roughly in sync with `zscore` and `gzscore`
 @overload  # +integer, known shape
@@ -3397,7 +3424,7 @@ def zmap(
 @overload  # floating fallback
 def zmap(  # the weird shape-type is a workaround for a bug in pyright's overlapping overload detection on numpy<2.1
     scores: onp.ToFloatND, compare: onp.ToFloatND, axis: int | None = 0, ddof: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[npc.floating, tuple[int] | tuple[Any, ...]]: ...
+) -> onp.ArrayND[np.float64 | Any, tuple[int] | tuple[Any, ...]]: ...
 @overload  # complex fallback
 def zmap(
     scores: onp.ToComplexND,
@@ -3405,7 +3432,7 @@ def zmap(
     axis: int | None = 0,
     ddof: int = 0,
     nan_policy: NanPolicy = "propagate",
-) -> onp.ArrayND[npc.complexfloating]: ...
+) -> onp.ArrayND[np.complex128 | Any]: ...
 @overload  # complex fallback
 def zmap(
     scores: onp.ToJustComplexND,
@@ -3413,7 +3440,7 @@ def zmap(
     axis: int | None = 0,
     ddof: int = 0,
     nan_policy: NanPolicy = "propagate",
-) -> onp.ArrayND[npc.complexfloating]: ...
+) -> onp.ArrayND[np.complex128 | Any]: ...
 
 #
 @overload  # T@floating, axis=None (default)
@@ -3480,9 +3507,9 @@ def iqr(
 ) -> onp.ArrayND[np.float64]: ...
 
 #
-@overload
+@overload  # +f64, 1d
 def median_abs_deviation(
-    x: onp.ToFloatStrict1D,
+    x: onp.ToArrayStrict1D[float, npc.integer | np.bool],
     axis: int = 0,
     center: np.ufunc | _MADCenterFunc | None = None,
     scale: L["normal"] | float = 1.0,
@@ -3490,9 +3517,9 @@ def median_abs_deviation(
     *,
     keepdims: L[False] = False,
 ) -> np.float64: ...
-@overload
+@overload  # +f64, axis=None
 def median_abs_deviation(
-    x: onp.ToFloatND,
+    x: onp.ToArrayND[float, npc.integer | np.bool],
     axis: None,
     center: np.ufunc | _MADCenterFunc | None = None,
     scale: L["normal"] | float = 1.0,
@@ -3500,9 +3527,9 @@ def median_abs_deviation(
     *,
     keepdims: L[False] = False,
 ) -> np.float64: ...
-@overload
+@overload  # +f64, axis=<given>  (default)
 def median_abs_deviation(
-    x: onp.ToFloatND,
+    x: onp.ToArrayND[float, npc.integer | np.bool],
     axis: int = 0,
     center: np.ufunc | _MADCenterFunc | None = None,
     scale: L["normal"] | float = 1.0,
@@ -3510,9 +3537,9 @@ def median_abs_deviation(
     *,
     keepdims: L[False] = False,
 ) -> onp.ArrayND[np.float64] | Any: ...
-@overload
+@overload  # +f64, keepdims=True
 def median_abs_deviation(
-    x: onp.ToFloatND,
+    x: onp.ToArrayND[float, npc.integer | np.bool],
     axis: int | None = 0,
     center: np.ufunc | _MADCenterFunc | None = None,
     scale: L["normal"] | float = 1.0,
@@ -3520,6 +3547,46 @@ def median_abs_deviation(
     *,
     keepdims: L[True],
 ) -> onp.ArrayND[np.float64]: ...
+@overload  # T@floating, 1d
+def median_abs_deviation[FloatT: npc.floating](
+    x: onp.ToArrayStrict1D[FloatT, FloatT],
+    axis: int = 0,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> FloatT: ...
+@overload  # T@floating, axis=None
+def median_abs_deviation[FloatT: npc.floating](
+    x: onp.ToArrayND[FloatT, FloatT],
+    axis: None,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> FloatT: ...
+@overload  # T@floating, axis=<given>  (default)
+def median_abs_deviation[FloatT: npc.floating](
+    x: onp.ToArrayND[FloatT, FloatT],
+    axis: int = 0,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[FloatT] | Any: ...
+@overload  # T@floating, keepdims=True
+def median_abs_deviation[FloatT: npc.floating](
+    x: onp.ToArrayND[FloatT, FloatT],
+    axis: int | None = 0,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[FloatT]: ...
 
 #
 @overload
@@ -3543,11 +3610,35 @@ def sigmaclip(
     a: onp.ToFloatND, low: float = 4.0, high: float = 4.0, *, nan_policy: NanPolicy = "propagate"
 ) -> SigmaclipResult: ...
 
-# TODO(jorenham): improve
-def trimboth(a: onp.ToFloatND, proportiontocut: float, axis: int | None = 0) -> onp.ArrayND[_Real0D]: ...
+#
+@overload  # T@+floating
+def trimboth[ScalarT: npc.floating | npc.integer | np.bool](
+    a: onp.ArrayND[ScalarT], proportiontocut: float, axis: int | None = 0
+) -> onp.ArrayND[ScalarT]: ...
+@overload  # ~int
+def trimboth(a: onp.SequenceND[int], proportiontocut: float, axis: int | None = 0) -> onp.ArrayND[np.int_]: ...
+@overload  # ~float
+def trimboth(
+    a: onp.SequenceND[list[float]] | list[float], proportiontocut: float, axis: int | None = 0
+) -> onp.ArrayND[np.float64]: ...
+@overload  # fallback
+def trimboth(a: onp.ToFloatND, proportiontocut: float, axis: int | None = 0) -> onp.ArrayND[Any]: ...
 
-# TODO(jorenham): improve
-def trim1(a: onp.ToFloatND, proportiontocut: float, tail: _TrimTail = "right", axis: int | None = 0) -> onp.ArrayND[_Real0D]: ...
+#
+@overload  # T@+floating
+def trim1[ScalarT: npc.floating | npc.integer | np.bool](
+    a: onp.ArrayND[ScalarT], proportiontocut: float, tail: _TrimTail = "right", axis: int | None = 0
+) -> onp.ArrayND[ScalarT]: ...
+@overload  # ~int
+def trim1(
+    a: onp.SequenceND[int], proportiontocut: float, tail: _TrimTail = "right", axis: int | None = 0
+) -> onp.ArrayND[np.int_]: ...
+@overload  # ~float
+def trim1(
+    a: onp.SequenceND[list[float]] | list[float], proportiontocut: float, tail: _TrimTail = "right", axis: int | None = 0
+) -> onp.ArrayND[np.float64]: ...
+@overload  # fallback
+def trim1(a: onp.ToFloatND, proportiontocut: float, tail: _TrimTail = "right", axis: int | None = 0) -> onp.ArrayND[Any]: ...
 
 #
 @overload
@@ -3577,128 +3668,227 @@ def trim_mean(
 ) -> onp.ArrayND[np.float64]: ...
 
 #
-@overload  # ?d, ?d|1d
+@overload  # ?d +f64, ?d|1d +f64
 def f_oneway(
-    sample1: _ToFloatStrictND,
-    sample2: _ToFloatStrictND | onp.ToFloatStrict1D,
+    sample1: _AsFloat64StrictND,
+    sample2: _AsFloat64StrictND | _AsFloat64_1D,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[np.float64 | Any]: ...
-@overload  # ?d|1d, ?d
+@overload  # ?d|1d +f64, ?d +f64
 def f_oneway(
-    sample1: _ToFloatStrictND | onp.ToFloatStrict1D,
-    sample2: _ToFloatStrictND,
+    sample1: _AsFloat64StrictND | _AsFloat64_1D,
+    sample2: _AsFloat64StrictND,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[np.float64 | Any]: ...
-@overload  # ?d, 2d|3d
+@overload  # ?d f32, ?d f32
 def f_oneway(
-    sample1: _ToFloatStrictND,
-    sample2: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
+    sample1: _AsFloat32StrictND,
+    sample2: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
+    *samples: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
-) -> F_onewayResult[onp.ArrayND[np.float64]]: ...
-@overload  # 2d|3d, ?d
+) -> F_onewayResult[np.float32 | Any]: ...
+@overload  # 1d +f64, 1d +f64
 def f_oneway(
-    sample1: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
-    sample2: _ToFloatStrictND,
+    sample1: _AsFloat64_1D,
+    sample2: _AsFloat64_1D,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
-    equal_var: bool = True,
-    axis: int = 0,
-    nan_policy: NanPolicy = "propagate",
-    keepdims: L[False] = False,
-) -> F_onewayResult[onp.ArrayND[np.float64]]: ...
-@overload  # 1d, 1d
-def f_oneway(
-    sample1: onp.ToFloatStrict1D,
-    sample2: onp.ToFloatStrict1D,
-    /,
-    *samples: onp.ToFloatStrict1D,
+    *samples: _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[np.float64]: ...
-@overload  # 2d, <=2d
+@overload  # 1d ~f32, 1d ~f32
 def f_oneway(
-    sample1: onp.ToFloatStrict2D,
-    sample2: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    sample1: onp.ToJustFloat32Strict1D,
+    sample2: onp.ToJustFloat32Strict1D,
     /,
-    *samples: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: onp.ToJustFloat32Strict1D,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[np.float32]: ...
+@overload  # ?d +f64, 2d|3d +f64
+def f_oneway(
+    sample1: _AsFloat64StrictND,
+    sample2: _AsFloat64_2D | _AsFloat64_3D,
+    /,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[onp.ArrayND[np.float64]]: ...
+@overload  # 2d|3d +f64, ?d  +f64
+def f_oneway(
+    sample1: _AsFloat64_2D | _AsFloat64_3D,
+    sample2: _AsFloat64StrictND,
+    /,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[onp.ArrayND[np.float64]]: ...
+@overload  # ?d ~f32, 2d|3d ~f32
+def f_oneway(
+    sample1: _AsFloat32StrictND,
+    sample2: onp.ToJustFloat32Strict2D | onp.ToJustFloat32Strict3D,
+    /,
+    *samples: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[onp.ArrayND[np.float32]]: ...
+@overload  # 2d +f64, <=2d  +f64
+def f_oneway(
+    sample1: _AsFloat64_2D,
+    sample2: _AsFloat64_2D | _AsFloat64_1D,
+    /,
+    *samples: _AsFloat64_2D | _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[onp.Array1D[np.float64]]: ...
-@overload  # <=2d, 2d
+@overload  # <=2d +f64, 2d +f64
 def f_oneway(
-    sample1: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    sample2: onp.ToFloatStrict2D,
+    sample1: _AsFloat64_2D | _AsFloat64_1D,
+    sample2: _AsFloat64_2D,
     /,
-    *samples: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: _AsFloat64_2D | _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[onp.Array1D[np.float64]]: ...
-@overload  # 3d, <=3d
+@overload  # 2d ~f32, 2d ~f32
 def f_oneway(
-    sample1: onp.ToFloatStrict3D,
-    sample2: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    sample1: onp.ToJustFloat32Strict2D,
+    sample2: onp.ToJustFloat32Strict2D,
     /,
-    *samples: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: onp.ToJustFloat32Strict2D,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[onp.Array1D[np.float32]]: ...
+@overload  # 3d +f64, <=3d +f64
+def f_oneway(
+    sample1: _AsFloat64_3D,
+    sample2: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
+    /,
+    *samples: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[onp.Array2D[np.float64]]: ...
-@overload  # <=3d, 3d
+@overload  # <=3d +f64, 3d +f64
 def f_oneway(
-    sample1: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    sample2: onp.ToFloatStrict3D,
+    sample1: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
+    sample2: _AsFloat64_3D,
     /,
-    *samples: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[onp.Array2D[np.float64]]: ...
-@overload  # Nd, Nd
+@overload  # 3d ~f32, 3d ~f32
 def f_oneway(
-    sample1: onp.ToFloatND,
-    sample2: onp.ToFloatND,
+    sample1: onp.ToJustFloat32Strict3D,
+    sample2: onp.ToJustFloat32Strict3D,
     /,
-    *samples: onp.ToFloatND,
+    *samples: onp.ToJustFloat32Strict3D,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[onp.Array2D[np.float32]]: ...
+@overload  # Nd +f64, Nd +f64
+def f_oneway(
+    sample1: _AsFloat64_ND,
+    sample2: _AsFloat64_ND,
+    /,
+    *samples: _AsFloat64_ND,
     equal_var: bool = True,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[onp.ArrayND[np.float64] | Any]: ...
-@overload  # axis=None
+@overload  # Nd ~f32, Nd ~f32
 def f_oneway(
-    sample1: onp.ToFloatND,
-    sample2: onp.ToFloatND,
+    sample1: onp.ToJustFloat32_ND,
+    sample2: onp.ToJustFloat32_ND,
     /,
-    *samples: onp.ToFloatND,
+    *samples: onp.ToJustFloat32_ND,
+    equal_var: bool = True,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[onp.ArrayND[np.float32] | Any]: ...
+@overload  # ?d +f64, ?d +f64, axis=None
+def f_oneway(
+    sample1: _AsFloat64_ND,
+    sample2: _AsFloat64_ND,
+    /,
+    *samples: _AsFloat64_ND,
     equal_var: bool = True,
     axis: None,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> F_onewayResult[np.float64]: ...
-@overload  # keepdims=True
+@overload  # ?d ~f32, ?d ~f32, axis=None
+def f_oneway(
+    sample1: onp.ToJustFloat32_ND,
+    sample2: onp.ToJustFloat32_ND,
+    /,
+    *samples: onp.ToJustFloat32_ND,
+    equal_var: bool = True,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> F_onewayResult[np.float32]: ...
+@overload  # ?d +f64, ?d +f64, keepdims=True
+def f_oneway(
+    sample1: _AsFloat64_ND,
+    sample2: _AsFloat64_ND,
+    /,
+    *samples: _AsFloat64_ND,
+    equal_var: bool = True,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> F_onewayResult[onp.ArrayND[np.float64]]: ...
+@overload  # ?d ~f32, ?d ~f32, keepdims=True
+def f_oneway(
+    sample1: onp.ToJustFloat32_ND,
+    sample2: onp.ToJustFloat32_ND,
+    /,
+    *samples: onp.ToJustFloat32_ND,
+    equal_var: bool = True,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> F_onewayResult[onp.ArrayND[np.float32]]: ...
+@overload  # fallback
 def f_oneway(
     sample1: onp.ToFloatND,
     sample2: onp.ToFloatND,
@@ -3707,8 +3897,8 @@ def f_oneway(
     equal_var: bool = True,
     axis: int | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: L[True],
-) -> F_onewayResult[onp.ArrayND[np.float64]]: ...
+    keepdims: bool = False,
+) -> F_onewayResult[np.float64 | Any]: ...
 
 #
 @overload  # ?d ~f64 | +integer, axis=None
@@ -3889,7 +4079,7 @@ def pearsonr(
     axis: L[0, -1] | None = 0,
     alternative: Alternative = "two-sided",
     method: ResamplingMethod | None = None,
-) -> PearsonRResult[npc.floating, np.float64]: ...
+) -> PearsonRResult[np.float64 | Any, np.float64 | Any]: ...
 @overload  # ?d +integer | ~float64, +floating, axis=None
 def pearsonr(
     x: onp.ToJustFloat64_ND | onp.ToIntND,
@@ -3916,7 +4106,7 @@ def pearsonr(
     axis: None,
     alternative: Alternative = "two-sided",
     method: ResamplingMethod | None = None,
-) -> PearsonRResult[npc.floating, np.float64]: ...
+) -> PearsonRResult[np.float64 | Any, np.float64 | Any]: ...
 @overload  # >=2d +integer | ~float64, +floating
 def pearsonr(
     x: onp.CanArray[onp.AtLeast2D, np.dtype[npc.integer | npc.floating]] | Sequence[onp.SequenceND[float]],
@@ -3943,7 +4133,7 @@ def pearsonr(
     axis: int = 0,
     alternative: Alternative = "two-sided",
     method: ResamplingMethod | None = None,
-) -> PearsonRResult[onp.ArrayND[npc.floating], onp.ArrayND[np.float64]]: ...
+) -> PearsonRResult[onp.ArrayND[np.float64 | Any], onp.ArrayND[np.float64 | Any]]: ...
 @overload  # fallback
 def pearsonr(
     x: onp.ToFloatND,
@@ -3952,7 +4142,10 @@ def pearsonr(
     axis: int | None = 0,
     alternative: Alternative = "two-sided",
     method: ResamplingMethod | None = None,
-) -> PearsonRResult[npc.floating, np.float64] | PearsonRResult[onp.ArrayND[npc.floating], onp.ArrayND[np.float64]]: ...
+) -> (
+    PearsonRResult[np.float64 | Any, np.float64 | Any]
+    | PearsonRResult[onp.ArrayND[np.float64 | Any], onp.ArrayND[np.float64 | Any]]
+): ...
 
 #
 @overload  # ?d, ?d
@@ -5006,10 +5199,10 @@ def ttest_rel(
 ) -> TtestResult[onp.ArrayND[np.float64 | Any], onp.ArrayND[np.int_]] | TtestResult[np.float64 | Any, np.int_]: ...
 
 #
-@overload
+@overload  # 1d +f64
 def power_divergence(
-    f_obs: onp.ToFloatStrict1D,
-    f_exp: onp.ToFloatStrict1D | None = None,
+    f_obs: _AsFloat64_1D,
+    f_exp: _AsFloat64_1D | None = None,
     ddof: int = 0,
     axis: int | None = 0,
     lambda_: PowerDivergenceStatistic | float | None = None,
@@ -5017,10 +5210,21 @@ def power_divergence(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[np.float64]: ...
-@overload
+@overload  # 1d ~f32
 def power_divergence(
-    f_obs: onp.ToFloatND,
-    f_exp: onp.ToFloatND | None,
+    f_obs: onp.ToJustFloat32Strict1D,
+    f_exp: onp.ToJustFloat32Strict1D | None = None,
+    ddof: int = 0,
+    axis: int | None = 0,
+    lambda_: PowerDivergenceStatistic | float | None = None,
+    *,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[np.float32]: ...
+@overload  # ?d +f64, axis=None
+def power_divergence(
+    f_obs: _AsFloat64_ND,
+    f_exp: _AsFloat64_ND | None,
     ddof: int,
     axis: None,
     lambda_: PowerDivergenceStatistic | float | None = None,
@@ -5028,10 +5232,10 @@ def power_divergence(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[np.float64]: ...
-@overload
+@overload  # ?d +f64, axis=None (keyword)
 def power_divergence(
-    f_obs: onp.ToFloatND,
-    f_exp: onp.ToFloatND | None = None,
+    f_obs: _AsFloat64_ND,
+    f_exp: _AsFloat64_ND | None = None,
     ddof: int = 0,
     *,
     axis: None,
@@ -5039,10 +5243,10 @@ def power_divergence(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[np.float64]: ...
-@overload
+@overload  # ?d +f64, keepdims=True
 def power_divergence(
-    f_obs: onp.ToFloatND,
-    f_exp: onp.ToFloatND | None = None,
+    f_obs: _AsFloat64_ND,
+    f_exp: _AsFloat64_ND | None = None,
     ddof: int = 0,
     axis: int | None = 0,
     lambda_: PowerDivergenceStatistic | float | None = None,
@@ -5050,7 +5254,40 @@ def power_divergence(
     keepdims: L[True],
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # ?d ~f32, axis=None
+def power_divergence(
+    f_obs: onp.ToJustFloat32_ND,
+    f_exp: onp.ToJustFloat32_ND | None,
+    ddof: int,
+    axis: None,
+    lambda_: PowerDivergenceStatistic | float | None = None,
+    *,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[np.float32]: ...
+@overload  # ?d ~f32, axis=None (keyword)
+def power_divergence(
+    f_obs: onp.ToJustFloat32_ND,
+    f_exp: onp.ToJustFloat32_ND | None = None,
+    ddof: int = 0,
+    *,
+    axis: None,
+    lambda_: PowerDivergenceStatistic | float | None = None,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[np.float32]: ...
+@overload  # ?d ~f32, keepdims=True
+def power_divergence(
+    f_obs: onp.ToJustFloat32_ND,
+    f_exp: onp.ToJustFloat32_ND | None = None,
+    ddof: int = 0,
+    axis: int | None = 0,
+    lambda_: PowerDivergenceStatistic | float | None = None,
+    *,
+    keepdims: L[True],
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[onp.ArrayND[np.float32]]: ...
+@overload  # fallback
 def power_divergence(
     f_obs: onp.ToFloatND,
     f_exp: onp.ToFloatND | None = None,
@@ -5063,10 +5300,10 @@ def power_divergence(
 ) -> Power_divergenceResult[np.float64 | Any]: ...
 
 #
-@overload
+@overload  # 1d +f64
 def chisquare(
-    f_obs: onp.ToFloatStrict1D,
-    f_exp: onp.ToFloatStrict1D | None = None,
+    f_obs: _AsFloat64_1D,
+    f_exp: _AsFloat64_1D | None = None,
     ddof: int = 0,
     axis: int | None = 0,
     *,
@@ -5074,10 +5311,21 @@ def chisquare(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[np.float64]: ...
-@overload
+@overload  # 1d ~f32
 def chisquare(
-    f_obs: onp.ToFloatND,
-    f_exp: onp.ToFloatND | None,
+    f_obs: onp.ToJustFloat32Strict1D,
+    f_exp: onp.ToJustFloat32Strict1D | None = None,
+    ddof: int = 0,
+    axis: int | None = 0,
+    *,
+    sum_check: bool = True,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[np.float32]: ...
+@overload  # ?d +f64, axis=None
+def chisquare(
+    f_obs: _AsFloat64_ND,
+    f_exp: _AsFloat64_ND | None,
     ddof: int,
     axis: None,
     *,
@@ -5085,10 +5333,10 @@ def chisquare(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[np.float64]: ...
-@overload
+@overload  # ?d +f64, axis=None (keyword)
 def chisquare(
-    f_obs: onp.ToFloatND,
-    f_exp: onp.ToFloatND | None = None,
+    f_obs: _AsFloat64_ND,
+    f_exp: _AsFloat64_ND | None = None,
     ddof: int = 0,
     *,
     axis: None,
@@ -5096,10 +5344,10 @@ def chisquare(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[np.float64]: ...
-@overload
+@overload  # ?d +f64, keepdims=True
 def chisquare(
-    f_obs: onp.ToFloatND,
-    f_exp: onp.ToFloatND | None = None,
+    f_obs: _AsFloat64_ND,
+    f_exp: _AsFloat64_ND | None = None,
     ddof: int = 0,
     axis: int | None = 0,
     *,
@@ -5107,7 +5355,40 @@ def chisquare(
     keepdims: L[True],
     nan_policy: NanPolicy = "propagate",
 ) -> Power_divergenceResult[onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # ?d ~f32, axis=None
+def chisquare(
+    f_obs: onp.ToJustFloat32_ND,
+    f_exp: onp.ToJustFloat32_ND | None,
+    ddof: int,
+    axis: None,
+    *,
+    sum_check: bool = True,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[np.float32]: ...
+@overload  # ?d ~f32, axis=None (keyword)
+def chisquare(
+    f_obs: onp.ToJustFloat32_ND,
+    f_exp: onp.ToJustFloat32_ND | None = None,
+    ddof: int = 0,
+    *,
+    axis: None,
+    sum_check: bool = True,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[np.float32]: ...
+@overload  # ?d ~f32, keepdims=True
+def chisquare(
+    f_obs: onp.ToJustFloat32_ND,
+    f_exp: onp.ToJustFloat32_ND | None = None,
+    ddof: int = 0,
+    axis: int | None = 0,
+    *,
+    sum_check: bool = True,
+    keepdims: L[True],
+    nan_policy: NanPolicy = "propagate",
+) -> Power_divergenceResult[onp.ArrayND[np.float32]]: ...
+@overload  # fallback
 def chisquare(
     f_obs: onp.ToFloatND,
     f_exp: onp.ToFloatND | None = None,
@@ -5266,10 +5547,10 @@ def ks_1samp(
 ) -> KstestResult[np.float64 | Any, np.int8 | Any]: ...
 
 #
-@overload  # ?d, ?d|1d
+@overload  # ?d +f64, ?d|1d +f64
 def ks_2samp(
-    data1: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
-    data2: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape] | onp.ToFloatStrict1D,
+    data1: _AsFloat64StrictND,
+    data2: _AsFloat64StrictND | _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5277,10 +5558,21 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KstestResult[np.float64 | Any, np.int8 | Any]: ...
-@overload  # ?d|1d, ?d
+@overload  # ?d ~f32, ?d|1d ~f32
 def ks_2samp(
-    data1: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape] | onp.ToFloatStrict1D,
-    data2: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
+    data1: _AsFloat32StrictND,
+    data2: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KstestResult[np.float32 | Any, np.int8 | Any]: ...
+@overload  # ?d|1d +f64, ?d +f64
+def ks_2samp(
+    data1: _AsFloat64StrictND | _AsFloat64_1D,
+    data2: _AsFloat64StrictND,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5288,10 +5580,10 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KstestResult[np.float64 | Any, np.int8 | Any]: ...
-@overload  # ?d, 2d|3d
+@overload  # ?d +f64, 2d|3d +f64
 def ks_2samp(
-    data1: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
-    data2: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
+    data1: _AsFloat64StrictND,
+    data2: _AsFloat64_2D | _AsFloat64_3D,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5299,10 +5591,21 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> _KstestResultN: ...
-@overload  # 2d, ?d
+@overload  # ?d ~f32, 2d|3d ~f32
 def ks_2samp(
-    data1: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
-    data2: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
+    data1: _AsFloat32StrictND,
+    data2: onp.ToJustFloat32Strict2D | onp.ToJustFloat32Strict3D,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KstestResult[onp.ArrayND[np.float32], onp.ArrayND[np.int8]]: ...
+@overload  # 2d|3d +f64, ?d +f64
+def ks_2samp(
+    data1: _AsFloat64_2D | _AsFloat64_3D,
+    data2: _AsFloat64StrictND,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5310,10 +5613,43 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> _KstestResultN: ...
-@overload  # 1d, 1d
+@overload  # 2d +f64, <=2d +f64
 def ks_2samp(
-    data1: onp.ToFloatStrict1D,
-    data2: onp.ToFloatStrict1D,
+    data1: _AsFloat64_2D,
+    data2: _AsFloat64_2D | _AsFloat64_1D,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _KstestResult1: ...
+@overload  # <=2d +f64, 2d +f64
+def ks_2samp(
+    data1: _AsFloat64_2D | _AsFloat64_1D,
+    data2: _AsFloat64_2D,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> _KstestResult1: ...
+@overload  # 2d ~f32, 2d ~f32
+def ks_2samp(
+    data1: onp.ToJustFloat32Strict2D,
+    data2: onp.ToJustFloat32Strict2D,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KstestResult[onp.Array1D[np.float32], onp.Array1D[np.int8]]: ...
+@overload  # 1d +f64, 1d +f64
+def ks_2samp(
+    data1: _AsFloat64_1D,
+    data2: _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5321,32 +5657,21 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> _KstestResult0: ...
-@overload  # 2d, <=2d
+@overload  # 1d ~f32, 1d ~f32
 def ks_2samp(
-    data1: onp.ToFloatStrict2D,
-    data2: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    data1: onp.ToJustFloat32Strict1D,
+    data2: onp.ToJustFloat32Strict1D,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
-) -> _KstestResult1: ...
-@overload  # <=2d, 2d
+) -> KstestResult[np.float32, np.int8]: ...
+@overload  # 3d +f64, <=3d +f64
 def ks_2samp(
-    data1: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    data2: onp.ToFloatStrict2D,
-    alternative: Alternative = "two-sided",
-    method: _KS2TestMethod = "auto",
-    *,
-    axis: int = 0,
-    nan_policy: NanPolicy = "propagate",
-    keepdims: L[False] = False,
-) -> _KstestResult1: ...
-@overload  # 3d, <=3d
-def ks_2samp(
-    data1: onp.ToFloatStrict3D,
-    data2: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    data1: _AsFloat64_3D,
+    data2: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5354,10 +5679,10 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> _KstestResult2: ...
-@overload  # <=3d, 3d
+@overload  # <=3d +f64, 3d +f64
 def ks_2samp(
-    data1: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    data2: onp.ToFloatStrict3D,
+    data1: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
+    data2: _AsFloat64_3D,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
@@ -5365,7 +5690,29 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> _KstestResult2: ...
-@overload  # Nd
+@overload  # 3d ~f32, 3d ~f32
+def ks_2samp(
+    data1: onp.ToJustFloat32Strict3D,
+    data2: onp.ToJustFloat32Strict3D,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KstestResult[onp.Array2D[np.float32], onp.Array2D[np.int8]]: ...
+@overload  # Nd ~f32, Nd ~f32
+def ks_2samp(
+    data1: onp.ToJustFloat32_ND,
+    data2: onp.ToJustFloat32_ND,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KstestResult[np.float32 | Any, np.int8 | Any]: ...
+@overload  # Nd, Nd
 def ks_2samp(
     data1: onp.ToFloatND,
     data2: onp.ToFloatND,
@@ -5376,18 +5723,29 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KstestResult[np.float64 | Any, np.int8 | Any]: ...
-@overload  # keepdims=True
+@overload  # ?d ~f32, ?d ~f32, keepdims=True
 def ks_2samp(
-    data1: onp.ToFloatND,
-    data2: onp.ToFloatND,
+    data1: onp.ToJustFloat32_ND,
+    data2: onp.ToJustFloat32_ND,
     alternative: Alternative = "two-sided",
     method: _KS2TestMethod = "auto",
     *,
     axis: int | None = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[True],
-) -> _KstestResultN: ...
-@overload  # axis=None
+) -> KstestResult[onp.ArrayND[np.float32], onp.ArrayND[np.int8]]: ...
+@overload  # ?d ~f32, ?d ~f32, axis=None
+def ks_2samp(
+    data1: onp.ToJustFloat32_ND,
+    data2: onp.ToJustFloat32_ND,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KstestResult[np.float32, np.int8]: ...
+@overload  # fallback, axis=None
 def ks_2samp(
     data1: onp.ToFloatND,
     data2: onp.ToFloatND,
@@ -5398,6 +5756,17 @@ def ks_2samp(
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> _KstestResult0: ...
+@overload  # fallback, keepdims=True
+def ks_2samp(
+    data1: onp.ToFloatND,
+    data2: onp.ToFloatND,
+    alternative: Alternative = "two-sided",
+    method: _KS2TestMethod = "auto",
+    *,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> _KstestResultN: ...
 
 # 1-sample iff `cdf` is a name or callable
 @overload  # 1-sample, ?d
@@ -6001,117 +6370,207 @@ def ranksums(
 ) -> RanksumsResult[onp.ArrayND[np.float64]]: ...
 
 #
-@overload  # ?d, ?d|1d
+@overload  # ?d +f64, ?d|1d +f64
 def kruskal(
-    sample1: _ToFloatStrictND,
-    sample2: _ToFloatStrictND | onp.ToFloatStrict1D,
+    sample1: _AsFloat64StrictND,
+    sample2: _AsFloat64StrictND | _AsFloat64_1D,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[np.float64 | Any]: ...
-@overload  # ?d|1d, ?d
+@overload  # ?d|1d +f64, ?d +f64
 def kruskal(
-    sample1: _ToFloatStrictND | onp.ToFloatStrict1D,
-    sample2: _ToFloatStrictND,
+    sample1: _AsFloat64StrictND | _AsFloat64_1D,
+    sample2: _AsFloat64StrictND,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[np.float64 | Any]: ...
-@overload  # ?d, 2d|3d
+@overload  # ?d ~f32, ?d|1d ~f32
 def kruskal(
-    sample1: _ToFloatStrictND,
-    sample2: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
+    sample1: _AsFloat32StrictND,
+    sample2: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
+    *samples: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
-) -> KruskalResult[onp.ArrayND[np.float64]]: ...
-@overload  # 2d|3d, ?d
+) -> KruskalResult[np.float32 | Any]: ...
+@overload  # 1d +f64, 1d +f64
 def kruskal(
-    sample1: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
-    sample2: _ToFloatStrictND,
+    sample1: _AsFloat64_1D,
+    sample2: _AsFloat64_1D,
     /,
-    *samples: _ToFloatStrictND | onp.ToFloatStrict1D,
-    axis: int = 0,
-    nan_policy: NanPolicy = "propagate",
-    keepdims: L[False] = False,
-) -> KruskalResult[onp.ArrayND[np.float64]]: ...
-@overload  # 1d, 1d
-def kruskal(
-    sample1: onp.ToFloatStrict1D,
-    sample2: onp.ToFloatStrict1D,
-    /,
-    *samples: onp.ToFloatStrict1D,
+    *samples: _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[np.float64]: ...
-@overload  # 2d, <=2d
+@overload  # 1d ~f32, 1d ~f32
 def kruskal(
-    sample1: onp.ToFloatStrict2D,
-    sample2: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    sample1: onp.ToJustFloat32Strict1D,
+    sample2: onp.ToJustFloat32Strict1D,
     /,
-    *samples: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: onp.ToJustFloat32Strict1D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[np.float32]: ...
+@overload  # ?d +f64, 2d|3d +f64
+def kruskal(
+    sample1: _AsFloat64StrictND,
+    sample2: _AsFloat64_2D | _AsFloat64_3D,
+    /,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[onp.ArrayND[np.float64]]: ...
+@overload  # 2d|3d +f64, ?d +f64
+def kruskal(
+    sample1: _AsFloat64_2D | _AsFloat64_3D,
+    sample2: _AsFloat64StrictND,
+    /,
+    *samples: _AsFloat64StrictND | _AsFloat64_1D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[onp.ArrayND[np.float64]]: ...
+@overload  # ?d ~f32, 2d|3d ~f32
+def kruskal(
+    sample1: _AsFloat32StrictND,
+    sample2: onp.ToJustFloat32Strict2D | onp.ToJustFloat32Strict3D,
+    /,
+    *samples: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[onp.ArrayND[np.float32]]: ...
+@overload  # 2d +f64, <=2d +f64
+def kruskal(
+    sample1: _AsFloat64_2D,
+    sample2: _AsFloat64_2D | _AsFloat64_1D,
+    /,
+    *samples: _AsFloat64_2D | _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[onp.Array1D[np.float64]]: ...
-@overload  # <=2d, 2d
+@overload  # <=2d +f64, 2d +f64
 def kruskal(
-    sample1: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    sample2: onp.ToFloatStrict2D,
+    sample1: _AsFloat64_2D | _AsFloat64_1D,
+    sample2: _AsFloat64_2D,
     /,
-    *samples: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: _AsFloat64_2D | _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[onp.Array1D[np.float64]]: ...
-@overload  # 3d, <=3d
+@overload  # 2d ~f32, 2d ~f32
 def kruskal(
-    sample1: onp.ToFloatStrict3D,
-    sample2: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    sample1: onp.ToJustFloat32Strict2D,
+    sample2: onp.ToJustFloat32Strict2D,
     /,
-    *samples: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: onp.ToJustFloat32Strict2D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[onp.Array1D[np.float32]]: ...
+@overload  # 3d +f64, <=3d +f64
+def kruskal(
+    sample1: _AsFloat64_3D,
+    sample2: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
+    /,
+    *samples: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[onp.Array2D[np.float64]]: ...
-@overload  # <=3d, 3d
+@overload  # <=3d +f64, 3d +f64
 def kruskal(
-    sample1: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    sample2: onp.ToFloatStrict3D,
+    sample1: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
+    sample2: _AsFloat64_3D,
     /,
-    *samples: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    *samples: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[onp.Array2D[np.float64]]: ...
-@overload  # Nd, Nd
+@overload  # 3d ~f32, 3d ~f32
 def kruskal(
-    sample1: onp.ToFloatND,
-    sample2: onp.ToFloatND,
+    sample1: onp.ToJustFloat32Strict3D,
+    sample2: onp.ToJustFloat32Strict3D,
     /,
-    *samples: onp.ToFloatND,
+    *samples: onp.ToJustFloat32Strict3D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[onp.Array2D[np.float32]]: ...
+@overload  # Nd +f64, Nd +f64
+def kruskal(
+    sample1: _AsFloat64_ND,
+    sample2: _AsFloat64_ND,
+    /,
+    *samples: _AsFloat64_ND,
     axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[onp.ArrayND[np.float64] | Any]: ...
-@overload  # axis=None
+@overload  # Nd ~f32, Nd ~f32
 def kruskal(
-    sample1: onp.ToFloatND,
-    sample2: onp.ToFloatND,
+    sample1: onp.ToJustFloat32_ND,
+    sample2: onp.ToJustFloat32_ND,
     /,
-    *samples: onp.ToFloatND,
+    *samples: onp.ToJustFloat32_ND,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[onp.ArrayND[np.float32] | Any]: ...
+@overload  # ?d +f64, ?d +f64, axis=None
+def kruskal(
+    sample1: _AsFloat64_ND,
+    sample2: _AsFloat64_ND,
+    /,
+    *samples: _AsFloat64_ND,
     axis: None,
     nan_policy: NanPolicy = "propagate",
     keepdims: L[False] = False,
 ) -> KruskalResult[np.float64]: ...
-@overload  # keepdims=True
+@overload  # ?d ~f32, ?d ~f32, axis=None
+def kruskal(
+    sample1: onp.ToJustFloat32_ND,
+    sample2: onp.ToJustFloat32_ND,
+    /,
+    *samples: onp.ToJustFloat32_ND,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> KruskalResult[np.float32]: ...
+@overload  # ?d +f64, ?d +f64, keepdims=True
+def kruskal(
+    sample1: _AsFloat64_ND,
+    sample2: _AsFloat64_ND,
+    /,
+    *samples: _AsFloat64_ND,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> KruskalResult[onp.ArrayND[np.float64]]: ...
+@overload  # ?d ~f32, ?d ~f32, keepdims=True
+def kruskal(
+    sample1: onp.ToJustFloat32_ND,
+    sample2: onp.ToJustFloat32_ND,
+    /,
+    *samples: onp.ToJustFloat32_ND,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[True],
+) -> KruskalResult[onp.ArrayND[np.float32]]: ...
+@overload  # fallback
 def kruskal(
     sample1: onp.ToFloatND,
     sample2: onp.ToFloatND,
@@ -6119,8 +6578,8 @@ def kruskal(
     *samples: onp.ToFloatND,
     axis: int | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: L[True],
-) -> KruskalResult[onp.ArrayND[np.float64]]: ...
+    keepdims: bool = False,
+) -> KruskalResult[np.float64 | Any]: ...
 
 #
 @overload  # ?d ~f64 | +integer, axis=None
@@ -6323,10 +6782,10 @@ def friedmanchisquare(
 ) -> FriedmanchisquareResult[np.float64 | Any]: ...
 
 #
-@overload  # ?d, ?d|1d
+@overload  # ?d +f64, ?d|1d +f64
 def brunnermunzel(
-    x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
-    y: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape] | onp.ToFloatStrict1D,
+    x: _AsFloat64StrictND,
+    y: _AsFloat64StrictND | _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6334,10 +6793,10 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[np.float64 | Any]: ...
-@overload  # ?d|1d, ?d
+@overload  # ?d|1d +f64, ?d +f64
 def brunnermunzel(
-    x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape] | onp.ToFloatStrict1D,
-    y: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
+    x: _AsFloat64StrictND | _AsFloat64_1D,
+    y: _AsFloat64StrictND,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6345,32 +6804,21 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[np.float64 | Any]: ...
-@overload  # ?d, 2d|3d
+@overload  # ?d ~f32, ?d|1d ~f32
 def brunnermunzel(
-    x: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
-    y: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
+    x: _AsFloat32StrictND,
+    y: _AsFloat32StrictND | onp.ToJustFloat32Strict1D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
     *,
     axis: int = 0,
     keepdims: L[False] = False,
-) -> BrunnerMunzelResult[onp.ArrayND[np.float64]]: ...
-@overload  # 2d|3d, ?d
+) -> BrunnerMunzelResult[np.float32 | Any]: ...
+@overload  # 1d +f64, 1d +f64
 def brunnermunzel(
-    x: onp.ToFloatStrict2D | onp.ToFloatStrict3D,
-    y: onp.ArrayND[npc.floating | npc.integer, _JustAnyShape],
-    alternative: Alternative = "two-sided",
-    distribution: L["t", "normal"] = "t",
-    nan_policy: NanPolicy = "propagate",
-    *,
-    axis: int = 0,
-    keepdims: L[False] = False,
-) -> BrunnerMunzelResult[onp.ArrayND[np.float64]]: ...
-@overload  # 1d, 1d
-def brunnermunzel(
-    x: onp.ToFloatStrict1D,
-    y: onp.ToFloatStrict1D,
+    x: _AsFloat64_1D,
+    y: _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6378,10 +6826,54 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[np.float64]: ...
-@overload  # 2d, <=2d
+@overload  # 1d ~f32, 1d ~f32
 def brunnermunzel(
-    x: onp.ToFloatStrict2D,
-    y: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    x: onp.ToJustFloat32Strict1D,
+    y: onp.ToJustFloat32Strict1D,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[np.float32]: ...
+@overload  # ?d +f64, 2d|3d +f64
+def brunnermunzel(
+    x: _AsFloat64StrictND,
+    y: _AsFloat64_2D | _AsFloat64_3D,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[onp.ArrayND[np.float64]]: ...
+@overload  # 2d|3d +f64, ?d +f64
+def brunnermunzel(
+    x: _AsFloat64_2D | _AsFloat64_3D,
+    y: _AsFloat64StrictND,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[onp.ArrayND[np.float64]]: ...
+@overload  # ?d ~f32, 2d|3d ~f32
+def brunnermunzel(
+    x: _AsFloat32StrictND,
+    y: onp.ToJustFloat32Strict2D | onp.ToJustFloat32Strict3D,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[onp.ArrayND[np.float32]]: ...
+@overload  # 2d +f64, <=2d +f64
+def brunnermunzel(
+    x: _AsFloat64_2D,
+    y: _AsFloat64_2D | _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6389,10 +6881,10 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[onp.Array1D[np.float64]]: ...
-@overload  # <=2d, 2d
+@overload  # <=2d +f64, 2d +f64
 def brunnermunzel(
-    x: onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    y: onp.ToFloatStrict2D,
+    x: _AsFloat64_2D | _AsFloat64_1D,
+    y: _AsFloat64_2D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6400,10 +6892,21 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[onp.Array1D[np.float64]]: ...
-@overload  # 3d, <=3d
+@overload  # 2d ~f32, 2d ~f32
 def brunnermunzel(
-    x: onp.ToFloatStrict3D,
-    y: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
+    x: onp.ToJustFloat32Strict2D,
+    y: onp.ToJustFloat32Strict2D,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[onp.Array1D[np.float32]]: ...
+@overload  # 3d +f64, <=3d +f64
+def brunnermunzel(
+    x: _AsFloat64_3D,
+    y: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6411,10 +6914,10 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[onp.Array2D[np.float64]]: ...
-@overload  # <=3d, 3d
+@overload  # <=3d +f64, 3d +f64
 def brunnermunzel(
-    x: onp.ToFloatStrict3D | onp.ToFloatStrict2D | onp.ToFloatStrict1D,
-    y: onp.ToFloatStrict3D,
+    x: _AsFloat64_3D | _AsFloat64_2D | _AsFloat64_1D,
+    y: _AsFloat64_3D,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6422,10 +6925,21 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[onp.Array2D[np.float64]]: ...
-@overload  # Nd, Nd
+@overload  # 3d ~f32, 3d ~f32
 def brunnermunzel(
-    x: onp.ToFloatND,
-    y: onp.ToFloatND,
+    x: onp.ToJustFloat32Strict3D,
+    y: onp.ToJustFloat32Strict3D,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[onp.Array2D[np.float32]]: ...
+@overload  # Nd +f64, Nd +f64
+def brunnermunzel(
+    x: _AsFloat64_ND,
+    y: _AsFloat64_ND,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6433,10 +6947,21 @@ def brunnermunzel(
     axis: int = 0,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[onp.ArrayND[np.float64] | Any]: ...
-@overload  # axis=None
+@overload  # Nd ~f32, Nd ~f32
 def brunnermunzel(
-    x: onp.ToFloatND,
-    y: onp.ToFloatND,
+    x: onp.ToJustFloat32_ND,
+    y: onp.ToJustFloat32_ND,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[onp.ArrayND[np.float32] | Any]: ...
+@overload  # ?d +f64, ?d +f64, axis=None
+def brunnermunzel(
+    x: _AsFloat64_ND,
+    y: _AsFloat64_ND,
     alternative: Alternative = "two-sided",
     distribution: L["t", "normal"] = "t",
     nan_policy: NanPolicy = "propagate",
@@ -6444,7 +6969,40 @@ def brunnermunzel(
     axis: None,
     keepdims: L[False] = False,
 ) -> BrunnerMunzelResult[np.float64]: ...
-@overload  # keepdims=True
+@overload  # ?d ~f32, ?d ~f32, axis=None
+def brunnermunzel(
+    x: onp.ToJustFloat32_ND,
+    y: onp.ToJustFloat32_ND,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: None,
+    keepdims: L[False] = False,
+) -> BrunnerMunzelResult[np.float32]: ...
+@overload  # ?d +f64, ?d +f64, keepdims=True
+def brunnermunzel(
+    x: _AsFloat64_ND,
+    y: _AsFloat64_ND,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+) -> BrunnerMunzelResult[onp.ArrayND[np.float64]]: ...
+@overload  # ?d ~f32, ?d ~f32, keepdims=True
+def brunnermunzel(
+    x: onp.ToJustFloat32_ND,
+    y: onp.ToJustFloat32_ND,
+    alternative: Alternative = "two-sided",
+    distribution: L["t", "normal"] = "t",
+    nan_policy: NanPolicy = "propagate",
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+) -> BrunnerMunzelResult[onp.ArrayND[np.float32]]: ...
+@overload  # fallback
 def brunnermunzel(
     x: onp.ToFloatND,
     y: onp.ToFloatND,
@@ -6453,8 +7011,8 @@ def brunnermunzel(
     nan_policy: NanPolicy = "propagate",
     *,
     axis: int | None = 0,
-    keepdims: L[True],
-) -> BrunnerMunzelResult[onp.ArrayND[np.float64]]: ...
+    keepdims: bool = False,
+) -> BrunnerMunzelResult[np.float64 | Any]: ...
 
 #
 @overload  # ?d T@floating
@@ -6681,7 +7239,7 @@ def rankdata[ShapeT: tuple[int, ...]](
 @overload  # shape: T, axis: int
 def rankdata[ShapeT: tuple[int, ...]](
     a: onp.Array[ShapeT], method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[Any, ShapeT]: ...
+) -> onp.ArrayND[np.float64 | Any, ShapeT]: ...
 @overload  # shape: 1d, axis: int
 def rankdata(
     a: Sequence[float], method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
@@ -6697,7 +7255,7 @@ def rankdata(
 @overload  # shape: ?, axis: int
 def rankdata(
     a: onp.ToArrayND, method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[Any]: ...
+) -> onp.ArrayND[np.float64 | Any]: ...
 
 #
 @overload  # axis=None (default)

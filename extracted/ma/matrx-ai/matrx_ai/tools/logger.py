@@ -1348,3 +1348,78 @@ class ToolExecutionLogger:
                 cost_usd += child_cost if child_cost is not None else 0.0
 
         return input_tokens, output_tokens, Decimal(str(cost_usd))
+
+
+# ---------------------------------------------------------------------------
+# Content-gate verdict — why part of a result is missing, on the row itself
+# ---------------------------------------------------------------------------
+#
+# When the tool-result content gate withholds sections of an oversized result,
+# the agent gets a notice naming what was held back. That notice lives in the
+# conversation and is gone once the turn is trimmed. The DURABLE record of the
+# same decision goes here, on ``chat.tool_call.metadata -> 'gate_verdict'``, so
+# the re-fetch surface (chat.vw_tool_gate_verdict) can show WHY a section is
+# missing rather than only that something is.
+#
+# It rides the existing jsonb column deliberately: the verdict is a small audit
+# fact about one row, not a queryable dimension, and adding a column for an event
+# that fires on ~1.8% of retained results would be a schema change earning
+# nothing. Read-modify-write is acceptable at that rate.
+#
+# Best-effort and fire-and-forget by contract: a failed audit write must never
+# cost the agent its tool result.
+
+#: Metadata key the verdict is written under. One constant so the writer here and
+#: any reader (view, admin surface, test) cannot drift.
+GATE_VERDICT_METADATA_KEY = "gate_verdict"
+
+
+async def _write_gate_verdict(
+    *, call_id: str, conversation_id: str | None, verdict: dict[str, Any]
+) -> None:
+    row_id = _TOOL_CALL_ROW_BY_CALL_ID.get(_call_row_key(conversation_id, call_id) or "")
+    if not row_id:
+        matches = await _cxm().tool_call.filter_items(
+            call_id=call_id, conversation_id=conversation_id
+        )
+        if not matches:
+            vcprint(
+                f"[ToolLogger] gate verdict for call_id={call_id} could not be "
+                f"recorded — no chat.tool_call row is known in either the "
+                f"in-process registry or the DB. The agent still received the "
+                f"notice; only the durable audit copy is missing.",
+                color="yellow",
+            )
+            return
+        row_id = str(matches[0].id)
+        existing = getattr(matches[0], "metadata", None)
+    else:
+        rows = await _cxm().tool_call.filter_items(id=row_id)
+        existing = getattr(rows[0], "metadata", None) if rows else None
+    metadata = dict(existing) if isinstance(existing, dict) else {}
+    metadata[GATE_VERDICT_METADATA_KEY] = verdict
+    await _cxm().tool_call.update_item_fields(row_id, metadata=metadata)
+
+
+def record_gate_verdict_on_row(
+    *, call_id: str, conversation_id: str | None, verdict: dict[str, Any]
+) -> None:
+    """Stamp one content-gate verdict onto its tool-call row. Never raises."""
+    if not call_id or not isinstance(verdict, dict):
+        return
+    try:
+        from matrx_utils import detached_task
+
+        detached_task(
+            _write_gate_verdict(
+                call_id=call_id, conversation_id=conversation_id, verdict=verdict
+            ),
+            name="tool_call_gate_verdict",
+        )
+    except Exception as exc:  # noqa: BLE001 — an audit write never breaks a result
+        vcprint(
+            f"[ToolLogger] gate verdict for call_id={call_id} could not be queued "
+            f"({type(exc).__name__}: {exc}). The agent still received the notice; "
+            f"only the durable audit copy is missing.",
+            color="yellow",
+        )

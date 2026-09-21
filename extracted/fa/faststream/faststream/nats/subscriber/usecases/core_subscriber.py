@@ -67,7 +67,7 @@ class CoreSubscriber(DefaultSubscriber["Msg"]):
         except TimeoutError:
             return None
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
 
         async_parser, async_decoder = self._get_parser_and_decoder()
 
@@ -82,7 +82,7 @@ class CoreSubscriber(DefaultSubscriber["Msg"]):
         return msg
 
     @override
-    async def __aiter__(self) -> AsyncIterator["NatsMessage"]:  # type: ignore[override]
+    async def __aiter__(self) -> AsyncIterator["NatsMessage"]:
         assert not self.calls, (
             "You can't use iterator if subscriber has registered handlers."
         )
@@ -96,7 +96,7 @@ class CoreSubscriber(DefaultSubscriber["Msg"]):
         else:
             fetch_sub = self._fetch_sub
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         async for raw_message in fetch_sub.messages:

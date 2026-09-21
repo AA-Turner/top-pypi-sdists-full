@@ -255,6 +255,8 @@ class TasksManager(TasksBase):
         self,
         user_id: str,
         title: str,
+        *,
+        organization_id: str,
         description: str = "",
         project_id: str | None = None,
         parent_task_id: str | None = None,
@@ -267,10 +269,21 @@ class TasksManager(TasksBase):
         """
         Create a new task.  Explicit parameters only — immutable fields
         like id and created_at are never accepted.
+
+        ``organization_id`` is required — workspace.tasks.organization_id is
+        NOT NULL. Callers carry it from the verified request context
+        (``ToolContext.organization_id``); never defaulted here.
         """
+        if not organization_id:
+            return {
+                "success": False,
+                "operation": "create_task",
+                "error": "organization_id is required to create a task.",
+            }
         try:
             payload: dict[str, Any] = {
                 "user_id": user_id,
+                "organization_id": organization_id,
                 "title": title,
                 "status": status,
                 "is_public": is_public,

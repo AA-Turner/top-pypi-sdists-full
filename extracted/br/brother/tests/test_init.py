@@ -15,6 +15,7 @@ from brother.const import (
     ATTR_CHARSET,
     ATTR_MAC,
     ATTR_MODEL,
+    ATTR_PRINTER_ERRORS,
     ATTR_STATUS,
     OIDS,
     OIDS_HEX,
@@ -301,7 +302,7 @@ def test_iterate_oids() -> None:
     oids = OIDS.values()
     result = list(brother._iterate_oids(oids))
 
-    assert len(result) == 11
+    assert len(result) == 14
     for item in result:
         assert isinstance(item, ObjectType)
 
@@ -352,6 +353,23 @@ def test_decode_status_unicode_error() -> None:
     result = brother._decode_status(invalid_status, "utf-8")
 
     assert result is None
+
+
+@pytest.mark.parametrize(
+    ("hex_string", "expected"),
+    [
+        ("", []),
+        ("00", []),
+        ("0000", []),
+        ("80", ["low_paper"]),
+        ("2800", ["low_toner", "door_open"]),
+        ("0006", ["input_tray_empty", "overdue_prevent_maint"]),
+        ("0001", []),
+    ],
+)
+def test_parse_printer_errors(hex_string: str, expected: list[str]) -> None:
+    """Test parsing of hrPrinterDetectedErrorState."""
+    assert Brother._parse_printer_errors(hex_string) == expected
 
 
 def test_cleanse_status() -> None:
@@ -746,6 +764,25 @@ async def test_get_data_status_processing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_data_printer_errors_processing() -> None:
+    """Test _get_data method processing printer errors."""
+    brother = Brother(HOST, printer_type="laser")
+    brother._request_args = (Mock(), Mock(), Mock(), Mock())
+    brother._oids = []
+
+    class MockResponse:
+        def asOctets(self) -> bytes:  # noqa: N802
+            return b"\x08\x00"
+
+    mock_resrow = [[OIDS[ATTR_PRINTER_ERRORS], None, MockResponse()]]
+
+    with patch("brother.get_cmd", return_value=(None, None, None, mock_resrow)):
+        result = await brother._get_data()
+
+    assert result[OIDS[ATTR_PRINTER_ERRORS]] == "0800"
+
+
+@pytest.mark.asyncio
 async def test_get_data_other_oid() -> None:
     """Test _get_data method processing other OIDs."""
     brother = Brother(HOST, printer_type="laser")
@@ -1020,6 +1057,25 @@ def test_decode_status_real_roman8_still_works() -> None:
     result = brother._decode_status(roman8_bytes, "roman8")
 
     assert result == "Stap. Kopieën:01"
+
+
+@pytest.mark.asyncio
+async def test_mfc_j5110dw_model(snapshot: SnapshotAssertion) -> None:
+    """Test with valid data from MFC-J5110DW printer with ink box cover sensor."""
+    with open("tests/fixtures/mfc-j5110dw.json", encoding="utf-8") as file:
+        data = json.load(file)
+    brother = Brother(HOST, printer_type="ink")
+
+    with patch("brother.Brother._get_data", return_value=data), freeze_time(TEST_TIME):
+        sensors = await brother.async_update()
+
+    brother.shutdown()
+
+    assert sensors.ink_capture_box_remaining_life == 75
+    assert sensors.black_ink_remaining == 99
+    assert sensors.black_ink == 99
+    assert brother == snapshot
+    assert sensors == snapshot
 
 
 @pytest.mark.asyncio

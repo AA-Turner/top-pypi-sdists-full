@@ -8,7 +8,9 @@ from runlayer_cli.scan.claude_code_plugins import (
     _substitute_plugin_root,
     scan_claude_code_plugins,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.config_parser import compute_config_hash
+from runlayer_cli.scan.plugin_scanner import reset_plugin_scan_state
 from tests.hostile_inputs import DEEP_NESTING
 
 
@@ -1033,3 +1035,67 @@ class TestMultipleServersInPlugin:
         assert len(result[0].servers) == 2
         names = {s.name for s in result[0].servers}
         assert names == {"db", "api"}
+
+
+class TestUnreadableWSLHome:
+    """The ``\\\\wsl.localhost`` share runs as the distro default user, so
+    ``/root`` and other users' 0750 homes raise ``PermissionError`` on every
+    probe. ``Path.exists()``/``is_dir()`` re-raise that on Python 3.13."""
+
+    def test_denied_registry_stat_marks_incomplete_without_raising(
+        self, tmp_path: Path, monkeypatch
+    ):
+        denied_home = tmp_path / "root"
+        original_stat = Path.stat
+
+        def denied_stat(path, *args, **kwargs):
+            if denied_home in (path, *path.parents):
+                raise PermissionError(13, "Access is denied", str(path))
+            return original_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", denied_stat)
+        status = ScanCompletionStatus()
+        reset_plugin_scan_state(scan_status=status)
+        try:
+            result = scan_claude_code_plugins(home=denied_home)
+        finally:
+            reset_plugin_scan_state()
+
+        assert result == []
+        assert status.reasons == [
+            "plugin_manifest_access_failed",
+            "claude_marketplace_enumeration_failed",
+        ]
+
+    def test_denied_install_dir_skips_plugin_without_raising(
+        self, tmp_path: Path, monkeypatch
+    ):
+        install_path = _create_plugin_dir(
+            tmp_path,
+            "official",
+            "locked",
+            "v1",
+            mcp_json={"mcpServers": {"s": {"command": "srv"}}},
+        )
+        installed = _write_installed_plugins(
+            tmp_path,
+            {"locked@official": [{"scope": "user", "installPath": install_path}]},
+        )
+        locked_dir = Path(install_path)
+        original_stat = Path.stat
+
+        def denied_stat(path, *args, **kwargs):
+            if locked_dir in (path, *path.parents):
+                raise PermissionError(13, "Access is denied", str(path))
+            return original_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", denied_stat)
+        status = ScanCompletionStatus()
+        reset_plugin_scan_state(scan_status=status)
+        try:
+            result = scan_claude_code_plugins(installed)
+        finally:
+            reset_plugin_scan_state()
+
+        assert result == []
+        assert "plugin_manifest_access_failed" in status.reasons

@@ -9,7 +9,7 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.appendix_task_keywords_data_price_data_info import AppendixTaskKeywordsDataPriceDataInfo
-from dataforseo_client.models.appendix_google_business_data_price_data_info import AppendixGoogleBusinessDataPriceDataInfo
+from dataforseo_client.models.appendix_llm_responses_ai_optimization_price_data import AppendixLlmResponsesAiOptimizationPriceData
 
 
 
@@ -18,7 +18,9 @@ class AppendixOnPagePriceData(BaseModel):
     AppendixOnPagePriceData
     """ # noqa: E501
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
-    lighthouse: Optional[AppendixGoogleBusinessDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    lighthouse: Optional[AppendixLlmResponsesAiOptimizationPriceData] = Field(default=None, description=r"")
+    available_filters: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     content_parsing: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     content_parsing_live: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     duplicate_content: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -36,10 +38,13 @@ class AppendixOnPagePriceData(BaseModel):
     summary: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     task_post: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     tasks_ready: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    uncrawlable_resources: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     waterfall: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "errors", 
+        "id_list", 
         "lighthouse", 
+        "available_filters", 
         "content_parsing", 
         "content_parsing_live", 
         "duplicate_content", 
@@ -57,6 +62,7 @@ class AppendixOnPagePriceData(BaseModel):
         "summary", 
         "task_post", 
         "tasks_ready", 
+        "uncrawlable_resources", 
         "waterfall", 
         ]
 
@@ -85,7 +91,9 @@ class AppendixOnPagePriceData(BaseModel):
         _dict = {}
 
         _dict['errors'] = self.errors.to_dict() if self.errors else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['lighthouse'] = self.lighthouse.to_dict() if self.lighthouse else None
+        _dict['available_filters'] = self.available_filters.to_dict() if self.available_filters else None
         _dict['content_parsing'] = self.content_parsing.to_dict() if self.content_parsing else None
         _dict['content_parsing_live'] = self.content_parsing_live.to_dict() if self.content_parsing_live else None
         _dict['duplicate_content'] = self.duplicate_content.to_dict() if self.duplicate_content else None
@@ -103,6 +111,7 @@ class AppendixOnPagePriceData(BaseModel):
         _dict['summary'] = self.summary.to_dict() if self.summary else None
         _dict['task_post'] = self.task_post.to_dict() if self.task_post else None
         _dict['tasks_ready'] = self.tasks_ready.to_dict() if self.tasks_ready else None
+        _dict['uncrawlable_resources'] = self.uncrawlable_resources.to_dict() if self.uncrawlable_resources else None
         _dict['waterfall'] = self.waterfall.to_dict() if self.waterfall else None
         return _dict
 
@@ -117,7 +126,9 @@ class AppendixOnPagePriceData(BaseModel):
 
         _obj = cls.model_validate({
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
-            "lighthouse": AppendixGoogleBusinessDataPriceDataInfo.from_dict(obj["lighthouse"]) if obj.get("lighthouse") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
+            "lighthouse": AppendixLlmResponsesAiOptimizationPriceData.from_dict(obj["lighthouse"]) if obj.get("lighthouse") is not None else None,
+            "available_filters": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["available_filters"]) if obj.get("available_filters") is not None else None,
             "content_parsing": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["content_parsing"]) if obj.get("content_parsing") is not None else None,
             "content_parsing_live": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["content_parsing_live"]) if obj.get("content_parsing_live") is not None else None,
             "duplicate_content": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["duplicate_content"]) if obj.get("duplicate_content") is not None else None,
@@ -135,6 +146,7 @@ class AppendixOnPagePriceData(BaseModel):
             "summary": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["summary"]) if obj.get("summary") is not None else None,
             "task_post": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["task_post"]) if obj.get("task_post") is not None else None,
             "tasks_ready": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["tasks_ready"]) if obj.get("tasks_ready") is not None else None,
+            "uncrawlable_resources": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["uncrawlable_resources"]) if obj.get("uncrawlable_resources") is not None else None,
             "waterfall": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["waterfall"]) if obj.get("waterfall") is not None else None,
         })
 

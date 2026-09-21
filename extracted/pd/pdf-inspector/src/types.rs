@@ -17,6 +17,21 @@ pub(crate) type PageExtraction = (Vec<TextItem>, Vec<PdfRect>, Vec<PdfLine>);
 /// Font encoding map: maps byte codes to Unicode characters
 pub(crate) type FontEncodingMap = HashMap<u8, char>;
 
+/// A single-byte encoding a simple font's codes read through where its
+/// `/Differences` say nothing: one of the predefined encodings named by an
+/// encoding dictionary's `/BaseEncoding`, or the built-in encoding of the
+/// standard Symbol and ZapfDingbats fonts, whose glyphs sit at positions
+/// that have nothing to do with the Latin encodings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BaseEncoding {
+    Standard,
+    WinAnsi,
+    MacRoman,
+    MacExpert,
+    Symbol,
+    ZapfDingbats,
+}
+
 /// Explicit glyph encodings and narrowly verified repairs for a stale CMap.
 pub(crate) struct FontEncoding {
     pub(crate) differences: FontEncodingMap,
@@ -25,6 +40,16 @@ pub(crate) struct FontEncoding {
     /// painted, they leave a gap and nothing else, so they read as spaces
     /// whatever the font's ToUnicode claims (see `blank_glyph_codes`).
     pub(crate) blank_codes: std::collections::HashSet<u8>,
+    /// The encoding the codes read through where `differences` say nothing
+    /// (see [`BaseEncoding`]); `None` leaves them to the standard decode.
+    pub(crate) base: Option<BaseEncoding>,
+    /// Every code the `/Differences` array names, mapped or not: a code
+    /// named there is that glyph, whatever the base encoding puts at it.
+    pub(crate) named_codes: std::collections::HashSet<u8>,
+    /// Codes whose `/Differences` glyph stands for several characters: a
+    /// ligature named by its components (`f_t`, `f_f_i`) or by a `uni`
+    /// sequence, read as the letters it joins.
+    pub(crate) sequences: HashMap<u8, String>,
 }
 
 /// All font encodings for a page
@@ -48,6 +73,46 @@ pub(crate) struct FontWidthInfo {
     pub(crate) units_scale: f32,
     /// Writing mode: 0 = horizontal (default), 1 = vertical
     pub(crate) wmode: u8,
+}
+
+/// Glyphs a width table has to carry, all sharing one advance, before it
+/// counts as fixed-pitch on the evidence of its advances alone: a
+/// proportional face's ten tabular digits share theirs too.
+pub(crate) const FIXED_PITCH_MIN_GLYPHS: usize = 12;
+
+impl FontWidthInfo {
+    /// Whether the glyphs in the width table share one advance: `Some(true)`
+    /// when at least [`FIXED_PITCH_MIN_GLYPHS`] codes carry a positive
+    /// width and every one of them is the same (a hair's breadth of
+    /// rounding apart), `Some(false)` when two positive widths differ,
+    /// `None` when the table is too small to say. Zero widths are codes
+    /// without a glyph (or combining marks) and do not count either way;
+    /// a CID font's default width covers glyphs the table does not list
+    /// and is not read.
+    pub(crate) fn fixed_pitch_by_advance(&self) -> Option<bool> {
+        let mut count = 0usize;
+        let mut low = u16::MAX;
+        let mut high = 0u16;
+        for &width in self.widths.values() {
+            if width == 0 {
+                continue;
+            }
+            count += 1;
+            low = low.min(width);
+            high = high.max(width);
+        }
+        if count == 0 {
+            return None;
+        }
+        // Widths are written in thousandths of the em (or the Type3 glyph
+        // space): a unit of rounding between two writings of one advance is
+        // still one advance.
+        let tolerance = (f32::from(high) * 0.002).max(1.0);
+        if f32::from(high - low) > tolerance {
+            return Some(false);
+        }
+        (count >= FIXED_PITCH_MIN_GLYPHS).then_some(true)
+    }
 }
 
 /// All font width info for a page, keyed by font resource name
@@ -101,6 +166,61 @@ pub struct PdfRect {
     pub width: f32,
     pub height: f32,
     pub page: u32,
+}
+
+/// Where [`TextItem::is_bold`] came from.
+///
+/// The extraction reads bold from several places and reports the first of
+/// them, in this order, that says the text is bold; `TextItem::bold_source`
+/// carries it so a caller can tell a face whose name says bold apart from
+/// one whose weight class does, and both from text merely stroked to look
+/// heavier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BoldSource {
+    /// A bold word or foundry style abbreviation in the font name ("Bold",
+    /// "-Bd", "Black", "Demi", "-Hv", "W7"; see
+    /// [`is_bold_font`](crate::extractor::is_bold_font)).
+    FontName,
+    /// The FontDescriptor's ForceBold flag, or the embedded font program's
+    /// own bold selection (OS/2 `fsSelection`, the `head` table's
+    /// `macStyle`).
+    FontFlags,
+    /// The weight class: `TextItem::font_weight` at or above the threshold
+    /// of [`PositionOptions::bold_from_weight`](crate::PositionOptions).
+    WeightClass,
+    /// Text filled and stroked to look heavier (render mode 2 or 6 with a
+    /// visible stroke of the fill colour) in a face that is not bold itself.
+    Painted,
+}
+
+impl BoldSource {
+    /// The snake_case name the JSON outputs and the Python binding use:
+    /// `"font_name"`, `"font_flags"`, `"weight_class"`, `"painted"`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BoldSource::FontName => "font_name",
+            BoldSource::FontFlags => "font_flags",
+            BoldSource::WeightClass => "weight_class",
+            BoldSource::Painted => "painted",
+        }
+    }
+
+    /// The one of two sources an item reports when both say bold: the
+    /// earlier in the order the variants are listed.
+    pub(crate) fn first(a: Option<Self>, b: Option<Self>) -> Option<Self> {
+        fn rank(source: BoldSource) -> u8 {
+            match source {
+                BoldSource::FontName => 0,
+                BoldSource::FontFlags => 1,
+                BoldSource::WeightClass => 2,
+                BoldSource::Painted => 3,
+            }
+        }
+        match (a, b) {
+            (Some(a), Some(b)) => Some(if rank(b) < rank(a) { b } else { a }),
+            (a, b) => a.or(b),
+        }
+    }
 }
 
 /// A text item with position information.
@@ -228,6 +348,26 @@ pub struct TextItem {
     /// fields, OCR). Independent of `is_bold`, which stays as it was: a
     /// medium face reports `Some(500)` and `is_bold: false`.
     pub font_weight: Option<u16>,
+    /// Where `is_bold` came from, so a caller can weigh the verdict against
+    /// `font_weight`: the font name, the font's flags, the weight class or
+    /// the way the text was painted (see [`BoldSource`]). When more than one
+    /// says bold the first of them in that order is reported. `None` when
+    /// `is_bold` is `false`, and for items that don't come from a font. An
+    /// item merged from several runs keeps its first run's, like `font` and
+    /// `font_weight`.
+    pub bold_source: Option<BoldSource>,
+    /// Whether the font is fixed-pitch (monospaced): `Some(true)` when the
+    /// FontDescriptor's FixedPitch flag or the embedded program's `post`
+    /// table says so, else measured from the font's width table — `Some(true)`
+    /// when at least a dozen of its glyphs share one advance, `Some(false)`
+    /// when two of them differ. `None` when the font declares nothing and no
+    /// two advances differ but fewer than a dozen share one, and for items
+    /// that don't come from a font. Many producers write `/Flags 4` whatever
+    /// the face, so the
+    /// flag is only ever read as a yes. Runs are not kept apart by it: an
+    /// item merged from several runs keeps its first run's value, like
+    /// `font` and `font_weight`.
+    pub fixed_pitch: Option<bool>,
     /// Whether the text is underlined (drawn rule/thin rect under the
     /// baseline — PDFs have no underline font flag, so this is detected
     /// geometrically after extraction; see `extractor::underline`).
@@ -708,6 +848,8 @@ mod formatting_tests {
             is_bold: false,
             is_italic: false,
             font_weight: None,
+            bold_source: None,
+            fixed_pitch: None,
             is_underline: false,
             is_strikeout: strikeout,
             rotation: 0.0,

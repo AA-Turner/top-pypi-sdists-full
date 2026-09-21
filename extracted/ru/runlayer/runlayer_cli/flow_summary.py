@@ -34,6 +34,12 @@ class FlowSummaryTrace(Protocol):
     @property
     def startup_ms(self) -> float | None: ...
 
+    @property
+    def client(self) -> str | None: ...
+
+    @property
+    def hook_event(self) -> str | None: ...
+
 
 class StepSummaryRecord(Protocol):
     @property
@@ -117,6 +123,10 @@ def build_summary(
         # free-text exception messages.
         **({"server_id": trace.server_id} if trace.server_id is not None else {}),
         **({"target_host": trace.target_host} if trace.target_host is not None else {}),
+        # client / hook_event: detected harness + normalized hook event (hook
+        # path only; both closed vocabularies in flow_contract).
+        **({"client": trace.client} if trace.client is not None else {}),
+        **({"hook_event": trace.hook_event} if trace.hook_event is not None else {}),
         **(
             {"error_category": trace.error_category}
             if trace.error_category is not None

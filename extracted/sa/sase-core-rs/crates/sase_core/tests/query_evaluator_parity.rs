@@ -1,0 +1,415 @@
+//! Phase 2C parity gate: parse the golden corpus and run the Phase 2A
+//! query matrix through the Rust evaluator. The expected match lists are
+//! pinned in `sase_100/tests/test_core_query_golden.py::
+//! test_evaluation_matrix_snapshot` — every change here must update both
+//! sides in lockstep.
+//!
+//! The fixture under `tests/fixtures/myproj.sase` is a byte-for-byte copy of
+//! `sase_100/tests/core_golden/myproj.sase`. We pass the corpus's relative
+//! path (`tests/core_golden/myproj.sase`) into `parse_project_bytes` so the
+//! `project:` matcher's parent-directory logic produces the same answers as
+//! Python (`project_name == "core_golden"`).
+
+use sase_core::{
+    canonicalize_query, canonicalize_query_with_profile, compile_query,
+    compile_query_with_profile, evaluate_query_many,
+    evaluate_query_many_in_corpus, parse_project_bytes, parse_query,
+    parse_query_with_profile, patch_query_profile, QueryCorpus,
+    CHANGESPEC_WIRE_SCHEMA_VERSION,
+};
+
+const MYPROJ_SASE: &[u8] = include_bytes!("fixtures/myproj.sase");
+const MYPROJ_PATH: &str = "tests/core_golden/myproj.sase";
+
+fn matches(query: &str) -> Vec<String> {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let program = compile_query(query).expect("compile");
+    let results = evaluate_query_many(&program, &specs);
+    specs
+        .iter()
+        .zip(results.iter())
+        .filter_map(|(cs, m)| if *m { Some(cs.name.clone()) } else { None })
+        .collect()
+}
+
+fn corpus_matches(query: &str, corpus: &QueryCorpus) -> Vec<String> {
+    let program = compile_query(query).expect("compile");
+    let results = evaluate_query_many_in_corpus(&program, corpus);
+    corpus
+        .specs
+        .iter()
+        .zip(results.iter())
+        .filter_map(|(cs, m)| if *m { Some(cs.name.clone()) } else { None })
+        .collect()
+}
+
+/// One row from the Python `test_evaluation_matrix_snapshot` golden matrix.
+fn case(query: &str, expected: &[&str]) {
+    let got = matches(query);
+    let expected: Vec<String> =
+        expected.iter().map(|s| s.to_string()).collect();
+    assert_eq!(got, expected, "query {query}");
+}
+
+fn corpus_case(query: &str, expected: &[&str], corpus: &QueryCorpus) {
+    let got = corpus_matches(query, corpus);
+    let expected: Vec<String> =
+        expected.iter().map(|s| s.to_string()).collect();
+    assert_eq!(got, expected, "query {query}");
+}
+
+fn matches_with_explicit_profile(query: &str) -> Vec<String> {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let profile = patch_query_profile();
+    let program = compile_query_with_profile(query, profile).expect("compile");
+    let corpus = QueryCorpus::from_patches(specs.clone());
+    let results = evaluate_query_many_in_corpus(&program, &corpus);
+    specs
+        .iter()
+        .zip(results.iter())
+        .filter_map(|(cs, matched)| {
+            if *matched {
+                Some(cs.name.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+const GOLDEN_MATRIX: &[(&str, &[&str])] = &[
+    ("\"alpha\"", &["alpha", "beta", "beta__260102_010101"]),
+    ("c\"Alpha\"", &[]),
+    ("\"feature\"", &["alpha", "beta", "gamma"]),
+    ("alpha", &["alpha", "beta", "beta__260102_010101"]),
+    ("\"alpha\" \"beta\"", &["beta", "beta__260102_010101"]),
+    ("\"alpha\" AND \"beta\"", &["beta", "beta__260102_010101"]),
+    (
+        "\"alpha\" OR \"beta\"",
+        &["alpha", "beta", "beta__260102_010101"],
+    ),
+    ("NOT \"beta\"", &["alpha", "gamma"]),
+    (
+        "(\"alpha\" OR \"beta\") AND \"feature\"",
+        &["alpha", "beta"],
+    ),
+    (r#""foo\\bar""#, &[]),
+    (r#""line\nbreak""#, &[]),
+    ("!!!", &["alpha"]),
+    ("!", &["alpha"]),
+    ("@@@", &["gamma"]),
+    ("@", &["gamma"]),
+    ("$$$", &[]),
+    ("$", &[]),
+    ("*", &["alpha", "gamma"]),
+    ("!!", &["beta", "beta__260102_010101", "gamma"]),
+    ("!@", &["alpha", "beta", "beta__260102_010101"]),
+    ("!$", &["alpha", "beta", "beta__260102_010101", "gamma"]),
+    ("status:Ready", &["gamma"]),
+    (
+        "status:Reverted OR status:Submitted",
+        &["alpha", "beta__260102_010101"],
+    ),
+    ("project:myproj", &[]),
+    ("ancestor:alpha", &["alpha", "beta", "beta__260102_010101"]),
+    ("name:beta", &["beta"]),
+    ("sibling:beta", &["beta"]),
+    (
+        "origin:unknown",
+        &["alpha", "beta", "beta__260102_010101", "gamma"],
+    ),
+    ("ancestor:alpha AND NOT \"beta\"", &["alpha"]),
+    ("%d", &[]),
+    ("%m", &[]),
+    ("%r", &["beta__260102_010101"]),
+    ("%s", &["alpha"]),
+    ("%w", &["beta"]),
+    ("%y", &["gamma"]),
+    ("+myproj", &[]),
+    ("^alpha", &["alpha", "beta", "beta__260102_010101"]),
+    ("~beta", &["beta"]),
+    ("&beta", &["beta"]),
+    ("\".*\"", &[]),
+];
+
+#[test]
+fn explicit_patch_profile_matches_compatibility_golden_matrix() {
+    for (query, expected) in GOLDEN_MATRIX {
+        let expected: Vec<String> =
+            expected.iter().map(|item| (*item).to_string()).collect();
+        assert_eq!(matches(query), expected, "compat {query}");
+        assert_eq!(
+            matches_with_explicit_profile(query),
+            expected,
+            "profile {query}"
+        );
+        let compat_canonical = canonicalize_query(&parse_query(query).unwrap());
+        let profile_canonical =
+            canonicalize_query_with_profile(query, patch_query_profile())
+                .unwrap();
+        assert_eq!(compat_canonical, profile_canonical, "canonical {query}");
+        assert_eq!(
+            parse_query(query).unwrap(),
+            parse_query_with_profile(query, patch_query_profile()).unwrap(),
+            "ast {query}"
+        );
+    }
+}
+
+#[test]
+fn evaluation_matrix_quoted_strings() {
+    case("\"alpha\"", &["alpha", "beta", "beta__260102_010101"]);
+    case("c\"Alpha\"", &[]);
+    case("\"feature\"", &["alpha", "beta", "gamma"]);
+    case("alpha", &["alpha", "beta", "beta__260102_010101"]);
+    case("\"alpha\" \"beta\"", &["beta", "beta__260102_010101"]);
+}
+
+#[test]
+fn evaluation_matrix_boolean_ops() {
+    case("\"alpha\" AND \"beta\"", &["beta", "beta__260102_010101"]);
+    case(
+        "\"alpha\" OR \"beta\"",
+        &["alpha", "beta", "beta__260102_010101"],
+    );
+    case("NOT \"beta\"", &["alpha", "gamma"]);
+    case(
+        "(\"alpha\" OR \"beta\") AND \"feature\"",
+        &["alpha", "beta"],
+    );
+}
+
+#[test]
+fn evaluation_matrix_escapes_are_literal() {
+    case(r#""foo\\bar""#, &[]);
+    case(r#""line\nbreak""#, &[]);
+}
+
+#[test]
+fn evaluation_matrix_error_running_shorthands() {
+    case("!!!", &["alpha"]);
+    case("!", &["alpha"]);
+    case("@@@", &["gamma"]);
+    case("@", &["gamma"]);
+    case("$$$", &[]);
+    case("$", &[]);
+    case("*", &["alpha", "gamma"]);
+    case("!!", &["beta", "beta__260102_010101", "gamma"]);
+    case("!@", &["alpha", "beta", "beta__260102_010101"]);
+    case("!$", &["alpha", "beta", "beta__260102_010101", "gamma"]);
+}
+
+#[test]
+fn evaluation_matrix_property_filters() {
+    case("status:Ready", &["gamma"]);
+    case(
+        "status:Reverted OR status:Submitted",
+        &["alpha", "beta__260102_010101"],
+    );
+    // Python project_name = parent dir = "core_golden", not "myproj".
+    case("project:myproj", &[]);
+    case("ancestor:alpha", &["alpha", "beta", "beta__260102_010101"]);
+    case("name:beta", &["beta"]);
+    case("sibling:beta", &["beta"]);
+    // The golden corpus has no PR_ORIGIN field on any Patch, so every Patch
+    // normalizes to "unknown".
+    case(
+        "origin:unknown",
+        &["alpha", "beta", "beta__260102_010101", "gamma"],
+    );
+    case("ancestor:alpha AND NOT \"beta\"", &["alpha"]);
+}
+
+#[test]
+fn evaluation_matrix_status_shorthands() {
+    case("%d", &[]);
+    case("%m", &[]);
+    case("%r", &["beta__260102_010101"]);
+    case("%s", &["alpha"]);
+    case("%w", &["beta"]);
+    case("%y", &["gamma"]);
+}
+
+#[test]
+fn evaluation_matrix_property_shorthands() {
+    case("+myproj", &[]);
+    case("^alpha", &["alpha", "beta", "beta__260102_010101"]);
+    case("~beta", &["beta"]);
+    case("&beta", &["beta"]);
+}
+
+#[test]
+fn persistent_corpus_matches_golden_matrix_samples() {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let corpus = QueryCorpus::new(specs);
+
+    corpus_case(
+        "\"alpha\" OR \"beta\"",
+        &["alpha", "beta", "beta__260102_010101"],
+        &corpus,
+    );
+    corpus_case("status:Ready", &["gamma"], &corpus);
+    corpus_case(
+        "ancestor:alpha",
+        &["alpha", "beta", "beta__260102_010101"],
+        &corpus,
+    );
+    corpus_case("sibling:beta", &["beta"], &corpus);
+    corpus_case(
+        "origin:unknown",
+        &["alpha", "beta", "beta__260102_010101", "gamma"],
+        &corpus,
+    );
+    corpus_case("@@@", &["gamma"], &corpus);
+}
+
+#[test]
+fn substring_semantics_not_regex() {
+    // ".*" is not a wildcard — the literal ".*" appears nowhere in the
+    // corpus, so this query matches nothing.
+    case("\".*\"", &[]);
+}
+
+#[test]
+fn batch_and_oneshot_agree() {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let program = compile_query("ancestor:alpha AND NOT \"beta\"").unwrap();
+    let batch = evaluate_query_many(&program, &specs);
+    for (i, cs) in specs.iter().enumerate() {
+        let one = sase_core::evaluate_query_one(&program, cs, &specs);
+        assert_eq!(batch[i], one, "spec {}", cs.name);
+    }
+}
+
+#[test]
+fn batch_evaluation_is_idempotent() {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let program = compile_query("ancestor:alpha").unwrap();
+    let first = evaluate_query_many(&program, &specs);
+    let second = evaluate_query_many(&program, &specs);
+    assert_eq!(first, second);
+}
+
+#[test]
+fn persistent_corpus_reuses_derived_data_across_repeated_evaluations() {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let corpus = QueryCorpus::new(specs);
+    let program = compile_query("ancestor:alpha").unwrap();
+
+    let first = evaluate_query_many_in_corpus(&program, &corpus);
+    let second = evaluate_query_many_in_corpus(&program, &corpus);
+
+    assert_eq!(first, second);
+}
+
+#[test]
+fn persistent_corpus_keeps_ancestor_memo_query_specific() {
+    let specs =
+        parse_project_bytes(MYPROJ_PATH, MYPROJ_SASE).expect("parse corpus");
+    let corpus = QueryCorpus::new(specs);
+
+    let missing = compile_query("ancestor:missing").unwrap();
+    let alpha = compile_query("ancestor:alpha").unwrap();
+
+    assert_eq!(
+        evaluate_query_many_in_corpus(&missing, &corpus),
+        vec![false, false, false, false]
+    );
+    assert_eq!(
+        evaluate_query_many_in_corpus(&alpha, &corpus),
+        vec![true, true, true, false]
+    );
+}
+
+#[test]
+fn configured_project_name_replaces_directory_key_in_all_query_paths() {
+    let data = b"PROJECT_NAME: Widgets\nNAME: alpha\nSTATUS: WIP\n";
+    let specs =
+        parse_project_bytes("/tmp/directory-key/directory-key.sase", data)
+            .unwrap();
+    let corpus = QueryCorpus::new(specs.clone());
+
+    for query in ["project:widgets", "project:WIDGETS", "+Widgets"] {
+        let program = compile_query(query).unwrap();
+        assert_eq!(evaluate_query_many(&program, &specs), vec![true]);
+        assert_eq!(
+            evaluate_query_many_in_corpus(&program, &corpus),
+            vec![true]
+        );
+        assert!(sase_core::evaluate_query_one(&program, &specs[0], &specs));
+    }
+
+    let canonical = compile_query("project:directory-key").unwrap();
+    assert_eq!(evaluate_query_many(&canonical, &specs), vec![false]);
+    assert_eq!(
+        evaluate_query_many_in_corpus(&canonical, &corpus),
+        vec![false]
+    );
+}
+
+#[test]
+fn project_query_falls_back_to_directory_key_without_valid_metadata() {
+    for data in [
+        b"NAME: alpha\nSTATUS: WIP\n".as_slice(),
+        b"PROJECT_NAME: .hidden\nNAME: alpha\nSTATUS: WIP\n".as_slice(),
+    ] {
+        let specs =
+            parse_project_bytes("/tmp/directory-key/directory-key.sase", data)
+                .unwrap();
+        let corpus = QueryCorpus::new(specs.clone());
+        let program = compile_query("+DIRECTORY-KEY").unwrap();
+        assert_eq!(evaluate_query_many(&program, &specs), vec![true]);
+        assert_eq!(
+            evaluate_query_many_in_corpus(&program, &corpus),
+            vec![true]
+        );
+    }
+}
+
+#[test]
+fn ancestor_walk_avoids_cycles() {
+    // Construct a synthetic 2-spec list where parents form a cycle. The
+    // evaluator must not recurse forever — the cycle guard breaks the walk.
+    use sase_core::{ChangeSpecWire, SourceSpanWire};
+    let span = SourceSpanWire {
+        file_path: "p.sase".into(),
+        start_line: 1,
+        end_line: 1,
+    };
+    let mk = |name: &str, parent: &str| ChangeSpecWire {
+        schema_version: CHANGESPEC_WIRE_SCHEMA_VERSION,
+        name: name.into(),
+        project_basename: "p".into(),
+        project_display_name: None,
+        file_path: "core_golden/p.sase".into(),
+        source_span: span.clone(),
+        status: "WIP".into(),
+        parent: Some(parent.into()),
+        pr_url: None,
+        pr_origin: "unknown".into(),
+        bug: None,
+        description: String::new(),
+        refs: vec![],
+        commits: vec![],
+        hooks: vec![],
+        comments: vec![],
+        mentors: vec![],
+        timestamps: vec![],
+        deltas: vec![],
+    };
+    let specs = vec![mk("a", "b"), mk("b", "a")];
+    // ancestor:c is unreachable; the cycle must not loop forever.
+    let program = compile_query("ancestor:c").unwrap();
+    let results = evaluate_query_many(&program, &specs);
+    assert_eq!(results, vec![false, false]);
+    // ancestor:a hits the self-name match for "a" and walks b -> a for "b".
+    let program = compile_query("ancestor:a").unwrap();
+    let results = evaluate_query_many(&program, &specs);
+    assert_eq!(results, vec![true, true]);
+}

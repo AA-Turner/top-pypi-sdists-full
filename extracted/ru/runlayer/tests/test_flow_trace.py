@@ -204,6 +204,33 @@ class TestFlowEmission:
             flow_trace.set_session_id("sess-123")
         assert sink[0]["session_id"] == "sess-123"
 
+    def test_client_and_hook_event_record_in_summary(self, sink):
+        with flow("cli.hook_event"):
+            flow_trace.set_client("cursor")
+            flow_trace.set_hook_event("SessionStart")
+        assert sink[0]["client"] == "cursor"
+        assert sink[0]["hook_event"] == "SessionStart"
+
+    def test_client_and_hook_event_omitted_when_unset(self, sink):
+        with flow("cli.call_tool"):
+            pass
+        assert "client" not in sink[0]
+        assert "hook_event" not in sink[0]
+
+    def test_unknown_hook_event_collapses_to_other(self, sink):
+        with flow("cli.hook_event"):
+            flow_trace.set_hook_event("SomeBrandNewEvent")
+        assert sink[0]["hook_event"] == "other"
+
+    def test_unknown_client_is_dropped(self, sink):
+        with flow("cli.hook_event"):
+            flow_trace.set_client("not-a-harness")
+        assert "client" not in sink[0]
+
+    def test_client_and_hook_event_without_flow_are_noop(self):
+        flow_trace.set_client("cursor")  # must not raise
+        flow_trace.set_hook_event("Stop")
+
     def test_server_id_stamped_on_every_summary(self, sink):
         flow_trace.set_server_id("12345678-1234-5678-1234-567812345678")
         with flow("cli.call_tool"):

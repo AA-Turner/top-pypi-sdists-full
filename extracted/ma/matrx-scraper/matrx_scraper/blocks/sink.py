@@ -70,6 +70,17 @@ def carried_organization_id() -> str | None:
 
     Never resolves a default. No context is a normal answer here (a CLI, a worker, a test),
     not an error — the caller that passes an explicit `organization_id` always wins.
+
+    🚨 **Dead for any caller reached through `matrx_utils.block_sink.announce_block`.**
+    `announce_block` runs the sink inside `detached_task`, which deliberately runs in a
+    FRESH `contextvars.Context` with no inherited state (found 2026-09-19 while wiring
+    board row H8's sibling in `matrx_files/blocks/sink.py`) — so by the time THIS function
+    runs, the caller's ambient AppContext is already gone and this always answers `None`.
+    Every real caller of `announce_block` in this codebase already passes `organization_id`
+    explicitly (`matrx_scraper.orchestrator._announce_the_wall`) for exactly this reason.
+    This function still matters for a caller that reaches `record_block`/the sink directly,
+    outside `announce_block`'s detach — but never assume it will see a caller's context
+    through the `announce_block` door.
     """
     try:
         from matrx_connect.context.app_context import try_get_app_context

@@ -16,13 +16,13 @@ class AppendixSerpPriceDataInfo(BaseModel):
     """
     AppendixSerpPriceDataInfo
     """ # noqa: E501
-    advanced: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
-    regular: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     html: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    regular: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    advanced: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
-        "advanced", 
-        "regular", 
         "html", 
+        "regular", 
+        "advanced", 
         ]
 
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
@@ -49,9 +49,9 @@ class AppendixSerpPriceDataInfo(BaseModel):
 
         _dict = {}
 
-        _dict['advanced'] = self.advanced.to_dict() if self.advanced else None
-        _dict['regular'] = self.regular.to_dict() if self.regular else None
         _dict['html'] = self.html.to_dict() if self.html else None
+        _dict['regular'] = self.regular.to_dict() if self.regular else None
+        _dict['advanced'] = self.advanced.to_dict() if self.advanced else None
         return _dict
 
 
@@ -64,9 +64,9 @@ class AppendixSerpPriceDataInfo(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "advanced": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["advanced"]) if obj.get("advanced") is not None else None,
-            "regular": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["regular"]) if obj.get("regular") is not None else None,
             "html": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["html"]) if obj.get("html") is not None else None,
+            "regular": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["regular"]) if obj.get("regular") is not None else None,
+            "advanced": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["advanced"]) if obj.get("advanced") is not None else None,
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

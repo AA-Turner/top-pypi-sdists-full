@@ -18,7 +18,11 @@ from runlayer_cli.logging import attach_system_scan_log_handler, setup_logging
 from runlayer_cli.tls import set_ca_bundle_path
 from runlayer_cli import telemetry
 from runlayer_cli.scan.agents.report import format_summary
-from runlayer_cli.scan.artifact_cache import ArtifactCache
+from runlayer_cli.scan.artifact_cache import (
+    MAX_SKILL_RESUBMIT_WINDOW_SECONDS,
+    SKILL_RESUBMIT_WINDOW_SECONDS,
+    ArtifactCache,
+)
 from runlayer_cli.scan.project_scanner import (
     MAX_PROJECT_DEPTH,
     MAX_PROJECT_TIMEOUT,
@@ -204,6 +208,16 @@ def scan(
         max=MAX_PROJECT_TIMEOUT,
         clamp=True,
         help=f"Timeout in seconds for project scanning (max {MAX_PROJECT_TIMEOUT})",
+    ),
+    skill_resubmit_window_seconds: int | None = typer.Option(
+        None,
+        "--skill-resubmit-window-seconds",
+        envvar="RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS",
+        min=0,
+        max=MAX_SKILL_RESUBMIT_WINDOW_SECONDS,
+        clamp=True,
+        hidden=True,
+        help="Server-synced skill re-submit throttle window; 0 disables it.",
     ),
     cpu_cores: int = typer.Option(
         default_cpu_cores(),
@@ -395,6 +409,7 @@ def scan(
                 no_projects=no_projects,
                 project_depth=project_depth,
                 project_timeout=project_timeout,
+                skill_resubmit_window_seconds=skill_resubmit_window_seconds,
                 cpu_cores=cpu_cores,
                 max_cpu_percent=max_cpu_percent,
                 memory_limit_mb=memory_limit_mb,
@@ -503,6 +518,7 @@ def _run_scan(
     detect_renamed_plugin_caches: bool,
     log_file_path: object,
     artifact_lookup_cache: bool = False,
+    skill_resubmit_window_seconds: int | None = None,
     windows_user_sid: str | None = None,
     windows_system_profile: bool = False,
     machine_scope: bool = True,
@@ -610,8 +626,17 @@ def _run_scan(
         # SYSTEM fallback children point home variables at user-controlled
         # profiles, so they must never create a privileged cache file there.
         windows_system_context = is_windows_system_context()
+        resubmit_window_seconds = (
+            SKILL_RESUBMIT_WINDOW_SECONDS
+            if skill_resubmit_window_seconds is None
+            else skill_resubmit_window_seconds
+        )
         local_artifact_cache = (
-            ArtifactCache(effective_host, effective_secret)
+            ArtifactCache(
+                effective_host,
+                effective_secret,
+                resubmit_window_seconds=resubmit_window_seconds,
+            )
             if artifact_lookup_cache and not windows_system_context
             else None
         )

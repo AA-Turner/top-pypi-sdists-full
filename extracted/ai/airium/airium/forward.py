@@ -1,44 +1,42 @@
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import TYPE_CHECKING, List, Optional, Type
+from typing import Dict, List, Optional, TYPE_CHECKING, Type, cast
 
 
-@dataclass
-class Airium:
-    base_indent: str = '  '
-    current_level: int = 0
-    source_minify: bool = False
-    source_line_break_character: str = "\n"
+class TagFactory:
+    """Create and cache tag classes for one :class:`Airium` document.
 
-    _doc_elements: List[str] = field(default_factory=list, repr=False)
-    _most_recent: List['Tag'] = field(default_factory=list, repr=False)
+    This class is the tag-generation layer of the architecture.  It resolves
+    tag-name aliases, selects single or paired tag behavior, and binds the
+    resulting class to its owning document.  It does not own rendered output
+    or nesting state; those responsibilities remain with :class:`Airium`.
+    """
 
-    def __str__(self) -> str:
-        self.flush_()
-        return self.source_line_break_character.join(self._doc_elements)
+    def __init__(self, root: "Airium") -> None:
+        self.root = root
+        self._tag_cache: Dict[str, Type["TagProtocol"]] = {}
 
-    def __bytes__(self) -> bytes:
-        return str(self).encode('utf-8')
+    def get_tag_(self, tag_name: str) -> Type["TagProtocol"]:
+        normalized_name = Tag.TAG_NAME_SUBSTITUTES.get(tag_name, tag_name)
+        cache_key = normalized_name.strip()
+        try:
+            return self._tag_cache[cache_key]
+        except KeyError:
+            tag_class = self._build_tag_class(normalized_name)
+            self._tag_cache[cache_key] = tag_class
+            return tag_class
 
-    def __call__(self, text_str: str) -> None:
-        self.flush_()
-        self.append(text_str)
+    def _build_tag_class(self, tag_name: str) -> Type["TagProtocol"]:
+        root = self.root
+        is_single_tag = tag_name.strip() in root.SINGLE_TAGS
 
-    def __getattr__(self, tag_name: str) -> Type['TagProtocol']:
-        self.flush_()
-        return self.get_tag_(tag_name)
-
-    def get_tag_(self, tag_name: str) -> Type['TagProtocol']:
-        doc = self  # avoid local name aliasing
-        tag_name = Tag.TAG_NAME_SUBSTITUTES.get(tag_name, tag_name)  # e.g. 'del'
-
-        if tag_name.strip() in doc.SINGLE_TAGS:
+        if is_single_tag:
 
             class SingleTag(Tag):
                 """E.g. '<img src="src.png" alt="alt text" />"""
 
                 def __init__(self, *p: str, _t: Optional[str] = None, **k: str):
-                    super().__init__(tag_name, doc)
+                    super().__init__(tag_name, root)
                     self.root.append(f'<{self.tag_name}{self._make_xml_args(*p, **k)} />{_t or ""}')
 
                 def __enter__(self) -> None:
@@ -52,47 +50,87 @@ class Airium:
                 ) -> None:  # pragma: no cover
                     """Cannot ever run exit since enter raises."""
 
-                def __getattr__(self, tag_name: str) -> Type['TagProtocol']:
+                def __getattr__(self, tag_name: str) -> Type["TagProtocol"]:
                     raise AttributeError(f"{self.tag_name!r} is a single tag, creating its children is forbidden.")
 
-            SingleTag.__name__ += f'_{tag_name}'  # for debug reasons
-            return SingleTag
+            SingleTag.__name__ += f"_{tag_name}"  # for debug reasons
+            return cast(Type["TagProtocol"], SingleTag)
 
-        else:
-            class PairedTag(Tag):
-                """E.g. '<div klass='panel'>...</div>"""
+        class PairedTag(Tag):
+            """E.g. '<div klass='panel'>...</div>"""
 
-                def __init__(self, *p: str, _t: Optional[str] = None, **k: str):
-                    super().__init__(tag_name, doc)
-                    self.root.append(f'<{self.tag_name}{self._make_xml_args(*p, **k)}>{_t or ""}')
-                    self.root._most_recent.append(self)
+            def __init__(self, *p: str, _t: Optional[str] = None, **k: str):
+                super().__init__(tag_name, root)
+                self.root.append(f'<{self.tag_name}{self._make_xml_args(*p, **k)}>{_t or ""}')
+                self.root._most_recent.append(self)
 
-                def __enter__(self) -> None:
-                    self.entered = True
-                    self.root.current_level += 1
-                    self.opened = True
+            def __enter__(self) -> None:
+                self.entered = True
+                self.root.current_level += 1
+                self.opened = True
 
-                def __exit__(
-                    self,
-                    exc_type: Optional[Type[BaseException]],
-                    exc_value: Optional[BaseException],
-                    traceback: Optional[TracebackType],
-                ) -> None:
-                    self.root.flush_()
-                    self.finalize()
-                    assert self.root._most_recent.pop() is self
+            def __exit__(
+                self,
+                exc_type: Optional[Type[BaseException]],
+                exc_value: Optional[BaseException],
+                traceback: Optional[TracebackType],
+            ) -> None:
+                self.root.flush_()
+                self.finalize()
+                assert self.root._most_recent.pop() is self
 
-                def __getattr__(self, tag_name: str) -> Type['TagProtocol']:
-                    """Chaining, e.g. ``a.ul().li().strong(_t='foo')``"""
-                    return doc.get_tag_(tag_name)
+            def __getattr__(self, tag_name: str) -> Type["TagProtocol"]:
+                """Chaining, e.g. ``a.ul().li().strong(_t='foo')``"""
+                return root.get_tag_(tag_name)
 
-                def finalize(self) -> None:
-                    if self.opened:
-                        self.root.current_level -= 1
-                    self.root.append(f'</{self.tag_name}>', self.opened)
+            def finalize(self) -> None:
+                if self.opened:
+                    self.root.current_level -= 1
+                self.root.append(f"</{self.tag_name}>", self.opened)
 
-            PairedTag.__name__ += f'_{tag_name}'  # for debug reasons
-            return PairedTag
+        PairedTag.__name__ += f"_{tag_name}"  # for debug reasons
+        return cast(Type["TagProtocol"], PairedTag)
+
+
+@dataclass
+class Airium:
+    """Maintain document state while incrementally rendering HTML.
+
+    ``Airium`` is the document/rendering layer.  It owns the output buffer,
+    indentation and nesting state, and exposes the fluent public API.  Tag
+    classes are supplied by :class:`TagFactory`; the factory creates tags,
+    while this class determines how those tags affect the document.
+    """
+
+    base_indent: str = "  "
+    current_level: int = 0
+    source_minify: bool = False
+    source_line_break_character: str = "\n"
+
+    _doc_elements: List[str] = field(default_factory=list, repr=False)
+    _most_recent: List["Tag"] = field(default_factory=list, repr=False)
+    _tag_factory: TagFactory = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._tag_factory = TagFactory(self)
+
+    def __str__(self) -> str:
+        self.flush_()
+        return self.source_line_break_character.join(self._doc_elements)
+
+    def __bytes__(self) -> bytes:
+        return str(self).encode("utf-8")
+
+    def __call__(self, text_str: str) -> None:
+        self.flush_()
+        self.append(text_str)
+
+    def __getattr__(self, tag_name: str) -> Type["TagProtocol"]:
+        self.flush_()
+        return self.get_tag_(tag_name)
+
+    def get_tag_(self, tag_name: str) -> Type["TagProtocol"]:
+        return self._tag_factory.get_tag_(tag_name)
 
     def flush_(self) -> None:
         """Close most recent opened tags.
@@ -121,7 +159,8 @@ class Airium:
 
     def break_source_line(self) -> "Airium":
         """To be used with self.source_minify=True if you would like to manualy split line.
-        If you never call this function, your html code will most probably be contained in single-line."""
+        If you never call this function, your html code will most probably be contained in single-line.
+        """
         self.flush_()
         self._doc_elements.append("")
         return self
@@ -131,14 +170,34 @@ class Airium:
         # Airium.SINGLE_TAGS = ['hr', 'br', 'foo', 'ect']
         # or by extend or append:
         # Airium.SINGLE_TAGS.extend(['foo', 'ect'])
-        'input', 'hr', 'br', 'img', 'area', 'link',
-        'col', 'meta', 'base', 'param', 'wbr',
-        'keygen', 'source', 'track', 'embed',
+        "input",
+        "hr",
+        "br",
+        "img",
+        "area",
+        "link",
+        "col",
+        "meta",
+        "base",
+        "param",
+        "wbr",
+        "keygen",
+        "source",
+        "track",
+        "embed",
     ]
 
 
 @dataclass
 class Tag:
+    """Represent the shared state and rendering helpers of one HTML tag.
+
+    ``Tag`` is the tag-model layer between the factory and the document.
+    Concrete classes produced by :class:`TagFactory` provide single-tag or
+    paired-tag lifecycle behavior, while the owning :class:`Airium` instance
+    remains responsible for the document-wide output and nesting state.
+    """
+
     tag_name: str
     root: Airium
 
@@ -161,9 +220,9 @@ class Tag:
 
     @classmethod
     def _make_xml_args(cls, *p: str, **k: str) -> str:
-        ret = ''
+        ret = ""
         for positional in p:
-            ret += f' {positional}'
+            ret += f" {positional}"
 
         for key, value in k.items():
             key = str(key)  # sanity reasons
@@ -172,8 +231,8 @@ class Tag:
             normalized_value = cls.ATTRIBUTE_VALUE_SUBSTITUTES.get(value, value)
             normalized_value = cls.escape_quotes(normalized_value)
 
-            if key == 'title':
-                normalized_value = normalized_value.replace('\n', '&#10;')
+            if key == "title":
+                normalized_value = normalized_value.replace("\n", "&#10;")
 
             ret += ' {}="{}"'.format(normalized_key, normalized_value)
 
@@ -181,38 +240,35 @@ class Tag:
 
     @staticmethod
     def escape_quotes(str_value: str) -> str:
-        return str_value.replace('"', '&quot;')
+        return str_value.replace('"', "&quot;")
 
     TAG_NAME_SUBSTITUTES = {
-        'del_': 'del',
-        'Del': 'del',
+        "del_": "del",
+        "Del": "del",
     }
 
     ATTRIBUTE_NAME_SUBSTITUTES = {
         # html tags colliding with python keywords
-        'klass': 'class',
-        'Class': 'class',
-        'class_': 'class',
-        'async_': 'async',
-        'Async': 'async',
-        'for_': 'for',
-        'For': 'for',
-        'In': 'in',
-        'in_': 'in',
-
+        "klass": "class",
+        "Class": "class",
+        "class_": "class",
+        "async_": "async",
+        "Async": "async",
+        "for_": "for",
+        "For": "for",
+        "In": "in",
+        "in_": "in",
         # from XML
-        'xmlns_xlink': 'xmlns:xlink',
-
+        "xmlns_xlink": "xmlns:xlink",
         # from SVG ns
-        'fill_opacity': 'fill-opacity',
-        'stroke_width': 'stroke-width',
-        'stroke_dasharray': ' stroke-dasharray',
-        'stroke_opacity': 'stroke-opacity',
-        'stroke_dashoffset': 'stroke-dashoffset',
-        'stroke_linejoin': 'stroke-linejoin',
-        'stroke_linecap': 'stroke-linecap',
-        'stroke_miterlimit': 'stroke-miterlimit',
-
+        "fill_opacity": "fill-opacity",
+        "stroke_width": "stroke-width",
+        "stroke_dasharray": "stroke-dasharray",
+        "stroke_opacity": "stroke-opacity",
+        "stroke_dashoffset": "stroke-dashoffset",
+        "stroke_linejoin": "stroke-linejoin",
+        "stroke_linecap": "stroke-linecap",
+        "stroke_miterlimit": "stroke-miterlimit",
         # you may add translations to this dict after importing Tag class:
         # Tag.ATTRIBUTE_NAME_SUBSTITUTES.update({
         #   # e.g.
@@ -222,26 +278,11 @@ class Tag:
     }
 
     ATTRIBUTE_VALUE_SUBSTITUTES = {
-        'True': 'true',
-        'False': 'false',
-        'None': 'null',
+        "True": "true",
+        "False": "false",
+        "None": "null",
     }
 
 
 if TYPE_CHECKING:
-    from typing import Protocol
-
-    class TagProtocol(Protocol):
-        def __init__(self, *p: str, _t: Optional[str] = None, **k: str): ...
-
-        def __enter__(self) -> None: ...
-
-        def __exit__(
-                self,
-                exc_type: Optional[Type[BaseException]],
-                exc_value: Optional[BaseException],
-                traceback: Optional[TracebackType],
-        ) -> None:
-            ...
-
-        def __getattr__(self, tag_name: str) -> Type['TagProtocol']: ...
+    from .html import TagProtocol

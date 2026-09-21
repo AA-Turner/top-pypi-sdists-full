@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from mixpeek.models.extractor_pricing import ExtractorPricing
+from mixpeek.models.plan_definition_response import PlanDefinitionResponse
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,8 +30,8 @@ class PricingConfigResponse(BaseModel):
     PricingConfigResponse
     """ # noqa: E501
     credit_rate_usd: Union[StrictFloat, StrictInt] = Field(description="USD cost per credit (e.g. 0.001 = $0.001/credit)")
-    managed_plans: List[Dict[str, Any]] = Field(description="Managed Mixpeek plans (Free/Pro/Team/Enterprise)")
-    mvs_plans: List[Dict[str, Any]] = Field(description="MVS standalone plans (Free/Pro/Business/Enterprise)")
+    managed_plans: List[PlanDefinitionResponse] = Field(description="Managed Mixpeek plans (Free/Pro/Team/Enterprise)")
+    mvs_plans: List[PlanDefinitionResponse] = Field(description="MVS standalone plans (Free/Pro/Business/Enterprise)")
     mvs_usage_rates: Dict[str, Any] = Field(description="MVS per-unit usage rates (storage, queries, writes)")
     enterprise_defaults: Dict[str, Any] = Field(description="Default enterprise/tenant billing parameters")
     extractors: List[ExtractorPricing] = Field(description="All available extractors with their cost rates. DEPRECATED for display: v2 surfaces render `v2.modalities` features instead (D9 — extractors are internal implementation).")
@@ -82,6 +83,20 @@ class PricingConfigResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in managed_plans (list)
+        _items = []
+        if self.managed_plans:
+            for _item_managed_plans in self.managed_plans:
+                if _item_managed_plans:
+                    _items.append(_item_managed_plans.to_dict())
+            _dict['managed_plans'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in mvs_plans (list)
+        _items = []
+        if self.mvs_plans:
+            for _item_mvs_plans in self.mvs_plans:
+                if _item_mvs_plans:
+                    _items.append(_item_mvs_plans.to_dict())
+            _dict['mvs_plans'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in extractors (list)
         _items = []
         if self.extractors:
@@ -102,8 +117,8 @@ class PricingConfigResponse(BaseModel):
 
         _obj = cls.model_validate({
             "credit_rate_usd": obj.get("credit_rate_usd"),
-            "managed_plans": obj.get("managed_plans"),
-            "mvs_plans": obj.get("mvs_plans"),
+            "managed_plans": [PlanDefinitionResponse.from_dict(_item) for _item in obj["managed_plans"]] if obj.get("managed_plans") is not None else None,
+            "mvs_plans": [PlanDefinitionResponse.from_dict(_item) for _item in obj["mvs_plans"]] if obj.get("mvs_plans") is not None else None,
             "mvs_usage_rates": obj.get("mvs_usage_rates"),
             "enterprise_defaults": obj.get("enterprise_defaults"),
             "extractors": [ExtractorPricing.from_dict(_item) for _item in obj["extractors"]] if obj.get("extractors") is not None else None,

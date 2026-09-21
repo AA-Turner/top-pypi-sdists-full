@@ -68,4 +68,4 @@ def test_artifact_cache_deep_nesting_is_integrity_miss(tmp_path: Path):
     cache_path = tmp_path / "artifact_cache.json"
     cache_path.write_text(DEEP_NESTING)
     cache = ArtifactCache("https://example.test", "key", cache_path=cache_path)
-    assert cache._load_entries() == {}
+    assert cache._load_state() == {"entries": {}, "submissions": {}}

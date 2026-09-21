@@ -9,7 +9,7 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.appendix_product_google_merchant_price_data_info import AppendixProductGoogleMerchantPriceDataInfo
-from dataforseo_client.models.appendix_app_listings_app_data_price_data import AppendixAppListingsAppDataPriceData
+from dataforseo_client.models.appendix_llm_mentions_ai_optimization_price_data import AppendixLlmMentionsAiOptimizationPriceData
 from dataforseo_client.models.appendix_price_data_info import AppendixPriceDataInfo
 from dataforseo_client.models.appendix_task_keywords_data_price_data_info import AppendixTaskKeywordsDataPriceDataInfo
 
@@ -20,12 +20,14 @@ class AppendixAppDataPriceData(BaseModel):
     AppendixAppDataPriceData
     """ # noqa: E501
     app_info: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
-    app_listings: Optional[AppendixAppListingsAppDataPriceData] = Field(default=None, description=r"")
+    app_listings: Optional[AppendixLlmMentionsAiOptimizationPriceData] = Field(default=None, description=r"")
     app_list: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
     app_reviews: Optional[AppendixPriceDataInfo] = Field(default=None, description=r"")
     app_searches: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
+    pp_listings: Optional[AppendixLlmMentionsAiOptimizationPriceData] = Field(default=None, description=r"")
     categories: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     languages: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     locations: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     tasks_ready: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -35,8 +37,10 @@ class AppendixAppDataPriceData(BaseModel):
         "app_list", 
         "app_reviews", 
         "app_searches", 
+        "pp_listings", 
         "categories", 
         "errors", 
+        "id_list", 
         "languages", 
         "locations", 
         "tasks_ready", 
@@ -71,8 +75,10 @@ class AppendixAppDataPriceData(BaseModel):
         _dict['app_list'] = self.app_list.to_dict() if self.app_list else None
         _dict['app_reviews'] = self.app_reviews.to_dict() if self.app_reviews else None
         _dict['app_searches'] = self.app_searches.to_dict() if self.app_searches else None
+        _dict['pp_listings'] = self.pp_listings.to_dict() if self.pp_listings else None
         _dict['categories'] = self.categories.to_dict() if self.categories else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['languages'] = self.languages.to_dict() if self.languages else None
         _dict['locations'] = self.locations.to_dict() if self.locations else None
         _dict['tasks_ready'] = self.tasks_ready.to_dict() if self.tasks_ready else None
@@ -89,12 +95,14 @@ class AppendixAppDataPriceData(BaseModel):
 
         _obj = cls.model_validate({
             "app_info": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["app_info"]) if obj.get("app_info") is not None else None,
-            "app_listings": AppendixAppListingsAppDataPriceData.from_dict(obj["app_listings"]) if obj.get("app_listings") is not None else None,
+            "app_listings": AppendixLlmMentionsAiOptimizationPriceData.from_dict(obj["app_listings"]) if obj.get("app_listings") is not None else None,
             "app_list": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["app_list"]) if obj.get("app_list") is not None else None,
             "app_reviews": AppendixPriceDataInfo.from_dict(obj["app_reviews"]) if obj.get("app_reviews") is not None else None,
             "app_searches": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["app_searches"]) if obj.get("app_searches") is not None else None,
+            "pp_listings": AppendixLlmMentionsAiOptimizationPriceData.from_dict(obj["pp_listings"]) if obj.get("pp_listings") is not None else None,
             "categories": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["categories"]) if obj.get("categories") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
             "languages": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["languages"]) if obj.get("languages") is not None else None,
             "locations": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["locations"]) if obj.get("locations") is not None else None,
             "tasks_ready": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["tasks_ready"]) if obj.get("tasks_ready") is not None else None,

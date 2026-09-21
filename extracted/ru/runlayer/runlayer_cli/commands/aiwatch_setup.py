@@ -621,7 +621,7 @@ def configure_test_device(
     if exit_code != EXIT_OK:
         typer.secho(
             f"{WARN} AI Watch configuration was written, but hook reconciliation "
-            "is incomplete; the hourly bootstrap daemon will retry.",
+            "is incomplete; the bootstrap daemon will retry within 15 minutes.",
             fg=typer.colors.YELLOW,
             err=True,
         )
@@ -741,7 +741,7 @@ def _reconcile_hooks(
         # install_window_state() returns NO_STAMP off macOS, so Windows (and
         # everywhere else) always takes the strict exit-4 branch — the Windows
         # AIWatchHooks task has no KeepAlive, it just records LastTaskResult and
-        # waits for the next hourly tick, so there is no retry storm to soften.
+        # waits for the next 15-min tick, so there is no retry storm to soften.
         if install_window_state() is InstallWindowState.OUTSIDE:
             return EXIT_OK
         return EXIT_NO_CREDENTIAL

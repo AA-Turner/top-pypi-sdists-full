@@ -22,9 +22,12 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
     domain_intersection: Optional[AppendixInfo] = Field(default=None, description=r"")
     backlinks: Optional[AppendixInfo] = Field(default=None, description=r"")
     domain_pages: Optional[AppendixInfo] = Field(default=None, description=r"")
+    domain_backlinks: Optional[AppendixInfo] = Field(default=None, description=r"")
     anchors: Optional[AppendixInfo] = Field(default=None, description=r"")
     referring_domains: Optional[AppendixInfo] = Field(default=None, description=r"")
+    links_intersection: Optional[AppendixInfo] = Field(default=None, description=r"")
     page_intersection: Optional[AppendixInfo] = Field(default=None, description=r"")
+    available_filters: Optional[StrictFloat] = Field(default=None, description=r"")
     referring_networks: Optional[AppendixInfo] = Field(default=None, description=r"")
     bulk_ranks: Optional[AppendixInfo] = Field(default=None, description=r"")
     bulk_backlinks: Optional[AppendixInfo] = Field(default=None, description=r"")
@@ -37,6 +40,7 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
     timeseries_new_lost_summary: Optional[AppendixInfo] = Field(default=None, description=r"")
     competitors: Optional[AppendixInfo] = Field(default=None, description=r"")
     bulk_spam_score: Optional[AppendixInfo] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
     bulk_pages_summary: Optional[AppendixInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "summary", 
@@ -45,9 +49,12 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
         "domain_intersection", 
         "backlinks", 
         "domain_pages", 
+        "domain_backlinks", 
         "anchors", 
         "referring_domains", 
+        "links_intersection", 
         "page_intersection", 
+        "available_filters", 
         "referring_networks", 
         "bulk_ranks", 
         "bulk_backlinks", 
@@ -60,6 +67,7 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
         "timeseries_new_lost_summary", 
         "competitors", 
         "bulk_spam_score", 
+        "id_list", 
         "bulk_pages_summary", 
         ]
 
@@ -93,9 +101,12 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
         _dict['domain_intersection'] = self.domain_intersection.to_dict() if self.domain_intersection else None
         _dict['backlinks'] = self.backlinks.to_dict() if self.backlinks else None
         _dict['domain_pages'] = self.domain_pages.to_dict() if self.domain_pages else None
+        _dict['domain_backlinks'] = self.domain_backlinks.to_dict() if self.domain_backlinks else None
         _dict['anchors'] = self.anchors.to_dict() if self.anchors else None
         _dict['referring_domains'] = self.referring_domains.to_dict() if self.referring_domains else None
+        _dict['links_intersection'] = self.links_intersection.to_dict() if self.links_intersection else None
         _dict['page_intersection'] = self.page_intersection.to_dict() if self.page_intersection else None
+        _dict['available_filters'] = self.available_filters
         _dict['referring_networks'] = self.referring_networks.to_dict() if self.referring_networks else None
         _dict['bulk_ranks'] = self.bulk_ranks.to_dict() if self.bulk_ranks else None
         _dict['bulk_backlinks'] = self.bulk_backlinks.to_dict() if self.bulk_backlinks else None
@@ -108,6 +119,7 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
         _dict['timeseries_new_lost_summary'] = self.timeseries_new_lost_summary.to_dict() if self.timeseries_new_lost_summary else None
         _dict['competitors'] = self.competitors.to_dict() if self.competitors else None
         _dict['bulk_spam_score'] = self.bulk_spam_score.to_dict() if self.bulk_spam_score else None
+        _dict['id_list'] = self.id_list
         _dict['bulk_pages_summary'] = self.bulk_pages_summary.to_dict() if self.bulk_pages_summary else None
         return _dict
 
@@ -127,9 +139,12 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
             "domain_intersection": AppendixInfo.from_dict(obj["domain_intersection"]) if obj.get("domain_intersection") is not None else None,
             "backlinks": AppendixInfo.from_dict(obj["backlinks"]) if obj.get("backlinks") is not None else None,
             "domain_pages": AppendixInfo.from_dict(obj["domain_pages"]) if obj.get("domain_pages") is not None else None,
+            "domain_backlinks": AppendixInfo.from_dict(obj["domain_backlinks"]) if obj.get("domain_backlinks") is not None else None,
             "anchors": AppendixInfo.from_dict(obj["anchors"]) if obj.get("anchors") is not None else None,
             "referring_domains": AppendixInfo.from_dict(obj["referring_domains"]) if obj.get("referring_domains") is not None else None,
+            "links_intersection": AppendixInfo.from_dict(obj["links_intersection"]) if obj.get("links_intersection") is not None else None,
             "page_intersection": AppendixInfo.from_dict(obj["page_intersection"]) if obj.get("page_intersection") is not None else None,
+            "available_filters": obj.get("available_filters"),
             "referring_networks": AppendixInfo.from_dict(obj["referring_networks"]) if obj.get("referring_networks") is not None else None,
             "bulk_ranks": AppendixInfo.from_dict(obj["bulk_ranks"]) if obj.get("bulk_ranks") is not None else None,
             "bulk_backlinks": AppendixInfo.from_dict(obj["bulk_backlinks"]) if obj.get("bulk_backlinks") is not None else None,
@@ -142,6 +157,7 @@ class AppendixBacklinksLimitsRatesDataInfo(BaseModel):
             "timeseries_new_lost_summary": AppendixInfo.from_dict(obj["timeseries_new_lost_summary"]) if obj.get("timeseries_new_lost_summary") is not None else None,
             "competitors": AppendixInfo.from_dict(obj["competitors"]) if obj.get("competitors") is not None else None,
             "bulk_spam_score": AppendixInfo.from_dict(obj["bulk_spam_score"]) if obj.get("bulk_spam_score") is not None else None,
+            "id_list": obj.get("id_list"),
             "bulk_pages_summary": AppendixInfo.from_dict(obj["bulk_pages_summary"]) if obj.get("bulk_pages_summary") is not None else None,
         })
 

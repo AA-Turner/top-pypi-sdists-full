@@ -1,3 +1,5 @@
+from .annotated import BulkRequestContext
+from .annotated import BulkResponseContext
 from .annotated import CreationRequestContext
 from .annotated import CreationResponseContext
 from .annotated import PatchRequestContext
@@ -44,8 +46,13 @@ from .messages.patch_op import PatchOp
 from .messages.patch_op import PatchOperation
 from .messages.response_parameters import ResponseParameters
 from .messages.search_request import SearchRequest
-from .path import URN
+from .path import AttributeBinding
 from .path import Path
+from .path import ScimFilter
+from .policy import ScimPolicy
+from .provider import DescribedModel
+from .provider import ScimProvider
+from .provider import ScimProviderError
 from .reference import URI
 from .reference import External
 from .reference import Reference
@@ -83,6 +90,7 @@ from .resources.user import User
 from .resources.user import X509Certificate
 from .scim_object import AnyScimObject
 from .scim_object import ScimObject
+from .urn import URN
 
 __all__ = [
     "Address",
@@ -90,18 +98,22 @@ __all__ = [
     "AnyResource",
     "AnyScimObject",
     "Attribute",
+    "AttributeBinding",
     "AuthenticationScheme",
     "BaseModel",
     "Bulk",
     "BulkOperation",
     "BulkRequest",
+    "BulkRequestContext",
     "BulkResponse",
+    "BulkResponseContext",
     "CaseExact",
     "ChangePassword",
     "ComplexAttribute",
     "Context",
     "CreationRequestContext",
     "CreationResponseContext",
+    "DescribedModel",
     "ETag",
     "Email",
     "EnterpriseUser",
@@ -152,6 +164,10 @@ __all__ = [
     "SCIMException",
     "SCIMSerializer",
     "SCIMValidator",
+    "ScimFilter",
+    "ScimPolicy",
+    "ScimProvider",
+    "ScimProviderError",
     "Schema",
     "SchemaExtension",
     "ScimObject",

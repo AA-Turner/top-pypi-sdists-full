@@ -15,6 +15,17 @@ import os
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
+
+# The CHROMIUM-gated test below decides whether to skip by reading
+# PLAYWRIGHT_BROWSERS_PATH at IMPORT time. Without this line the answer depends on
+# whether some OTHER suite imported a module that loaded the environment first —
+# same tree, same commit, opposite verdicts, decided by collection order. Bare
+# load_dotenv() searches upward from the WORKING DIRECTORY on purpose: this package
+# may never walk up from __file__ to reach a project file (CLAUDE.md, host
+# independence), which is why it does not take an explicit path the way
+# matrx-files' tests do.
+load_dotenv()
 
 pytest.importorskip("playwright", reason="playwright not installed (browser extra)")
 
@@ -26,7 +37,16 @@ from matrx_scraper.cloud_browser.worker import models as M  # noqa: E402
 
 
 def test_policy_wins_then_environment_then_defaults(monkeypatch, tmp_path) -> None:
-    monkeypatch.delenv(identity.CHROME_BINARY_ENV, raising=False)
+    # 🚨 DELETING THIS VARIABLE DOES NOT MEAN "NO CHROME INSTALLED".
+    # `resolve_identity` falls back to DEFAULT_CHROME_BINARY
+    # (`/opt/google/chrome/chrome`) and then asks the FILESYSTEM, so an unset
+    # variable hands the answer to whatever machine happens to run the suite.
+    # GitHub's runners ship Google Chrome at exactly that path, so this test and
+    # `test_defaults_are_a_person_not_a_server` below passed locally and failed
+    # in CI, on the same commit, for a reason no assertion mentioned. Pointing
+    # the variable at a path that cannot exist states the premise these tests
+    # are actually about — no Chrome installed — instead of inheriting it.
+    monkeypatch.setenv(identity.CHROME_BINARY_ENV, str(tmp_path / "no-chrome-installed"))
     monkeypatch.setenv(identity.TIMEZONE_ENV, "Europe/Berlin")
     monkeypatch.delenv(identity.LOCALE_ENV, raising=False)
     monkeypatch.setenv(identity.WEBGL_RENDERER_ENV, "")
@@ -55,15 +75,17 @@ def test_google_chrome_is_preferred_when_installed(monkeypatch, tmp_path) -> Non
     assert ident.binary_kind == "google-chrome"
 
 
-def test_defaults_are_a_person_not_a_server(monkeypatch) -> None:
+def test_defaults_are_a_person_not_a_server(monkeypatch, tmp_path) -> None:
     for name in (
         identity.TIMEZONE_ENV,
         identity.LOCALE_ENV,
         identity.WEBGL_VENDOR_ENV,
         identity.WEBGL_RENDERER_ENV,
-        identity.CHROME_BINARY_ENV,
     ):
         monkeypatch.delenv(name, raising=False)
+    # Same reason as above: the binary probe reads the filesystem, so "no Chrome
+    # installed" is stated, not assumed.
+    monkeypatch.setenv(identity.CHROME_BINARY_ENV, str(tmp_path / "no-chrome-installed"))
     ident = identity.resolve_identity(
         M.LaunchPolicy(run_mode="handoff_capable"), chromium_fallback=None
     )

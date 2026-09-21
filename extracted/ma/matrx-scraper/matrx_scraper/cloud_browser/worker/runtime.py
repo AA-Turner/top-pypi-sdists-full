@@ -32,7 +32,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import io
 import json
 import logging
 import os
@@ -43,7 +42,7 @@ import uuid
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +78,24 @@ from matrx_scraper.cloud_browser.worker.sanitize import (
 logger = logging.getLogger(__name__)
 
 _PROFILE_CHECKPOINT_MARKER = ".matrx-checkpoint-hash"
+#: Written the moment Chromium launches on a profile directory: the hash of the
+#: checkpoint that directory descends from ("" when it started empty). The
+#: profile lives on shared EFS and outlives the task; a later worker restoring
+#: the SAME checkpoint finds this marker and adopts the directory instead of
+#: overwriting the work done since (see ``_restore_profile_once``).
+_PROFILE_LIVE_MARKER = ".matrx-profile-live"
+#: Chromium's own single-instance lock files. Left behind by a task that is
+#: gone, they point at a hostname/pid that no longer exists and can make the
+#: next launch believe the profile is in use.
+_CHROMIUM_SINGLETON_FILES = ("SingletonLock", "SingletonSocket", "SingletonCookie")
+#: How long past the acknowledged lease's expiry the worker waits for ANY
+#: renewal before deciding the control plane is gone, closing Chromium cleanly
+#: (so the profile on disk is consistent) and ending the task. A lease is
+#: renewed every 20 s and lasts 60 s; 90 s past expiry is 150 s of silence.
+LEASE_WATCHDOG_GRACE_SECONDS = float(
+    os.environ.get("BROWSER_WORKER_LEASE_WATCHDOG_GRACE_SECONDS", "90")
+)
+LEASE_WATCHDOG_TICK_SECONDS = 15.0
 
 # The manager derives its bootstrap envelope from the shared S2 budgets below.
 # Each worker phase must finish (successfully or as a typed refusal) inside its
@@ -144,6 +161,41 @@ async def _upload_presigned_bytes(
 async def _upload_checkpoint_ciphertext(target: M.PresignedUpload, ciphertext: bytes) -> bool:
     """Upload without allowing presigned query credentials into exceptions/logs."""
     return await _upload_presigned_bytes(target, ciphertext, what="checkpoint")
+
+
+async def _upload_checkpoint_file(target: M.PresignedUpload, path: str, size: int) -> bool:
+    """PUT one file to a presigned target in bounded memory.
+
+    Same secret-hygiene contract as ``_upload_presigned_bytes``. The body is
+    an iterator with an explicit ``Content-Length`` — S3 rejects a chunked
+    presigned PUT, and httpx honours a caller-supplied length instead of
+    adding ``Transfer-Encoding``.
+    """
+
+    def _chunks():  # noqa: ANN202
+        with open(path, "rb") as handle:
+            while True:
+                block = handle.read(_CHECKPOINT_CHUNK_BYTES)
+                if not block:
+                    return
+                yield block
+
+    headers = {**dict(target.headers or {}), "Content-Length": str(size)}
+    try:
+        async with httpx.AsyncClient(timeout=M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS) as client:
+            response = await client.put(target.url, headers=headers, content=_chunks())
+    except Exception as exc:
+        logger.error("checkpoint upload transport failed: error_type=%s", type(exc).__name__)
+        return False
+    if response.is_success:
+        return True
+    logger.error(
+        "checkpoint upload rejected: status=%s code=%s request_id=%s",
+        response.status_code,
+        response.headers.get("x-amz-error-code") or "",
+        response.headers.get("x-amz-request-id") or "",
+    )
+    return False
 
 
 class _TrackedPage:
@@ -323,6 +375,26 @@ class BrowserWorker:
         self.queue_state: str = "closed"
         self._closed_reason: str = "not_bootstrapped"
         self._in_flight = 0
+        #: One checkpoint at a time. Two control-plane callers racing a close
+        #: (a person's stop and the maintenance sweep's "resume the interrupted
+        #: stop", 2026-09-19) both called ``context.close()``; the second landed
+        #: on a browser the first had already closed and was reported as
+        #: ``chromium_unclean_exit`` — an honest-sounding failure for a browser
+        #: that had in fact exited cleanly, once.
+        self._checkpoint_in_progress = False
+        #: True while THIS worker is closing Chromium on purpose (checkpoint,
+        #: shutdown, termination). A context "close" event outside that window
+        #: is a crash, and the worker says so instead of staying "healthy".
+        self._closing_intentionally = False
+        #: Set once by SIGTERM or the lease watchdog; never unset.
+        self._terminating = False
+        self._lease_watchdog: asyncio.Task | None = None
+        #: Only the deployed worker PROCESS (server.py) turns this on: the
+        #: watchdog ends the process, which is right for one task on ECS and
+        #: wrong for a worker object living inside a test or a harness.
+        self._lease_watchdog_enabled = False
+        #: How the watchdog ends the process; a test injects a recorder.
+        self._end_process: Callable[[], None] = _send_self_sigterm
         self._command_lock = asyncio.Lock()
 
         # Access / lease
@@ -985,7 +1057,8 @@ class BrowserWorker:
         self._bootstrap_lifecycle = "active"
         self.health = "healthy"
         self.queue_state = "open"
-        await asyncio.to_thread(_remove_profile_checkpoint_marker, self._user_data_dir)
+        await asyncio.to_thread(_mark_profile_live, self._user_data_dir)
+        self._start_lease_watchdog()
         self._closed_reason = ""
         # Idle age belongs to a RUN, not to this reusable fixed-fleet process.
         # Without this reset, the next run inherits the prior run's idle clock
@@ -1177,6 +1250,11 @@ class BrowserWorker:
         )
 
         self._context = await self._pw.chromium.launch_persistent_context(**launch_kwargs)
+        self._closing_intentionally = False
+        try:
+            self._context.on("close", lambda *_args: self._on_context_closed())
+        except Exception:
+            logger.warning("could not subscribe to the browser context close event", exc_info=True)
         webgl_script = webgl_init_script(identity.webgl_vendor, identity.webgl_renderer)
         if webgl_script is not None:
             # Context-level: every page, popup and iframe of this run, before any
@@ -1483,11 +1561,12 @@ class BrowserWorker:
                     request
                 )
         except WorkerProtocolError as err:
-            self._in_flight -= 1
             return self._error_reply(M.CommandResponse, err)
         finally:
-            pass
-        self._in_flight -= 1
+            # EVERY exit path, including a Playwright error that is not a
+            # WorkerProtocolError: a leaked count here made every later drain
+            # wait out its full timeout and abandon the "in-flight" command.
+            self._in_flight -= 1
         self._last_activity = _now()
 
         facts = self._build_event_facts(request, started, result_class)
@@ -2311,9 +2390,21 @@ class BrowserWorker:
                     message="transition out before checkpoint",
                     conflicting_handoff_id=self._controller.handoff_id,
                 )
+            if self._checkpoint_in_progress:
+                raise WorkerProtocolError(
+                    "checkpoint_in_progress",
+                    message="another checkpoint is closing and archiving this browser",
+                )
         except WorkerProtocolError as err:
             return self._error_reply(M.CheckpointResponse, err, checkpoint_id=request.checkpoint_id)
 
+        self._checkpoint_in_progress = True
+        try:
+            return await self._checkpoint_exclusive(request)
+        finally:
+            self._checkpoint_in_progress = False
+
+    async def _checkpoint_exclusive(self, request: M.CheckpointRequest) -> M.CheckpointResponse:
         self.queue_state = "draining"
         await self._drain_queue(request.drain_timeout_ms)
 
@@ -2330,53 +2421,72 @@ class BrowserWorker:
                 chromium_exited_cleanly=False,
             )
 
-        try:
-            plaintext = await asyncio.to_thread(_archive_dir, self._user_data_dir)
-        except Exception:
-            self.queue_state = "open"
-            return self._error_reply(
-                M.CheckpointResponse,
-                WorkerProtocolError(
-                    "checkpoint_failed", message="archive failed; plaintext preserved"
-                ),
-                checkpoint_id=request.checkpoint_id,
-                chromium_exited_cleanly=True,
-                zeroized=False,
-            )
-        # Encrypt with the manager-supplied DEK (WS-3 owns the full crypto; the
-        # worker holds the plaintext DEK for the archive operation only and zeroizes it).
-        nonce = base64.b64decode(request.nonce_b64)
-        plaintext_hash, ciphertext, ciphertext_hash, encrypted = await asyncio.to_thread(
-            _encrypt_checkpoint,
-            request.dek_plaintext_b64,
-            nonce,
-            plaintext,
-        )
+        # 🚨 Everything below streams through files, never through RAM. The
+        # profile used to be held THREE times on a 4 GiB task (tar bytes,
+        # ciphertext, HTTP body); an 85 MB archive is nothing, a 400 MB one was
+        # the difference between a save and an OOM kill mid-checkpoint.
+        scratch = tempfile.mkdtemp(prefix="checkpoint-", dir=_checkpoint_scratch_dir())
+        plaintext_path = os.path.join(scratch, "archive")
+        ciphertext_path = os.path.join(scratch, "archive.enc")
         zeroized = request.zeroize_after
+        try:
+            try:
+                plaintext_hash, _plaintext_bytes, archive_format_version = await asyncio.to_thread(
+                    _archive_dir_to_file, self._user_data_dir, plaintext_path
+                )
+            except Exception:
+                logger.exception("checkpoint archive failed; the profile on disk is untouched")
+                self.queue_state = "open"
+                return self._error_reply(
+                    M.CheckpointResponse,
+                    WorkerProtocolError(
+                        "checkpoint_failed", message="archive failed; plaintext preserved"
+                    ),
+                    checkpoint_id=request.checkpoint_id,
+                    chromium_exited_cleanly=True,
+                    zeroized=False,
+                )
+            # Encrypt with the manager-supplied DEK (WS-3 owns the full crypto; the
+            # worker holds the plaintext DEK for the archive operation only and zeroizes it).
+            nonce = base64.b64decode(request.nonce_b64)
+            ciphertext_hash, byte_count, encrypted = await asyncio.to_thread(
+                _encrypt_checkpoint_file,
+                request.dek_plaintext_b64,
+                nonce,
+                plaintext_path,
+                ciphertext_path,
+            )
+            # The plaintext archive has served its purpose the moment the
+            # ciphertext exists; it never waits around for the upload.
+            await asyncio.to_thread(_unlink_quietly, plaintext_path)
 
-        if not encrypted:
-            self.queue_state = "open"
-            return self._error_reply(
-                M.CheckpointResponse,
-                WorkerProtocolError(
-                    "checkpoint_failed", message="checkpoint encryption is unavailable"
-                ),
-                checkpoint_id=request.checkpoint_id,
-                chromium_exited_cleanly=True,
-                zeroized=zeroized,
+            if not encrypted:
+                self.queue_state = "open"
+                return self._error_reply(
+                    M.CheckpointResponse,
+                    WorkerProtocolError(
+                        "checkpoint_failed", message="checkpoint encryption is unavailable"
+                    ),
+                    checkpoint_id=request.checkpoint_id,
+                    chromium_exited_cleanly=True,
+                    zeroized=zeroized,
+                )
+            uploaded = await _upload_checkpoint_file(
+                request.upload_target, ciphertext_path, byte_count
             )
-        uploaded = await _upload_checkpoint_ciphertext(request.upload_target, ciphertext)
-        if not uploaded:
-            self.queue_state = "open"
-            return self._error_reply(
-                M.CheckpointResponse,
-                WorkerProtocolError(
-                    "checkpoint_failed", message="encrypted checkpoint upload failed"
-                ),
-                checkpoint_id=request.checkpoint_id,
-                chromium_exited_cleanly=True,
-                zeroized=zeroized,
-            )
+            if not uploaded:
+                self.queue_state = "open"
+                return self._error_reply(
+                    M.CheckpointResponse,
+                    WorkerProtocolError(
+                        "checkpoint_failed", message="encrypted checkpoint upload failed"
+                    ),
+                    checkpoint_id=request.checkpoint_id,
+                    chromium_exited_cleanly=True,
+                    zeroized=zeroized,
+                )
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
 
         try:
             await asyncio.to_thread(
@@ -2393,20 +2503,28 @@ class BrowserWorker:
             try:
                 await self._launch_context(self._policy, self._display)  # type: ignore[arg-type]
                 self.queue_state = "open"
+                self._closed_reason = ""
                 context_relaunched = True
-                await asyncio.to_thread(_remove_profile_checkpoint_marker, self._user_data_dir)
+                # A crashed browser that relaunched here is healthy again — this
+                # is the sweep's in-place self-heal (manager: browser_crashed →
+                # forced live checkpoint → relaunch → page reopened).
+                self.health = "healthy"
+                await asyncio.to_thread(_mark_profile_live, self._user_data_dir)
             except Exception:
+                logger.exception("Chromium did not relaunch after the checkpoint")
                 self.health = "browser_crashed"
 
         manifest = M.CheckpointManifestFacts(
             checkpoint_id=request.checkpoint_id,
             profile_format_version=1,
-            archive_format_version=request.archive_format_version,
+            # The format the worker WROTE, not the one the request assumed:
+            # a restore sniffs the archive, and the record must say what it is.
+            archive_format_version=archive_format_version,
             chromium_version=self.chromium_version,
             key_version=request.key_version,
             plaintext_hash=plaintext_hash,
             ciphertext_hash=ciphertext_hash,
-            byte_count=len(ciphertext),
+            byte_count=byte_count,
         )
         return M.CheckpointResponse(
             **self._reply_kwargs(),
@@ -2416,7 +2534,7 @@ class BrowserWorker:
             chromium_exited_cleanly=True,
             plaintext_hash=plaintext_hash,
             ciphertext_hash=ciphertext_hash,
-            byte_count=len(ciphertext),
+            byte_count=byte_count,
             uploaded=uploaded,
             manifest=manifest,
             zeroized=zeroized,
@@ -2424,9 +2542,14 @@ class BrowserWorker:
         )
 
     async def _close_context_cleanly(self) -> bool:
+        self._closing_intentionally = True
         try:
-            if self._context is not None:
+            if self._context is not None and self.health != "browser_crashed":
                 await self._context.close()
+            # A crashed Chromium is already gone: there is nothing to close
+            # cleanly, and closing its dead handle would only raise. What is on
+            # disk is what the checkpoint archives (Chromium recovers its own
+            # journals on the next launch).
             if self._pw is not None:
                 await self._pw.stop()
             self._context = None
@@ -2435,6 +2558,90 @@ class BrowserWorker:
         except Exception:
             logger.exception("error closing context for checkpoint")
             return False
+
+    def _on_context_closed(self) -> None:
+        """Playwright's context "close" event, on OUR loop, for any reason."""
+        if self._closing_intentionally or self._terminating:
+            return
+        if self.health in {"stopped", "stopping"}:
+            return
+        logger.error(
+            "Chromium closed on its own (crash or OOM kill); this worker now reports "
+            "browser_crashed and refuses commands until the control plane relaunches it"
+        )
+        self.health = "browser_crashed"
+        self.queue_state = "closed"
+        self._closed_reason = "browser_crashed"
+
+    # ── self-protection: termination and the lease watchdog ─────────────────
+
+    async def terminate_gracefully(self, *, reason: str) -> None:
+        """SIGTERM (ECS stop, platform patch, scale-in) or a lost control plane.
+
+        Refuse new work, close Chromium CLEANLY so SQLite settles, and leave
+        the profile on its shared volume with its live marker: the next worker
+        that restores the same checkpoint adopts it instead of losing everything
+        since the last save. Idempotent; never raises.
+        """
+        if self._terminating:
+            return
+        self._terminating = True
+        logger.warning("browser worker terminating (%s): closing Chromium cleanly", reason)
+        self.queue_state = "closed"
+        self._closed_reason = "worker_shutting_down"
+        self.health = "stopping"
+        if self._lease_watchdog is not None and self._lease_watchdog is not asyncio.current_task():
+            self._lease_watchdog.cancel()
+        try:
+            await self._close_context_cleanly()
+        except Exception:
+            logger.exception("Chromium did not close cleanly during termination")
+        try:
+            await self._close_egress_adapter()
+        except Exception:
+            logger.exception("egress adapter did not close during termination")
+        if self._lock is not None:
+            try:
+                self._lock.release()
+            except Exception:
+                logger.warning("profile lock release failed during termination", exc_info=True)
+        self.health = "stopped"
+
+    def enable_lease_watchdog(self) -> None:
+        """Arm the lease watchdog for this process (see ``_lease_watchdog_loop``)."""
+        self._lease_watchdog_enabled = True
+
+    def _start_lease_watchdog(self) -> None:
+        if not self._lease_watchdog_enabled:
+            return
+        if self._lease_watchdog is not None and not self._lease_watchdog.done():
+            return
+        self._lease_watchdog = asyncio.create_task(
+            self._lease_watchdog_loop(), name="cloud-browser-lease-watchdog"
+        )
+
+    async def _lease_watchdog_loop(self) -> None:
+        """Stop a browser nobody is renewing: a control-plane outage must not
+        leave fifty Chromes running with nobody to stop them."""
+        while not self._terminating:
+            await asyncio.sleep(LEASE_WATCHDOG_TICK_SECONDS)
+            if self._lease_watchdog_should_fire(datetime.now(UTC)):
+                logger.error(
+                    "no lease renewal for %.0f s past expiry: the control plane is gone; "
+                    "closing Chromium to keep the profile consistent and ending this task",
+                    LEASE_WATCHDOG_GRACE_SECONDS,
+                )
+                await self.terminate_gracefully(reason="lease_watchdog")
+                self._end_process()
+                return
+
+    def _lease_watchdog_should_fire(self, now: datetime) -> bool:
+        if self._terminating or self.health in {"stopped", "stopping"}:
+            return False
+        expires = self._lease_expires_at
+        if expires is None:
+            return False
+        return now > expires + timedelta(seconds=LEASE_WATCHDOG_GRACE_SECONDS)
 
     # ── operation 5.8: shutdown ─────────────────────────────────────────────
 
@@ -2504,6 +2711,7 @@ class BrowserWorker:
         )
 
     async def _kill_context(self) -> None:
+        self._closing_intentionally = True
         try:
             if self._context is not None:
                 await self._context.close()
@@ -2621,21 +2829,134 @@ def _sha256_hex(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _archive_dir(user_data_dir: str) -> bytes:
-    def _filter(member: tarfile.TarInfo) -> tarfile.TarInfo | None:
-        # The worker's encrypted tar and the standalone checkpoint engine have
-        # one profile-contents contract. Reuse its predicate so regenerable
-        # Chromium caches cannot silently inflate the durable checkpoint.
-        name = member.name.removeprefix("profile/")
-        if name != member.name and _checkpoint_path_is_excluded(name):
-            return None
-        return member
+#: One read/write unit for every streaming checkpoint step. 1 MiB keeps the
+#: worker's peak RSS for a save independent of the profile's size.
+_CHECKPOINT_CHUNK_BYTES = 1 << 20
+#: The zstd frame magic; a restore sniffs it to tell the two archive formats apart.
+_ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+#: ``archive_format_version`` values: 1 = plain tar (every checkpoint before
+#: 2026-09-20), 2 = tar piped through zstd. Both restore; only 2 is written.
+ARCHIVE_FORMAT_TAR = 1
+ARCHIVE_FORMAT_TAR_ZSTD = 2
+_ZSTD_LEVEL = 6
+_AES_GCM_TAG_BYTES = 16
+_zstd_missing_announced = False
 
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w") as tar:
-        if os.path.isdir(user_data_dir):
-            tar.add(user_data_dir, arcname="profile", filter=_filter)
-    return buf.getvalue()
+
+def _checkpoint_scratch_dir() -> str:
+    """Container-local scratch for the archive and its ciphertext (never EFS)."""
+    override = os.environ.get("MATRX_CHECKPOINT_SCRATCH_DIR")
+    if override:
+        os.makedirs(override, mode=0o700, exist_ok=True)
+        return override
+    return tempfile.gettempdir()
+
+
+def _unlink_quietly(path: str) -> None:
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+
+
+class _HashingWriter:
+    """A write sink that hashes and counts what passes through it."""
+
+    def __init__(self, raw: Any) -> None:
+        self._raw = raw
+        self.hasher = hashlib.sha256()
+        self.total = 0
+
+    def write(self, data: bytes) -> int:
+        self.hasher.update(data)
+        self.total += len(data)
+        self._raw.write(data)
+        return len(data)
+
+    def flush(self) -> None:
+        self._raw.flush()
+
+
+def _zstd_compressor():  # noqa: ANN202
+    """The zstd compressor, or None (announced ONCE) when the wheel is absent."""
+    global _zstd_missing_announced
+    try:
+        import zstandard
+    except Exception:
+        if not _zstd_missing_announced:
+            _zstd_missing_announced = True
+            logger.warning(
+                "zstandard is not installed in this worker image; checkpoints are written "
+                "as uncompressed tar (archive_format_version=1). Install "
+                "matrx-scraper[cloud_browser] to cut checkpoint size by ~4x."
+            )
+        return None
+    return zstandard.ZstdCompressor(level=_ZSTD_LEVEL)
+
+
+def _archive_dir_to_file(user_data_dir: str, dest_path: str) -> tuple[str, int, int]:
+    """Stream the closed profile into ``dest_path``: tar, zstd when available.
+
+    Returns ``(plaintext_hash, plaintext_byte_count, archive_format_version)``.
+    The hash is over the archive bytes exactly as written (tar+zstd for
+    version 2), which is what the restore verifies before it extracts. The
+    member layout is ``profile/<relative path>``; regenerable Chromium caches
+    are excluded through the ONE shared predicate, symlinks are dropped (the
+    restore refuses them anyway) and ``dest_path`` is created mode 0600.
+    """
+    root = Path(user_data_dir)
+    if not root.is_dir():
+        raise FileNotFoundError(f"profile directory missing: {user_data_dir}")
+    fd = os.open(dest_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as raw:
+        sink = _HashingWriter(raw)
+        compressor = _zstd_compressor()
+        if compressor is None:
+            archive_format_version = ARCHIVE_FORMAT_TAR
+            with tarfile.open(fileobj=sink, mode="w|", format=tarfile.PAX_FORMAT) as tar:  # type: ignore[arg-type]
+                _add_profile_members(tar, root)
+        else:
+            archive_format_version = ARCHIVE_FORMAT_TAR_ZSTD
+            with compressor.stream_writer(sink, closefd=False) as zwriter:
+                with tarfile.open(fileobj=zwriter, mode="w|", format=tarfile.PAX_FORMAT) as tar:
+                    _add_profile_members(tar, root)
+        sink.flush()
+    return sink.hasher.hexdigest(), sink.total, archive_format_version
+
+
+def _add_profile_members(tar: tarfile.TarFile, root: Path) -> None:
+    tar.add(root, arcname="profile", recursive=False)
+    for entry in sorted(root.rglob("*")):
+        rel = entry.relative_to(root).as_posix()
+        if _checkpoint_path_is_excluded(rel):
+            continue
+        if entry.is_symlink():
+            continue
+        if entry.is_dir() or entry.is_file():
+            tar.add(entry, arcname=f"profile/{rel}", recursive=False)
+
+
+def _archive_dir(user_data_dir: str) -> bytes:
+    """The archive as bytes — a convenience over the streaming writer for
+    callers that want to inspect a small profile (tests). Production never
+    holds an archive in memory; see ``_archive_dir_to_file``."""
+    with tempfile.TemporaryDirectory(prefix="archive-") as scratch:
+        path = os.path.join(scratch, "archive")
+        _archive_dir_to_file(user_data_dir, path)
+        return Path(path).read_bytes()
+
+
+def _open_archive_for_reading(path: str) -> tarfile.TarFile:
+    """A streaming tar reader for either archive format, decided by magic bytes."""
+    handle = open(path, "rb")  # noqa: SIM115 — owned by the TarFile
+    magic = handle.read(len(_ZSTD_MAGIC))
+    handle.seek(0)
+    if magic == _ZSTD_MAGIC:
+        import zstandard
+
+        reader = zstandard.ZstdDecompressor().stream_reader(handle, closefd=True)
+        return tarfile.open(fileobj=reader, mode="r|")
+    return tarfile.open(fileobj=handle, mode="r|")
 
 
 def _encrypt(dek: bytes, nonce: bytes, plaintext: bytes) -> tuple[bytes, str, bool]:
@@ -2649,6 +2970,41 @@ def _encrypt(dek: bytes, nonce: bytes, plaintext: bytes) -> tuple[bytes, str, bo
         return ct, hashlib.sha256(ct).hexdigest(), True
     except Exception:
         return plaintext, hashlib.sha256(b"noenc:" + plaintext).hexdigest(), False
+
+
+def _encrypt_file_streaming(
+    dek: bytes, nonce: bytes, plaintext_path: str, ciphertext_path: str
+) -> tuple[str, int, bool]:
+    """AES-256-GCM over a file, chunk by chunk: ``ciphertext || tag`` — byte-for-
+    byte what ``AESGCM.encrypt`` produces, so every existing restore reads it.
+    Returns ``(ciphertext_hash, ciphertext_byte_count, encrypted)``."""
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    except Exception:
+        hasher = hashlib.sha256(b"noenc:")
+        total = 0
+        fd = os.open(ciphertext_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "wb") as out, open(plaintext_path, "rb") as src:
+            while block := src.read(_CHECKPOINT_CHUNK_BYTES):
+                hasher.update(block)
+                out.write(block)
+                total += len(block)
+        return hasher.hexdigest(), total, False
+    encryptor = Cipher(algorithms.AES(dek), modes.GCM(nonce)).encryptor()
+    hasher = hashlib.sha256()
+    total = 0
+    fd = os.open(ciphertext_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as out, open(plaintext_path, "rb") as src:
+        while block := src.read(_CHECKPOINT_CHUNK_BYTES):
+            chunk = encryptor.update(block)
+            hasher.update(chunk)
+            out.write(chunk)
+            total += len(chunk)
+        tail = encryptor.finalize() + encryptor.tag
+        hasher.update(tail)
+        out.write(tail)
+        total += len(tail)
+    return hasher.hexdigest(), total, True
 
 
 def _zeroize(dek: bytearray) -> None:
@@ -2671,6 +3027,64 @@ def _encrypt_checkpoint(
         plaintext_hash = _sha256_hex(plaintext)
         ciphertext, ciphertext_hash, encrypted = _encrypt(bytes(dek), nonce, plaintext)
         return plaintext_hash, ciphertext, ciphertext_hash, encrypted
+    finally:
+        _zeroize(dek)
+
+
+def _encrypt_checkpoint_file(
+    dek_plaintext_b64: str, nonce: bytes, plaintext_path: str, ciphertext_path: str
+) -> tuple[str, int, bool]:
+    """``_encrypt_checkpoint`` for files: the thread owns and zeroizes the DEK."""
+    dek = bytearray(base64.b64decode(dek_plaintext_b64))
+    try:
+        return _encrypt_file_streaming(bytes(dek), nonce, plaintext_path, ciphertext_path)
+    finally:
+        _zeroize(dek)
+
+
+def _decrypt_and_verify_checkpoint_file(
+    restore: M.CheckpointRestore, ciphertext_path: str, plaintext_path: str
+) -> None:
+    """Verify the ciphertext hash, decrypt chunk by chunk, verify the plaintext
+    hash — in one thread that owns and always clears the DEK, never holding
+    more than one chunk of either side in memory."""
+    dek = bytearray(base64.b64decode(restore.dek_plaintext_b64))
+    try:
+        size = os.path.getsize(ciphertext_path)
+        if size < _AES_GCM_TAG_BYTES:
+            raise ValueError("checkpoint ciphertext too short")
+        hasher = hashlib.sha256()
+        with open(ciphertext_path, "rb") as src:
+            while block := src.read(_CHECKPOINT_CHUNK_BYTES):
+                hasher.update(block)
+        if hasher.hexdigest() != restore.ciphertext_hash:
+            raise ValueError("checkpoint ciphertext hash mismatch")
+
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+        with open(ciphertext_path, "rb") as src:
+            src.seek(size - _AES_GCM_TAG_BYTES)
+            tag = src.read(_AES_GCM_TAG_BYTES)
+        decryptor = Cipher(
+            algorithms.AES(bytes(dek)), modes.GCM(base64.b64decode(restore.nonce_b64), tag)
+        ).decryptor()
+        plaintext_hasher = hashlib.sha256()
+        fd = os.open(plaintext_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "wb") as out, open(ciphertext_path, "rb") as src:
+            remaining = size - _AES_GCM_TAG_BYTES
+            while remaining > 0:
+                block = src.read(min(_CHECKPOINT_CHUNK_BYTES, remaining))
+                if not block:
+                    raise ValueError("checkpoint ciphertext truncated")
+                remaining -= len(block)
+                chunk = decryptor.update(block)
+                plaintext_hasher.update(chunk)
+                out.write(chunk)
+            chunk = decryptor.finalize()  # raises InvalidTag on any tampering
+            plaintext_hasher.update(chunk)
+            out.write(chunk)
+        if plaintext_hasher.hexdigest() != restore.plaintext_hash:
+            raise ValueError("checkpoint plaintext hash mismatch")
     finally:
         _zeroize(dek)
 
@@ -2718,14 +3132,34 @@ async def _restore_profile_once(user_data_dir: str, restore: M.CheckpointRestore
     """Download, authenticate, and safely replace a closed profile directory."""
     if await asyncio.to_thread(_profile_checkpoint_matches, user_data_dir, restore.plaintext_hash):
         return
-    async with httpx.AsyncClient(timeout=M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS) as client:
-        response = await client.get(restore.download_url, headers=restore.headers)
-        response.raise_for_status()
-    ciphertext = response.content
-    plaintext = await asyncio.to_thread(_decrypt_and_verify_checkpoint, restore, ciphertext)
-
-    await asyncio.to_thread(_install_restored_profile, user_data_dir, plaintext)
+    if await asyncio.to_thread(_adopt_live_profile, user_data_dir, restore.plaintext_hash):
+        return
+    scratch = tempfile.mkdtemp(prefix="restore-", dir=_checkpoint_scratch_dir())
+    ciphertext_path = os.path.join(scratch, "archive.enc")
+    plaintext_path = os.path.join(scratch, "archive")
+    try:
+        await _download_to_file(restore, ciphertext_path)
+        await asyncio.to_thread(
+            _decrypt_and_verify_checkpoint_file, restore, ciphertext_path, plaintext_path
+        )
+        await asyncio.to_thread(_unlink_quietly, ciphertext_path)
+        await asyncio.to_thread(_install_restored_profile_from_file, user_data_dir, plaintext_path)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
     await asyncio.to_thread(_write_profile_checkpoint_marker, user_data_dir, restore.plaintext_hash)
+
+
+async def _download_to_file(restore: M.CheckpointRestore, path: str) -> None:
+    """Stream the presigned download to disk; the whole archive never sits in RAM."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as out:
+        async with httpx.AsyncClient(timeout=M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS) as client:
+            async with client.stream(
+                "GET", restore.download_url, headers=restore.headers
+            ) as response:
+                response.raise_for_status()
+                async for block in response.aiter_bytes(_CHECKPOINT_CHUNK_BYTES):
+                    out.write(block)
 
 
 def _profile_checkpoint_matches(user_data_dir: str, plaintext_hash: str) -> bool:
@@ -2736,6 +3170,72 @@ def _profile_checkpoint_matches(user_data_dir: str, plaintext_hash: str) -> bool
         )
     except (FileNotFoundError, OSError):
         return False
+
+
+def _profile_live_base(user_data_dir: str) -> str | None:
+    """The checkpoint hash the on-disk profile descends from, or None."""
+    try:
+        return Path(user_data_dir, _PROFILE_LIVE_MARKER).read_text(encoding="utf-8").strip()
+    except (FileNotFoundError, OSError):
+        return None
+
+
+def _mark_profile_live(user_data_dir: str) -> None:
+    """Chromium is now running on this directory: it has moved past the
+    checkpoint whose hash the checkpoint marker held. Record that base and
+    drop the checkpoint marker in one step."""
+    try:
+        base = Path(user_data_dir, _PROFILE_CHECKPOINT_MARKER).read_text(encoding="utf-8").strip()
+    except (FileNotFoundError, OSError):
+        # No checkpoint marker: either an adopted profile (keep the lineage it
+        # already records) or a brand-new one ("").
+        base = _profile_live_base(user_data_dir) or ""
+    marker = Path(user_data_dir, _PROFILE_LIVE_MARKER)
+    try:
+        temporary = marker.with_name(f"{marker.name}.{uuid.uuid4().hex}.tmp")
+        temporary.write_text(f"{base}\n", encoding="utf-8")
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, marker)
+    except OSError:
+        logger.warning("could not write the live-profile marker", exc_info=True)
+    _remove_profile_checkpoint_marker(user_data_dir)
+
+
+def _adopt_live_profile(user_data_dir: str, plaintext_hash: str) -> bool:
+    """Keep the profile a previous task left on the shared volume when it
+    descends from the very checkpoint being restored — it holds every sign-in
+    and page state made AFTER that checkpoint, which a download would erase.
+
+    A different base means a newer checkpoint exists (another task saved
+    since); then the download wins. Chromium's stale single-instance lock files
+    from the dead task are removed so the launch does not think the profile is
+    in use.
+    """
+    if _profile_live_base(user_data_dir) != plaintext_hash:
+        return False
+    if not os.path.isdir(user_data_dir):
+        return False
+    for name in _CHROMIUM_SINGLETON_FILES:
+        try:
+            os.unlink(os.path.join(user_data_dir, name))
+        except FileNotFoundError:
+            pass
+        except OSError:
+            logger.warning(
+                "could not remove stale %s from the adopted profile", name, exc_info=True
+            )
+    logger.warning(
+        "adopting the profile the previous worker left on disk: it descends from the "
+        "checkpoint being restored (%s…) and holds work made after it",
+        plaintext_hash[:12],
+    )
+    return True
+
+
+def _send_self_sigterm() -> None:
+    import signal
+
+    os.kill(os.getpid(), signal.SIGTERM)
 
 
 def _write_profile_checkpoint_marker(user_data_dir: str, plaintext_hash: str) -> None:
@@ -2754,6 +3254,14 @@ def _remove_profile_checkpoint_marker(user_data_dir: str) -> None:
 
 
 def _install_restored_profile(user_data_dir: str, plaintext: bytes) -> None:
+    """``_install_restored_profile_from_file`` for an in-memory archive (tests)."""
+    with tempfile.TemporaryDirectory(prefix="restore-bytes-") as scratch:
+        path = os.path.join(scratch, "archive")
+        Path(path).write_bytes(plaintext)
+        _install_restored_profile_from_file(user_data_dir, path)
+
+
+def _install_restored_profile_from_file(user_data_dir: str, archive_path: str) -> None:
     """Extract and atomically install one verified profile without copying it twice.
 
     The profile volume is EFS.  Extracting into an EFS sibling and then using
@@ -2767,8 +3275,11 @@ def _install_restored_profile(user_data_dir: str, plaintext: bytes) -> None:
     parent = os.path.dirname(user_data_dir.rstrip(os.sep))
     os.makedirs(parent, mode=0o700, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="profile-restore-", dir=parent) as temporary:
-        with tarfile.open(fileobj=io.BytesIO(plaintext), mode="r:") as archive:
-            for member in archive.getmembers():
+        # One streaming pass: each member is checked, then extracted. A
+        # refused member aborts the whole restore (the temporary dir goes with
+        # it) — nothing partially unsafe ever reaches the profile directory.
+        with _open_archive_for_reading(archive_path) as archive:
+            for member in archive:
                 parts = member.name.split("/")
                 if member.name.startswith("/") or ".." in parts or member.issym() or member.islnk():
                     raise ValueError("unsafe checkpoint archive member")
@@ -2777,7 +3288,7 @@ def _install_restored_profile(user_data_dir: str, plaintext: bytes) -> None:
                     temporary
                 ):
                     raise ValueError("checkpoint archive member escapes restore directory")
-            archive.extractall(temporary, filter="data")
+                archive.extract(member, temporary, filter="data")
         restored = os.path.join(temporary, "profile")
         if not os.path.isdir(restored):
             raise ValueError("checkpoint profile directory missing")

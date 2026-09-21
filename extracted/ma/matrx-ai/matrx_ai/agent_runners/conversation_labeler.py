@@ -244,6 +244,7 @@ async def _capture_labeler_failure(
             user_id=getattr(ctx, "user_id", None) if ctx else None,
             conversation_id=getattr(ctx, "conversation_id", None) if ctx else None,
             source_app=getattr(ctx, "source_app", None) if ctx else None,
+            source_feature=getattr(ctx, "source_feature", None),
             route=getattr(ctx, "route", None) if ctx else None,
             error_type=type(exc).__name__,
             error_text=str(exc),

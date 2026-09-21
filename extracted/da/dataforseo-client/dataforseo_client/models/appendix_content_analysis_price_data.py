@@ -19,7 +19,9 @@ class AppendixContentAnalysisPriceData(BaseModel):
     """ # noqa: E501
     categories: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     category_trends: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    available_filters: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     errors: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     languages: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     locations: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     phrase_trends: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -30,7 +32,9 @@ class AppendixContentAnalysisPriceData(BaseModel):
     __properties: ClassVar[List[str]] = [
         "categories", 
         "category_trends", 
+        "available_filters", 
         "errors", 
+        "id_list", 
         "languages", 
         "locations", 
         "phrase_trends", 
@@ -66,7 +70,9 @@ class AppendixContentAnalysisPriceData(BaseModel):
 
         _dict['categories'] = self.categories.to_dict() if self.categories else None
         _dict['category_trends'] = self.category_trends.to_dict() if self.category_trends else None
+        _dict['available_filters'] = self.available_filters.to_dict() if self.available_filters else None
         _dict['errors'] = self.errors.to_dict() if self.errors else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['languages'] = self.languages.to_dict() if self.languages else None
         _dict['locations'] = self.locations.to_dict() if self.locations else None
         _dict['phrase_trends'] = self.phrase_trends.to_dict() if self.phrase_trends else None
@@ -88,7 +94,9 @@ class AppendixContentAnalysisPriceData(BaseModel):
         _obj = cls.model_validate({
             "categories": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["categories"]) if obj.get("categories") is not None else None,
             "category_trends": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["category_trends"]) if obj.get("category_trends") is not None else None,
+            "available_filters": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["available_filters"]) if obj.get("available_filters") is not None else None,
             "errors": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["errors"]) if obj.get("errors") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
             "languages": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["languages"]) if obj.get("languages") is not None else None,
             "locations": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["locations"]) if obj.get("locations") is not None else None,
             "phrase_trends": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["phrase_trends"]) if obj.get("phrase_trends") is not None else None,

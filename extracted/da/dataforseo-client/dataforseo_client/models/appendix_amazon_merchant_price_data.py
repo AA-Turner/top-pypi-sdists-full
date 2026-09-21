@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
-from dataforseo_client.models.appendix_product_google_merchant_price_data_info import AppendixProductGoogleMerchantPriceDataInfo
+from dataforseo_client.models.appendix_amazon_merchant_price_data_info import AppendixAmazonMerchantPriceDataInfo
 
 
 
@@ -16,9 +16,9 @@ class AppendixAmazonMerchantPriceData(BaseModel):
     """
     AppendixAmazonMerchantPriceData
     """ # noqa: E501
-    asin: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
-    products: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
-    sellers: Optional[AppendixProductGoogleMerchantPriceDataInfo] = Field(default=None, description=r"")
+    asin: Optional[AppendixAmazonMerchantPriceDataInfo] = Field(default=None, description=r"")
+    products: Optional[AppendixAmazonMerchantPriceDataInfo] = Field(default=None, description=r"")
+    sellers: Optional[AppendixAmazonMerchantPriceDataInfo] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "asin", 
         "products", 
@@ -64,9 +64,9 @@ class AppendixAmazonMerchantPriceData(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "asin": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["asin"]) if obj.get("asin") is not None else None,
-            "products": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["products"]) if obj.get("products") is not None else None,
-            "sellers": AppendixProductGoogleMerchantPriceDataInfo.from_dict(obj["sellers"]) if obj.get("sellers") is not None else None,
+            "asin": AppendixAmazonMerchantPriceDataInfo.from_dict(obj["asin"]) if obj.get("asin") is not None else None,
+            "products": AppendixAmazonMerchantPriceDataInfo.from_dict(obj["products"]) if obj.get("products") is not None else None,
+            "sellers": AppendixAmazonMerchantPriceDataInfo.from_dict(obj["sellers"]) if obj.get("sellers") is not None else None,
         })
 
         additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}

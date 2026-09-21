@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "faststream"
-description = "FastStream: the simplest way to work with a messaging queues"
+description = "A thin, typed Python client for Kafka, RabbitMQ, NATS, Redis and MQTT — with AsyncAPI docs and in-memory testing."
 readme = "README.md"
 authors = [
     { name = "AG2AI", email = "support@ag2.ai" },
@@ -14,7 +14,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 
 requires-python = ">=3.10"
-version = "0.7.5"
+version = "0.7.6"
 
 keywords = [
     "rabbitmq",
@@ -58,9 +58,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "fast-depends[pydantic]>=3.0.0",
+    "fast-depends[pydantic]>=3.0.9",
     "typing-extensions>=4.12.0",
-    "anyio>=4.0,<5",
+    "anyio>=4.14.2,<5",
 ]
 
 [project.optional-dependencies]
@@ -92,8 +92,7 @@ prometheus = ["prometheus-client>=0.20.0,<0.30.0"]
 optionals = ["faststream[rabbit,kafka,confluent,nats,redis,mqtt,otel,cli,prometheus]"]
 
 docs = [
-    "mkdocs-material==9.7.1",
-    "mkdocs-static-i18n==1.3.0",
+    "mkdocs-material==9.7.7",
     "mdx-include==1.4.2",
     "mkdocstrings[python]==1.0.2",
     "griffe==1.15.0",
@@ -115,7 +114,8 @@ lint = [
     "codespell==2.4.1",
     "zizmor==1.22.0",
     "mypy==1.19.1",
-    # mypy extensions
+    "pyright==1.1.407",
+    # type checkers extensions
     "types-Deprecated",
     "types-PyYAML",
     "types-setuptools",
@@ -136,6 +136,7 @@ test-core = [
     "pytest-cov>=6.2.1",
     "covdefaults>=2.3.0",
     "freezegun>=1.5.5",
+    "syrupy==6.0.0",
 ]
 
 testing = [
@@ -168,7 +169,7 @@ Homepage = "https://faststream.ag2.ai/latest/"
 Documentation = "https://faststream.ag2.ai/latest/getting-started/"
 Tracker = "https://github.com/ag2ai/FastStream/issues"
 Source = "https://github.com/ag2ai/FastStream"
-Discord = "https://discord.gg/qFm6aSqq59"
+Discussions = "https://github.com/ag2ai/faststream/discussions"
 
 [project.scripts]
 faststream = "faststream.__main__:cli"
@@ -181,7 +182,7 @@ module-root = "."
 module-name = "faststream"
 
 [tool.mypy]
-files = ["faststream", "tests/mypy"]
+files = ["faststream", "tests", "docs/docs_src"]
 strict = true
 python_version = "3.10"
 strict_bytes = true
@@ -201,10 +202,80 @@ disallow_incomplete_defs = true
 disallow_untyped_decorators = true
 disallow_any_unimported = false
 
+enable_error_code = [
+    "exhaustive-match",
+    "ignore-without-code",
+    "possibly-undefined",
+    "redundant-expr",
+    "truthy-bool",
+    "truthy-iterable",
+    "unused-awaitable",
+]
+
+[[tool.mypy.overrides]]
+# Cross-broker testcases hold the broker as `Any`: each broker spells
+# `subscriber()` differently, so its decorator cannot be typed there.
+module = [
+    "tests.asgi.testcase",
+    "tests.asyncapi.base.*",
+    "tests.integrations.msgspec.test_serialization",
+    "tests.opentelemetry.basic",
+    "tests.prometheus.basic",
+    "tests.brokers.base.*",
+    "tests.brokers.redis.stream_claim",
+]
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+# AsyncAPI tests declare handlers only for their signature: the body never runs.
+module = ["tests.asyncapi.*"]
+disable_error_code = ["empty-body"]
+
+[[tool.mypy.overrides]]
+# Snippets are embedded in the docs: handlers stay as short as a reader writes them.
+module = ["docs.docs_src.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+# `secret == "1"` under an `int` annotation is the point: without `cast` nothing converts.
+module = ["docs.docs_src.getting_started.context.*.cast"]
+disable_error_code = ["comparison-overlap"]
+
+[[tool.mypy.overrides]]
+# Page fragments: `tracer_provider` is built by the code block shown above them.
+module = ["docs.docs_src.getting_started.opentelemetry.*"]
+disable_error_code = ["name-defined"]
+
+[[tool.mypy.overrides]]
+# The pydantic v1 spelling, shown beside the v2 one.
+module = ["docs.docs_src.getting_started.config.settings_base_1"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# tornado is not installed, so its `RequestHandler` is `Any`.
+module = ["docs.docs_src.integrations.http_frameworks_integrations.tornado"]
+disallow_subclassing_any = false
+
+[tool.pyright]
+# Public API surface only: `tests/mypy` exercises the documented API the way a
+# user does. Pyright still follows imports into `faststream/`, so breakage in
+# the framework surfaces here — but internal annotations are not policed.
+include = ["tests/mypy"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 timeout = 30
+# Per phase, so a `flaky` rerun gets its own timer: pytest-timeout cancels a
+# whole-item one on the first failure, and rerunfailures retries inside it.
+timeout_func_only = true
 addopts = "--strict-markers --strict-config -q -m 'not slow'"
+xfail_strict = true
 testpaths = ["tests"]
 markers = [
     "rabbit",
@@ -279,3 +350,12 @@ fail_under = 20
 
 [tool.bandit]
 skips = ["B101"]
+
+[tool.typos.default.extend-identifiers]
+# Contributor handles in the generated release notes. Names, not misspellings.
+WellFREEzZ = "WellFREEzZ"
+RinZ27 = "RinZ27"
+
+[tool.typos.default.extend-words]
+# ruff's flake8-copyright rule prefix, not a shortening of "copy".
+CPY = "CPY"

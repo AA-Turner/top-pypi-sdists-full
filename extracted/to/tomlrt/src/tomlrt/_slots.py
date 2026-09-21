@@ -2,8 +2,8 @@
 
 A document is an intrusive doubly linked list of physical slots:
 ``KVSlot`` for ``key = value`` lines and ``StructuralHeaderSlot`` for
-``[a.b]`` / ``[[a.b]]`` headers. `SlotRef` records a slot's occurrence
-in one container.
+``[a.b]`` / ``[[a.b]]`` headers. Containers index slots directly;
+each slot keeps back-pointers to the containers that index it.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from tomlrt._container import Container
-    from tomlrt._values import KeyPart, Value
+    from tomlrt._values import Value
 
 import sys
 
@@ -77,16 +77,16 @@ class Slot:
 
     Constructor fields are positional and required — a slot is built once
     per line and keyword binding roughly doubles that cost. ``_prev`` /
-    ``_next`` / ``_order`` / ``_refs`` are runtime wiring, initialized
+    ``_next`` / ``_order`` / ``_containers`` are runtime wiring, initialized
     independently for every new slot. Concrete constructors initialize
     inherited fields directly to avoid a base-initializer call per line.
     """
 
     __slots__ = (
+        "_containers",
         "_next",
         "_order",
         "_prev",
-        "_refs",
         "eol",
         "leading",
         "owner_aot_entry",
@@ -115,11 +115,11 @@ class Slot:
     Maintained by `stitch_run`; meaningless for an unlinked slot, which
     is stamped afresh when spliced back in.
     """
-    _refs: list[SlotRef]
-    """Back-pointers from this slot to every `SlotRef` that references it.
+    _containers: list[Container]
+    """Containers that index this slot, compared by identity.
 
     Bounded length (≤ path depth + 1). AoT removal uses this to scrub
-    refs in O(depth) per slot instead of O(siblings) per container.
+    memberships in O(depth) per slot instead of O(siblings) per container.
     """
 
     def __deepcopy__(self, memo: dict[int, object]) -> Slot:
@@ -145,6 +145,7 @@ class Slot:
                 self.host_path,
                 self.key_parts,
                 self.key_seps,
+                self.key_path,
                 self.pre_eq,
                 self.post_eq,
                 value,
@@ -157,6 +158,7 @@ class Slot:
                 self.eol,
                 self.key_parts,
                 self.key_seps,
+                self.key_path,
                 self.inner_pre,
                 self.inner_post,
                 None,
@@ -170,23 +172,29 @@ class Slot:
 
 
 class KVSlot(Slot):
-    """A single ``key = value`` line."""
+    """A single ``key = value`` line.
 
-    __slots__ = ("host_path", "key_parts", "key_seps", "post_eq", "pre_eq", "value")
+    ``key_parts`` holds verbatim spellings aligned with ``key_path``'s
+    decoded names; ``key_seps`` has one separator between each pair.
+    All three tuples are replaced together when rebasing a key.
+    """
+
+    __slots__ = (
+        "host_path",
+        "key_parts",
+        "key_path",
+        "key_seps",
+        "post_eq",
+        "pre_eq",
+        "value",
+    )
 
     host_path: tuple[str, ...]
     """Full path of the table body this KV physically belongs to."""
 
-    key_parts: tuple[KeyPart, ...]
-    """The dotted-key parts as written. ``len >= 1``."""
-
+    key_parts: tuple[str, ...]
     key_seps: tuple[str, ...]
-    """Whitespace + ``.`` between parts. Length ``len(key_parts) - 1``.
-
-    A tuple, not a list: it is always replaced wholesale, never mutated
-    in place, and the empty tuple every non-dotted key gets is a shared
-    singleton rather than a per-slot allocation.
-    """
+    key_path: tuple[str, ...]
 
     pre_eq: str
     post_eq: str
@@ -198,8 +206,9 @@ class KVSlot(Slot):
         owner_aot_entry: AoTEntry | None,
         eol: str,
         host_path: tuple[str, ...],
-        key_parts: tuple[KeyPart, ...],
+        key_parts: tuple[str, ...],
         key_seps: tuple[str, ...],
+        key_path: tuple[str, ...],
         pre_eq: str,
         post_eq: str,
         value: Value,
@@ -210,20 +219,14 @@ class KVSlot(Slot):
         self._prev = None
         self._next = None
         self._order = 0
-        self._refs = []
+        self._containers = []
         self.host_path = host_path
         self.key_parts = key_parts
         self.key_seps = key_seps
+        self.key_path = key_path
         self.pre_eq = pre_eq
         self.post_eq = post_eq
         self.value = value
-
-    @property
-    def key(self) -> tuple[str, ...]:
-        """Decoded dotted-key path, derived from ``key_parts``."""
-        # A list comprehension, not a generator: `tuple` can size the
-        # result up front, and these are read on the build hot path.
-        return tuple([p.value for p in self.key_parts])
 
     @override
     def render(self) -> str:
@@ -246,12 +249,14 @@ class StructuralHeaderSlot(Slot):
         "inner_post",
         "inner_pre",
         "key_parts",
+        "key_path",
         "key_seps",
         "synthetic",
     )
 
-    key_parts: tuple[KeyPart, ...]
+    key_parts: tuple[str, ...]
     key_seps: tuple[str, ...]
+    key_path: tuple[str, ...]
     inner_pre: str
     inner_post: str
 
@@ -266,8 +271,9 @@ class StructuralHeaderSlot(Slot):
         leading: str,
         owner_aot_entry: AoTEntry | None,
         eol: str,
-        key_parts: tuple[KeyPart, ...],
+        key_parts: tuple[str, ...],
         key_seps: tuple[str, ...],
+        key_path: tuple[str, ...],
         inner_pre: str,
         inner_post: str,
         entry: AoTEntry | None,
@@ -279,18 +285,14 @@ class StructuralHeaderSlot(Slot):
         self._prev = None
         self._next = None
         self._order = 0
-        self._refs = []
+        self._containers = []
         self.key_parts = key_parts
         self.key_seps = key_seps
+        self.key_path = key_path
         self.inner_pre = inner_pre
         self.inner_post = inner_post
         self.entry = entry
         self.synthetic = synthetic
-
-    @property
-    def path(self) -> tuple[str, ...]:
-        """Full decoded path of the section / AoT entry, from ``key_parts``."""
-        return tuple([p.value for p in self.key_parts])
 
     @property
     def kind(self) -> Literal["table", "aot-entry"]:
@@ -439,42 +441,22 @@ def _respread(left: Slot, right: Slot, count: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# SlotRef (per-container occurrence)
+# Per-container slot geometry
 # ---------------------------------------------------------------------------
 
 
-class SlotRef:
-    """A per-container occurrence of a slot.
+def slot_local_key(slot: Slot, container: Container) -> str | None:
+    """Derive a slot's key in ``container._index`` from their paths.
 
-    `local_key` derives the key under which the ref is filed in
-    `container._index` from `(slot, container)` geometry.
+    The container's own header has no local key; it lives in ``_refs``
+    and ``_header``, not ``_index``.
     """
-
-    __slots__ = ("container", "slot")
-
-    def __init__(self, slot: Slot, container: Container) -> None:
-        self.slot = slot
-        self.container = container
-        # Back-pointers let AoT removal scrub doomed slots without
-        # scanning ancestor containers.
-        slot._refs.append(self)  # noqa: SLF001
-
-    @property
-    def local_key(self) -> str | None:
-        """Key under which this ref is filed in ``container._index``.
-
-        ``None`` for the container's own header ref (which lives in
-        ``_refs`` + ``_header_ref``, not ``_index``); otherwise a single
-        path component derived from the slot path and container depth.
-        """
-        slot = self.slot
-        c_path = self.container._path  # noqa: SLF001
-        if isinstance(slot, KVSlot):
-            return slot.key_parts[len(c_path) - len(slot.host_path)].value
-        assert isinstance(slot, StructuralHeaderSlot)
-        parts = slot.key_parts
-        depth = len(c_path)
-        return parts[depth].value if len(parts) > depth else None
+    depth = len(container._path)  # noqa: SLF001
+    if isinstance(slot, KVSlot):
+        return slot.key_path[depth - len(slot.host_path)]
+    assert isinstance(slot, StructuralHeaderSlot)
+    path = slot.key_path
+    return path[depth] if len(path) > depth else None
 
 
 def ensure_terminator(slot: Slot, nl: str) -> None:
@@ -504,9 +486,9 @@ __all__ = [
     "AoTEntry",
     "KVSlot",
     "Slot",
-    "SlotRef",
     "StructuralHeaderSlot",
     "ensure_terminator",
     "retarget_slot_newlines",
+    "slot_local_key",
     "stitch_run",
 ]

@@ -1,26 +1,41 @@
-"""
-Pure Python S7 server implementation.
+"""Server implementation for the classic S7 protocol.
 
-Provides a complete S7 server emulator without dependencies on the Snap7 C library.
+Provides a complete server emulator for the classic S7 protocol. For new
+projects, use ``s7.Server`` instead.
 """
 
+import logging
+import queue
 import socket
 import struct
 import sys
 import threading
 import time
-import logging
-from typing import Dict, Optional, List, Callable, Any, Tuple, Type, Union
-from types import TracebackType
-from enum import IntEnum
 from ctypes import Array, c_char
+from enum import IntEnum
+from types import TracebackType
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from ..s7protocol import S7Protocol, S7Function, S7PDUType, S7UserDataGroup, S7UserDataSubfunction
 from ..datatypes import S7Area, S7WordLen
 from ..error import S7ConnectionError, S7ProtocolError
-from ..type import SrvArea, SrvEvent, Parameter
+from ..s7protocol import S7Function, S7PDUType, S7Protocol, S7UserDataGroup, S7UserDataSubfunction
+from ..type import Parameter, SrvArea, SrvEvent
 
 logger = logging.getLogger(__name__)
+
+
+# Event codes from the Snap7 server API.
+EVC_SERVER_STARTED = 0x00000001
+EVC_SERVER_STOPPED = 0x00000002
+EVC_LISTENER_CANNOT_START = 0x00000004
+EVC_CLIENT_ADDED = 0x00000008
+EVC_CLIENT_NO_ROOM = 0x00000020
+EVC_CLIENT_EXCEPTION = 0x00000040
+EVC_CLIENT_DISCONNECTED = 0x00000080
+EVC_DATA_READ = 0x00020000
+EVC_DATA_WRITE = 0x00040000
+
+_EVENT_QUEUE_CAPACITY = 1024
 
 
 class ServerState(IntEnum):
@@ -40,14 +55,14 @@ class CPUState(IntEnum):
 
 
 class Server:
-    """
-    Pure Python S7 server implementation.
+    """Classic S7 server implementation.
 
     Emulates a Siemens S7 PLC for testing and development purposes.
+    For new projects, use ``s7.Server`` instead.
 
     Examples:
-        >>> import snap7
-        >>> server = snap7.Server()
+        >>> from s7 import Server
+        >>> server = Server()
         >>> server.start()
         >>> # ... register areas and handle clients
         >>> server.stop()
@@ -93,7 +108,7 @@ class Server:
         self.max_clients = max_clients
 
         # Event queue for pick_event
-        self._event_queue: List[SrvEvent] = []
+        self._event_queue: queue.Queue[SrvEvent] = queue.Queue(maxsize=_EVENT_QUEUE_CAPACITY)
 
         # Logging
         self._log_enabled = log
@@ -141,10 +156,7 @@ class Server:
             self.server_thread = threading.Thread(target=self._server_loop, daemon=True)
             self.server_thread.start()
 
-            # Add startup event to queue
-            startup_event = SrvEvent()
-            startup_event.EvtCode = 0x00010000  # Server started
-            self._event_queue.append(startup_event)
+            self._emit_event(EVC_SERVER_STARTED)
 
             logger.info(f"S7 Server started on {self.host}:{self.port}")
             return 0
@@ -155,6 +167,7 @@ class Server:
             if self.server_socket:
                 self.server_socket.close()
                 self.server_socket = None
+            self._emit_event(EVC_LISTENER_CANNOT_START)
             raise S7ConnectionError(f"Failed to start server: {e}")
 
     def stop(self) -> int:
@@ -192,6 +205,7 @@ class Server:
             self.clients.clear()
             self.client_count = 0
 
+        self._emit_event(EVC_SERVER_STOPPED)
         logger.info("S7 Server stopped")
         return 0
 
@@ -405,10 +419,15 @@ class Server:
             Event description string
         """
         event_texts = {
-            0x00004000: "Read operation completed",
-            0x00004001: "Write operation completed",
-            0x00008000: "Client connected",
-            0x00008001: "Client disconnected",
+            EVC_SERVER_STARTED: "Server started",
+            EVC_SERVER_STOPPED: "Server stopped",
+            EVC_LISTENER_CANNOT_START: "Listener cannot start",
+            EVC_CLIENT_ADDED: "Client connected",
+            EVC_CLIENT_NO_ROOM: "Client rejected: no room",
+            EVC_CLIENT_EXCEPTION: "Client exception",
+            EVC_CLIENT_DISCONNECTED: "Client disconnected",
+            EVC_DATA_READ: "Read operation completed",
+            EVC_DATA_WRITE: "Write operation completed",
         }
 
         return event_texts.get(event.EvtCode, f"Event code: {event.EvtCode:#08x}")
@@ -548,14 +567,19 @@ class Server:
 
     def pick_event(self) -> Union[SrvEvent, bool]:
         """
-        Pick an event from the queue.
+        Return the oldest queued event without waiting.
+
+        Poll this method when callbacks are not convenient. Applications that
+        need immediate delivery should use :meth:`set_events_callback` instead;
+        callbacks do not need to call ``pick_event()`` themselves.
 
         Returns:
             Server event if available, False if no events
         """
-        if self._event_queue:
-            return self._event_queue.pop(0)
-        return False
+        try:
+            return self._event_queue.get_nowait()
+        except queue.Empty:
+            return False
 
     def clear_events(self) -> int:
         """
@@ -564,8 +588,78 @@ class Server:
         Returns:
             0 on success
         """
-        self._event_queue.clear()
+        while True:
+            try:
+                self._event_queue.get_nowait()
+            except queue.Empty:
+                break
         return 0
+
+    def _emit_event(
+        self,
+        code: int,
+        ret_code: int = 0,
+        param1: int = 0,
+        param2: int = 0,
+        param3: int = 0,
+        param4: int = 0,
+        *,
+        sender: int = 0,
+        notify_read_callback: bool = False,
+    ) -> None:
+        """Queue a server event and notify the configured callbacks."""
+        event = SrvEvent()
+        event.EvtTime = int(time.time())
+        event.EvtSender = sender
+        event.EvtCode = code
+        event.EvtRetCode = ret_code
+        event.EvtParam1 = param1
+        event.EvtParam2 = param2
+        event.EvtParam3 = param3
+        event.EvtParam4 = param4
+
+        try:
+            self._event_queue.put_nowait(event)
+        except queue.Full:
+            # Never block protocol handling on an application that is not
+            # draining events. Retain the most recent bounded history.
+            try:
+                self._event_queue.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                self._event_queue.put_nowait(event)
+            except queue.Full:
+                logger.warning("Server event queue is full; dropping event %#x", event.EvtCode)
+
+        if notify_read_callback and self.read_callback:
+            try:
+                self.read_callback(event)
+            except Exception as e:  # noqa: BLE001 -- user callbacks must not terminate the server
+                logger.error(f"Error in read callback: {e}")
+
+        if self.event_callback:
+            try:
+                self.event_callback(event)
+            except Exception as e:  # noqa: BLE001 -- user callbacks must not terminate the server
+                logger.error(f"Error in event callback: {e}")
+
+    @staticmethod
+    def _event_area(area: S7Area) -> int:
+        """Convert an S7 wire-area value to the area code used by SrvEvent."""
+        return {
+            S7Area.PE: SrvArea.PE,
+            S7Area.PA: SrvArea.PA,
+            S7Area.MK: SrvArea.MK,
+            S7Area.CT: SrvArea.CT,
+            S7Area.TM: SrvArea.TM,
+            S7Area.DB: SrvArea.DB,
+        }[area]
+
+    @staticmethod
+    def _event_sender(address: Tuple[str, int]) -> int:
+        """Encode a client's IPv4 address like the native Snap7 event sender."""
+        return int.from_bytes(socket.inet_aton(address[0]), "big")
 
     def _set_log_callback(self) -> None:
         """Set up default logging callback."""
@@ -594,11 +688,13 @@ class Server:
                     with self.client_lock:
                         if self.client_count >= self.max_clients:
                             logger.warning(f"Rejecting client {address}: maximum of {self.max_clients} clients reached")
+                            self._emit_event(EVC_CLIENT_NO_ROOM, sender=self._event_sender(address))
                             client_socket.close()
                             continue
                         self.clients.append(client_thread)
                         self.client_count += 1
 
+                    self._emit_event(EVC_CLIENT_ADDED, sender=self._event_sender(address))
                     client_thread.start()
 
                 except socket.timeout:
@@ -622,7 +718,6 @@ class Server:
 
             # Handle ISO connection setup
             if not connection.accept_connection():
-                logger.warning(f"Failed to establish ISO connection with {address}")
                 return
 
             logger.info(f"ISO connection established with {address}")
@@ -646,6 +741,7 @@ class Server:
                     break
                 except Exception as e:
                     logger.error(f"Error handling client {address}: {e}")
+                    self._emit_event(EVC_CLIENT_EXCEPTION, sender=self._event_sender(address))
                     break
 
         except Exception as e:
@@ -667,6 +763,7 @@ class Server:
             if hasattr(self, "_upload_contexts"):
                 self._upload_contexts.pop(address, None)
 
+            self._emit_event(EVC_CLIENT_DISCONNECTED, sender=self._event_sender(address))
             logger.info(f"Client {address} handler finished")
 
     def _process_request(self, request_data: bytes, client_address: Tuple[str, int]) -> Optional[bytes]:
@@ -775,9 +872,7 @@ class Server:
 
             area, db_number, start, count = addr_info
 
-            read_data = self._read_from_memory_area(area, db_number, start, count)
-            if read_data is None:
-                return self._build_error_response(request, 0x8404)
+            return_code, read_data = self._read_from_memory_area(area, db_number, start, count)
 
             data_len = 4 + len(read_data)
 
@@ -795,22 +890,19 @@ class Server:
 
             parameters = struct.pack(">BB", S7Function.READ_AREA, 0x01)
 
-            data_section = struct.pack(">BBH", 0xFF, 0x04, len(read_data) * 8) + read_data
+            transport_size = 0x04 if return_code == 0xFF else 0x00
+            data_section = struct.pack(">BBH", return_code, transport_size, len(read_data) * 8) + read_data
 
-            if self.read_callback:
-                event = SrvEvent()
-                event.EvtTime = int(time.time())
-                event.EvtSender = 0
-                event.EvtCode = 0x00004000
-                event.EvtRetCode = 0
-                event.EvtParam1 = 1
-                event.EvtParam2 = 0
-                event.EvtParam3 = len(read_data)
-                event.EvtParam4 = 0
-                try:
-                    self.read_callback(event)
-                except Exception as e:
-                    logger.error(f"Error in read callback: {e}")
+            if return_code == 0xFF:
+                self._emit_event(
+                    EVC_DATA_READ,
+                    param1=self._event_area(area),
+                    param2=db_number,
+                    param3=start,
+                    param4=len(read_data),
+                    sender=self._event_sender(client_address),
+                    notify_read_callback=True,
+                )
 
             return header + parameters + data_section
 
@@ -847,16 +939,24 @@ class Server:
             else:
                 byte_count = count
 
-            read_data = self._read_from_memory_area(area, db_number, start, byte_count)
-            if read_data is None:
-                # Item error: not found
-                data_parts.extend(struct.pack(">BBH", 0x0A, 0x00, 0x0000))
-            else:
+            return_code, read_data = self._read_from_memory_area(area, db_number, start, byte_count)
+            if return_code == 0xFF:
                 data_parts.extend(struct.pack(">BBH", 0xFF, 0x04, len(read_data) * 8))
                 data_parts.extend(read_data)
                 # Fill byte for even alignment (not after last item)
                 if i < item_count - 1 and len(read_data) % 2 != 0:
                     data_parts.append(0x00)
+                self._emit_event(
+                    EVC_DATA_READ,
+                    param1=self._event_area(area),
+                    param2=db_number,
+                    param3=start,
+                    param4=byte_count,
+                    sender=self._event_sender(client_address),
+                    notify_read_callback=True,
+                )
+            else:
+                data_parts.extend(struct.pack(">BBH", return_code, 0x00, 0x0000))
 
         data_len = len(data_parts)
 
@@ -920,7 +1020,7 @@ class Server:
             logger.error(f"Error parsing read address: {e}")
             return None
 
-    def _read_from_memory_area(self, area: S7Area, db_number: int, start: int, count: int) -> Optional[bytearray]:
+    def _read_from_memory_area(self, area: S7Area, db_number: int, start: int, count: int) -> Tuple[int, bytearray]:
         """
         Read data from registered memory area.
 
@@ -931,39 +1031,34 @@ class Server:
             count: Number of bytes to read
 
         Returns:
-            Data read from memory area or None if area not found
+            Item return code and data. The return code is ``0xFF`` on success,
+            ``0x0A`` when the area is not registered, and ``0x05`` when the
+            requested range is outside the registered area.
         """
         try:
             area_key = (area, db_number)
 
             if area_key not in self.memory_areas:
                 logger.warning(f"Memory area {area}#{db_number} not registered")
-                # Return dummy data if area not found (for compatibility)
-                return bytearray([0x42, 0xFF, 0x12, 0x34])[:count]
+                return (0x0A, bytearray())
 
             # Get area data with thread safety
             with self.area_locks[area_key]:
                 area_data = self.memory_areas[area_key]
 
                 # Check bounds
-                if start >= len(area_data):
-                    logger.warning(f"Start address {start} beyond area size {len(area_data)}")
-                    return bytearray([0x00] * count)
+                if start < 0 or count < 0 or start + count > len(area_data):
+                    logger.warning(f"Read range [{start}, {start + count}) exceeds area size {len(area_data)}")
+                    return (0x05, bytearray())
 
-                # Read requested data, padding with zeros if needed
-                end = min(start + count, len(area_data))
-                read_data = bytearray(area_data[start:end])
-
-                # Pad with zeros if we didn't read enough
-                if len(read_data) < count:
-                    read_data.extend([0x00] * (count - len(read_data)))
+                read_data = bytearray(area_data[start : start + count])
 
                 logger.debug(f"Read {len(read_data)} bytes from {area}#{db_number} at offset {start}")
-                return read_data
+                return (0xFF, read_data)
 
         except Exception as e:
             logger.error(f"Error reading from memory area: {e}")
-            return bytearray([0x00] * count)
+            return (0x01, bytearray())
 
     def _handle_write_area(self, request: Dict[str, Any], client_address: Tuple[str, int]) -> bytes:
         """Handle write area request."""
@@ -1002,6 +1097,15 @@ class Server:
 
             # Data section (write response)
             data_section = b"\xff"  # Success return code
+
+            self._emit_event(
+                EVC_DATA_WRITE,
+                param1=self._event_area(area),
+                param2=db_number,
+                param3=start,
+                param4=len(write_data),
+                sender=self._event_sender(client_address),
+            )
 
             return header + parameters + data_section
 
@@ -1391,7 +1495,9 @@ class Server:
             address = struct.unpack(">I", b"\x00" + address_bytes)[0]  # Pad to 4 bytes
 
             # Convert bit address to byte address
-            if word_len == S7WordLen.BIT:
+            if word_len in (S7WordLen.TIMER, S7WordLen.COUNTER):
+                start_address = address * 2  # Backing memory stores two bytes per element.
+            elif word_len == S7WordLen.BIT:
                 byte_addr = address // 8
                 start_address = byte_addr
             else:
@@ -1426,7 +1532,7 @@ class Server:
             # Transport size 0x09 (octet string): byte length (USERDATA responses)
             # Transport size 0x00: byte length (USERDATA requests)
             # Transport size 0x04 (byte): bit length (READ_AREA responses)
-            if transport_size in (0x00, 0x09):
+            if transport_size in (0x00, 0x03, 0x06, 0x07, 0x09):
                 # USERDATA uses byte length directly
                 actual_data = data_section[4 : 4 + data_length]
             else:
@@ -1677,14 +1783,13 @@ class Server:
             return bytes(data)
 
         # SZL 0x0011: Module identification (S7OrderCode)
+        # Record layout: Index(2) + MLFB(20) + Reserved(1) + V1(1) + V2(1) + V3(1) = 26 bytes
         elif szl_id == 0x0011:
-            order_code = b"6ES7 315-2EH14-0AB0\x00"
-            version = b"V3.3\x00"
-
-            order_code = order_code.ljust(20, b"\x00")[:20]
-            version = version.ljust(4, b"\x00")[:4]
-
-            return order_code + version
+            mlfb = b"6ES7 315-2EH14-0AB0\x00".ljust(20, b"\x00")[:20]
+            record_len = 26
+            record = struct.pack(">H", 0x0001) + mlfb + struct.pack("BBBB", 0x00, 3, 3, 0)
+            header = struct.pack(">HH", record_len, 1)
+            return header + record
 
         # SZL 0x0131: Communication parameters (S7CpInfo)
         elif szl_id == 0x0131:
@@ -1710,10 +1815,10 @@ class Server:
         elif szl_id == 0x0000:
             # Return list of available SZL IDs
             available_ids = [0x0000, 0x0011, 0x001C, 0x0131, 0x0232]
-            result = b""
+            szl_bytes = b""
             for id_val in available_ids:
-                result += struct.pack(">H", id_val)
-            return result
+                szl_bytes += struct.pack(">H", id_val)
+            return szl_bytes
 
         return None
 
@@ -2561,8 +2666,10 @@ class ServerISOConnection:
     COTP_DC = 0xC0  # Disconnect Confirm
     COTP_DT = 0xF0  # Data Transfer
 
-    # COTP parameter code for TPDU size (ISO 8073)
+    # COTP parameter codes (ISO 8073)
     COTP_PARAM_PDU_SIZE = 0xC0
+    COTP_PARAM_CALLING_TSAP = 0xC1
+    COTP_PARAM_CALLED_TSAP = 0xC2
 
     def __init__(self, client_socket: socket.socket):
         """Initialize server ISO connection."""
@@ -2572,6 +2679,8 @@ class ServerISOConnection:
         self.src_ref = 0x0001  # Server reference
         self.dst_ref = 0x0000  # Client reference (assigned during handshake)
         self.tpdu_size = 0x0A  # Default: 1024 bytes (2^10)
+        self.calling_tsap: bytes | None = None
+        self.called_tsap: bytes | None = None
 
     def accept_connection(self) -> bool:
         """Accept ISO connection from client."""
@@ -2604,6 +2713,9 @@ class ServerISOConnection:
             logger.debug("ISO connection established")
             return True
 
+        except (ConnectionResetError, ConnectionAbortedError, TimeoutError) as e:
+            logger.info(f"Peer left before the ISO connection was established: {e}")
+            return False
         except Exception as e:
             logger.error(f"Error accepting ISO connection: {e}")
             return False
@@ -2617,9 +2729,14 @@ class ServerISOConnection:
         """
         fragments: list[bytes] = []
         total_size = 0
-        deadline = time.monotonic() + self.RECEIVE_DEADLINE
         while True:
-            tpkt_header = self._recv_exact(4, deadline)
+            header_deadline = time.monotonic() + self.RECEIVE_DEADLINE
+            try:
+                tpkt_header = self._recv_exact(4, header_deadline)
+            except TimeoutError as e:
+                if fragments:
+                    raise S7ConnectionError("Receive deadline exceeded between COTP fragments") from e
+                raise
             version, reserved, length = struct.unpack(">BBH", tpkt_header)
 
             if version != 3:
@@ -2629,12 +2746,24 @@ class ServerISOConnection:
             if remaining <= 0:
                 raise S7ConnectionError("Invalid TPKT length")
 
-            payload = self._recv_exact(remaining, deadline)
+            frame_deadline = time.monotonic() + self.RECEIVE_DEADLINE
+            try:
+                payload = self._recv_exact(remaining, frame_deadline)
+            except TimeoutError as e:
+                raise S7ConnectionError("Receive deadline exceeded after TPKT header") from e
 
             if len(payload) < 3:
                 raise S7ConnectionError("Invalid COTP DT: too short")
 
             pdu_len, pdu_type, eot_num = struct.unpack(">BBB", payload[:3])
+
+            if pdu_type == self.COTP_DR:
+                logger.debug("Received COTP DR from client")
+                try:
+                    self.socket.sendall(self._build_tpkt(self._build_cotp_dc()))
+                except OSError:
+                    pass  # the peer may already be gone
+                raise ConnectionAbortedError("Client requested disconnect")
 
             if pdu_type != self.COTP_DT:
                 raise S7ConnectionError(f"Expected COTP DT, got {pdu_type:#02x}")
@@ -2676,18 +2805,25 @@ class ServerISOConnection:
         # Store client reference
         self.dst_ref = src_ref
 
-        # Parse variable parameters for TPDU size
+        # Parse variable parameters used in the connection confirmation.
+        self.calling_tsap = None
+        self.called_tsap = None
         offset = 7
         while offset + 2 <= len(data):
             param_code = data[offset]
             param_len = data[offset + 1]
             if offset + 2 + param_len > len(data):
                 break
+            param_data = data[offset + 2 : offset + 2 + param_len]
             if param_code == self.COTP_PARAM_PDU_SIZE and param_len == 1:
                 exponent = data[offset + 2]
                 if 7 <= exponent <= 13:
                     self.tpdu_size = exponent
                     logger.debug(f"Client requested TPDU size 2^{exponent} = {1 << exponent}")
+            elif param_code == self.COTP_PARAM_CALLING_TSAP:
+                self.calling_tsap = param_data
+            elif param_code == self.COTP_PARAM_CALLED_TSAP:
+                self.called_tsap = param_data
             offset += 2 + param_len
 
         logger.debug(f"Received COTP CR from client ref {src_ref}")
@@ -2700,19 +2836,35 @@ class ServerISOConnection:
         negotiated maximum segment size and don't fall back to the
         ISO 8073 class-0 default of 128 bytes.
         """
-        pdu_size_param = struct.pack(">BBB", self.COTP_PARAM_PDU_SIZE, 1, self.tpdu_size)
-        pdu_length = 6 + len(pdu_size_param)
+        parameters = bytearray(struct.pack(">BBB", self.COTP_PARAM_PDU_SIZE, 1, self.tpdu_size))
+        if self.calling_tsap is not None:
+            parameters.extend(struct.pack(">BB", self.COTP_PARAM_CALLING_TSAP, len(self.calling_tsap)))
+            parameters.extend(self.calling_tsap)
+        if self.called_tsap is not None:
+            parameters.extend(struct.pack(">BB", self.COTP_PARAM_CALLED_TSAP, len(self.called_tsap)))
+            parameters.extend(self.called_tsap)
+
+        pdu_length = 6 + len(parameters)
         base_pdu = struct.pack(
-            ">BBBHHB",
+            ">BBHHB",
             pdu_length,  # PDU length
             self.COTP_CC,  # PDU type
-            0x00,  # Reserved / CDT
             self.dst_ref,  # Destination reference (client's source ref)
             self.src_ref,  # Source reference (our ref)
             0x00,  # Class/option
         )
 
-        return base_pdu + pdu_size_param
+        return base_pdu + parameters
+
+    def _build_cotp_dc(self) -> bytes:
+        """Build COTP Disconnect Confirm."""
+        return struct.pack(
+            ">BBHH",
+            5,  # PDU length
+            self.COTP_DC,  # PDU type
+            self.dst_ref,  # Destination reference
+            self.src_ref,  # Source reference
+        )
 
     def _recv_exact(self, size: int, deadline: float | None = None) -> bytes:
         """Receive exactly the specified bytes within one absolute deadline."""

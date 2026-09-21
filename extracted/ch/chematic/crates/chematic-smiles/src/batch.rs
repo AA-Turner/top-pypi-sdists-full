@@ -7,7 +7,7 @@
 
 use crate::canonical_smiles_stable_key;
 use crate::{SmilesParseLimits, canonical_smiles, parse_with_limits};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::io::BufRead;
 
 /// The outcome for one input record in a canonicalization batch.
@@ -28,6 +28,164 @@ pub struct BatchCanonicalRecord {
     pub input: String,
     /// Accepted canonical output or a structured rejection message.
     pub result: BatchCanonicalization,
+}
+
+/// Complete, auditable result for an eager canonicalization batch.
+///
+/// Every supplied input has exactly one record. This operation has no skip or
+/// policy-refusal path, so `skipped_count` and `refused_count` are always zero;
+/// they remain explicit so callers can use the same accounting equation as
+/// other bounded batch operations:
+/// `input_count = accepted_count + rejected_count + refused_count + skipped_count`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BatchCanonicalResult {
+    /// One input-order record for every supplied input.
+    pub records: Vec<BatchCanonicalRecord>,
+    /// Number of supplied inputs.
+    pub input_count: usize,
+    /// Records canonicalized successfully.
+    pub accepted_count: usize,
+    /// Records rejected by parsing or a configured resource limit.
+    pub rejected_count: usize,
+    /// Records refused by an operation policy (always zero for this operation).
+    pub refused_count: usize,
+    /// Records skipped without an attempted result (always zero for this operation).
+    pub skipped_count: usize,
+}
+
+impl BatchCanonicalResult {
+    fn from_records(records: Vec<BatchCanonicalRecord>) -> Self {
+        let input_count = records.len();
+        let accepted_count = records
+            .iter()
+            .filter(|record| matches!(record.result, BatchCanonicalization::Accepted { .. }))
+            .count();
+        Self {
+            records,
+            input_count,
+            accepted_count,
+            rejected_count: input_count - accepted_count,
+            refused_count: 0,
+            skipped_count: 0,
+        }
+    }
+
+    /// True only if every input produced an accepted canonical result.
+    pub const fn all_succeeded(&self) -> bool {
+        self.accepted_count == self.input_count
+    }
+}
+
+/// Terminal result for an unknown-length canonicalization stream.
+///
+/// Unlike [`BatchCanonicalResult`], a stream never invents a total input
+/// count.  Callers can account for records observed before the terminal event,
+/// but an interrupted source has an explicitly unknown unread suffix.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BatchCanonicalStreamResult {
+    /// Processed records in original observation order.
+    pub records: Vec<BatchCanonicalRecord>,
+    /// Inputs observed from the source before the terminal event.
+    pub observed_input_count: usize,
+    /// Successfully canonicalized records.
+    pub accepted_count: usize,
+    /// Records rejected by parsing or configured resource limits.
+    pub rejected_count: usize,
+    /// Observed records that never received a terminal canonicalization result.
+    pub unprocessed_observed_count: usize,
+    /// Whether the input source reached a normal end before the result was made.
+    pub stream_complete: bool,
+    /// Typed terminal reason for an incomplete stream, otherwise `None`.
+    pub terminal_reason: Option<StreamTerminalReason>,
+}
+
+/// Declared terminal cause for an incomplete unknown-length stream.
+///
+/// These categories deliberately describe the control-plane event rather than
+/// attempting to turn unread source data into synthetic row failures. Binding
+/// APIs accept these stable snake-case names and reject unknown values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamTerminalReason {
+    /// The consumer intentionally cancelled the operation.
+    Cancelled,
+    /// A configured time budget expired.
+    TimeLimit,
+    /// A configured memory, output, or other resource budget expired.
+    ResourceLimit,
+    /// The source producer failed before normal EOF.
+    ProducerError,
+    /// The consumer closed without consuming the source to EOF.
+    ConsumerClosed,
+}
+
+impl StreamTerminalReason {
+    /// Stable serialized name shared by all bindings.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Cancelled => "cancelled",
+            Self::TimeLimit => "time_limit",
+            Self::ResourceLimit => "resource_limit",
+            Self::ProducerError => "producer_error",
+            Self::ConsumerClosed => "consumer_closed",
+        }
+    }
+}
+
+impl std::fmt::Display for StreamTerminalReason {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl std::str::FromStr for StreamTerminalReason {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "cancelled" => Ok(Self::Cancelled),
+            "time_limit" => Ok(Self::TimeLimit),
+            "resource_limit" => Ok(Self::ResourceLimit),
+            "producer_error" => Ok(Self::ProducerError),
+            "consumer_closed" => Ok(Self::ConsumerClosed),
+            _ => Err(
+                "terminal_reason must be one of: cancelled, time_limit, resource_limit, producer_error, consumer_closed",
+            ),
+        }
+    }
+}
+
+impl BatchCanonicalStreamResult {
+    fn from_parts(
+        records: Vec<BatchCanonicalRecord>,
+        observed_input_count: usize,
+        stream_complete: bool,
+        terminal_reason: Option<StreamTerminalReason>,
+    ) -> Self {
+        debug_assert!(records.len() <= observed_input_count);
+        debug_assert!(stream_complete || terminal_reason.is_some());
+        debug_assert!(!stream_complete || terminal_reason.is_none());
+        let accepted_count = records
+            .iter()
+            .filter(|record| matches!(record.result, BatchCanonicalization::Accepted { .. }))
+            .count();
+        let rejected_count = records.len() - accepted_count;
+        Self {
+            unprocessed_observed_count: observed_input_count - records.len(),
+            records,
+            observed_input_count,
+            accepted_count,
+            rejected_count,
+            stream_complete,
+            terminal_reason,
+        }
+    }
+
+    /// Whether every observed input has an accepted result and the stream ended normally.
+    pub fn all_succeeded(&self) -> bool {
+        self.stream_complete
+            && self.unprocessed_observed_count == 0
+            && self.accepted_count == self.observed_input_count
+    }
 }
 
 /// Reusable parsing/canonicalization policy for large SMILES batches.
@@ -72,6 +230,22 @@ impl SmilesBatchCanonicalizer {
             canonicalizer: *self,
             next_index: 0,
             line: String::new(),
+            terminated: false,
+        }
+    }
+
+    /// Begin an explicitly accounted unknown-length stream.
+    ///
+    /// Call [`SmilesBatchStream::observe`] as rows arrive.  The consumer may
+    /// process one record at a time, finish at EOF, or stop with a typed
+    /// terminal reason.  An incomplete result preserves the observed prefix
+    /// and never relabels its unread suffix as skipped or successful.
+    pub fn stream(&self) -> SmilesBatchStream {
+        SmilesBatchStream {
+            canonicalizer: *self,
+            pending: VecDeque::new(),
+            records: Vec::new(),
+            observed_input_count: 0,
         }
     }
 
@@ -117,6 +291,19 @@ impl SmilesBatchCanonicalizer {
         S: AsRef<str>,
     {
         self.iter(records).collect()
+    }
+
+    /// Eagerly canonicalize records with complete outcome accounting.
+    ///
+    /// This is the audited alternative to [`Self::canonicalize`] for callers
+    /// that need to retain the input/result conservation invariant alongside
+    /// the per-record results.
+    pub fn canonicalize_with_result<I, S>(&self, records: I) -> BatchCanonicalResult
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        BatchCanonicalResult::from_records(self.canonicalize(records))
     }
 
     /// Build a deterministic exact-identity index from input records.
@@ -166,6 +353,67 @@ impl SmilesBatchCanonicalizer {
     }
 }
 
+/// Stateful accounting adapter for an unknown-length SMILES input stream.
+///
+/// This type deliberately separates observing a row from processing it.  A
+/// caller that is cancelled between those operations can report the exact
+/// observed-but-unprocessed prefix and an unknown unread suffix.
+pub struct SmilesBatchStream {
+    canonicalizer: SmilesBatchCanonicalizer,
+    pending: VecDeque<(usize, String)>,
+    records: Vec<BatchCanonicalRecord>,
+    observed_input_count: usize,
+}
+
+impl SmilesBatchStream {
+    /// Record an input observed from the source and return its zero-based index.
+    pub fn observe<S>(&mut self, value: S) -> usize
+    where
+        S: AsRef<str>,
+    {
+        let input_index = self.observed_input_count;
+        self.observed_input_count += 1;
+        self.pending
+            .push_back((input_index, value.as_ref().to_owned()));
+        input_index
+    }
+
+    /// Process one observed input, preserving observation order.
+    pub fn process_next(&mut self) -> Option<&BatchCanonicalRecord> {
+        let (input_index, input) = self.pending.pop_front()?;
+        let result = self
+            .canonicalizer
+            .iter(std::iter::once(input.as_str()))
+            .next()
+            .expect("one input must produce one batch record")
+            .result;
+        self.records.push(BatchCanonicalRecord {
+            input_index,
+            input,
+            result,
+        });
+        self.records.last()
+    }
+
+    /// Process all pending observations after a normal end-of-stream event.
+    pub fn finish(mut self) -> BatchCanonicalStreamResult {
+        while self.process_next().is_some() {}
+        BatchCanonicalStreamResult::from_parts(self.records, self.observed_input_count, true, None)
+    }
+
+    /// Stop before EOF and retain the unprocessed observed prefix explicitly.
+    ///
+    /// The typed reason explains why no normal EOF was observed.
+    pub fn stop(self, terminal_reason: StreamTerminalReason) -> BatchCanonicalStreamResult {
+        BatchCanonicalStreamResult::from_parts(
+            self.records,
+            self.observed_input_count,
+            false,
+            Some(terminal_reason),
+        )
+    }
+}
+
 /// Deterministic exact-identity index keyed only by stable canonical SMILES.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SmilesIdentityIndex {
@@ -210,12 +458,46 @@ pub struct SmilesBatchReader<R> {
     canonicalizer: SmilesBatchCanonicalizer,
     next_index: usize,
     line: String,
+    terminated: bool,
+}
+
+/// Terminal I/O failure from [`SmilesBatchReader`].
+///
+/// Records with indices below [`Self::next_unprocessed_index`] were emitted
+/// before the failure. The failing line and every later input are unprocessed:
+/// because a stream has no known total length, callers must not turn that
+/// unknown suffix into successful or skipped records.
+#[derive(Debug)]
+pub struct SmilesBatchReaderError {
+    /// First input index for which no terminal record was emitted.
+    pub next_unprocessed_index: usize,
+    /// Underlying I/O failure.
+    pub source: std::io::Error,
+}
+
+impl std::fmt::Display for SmilesBatchReaderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SMILES batch stream failed before input index {}: {}",
+            self.next_unprocessed_index, self.source
+        )
+    }
+}
+
+impl std::error::Error for SmilesBatchReaderError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
 }
 
 impl<R: BufRead> Iterator for SmilesBatchReader<R> {
-    type Item = std::io::Result<BatchCanonicalRecord>;
+    type Item = Result<BatchCanonicalRecord, SmilesBatchReaderError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.terminated {
+            return None;
+        }
         self.line.clear();
         match self.reader.read_line(&mut self.line) {
             Ok(0) => None,
@@ -234,7 +516,13 @@ impl<R: BufRead> Iterator for SmilesBatchReader<R> {
                     result: result.result,
                 }))
             }
-            Err(error) => Some(Err(error)),
+            Err(source) => {
+                self.terminated = true;
+                Some(Err(SmilesBatchReaderError {
+                    next_unprocessed_index: self.next_index,
+                    source,
+                }))
+            }
         }
     }
 }
@@ -242,6 +530,61 @@ impl<R: BufRead> Iterator for SmilesBatchReader<R> {
 #[cfg(test)]
 mod tests {
     use super::{BatchCanonicalization, SmilesBatchCanonicalizer};
+    use std::io::{self, BufRead, Read};
+
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::other("synthetic read failure"))
+        }
+    }
+
+    impl BufRead for FailingReader {
+        fn fill_buf(&mut self) -> io::Result<&[u8]> {
+            Err(io::Error::other("synthetic read failure"))
+        }
+
+        fn consume(&mut self, _amount: usize) {}
+    }
+
+    struct OneLineThenFail {
+        data: &'static [u8],
+        position: usize,
+    }
+
+    impl OneLineThenFail {
+        fn new() -> Self {
+            Self {
+                data: b"CCO\n",
+                position: 0,
+            }
+        }
+    }
+
+    impl Read for OneLineThenFail {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            let available = self.fill_buf()?;
+            let count = available.len().min(buf.len());
+            buf[..count].copy_from_slice(&available[..count]);
+            self.consume(count);
+            Ok(count)
+        }
+    }
+
+    impl BufRead for OneLineThenFail {
+        fn fill_buf(&mut self) -> io::Result<&[u8]> {
+            if self.position == self.data.len() {
+                Err(io::Error::other("synthetic read failure"))
+            } else {
+                Ok(&self.data[self.position..])
+            }
+        }
+
+        fn consume(&mut self, amount: usize) {
+            self.position = (self.position + amount).min(self.data.len());
+        }
+    }
 
     #[test]
     fn preserves_input_order_and_partial_errors() {
@@ -277,6 +620,26 @@ mod tests {
             records[3].result,
             BatchCanonicalization::Accepted { .. }
         ));
+    }
+
+    #[test]
+    fn eager_result_has_complete_terminal_outcome_accounting() {
+        let result =
+            SmilesBatchCanonicalizer::default().canonicalize_with_result(["OCC", "C1CC", "CCN"]);
+        assert_eq!(result.input_count, 3);
+        assert_eq!(result.records.len(), result.input_count);
+        assert_eq!(result.accepted_count, 2);
+        assert_eq!(result.rejected_count, 1);
+        assert_eq!(result.refused_count, 0);
+        assert_eq!(result.skipped_count, 0);
+        assert_eq!(
+            result.input_count,
+            result.accepted_count
+                + result.rejected_count
+                + result.refused_count
+                + result.skipped_count
+        );
+        assert!(!result.all_succeeded());
     }
 
     #[test]
@@ -321,6 +684,102 @@ mod tests {
             records[2].result,
             BatchCanonicalization::Accepted { .. }
         ));
+    }
+
+    #[test]
+    fn reader_io_error_is_terminal_and_exposes_unprocessed_boundary() {
+        let mut reader = SmilesBatchCanonicalizer::default().reader(FailingReader);
+        let error = reader
+            .next()
+            .expect("I/O failure must be surfaced")
+            .expect_err("synthetic reader must fail");
+
+        assert_eq!(error.next_unprocessed_index, 0);
+        assert_eq!(error.source.kind(), io::ErrorKind::Other);
+        assert!(
+            reader.next().is_none(),
+            "stream must fail closed after I/O error"
+        );
+    }
+
+    #[test]
+    fn reader_io_error_keeps_the_next_index_after_completed_records() {
+        let mut reader = SmilesBatchCanonicalizer::default().reader(OneLineThenFail::new());
+        let record = reader
+            .next()
+            .expect("first record must be emitted")
+            .expect("first record must succeed");
+        assert_eq!(record.input_index, 0);
+        assert!(matches!(
+            record.result,
+            BatchCanonicalization::Accepted { .. }
+        ));
+
+        let error = reader
+            .next()
+            .expect("I/O failure must be surfaced")
+            .expect_err("reader must fail after the first line");
+        assert_eq!(error.next_unprocessed_index, 1);
+        assert!(reader.next().is_none(), "stream must remain terminal");
+    }
+
+    #[test]
+    fn stream_finish_accounts_for_every_observed_record() {
+        let mut stream = SmilesBatchCanonicalizer::default().stream();
+        assert_eq!(stream.observe("OCC"), 0);
+        assert_eq!(stream.observe("C1CC"), 1);
+        assert_eq!(stream.observe("CCN"), 2);
+
+        let first = stream.process_next().expect("first observed row");
+        assert_eq!(first.input_index, 0);
+        assert!(matches!(
+            first.result,
+            BatchCanonicalization::Accepted { .. }
+        ));
+
+        let result = stream.finish();
+        assert_eq!(result.observed_input_count, 3);
+        assert_eq!(result.records.len(), 3);
+        assert_eq!(result.accepted_count, 2);
+        assert_eq!(result.rejected_count, 1);
+        assert_eq!(result.unprocessed_observed_count, 0);
+        assert!(result.stream_complete);
+        assert_eq!(result.terminal_reason, None);
+        assert!(!result.all_succeeded());
+    }
+
+    #[test]
+    fn stream_terminal_reason_accepts_only_declared_categories() {
+        use std::str::FromStr;
+
+        assert_eq!(
+            super::StreamTerminalReason::from_str("resource_limit"),
+            Ok(super::StreamTerminalReason::ResourceLimit)
+        );
+        assert!(super::StreamTerminalReason::from_str("cancelled_by_user").is_err());
+        assert!(super::StreamTerminalReason::from_str("").is_err());
+    }
+
+    #[test]
+    fn stream_stop_never_relabels_observed_or_unread_rows_as_success() {
+        let mut stream = SmilesBatchCanonicalizer::default().stream();
+        stream.observe("CCO");
+        stream.observe("C1CC");
+        stream.observe("CCN");
+        stream.process_next().expect("first observed row");
+
+        let result = stream.stop(super::StreamTerminalReason::Cancelled);
+        assert_eq!(result.observed_input_count, 3);
+        assert_eq!(result.records.len(), 1);
+        assert_eq!(result.accepted_count, 1);
+        assert_eq!(result.rejected_count, 0);
+        assert_eq!(result.unprocessed_observed_count, 2);
+        assert!(!result.stream_complete);
+        assert_eq!(
+            result.terminal_reason,
+            Some(super::StreamTerminalReason::Cancelled)
+        );
+        assert!(!result.all_succeeded());
     }
 
     #[test]

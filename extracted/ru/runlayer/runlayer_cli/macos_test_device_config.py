@@ -245,7 +245,7 @@ def _wait_for_local_config_flush(
     # Immediate reconcile reads this plist from disk (read_managed_config), so
     # require the full imported payload — matching credentials alone would let
     # a stale disk copy that still carries stripped BACKEND_SYNC_OWNED_KEYS
-    # (e.g. Sessions) pass and defer policy cleanup to the hourly bootstrap.
+    # (e.g. Sessions) pass and defer policy cleanup to the next bootstrap tick.
     deadline = time.monotonic() + LOCAL_CONFIG_FLUSH_TIMEOUT_SECONDS
     while True:
         try:

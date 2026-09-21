@@ -34,8 +34,9 @@ class StorageConnectionCreateRequest(BaseModel):
     provider_config: Dict[str, Any] = Field(description="REQUIRED. Provider-specific configuration including credentials. Structure varies by provider_type. SECURITY: Credential fields never appear in responses or logs; a read returns provider_config.credentials with only its type.")
     description: Optional[Annotated[str, Field(strict=True, max_length=500)]] = Field(default=None, description="OPTIONAL. Description explaining the connection's purpose and scope. Helpful for team collaboration and documentation. Format: Up to 500 characters.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Arbitrary key-value metadata for tagging and categorization. Common uses: team tags, cost center codes, project identifiers.")
+    write_enabled: Optional[StrictBool] = Field(default=False, description="Allow Mixpeek to WRITE to this connection's storage. Off by default, and consulted only when this connection is named as an export destination, so a read-only connection is unaffected. Your side needs the matching permission too: s3:PutObject for S3, storage.objects.create for GCS.")
     test_before_save: Optional[StrictBool] = Field(default=True, description="OPTIONAL. Whether to validate credentials before saving the connection. Defaults to True. If True, connection will be tested against the provider before creation. If False, connection is saved without validation (use with caution).")
-    __properties: ClassVar[List[str]] = ["name", "provider_type", "provider_config", "description", "metadata", "test_before_save"]
+    __properties: ClassVar[List[str]] = ["name", "provider_type", "provider_config", "description", "metadata", "write_enabled", "test_before_save"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class StorageConnectionCreateRequest(BaseModel):
             "provider_config": obj.get("provider_config"),
             "description": obj.get("description"),
             "metadata": obj.get("metadata"),
+            "write_enabled": obj.get("write_enabled") if obj.get("write_enabled") is not None else False,
             "test_before_save": obj.get("test_before_save") if obj.get("test_before_save") is not None else True
         })
         return _obj

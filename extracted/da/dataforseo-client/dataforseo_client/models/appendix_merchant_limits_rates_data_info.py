@@ -24,6 +24,7 @@ class AppendixMerchantLimitsRatesDataInfo(BaseModel):
     languages: Optional[StrictFloat] = Field(default=None, description=r"")
     errors: Optional[StrictFloat] = Field(default=None, description=r"")
     reviews: Optional[AppendixSerpDaysRatesDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
     tasks_ready: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "google", 
@@ -32,6 +33,7 @@ class AppendixMerchantLimitsRatesDataInfo(BaseModel):
         "languages", 
         "errors", 
         "reviews", 
+        "id_list", 
         "tasks_ready", 
         ]
 
@@ -65,6 +67,7 @@ class AppendixMerchantLimitsRatesDataInfo(BaseModel):
         _dict['languages'] = self.languages
         _dict['errors'] = self.errors
         _dict['reviews'] = self.reviews.to_dict() if self.reviews else None
+        _dict['id_list'] = self.id_list
         _dict['tasks_ready'] = self.tasks_ready
         return _dict
 
@@ -84,6 +87,7 @@ class AppendixMerchantLimitsRatesDataInfo(BaseModel):
             "languages": obj.get("languages"),
             "errors": obj.get("errors"),
             "reviews": AppendixSerpDaysRatesDataInfo.from_dict(obj["reviews"]) if obj.get("reviews") is not None else None,
+            "id_list": obj.get("id_list"),
             "tasks_ready": obj.get("tasks_ready"),
         })
 

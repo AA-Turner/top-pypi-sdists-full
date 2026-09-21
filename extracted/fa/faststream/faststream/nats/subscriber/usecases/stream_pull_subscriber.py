@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Optional, cast
 
@@ -70,7 +70,7 @@ class PullStreamSubscriber(
 
     async def _consume_pull(
         self,
-        cb: Callable[["Msg"], Awaitable["SendableMessage"]],
+        cb: Callable[["Msg"], Coroutine[Any, Any, "SendableMessage"]],
     ) -> None:
         """Endless task consuming messages using NATS Pull subscriber."""
         assert self.subscription
@@ -86,7 +86,7 @@ class PullStreamSubscriber(
             if messages:
                 async with anyio.create_task_group() as tg:
                     for msg in messages:
-                        tg.start_soon(cb, msg)
+                        _ = tg.start_soon(cb, msg)
 
 
 class ConcurrentPullStreamSubscriber(ConcurrentMixin["Msg"], PullStreamSubscriber):
@@ -159,7 +159,7 @@ class BatchPullStreamSubscriber(
         except TimeoutError:
             return None
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         return cast(
@@ -175,7 +175,7 @@ class BatchPullStreamSubscriber(
         )
 
     @override
-    async def __aiter__(self) -> AsyncIterator["NatsMessage"]:  # type: ignore[override]
+    async def __aiter__(self) -> AsyncIterator["NatsMessage"]:
         assert not self.calls, (
             "You can't use iterator if subscriber has registered handlers."
         )
@@ -189,7 +189,7 @@ class BatchPullStreamSubscriber(
         else:
             fetch_sub = self._fetch_sub
 
-        context = self._outer_config.fd_config.context
+        context = self._outer_config.context
         async_parser, async_decoder = self._get_parser_and_decoder()
 
         while True:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgcli
-Version: 4.7.0
+Version: 4.7.1
 Summary: CLI for Postgres Database. With auto-completion and syntax highlighting.
 Author-email: Pgcli Core Team <pgcli-dev@googlegroups.com>
 License-Expression: BSD-3-Clause

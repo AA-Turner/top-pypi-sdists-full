@@ -713,7 +713,7 @@ def test_aiwatch_setup_config_warns_when_reconcile_fails(monkeypatch) -> None:
     )
     assert "AI Watch configured" in result.output
     assert "hook reconciliation is incomplete" in result.output
-    assert "hourly bootstrap daemon will retry" in result.output
+    assert "bootstrap daemon will retry within 15 minutes" in result.output
     assert "rl_org_secret" not in result.output
 
 

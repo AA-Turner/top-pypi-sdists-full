@@ -34,7 +34,7 @@ from matrx_ai.media.media_persistence import (
 )
 
 FILE_ID = "6feae31a-945b-4dcc-8fc0-2041bb76c6b1"
-OWNER = "4cf62e4e-2679-484f-b652-034e697418df"
+OWNER = "00000000-0000-4000-8000-0000000fffe1"
 
 SIGNED_URL = (
     f"https://matrx-user-files.s3.amazonaws.com/{OWNER}/{FILE_ID}"

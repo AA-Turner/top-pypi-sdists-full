@@ -68,7 +68,8 @@
   // The two cards above both demand an identity before the dashboard opens,
   // and prod says that is where the installs go: 798 first launches to 38
   // completed choices in the 30 days to 2026-09-06. OpenClaw, NVIDIA
-  // NemoClaw and Goose are FREE_RUNTIMES, free forever with no account, so
+  // NemoClaw, Goose and Qwen Code are FREE_RUNTIMES, free forever with no
+  // account, so
   // for someone who only runs those the gate was asking for a signup that
   // buys them nothing. This posts to a dedicated endpoint (not /complete,
   // which deliberately refuses to record selfhost_free) that flips free-only
@@ -587,7 +588,6 @@
     fetch('/api/onboarding/state')
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (window.cmFirstRun) window.cmFirstRun.start(d);
         if (!d || !d.required) return;
         var m = $('obg-managed-btn');
         if (m) m.addEventListener('click', _startManaged);

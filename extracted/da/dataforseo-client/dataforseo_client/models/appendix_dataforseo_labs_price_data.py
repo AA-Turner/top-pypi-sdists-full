@@ -27,6 +27,7 @@ class AppendixDataforseoLabsPriceData(BaseModel):
     categories_for_domain: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     categories_for_keywords: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     competitors_domain: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    available_filters: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     domain_intersection: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     domain_metrics_by_categories: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     domain_rank_overview: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -35,8 +36,8 @@ class AppendixDataforseoLabsPriceData(BaseModel):
     historical_bulk_traffic_estimation: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     historical_keyword_data: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     historical_rank_overview: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
-    historical_search_volume: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     historical_serps: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[AppendixTaskKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     keyword_ideas: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     keyword_overview: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
     keywords_for_app: Optional[AppendixBingKeywordsDataPriceDataInfo] = Field(default=None, description=r"")
@@ -66,6 +67,7 @@ class AppendixDataforseoLabsPriceData(BaseModel):
         "categories_for_domain", 
         "categories_for_keywords", 
         "competitors_domain", 
+        "available_filters", 
         "domain_intersection", 
         "domain_metrics_by_categories", 
         "domain_rank_overview", 
@@ -74,8 +76,8 @@ class AppendixDataforseoLabsPriceData(BaseModel):
         "historical_bulk_traffic_estimation", 
         "historical_keyword_data", 
         "historical_rank_overview", 
-        "historical_search_volume", 
         "historical_serps", 
+        "id_list", 
         "keyword_ideas", 
         "keyword_overview", 
         "keywords_for_app", 
@@ -130,6 +132,7 @@ class AppendixDataforseoLabsPriceData(BaseModel):
         _dict['categories_for_domain'] = self.categories_for_domain.to_dict() if self.categories_for_domain else None
         _dict['categories_for_keywords'] = self.categories_for_keywords.to_dict() if self.categories_for_keywords else None
         _dict['competitors_domain'] = self.competitors_domain.to_dict() if self.competitors_domain else None
+        _dict['available_filters'] = self.available_filters.to_dict() if self.available_filters else None
         _dict['domain_intersection'] = self.domain_intersection.to_dict() if self.domain_intersection else None
         _dict['domain_metrics_by_categories'] = self.domain_metrics_by_categories.to_dict() if self.domain_metrics_by_categories else None
         _dict['domain_rank_overview'] = self.domain_rank_overview.to_dict() if self.domain_rank_overview else None
@@ -138,8 +141,8 @@ class AppendixDataforseoLabsPriceData(BaseModel):
         _dict['historical_bulk_traffic_estimation'] = self.historical_bulk_traffic_estimation.to_dict() if self.historical_bulk_traffic_estimation else None
         _dict['historical_keyword_data'] = self.historical_keyword_data.to_dict() if self.historical_keyword_data else None
         _dict['historical_rank_overview'] = self.historical_rank_overview.to_dict() if self.historical_rank_overview else None
-        _dict['historical_search_volume'] = self.historical_search_volume.to_dict() if self.historical_search_volume else None
         _dict['historical_serps'] = self.historical_serps.to_dict() if self.historical_serps else None
+        _dict['id_list'] = self.id_list.to_dict() if self.id_list else None
         _dict['keyword_ideas'] = self.keyword_ideas.to_dict() if self.keyword_ideas else None
         _dict['keyword_overview'] = self.keyword_overview.to_dict() if self.keyword_overview else None
         _dict['keywords_for_app'] = self.keywords_for_app.to_dict() if self.keywords_for_app else None
@@ -180,6 +183,7 @@ class AppendixDataforseoLabsPriceData(BaseModel):
             "categories_for_domain": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["categories_for_domain"]) if obj.get("categories_for_domain") is not None else None,
             "categories_for_keywords": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["categories_for_keywords"]) if obj.get("categories_for_keywords") is not None else None,
             "competitors_domain": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["competitors_domain"]) if obj.get("competitors_domain") is not None else None,
+            "available_filters": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["available_filters"]) if obj.get("available_filters") is not None else None,
             "domain_intersection": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_intersection"]) if obj.get("domain_intersection") is not None else None,
             "domain_metrics_by_categories": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_metrics_by_categories"]) if obj.get("domain_metrics_by_categories") is not None else None,
             "domain_rank_overview": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["domain_rank_overview"]) if obj.get("domain_rank_overview") is not None else None,
@@ -188,8 +192,8 @@ class AppendixDataforseoLabsPriceData(BaseModel):
             "historical_bulk_traffic_estimation": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["historical_bulk_traffic_estimation"]) if obj.get("historical_bulk_traffic_estimation") is not None else None,
             "historical_keyword_data": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["historical_keyword_data"]) if obj.get("historical_keyword_data") is not None else None,
             "historical_rank_overview": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["historical_rank_overview"]) if obj.get("historical_rank_overview") is not None else None,
-            "historical_search_volume": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["historical_search_volume"]) if obj.get("historical_search_volume") is not None else None,
             "historical_serps": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["historical_serps"]) if obj.get("historical_serps") is not None else None,
+            "id_list": AppendixTaskKeywordsDataPriceDataInfo.from_dict(obj["id_list"]) if obj.get("id_list") is not None else None,
             "keyword_ideas": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["keyword_ideas"]) if obj.get("keyword_ideas") is not None else None,
             "keyword_overview": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["keyword_overview"]) if obj.get("keyword_overview") is not None else None,
             "keywords_for_app": AppendixBingKeywordsDataPriceDataInfo.from_dict(obj["keywords_for_app"]) if obj.get("keywords_for_app") is not None else None,

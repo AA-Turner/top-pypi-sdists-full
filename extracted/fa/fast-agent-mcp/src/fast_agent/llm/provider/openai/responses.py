@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from mcp import Tool
 from mcp_types import ContentBlock, TextContent
-from openai import APIError, AsyncOpenAI, AuthenticationError, DefaultAioHttpClient
+from openai import APIError, AsyncOpenAI, AuthenticationError, DefaultAioHttpClient, Omit
 
 from fast_agent.constants import (
     ANTHROPIC_CITATIONS_CHANNEL,
@@ -63,10 +63,7 @@ from fast_agent.llm.provider.openai.web_tools import (
 )
 from fast_agent.llm.provider.reasoning_config import reasoning_setting_from_config
 from fast_agent.llm.provider.streaming_timeouts import (
-    StreamIdleTimeoutError,
-    StreamTiming,
     enter_stream_with_timeout,
-    stream_timing_payload,
     with_stream_idle_timeout,
 )
 from fast_agent.llm.provider_types import Provider
@@ -184,12 +181,14 @@ class ResponsesLLM(
 
     def _finalize_turn_usage(
         self,
-        usage: TurnUsage | None = None,
+        turn_usage: TurnUsage | None = None,
         *,
         requested_service_tier: Literal["fast", "flex"] | None = None,
-        **kwargs: TurnUsage,
+        usage: TurnUsage | None = None,
     ) -> None:
-        turn_usage = usage if usage is not None else kwargs["turn_usage"]
+        turn_usage = usage if usage is not None else turn_usage
+        if turn_usage is None:
+            raise TypeError("_finalize_turn_usage requires usage or turn_usage")
         FastAgentLLM._finalize_turn_usage(
             self,
             turn_usage,
@@ -235,7 +234,6 @@ class ResponsesLLM(
         self._last_ws_request_mode: Literal["create", "continuation"] | None = None
         self._last_ws_turn_outcome: ResponsesWsTurnOutcome | None = None
         self._last_ws_phase_timings_ms: dict[str, float] | None = None
-        self._last_stream_timing: dict[str, int | float | bool | None] | None = None
         self._ws_turn_counters: dict[str, int] = {
             "total": 0,
             RESPONSES_WS_FRESH_OUTCOME: 0,
@@ -363,25 +361,6 @@ class ResponsesLLM(
         if self._last_ws_phase_timings_ms:
             payload["websocket_phase_ms"] = self._last_ws_phase_timings_ms
         return payload
-
-    def _record_successful_stream_timing(
-        self,
-        timing: StreamTiming,
-        *,
-        model: str,
-        transport: ResponsesActiveTransport,
-    ) -> None:
-        payload = stream_timing_payload(timing, timed_out=False)
-        self._last_stream_timing = payload
-        if timing.inter_event_waits_over_threshold:
-            self.logger.warning(
-                "Responses stream observed extended inter-event gap",
-                data={
-                    "model": model,
-                    "transport": transport,
-                    "stream_timing": payload,
-                },
-            )
 
     def _parse_service_tier(self, raw_value: Any) -> ResponsesServiceTier | None:
         if raw_value is None:
@@ -757,6 +736,11 @@ class ResponsesLLM(
     def _provider_default_headers(self) -> dict[str, str] | None:
         settings = self._openai_settings()
         return settings.default_headers if settings else None
+
+    async def _prepare_responses_client(
+        self, model: str, transport: ResponsesActiveTransport
+    ) -> None:
+        """Resolve request-scoped provider routing before constructing a client."""
 
     def _responses_client(self) -> AsyncOpenAI:
         try:
@@ -1357,6 +1341,7 @@ class ResponsesLLM(
         model_name: str,
     ) -> tuple[Any, list[str], list[dict[str, Any]]]:
         try:
+            await self._prepare_responses_client(model_name, "sse")
             async with self._responses_client() as client:
                 normalized_input = await self._normalize_input_files(client, input_items)
                 arguments = self._build_response_args(normalized_input, request_params, tools)
@@ -1377,27 +1362,20 @@ class ResponsesLLM(
                         response, streamed_summary = await self._process_stream(
                             timed_stream, model_name, capture_filename
                         )
-                    except StreamIdleTimeoutError:
-                        self._record_stream_failure(timed_stream.timing)
-                        self.logger.error(
-                            "Streaming idle timeout while waiting for Responses",
-                            data={
-                                "model": model_name,
-                                "transport": RESPONSES_TRANSPORT_SSE,
-                                "timeout_seconds": timeout,
-                                "stream_timing": stream_timing_payload(
-                                    timed_stream.timing,
-                                    timed_out=True,
-                                ),
-                            },
+                    except Exception as error:
+                        self._record_stream_outcome(
+                            timed_stream.timing,
+                            error=error,
+                            model=model_name,
+                            timeout_seconds=timeout,
+                            transport=RESPONSES_TRANSPORT_SSE,
                         )
                         raise
-                    except Exception:
-                        self._record_stream_failure(timed_stream.timing)
-                        raise
-                    self._record_successful_stream_timing(
+                    self._record_stream_outcome(
                         timed_stream.timing,
+                        error=None,
                         model=model_name,
+                        timeout_seconds=timeout,
                         transport=RESPONSES_TRANSPORT_SSE,
                     )
                 return response, streamed_summary, normalized_input
@@ -1446,6 +1424,7 @@ class ResponsesLLM(
         phase_timings: dict[str, float] = {}
         self._last_ws_phase_timings_ms = phase_timings
 
+        await self._prepare_responses_client(model_name, "websocket")
         async with self._responses_client() as client:
             phase_started_at = time.perf_counter()
             normalized_input = await self._normalize_input_files(client, input_items)
@@ -1454,6 +1433,13 @@ class ResponsesLLM(
         phase_started_at = time.perf_counter()
         arguments = self._build_response_args(normalized_input, request_params, tools)
         request_headers = arguments.pop("extra_headers", None)
+        # HTTP SDKs merge extra_body into the JSON body. WebSockets bypass that
+        # serialization, so apply the same shallow override/omission semantics
+        # before provider metadata hooks and request planning see the wire body.
+        extra_body = arguments.pop("extra_body", None)
+        if extra_body is not None:
+            arguments.update(extra_body)
+        arguments = {key: value for key, value in arguments.items() if not isinstance(value, Omit)}
         self._prepare_websocket_arguments(arguments)
         ws_headers = merge_headers_case_insensitive(
             self._build_websocket_headers(),
@@ -1559,27 +1545,20 @@ class ResponsesLLM(
             response, streamed_summary = await self._process_stream(
                 timed_stream, context.model_name, context.capture_filename
             )
-        except StreamIdleTimeoutError:
-            self._record_stream_failure(timed_stream.timing)
-            self.logger.error(
-                "Streaming idle timeout while waiting for Responses websocket",
-                data={
-                    "model": context.model_name,
-                    "transport": RESPONSES_TRANSPORT_WEBSOCKET,
-                    "timeout_seconds": context.timeout,
-                    "stream_timing": stream_timing_payload(
-                        timed_stream.timing,
-                        timed_out=True,
-                    ),
-                },
+        except Exception as error:
+            self._record_stream_outcome(
+                timed_stream.timing,
+                error=error,
+                model=context.model_name,
+                timeout_seconds=context.timeout,
+                transport=RESPONSES_TRANSPORT_WEBSOCKET,
             )
             raise
-        except Exception:
-            self._record_stream_failure(timed_stream.timing)
-            raise
-        self._record_successful_stream_timing(
+        self._record_stream_outcome(
             timed_stream.timing,
+            error=None,
             model=context.model_name,
+            timeout_seconds=context.timeout,
             transport=RESPONSES_TRANSPORT_WEBSOCKET,
         )
         self._record_ws_phase(context.phase_timings, "stream_total", stream_started_at)

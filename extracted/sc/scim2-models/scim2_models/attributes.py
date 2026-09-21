@@ -43,8 +43,8 @@ class ExtensibleStringEnum(str, Enum):
     def _missing_(cls, value: Any) -> Self:
         """Match canonical values regardless of their case, and keep unknown ones as-is.
 
-        Attributes bearing ``canonicalValues`` are case-insensitive unless stated
-        otherwise by :rfc:`RFC7643 §2.2 <7643#section-2.2>`.
+        Attributes bearing ``canonicalValues`` are case-insensitive unless
+        stated otherwise by RFC7643 §2.2.
         """
         if not isinstance(value, str):
             raise ValueError(f"{value} is not a valid string value for {cls.__name__}")
@@ -66,15 +66,12 @@ class ComplexAttribute(BaseModel):
 
     _attribute_urn: str | None = None
 
-    def get_attribute_urn(self, field_name: str) -> str:
+    def _get_attribute_urn(self, field_name: str) -> str:
         """Build the full URN of the attribute.
 
-        See :rfc:`RFC7644 §3.10 <7644#section-3.10>`.
+        See RFC7644 §3.10.
         """
-        alias = (
-            self.__class__.model_fields[field_name].serialization_alias or field_name
-        )
-        return f"{self._attribute_urn}.{alias}"
+        return f"{self._attribute_urn}.{self._scim_name(field_name)}"
 
 
 class MultiValuedComplexAttribute(ComplexAttribute):
@@ -95,12 +92,14 @@ class MultiValuedComplexAttribute(ComplexAttribute):
     value: Any | None = None
     """The value of an entitlement."""
 
-    ref: Reference[Any] | None = Field(None, serialization_alias="$ref")
+    ref: Reference[Any] | None = Field(
+        None, serialization_alias="$ref", validation_alias="$ref"
+    )
     """The reference URI of a target resource, if the attribute is a
     reference."""
 
 
-def is_complex_attribute(type_: type) -> bool:
+def _is_complex_attribute(type_: type) -> bool:
     # issubclass raise a TypeError with 'Reference' on python < 3.11
     return (
         get_origin(type_) != Reference

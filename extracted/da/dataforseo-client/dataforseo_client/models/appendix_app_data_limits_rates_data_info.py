@@ -9,7 +9,8 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.appendix_serp_days_rates_data_info import AppendixSerpDaysRatesDataInfo
-from dataforseo_client.models.appendix_business_listings_business_data_limits_rates_data_info import AppendixBusinessListingsBusinessDataLimitsRatesDataInfo
+from dataforseo_client.models.appendix_tr_business_data_day_limits_rates_data_info import AppendixTrBusinessDataDayLimitsRatesDataInfo
+from dataforseo_client.models.appendix_dataforseo_labs_limits_rates_data_info import AppendixDataforseoLabsLimitsRatesDataInfo
 
 
 
@@ -25,7 +26,9 @@ class AppendixAppDataLimitsRatesDataInfo(BaseModel):
     languages: Optional[StrictFloat] = Field(default=None, description=r"")
     locations: Optional[StrictFloat] = Field(default=None, description=r"")
     categories: Optional[StrictFloat] = Field(default=None, description=r"")
-    app_listings: Optional[AppendixBusinessListingsBusinessDataLimitsRatesDataInfo] = Field(default=None, description=r"")
+    id_list: Optional[StrictFloat] = Field(default=None, description=r"")
+    app_listings: Optional[AppendixTrBusinessDataDayLimitsRatesDataInfo] = Field(default=None, description=r"")
+    pp_listings: Optional[AppendixDataforseoLabsLimitsRatesDataInfo] = Field(default=None, description=r"")
     tasks_ready: Optional[StrictFloat] = Field(default=None, description=r"")
     __properties: ClassVar[List[str]] = [
         "app_info", 
@@ -36,7 +39,9 @@ class AppendixAppDataLimitsRatesDataInfo(BaseModel):
         "languages", 
         "locations", 
         "categories", 
+        "id_list", 
         "app_listings", 
+        "pp_listings", 
         "tasks_ready", 
         ]
 
@@ -72,7 +77,9 @@ class AppendixAppDataLimitsRatesDataInfo(BaseModel):
         _dict['languages'] = self.languages
         _dict['locations'] = self.locations
         _dict['categories'] = self.categories
+        _dict['id_list'] = self.id_list
         _dict['app_listings'] = self.app_listings.to_dict() if self.app_listings else None
+        _dict['pp_listings'] = self.pp_listings.to_dict() if self.pp_listings else None
         _dict['tasks_ready'] = self.tasks_ready
         return _dict
 
@@ -94,7 +101,9 @@ class AppendixAppDataLimitsRatesDataInfo(BaseModel):
             "languages": obj.get("languages"),
             "locations": obj.get("locations"),
             "categories": obj.get("categories"),
-            "app_listings": AppendixBusinessListingsBusinessDataLimitsRatesDataInfo.from_dict(obj["app_listings"]) if obj.get("app_listings") is not None else None,
+            "id_list": obj.get("id_list"),
+            "app_listings": AppendixTrBusinessDataDayLimitsRatesDataInfo.from_dict(obj["app_listings"]) if obj.get("app_listings") is not None else None,
+            "pp_listings": AppendixDataforseoLabsLimitsRatesDataInfo.from_dict(obj["pp_listings"]) if obj.get("pp_listings") is not None else None,
             "tasks_ready": obj.get("tasks_ready"),
         })
 

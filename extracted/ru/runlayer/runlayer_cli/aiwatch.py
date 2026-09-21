@@ -10,7 +10,10 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, NoReturn
+
+if TYPE_CHECKING:
+    from runlayer_cli.hook.daemon_protocol import HookResult
 
 from runlayer_cli.hook import TRANSCRIPT_STREAM_WORKER_SENTINEL
 
@@ -181,6 +184,13 @@ def _apply_managed_config() -> None:
         os.environ["RUNLAYER_ARTIFACT_LOOKUP_CACHE"] = (
             "true" if artifact_lookup_cache else "false"
         )
+    skill_resubmit_window_seconds = managed.get("skill_resubmit_window_seconds")
+    if skill_resubmit_window_seconds is not None and not os.environ.get(
+        "RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS"
+    ):
+        os.environ["RUNLAYER_SKILL_RESUBMIT_WINDOW_SECONDS"] = str(
+            skill_resubmit_window_seconds
+        )
     detect_renamed_plugin_caches = managed.get("detect_renamed_plugin_caches")
     if detect_renamed_plugin_caches is not None and not os.environ.get(
         "RUNLAYER_DETECT_RENAMED_PLUGIN_CACHES"
@@ -304,6 +314,29 @@ def _client_start_ms() -> int:
     return parsed if parsed > 0 else _CLIENT_START_MS
 
 
+def _relay_daemon_response(response: "HookResult") -> NoReturn:
+    """Replay the daemon's stdout/stderr/exit code as if this process ran the hook.
+
+    The harness may have stopped reading stdout while the daemon was still
+    working (fire-and-forget events); that is not a hook failure, so the pipe
+    error is absorbed and the process stdout is parked on devnull to keep the
+    interpreter's exit-time flush quiet. The exit code is replayed regardless:
+    a client that stopped reading may still honour it.
+    """
+    from runlayer_cli.hook import hook_io  # noqa: PLC0415 - stdlib-only
+
+    try:
+        sys.stdout.write(response["stdout"])
+        sys.stdout.flush()
+    except OSError as exc:
+        if not hook_io.harness_gone(exc):
+            raise
+        hook_io.discard_process_stdout()
+    sys.stderr.write(response["stderr"])
+    sys.stderr.flush()
+    raise SystemExit(response["exit_code"])
+
+
 def _run_hook_daemon_first() -> None:
     """Use daemon IPC when gated on; preserve consumed stdin for inline fallback."""
     from runlayer_cli.hook import daemon_client  # noqa: PLC0415 - stdlib-only
@@ -329,11 +362,7 @@ def _run_hook_daemon_first() -> None:
             )
 
     if response is not None:
-        sys.stdout.write(response["stdout"])
-        sys.stdout.flush()
-        sys.stderr.write(response["stderr"])
-        sys.stderr.flush()
-        raise SystemExit(response["exit_code"])
+        _relay_daemon_response(response)
 
     _inject_truststore()
     from runlayer_cli.hook import hook_io  # noqa: PLC0415

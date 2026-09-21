@@ -57,7 +57,7 @@ class _Hit:
 
 
 class _Ctx:
-    user_id = "a4955b5c-d524-4d72-a90e-0658d5d51148"
+    user_id = "00000000-0000-4000-8000-0000000fffa3"
     organization_id = "80ad3283-ea87-4e83-9cee-7b2f2404472c"
     call_id = "guard"
 
