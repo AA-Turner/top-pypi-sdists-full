@@ -36,11 +36,12 @@ class AdhocExecuteRequest(BaseModel):
     input_schema: Optional[Dict[str, RetrieverInputSchemaFieldInput]] = Field(default=None, description="OPTIONAL. Input schema defining expected inputs. Each key is an input name, value is a RetrieverInputSchemaField. Omit it (or pass {}) for a stages-only execute whose stages carry hardcoded query values — no dynamic inputs needed.")
     stages: Annotated[List[StageConfigInput], Field(min_length=1)] = Field(description="REQUIRED. Ordered list of stage configurations. At least one stage is required for execution.")
     inputs: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Input values matching the input_schema. These values are passed to stages for parameterization. Omit it (or pass {}) when the stages carry hardcoded query values.")
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Execute-time filters applied to the document search, the same key the by-id execute request accepts. Merged (AND) with any pre_filters already set inside the stages. Uses the standard LogicalOperator format: {\"AND\": [{\"field\": \"brand\", \"operator\": \"eq\", \"value\": \"Acme\"}]}. Supports operators: eq, ne, in, nin, gt, gte, lt, lte, contains, exists, is_null. A top-level 'pre_filters' is accepted as an alias.")
     budget_limits: Optional[BudgetLimits] = Field(default=None, description="OPTIONAL. Budget limits for execution.")
     pagination: Optional[Pagination] = None
     limit: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=None, description="DEPRECATED alias for the pagination page size, honored only when 'pagination' is absent — mirrors the by-id execute request. Previously silently ignored on adhoc bodies.")
     stream: Optional[StrictBool] = Field(default=False, description="Enable streaming execution to receive real-time stage updates via Server-Sent Events (SSE). NOT REQUIRED - defaults to False for standard execution.   When stream=True: - Response Content-Type: text/event-stream - Events emitted: stage_start, stage_complete, stage_error, execution_complete, execution_error - Each event is formatted as: data: {json}\\n\\n - StreamStageEvent contains: event_type, execution_id, stage_name, stage_index, total_stages, documents (intermediate), statistics, budget_used   When to use streaming: - Progress tracking for multi-stage pipelines - Displaying intermediate results as stages complete - Real-time budget and performance monitoring - Debugging pipeline execution   When to skip streaming: - Single-stage or fast pipelines (<100ms) - No need for intermediate results - Minimizing overhead is critical")
-    __properties: ClassVar[List[str]] = ["collection_identifiers", "input_schema", "stages", "inputs", "budget_limits", "pagination", "limit", "stream"]
+    __properties: ClassVar[List[str]] = ["collection_identifiers", "input_schema", "stages", "inputs", "filters", "budget_limits", "pagination", "limit", "stream"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -122,6 +123,7 @@ class AdhocExecuteRequest(BaseModel):
             else None,
             "stages": [StageConfigInput.from_dict(_item) for _item in obj["stages"]] if obj.get("stages") is not None else None,
             "inputs": obj.get("inputs"),
+            "filters": obj.get("filters"),
             "budget_limits": BudgetLimits.from_dict(obj["budget_limits"]) if obj.get("budget_limits") is not None else None,
             "pagination": Pagination.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None,
             "limit": obj.get("limit"),

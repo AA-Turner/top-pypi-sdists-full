@@ -12,7 +12,7 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class ChangeAuditProfileCompartmentDetails(object):
     """
-    Moves the specified audit profile and its assoicated resources into a different compartment.
+    Moves the specified audit profile and its associated resources into a different compartment.
     """
 
     def __init__(self, **kwargs):

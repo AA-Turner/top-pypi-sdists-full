@@ -17,6 +17,11 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
 if t.TYPE_CHECKING:
     from meltano.core.project import Project
     from meltano.core.setting_definition import SettingDefinition
@@ -76,13 +81,11 @@ class ProjectSettingsService(SettingsService):
             )
 
     @property
+    @override
     def project_settings_service(self) -> Self:
-        """Get the settings service for this project.
+        """Settings service for this project.
 
         For ProjectSettingsService, just returns self.
-
-        Returns:
-            self
         """
         return self
 
@@ -115,50 +118,36 @@ class ProjectSettingsService(SettingsService):
                 logger.debug("Restored 'project_id' from 'analytics.json'")
 
     @property
+    @override
     def label(self) -> str:
-        """Return label.
-
-        Returns:
-            Project label.
-        """
+        """Project label."""
         return "Meltano"
 
     @property
+    @override
     def docs_url(self) -> str:
-        """Return docs URL.
-
-        Returns:
-            URL for Meltano doc site.
-        """
+        """URL for Meltano doc site."""
         return "https://docs.meltano.com/reference/settings"
 
     @property
+    @override
     def db_namespace(self) -> str:
-        """Return namespace for setting value records in system database.
-
-        Returns:
-            Namespace for setting value records in system database.
-        """
+        """Namespace for setting value records in system database."""
         return "meltano"
 
     @property
+    @override
     def setting_definitions(self) -> list[SettingDefinition]:
-        """Return definitions of supported settings.
-
-        Returns:
-            A list of defined settings.
-        """
+        """Definitions of supported settings."""
         return self.project.config_service.settings
 
     @property
+    @override
     def meltano_yml_config(self) -> dict[str, t.Any]:
-        """Return current configuration in `meltano.yml`.
-
-        Returns:
-            Current configuration in `meltano.yml`.
-        """
+        """Current configuration in `meltano.yml`."""
         return self.project.config_service.current_config
 
+    @override
     def update_meltano_yml_config(self, config: dict[str, t.Any]) -> None:
         """Update configuration in `meltano.yml`.
 
@@ -167,6 +156,7 @@ class ProjectSettingsService(SettingsService):
         """
         self.project.config_service.update_config(config)
 
+    @override
     def process_config(self, config: dict[str, t.Any]) -> dict[str, t.Any]:
         """Process configuration dict for presentation in `meltano config meltano`.
 

@@ -21188,6 +21188,14 @@ components:
       allOf:
       - $ref: '#/components/schemas/AaSequenceBaseRequestForCreate'
       - $ref: '#/components/schemas/CreateEntityIntoRegistry'
+      - properties:
+          name:
+            description: 'Name of the AA sequence. Cannot be an empty string.
+
+              '
+            minLength: 1
+            type: string
+        type: object
     AaSequenceRequestRegistryFields:
       properties:
         entityRegistryId:

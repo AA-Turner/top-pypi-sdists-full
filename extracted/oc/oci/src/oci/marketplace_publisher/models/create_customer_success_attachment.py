@@ -57,6 +57,10 @@ class CreateCustomerSuccessAttachment(CreateListingRevisionAttachmentDetails):
             The value to assign to the product_codes property of this CreateCustomerSuccessAttachment.
         :type product_codes: list[str]
 
+        :param source_type:
+            The value to assign to the source_type property of this CreateCustomerSuccessAttachment.
+        :type source_type: str
+
         """
         self.swagger_types = {
             'listing_revision_id': 'str',
@@ -67,7 +71,8 @@ class CreateCustomerSuccessAttachment(CreateListingRevisionAttachmentDetails):
             'defined_tags': 'dict(str, dict(str, object))',
             'customer_name': 'str',
             'url': 'str',
-            'product_codes': 'list[str]'
+            'product_codes': 'list[str]',
+            'source_type': 'str'
         }
         self.attribute_map = {
             'listing_revision_id': 'listingRevisionId',
@@ -78,7 +83,8 @@ class CreateCustomerSuccessAttachment(CreateListingRevisionAttachmentDetails):
             'defined_tags': 'definedTags',
             'customer_name': 'customerName',
             'url': 'url',
-            'product_codes': 'productCodes'
+            'product_codes': 'productCodes',
+            'source_type': 'sourceType'
         }
         self._listing_revision_id = None
         self._display_name = None
@@ -89,6 +95,7 @@ class CreateCustomerSuccessAttachment(CreateListingRevisionAttachmentDetails):
         self._customer_name = None
         self._url = None
         self._product_codes = None
+        self._source_type = None
         self._attachment_type = 'CUSTOMER_SUCCESS'
 
     @property
@@ -162,6 +169,30 @@ class CreateCustomerSuccessAttachment(CreateListingRevisionAttachmentDetails):
         :type: list[str]
         """
         self._product_codes = product_codes
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this CreateCustomerSuccessAttachment.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this CreateCustomerSuccessAttachment.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this CreateCustomerSuccessAttachment.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this CreateCustomerSuccessAttachment.
+        :type: str
+        """
+        self._source_type = source_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

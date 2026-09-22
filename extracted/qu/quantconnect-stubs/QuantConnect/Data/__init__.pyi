@@ -37,6 +37,11 @@ QuantConnect_Data_Slice_Get_T = typing.TypeVar("QuantConnect_Data_Slice_Get_T")
 class DataMonitor(System.Object, QuantConnect.Interfaces.IDataMonitor):
     """Monitors data requests and reports on missing data"""
 
+    @property
+    def report(self) -> QuantConnect.DataMonitorReport:
+        """The final report generated on exit, null until then or if no data request was monitored"""
+        ...
+
     def __init__(self) -> None:
         """Initializes a new instance of the DataMonitor class"""
         ...

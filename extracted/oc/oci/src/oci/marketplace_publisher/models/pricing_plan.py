@@ -23,11 +23,21 @@ class PricingPlan(object):
     #: This constant has a value of "FIXED"
     PLAN_TYPE_FIXED = "FIXED"
 
+    #: A constant which can be used with the plan_type property of a PricingPlan.
+    #: This constant has a value of "USAGE_BASED"
+    PLAN_TYPE_USAGE_BASED = "USAGE_BASED"
+
+    #: A constant which can be used with the plan_type property of a PricingPlan.
+    #: This constant has a value of "HYBRID"
+    PLAN_TYPE_HYBRID = "HYBRID"
+
     def __init__(self, **kwargs):
         """
         Initializes a new PricingPlan object with values from keyword arguments. This class has the following subclasses and if you are using this class as input
         to a service operations then you should favor using a subclass over the base class:
 
+        * :class:`~oci.marketplace_publisher.models.HybridPricingPlan`
+        * :class:`~oci.marketplace_publisher.models.UsageBasedPricingPlan`
         * :class:`~oci.marketplace_publisher.models.MeteredPricingPlan`
         * :class:`~oci.marketplace_publisher.models.SaaSPricingPlan`
 
@@ -35,7 +45,7 @@ class PricingPlan(object):
 
         :param plan_type:
             The value to assign to the plan_type property of this PricingPlan.
-            Allowed values for this property are: "METERED", "FIXED", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "METERED", "FIXED", "USAGE_BASED", "HYBRID", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type plan_type: str
 
@@ -63,6 +73,12 @@ class PricingPlan(object):
         """
         type = object_dictionary['planType']
 
+        if type == 'HYBRID':
+            return 'HybridPricingPlan'
+
+        if type == 'USAGE_BASED':
+            return 'UsageBasedPricingPlan'
+
         if type == 'METERED':
             return 'MeteredPricingPlan'
 
@@ -77,7 +93,7 @@ class PricingPlan(object):
         **[Required]** Gets the plan_type of this PricingPlan.
         The listing's pricing plan type.
 
-        Allowed values for this property are: "METERED", "FIXED", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "METERED", "FIXED", "USAGE_BASED", "HYBRID", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -96,7 +112,7 @@ class PricingPlan(object):
         :param plan_type: The plan_type of this PricingPlan.
         :type: str
         """
-        allowed_values = ["METERED", "FIXED"]
+        allowed_values = ["METERED", "FIXED", "USAGE_BASED", "HYBRID"]
         if not value_allowed_none_or_none_sentinel(plan_type, allowed_values):
             plan_type = 'UNKNOWN_ENUM_VALUE'
         self._plan_type = plan_type

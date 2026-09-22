@@ -12,14 +12,19 @@ from functools import reduce
 from operator import eq
 
 import dotenv
-import sqlalchemy
-import sqlalchemy.orm
+import sqlalchemy.exc
 import structlog
 
 from meltano.core.environment import NoActiveEnvironment
 from meltano.core.error import MeltanoError, ProjectReadonly
 from meltano.core.setting import Setting
-from meltano.core.utils import flatten, pop_at_path, set_at_path
+from meltano.core.utils import (
+    flatten,
+    has_unescaped_dot,
+    pop_at_path,
+    set_at_path,
+    split_path,
+)
 
 if sys.version_info >= (3, 11):
     from enum import StrEnum
@@ -28,17 +33,27 @@ else:
     from backports.strenum import StrEnum
     from typing_extensions import Self
 
-if t.TYPE_CHECKING:
-    from collections.abc import Generator
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
+if t.TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from meltano.core.plugin.settings_service import PluginSettingsService
     from meltano.core.setting_definition import EnvVar, SettingDefinition
     from meltano.core.settings_service import SettingsService
 
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
+
 
 logger = structlog.stdlib.get_logger(__name__)
+
+AccessMethod = t.Literal["get", "set"]
 
 
 class ConflictingSettingValueException(Exception):
@@ -54,6 +69,7 @@ class ConflictingSettingValueException(Exception):
         self.setting_names = setting_names
         super().__init__(setting_names)
 
+    @override
     def __str__(self) -> str:
         """Represent the error as a string.
 
@@ -75,6 +91,7 @@ class MultipleEnvVarsSetException(Exception):
         self.names = names
         super().__init__(names)
 
+    @override
     def __str__(self) -> str:
         """Represent the error as a string.
 
@@ -95,7 +112,7 @@ class StoreNotSupportedError(MeltanoError):
         **kwds: t.Any,
     ) -> None:
         """Instantiate the error."""
-        return super().__init__(reason, **kwds)
+        super().__init__(reason, **kwds)
 
 
 def cast_setting_value(
@@ -164,11 +181,7 @@ class SettingValueStore(StrEnum):
 
     @property
     def manager(self: Self) -> type[SettingsStoreManager]:
-        """Return store manager for this store.
-
-        Returns:
-            SettingsStoreManager for this store.
-        """
+        """Store manager for this store."""
         # ordering here is not significant, other than being consistent with
         # the order of precedence.
         managers: dict[str, type[SettingsStoreManager]] = {
@@ -186,23 +199,15 @@ class SettingValueStore(StrEnum):
 
     @property
     def label(self) -> str:
-        """Return printable label.
-
-        Returns:
-            Printable label.
-        """
+        """Printable label."""
         return self.manager.label
 
     @property
     def writable(self) -> bool:
-        """Return if this store is writable.
-
-        Returns:
-            True if store is writable.
-        """
+        """Whether this store is writable."""
         return self.manager.writable
 
-    def overrides(self, source: SettingValueStore) -> bool:
+    def overrides(self, source: Self) -> bool:
         """Check if given source overrides this instance.
 
         Args:
@@ -211,10 +216,10 @@ class SettingValueStore(StrEnum):
         Returns:
             True if given source takes precedence over this store.
         """
-        stores_list = list(self.__class__)
+        stores_list: list[SettingValueStore] = list(self.__class__)
         return stores_list.index(self) < stores_list.index(source)
 
-    def can_overwrite(self, source: SettingValueStore) -> bool:
+    def can_overwrite(self, source: Self) -> bool:
         """Check if source can overwrite.
 
         Args:
@@ -310,7 +315,7 @@ class SettingsStoreManager(ABC):
         """
         raise NotImplementedError
 
-    def ensure_supported(self, method: str = "get") -> None:
+    def ensure_supported(self, method: AccessMethod = "get") -> None:
         """Ensure passed method is supported.
 
         Args:
@@ -327,26 +332,19 @@ class SettingsStoreManager(ABC):
                 instruction=instruction,
             )
 
-    def log(self, message: str) -> None:
-        """Log method.
-
-        Args:
-            message: message to log.
-        """
-        self.settings_service.log(message)
-
 
 class ConfigOverrideStoreManager(SettingsStoreManager):
     """Config override store manager."""
 
     label = "a command line flag"
 
+    @override
     def get(
         self,
         name: str,
-        setting_def: SettingDefinition | None = None,  # noqa: ARG002
+        setting_def: SettingDefinition | None = None,
         *,
-        cast_value: bool = False,  # noqa: ARG002
+        cast_value: bool = False,
     ) -> tuple[str | None, dict]:
         """Get value by name from the .env file.
 
@@ -360,7 +358,6 @@ class ConfigOverrideStoreManager(SettingsStoreManager):
         """
         try:
             value = self.settings_service.config_override[name]
-            self.log(f"Read key '{name}' from config override: {value!r}")
             return value, {}  # noqa: TRY300
         except KeyError:
             return None, {}
@@ -371,12 +368,13 @@ class BaseEnvStoreManager(SettingsStoreManager):
 
     @property
     @abstractmethod
-    def env(self):  # noqa: ANN201
+    def env(self) -> dict[str, str]:
         """Abstract environment values property."""
 
+    @override
     def get(
         self,
-        name: str,  # noqa: ARG002
+        name: str,
         setting_def: SettingDefinition | None = None,
         *,
         cast_value: bool = False,
@@ -388,15 +386,15 @@ class BaseEnvStoreManager(SettingsStoreManager):
             setting_def: SettingDefinition instance.
             cast_value: Whether to cast the value according to `setting_def`.
 
+        Returns:
+            A tuple the got value and a dictionary containing metadata.
+
         Raises:
             StoreNotSupportedError: if setting_def not passed.
             ConflictingSettingValueException: if multiple conflicting values for the
                 same setting are provided.
             MultipleEnvVarsSetException: if multiple environment variables are set for
                 the same setting.
-
-        Returns:
-            A tuple the got value and a dictionary containing metadata.
         """
         if not setting_def:
             reason = "Can not retrieve unknown setting from environment variables"
@@ -443,38 +441,10 @@ class EnvStoreManager(BaseEnvStoreManager):
     label = "the environment"
 
     @property
-    def env(self) -> dict[str, str | None]:
-        """Return values from the calling terminals environment.
-
-        Returns:
-            Values found in the calling terminals environment.
-        """
+    @override
+    def env(self) -> dict[str, str]:
+        """Values from the calling terminals environment."""
         return self.settings_service.env
-
-    def get(
-        self,
-        name: str,
-        setting_def: SettingDefinition | None = None,
-        *,
-        cast_value: bool = False,
-    ) -> tuple[str | None, dict]:
-        """Get value by name from the .env file.
-
-        Args:
-            name: Setting name.
-            setting_def: SettingDefinition instance.
-            cast_value: Whether to cast the value according to `setting_def`.
-
-        Returns:
-            A tuple the got value and a dictionary containing metadata.
-        """
-        value, metadata = super().get(name, setting_def, cast_value=cast_value)
-
-        if value is not None:
-            env_key = metadata["env_var"]
-            self.log(f"Read key '{env_key}' from the environment: {value!r}")
-
-        return value, metadata
 
 
 class DotEnvStoreManager(BaseEnvStoreManager):
@@ -493,7 +463,8 @@ class DotEnvStoreManager(BaseEnvStoreManager):
         super().__init__(*args, **kwargs)
         self._env: dict[str, str] | None = None
 
-    def ensure_supported(self, method: str = "get") -> None:
+    @override
+    def ensure_supported(self, method: AccessMethod = "get") -> None:
         """Ensure named method is supported.
 
         Checks that the project is not read-only and an environment is active.
@@ -509,42 +480,15 @@ class DotEnvStoreManager(BaseEnvStoreManager):
             raise StoreNotSupportedError(ProjectReadonly())
 
     @property
+    @override
     def env(self) -> dict[str, str]:
-        """Return values from the .env file.
-
-        Returns:
-            A dictionary of values found in the .env file.
-        """
+        """Dictionary of values from the .env file."""
         if self._env is None:
             self._env = self.project.dotenv_env
         return self._env
 
-    def get(
-        self,
-        name: str,
-        setting_def: SettingDefinition | None = None,
-        *,
-        cast_value: bool = False,
-    ) -> tuple[str | None, dict]:
-        """Get value by name from the .env file.
-
-        Args:
-            name: Setting name.
-            setting_def: SettingDefinition instance.
-            cast_value: Whether to cast the value according to `setting_def`.
-
-        Returns:
-            A tuple the got value and a dictionary containing metadata.
-        """
-        value, metadata = super().get(name, setting_def, cast_value=cast_value)
-
-        if value is not None:
-            env_key = metadata["env_var"]
-            self.log(f"Read key '{env_key}' from `.env`: {value!r}")
-
-        return value, metadata
-
-    def set(self, name: str, path: list[str], value, setting_def=None):  # noqa: ANN001, ANN201, ARG002
+    @override
+    def set(self, name: str, path: list[str], value, setting_def=None):  # noqa: ANN001, ANN201
         """Set value by name in the .env file.
 
         Args:
@@ -553,11 +497,11 @@ class DotEnvStoreManager(BaseEnvStoreManager):
             value: New value to set.
             setting_def: SettingDefinition.
 
-        Raises:
-            StoreNotSupportedError: if setting_def not provided.
-
         Returns:
             An empty dictionary.
+
+        Raises:
+            StoreNotSupportedError: if setting_def not provided.
         """
         if not setting_def:
             reason = f"Unknown setting '{name}' can not be set in `.env`"
@@ -574,19 +518,19 @@ class DotEnvStoreManager(BaseEnvStoreManager):
             if dotenv_file.exists():
                 for key in other_keys:
                     dotenv.unset_key(dotenv_file, key)
-                    self.log(f"Unset key '{key}' in `.env`")
             else:
-                dotenv_file.touch()
+                # `.env` holds secrets; don't create it world-readable
+                dotenv_file.touch(mode=0o600)
 
             dotenv.set_key(dotenv_file, primary_key, setting_def.stringify_value(value))
 
-        self.log(f"Set key '{primary_key}' in `.env`: {value!r}")
         return {"env_var": primary_key}
 
+    @override
     def unset(
         self,
         name: str,
-        path: list[str],  # noqa: ARG002
+        path: list[str],
         setting_def: SettingDefinition | None = None,
     ) -> dict:
         """Unset value by SettingDefinition in the .env file.
@@ -618,10 +562,10 @@ class DotEnvStoreManager(BaseEnvStoreManager):
 
             for key in env_keys:
                 dotenv.unset_key(dotenv_file, key)
-                self.log(f"Unset key '{key}' in `.env`")
 
         return {}
 
+    @override
     def reset(self) -> dict:
         """Reset all Setting values in this store.
 
@@ -669,7 +613,8 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
         super().__init__(*args, **kwargs)
         self._flat_config: dict[str, t.Any] | None = None
 
-    def ensure_supported(self, method: str = "get") -> None:
+    @override
+    def ensure_supported(self, method: AccessMethod = "get") -> None:
         """Ensure named method is supported.
 
         Checks that the project is not read-only and an environment is active.
@@ -684,6 +629,7 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
         if method != "get" and self.project.readonly:
             raise StoreNotSupportedError(ProjectReadonly())
 
+    @override
     def get(
         self,
         name: str,
@@ -714,7 +660,6 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
             except KeyError:
                 continue
 
-            self.log(f"Read key '{key}' from `meltano.yml`: {value!r}")
             vals_with_metadata.append((value, {"key": key, "expandable": True}))
 
         if len(vals_with_metadata) > 1 and not reduce(
@@ -732,11 +677,12 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
             else (value, metadata)
         )
 
+    @override
     def set(
         self,
         name: str,
         path: list[str],
-        value: t.Any,  # noqa: ANN401
+        value: t.Any,
         setting_def: SettingDefinition | None = None,
     ) -> dict:
         """Set value by name in the Meltano YAML File.
@@ -753,29 +699,27 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
         keys_to_unset = (
             [setting_def.name, *setting_def.aliases] if setting_def else [name]
         )
-        paths_to_unset = [key for key in keys_to_unset if "." in key]
+        paths_to_unset = [key for key in keys_to_unset if has_unescaped_dot(key)]
 
         if len(path) == 1:
             # No need to unset `name`, since it will be overridden anyway
             keys_to_unset.remove(name)
-        elif name.split(".") == path:
+        elif split_path(name, unescape=False) == path:
             # No need to unset `name` as path, since it will be overridden anyway
             paths_to_unset.remove(name)
 
         with self.update_config() as config:
             for key in keys_to_unset:
                 config.pop(key, None)
-                self.log(f"Popped key '{key}' in `meltano.yml`")
 
             for path_to_unset in paths_to_unset:
                 pop_at_path(config, path_to_unset, None)
-                self.log(f"Popped path '{path_to_unset}' in `meltano.yml`")
 
             set_at_path(config, path, value)
-            self.log(f"Set path '{path}' in `meltano.yml`: {value!r}")
 
         return {}
 
+    @override
     def unset(
         self,
         name: str,
@@ -796,22 +740,20 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
         if setting_def:
             keys_to_unset = [setting_def.name, *setting_def.aliases]
 
-        paths_to_unset = [key for key in keys_to_unset if "." in key]
+        paths_to_unset = [key for key in keys_to_unset if has_unescaped_dot(key)]
 
         with self.update_config() as config:
             for key in keys_to_unset:
                 config.pop(key, None)
-                self.log(f"Popped key '{key}' in `meltano.yml`")
 
             for path_to_unset in paths_to_unset:
                 pop_at_path(config, path_to_unset, None)
-                self.log(f"Popped path '{path_to_unset}' in `meltano.yml`")
 
             pop_at_path(config, path, None)
-            self.log(f"Popped path '{path}' in `meltano.yml`")
 
         return {}
 
+    @override
     def reset(self) -> dict:
         """Reset all Setting values in this store.
 
@@ -824,11 +766,7 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
 
     @property
     def flat_config(self) -> dict:
-        """Get dictionary of flattened configuration.
-
-        Returns:
-            A dictionary of flattened configuration.
-        """
+        """Dictionary of flattened configuration."""
         if self._flat_config is None:
             self._flat_config = self.settings_service.flat_meltano_yml_config
         return self._flat_config
@@ -844,7 +782,7 @@ class MeltanoYmlStoreManager(SettingsStoreManager):
             StoreNotSupportedError: if the project is in read-only mode.
         """
         config = deepcopy(self.settings_service.meltano_yml_config)
-        yield config
+        yield config  # ruff:ignore[fallible-context-manager]
 
         try:
             self.settings_service.update_meltano_yml_config(config)
@@ -875,12 +813,9 @@ class MeltanoEnvStoreManager(MeltanoYmlStoreManager):
         self.ensure_supported()
 
     @property
+    @override
     def flat_config(self) -> dict[str, t.Any]:
-        """Get dictionary of flattened configuration.
-
-        Returns:
-            A dictionary of flattened configuration.
-        """
+        """Dictionary of flattened configuration."""
         # TODO: Remove this cast when we have a better way to get the settings service
         # type or when we figure how the settings service type should be narrowed
         # per-manager.
@@ -888,7 +823,8 @@ class MeltanoEnvStoreManager(MeltanoYmlStoreManager):
             self._flat_config = flatten(self.settings_service.environment_config, "dot")
         return self._flat_config
 
-    def ensure_supported(self, method: str = "get") -> None:
+    @override
+    def ensure_supported(self, method: AccessMethod = "get") -> None:
         """Ensure project is not read-only and an environment is active.
 
         Args:
@@ -905,8 +841,9 @@ class MeltanoEnvStoreManager(MeltanoYmlStoreManager):
         if self.settings_service.project.environment is None:
             raise StoreNotSupportedError(NoActiveEnvironment())
 
+    @override
     @contextmanager
-    def update_config(self) -> Generator[dict, None, None]:
+    def update_config(self) -> Generator[dict]:
         """Update Meltano Environment configuration.
 
         Yields:
@@ -916,7 +853,7 @@ class MeltanoEnvStoreManager(MeltanoYmlStoreManager):
             StoreNotSupportedError: if the project is in read-only mode.
         """
         config = deepcopy(self.settings_service.environment_config)
-        yield config
+        yield config  # ruff:ignore[fallible-context-manager]
 
         try:
             self.settings_service.update_meltano_environment_config(config)
@@ -965,9 +902,10 @@ class DbStoreManager(SettingsStoreManager):
 
         return self._session
 
+    @override
     def ensure_supported(
         self,
-        method: str = "get",  # noqa: ARG002
+        method: AccessMethod = "get",
     ) -> None:
         """Return True if passed method is supported by this store.
 
@@ -979,12 +917,13 @@ class DbStoreManager(SettingsStoreManager):
         """
         self.session  # noqa: B018
 
+    @override
     def get(
         self,
         name: str,
-        setting_def: SettingDefinition | None = None,  # noqa: ARG002
+        setting_def: SettingDefinition | None = None,
         *,
-        cast_value: bool = False,  # noqa: ARG002
+        cast_value: bool = False,
     ) -> tuple[str | None, dict]:
         """Get value by name from the system database.
 
@@ -1007,17 +946,17 @@ class DbStoreManager(SettingsStoreManager):
                     .value
                 )
 
-            self.log(f"Read key '{name}' from system database: {value!r}")
             return value, {}  # noqa: TRY300
-        except (sqlalchemy.orm.exc.NoResultFound, KeyError):
+        except (sqlalchemy.exc.NoResultFound, KeyError):
             return None, {}
 
+    @override
     def set(
         self,
         name: str,
-        path: list[str],  # noqa: ARG002
-        value: t.Any,  # noqa: ANN401
-        setting_def: SettingDefinition | None = None,  # noqa: ARG002
+        path: list[str],
+        value: t.Any,
+        setting_def: SettingDefinition | None = None,
     ) -> dict:
         """Set value by name in the system database.
 
@@ -1041,14 +980,14 @@ class DbStoreManager(SettingsStoreManager):
 
         self._all_settings = None
 
-        self.log(f"Set key '{name}' in system database: {value!r}")
         return {}
 
+    @override
     def unset(
         self,
         name: str,
-        path: list[str],  # noqa: ARG002
-        setting_def: SettingDefinition | None = None,  # noqa: ARG002
+        path: list[str],
+        setting_def: SettingDefinition | None = None,
     ) -> dict:
         """Unset value by name in the system database store.
 
@@ -1068,9 +1007,9 @@ class DbStoreManager(SettingsStoreManager):
 
         self._all_settings = None
 
-        self.log(f"Deleted key '{name}' from system database")
         return {}
 
+    @override
     def reset(self) -> dict:
         """Reset all Setting values in this store.
 
@@ -1086,20 +1025,12 @@ class DbStoreManager(SettingsStoreManager):
 
     @property
     def namespace(self) -> str:
-        """Return the current SettingService namespace.
-
-        Returns:
-            The current SettingService namespace
-        """
+        """Current SettingService namespace."""
         return self.settings_service.db_namespace
 
     @property
     def all_settings(self) -> dict[str, str | None]:
-        """Fetch all settings from the system database for this namespace that are enabled.
-
-        Returns:
-            A dictionary of Setting models.
-        """  # noqa: E501
+        """All settings from the system database for this namespace that are enabled."""
         if self._all_settings is None:
             self._all_settings = {
                 setting.name: setting.value
@@ -1135,12 +1066,13 @@ class InheritedStoreManager(SettingsStoreManager):
         self.bulk = bulk
         self._config_with_metadata: dict | None = None
 
+    @override
     def get(
         self,
         name: str,
         setting_def: SettingDefinition | None = None,
         *,
-        cast_value: bool = False,  # noqa: ARG002
+        cast_value: bool = False,
     ) -> tuple[str | None, dict]:
         """Get a Setting value by name and SettingDefinition.
 
@@ -1159,10 +1091,9 @@ class InheritedStoreManager(SettingsStoreManager):
             raise StoreNotSupportedError("Setting definition is missing")  # noqa: EM101, TRY003
 
         value, metadata = self.get_with_metadata(setting_def.name)
-        if value is None or metadata["source"] is SettingValueStore.DEFAULT:  # type: ignore[redundant-expr]
+        if value is None or metadata["source"] is SettingValueStore.DEFAULT:
             return None, {}
 
-        self.log(f"Read key '{name}' from inherited: {value!r}")
         return value, {
             "inherited_source": metadata["source"],
             "expandable": metadata.get("expandable", False),
@@ -1170,11 +1101,7 @@ class InheritedStoreManager(SettingsStoreManager):
 
     @property
     def inherited_settings_service(self) -> SettingsService:
-        """Return settings service to inherit configuration from.
-
-        Returns:
-            A SettingsService to inherit configuration from.
-        """
+        """Settings service to inherit configuration from."""
         service = self.settings_service.inherited_settings_service
         if service is None:
             msg = "Inherited settings service is missing"
@@ -1184,18 +1111,14 @@ class InheritedStoreManager(SettingsStoreManager):
 
     @property
     def config_with_metadata(self) -> dict:
-        """Return all inherited config and metadata.
-
-        Returns:
-            A dictionary containing config and metadata.
-        """
+        """All inherited config and metadata."""
         if self._config_with_metadata is None:
             self._config_with_metadata = (
                 self.inherited_settings_service.config_with_metadata(**self._kwargs)
             )
         return self._config_with_metadata
 
-    def get_with_metadata(self, name: str) -> tuple[str, dict]:
+    def get_with_metadata(self, name: str) -> tuple[t.Any, dict]:
         """Return inherited config and metadata for the named setting.
 
         Args:
@@ -1216,12 +1139,13 @@ class DefaultStoreManager(SettingsStoreManager):
 
     label = "the default"
 
+    @override
     def get(
         self,
         name: str,
         setting_def: SettingDefinition | None = None,
         *,
-        cast_value: bool = False,  # noqa: ARG002
+        cast_value: bool = False,
     ) -> tuple[str | None, dict]:
         """Get a Setting value by name and SettingDefinition.
 
@@ -1238,7 +1162,6 @@ class DefaultStoreManager(SettingsStoreManager):
         if setting_def:
             value = setting_def.value
             if value is not None:
-                self.log(f"Read key '{name}' from default: {value!r}")
                 return value, {"expandable": True}
         # As default is lowest in our order of precedence, we want it to always return
         # a value, even if it is None.
@@ -1282,30 +1205,22 @@ class AutoStoreManager(SettingsStoreManager):
 
     @property
     def sources(self) -> list[SettingValueStore]:
-        """Return a list of readable SettingValueStore.
-
-        Returns:
-            A list of readable SettingValueStore
-        """
+        """A list of readable SettingValueStore."""
         sources = SettingValueStore.readables()
         sources.remove(SettingValueStore.AUTO)
         return sources
 
     @property
     def stores(self) -> list[SettingValueStore]:
-        """Return a list of writable SettingValueStore.
-
-        Returns:
-            A list of writable SettingValueStore
-        """
+        """A list of writable SettingValueStore."""
         stores = SettingValueStore.writables()
         stores.remove(SettingValueStore.AUTO)
         return stores
 
-    def ensure_supported(  # type: ignore[override]
+    def ensure_supported_store(
         self,
         store: SettingValueStore,
-        method: str = "set",
+        method: AccessMethod = "set",
     ) -> bool | None:
         """Return if a given store is supported for the given method.
 
@@ -1342,15 +1257,15 @@ class AutoStoreManager(SettingsStoreManager):
 
         # only the system database is available in readonly mode
         if self.project.readonly:
-            if self.ensure_supported(store=SettingValueStore.DB):
+            if self.ensure_supported_store(store=SettingValueStore.DB):
                 return SettingValueStore.DB
             return None
 
         # value is a secret
         if setting_def and setting_def.is_redacted:
-            if self.ensure_supported(store=SettingValueStore.DOTENV):
+            if self.ensure_supported_store(store=SettingValueStore.DOTENV):
                 return SettingValueStore.DOTENV
-            if self.ensure_supported(store=SettingValueStore.DB):
+            if self.ensure_supported_store(store=SettingValueStore.DB):
                 return SettingValueStore.DB
             # ensure secrets don't leak into other stores
             return None
@@ -1359,38 +1274,39 @@ class AutoStoreManager(SettingsStoreManager):
         if (
             setting_def
             and setting_def.env_specific
-            and self.ensure_supported(store=SettingValueStore.DOTENV)
+            and self.ensure_supported_store(store=SettingValueStore.DOTENV)
         ):
             return SettingValueStore.DOTENV
 
         # no active meltano environment
         if not self.project.environment:
             # return root `meltano.yml`
-            if self.ensure_supported(store=SettingValueStore.MELTANO_YML):
+            if self.ensure_supported_store(store=SettingValueStore.MELTANO_YML):
                 return SettingValueStore.MELTANO_YML
             # fall back to dotenv
-            if self.ensure_supported(store=SettingValueStore.DOTENV):
+            if self.ensure_supported_store(store=SettingValueStore.DOTENV):
                 return SettingValueStore.DOTENV
             # fall back to meltano system db
-            if self.ensure_supported(store=SettingValueStore.DB):
+            if self.ensure_supported_store(store=SettingValueStore.DB):
                 return SettingValueStore.DB
             return None
 
         # any remaining config routed to meltano environment
-        if self.ensure_supported(store=SettingValueStore.MELTANO_ENVIRONMENT):
+        if self.ensure_supported_store(store=SettingValueStore.MELTANO_ENVIRONMENT):
             return SettingValueStore.MELTANO_ENVIRONMENT
         # Fall back to root `meltano.yml`. This is required for Meltano
         # settings, which cannot be stored in an Environment
-        if self.ensure_supported(store=SettingValueStore.MELTANO_YML):
+        if self.ensure_supported_store(store=SettingValueStore.MELTANO_YML):
             return SettingValueStore.MELTANO_YML
         # fall back to dotenv
-        if self.ensure_supported(store=SettingValueStore.DOTENV):
+        if self.ensure_supported_store(store=SettingValueStore.DOTENV):
             return SettingValueStore.DOTENV
         # fall back to meltano system db
-        if self.ensure_supported(store=SettingValueStore.DB):
+        if self.ensure_supported_store(store=SettingValueStore.DB):
             return SettingValueStore.DB
         return None
 
+    @override
     def get(
         self,
         name: str,
@@ -1438,11 +1354,12 @@ class AutoStoreManager(SettingsStoreManager):
             if value is not None:
                 break
 
+        found_source = t.cast("SettingValueStore", found_source)
         metadata["source"] = found_source
 
         if auto_store := self.auto_store(name, setting_def=setting_def):
             metadata["auto_store"] = auto_store
-            metadata["overwritable"] = auto_store.can_overwrite(found_source)  # type: ignore[arg-type]
+            metadata["overwritable"] = auto_store.can_overwrite(found_source)
 
         return (
             cast_setting_value(value, metadata, setting_def)
@@ -1450,6 +1367,7 @@ class AutoStoreManager(SettingsStoreManager):
             else (value, metadata)
         )
 
+    @override
     def set(self, name: str, path: list[str], value, setting_def=None) -> dict:  # noqa: ANN001
         """Set a Setting by name, path and (optionally) SettingDefinition.
 
@@ -1479,6 +1397,7 @@ class AutoStoreManager(SettingsStoreManager):
         metadata["store"] = store
         return metadata
 
+    @override
     def unset(
         self,
         name: str,
@@ -1524,6 +1443,7 @@ class AutoStoreManager(SettingsStoreManager):
 
         return metadata
 
+    @override
     def reset(self) -> dict:
         """Reset all stores.
 

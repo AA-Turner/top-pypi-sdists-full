@@ -594,6 +594,7 @@ class UnifiedAIClient:
         is the resolved route known) and consumed here, because the rewrite has
         to survive every return path the dispatch has.
         """
+        from matrx_ai.decisions.emit import emit_decision_answers
         from matrx_ai.decisions.translate import finalize_verbalized_decision
 
         response = await self._execute_dispatch(request)
@@ -603,12 +604,29 @@ class UnifiedAIClient:
         )
         if overlay is None:
             return response
-        return finalize_verbalized_decision(
+        finalized = finalize_verbalized_decision(
             response,
             overlay,
-            model_name=str(getattr(request.config, "model", "") or ""),
+            # THE RESOLVED NAME, not what the caller called it. An agent names
+            # its model by the ai.model UUID, so reading config.model here wrote
+            # a UUID into the answer's `model` while the native path wrote
+            # "claude-sonnet-5". The overlay captured profile.model_name at the
+            # only point the route is known; config.model is the last resort for
+            # a caller that never reached the resolver (it still names SOMETHING
+            # rather than an empty string in an error sentence).
+            model_name=overlay.model_name or str(getattr(request.config, "model", "") or ""),
             cost_usd=await _catalog_cost_of(getattr(response, "usage", None)),
         )
+        # THE SAME EVENT AS THE NATIVE ROUTE. A verbalized decision is a
+        # decision: it reaches the live surface through the one emission, so a
+        # battle comparing a native holder against a text model receives both
+        # columns' answers the same way.
+        for block in getattr(finalized.messages[-1], "content", None) or []:
+            answers = getattr(block, "answers", None)
+            if answers is not None:
+                await emit_decision_answers(answers)
+                break
+        return finalized
 
     async def _execute_dispatch(
         self,
@@ -1049,6 +1067,7 @@ class UnifiedAIClient:
         from matrx_ai.config import TokenUsage, UnifiedMessage
         from matrx_ai.config.decision_input_config import DecisionAnswersContent
         from matrx_ai.decisions import execute_decision
+        from matrx_ai.decisions.emit import emit_decision_answers
         from matrx_ai.decisions.runner import DecisionRequest
         from matrx_ai.decisions.translate import (
             build_decision_state,
@@ -1084,6 +1103,13 @@ class UnifiedAIClient:
             output_tokens=result.usage.output_tokens,
             cost_usd=result.cost_usd,
         )
+        # LIVE, not only persisted. A decision is a typed part exactly like an
+        # image or a TTS render, and those reach a runner or a battle column as
+        # a typed data event. Without this the answers existed only on the
+        # persisted message row and the live column said the run "finished
+        # without writing an answer" (feedback efc7c841, 2026-09-21).
+        await emit_decision_answers(answers)
+
         if debug:
             vcprint(
                 data={

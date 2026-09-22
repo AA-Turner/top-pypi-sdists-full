@@ -32,8 +32,16 @@ class WorkRequestResource(object):
     ACTION_TYPE_IN_PROGRESS = "IN_PROGRESS"
 
     #: A constant which can be used with the action_type property of a WorkRequestResource.
+    #: This constant has a value of "SUCCEEDED"
+    ACTION_TYPE_SUCCEEDED = "SUCCEEDED"
+
+    #: A constant which can be used with the action_type property of a WorkRequestResource.
     #: This constant has a value of "FAILED"
     ACTION_TYPE_FAILED = "FAILED"
+
+    #: A constant which can be used with the action_type property of a WorkRequestResource.
+    #: This constant has a value of "CANCELED"
+    ACTION_TYPE_CANCELED = "CANCELED"
 
     def __init__(self, **kwargs):
         """
@@ -46,7 +54,7 @@ class WorkRequestResource(object):
 
         :param action_type:
             The value to assign to the action_type property of this WorkRequestResource.
-            Allowed values for this property are: "CREATED", "UPDATED", "DELETED", "IN_PROGRESS", "FAILED", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "CREATED", "UPDATED", "DELETED", "IN_PROGRESS", "SUCCEEDED", "FAILED", "CANCELED", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type action_type: str
 
@@ -105,11 +113,11 @@ class WorkRequestResource(object):
         """
         **[Required]** Gets the action_type of this WorkRequestResource.
         The way in which this resource was affected by the operation that spawned the work request.
-        A resource being created, updated, or deleted will remain in the IN_PROGRESS state until
-        work is complete for that resource at which point it will transition to CREATED, UPDATED,
-        or DELETED, respectively.
+        A resource being created, updated, deleted, or tracked by a nested operation will remain in
+        the IN_PROGRESS state until work is complete for that resource at which point it will
+        transition to CREATED, UPDATED, DELETED, SUCCEEDED, FAILED, or CANCELED as appropriate.
 
-        Allowed values for this property are: "CREATED", "UPDATED", "DELETED", "IN_PROGRESS", "FAILED", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "CREATED", "UPDATED", "DELETED", "IN_PROGRESS", "SUCCEEDED", "FAILED", "CANCELED", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -123,15 +131,15 @@ class WorkRequestResource(object):
         """
         Sets the action_type of this WorkRequestResource.
         The way in which this resource was affected by the operation that spawned the work request.
-        A resource being created, updated, or deleted will remain in the IN_PROGRESS state until
-        work is complete for that resource at which point it will transition to CREATED, UPDATED,
-        or DELETED, respectively.
+        A resource being created, updated, deleted, or tracked by a nested operation will remain in
+        the IN_PROGRESS state until work is complete for that resource at which point it will
+        transition to CREATED, UPDATED, DELETED, SUCCEEDED, FAILED, or CANCELED as appropriate.
 
 
         :param action_type: The action_type of this WorkRequestResource.
         :type: str
         """
-        allowed_values = ["CREATED", "UPDATED", "DELETED", "IN_PROGRESS", "FAILED"]
+        allowed_values = ["CREATED", "UPDATED", "DELETED", "IN_PROGRESS", "SUCCEEDED", "FAILED", "CANCELED"]
         if not value_allowed_none_or_none_sentinel(action_type, allowed_values):
             action_type = 'UNKNOWN_ENUM_VALUE'
         self._action_type = action_type

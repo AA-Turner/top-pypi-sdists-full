@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from collections.abc import Mapping
 from contextlib import suppress
 from pathlib import Path
 from typing import Literal, cast
@@ -23,7 +24,7 @@ from urllib.parse import quote
 
 import httpx
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from rich.console import Console
 
 from plato._generated.api.v1.cluster import prefetch_snapshot
@@ -65,17 +66,18 @@ from plato._generated.models import (
     AppApiV2SchemasSessionCreateSnapshotRequest,
     AppApiV2SchemasSessionCreateSnapshotResponse,
     AppSchemasBuildModelsSimConfigDataset,
-    ArtifactCredential,
     ArtifactCredentials,
     ArtifactMcpConfig,
+    BearerCredential,
     CloseSessionResponse,
     CreateCheckpointRequest,
     CreateCheckpointResult,
     CreateSnapshotResult,
     DatabaseMutationListenerConfig,
+    EmailCredential,
     EnvCleanupResponse,
     Flow,
-    Kind,
+    PasswordCredential,
     PrefetchRequest,
     RemoveJobRequest,
     RemoveJobResponse,
@@ -83,9 +85,11 @@ from plato._generated.models import (
     ResetSessionRequest,
     ResetSessionResponse,
     ResolvedMcpConfig,
+    Roles,
     SessionDetailsResponse,
     SessionStateResponse,
     SessionStateResult,
+    UsernameCredential,
     VMManagementRequest,
 )
 from plato.chronos.api.sessions import get_session_envs as chronos_get_session_envs
@@ -845,6 +849,162 @@ _USER_VARIABLES = ("username", "user", "email", "login")
 _PASSWORD_VARIABLES = ("password", "pass")
 _TOKEN_VARIABLES = ("token", "api_key", "api_token", "secret")
 
+# metadata.credentials keys. ``primary``/``login`` and mapping-valued roles are the
+# pre-2026-09 spelling (plato#3817 replaced it); they are converted, never sent.
+_CREDENTIALS_KEYS = ("default_role", "roles", "primary", "login")
+_LEGACY_ACCOUNT_KEYS = ("kind", "user", "password", "secret", "email", "token")
+_LEGACY_KINDS = ("password", "email_only", "token", "none")
+_CREDENTIAL_SPELLING = "{type: email|username|password|bearer, text: <non-empty string>}"
+
+
+def _identity_credential(user: str) -> Roles:
+    """The account's identity: an email when it contains ``@``, else a username."""
+    if "@" in user:
+        return Roles(root=EmailCredential(text=user))
+    return Roles(root=UsernameCredential(text=user))
+
+
+def _present(value: str | None) -> str | None:
+    """The value when it carries text, else None (blank values are not credentials)."""
+    return value if value is not None and value.strip() else None
+
+
+def _declared_credential(item: object, *, where: str) -> Roles:
+    """One user-written ``{type, text}`` entry, validated through the generated model.
+
+    The pydantic error is never re-raised or chained: it quotes its input, and
+    the input here is a password.
+    """
+    if not isinstance(item, dict):
+        raise ValueError(f"{where} must be a mapping {_CREDENTIAL_SPELLING}")
+    unknown = sorted(str(key) for key in item if key not in ("type", "text"))
+    if unknown:
+        raise ValueError(f"{where} has unknown key(s) {', '.join(unknown)}; expected {_CREDENTIAL_SPELLING}")
+    try:
+        return Roles.model_validate(item)
+    except ValidationError as error:
+        problems = sorted({str(problem["type"]) for problem in error.errors(include_input=False)})
+        raise ValueError(
+            f"{where} is not a valid credential ({', '.join(problems)}); expected {_CREDENTIAL_SPELLING}"
+        ) from None
+
+
+def _legacy_account_credentials(account: Mapping[object, object], *, where: str) -> list[Roles]:
+    """A pre-2026-09 ``{kind, user, password | secret}`` account as the API's credential list.
+
+    Mirrors ``_Account.items()`` of the backend migration that rewrote the stored
+    rows (``c3817creds01_migrate_artifact_credentials_to_roles``) so a config
+    converts to exactly what its already-published artifacts were migrated to.
+    """
+    unknown = sorted(str(key) for key in account if key not in _LEGACY_ACCOUNT_KEYS)
+    if unknown:
+        raise ValueError(f"{where} has unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_LEGACY_ACCOUNT_KEYS)}")
+    fields: dict[str, str | None] = {}
+    for key in _LEGACY_ACCOUNT_KEYS:
+        value = account.get(key)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"{where}.{key} must be a string (quote it in YAML)")
+        fields[key] = value
+    kind = fields["kind"]
+    if kind is not None and kind not in _LEGACY_KINDS:
+        raise ValueError(f"{where}.kind must be one of {', '.join(_LEGACY_KINDS)}")
+    if kind == "none":
+        return []
+
+    # The migration picks the {email, password, token} form when either key is merely
+    # present. A config is hand-written, so a BLANK ``email:``/``token:`` next to a real
+    # ``user``/``secret`` must not discard them (the account would be stored without its
+    # identity, or as "no sign-in"): the form is chosen by which keys carry text. Every
+    # account whose email/token does carry text converts exactly as the migration did.
+    credentials: list[Roles] = []
+    if _present(fields["email"]) is not None or _present(fields["token"]) is not None:
+        email, password, bearer = _present(fields["email"]), _present(fields["password"]), _present(fields["token"])
+        if email is not None:
+            credentials.append(Roles(root=EmailCredential(text=email)))
+    else:
+        user = _present(fields["user"])
+        password = _present(fields["password"]) if kind in (None, "password") else None
+        bearer = _present(fields["secret"]) if kind == "token" else None
+        if user is not None:
+            credentials.append(_identity_credential(user))
+    if password is not None:
+        credentials.append(Roles(root=PasswordCredential(text=password)))
+    if bearer is not None:
+        credentials.append(Roles(root=BearerCredential(text=bearer)))
+    return credentials
+
+
+def _account_credentials(account: object, *, where: str) -> list[Roles]:
+    """Credential list for one declared account, in either accepted spelling.
+
+    * a LIST is the API shape (``[{type: username, text: admin}, {type: password, text: ...}]``);
+      an empty list records an account that needs no sign-in;
+    * a MAPPING is the pre-2026-09 shape (``{kind, user, password | secret}``), converted.
+    """
+    if isinstance(account, list):
+        return [_declared_credential(item, where=f"{where}[{index}]") for index, item in enumerate(account)]
+    if isinstance(account, dict):
+        return _legacy_account_credentials(cast("Mapping[object, object]", account), where=where)
+    raise ValueError(
+        f"{where} must be a credential list ([{_CREDENTIAL_SPELLING}, ...]) or a mapping with kind/user/password"
+    )
+
+
+def _declared_artifact_credentials(explicit: object) -> ArtifactCredentials | None:
+    """``metadata.credentials`` as the API shape; same merge order as the backend migration's ``convert``."""
+    if not isinstance(explicit, dict):
+        raise ValueError("metadata.credentials must be a mapping with 'roles' (and optional 'default_role')")
+    explicit = cast("Mapping[object, object]", explicit)
+    unknown = sorted(str(key) for key in explicit if key not in _CREDENTIALS_KEYS)
+    if unknown:
+        raise ValueError(
+            f"metadata.credentials has unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_CREDENTIALS_KEYS)}"
+        )
+    declared = explicit.get("roles")
+    if declared is None:
+        declared = {}
+    if not isinstance(declared, dict):
+        raise ValueError("metadata.credentials.roles must map a role name to its credentials")
+    roles: dict[str, list[Roles]] = {}
+    for name, account in declared.items():
+        # YAML reads an unquoted ``on:``/``no:``/``1:`` key as a bool or int; str() would rename
+        # the role ("True") or collapse ``1`` and ``"1"`` into one account without a word.
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                f"metadata.credentials.roles has a role name that is not a non-empty string ({name!r}); quote it in YAML"
+            )
+        roles[name] = _account_credentials(account, where=f"metadata.credentials.roles.{name}")
+    default_role = explicit.get("default_role")
+    if default_role is not None and not isinstance(default_role, str):
+        raise ValueError("metadata.credentials.default_role must be a role name (string)")
+    for key in ("login", "primary"):
+        account = explicit.get(key)
+        if account is None:
+            continue
+        if not isinstance(account, dict):
+            raise ValueError(f"metadata.credentials.{key} must be a mapping with kind/user/password")
+        name, attempt = "default", 1
+        while name in roles:
+            name = "default_login" if attempt == 1 else f"default_login_{attempt}"
+            attempt += 1
+        roles[name] = _legacy_account_credentials(
+            cast("Mapping[object, object]", account), where=f"metadata.credentials.{key}"
+        )
+        if default_role is None:
+            default_role = name
+    if not roles:
+        if default_role is not None:
+            raise ValueError(f"metadata.credentials.default_role names {default_role!r} but no roles are declared")
+        return None
+    if default_role is None and len(roles) == 1:
+        default_role = next(iter(roles))
+    if default_role is not None and default_role not in roles:
+        raise ValueError(
+            f"metadata.credentials.default_role {default_role!r} is not one of the declared roles: "
+            f"{', '.join(sorted(roles))}"
+        )
+    return ArtifactCredentials(default_role=default_role, roles=roles)
+
 
 def credentials_from_dataset_config(
     dataset_config: AppSchemasBuildModelsSimConfigDataset,
@@ -852,27 +1012,34 @@ def credentials_from_dataset_config(
     """Login credentials to store on the artifact, read from plato-config metadata.
 
     The artifact stores structured credentials next to its flows so consumers
-    (task cards, ``Session.login``) never have to parse ``flows.yml``. Two
-    sources, explicit first:
+    (task cards, ``Session.login``) never have to parse ``flows.yml``. The API
+    shape is a role dictionary: ``roles[<name>]`` is that account's ordered
+    credential list (``{type: email|username|password|bearer, text}``; an empty
+    list means no sign-in) and ``default_role`` names the account a task
+    addresses by default. Two sources, explicit first:
 
-    * ``metadata.credentials`` — the API shape verbatim (``primary`` plus
-      optional ``roles``); use it for role accounts or non-password kinds.
+    * ``metadata.credentials`` — either the API shape (``roles`` of credential
+      lists, optional ``default_role``) or the older ``primary`` + ``roles``
+      mappings (``{kind, user, password | secret}``) existing plato-config.yml
+      files use. The older spelling is converted the way the backend migrated
+      its stored rows: ``primary`` becomes the ``default`` role.
     * ``metadata.variables`` — the login variables the flows fill:
-      ``username``/``user``/``email``/``login`` + ``password`` → a password
-      credential; a user alone → ``email_only``; a token/secret alone →
-      ``token``.
+      ``username``/``user``/``email``/``login`` + ``password`` → the ``default``
+      role with a password; a user alone → identity only; a token/secret alone
+      → a bearer credential.
 
     Returns None when neither is declared — the backend then carries the parent
     artifact's credentials forward, and a first snapshot stores none.
+
+    Raises ValueError naming the offending key for a malformed
+    ``metadata.credentials``; the message never quotes a credential value.
     """
     metadata = dataset_config.metadata
     if metadata is None:
         return None
     explicit = (metadata.model_extra or {}).get("credentials")
     if explicit is not None:
-        if not isinstance(explicit, dict):
-            raise ValueError("metadata.credentials must be a mapping with 'primary' and optional 'roles'")
-        return ArtifactCredentials.model_validate(explicit)
+        return _declared_artifact_credentials(explicit)
 
     values: dict[str, str] = {}
     for variable in metadata.variables or []:
@@ -880,32 +1047,40 @@ def credentials_from_dataset_config(
         value = variable.get("value")
         if name and value is not None:
             values[name] = str(value)
-    user = next((values[n] for n in _USER_VARIABLES if n in values), None)
-    password = next((values[n] for n in _PASSWORD_VARIABLES if n in values), None)
-    token = next((values[n] for n in _TOKEN_VARIABLES if n in values), None)
-    if user and password is not None:
-        primary = ArtifactCredential(kind=Kind.password, user=user, password=password)
-    elif user:
-        primary = ArtifactCredential(kind=Kind.email_only, user=user)
-    elif token:
-        primary = ArtifactCredential(kind=Kind.token, secret=token)
+    user = _present(next((values[n] for n in _USER_VARIABLES if n in values), None))
+    password = _present(next((values[n] for n in _PASSWORD_VARIABLES if n in values), None))
+    token = _present(next((values[n] for n in _TOKEN_VARIABLES if n in values), None))
+    credentials: list[Roles]
+    if user is not None:
+        credentials = [_identity_credential(user)]
+        if password is not None:
+            credentials.append(Roles(root=PasswordCredential(text=password)))
+    elif token is not None:
+        credentials = [Roles(root=BearerCredential(text=token))]
     else:
         return None
-    return ArtifactCredentials(primary=primary)
+    return ArtifactCredentials(default_role="default", roles={"default": credentials})
 
 
 def describe_credentials(credentials: ArtifactCredentials | None) -> str:
-    """One-line, secret-free summary for console output (``user=admin kind=password``)."""
-    if credentials is None or credentials.primary is None:
+    """One-line, secret-free summary for console output.
+
+    ``default: username=admin +password; viewer: no sign-in`` — default role
+    first; identities are shown, a password or bearer only as a marker.
+    """
+    if credentials is None or not credentials.roles:
         return "none"
-    primary = credentials.primary
-    kind = primary.kind.value if primary.kind is not None else "password"
-    parts = [f"kind={kind}"]
-    if primary.user:
-        parts.insert(0, f"user={primary.user}")
-    if credentials.roles:
-        parts.append(f"roles={','.join(sorted(credentials.roles))}")
-    return " ".join(parts)
+    parts: list[str] = []
+    for name in sorted(credentials.roles, key=lambda role: (role != credentials.default_role, role)):
+        shown: list[str] = []
+        for item in credentials.roles[name]:
+            credential = item.root
+            if isinstance(credential, (EmailCredential, UsernameCredential)):
+                shown.append(f"{credential.type}={credential.text}")
+            else:
+                shown.append(f"+{credential.type}")
+        parts.append(f"{name}: {' '.join(shown) if shown else 'no sign-in'}")
+    return "; ".join(parts)
 
 
 def describe_mcp_config(mcp: ArtifactMcpConfig | ResolvedMcpConfig | None) -> str:

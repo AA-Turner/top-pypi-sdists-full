@@ -6,14 +6,24 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.get_app_history_by_path_response_200_item import GetAppHistoryByPathResponse200Item
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
     path: str,
+    *,
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["page"] = page
+
+    params["per_page"] = per_page
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
@@ -21,6 +31,7 @@ def _get_kwargs(
             workspace=workspace,
             path=path,
         ),
+        "params": params,
     }
 
 
@@ -58,12 +69,16 @@ def sync_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["GetAppHistoryByPathResponse200Item"]]:
     """get app history by path
 
     Args:
         workspace (str):
         path (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -76,6 +91,8 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path=path,
+        page=page,
+        per_page=per_page,
     )
 
     response = client.get_httpx_client().request(
@@ -90,12 +107,16 @@ def sync(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["GetAppHistoryByPathResponse200Item"]]:
     """get app history by path
 
     Args:
         workspace (str):
         path (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,6 +130,8 @@ def sync(
         workspace=workspace,
         path=path,
         client=client,
+        page=page,
+        per_page=per_page,
     ).parsed
 
 
@@ -117,12 +140,16 @@ async def asyncio_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["GetAppHistoryByPathResponse200Item"]]:
     """get app history by path
 
     Args:
         workspace (str):
         path (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,6 +162,8 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path=path,
+        page=page,
+        per_page=per_page,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -147,12 +176,16 @@ async def asyncio(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["GetAppHistoryByPathResponse200Item"]]:
     """get app history by path
 
     Args:
         workspace (str):
         path (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -167,5 +200,7 @@ async def asyncio(
             workspace=workspace,
             path=path,
             client=client,
+            page=page,
+            per_page=per_page,
         )
     ).parsed

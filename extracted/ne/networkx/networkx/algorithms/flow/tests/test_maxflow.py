@@ -12,6 +12,7 @@ from networkx.algorithms.flow import (
     preflow_push,
     shortest_augmenting_path,
 )
+from networkx.algorithms.flow.utils import _capacity_function
 
 flow_funcs = {
     boykov_kolmogorov,
@@ -41,10 +42,12 @@ def validate_flows(G, s, t, flowDict, solnValue, capacity, flow_func):
     for u in G:
         assert set(G[u]) == set(flowDict[u]), errmsg
     excess = {u: 0 for u in flowDict}
+    capacity = _capacity_function(G, capacity)
     for u in flowDict:
         for v, flow in flowDict[u].items():
-            if capacity in G[u][v]:
-                assert flow <= G[u][v][capacity]
+            cap = capacity(u, v, G[u][v])
+            if cap is not None:
+                assert flow <= cap
             assert flow >= 0, errmsg
             excess[u] -= flow
             excess[v] += flow
@@ -63,7 +66,10 @@ def validate_cuts(G, s, t, solnValue, partition, capacity, flow_func):
     assert all(n in G for n in partition[1]), errmsg
     cutset = compute_cutset(G, partition)
     assert all(G.has_edge(u, v) for (u, v) in cutset), errmsg
-    assert solnValue == sum(G[u][v][capacity] for (u, v) in cutset), errmsg
+    capacity = _capacity_function(G, capacity)
+    assert solnValue == sum(
+        cap for (u, v) in cutset if (cap := capacity(u, v, G[u][v])) is not None
+    ), errmsg
     H = G.copy()
     H.remove_edges_from(cutset)
     if not G.is_directed():
@@ -374,6 +380,46 @@ class TestMaxflowMinCutCommon:
         # {0: {}, 2: {3: 0}, 3: {2: 0}}
         compare_flows_and_cuts(G, 0, 3, 0)
 
+    def test_capacity_func(self):
+        G = nx.DiGraph()
+        # directed line graph: 0---->1---->2
+        G.add_edge(0, 1, capacity=1 / 2)
+        G.add_edge(1, 2, capacity=1 / 8)
+
+        # flow solution using capacity="capacity"
+        # {
+        #     0: {1: 1/8},
+        #     1: {2: 1/8},
+        #     2: {},
+        # }
+        compare_flows_and_cuts(G, 0, 2, 1 / 8, capacity="capacity")
+
+        # Now, define my_cap function to be inverse of "capacity" attribute
+        def my_cap(u, v, e_attr):
+            return 1 / e_attr["capacity"]
+
+        # flow solution using capacity=my_cap
+        # {
+        #     0: {1: 2},
+        #     1: {2: 2},
+        #     2: {},
+        # }
+        compare_flows_and_cuts(G, 0, 2, 2, capacity=my_cap)
+
+        # hide the direct edge 0--1, making G appear disconnected
+        def my_cap_01_hidden(u, v, e_attr):
+            if u == 0 and v == 1:
+                return None
+            return 1 / e_attr["capacity"]
+
+        # flow solution using capacity=my_cap_01_hidden
+        # {
+        #     0: {},
+        #     1: {2: 0},
+        #     2: {},
+        # }
+        compare_flows_and_cuts(G, 0, 2, 0, capacity=my_cap_01_hidden)
+
     def test_source_target_not_in_graph(self):
         G = nx.Graph()
         G.add_weighted_edges_from([(0, 1, 1), (1, 2, 1), (2, 3, 1)], weight="capacity")
@@ -503,6 +549,25 @@ class TestMaxFlowMinCutInterface:
                     if interface_func in max_min_funcs:
                         result = result[0]
                     assert fv == result, errmsg
+
+    def test_reusing_residual_after_edge_replacement(self):
+        # Replacing residual edges between runs rebuilds their attribute
+        # dicts without changing the edge count (and the copies retain
+        # stale flow values); flow functions must still reset and compute
+        # correctly, so any per-edge state cached across runs on the
+        # residual network must not trust previously seen dicts.
+        G = self.G
+        s, t = "x", "y"
+        R = build_residual_network(G, "capacity")
+        for flow_func in flow_funcs:
+            errmsg = f"Assertion failed in function: {flow_func.__name__}"
+            fv = nx.maximum_flow_value(G, s, t, flow_func=flow_func, residual=R)
+            for u, v in [("x", "a"), ("b", "c")]:
+                d = dict(R[u][v])
+                R.remove_edge(u, v)
+                R.add_edge(u, v, **d)
+            result = nx.maximum_flow_value(G, s, t, flow_func=flow_func, residual=R)
+            assert fv == result, errmsg
 
 
 # Tests specific to one algorithm

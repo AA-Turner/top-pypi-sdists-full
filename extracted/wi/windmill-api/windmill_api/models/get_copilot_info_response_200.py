@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from ..models.get_copilot_info_response_200_code_completion_model import (
         GetCopilotInfoResponse200CodeCompletionModel,
     )
+    from ..models.get_copilot_info_response_200_context_window_per_model import (
+        GetCopilotInfoResponse200ContextWindowPerModel,
+    )
     from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
     from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
     from ..models.get_copilot_info_response_200_free_tier import GetCopilotInfoResponse200FreeTier
@@ -34,6 +37,9 @@ class GetCopilotInfoResponse200:
         free_tier (Union[Unset, GetCopilotInfoResponse200FreeTier]): Read-only. Present when the workspace has no AI
             provider of its own and is running on Windmill's free tier. Ignored on write.
         model_pricing (Union[Unset, GetCopilotInfoResponse200ModelPricing]):
+        context_window_per_model (Union[Unset, GetCopilotInfoResponse200ContextWindowPerModel]): Context window in
+            tokens per `provider:model`, overriding the built-in table the AI chat uses to decide when to compact its
+            history.
         copilot_disabled (Union[Unset, bool]): Hides the Windmill AI assistant (chat, sessions, code generation,
             completion, fixes) from the workspace UI. Read from the workspace's own settings even when the providers served
             fall back to the instance config. AI agent steps and the AI sandbox in flows are unaffected.
@@ -52,6 +58,7 @@ class GetCopilotInfoResponse200:
     max_tokens_per_model: Union[Unset, "GetCopilotInfoResponse200MaxTokensPerModel"] = UNSET
     free_tier: Union[Unset, "GetCopilotInfoResponse200FreeTier"] = UNSET
     model_pricing: Union[Unset, "GetCopilotInfoResponse200ModelPricing"] = UNSET
+    context_window_per_model: Union[Unset, "GetCopilotInfoResponse200ContextWindowPerModel"] = UNSET
     copilot_disabled: Union[Unset, bool] = UNSET
     sessions_storage_disabled: Union[Unset, bool] = UNSET
     sessions_retention_days: Union[Unset, int] = UNSET
@@ -90,6 +97,10 @@ class GetCopilotInfoResponse200:
         if not isinstance(self.model_pricing, Unset):
             model_pricing = self.model_pricing.to_dict()
 
+        context_window_per_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.context_window_per_model, Unset):
+            context_window_per_model = self.context_window_per_model.to_dict()
+
         copilot_disabled = self.copilot_disabled
         sessions_storage_disabled = self.sessions_storage_disabled
         sessions_retention_days = self.sessions_retention_days
@@ -113,6 +124,8 @@ class GetCopilotInfoResponse200:
             field_dict["free_tier"] = free_tier
         if model_pricing is not UNSET:
             field_dict["model_pricing"] = model_pricing
+        if context_window_per_model is not UNSET:
+            field_dict["context_window_per_model"] = context_window_per_model
         if copilot_disabled is not UNSET:
             field_dict["copilot_disabled"] = copilot_disabled
         if sessions_storage_disabled is not UNSET:
@@ -126,6 +139,9 @@ class GetCopilotInfoResponse200:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_copilot_info_response_200_code_completion_model import (
             GetCopilotInfoResponse200CodeCompletionModel,
+        )
+        from ..models.get_copilot_info_response_200_context_window_per_model import (
+            GetCopilotInfoResponse200ContextWindowPerModel,
         )
         from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
         from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
@@ -194,6 +210,15 @@ class GetCopilotInfoResponse200:
         else:
             model_pricing = GetCopilotInfoResponse200ModelPricing.from_dict(_model_pricing)
 
+        _context_window_per_model = d.pop("context_window_per_model", UNSET)
+        context_window_per_model: Union[Unset, GetCopilotInfoResponse200ContextWindowPerModel]
+        if isinstance(_context_window_per_model, Unset):
+            context_window_per_model = UNSET
+        else:
+            context_window_per_model = GetCopilotInfoResponse200ContextWindowPerModel.from_dict(
+                _context_window_per_model
+            )
+
         copilot_disabled = d.pop("copilot_disabled", UNSET)
 
         sessions_storage_disabled = d.pop("sessions_storage_disabled", UNSET)
@@ -209,6 +234,7 @@ class GetCopilotInfoResponse200:
             max_tokens_per_model=max_tokens_per_model,
             free_tier=free_tier,
             model_pricing=model_pricing,
+            context_window_per_model=context_window_per_model,
             copilot_disabled=copilot_disabled,
             sessions_storage_disabled=sessions_storage_disabled,
             sessions_retention_days=sessions_retention_days,

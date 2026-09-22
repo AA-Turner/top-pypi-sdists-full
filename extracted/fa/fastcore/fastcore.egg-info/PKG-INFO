@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: fastcore
-Version: 2.2.29
+Version: 2.2.30
 Summary: Python supercharged for fastai development
 Author-email: Jeremy Howard and Sylvain Gugger <infos@fast.ai>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/AnswerDotAI/fastcore/
 Project-URL: Documentation, https://fastcore.fast.ai/
 Keywords: python

@@ -60,9 +60,11 @@ class SelectorRequest(google.protobuf.message.Message):
     SELECTOR_CRITERIA_FIELD_NUMBER: builtins.int
     PROJECT_ID_FIELD_NUMBER: builtins.int
     NODES_FIELD_NUMBER: builtins.int
+    REQUEST_ID_FIELD_NUMBER: builtins.int
     target: builtins.str
     selector_criteria: global___SelectorCriteria.ValueType
     project_id: builtins.str
+    request_id: builtins.str
     @property
     def nodes(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DbtNodeData]: ...
     def __init__(
@@ -72,8 +74,9 @@ class SelectorRequest(google.protobuf.message.Message):
         selector_criteria: global___SelectorCriteria.ValueType = ...,
         project_id: builtins.str = ...,
         nodes: collections.abc.Iterable[global___DbtNodeData] | None = ...,
+        request_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["nodes", b"nodes", "project_id", b"project_id", "selector_criteria", b"selector_criteria", "target", b"target"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["nodes", b"nodes", "project_id", b"project_id", "request_id", b"request_id", "selector_criteria", b"selector_criteria", "target", b"target"]) -> None: ...
 
 global___SelectorRequest = SelectorRequest
 

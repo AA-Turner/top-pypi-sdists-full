@@ -67,7 +67,7 @@ from .mappers import (
     normalize_usage,
     response_proto_to_output_config,
     take_sampling_fields,
-    tool_to_api,
+    tools_to_api,
 )
 
 
@@ -150,7 +150,7 @@ class AnthropicClient(LLMClient):
         if anthropic_skills and not any(isinstance(t, CodeExecutionToolSchema) for t in tools_without_skills):
             tools_without_skills.append(CodeExecutionToolSchema())
 
-        tools_list = [tool_to_api(t) for t in tools_without_skills]
+        tools_list = tools_to_api(tools_without_skills)
         mcp_servers = extract_mcp_servers(tools_without_skills)
 
         kwargs: dict[str, Any] = {}
@@ -313,6 +313,7 @@ class AnthropicClient(LLMClient):
             model=response.model,
             provider="anthropic",
             finish_reason=response.stop_reason,
+            response_id=response.id,
         )
 
     async def _process_stream(
@@ -417,6 +418,7 @@ class AnthropicClient(LLMClient):
             model=final_message.model,
             provider="anthropic",
             finish_reason=final_message.stop_reason,
+            response_id=final_message.id,
         )
 
 

@@ -72,6 +72,10 @@ class ListingRevisionAttachmentSummary(object):
             The value to assign to the attachment_type property of this ListingRevisionAttachmentSummary.
         :type attachment_type: str
 
+        :param source_type:
+            The value to assign to the source_type property of this ListingRevisionAttachmentSummary.
+        :type source_type: str
+
         :param document_category:
             The value to assign to the document_category property of this ListingRevisionAttachmentSummary.
             Allowed values for this property are: "CASE_STUDIES", "CUSTOMIZATION_GUIDES", "DATA_SHEETS", "PRESS_RELEASE", "PRODUCT_DOCUMENTATION", "USER_GUIDES", "WEBINARS", "WHITEPAPERS", 'UNKNOWN_ENUM_VALUE'.
@@ -117,6 +121,7 @@ class ListingRevisionAttachmentSummary(object):
             'compartment_id': 'str',
             'display_name': 'str',
             'attachment_type': 'str',
+            'source_type': 'str',
             'document_category': 'str',
             'content_url': 'str',
             'mime_type': 'str',
@@ -133,6 +138,7 @@ class ListingRevisionAttachmentSummary(object):
             'compartment_id': 'compartmentId',
             'display_name': 'displayName',
             'attachment_type': 'attachmentType',
+            'source_type': 'sourceType',
             'document_category': 'documentCategory',
             'content_url': 'contentUrl',
             'mime_type': 'mimeType',
@@ -148,6 +154,7 @@ class ListingRevisionAttachmentSummary(object):
         self._compartment_id = None
         self._display_name = None
         self._attachment_type = None
+        self._source_type = None
         self._document_category = None
         self._content_url = None
         self._mime_type = None
@@ -277,6 +284,30 @@ class ListingRevisionAttachmentSummary(object):
         :type: str
         """
         self._attachment_type = attachment_type
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this ListingRevisionAttachmentSummary.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this ListingRevisionAttachmentSummary.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this ListingRevisionAttachmentSummary.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this ListingRevisionAttachmentSummary.
+        :type: str
+        """
+        self._source_type = source_type
 
     @property
     def document_category(self):

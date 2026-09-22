@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncmy
-Version: 0.2.14
+Version: 0.2.15
 Summary: The fastest asyncio MySQL/MariaDB driver for Python
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Documentation, https://github.com/long2ice/asyncmy
 Project-URL: Homepage, https://github.com/long2ice/asyncmy
 Project-URL: Repository, https://github.com/long2ice/asyncmy.git

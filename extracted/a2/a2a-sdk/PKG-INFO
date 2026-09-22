@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: a2a-sdk
-Version: 1.1.4
+Version: 1.1.5
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -28,7 +28,7 @@ Requires-Dist: googleapis-common-protos>=1.70.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: json-rpc>=1.15.0
 Requires-Dist: packaging>=24.0
-Requires-Dist: protobuf<7,>=5.29.5
+Requires-Dist: protobuf>=5.29.5
 Requires-Dist: pydantic>=2.11.3
 Provides-Extra: all
 Requires-Dist: alembic>=1.14.0; extra == 'all'

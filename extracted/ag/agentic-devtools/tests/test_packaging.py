@@ -20,6 +20,17 @@ def _load_project_metadata() -> dict[str, Any]:
     return tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
 
 
+def test_python_312_is_the_minimum_supported_runtime() -> None:
+    """Package metadata requires Python 3.12 and does not depend on tomli."""
+    metadata = _load_project_metadata()
+    project = metadata["project"]
+    dependencies = [Requirement(dep) for dep in project["dependencies"]]
+
+    assert project["requires-python"] == ">=3.12"
+    assert "Programming Language :: Python :: 3.12" in project["classifiers"]
+    assert all(requirement.name != "tomli" for requirement in dependencies)
+
+
 def test_langgraph_dependency_is_bounded_to_the_current_major() -> None:
     """langgraph is capped to the currently tested major version."""
     metadata = _load_project_metadata()

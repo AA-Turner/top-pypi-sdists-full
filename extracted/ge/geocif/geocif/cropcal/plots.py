@@ -26,6 +26,7 @@ from typing import Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from geocif.cropcal import series
 from geocif.viz._style import MONTHS, despine, style_ctx
 
 logger = logging.getLogger(__name__)
@@ -183,9 +184,40 @@ def region_diagnostic(
         ax2.legend(loc="upper left", ncol=2, fontsize=9, frameon=False)
 
         # (C) the years behind the median
-        for column in climatology.ndvi_years.columns:
-            ax3.plot(climatology.ndvi_years.index, climatology.ndvi_years[column],
-                     lw=1.1, label=str(column))
+        #
+        # NDVI here is an 8-day composite: each year column carries ~46 valid
+        # days out of 366 and its longest run of CONSECUTIVE valid days is one.
+        # A line plot cannot draw a segment between two points separated by
+        # NaN, so this panel came out blank apart from the rare year where two
+        # valid days happened to be adjacent -- the data was always there.
+        # Draw the interpolated column (exactly what per_day_median consumes)
+        # with the observations marked on top, and show only the years that
+        # are actually behind the median: plotting all 12 while the median uses
+        # the selected num_years made the legend a claim the figure did not
+        # support.
+        # ``n_years`` is the column count select_climatology_years already
+        # returned when the climatology was built, so re-selecting with it is
+        # idempotent and needs no Settings here: RegionContext carries no
+        # num_years, only Settings does, and it is not passed to the plotter.
+        selected = series.select_climatology_years(
+            climatology.ndvi_years, climatology.n_years
+        )
+        for column in selected.columns:
+            observed = selected[column]
+            (line,) = ax3.plot(
+                observed.index,
+                observed.interpolate(limit_area="inside"),
+                lw=1.1,
+                label=str(column),
+            )
+            ax3.plot(
+                observed.index,
+                observed,
+                ls="none",
+                marker=".",
+                ms=2.5,
+                color=line.get_color(),
+            )
         ax3.set_ylabel("NDVI", fontsize=11)
         ax3.set_xlabel("Day of Year", fontsize=11)
         ax3.legend(loc="upper left", ncol=4, fontsize=9, frameon=False)

@@ -41,6 +41,7 @@ class SelectorRequest(BaseSerDeModel):
     project_id: str
     nodes: t.List[DbtNodeData]
     selector_criteria: SelectorCriteria
+    request_id: str
 
 
 @proto_dataclass(selector_service_pb2.SelectorResponse)

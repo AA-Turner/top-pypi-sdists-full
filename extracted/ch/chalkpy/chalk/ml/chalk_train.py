@@ -1,6 +1,9 @@
+import itertools
 import os
+import uuid
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Protocol
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Union
 from urllib.parse import urlparse
 
 from chalk.client.client_grpc import MODEL_TRAINING_METRIC_PREFIX, ChalkGRPCClient
@@ -10,6 +13,8 @@ from chalk.config.auth_config import load_token
 from chalk.ml.utils import (
     CHALK_CHECKPOINT_DIR_ENV_VAR,
     CHALK_TRAINING_RUN_ID_ENV_VAR,
+    MODEL_TRAIN_METADATA_EXPERIMENT_NAME,
+    MODEL_TRAIN_METADATA_HYPERPARAMETERS,
     MODEL_TRAIN_METADATA_RUN_ID,
     MODEL_TRAIN_METADATA_RUN_NAME,
     get_model_metadata_run_name_from_env,
@@ -212,3 +217,202 @@ def last_checkpoint_path(run_id: Optional[str] = None) -> Optional[str]:
 
 def log_metrics(metrics: Mapping[str, float | int], tags: Mapping[str, str] | None = None) -> None:
     CheckpointClass.log_metrics(metrics, tags=tags)
+
+
+HyperparameterValue = Union[float, str, bool, int]
+
+MAX_EXPERIMENT_TRAINING_RUNS = 20
+
+
+@dataclass
+class ExperimentRun:
+    """The result of training a single hyperparameter combination as part of an `Experiment`."""
+
+    success: bool
+    hyperparameters: Mapping[str, HyperparameterValue]
+    experiment_id: str
+    run_id: Optional[str] = None
+    error: Optional[str] = None
+    handle: Optional[Any] = None
+    """The underlying ``chalkcompute.TrainingRunHandle``, if the run was created successfully."""
+
+
+class Experiment:
+    """Run a grid search over hyperparameters by creating one v2 training run per combination.
+
+    Each combination is submitted with ``chalkcompute.training(...).run_training(...)``,
+    which is the same mechanism used by the ``@chalkcompute.training`` decorator to create
+    training runs via the ``CreateTrainingRun`` RPC.
+
+    Parameters
+    ----------
+    experiment_name : str
+        The base name for this experiment. Each training run is named
+        ``f"{experiment_name}-{i}"``, where ``i`` is the index of its hyperparameter
+        combination in `hyperparameter_grid()`.
+    train_fn : Callable[..., Any]
+        The training function to run for each hyperparameter combination, e.g.
+        ``def train(df, config): ...``. See ``chalkcompute.training`` for its expected shape.
+    hyperparameters : Mapping[str, Sequence[float | str | bool | int]]
+        A mapping from hyperparameter name to the list of values to grid search over. One
+        training run is created for every combination in the cartesian product of these values.
+        Each combination is passed to `train_fn` as `config`. The cartesian product may not
+        exceed `MAX_EXPERIMENT_TRAINING_RUNS` (20) combinations.
+    output_metrics : Sequence[str]
+        The names of the metric(s) that `train_fn` is expected to report (e.g. via
+        `chalk.ml.log_metrics`) for each run.
+    data, dataset, input_sql : Optional[str]
+        Exactly one must be provided; forwarded to ``chalkcompute.training``.
+    image : Optional[chalkcompute.Image]
+        The base image to train from; forwarded to ``chalkcompute.training``.
+    cpu, memory, gpu : Optional[str]
+        Resource requests; forwarded to ``chalkcompute.training``.
+    env : Optional[Mapping[str, str | chalkcompute.Secret]]
+        Environment variables/secrets; forwarded to ``chalkcompute.training``.
+    secrets : Optional[List[chalkcompute.Secret]]
+        Secrets to mount; forwarded to ``chalkcompute.training``.
+    max_retries : Optional[int]
+        Maximum number of retries per training run; forwarded to ``chalkcompute.training``.
+    client : Optional[chalkcompute.ConnectClient]
+        The client used to submit each run. If not provided, a default one is constructed.
+
+    Examples
+    --------
+    >>> from chalk.ml.chalk_train import Experiment
+    >>> def train(df, config):
+    ...     model = train_my_model(df, lr=config["lr"], batch_size=config["batch_size"])
+    ...     return model
+    >>> experiment = Experiment(
+    ...     experiment_name="my-experiment",
+    ...     train_fn=train,
+    ...     hyperparameters={"lr": [0.01, 0.1], "batch_size": [16, 32]},
+    ...     output_metrics=["accuracy"],
+    ...     dataset="my_dataset",
+    ... )
+    >>> runs = experiment.run()
+    """
+
+    def __init__(
+        self,
+        experiment_name: str,
+        train_fn: Callable[..., Any],
+        hyperparameters: Mapping[str, Sequence[HyperparameterValue]],
+        output_metrics: Sequence[str],
+        data: Optional[str] = None,
+        dataset: Optional[str] = None,
+        input_sql: Optional[str] = None,
+        image: Optional[Any] = None,
+        cpu: Optional[str] = None,
+        memory: Optional[str] = None,
+        gpu: Optional[str] = None,
+        env: Optional[Mapping[str, Any]] = None,
+        secrets: Optional[List[Any]] = None,
+        max_retries: Optional[int] = None,
+        client: Optional[Any] = None,
+    ) -> None:
+        super().__init__()
+        if not callable(train_fn):
+            raise ValueError("train_fn must be a callable function.")
+        if len(hyperparameters) == 0:
+            raise ValueError("hyperparameters must specify at least one hyperparameter to search over.")
+        for name, values in hyperparameters.items():
+            if len(list(values)) == 0:
+                raise ValueError(f"hyperparameter '{name}' must specify at least one candidate value.")
+        if len(output_metrics) == 0:
+            raise ValueError("output_metrics must specify at least one metric name.")
+
+        grid_size = 1
+        for values in hyperparameters.values():
+            grid_size *= len(list(values))
+        if grid_size > MAX_EXPERIMENT_TRAINING_RUNS:
+            raise ValueError(
+                f"hyperparameter grid produces {grid_size} training runs, which exceeds the maximum of "
+                + f"{MAX_EXPERIMENT_TRAINING_RUNS}. Reduce the number of hyperparameters or candidate values."
+            )
+
+        unknown_metrics = sorted(set(output_metrics) - VALID_MODEL_TRAINING_METRICS)
+        if unknown_metrics:
+            warnings.warn(
+                "Unknown output metric(s): "
+                + ", ".join(unknown_metrics)
+                + ". These will not be reportable via `chalk.ml.log_metrics`.",
+                stacklevel=2,
+            )
+
+        self.experiment_name = experiment_name
+        self.train_fn = train_fn
+        self.hyperparameters = hyperparameters
+        self.output_metrics = list(output_metrics)
+        self.data = data
+        self.dataset = dataset
+        self.input_sql = input_sql
+        self.image = image
+        self.cpu = cpu
+        self.memory = memory
+        self.gpu = gpu
+        self.env = env
+        self.secrets = secrets
+        self.max_retries = max_retries
+        self.client = client
+
+    def hyperparameter_grid(self) -> List[Dict[str, HyperparameterValue]]:
+        """The list of hyperparameter combinations that `run()` will train, one per training run."""
+        names = list(self.hyperparameters.keys())
+        value_lists = [list(self.hyperparameters[name]) for name in names]
+        return [dict(zip(names, combo)) for combo in itertools.product(*value_lists)]
+
+    def run(self) -> List[ExperimentRun]:
+        """Create one v2 training run for every hyperparameter combination in the grid.
+
+        Each training run's metadata includes a `chalk_model_train_hyperparameters` entry
+        with the hyperparameter values used for that run.
+
+        Returns
+        -------
+        List[ExperimentRun]
+            One `ExperimentRun` per hyperparameter combination, in the order they were run.
+        """
+        try:
+            from chalkcompute import training as chalkcompute_training  # pyright: ignore[reportMissingImports]
+        except ImportError as e:
+            raise RuntimeError("Experiment requires the 'chalkcompute' package to create v2 training runs.") from e
+
+        experiment_id = str(uuid.uuid4())
+
+        runs: List[ExperimentRun] = []
+        for i, combo in enumerate(self.hyperparameter_grid()):
+            training_fn = chalkcompute_training(
+                self.train_fn,
+                data=self.data,
+                dataset=self.dataset,
+                input_sql=self.input_sql,
+                image=self.image,
+                name=f"{self.experiment_name}-{i}",
+                cpu=self.cpu,
+                memory=self.memory,
+                gpu=self.gpu,
+                env=self.env,
+                secrets=self.secrets,
+                metadata={
+                    MODEL_TRAIN_METADATA_HYPERPARAMETERS: combo,
+                    MODEL_TRAIN_METADATA_EXPERIMENT_NAME: self.experiment_name,
+                },
+                max_retries=self.max_retries,
+            )
+            try:
+                handle = training_fn.run_training(config=combo, client=self.client, experiment_id=experiment_id)
+            except Exception as e:
+                runs.append(
+                    ExperimentRun(success=False, hyperparameters=combo, experiment_id=experiment_id, error=str(e))
+                )
+                continue
+            runs.append(
+                ExperimentRun(
+                    success=True,
+                    hyperparameters=combo,
+                    experiment_id=experiment_id,
+                    run_id=handle.run_id,
+                    handle=handle,
+                )
+            )
+        return runs

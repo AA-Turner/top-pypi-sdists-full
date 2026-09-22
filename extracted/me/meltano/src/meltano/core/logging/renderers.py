@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import typing as t
 from dataclasses import dataclass
 from io import StringIO
@@ -17,6 +18,11 @@ from rich.traceback import PathHighlighter
 
 from meltano.core.logging.models import PluginException
 from meltano.core.plugin_install_service import PluginInstallState
+
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
 if t.TYPE_CHECKING:
     from collections.abc import MutableMapping
@@ -135,6 +141,12 @@ class PluginErrorFormatter:
                 "\n[i]During handling of the above exception, another exception occurred:\n",  # noqa: E501
             )
             yield self.render_exception(exc.context)
+
+        # Add exception notes
+        if exc.notes:
+            yield ""
+            for note in exc.notes:
+                yield Text(note)
 
     def format(
         self,
@@ -341,6 +353,7 @@ class MeltanoConsoleRenderer(structlog.dev.ConsoleRenderer):  # noqa: TID251
         """Render the name to a string."""
         return name or self.DEFAULT_PLUGIN_NAME
 
+    @override
     def __call__(
         self,
         logger: WrappedLogger,

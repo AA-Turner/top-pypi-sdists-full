@@ -1,5 +1,5 @@
 #
-# Copyright 2025 Alibaba Group Holding Ltd.
+# Copyright 2025 The OpenSandbox Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,19 +42,19 @@ class Commands(Protocol):
 
     async def run(
         self,
-        command: str,
+        command: str | list[str],
         *,
         opts: RunCommandOpts | None = None,
         handlers: ExecutionHandlers | None = None,
     ) -> Execution:
         """
-        Execute a shell command in the sandbox environment.
+        Execute shell text or native executable arguments in the sandbox.
 
         The command can be executed in foreground (streaming) or background mode
         based on the request configuration.
 
         Args:
-            command: Shell command text to execute
+            command: Shell text or a native argv list
             opts: Command execution options (e.g. background, working_directory)
             handlers: Optional async handlers for streaming events (stdout/stderr/result/init/complete/error)
 

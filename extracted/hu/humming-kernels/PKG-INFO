@@ -1,7 +1,19 @@
 Metadata-Version: 2.4
 Name: humming-kernels
-Version: 0.1.15
-Summary: Quantization GEMM Kernel
+Version: 0.1.16
+Summary: JIT-compiled GPU GEMM kernels for quantized inference
+Author: Humming contributors
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/vllm-project/humming
+Project-URL: Source, https://github.com/vllm-project/humming
+Project-URL: Issues, https://github.com/vllm-project/humming/issues
+Project-URL: Documentation, https://github.com/vllm-project/humming/tree/main/docs
+Project-URL: Release notes, https://github.com/vllm-project/humming/releases
+Keywords: cuda,gemm,quantization,inference
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -64,8 +76,21 @@ Humming is a high-performance, lightweight, and highly flexible JIT (Just-In-Tim
 
 ### Installation
 
+```bash
+pip install humming-kernels
 ```
-pip install git+https://github.com/inclusionAI/humming.git
+
+To also install CUDA dependencies, choose the extra matching your PyTorch CUDA version:
+
+```bash
+pip install "humming-kernels[cu12]"  # CUDA 12
+pip install "humming-kernels[cu13]"  # CUDA 13
+```
+
+Or install from source:
+
+```bash
+pip install git+https://github.com/vllm-project/humming.git
 ```
 
 

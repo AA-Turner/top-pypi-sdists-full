@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import time
 from datetime import UTC, datetime
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from ..errors import BoostError
 from . import output as out
+from . import paths
 
 IGNORED = {".git", "__pycache__", ".DS_Store"}
 
@@ -289,6 +291,19 @@ def human_size(n: int) -> str:
     return str(size)
 
 
+def head_lines(text: str, cap: int) -> tuple[list[str], int]:
+    """The first `cap` lines of `text`, and how many were left out.
+
+    A preview that silently stops is worse than a short one: `onboard
+    --dry-run` cut every file at 24 lines with no marker, so its lock preview
+    ended mid-object and read as a truncated *file* rather than a truncated
+    *view* of one. Callers print the remainder; returning the count rather than
+    a formatted ellipsis keeps the wording with the emitter that owns the pane.
+    """
+    lines = text.splitlines()
+    return lines[:cap], max(len(lines) - cap, 0)
+
+
 def _slug_or_none(name: str) -> str | None:
     return re.sub(r"[^a-z0-9-]+", "-", name.strip().lower()).strip("-") or None
 
@@ -363,8 +378,49 @@ def sha256_dir(path: Path) -> str:
 
 
 def dir_size(path: Path) -> int:
-    """Sum the byte size of every regular file under ``path``, recursively."""
-    return sum(p.stat().st_size for p in Path(path).rglob("*") if p.is_file())
+    """Sum the byte size of every regular file under ``path``, recursively.
+
+    A symlink is not a regular file, whatever it points at: this is what the
+    tree occupies on disk. Following links counted a target's bytes a second
+    time, or bytes outside the tree, or nothing once it dangled, and
+    ``compact`` reports freed space as this before minus this after, so a
+    link whose target the narrow removed made its live figure overstate the
+    run. What a *copy* of the tree will hold is :func:`copied_files`.
+    """
+    return sum(p.lstat().st_size for p in Path(path).rglob("*")
+               if p.is_file() and not p.is_symlink())
+
+
+def copied_files(path: Path) -> list[Path]:
+    """The files ``install`` will copy out of ``path``, in walk order.
+
+    ``store`` installs with ``shutil.copytree(symlinks=False, ignore=
+    ignore_patterns(*IGNORED))``: every link is copied as what it points at,
+    a linked *directory* included, and an ``IGNORED`` name is skipped at any
+    depth. ``Path.rglob`` does not descend through a directory link, so sizing
+    a skill from the tap that way said 61 B and 1 file for a skill that
+    installs as 861 B and 2. A dangling link copies nothing (copytree fails on
+    it, and the failure belongs to install, not to a size estimate). Two
+    paths to one directory are two copies, as they are to copytree; only a
+    directory that resolves to one of its own ancestors — a link cycle — is
+    not descended, so the walk cannot hang.
+    """
+    top = Path(path)
+    files: list[Path] = []
+    for root, dirs, names in os.walk(path, followlinks=True):
+        here = Path(root)
+        real = os.path.realpath(here)
+        if here != top and any(os.path.realpath(p) == real
+                               for p in here.parents
+                               if p == top or top in p.parents):
+            dirs.clear()
+            continue
+        dirs[:] = [d for d in dirs if d not in IGNORED]
+        for name in names:
+            f = Path(root) / name
+            if name not in IGNORED and f.is_file():
+                files.append(f)
+    return files
 
 
 def semver_tuple(v: str):
@@ -379,6 +435,59 @@ def semver_tuple(v: str):
 def semver_gt(a: str, b: str) -> bool:
     """Return ``True`` when version ``a`` is strictly newer than ``b``."""
     return semver_tuple(a) > semver_tuple(b)
+
+
+def read_text_arg(value: str, flag: str, stdin=None) -> str:
+    """Resolve a free-text option the way curl does, and refuse it empty.
+
+    ``-`` reads standard input, ``@PATH`` reads that file (``~`` expanded),
+    and anything else is the text itself. The result is stripped, and an
+    empty one raises: a command that folds this text into a file would
+    otherwise write a heading with nothing under it and call that a change.
+    ``flag`` names the option in the error (``--feedback``); ``stdin`` is
+    for tests, and defaults to ``sys.stdin`` read at call time.
+    """
+    if value == "-":
+        stream = stdin if stdin is not None else sys.stdin
+        empty = ("%s - read nothing from stdin" % flag,
+                 "pipe the text in, or pass it as the value itself")
+        if stream is None:
+            # fd 0 closed at launch (`<&-`): Python sets sys.stdin to None.
+            raise BoostError(empty[0], hint=empty[1])
+        # The bytes underneath, decoded the way the `@FILE` arm decodes: a
+        # text stream's strict decode raises UnicodeDecodeError on a stray
+        # byte, and that is a traceback, not a BoostError.
+        raw = getattr(stream, "buffer", None)
+        text = (raw.read().decode("utf-8", errors="replace") if raw is not None
+                else stream.read())
+    elif value.startswith("@"):
+        name = value[1:]
+        hint = ("`%s @FILE` reads FILE; pass the text itself, or `-` to read "
+                "stdin" % flag)
+        # A bare `@` is Path(""), the current directory, which read as the
+        # riddle "can't read --feedback @: Is a directory".
+        if not name.strip():
+            raise BoostError("%s @ needs a file path" % flag, hint=hint)
+        try:
+            # Replaced, not strict: a stray byte would otherwise escape as a
+            # UnicodeDecodeError, which is not an OSError, i.e. a traceback.
+            text = paths.expand(name).read_text(encoding="utf-8",
+                                                errors="replace")
+        except OSError as e:
+            raise BoostError("can't read %s %s: %s"
+                             % (flag, value, e.strerror or e),
+                             hint=hint) from None
+        empty = ("%s %s: %s is empty" % (flag, value, name),
+                 "write the text into the file, or pass it as the value itself")
+    else:
+        text = value
+        empty = ("%s is empty" % flag,
+                 "pass the text itself, `%s -` to read stdin, or `%s @FILE` "
+                 "to read a file" % (flag, flag))
+    text = text.strip()
+    if not text:
+        raise BoostError(empty[0], hint=empty[1])
+    return text
 
 
 def score_skill(skill_dir: Path) -> tuple[int, list[str]]:

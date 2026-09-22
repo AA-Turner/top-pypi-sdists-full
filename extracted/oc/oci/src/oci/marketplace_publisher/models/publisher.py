@@ -62,6 +62,10 @@ class Publisher(object):
             The value to assign to the notification_email property of this Publisher.
         :type notification_email: str
 
+        :param enrollment_status:
+            The value to assign to the enrollment_status property of this Publisher.
+        :type enrollment_status: str
+
         :param opn_membership:
             The value to assign to the opn_membership property of this Publisher.
         :type opn_membership: oci.marketplace_publisher.models.OpnMembership
@@ -69,6 +73,10 @@ class Publisher(object):
         :param private_offer_account_details:
             The value to assign to the private_offer_account_details property of this Publisher.
         :type private_offer_account_details: oci.marketplace_publisher.models.PrivateOfferAccountDetails
+
+        :param is_fx_enabled:
+            The value to assign to the is_fx_enabled property of this Publisher.
+        :type is_fx_enabled: bool
 
         :param id:
             The value to assign to the id property of this Publisher.
@@ -144,6 +152,38 @@ class Publisher(object):
             The value to assign to the time_updated property of this Publisher.
         :type time_updated: datetime
 
+        :param email:
+            The value to assign to the email property of this Publisher.
+        :type email: str
+
+        :param business_phone_number:
+            The value to assign to the business_phone_number property of this Publisher.
+        :type business_phone_number: str
+
+        :param employee_count:
+            The value to assign to the employee_count property of this Publisher.
+        :type employee_count: int
+
+        :param solution_description:
+            The value to assign to the solution_description property of this Publisher.
+        :type solution_description: str
+
+        :param opn_number:
+            The value to assign to the opn_number property of this Publisher.
+        :type opn_number: str
+
+        :param country:
+            The value to assign to the country property of this Publisher.
+        :type country: str
+
+        :param city:
+            The value to assign to the city property of this Publisher.
+        :type city: str
+
+        :param state:
+            The value to assign to the state property of this Publisher.
+        :type state: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this Publisher.
         :type freeform_tags: dict(str, str)
@@ -160,8 +200,10 @@ class Publisher(object):
         self.swagger_types = {
             'publisher_status': 'str',
             'notification_email': 'str',
+            'enrollment_status': 'str',
             'opn_membership': 'OpnMembership',
             'private_offer_account_details': 'PrivateOfferAccountDetails',
+            'is_fx_enabled': 'bool',
             'id': 'str',
             'compartment_id': 'str',
             'registry_namespace': 'str',
@@ -180,6 +222,14 @@ class Publisher(object):
             'publisher_type': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
+            'email': 'str',
+            'business_phone_number': 'str',
+            'employee_count': 'int',
+            'solution_description': 'str',
+            'opn_number': 'str',
+            'country': 'str',
+            'city': 'str',
+            'state': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'system_tags': 'dict(str, dict(str, object))'
@@ -187,8 +237,10 @@ class Publisher(object):
         self.attribute_map = {
             'publisher_status': 'publisherStatus',
             'notification_email': 'notificationEmail',
+            'enrollment_status': 'enrollmentStatus',
             'opn_membership': 'opnMembership',
             'private_offer_account_details': 'privateOfferAccountDetails',
+            'is_fx_enabled': 'isFxEnabled',
             'id': 'id',
             'compartment_id': 'compartmentId',
             'registry_namespace': 'registryNamespace',
@@ -207,14 +259,24 @@ class Publisher(object):
             'publisher_type': 'publisherType',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
+            'email': 'email',
+            'business_phone_number': 'businessPhoneNumber',
+            'employee_count': 'employeeCount',
+            'solution_description': 'solutionDescription',
+            'opn_number': 'opnNumber',
+            'country': 'country',
+            'city': 'city',
+            'state': 'state',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'system_tags': 'systemTags'
         }
         self._publisher_status = None
         self._notification_email = None
+        self._enrollment_status = None
         self._opn_membership = None
         self._private_offer_account_details = None
+        self._is_fx_enabled = None
         self._id = None
         self._compartment_id = None
         self._registry_namespace = None
@@ -233,6 +295,14 @@ class Publisher(object):
         self._publisher_type = None
         self._time_created = None
         self._time_updated = None
+        self._email = None
+        self._business_phone_number = None
+        self._employee_count = None
+        self._solution_description = None
+        self._opn_number = None
+        self._country = None
+        self._city = None
+        self._state = None
         self._freeform_tags = None
         self._defined_tags = None
         self._system_tags = None
@@ -292,6 +362,30 @@ class Publisher(object):
         self._notification_email = notification_email
 
     @property
+    def enrollment_status(self):
+        """
+        Gets the enrollment_status of this Publisher.
+        Oracle Cloud Marketplace agreement status
+
+
+        :return: The enrollment_status of this Publisher.
+        :rtype: str
+        """
+        return self._enrollment_status
+
+    @enrollment_status.setter
+    def enrollment_status(self, enrollment_status):
+        """
+        Sets the enrollment_status of this Publisher.
+        Oracle Cloud Marketplace agreement status
+
+
+        :param enrollment_status: The enrollment_status of this Publisher.
+        :type: str
+        """
+        self._enrollment_status = enrollment_status
+
+    @property
     def opn_membership(self):
         """
         Gets the opn_membership of this Publisher.
@@ -330,6 +424,30 @@ class Publisher(object):
         :type: oci.marketplace_publisher.models.PrivateOfferAccountDetails
         """
         self._private_offer_account_details = private_offer_account_details
+
+    @property
+    def is_fx_enabled(self):
+        """
+        Gets the is_fx_enabled of this Publisher.
+        Whether automatic FX conversion is enabled for the publisher.
+
+
+        :return: The is_fx_enabled of this Publisher.
+        :rtype: bool
+        """
+        return self._is_fx_enabled
+
+    @is_fx_enabled.setter
+    def is_fx_enabled(self, is_fx_enabled):
+        """
+        Sets the is_fx_enabled of this Publisher.
+        Whether automatic FX conversion is enabled for the publisher.
+
+
+        :param is_fx_enabled: The is_fx_enabled of this Publisher.
+        :type: bool
+        """
+        self._is_fx_enabled = is_fx_enabled
 
     @property
     def id(self):
@@ -764,6 +882,198 @@ class Publisher(object):
         :type: datetime
         """
         self._time_updated = time_updated
+
+    @property
+    def email(self):
+        """
+        Gets the email of this Publisher.
+        Email address of the publisher.
+
+
+        :return: The email of this Publisher.
+        :rtype: str
+        """
+        return self._email
+
+    @email.setter
+    def email(self, email):
+        """
+        Sets the email of this Publisher.
+        Email address of the publisher.
+
+
+        :param email: The email of this Publisher.
+        :type: str
+        """
+        self._email = email
+
+    @property
+    def business_phone_number(self):
+        """
+        Gets the business_phone_number of this Publisher.
+        The business phone number of the publisher.
+
+
+        :return: The business_phone_number of this Publisher.
+        :rtype: str
+        """
+        return self._business_phone_number
+
+    @business_phone_number.setter
+    def business_phone_number(self, business_phone_number):
+        """
+        Sets the business_phone_number of this Publisher.
+        The business phone number of the publisher.
+
+
+        :param business_phone_number: The business_phone_number of this Publisher.
+        :type: str
+        """
+        self._business_phone_number = business_phone_number
+
+    @property
+    def employee_count(self):
+        """
+        Gets the employee_count of this Publisher.
+        Count of employees in publisher's company
+
+
+        :return: The employee_count of this Publisher.
+        :rtype: int
+        """
+        return self._employee_count
+
+    @employee_count.setter
+    def employee_count(self, employee_count):
+        """
+        Sets the employee_count of this Publisher.
+        Count of employees in publisher's company
+
+
+        :param employee_count: The employee_count of this Publisher.
+        :type: int
+        """
+        self._employee_count = employee_count
+
+    @property
+    def solution_description(self):
+        """
+        Gets the solution_description of this Publisher.
+        A description of the publisher solutions.
+
+
+        :return: The solution_description of this Publisher.
+        :rtype: str
+        """
+        return self._solution_description
+
+    @solution_description.setter
+    def solution_description(self, solution_description):
+        """
+        Sets the solution_description of this Publisher.
+        A description of the publisher solutions.
+
+
+        :param solution_description: The solution_description of this Publisher.
+        :type: str
+        """
+        self._solution_description = solution_description
+
+    @property
+    def opn_number(self):
+        """
+        Gets the opn_number of this Publisher.
+        OPN membership number of the publisher
+
+
+        :return: The opn_number of this Publisher.
+        :rtype: str
+        """
+        return self._opn_number
+
+    @opn_number.setter
+    def opn_number(self, opn_number):
+        """
+        Sets the opn_number of this Publisher.
+        OPN membership number of the publisher
+
+
+        :param opn_number: The opn_number of this Publisher.
+        :type: str
+        """
+        self._opn_number = opn_number
+
+    @property
+    def country(self):
+        """
+        Gets the country of this Publisher.
+        Country in which partner company resides
+
+
+        :return: The country of this Publisher.
+        :rtype: str
+        """
+        return self._country
+
+    @country.setter
+    def country(self, country):
+        """
+        Sets the country of this Publisher.
+        Country in which partner company resides
+
+
+        :param country: The country of this Publisher.
+        :type: str
+        """
+        self._country = country
+
+    @property
+    def city(self):
+        """
+        Gets the city of this Publisher.
+        City in which partner company resides
+
+
+        :return: The city of this Publisher.
+        :rtype: str
+        """
+        return self._city
+
+    @city.setter
+    def city(self, city):
+        """
+        Sets the city of this Publisher.
+        City in which partner company resides
+
+
+        :param city: The city of this Publisher.
+        :type: str
+        """
+        self._city = city
+
+    @property
+    def state(self):
+        """
+        Gets the state of this Publisher.
+        State in which partner company resides
+
+
+        :return: The state of this Publisher.
+        :rtype: str
+        """
+        return self._state
+
+    @state.setter
+    def state(self, state):
+        """
+        Sets the state of this Publisher.
+        State in which partner company resides
+
+
+        :param state: The state of this Publisher.
+        :type: str
+        """
+        self._state = state
 
     @property
     def freeform_tags(self):

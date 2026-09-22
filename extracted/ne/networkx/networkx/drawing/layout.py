@@ -600,7 +600,9 @@ def spring_layout(
             if node not in pos:
                 raise ValueError("nodes are fixed without positions given")
         nfixed = {node: i for i, node in enumerate(G)}
-        fixed = np.asarray([nfixed[node] for node in fixed if node in nfixed])
+        fixed = np.asarray(
+            [nfixed[node] for node in fixed if node in nfixed], dtype=int
+        )
 
     if pos is not None:
         # Determine size of existing domain to adjust initial positions
@@ -821,6 +823,10 @@ def _energy_fruchterman_reingold(
 
     if gravity <= 0:
         raise ValueError(f"the gravity must be positive.")
+
+    # Zero iterations, return initial positions
+    if iterations == 0:
+        return pos.copy()
 
     # make sure we have a Compressed Sparse Row format
     try:
@@ -1109,6 +1115,9 @@ def spectral_layout(G, weight="weight", scale=1, center=None, dim=2, store_pos_a
         if G.is_directed():
             A += A.T
         pos = _spectral(A, dim)
+
+    if pos.shape[1] < dim:
+        pos = np.pad(pos, ((0, 0), (0, dim - pos.shape[1])), constant_values=0)
 
     pos = rescale_layout(pos, scale=scale) + center
     pos = dict(zip(G, pos))
@@ -1574,7 +1583,7 @@ def arf_layout(
     # looping variables
     error = etol + 1
     n_iter = 0
-    while error > etol:
+    while error > etol and n_iter < max_iter:
         diff = p[:, np.newaxis] - p[np.newaxis]
         A = np.linalg.norm(diff, axis=-1)[..., np.newaxis]
         # attraction_force - repulsions force
@@ -1587,8 +1596,6 @@ def arf_layout(
         p += change * dt
 
         error = np.linalg.norm(change, axis=-1).sum()
-        if n_iter > max_iter:
-            break
         n_iter += 1
 
     pos = dict(zip(G.nodes(), p))
@@ -1696,7 +1703,7 @@ def forceatlas2_layout(
         pos = nx.random_layout(G, dim=dim, seed=seed)
         pos_arr = np.array(list(pos.values()))
     elif len(pos) == len(G):
-        pos_arr = np.array([pos[node].copy() for node in G])
+        pos_arr = np.array([pos[node] for node in G])
     else:
         # set random node pos within the initial pos values
         pos_init = np.array(list(pos.values()))
@@ -1899,11 +1906,6 @@ def rescale_layout(pos, scale=1):
     scale : number (default: 1)
         The size of the resulting extent in all directions.
 
-    attribute : str, default None
-        If non-None, the position of each node will be stored on the graph as
-        an attribute named `attribute` which can be accessed with
-        `G.nodes[...][attribute]`. The function still returns the dictionary.
-
     Returns
     -------
     pos : numpy array
@@ -1968,14 +1970,14 @@ def bfs_layout(G, start, *, align="vertical", scale=1, center=None, store_pos_as
     Parameters
     ----------
     G : NetworkX graph
-        A position will be assigned to every node in G.
+        A position will be assigned to every node in `G`.
 
     start : node in `G`
         Starting node for bfs
 
     align : string (default='vertical')
-        The alignment of nodes within a layer, either `"vertical"` or
-        `"horizontal"`.
+        The alignment of nodes within a layer, either ``"vertical"`` or
+        ``"horizontal"``.
 
     scale : number (default: 1)
         Scale factor for positions.
@@ -1993,6 +1995,12 @@ def bfs_layout(G, start, *, align="vertical", scale=1, center=None, store_pos_as
     pos : dict
         A dictionary of positions keyed by node.
 
+    Raises
+    ------
+    NetworkXError
+        If any nodes are unreachable from `start`, e.g. `G` is not connected,
+        or `G` is directed and `start` has 0 out degree.
+
     Examples
     --------
     >>> from pprint import pprint
@@ -2006,13 +2014,10 @@ def bfs_layout(G, start, *, align="vertical", scale=1, center=None, store_pos_as
      2: array([0.33333333, 0.        ]),
      3: array([1., 0.])}
 
-
-
     Notes
     -----
     This algorithm currently only works in two dimensions and does not
     try to minimize edge crossings.
-
     """
     G, center = _process_params(G, center, 2)
 

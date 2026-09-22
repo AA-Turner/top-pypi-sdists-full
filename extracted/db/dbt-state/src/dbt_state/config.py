@@ -126,6 +126,24 @@ def _parse_time(value: str) -> int:
     return result
 
 
+_FRESHNESS_PERIOD_TO_SECONDS = {"second": 1, "minute": 60, "hour": 60 * 60, "day": 60 * 60 * 24}
+
+
+def _freshness_dict_to_seconds(value: dict[str, t.Any]) -> t.Optional[int]:
+    """Converts a v2-parser's ModelFreshnessRules dict to seconds"""
+    count = value.get("count")
+    period = value.get("period")
+    if count is None or period is None:
+        return None
+    seconds = _FRESHNESS_PERIOD_TO_SECONDS.get(period.lower()) if isinstance(period, str) else None
+    if seconds is None:
+        raise ValueError(
+            f"Invalid lag_tolerance model config value of type dict: {value!r}. "
+            "Expected int (seconds) or time string (e.g., '30s', '5m')."
+        )
+    return int(count) * seconds
+
+
 TEnum = t.TypeVar("TEnum", bound=_StringEnum)
 
 
@@ -583,15 +601,18 @@ class RunCacheConfig:
             return self.freshness_tolerance
         if isinstance(value, bool):
             raise ValueError(
-                f"Invalid run_cache_freshness_tolerance model config value: {value!r}. "
+                f"Invalid lag_tolerance model config value: {value!r}. "
                 "Expected int (seconds) or time string (e.g., '30s', '5m')."
             )
         if isinstance(value, int):
             return value
         if isinstance(value, str):
             return _parse_time(value)
+        if isinstance(value, dict) and ("count" in value or "period" in value):
+            seconds = _freshness_dict_to_seconds(value)
+            return self.freshness_tolerance if seconds is None else seconds
         raise ValueError(
-            f"Invalid run_cache_freshness_tolerance model config value of type {type(value).__name__}: {value!r}. "
+            f"Invalid lag_tolerance model config value of type {type(value).__name__}: {value!r}. "
             "Expected int (seconds) or time string (e.g., '30s', '5m')."
         )
 

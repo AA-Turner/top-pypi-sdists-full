@@ -23,7 +23,7 @@ class UpdatePostPaidBindRelRequest(DaraModel):
         # - **0**: Disabled.
         # - **1**: Enabled.
         self.auto_bind = auto_bind
-        # The edition to automatically bind when new assets are added. Valid values:
+        # The edition that is automatically bound when new assets are added. Valid values:
         # - **1**: Free Edition 
         # - **3**: Enterprise Edition
         # - **5**: Advanced Edition
@@ -32,11 +32,11 @@ class UpdatePostPaidBindRelRequest(DaraModel):
         self.auto_bind_version = auto_bind_version
         # The binding action parameter.
         self.bind_action = bind_action
-        # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        # Specifies whether to perform only a dry run of the request. Valid values: true: performs only a dry run without executing the actual operation. false: performs the actual operation. Default value: false.
         self.dry_run = dry_run
-        # The abbreviated name of the cloud service. Valid values:
+        # The abbreviation of the cloud service. Valid values:
         # - **sas**: Security Center
         self.product_code = product_code
         # Specifies whether to forcibly upgrade the edition.

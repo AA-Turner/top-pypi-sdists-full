@@ -45,6 +45,77 @@ logger = getLogger(__name__)
 MAX_DOWNLOAD_RETRY = 10
 DOWNLOAD_TIMEOUT = 7  # seconds
 
+# SNOW-4109042: how many times to re-GET ``/queries/{qid}/result`` when the
+# inline first chunk of a successful query-request is empty/short.
+MAX_INLINE_RESULT_RETRY = 1
+
+# SNOW-4109042: how many times to re-download a remote result chunk whose body
+# holds fewer rows than the chunk's declared ``rowCount`` (truncated-but-valid
+# JSON/Arrow). Exhausted retries still raise via ``_check_rowcount``.
+MAX_INCOMPLETE_CHUNK_RETRY = 1
+
+
+def inline_first_chunk_rowcount(data: dict[str, Any]) -> int:
+    """Rows attributed to the inline first chunk: ``total`` minus remote chunk rowCounts.
+
+    Shared by ``create_batches_from_response`` and incompleteness detection.
+    A missing ``total`` is treated as 0, matching historical batch construction.
+    """
+    total = data.get("total", 0)
+    if total is None:
+        total = 0
+    first_chunk_len = int(total)
+    for chunk in data.get("chunks") or ():
+        first_chunk_len -= int(chunk.get("rowCount", 0))
+    return first_chunk_len
+
+
+def expected_inline_rowcount(data: dict[str, Any]) -> int | None:
+    """Rows the inline first chunk should hold, or ``None`` if ``total`` is unusable.
+
+    Unlike ``inline_first_chunk_rowcount``, a missing ``total`` is not treated as
+    zero: incompleteness detection must not invent a row promise.
+    """
+    if data.get("total") is None:
+        return None
+    try:
+        return inline_first_chunk_rowcount(data)
+    except (TypeError, ValueError):
+        return None
+
+
+def is_inline_result_incomplete(
+    data: dict[str, Any], query_result_format: str | None = None
+) -> bool:
+    """True when the inline first chunk is missing rows the server declared.
+
+    SNOW-4109042: GS can return HTTP 200 with a parseable body whose inline
+    ``rowset`` / ``rowsetBase64`` is empty while ``total`` still promises rows.
+    Callers re-fetch the finished query result before handing a ResultSet to
+    the application.
+
+    JSON uses ``len(rowset)`` (O(1)). Arrow only treats a missing/empty
+    ``rowsetBase64`` as incomplete so the execute hot path does not decode IPC.
+    A non-empty but short Arrow chunk is left to the batch rowcount check
+    (acceptable for the SNOW-4109042 GS cases, which were empty inline).
+    """
+    expected = expected_inline_rowcount(data)
+    if expected is None or expected <= 0:
+        return False
+    fmt = (query_result_format or data.get("queryResultFormat") or "json").lower()
+    if fmt == "json":
+        rowset = data.get("rowset")
+        if rowset is None:
+            return True
+        try:
+            actual = len(rowset)
+        except TypeError:
+            # Non-sequence rowset: skip recovery rather than fail the hot path.
+            return False
+        return actual < expected
+    return not data.get("rowsetBase64")
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from pandas import DataFrame
     from pyarrow import DataType, Table
@@ -146,8 +217,9 @@ def create_batches_from_response(
     column_converters: list[tuple[str, SnowflakeConverterType]] = []
     arrow_context: ArrowConverterContext | None = None
     rowtypes = data["rowtype"]
-    total_len: int = data.get("total", 0)
-    first_chunk_len = total_len
+    # Declared inline size. ArrowResultBatch.from_data uses it as rowcount;
+    # JSONResultBatch.from_data still takes len(rowset) and ignores this arg.
+    first_chunk_len = inline_first_chunk_rowcount(data)
     rest_of_chunks: list[ResultBatch] = []
     if _format == "json":
 
@@ -224,8 +296,6 @@ def create_batches_from_response(
                 )
                 for c in chunks
             ]
-    for c in rest_of_chunks:
-        first_chunk_len -= c.rowcount
     if _format == "json":
         first_chunk = JSONResultBatch.from_data(
             data.get("rowset"),
@@ -376,6 +446,14 @@ class ResultBatch(abc.ABC):
         """
         return self.create_iter()
 
+    def _rowcount_matches(self, rows_read: int) -> bool:
+        """True when ``rows_read`` satisfies the server's rowcount promise.
+
+        A non-positive ``rowcount`` is no promise (e.g. a response without
+        ``total``), so any length is accepted.
+        """
+        return self.rowcount <= 0 or rows_read == self.rowcount
+
     def _check_rowcount(self, rows_read: int) -> None:
         """Rejects a chunk that holds fewer rows than the back-end promised.
 
@@ -385,11 +463,10 @@ class ResultBatch(abc.ABC):
         the Arrow path its ``rowcount`` is ``create_batches_from_response``
         subtracting the back-end's per-chunk counts from the back-end's ``total``,
         so it is server metadata, and an empty ``rowsetBase64`` reads as a clean
-        end of stream. A non-positive ``rowcount`` is no promise at all -- a
-        response without ``total`` makes that subtraction zero or negative -- so
-        it is left alone.
+        end of stream. Callers that can re-download (remote chunks) retry before
+        raising; see ``MAX_INCOMPLETE_CHUNK_RETRY``.
         """
-        if self.rowcount <= 0 or rows_read == self.rowcount:
+        if self._rowcount_matches(rows_read):
             return
         raise Error.errorhandler_make_exception(
             OperationalError,
@@ -400,6 +477,16 @@ class ResultBatch(abc.ABC):
                 ),
                 "errno": ER_INCOMPLETE_RESULT_CHUNK,
             },
+        )
+
+    def _log_incomplete_chunk_retry(self, rows_read: int, retries_left: int) -> None:
+        logger.warning(
+            "Incomplete result batch %s holds %s row(s) but the server reported "
+            "%s; re-downloading (%s retry(s) left)",
+            self.id,
+            rows_read,
+            self.rowcount,
+            retries_left,
         )
 
     def _iter_checked_rows(
@@ -690,9 +777,10 @@ class JSONResultBatch(ResultBatch):
     def __repr__(self) -> str:
         return f"JSONResultChunk({self.id})"
 
-    def _fetch_data(
+    def _fetch_data_iteration(
         self, connection: SnowflakeConnection | None = None, **kwargs
     ) -> list[dict | Exception] | list[tuple | Exception]:
+        """Download, load and parse this remote chunk once."""
         response = self._download(connection=connection)
         # Load data to a intermediate form
         logger.debug(f"started loading result batch id: {self.id}")
@@ -704,7 +792,27 @@ class JSONResultBatch(ResultBatch):
         with TimerContextManager() as parse_metric:
             parsed_data = self._parse(downloaded_data)
         self._metrics[DownloadMetrics.parse.value] = parse_metric.get_timing_millis()
-        self._check_rowcount(len(parsed_data))
+        return parsed_data
+
+    def _fetch_data(
+        self, connection: SnowflakeConnection | None = None, **kwargs
+    ) -> list[dict | Exception] | list[tuple | Exception]:
+        """Download this remote chunk, retrying if the body is short of rowcount.
+
+        SNOW-4109042: a truncated-but-valid chunk body used to yield fewer rows
+        than ``rowcount`` and look like EOF. Re-download before raising.
+        """
+        parsed_data: list[dict | Exception] | list[tuple | Exception] = []
+        for attempt in range(MAX_INCOMPLETE_CHUNK_RETRY + 1):
+            parsed_data = self._fetch_data_iteration(connection=connection, **kwargs)
+            if self._rowcount_matches(len(parsed_data)):
+                return parsed_data
+            if attempt < MAX_INCOMPLETE_CHUNK_RETRY:
+                self._log_incomplete_chunk_retry(
+                    len(parsed_data), MAX_INCOMPLETE_CHUNK_RETRY - attempt
+                )
+                continue
+            self._check_rowcount(len(parsed_data))
         return parsed_data
 
     def populate_data(
@@ -977,9 +1085,26 @@ class ArrowResultBatch(ResultBatch):
                     force_microsecond_precision=force_microsecond_precision,
                 )
         else:
-            return self._iter_checked_rows(
-                self._create_iter(iter_unit=iter_unit, connection=connection)
-            )
+            if self._local:
+                return self._iter_checked_rows(
+                    self._create_iter(iter_unit=iter_unit, connection=connection)
+                )
+            # Remote Arrow: materialize so a short chunk can be re-downloaded
+            # before any rows are handed to the caller (SNOW-4109042).
+            rows: list = []
+            for attempt in range(MAX_INCOMPLETE_CHUNK_RETRY + 1):
+                rows = list(
+                    self._create_iter(iter_unit=iter_unit, connection=connection)
+                )
+                if self._rowcount_matches(len(rows)):
+                    return iter(rows)
+                if attempt < MAX_INCOMPLETE_CHUNK_RETRY:
+                    self._log_incomplete_chunk_retry(
+                        len(rows), MAX_INCOMPLETE_CHUNK_RETRY - attempt
+                    )
+                    continue
+                self._check_rowcount(len(rows))
+            return iter(rows)
 
     def populate_data(
         self, connection: SnowflakeConnection | None = None, **kwargs

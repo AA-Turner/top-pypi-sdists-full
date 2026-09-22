@@ -126,7 +126,11 @@ docstring-code-format = true
 
 [tool.mypy]
 python_version = "3.10"
-files = ["ag2/_import_utils.py"]
+files = [
+    "ag2/_import_utils.py",
+    "ag2/config/anthropic/mappers.py",
+    "ag2/config/openai/mappers.py",
+]
 strict = true
 ignore_missing_imports = true
 install_types = true
@@ -169,7 +173,7 @@ keywords = [
     "agentic",
 ]
 requires-python = ">=3.10"
-version = "1.0.5"
+version = "1.0.6"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
@@ -223,8 +227,8 @@ acp = [
     "uvicorn>=0.51.0,<1",
 ]
 ag-ui = ["ag-ui-protocol>=0.1.20,<0.2"]
-openai = ["openai>=3.4.0,<4"]
-anthropic = ["anthropic>=1.2.0,<2"]
+openai = ["openai>=3.9.0,<4"]
+anthropic = ["anthropic>=1.6.0,<2"]
 gemini = [
     "google-genai>=1.68.0,<3.0",
     "google-auth",
@@ -243,13 +247,13 @@ tavily = ["tavily-python>=0.7.4,<0.9"]
 ddgs = ["ddgs>=9.0.0,<10"]
 perplexity = ["perplexityai>=0.30.0,<1"]
 mcp = [
-    "mcp>=2.0.0,<3",
-    "mcp-types>=2.0.0,<3",
+    "mcp>=2.2.0,<3",
+    "mcp-types>=2.2.0,<3",
     "jsonschema>=4.20.0,<5",
 ]
 mcp-ui = [
     "mcp-ui-server>=1.0.0",
-    "mcp>=2.0.0,<3",
+    "mcp>=2.2.0,<3",
 ]
 
 [dependency-groups]
@@ -335,23 +339,23 @@ docs = [
     "mkdocs-redirects==1.2.3",
     "jinja2==3.1.6",
     "pyyaml==6.0.3",
-    "mcp>=2.0.0,<3",
+    "mcp>=2.2.0,<3",
 ]
 types = [
     "mypy==2.3.1",
     "types-PyYAML",
     { include-group = "test" },
-    "ag2[openai, a2a, ag-ui]",
+    "ag2[openai, anthropic, a2a, ag-ui]",
 ]
 lint = [
-    "ruff==0.16.5",
+    "ruff==0.16.7",
     "codespell==2.4.3",
-    "zizmor==1.30.0",
+    "zizmor==1.30.1",
 ]
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
     { include-group = "types" },
     { include-group = "docs" },
-    "prek==0.5.0",
+    "prek==0.5.3",
 ]

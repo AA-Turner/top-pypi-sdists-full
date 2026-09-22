@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..models.get_datatable_permissions_response_200_available_roles_item import (
         GetDatatablePermissionsResponse200AvailableRolesItem,
     )
+    from ..models.get_datatable_permissions_response_200_clone_of import GetDatatablePermissionsResponse200CloneOf
     from ..models.get_datatable_permissions_response_200_roles_item import GetDatatablePermissionsResponse200RolesItem
     from ..models.get_datatable_permissions_response_200_ungoverned_reachers_item import (
         GetDatatablePermissionsResponse200UngovernedReachersItem,
@@ -30,6 +31,8 @@ class GetDatatablePermissionsResponse200:
         editable (bool):
         available_roles (List['GetDatatablePermissionsResponse200AvailableRolesItem']):
         governing_workspace_id (Union[Unset, str]):
+        clone_of (Union[Unset, GetDatatablePermissionsResponse200CloneOf]): for a clone, the data table whose roles it
+            takes
         ungoverned_reachers (Union[Unset, List['GetDatatablePermissionsResponse200UngovernedReachersItem']]):
     """
 
@@ -40,6 +43,7 @@ class GetDatatablePermissionsResponse200:
     editable: bool
     available_roles: List["GetDatatablePermissionsResponse200AvailableRolesItem"]
     governing_workspace_id: Union[Unset, str] = UNSET
+    clone_of: Union[Unset, "GetDatatablePermissionsResponse200CloneOf"] = UNSET
     ungoverned_reachers: Union[Unset, List["GetDatatablePermissionsResponse200UngovernedReachersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -61,6 +65,10 @@ class GetDatatablePermissionsResponse200:
             available_roles.append(available_roles_item)
 
         governing_workspace_id = self.governing_workspace_id
+        clone_of: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.clone_of, Unset):
+            clone_of = self.clone_of.to_dict()
+
         ungoverned_reachers: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.ungoverned_reachers, Unset):
             ungoverned_reachers = []
@@ -83,6 +91,8 @@ class GetDatatablePermissionsResponse200:
         )
         if governing_workspace_id is not UNSET:
             field_dict["governing_workspace_id"] = governing_workspace_id
+        if clone_of is not UNSET:
+            field_dict["clone_of"] = clone_of
         if ungoverned_reachers is not UNSET:
             field_dict["ungoverned_reachers"] = ungoverned_reachers
 
@@ -93,6 +103,7 @@ class GetDatatablePermissionsResponse200:
         from ..models.get_datatable_permissions_response_200_available_roles_item import (
             GetDatatablePermissionsResponse200AvailableRolesItem,
         )
+        from ..models.get_datatable_permissions_response_200_clone_of import GetDatatablePermissionsResponse200CloneOf
         from ..models.get_datatable_permissions_response_200_roles_item import (
             GetDatatablePermissionsResponse200RolesItem,
         )
@@ -127,6 +138,13 @@ class GetDatatablePermissionsResponse200:
 
         governing_workspace_id = d.pop("governing_workspace_id", UNSET)
 
+        _clone_of = d.pop("clone_of", UNSET)
+        clone_of: Union[Unset, GetDatatablePermissionsResponse200CloneOf]
+        if isinstance(_clone_of, Unset):
+            clone_of = UNSET
+        else:
+            clone_of = GetDatatablePermissionsResponse200CloneOf.from_dict(_clone_of)
+
         ungoverned_reachers = []
         _ungoverned_reachers = d.pop("ungoverned_reachers", UNSET)
         for ungoverned_reachers_item_data in _ungoverned_reachers or []:
@@ -144,6 +162,7 @@ class GetDatatablePermissionsResponse200:
             editable=editable,
             available_roles=available_roles,
             governing_workspace_id=governing_workspace_id,
+            clone_of=clone_of,
             ungoverned_reachers=ungoverned_reachers,
         )
 

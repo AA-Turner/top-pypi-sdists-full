@@ -291,21 +291,6 @@ class GraphMatcher:
 
     def is_isomorphic(self):
         """Returns True if G1 and G2 are isomorphic graphs."""
-
-        # Let's do two very quick checks!
-        # QUESTION: Should we call faster_graph_could_be_isomorphic(G1,G2)?
-        # For now, I just copy the code.
-
-        # Check global properties
-        if self.G1.order() != self.G2.order():
-            return False
-
-        # Check local properties
-        d1 = sorted(d for n, d in self.G1.degree())
-        d2 = sorted(d for n, d in self.G2.degree())
-        if d1 != d2:
-            return False
-
         try:
             x = next(self.isomorphisms_iter())
             return True
@@ -316,7 +301,22 @@ class GraphMatcher:
         """Generator over isomorphisms between G1 and G2."""
         # Declare that we are looking for a graph-graph isomorphism.
         self.test = "graph"
-        self.initialize()
+        self.initialize()  # clears self.mapping and/or sets up
+
+        # Let's do two very quick checks!
+        # QUESTION: Should we call faster_graph_could_be_isomorphic(G1,G2)?
+        # For now, we just copy the code from there.
+
+        # Check global properties
+        if self.G1.order() != self.G2.order():
+            return
+
+        # Check local properties
+        d1 = sorted(d for n, d in self.G1.degree)
+        d2 = sorted(d for n, d in self.G2.degree)
+        if d1 != d2:
+            return
+
         yield from self.match()
 
     def match(self):
@@ -1096,25 +1096,17 @@ class GMState:
 
             # Now we add every other node...
 
-            # Updates for T_1^{inout}
-            new_nodes = set()
-            for node in GM.core_1:
-                new_nodes.update(
-                    [neighbor for neighbor in GM.G1[node] if neighbor not in GM.core_1]
-                )
-            for node in new_nodes:
-                if node not in GM.inout_1:
-                    GM.inout_1[node] = self.depth
+            # Incrementally update T_1^{inout} using the newly added node G1_node.
+            # Only neighbors of G1_node can newly enter the frontier.
+            for neighbor in GM.G1[G1_node]:
+                if neighbor not in GM.core_1 and neighbor not in GM.inout_1:
+                    GM.inout_1[neighbor] = self.depth
 
-            # Updates for T_2^{inout}
-            new_nodes = set()
-            for node in GM.core_2:
-                new_nodes.update(
-                    [neighbor for neighbor in GM.G2[node] if neighbor not in GM.core_2]
-                )
-            for node in new_nodes:
-                if node not in GM.inout_2:
-                    GM.inout_2[node] = self.depth
+            # Incrementally updates T_2^{inout} using the newly added node G2_node.
+            # Only neighbors of G2_node can newly enter the frontier.
+            for neighbor in GM.G2[G2_node]:
+                if neighbor not in GM.core_2 and neighbor not in GM.inout_2:
+                    GM.inout_2[neighbor] = self.depth
 
     def restore(self):
         """Deletes the GMState object and restores the class variables."""
@@ -1189,61 +1181,29 @@ class DiGMState:
 
             # Now we add every other node...
 
-            # Updates for T_1^{in}
-            new_nodes = set()
-            for node in GM.core_1:
-                new_nodes.update(
-                    [
-                        predecessor
-                        for predecessor in GM.G1.predecessors(node)
-                        if predecessor not in GM.core_1
-                    ]
-                )
-            for node in new_nodes:
-                if node not in GM.in_1:
-                    GM.in_1[node] = self.depth
+            # Incrementally update T_1^{in} using the newly added node G1_node.
+            # Only predecessors of G1_node can newly enter the frontier.
+            for predecessor in GM.G1.predecessors(G1_node):
+                if predecessor not in GM.core_1 and predecessor not in GM.in_1:
+                    GM.in_1[predecessor] = self.depth
 
-            # Updates for T_2^{in}
-            new_nodes = set()
-            for node in GM.core_2:
-                new_nodes.update(
-                    [
-                        predecessor
-                        for predecessor in GM.G2.predecessors(node)
-                        if predecessor not in GM.core_2
-                    ]
-                )
-            for node in new_nodes:
-                if node not in GM.in_2:
-                    GM.in_2[node] = self.depth
+            # Incrementally update T_2^{in} using the newly added node G2_node.
+            # Only predecessors of G2_node can newly enter the frontier.
+            for predecessor in GM.G2.predecessors(G2_node):
+                if predecessor not in GM.core_2 and predecessor not in GM.in_2:
+                    GM.in_2[predecessor] = self.depth
 
-            # Updates for T_1^{out}
-            new_nodes = set()
-            for node in GM.core_1:
-                new_nodes.update(
-                    [
-                        successor
-                        for successor in GM.G1.successors(node)
-                        if successor not in GM.core_1
-                    ]
-                )
-            for node in new_nodes:
-                if node not in GM.out_1:
-                    GM.out_1[node] = self.depth
+            # Incrementally update T_1^{out} using the newly added node G1_node.
+            # Only successors of G1_node can newly enter the frontier.
+            for successor in GM.G1.successors(G1_node):
+                if successor not in GM.core_1 and successor not in GM.out_1:
+                    GM.out_1[successor] = self.depth
 
-            # Updates for T_2^{out}
-            new_nodes = set()
-            for node in GM.core_2:
-                new_nodes.update(
-                    [
-                        successor
-                        for successor in GM.G2.successors(node)
-                        if successor not in GM.core_2
-                    ]
-                )
-            for node in new_nodes:
-                if node not in GM.out_2:
-                    GM.out_2[node] = self.depth
+            # Incrementally update T_2^{out} using the newly added node G2_node.
+            # Only successors of G2_node can newly enter the frontier.
+            for successor in GM.G2.successors(G2_node):
+                if successor not in GM.core_2 and successor not in GM.out_2:
+                    GM.out_2[successor] = self.depth
 
     def restore(self):
         """Deletes the DiGMState object and restores the class variables."""

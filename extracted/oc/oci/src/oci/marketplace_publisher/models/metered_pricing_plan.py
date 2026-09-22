@@ -39,7 +39,7 @@ class MeteredPricingPlan(PricingPlan):
 
         :param plan_type:
             The value to assign to the plan_type property of this MeteredPricingPlan.
-            Allowed values for this property are: "METERED", "FIXED", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "METERED", "FIXED", "USAGE_BASED", "HYBRID", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type plan_type: str
 

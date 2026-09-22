@@ -25,13 +25,15 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.common.v1 import sponsored_type_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_sponsored__type__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/contract/v2/billing_config.proto\x12-sentry_protos.billing.v1.services.contract.v2\x1a\x37sentry_protos/billing/v1/common/v1/sponsored_type.proto\"\x89\x01\n\x11SponsorshipConfig\x12\x11\n\tcan_trial\x18\x01 \x01(\x08\x12\x14\n\x0c\x63\x61n_checkout\x18\x02 \x01(\x08\x12K\n\x10sponsorship_type\x18\x03 \x01(\x0e\x32\x31.sentry_protos.billing.v1.common.v1.SponsoredType\"\x1d\n\nPaygConfig\x12\x0f\n\x07\x63harged\x18\x01 \x01(\x08\"\x12\n\x10\x43reditCardConfig\"g\n\x0eInvoicedConfig\x12L\n\x04payg\x18\x01 \x01(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v2.PaygConfigH\x00\x88\x01\x01\x42\x07\n\x05_payg\"#\n\rPartnerConfig\x12\x12\n\nself_serve\x18\x01 \x01(\x08\"\xa8\x03\n\rBillingConfig\x12\x16\n\x0emonth_interval\x18\x01 \x01(\r\x12\x61\n\x12sponsorship_config\x18\x05 \x01(\x0b\x32@.sentry_protos.billing.v1.services.contract.v2.SponsorshipConfigH\x01\x88\x01\x01\x12V\n\x0b\x63redit_card\x18\x02 \x01(\x0b\x32?.sentry_protos.billing.v1.services.contract.v2.CreditCardConfigH\x00\x12Q\n\x08invoiced\x18\x03 \x01(\x0b\x32=.sentry_protos.billing.v1.services.contract.v2.InvoicedConfigH\x00\x12O\n\x07partner\x18\x04 \x01(\x0b\x32<.sentry_protos.billing.v1.services.contract.v2.PartnerConfigH\x00\x42\t\n\x07\x62illingB\x15\n\x13_sponsorship_configb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/contract/v2/billing_config.proto\x12-sentry_protos.billing.v1.services.contract.v2\x1a\x37sentry_protos/billing/v1/common/v1/sponsored_type.proto\"\x89\x01\n\x11SponsorshipConfig\x12\x11\n\tcan_trial\x18\x01 \x01(\x08\x12\x14\n\x0c\x63\x61n_checkout\x18\x02 \x01(\x08\x12K\n\x10sponsorship_type\x18\x03 \x01(\x0e\x32\x31.sentry_protos.billing.v1.common.v1.SponsoredType\"\x1d\n\nPaygConfig\x12\x0f\n\x07\x63harged\x18\x01 \x01(\x08\"\x12\n\x10\x43reditCardConfig\"g\n\x0eInvoicedConfig\x12L\n\x04payg\x18\x01 \x01(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v2.PaygConfigH\x00\x88\x01\x01\x42\x07\n\x05_payg\"\x84\x01\n\rPartnerConfig\x12\x12\n\nself_serve\x18\x01 \x01(\x08\x12_\n\x10\x62illing_strategy\x18\x02 \x01(\x0e\x32\x45.sentry_protos.billing.v1.services.contract.v2.PartnerBillingStrategy\"\xa8\x03\n\rBillingConfig\x12\x16\n\x0emonth_interval\x18\x01 \x01(\r\x12\x61\n\x12sponsorship_config\x18\x05 \x01(\x0b\x32@.sentry_protos.billing.v1.services.contract.v2.SponsorshipConfigH\x01\x88\x01\x01\x12V\n\x0b\x63redit_card\x18\x02 \x01(\x0b\x32?.sentry_protos.billing.v1.services.contract.v2.CreditCardConfigH\x00\x12Q\n\x08invoiced\x18\x03 \x01(\x0b\x32=.sentry_protos.billing.v1.services.contract.v2.InvoicedConfigH\x00\x12O\n\x07partner\x18\x04 \x01(\x0b\x32<.sentry_protos.billing.v1.services.contract.v2.PartnerConfigH\x00\x42\t\n\x07\x62illingB\x15\n\x13_sponsorship_config*g\n\x16PartnerBillingStrategy\x12(\n$PARTNER_BILLING_STRATEGY_UNSPECIFIED\x10\x00\x12#\n\x1fPARTNER_BILLING_STRATEGY_VERCEL\x10\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v2.billing_config_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_PARTNERBILLINGSTRATEGY']._serialized_start=1032
+  _globals['_PARTNERBILLINGSTRATEGY']._serialized_end=1135
   _globals['_SPONSORSHIPCONFIG']._serialized_start=175
   _globals['_SPONSORSHIPCONFIG']._serialized_end=312
   _globals['_PAYGCONFIG']._serialized_start=314
@@ -40,8 +42,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CREDITCARDCONFIG']._serialized_end=363
   _globals['_INVOICEDCONFIG']._serialized_start=365
   _globals['_INVOICEDCONFIG']._serialized_end=468
-  _globals['_PARTNERCONFIG']._serialized_start=470
-  _globals['_PARTNERCONFIG']._serialized_end=505
-  _globals['_BILLINGCONFIG']._serialized_start=508
-  _globals['_BILLINGCONFIG']._serialized_end=932
+  _globals['_PARTNERCONFIG']._serialized_start=471
+  _globals['_PARTNERCONFIG']._serialized_end=603
+  _globals['_BILLINGCONFIG']._serialized_start=606
+  _globals['_BILLINGCONFIG']._serialized_end=1030
 # @@protoc_insertion_point(module_scope)

@@ -24,14 +24,21 @@ class CreateVideoDetails(object):
             The value to assign to the content_url property of this CreateVideoDetails.
         :type content_url: str
 
+        :param source_type:
+            The value to assign to the source_type property of this CreateVideoDetails.
+        :type source_type: str
+
         """
         self.swagger_types = {
-            'content_url': 'str'
+            'content_url': 'str',
+            'source_type': 'str'
         }
         self.attribute_map = {
-            'content_url': 'contentUrl'
+            'content_url': 'contentUrl',
+            'source_type': 'sourceType'
         }
         self._content_url = None
+        self._source_type = None
 
     @property
     def content_url(self):
@@ -56,6 +63,30 @@ class CreateVideoDetails(object):
         :type: str
         """
         self._content_url = content_url
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this CreateVideoDetails.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this CreateVideoDetails.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this CreateVideoDetails.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this CreateVideoDetails.
+        :type: str
+        """
+        self._source_type = source_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

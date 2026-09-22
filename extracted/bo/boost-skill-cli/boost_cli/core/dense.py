@@ -509,6 +509,35 @@ def tap_commits() -> dict[str, str]:
     return {str(k): str(v) for k, v in commits.items() if v}
 
 
+#: The requirement that pulls in the extra. Never shown bare: unquoted, zsh
+#: reads ``[rag]`` as a glob and answers "no matches found" instead of running
+#: the command. Every surface gets it through :func:`install_extra`.
+EXTRA_SPEC = "boost-skill-cli[rag]"
+
+#: Stands in for :func:`install_extra`'s answer inside ``_FIX``, which is data
+#: built at import time and cannot know how this boost was installed.
+_INSTALL = "{install-extra}"
+
+
+def install_extra() -> str:
+    """The one command that adds the ``[rag]`` extra to *this* boost.
+
+    One answer for every surface — quickstart, reindex, doctor, search — because
+    three used to give three: a pipx line, a quoted pip line, and an unquoted
+    pip line that zsh refuses to run. Asked of the install rather than fixed,
+    because the wrong manager is not a style problem: under pipx, `pip install`
+    lands the extra in some other Python, and boost goes on without it.
+
+    Double quotes, as README and docs/semantic-search.md print it: they stop
+    the glob in every POSIX shell and PowerShell, and cmd.exe strips them where
+    it would pass single quotes through to pip.
+    """
+    from . import selfupdate
+    if selfupdate.detect() == selfupdate.PIPX:
+        return 'pipx inject %s "%s"' % (selfupdate.DIST, EXTRA_SPEC)
+    return 'pip install "%s"' % EXTRA_SPEC
+
+
 # Why dense retrieval isn't serving, keyed by the `reason` status() returns.
 # Each names the ONE next action; the reason order in status() guarantees only
 # the first missing link is ever reported, so these never chain.
@@ -518,19 +547,33 @@ def tap_commits() -> dict[str, str]:
 # is how a surface ends up telling a user to set an API key that the [rag]
 # extra's local model already made unnecessary.
 _FIX = {
-    "no-backend": "install the extra: `pip install 'boost-skill-cli[rag]'`",
+    # First rung, and deliberately above `no-backend`: BOOST_NO_EMBED is read
+    # inside `embed.provider()` before any key or backend is looked at, so
+    # every other remedy in this table is a measured no-op while it is set.
+    # Telling that user to install a 133 MB extra, or to export a key, is the
+    # failure mode this whole table exists to prevent.
+    "disabled": "unset the kill switch: `unset BOOST_NO_EMBED`",
+    "no-backend": "install the extra: `%s`" % _INSTALL,
     # Names the keyless remedy first: since the [rag] extra carries a local
     # embedding model, an API key is the quality ceiling, not the entry fee.
     # This reason means "no key AND no local backend", which in practice is a
-    # partial install or BOOST_NO_EMBED.
-    "no-key": ("reinstall the extra: `pip install 'boost-skill-cli[rag]'` "
-               "(or set VOYAGE_API_KEY / OPENAI_API_KEY for a larger model)"),
+    # partial install — the extra present but its model backend not importable.
+    # The kill switch is no longer one of these: it has its own rung above.
+    "no-key": ("reinstall the extra: `%s` "
+               "(or set VOYAGE_API_KEY / OPENAI_API_KEY for a larger model)"
+               % _INSTALL),
     "no-store": "build it: `boost reindex --dense`",
     "version-changed": "rebuild it: `boost reindex --dense --force`",
     "provider-changed": "rebuild it: `boost reindex --dense --force`",
     "model-changed": "rebuild it: `boost reindex --dense --force`",
     "dim-changed": "rebuild it: `boost reindex --dense --force`",
     "empty": "rebuild it: `boost reindex --dense --force`",
+    # The store is fine and the query embedder is not: the local model could
+    # not be fetched or loaded. Not `--force` — every vector on disk is still
+    # good, and re-embedding them needs the very model that is missing.
+    # Searches hold back a retry for an hour; this command retries at once.
+    "model-unavailable": ("retry the local model (a 133 MB download from "
+                          "huggingface.co): `boost reindex --dense`"),
 }
 
 
@@ -570,7 +613,14 @@ def fix_hint(reason: str, status: dict | None = None) -> str:
             return ("set the key it was built with: `export %s=...` — "
                     "reinstalling the extra swaps in the local model and "
                     "forces all %s to be re-embedded" % (env, n))
-    return _FIX.get(reason, "see `boost reindex --dense`")
+    if (reason == "model-unavailable" and status
+            and (status.get("model_failure") or {}).get("stage") == "load"):
+        # The files are on disk and the load itself failed: promising a
+        # download here contradicted reindex's own warning, which already
+        # leaves the network out for this stage.
+        return "retry loading the local model: `boost reindex --dense`"
+    hint = _FIX.get(reason, "see `boost reindex --dense`")
+    return hint.replace(_INSTALL, install_extra()) if _INSTALL in hint else hint
 
 
 def status(*, count: bool = False) -> dict:
@@ -593,6 +643,20 @@ def status(*, count: bool = False) -> dict:
     *silently* today, because :func:`rag.retrieve_any` floors to BM25 and
     returns. ``reason`` names which link is missing so a caller can say so.
 
+    ``disabled`` is a fourth state and not a missing link at all: it is the
+    ``BOOST_NO_EMBED`` kill switch, which :func:`embed.provider` reads before
+    any key. It used to read as ``no-key``, which made every remedy this module
+    offers inert — measured on a 5-chunk voyage-4 store, exporting the key the
+    hint named produced a byte-identical status and the byte-identical hint.
+
+    ``model-unavailable`` is the last link: a store that matches the live
+    space but whose query embedder cannot run, because the local model could
+    not be fetched or loaded. Nothing in the store shows that, so it is read
+    from the failure :mod:`core.localembed` records — never probed, since the
+    probe *is* the 133 MB fetch. It used to report ready: doctor green-ticked
+    a tier that never ran and every search re-paid the failed fetch.
+    ``model_failure`` carries the record (stage, error, when).
+
     ``degraded`` is the load-bearing distinction: a user who never configured
     dense search is *healthy* (BM25 is the documented default), while a user
     who did all three steps and is still on BM25 has a real problem no other
@@ -612,11 +676,20 @@ def status(*, count: bool = False) -> dict:
     # lets the count stay unknown without any reason becoming a guess.
     nonempty = bool(meta.get("_nonempty"))
     store_exists = bool(meta)
+    # Only the local provider records one: an API key's failures are not
+    # tracked, and a record left by the local model says nothing about Voyage.
+    failure = embed.local_failure() if prov == "local" else None
 
     # Order matters: report the *first* missing link, so the message names the
     # next action rather than a downstream symptom of the same gap.
-    if not have_be:
-        reason: str | None = "no-backend"
+    if not embed.enabled():
+        # The kill switch outranks every other rung because `provider()` reads
+        # it first: with BOOST_NO_EMBED set, installing the extra and exporting
+        # a key both leave this status byte-identical, so naming any other link
+        # would send the user to a remedy that provably cannot work.
+        reason: str | None = "disabled"
+    elif not have_be:
+        reason = "no-backend"
     elif prov is None:
         reason = "no-key"
     elif not store_exists:
@@ -631,6 +704,11 @@ def status(*, count: bool = False) -> dict:
         reason = "dim-changed"
     elif not nonempty:
         reason = "empty"
+    elif failure is not None:
+        # Last, below every store rung: a stale store needs rebuilding either
+        # way, and rebuilding needs this same model, so naming the store first
+        # names the one step the user would take next anyway.
+        reason = "model-unavailable"
     else:
         reason = None
 
@@ -639,8 +717,14 @@ def status(*, count: bool = False) -> dict:
     # that stops them serving (a dropped extra, an unset key, a changed model)
     # is a real fault. Without a store there is nothing to have regressed:
     # "no-store" is an unfinished setup, and it is the one reason that implies
-    # store_exists is False, so this single clause covers every case.
-    degraded = store_exists and reason is not None
+    # store_exists is False, so that side needs no clause of its own.
+    #
+    # "disabled" is the exception, and the only one: the user turned dense off
+    # on purpose, so a store sitting idle behind their own kill switch is not a
+    # fault and must not move an exit code. Counting it did — `boost doctor`
+    # returned 1 forever on any machine that set BOOST_NO_EMBED after building
+    # a store, which breaks it as a CI gate for exactly the user who opted out.
+    degraded = store_exists and reason is not None and reason != "disabled"
 
     return {
         "backend": have_be,
@@ -655,6 +739,7 @@ def status(*, count: bool = False) -> dict:
         # query. Nothing else in this dict distinguishes it.
         "quantized": bool(meta.get("_quantized")),
         "taps": len(commits) if isinstance(commits, dict) else 0,
+        "model_failure": failure,
         "ready": reason is None,
         "reason": reason,
         "degraded": degraded,
@@ -668,6 +753,12 @@ def ready() -> bool:
     every BM25-only install — this must answer False without importing the
     backend, because ``have_backend()`` drags in numpy via sqlite_vec
     (~120 ms measured) and every cold ``boost search`` asks.
+
+    It answers for the *store*, not the query embedder, so it stays True where
+    ``status()`` says ``model-unavailable``. That is deliberate: re-importing
+    shards after a tap moves and the near-duplicate collapse read stored
+    vectors and need no model, and a query embedding that cannot be made is
+    refused cheaply inside ``core.localembed`` while its failure is recent.
     """
     if not db_path().exists():
         return False
@@ -947,8 +1038,8 @@ def _unreadable_vectors(tap: str, expected: int,
         "%s has %d embedded chunk%s but its vectors cannot be read%s"
         % (tap, expected, "" if expected == 1 else "s", detail),
         hint="reading vectors needs the sqlite-vec extension — install the "
-             "`rag` extra (`pip install 'boost-skill-cli[rag]'`); the rows "
-             "themselves are intact, so no re-embedding is required")
+             "`rag` extra (`%s`); the rows themselves are intact, so no "
+             "re-embedding is required" % install_extra())
 
 
 def import_shard(shard: dict, commit: str) -> tuple[bool, str]:

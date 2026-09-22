@@ -40,6 +40,54 @@ async def filesystem_scan(runtime: DirectRuntime) -> dict:
     return await runtime.send_command("scan_filesystem", {}, timeout=35.0)
 
 
+# Deferred discovery has a 25-second budget; leave response headroom.
+_REORGANIZE_TIMEOUT = 35.0
+
+
+async def filesystem_move(runtime: DirectRuntime, path: str, new_path: str) -> dict:
+    """Move a resource group without unsupported dependency rewrites.
+
+    Sidecars and proven UID references are preserved. Literal path owners,
+    project-setting references, links and incomplete discovery are refused.
+    """
+    await require_writable_async(runtime)
+    return await runtime.send_command(
+        "move_file",
+        {"path": path, "new_path": new_path},
+        timeout=_REORGANIZE_TIMEOUT,
+    )
+
+
+async def filesystem_rename(runtime: DirectRuntime, path: str, new_name: str) -> dict:
+    """Rename a file or directory in place (``new_name`` is a bare name)."""
+    await require_writable_async(runtime)
+    return await runtime.send_command(
+        "rename_file",
+        {"path": path, "new_name": new_name},
+        timeout=_REORGANIZE_TIMEOUT,
+    )
+
+
+async def filesystem_remove(
+    runtime: DirectRuntime,
+    path: str,
+    force: bool = False,
+    permanent: bool = False,
+) -> dict:
+    """Remove a file or directory, refusing referenced targets unless forced.
+
+    Defaults to the OS trash (what the editor's own Delete does) so a mistaken
+    removal is recoverable; ``permanent=True`` deletes files only. Permanent
+    directory removal is refused.
+    """
+    await require_writable_async(runtime)
+    return await runtime.send_command(
+        "remove_file",
+        {"path": path, "force": force, "permanent": permanent},
+        timeout=_REORGANIZE_TIMEOUT,
+    )
+
+
 async def filesystem_search(
     runtime: DirectRuntime,
     name: str = "",

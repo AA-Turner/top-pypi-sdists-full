@@ -49,6 +49,18 @@ class CreateRelatedDocumentAttachmentDetails(CreateListingRevisionAttachmentDeta
             The value to assign to the document_category property of this CreateRelatedDocumentAttachmentDetails.
         :type document_category: str
 
+        :param source_url:
+            The value to assign to the source_url property of this CreateRelatedDocumentAttachmentDetails.
+        :type source_url: str
+
+        :param source_type:
+            The value to assign to the source_type property of this CreateRelatedDocumentAttachmentDetails.
+        :type source_type: str
+
+        :param is_oracle_users_only:
+            The value to assign to the is_oracle_users_only property of this CreateRelatedDocumentAttachmentDetails.
+        :type is_oracle_users_only: bool
+
         """
         self.swagger_types = {
             'listing_revision_id': 'str',
@@ -57,7 +69,10 @@ class CreateRelatedDocumentAttachmentDetails(CreateListingRevisionAttachmentDeta
             'attachment_type': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
-            'document_category': 'str'
+            'document_category': 'str',
+            'source_url': 'str',
+            'source_type': 'str',
+            'is_oracle_users_only': 'bool'
         }
         self.attribute_map = {
             'listing_revision_id': 'listingRevisionId',
@@ -66,7 +81,10 @@ class CreateRelatedDocumentAttachmentDetails(CreateListingRevisionAttachmentDeta
             'attachment_type': 'attachmentType',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
-            'document_category': 'documentCategory'
+            'document_category': 'documentCategory',
+            'source_url': 'sourceUrl',
+            'source_type': 'sourceType',
+            'is_oracle_users_only': 'isOracleUsersOnly'
         }
         self._listing_revision_id = None
         self._display_name = None
@@ -75,6 +93,9 @@ class CreateRelatedDocumentAttachmentDetails(CreateListingRevisionAttachmentDeta
         self._freeform_tags = None
         self._defined_tags = None
         self._document_category = None
+        self._source_url = None
+        self._source_type = None
+        self._is_oracle_users_only = None
         self._attachment_type = 'RELATED_DOCUMENT'
 
     @property
@@ -100,6 +121,78 @@ class CreateRelatedDocumentAttachmentDetails(CreateListingRevisionAttachmentDeta
         :type: str
         """
         self._document_category = document_category
+
+    @property
+    def source_url(self):
+        """
+        Gets the source_url of this CreateRelatedDocumentAttachmentDetails.
+        The document URL of the listing revision attachment.
+
+
+        :return: The source_url of this CreateRelatedDocumentAttachmentDetails.
+        :rtype: str
+        """
+        return self._source_url
+
+    @source_url.setter
+    def source_url(self, source_url):
+        """
+        Sets the source_url of this CreateRelatedDocumentAttachmentDetails.
+        The document URL of the listing revision attachment.
+
+
+        :param source_url: The source_url of this CreateRelatedDocumentAttachmentDetails.
+        :type: str
+        """
+        self._source_url = source_url
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this CreateRelatedDocumentAttachmentDetails.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this CreateRelatedDocumentAttachmentDetails.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this CreateRelatedDocumentAttachmentDetails.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this CreateRelatedDocumentAttachmentDetails.
+        :type: str
+        """
+        self._source_type = source_type
+
+    @property
+    def is_oracle_users_only(self):
+        """
+        Gets the is_oracle_users_only of this CreateRelatedDocumentAttachmentDetails.
+        Identifies whether the attachment is for Internal Oracle Users or external users as well.
+
+
+        :return: The is_oracle_users_only of this CreateRelatedDocumentAttachmentDetails.
+        :rtype: bool
+        """
+        return self._is_oracle_users_only
+
+    @is_oracle_users_only.setter
+    def is_oracle_users_only(self, is_oracle_users_only):
+        """
+        Sets the is_oracle_users_only of this CreateRelatedDocumentAttachmentDetails.
+        Identifies whether the attachment is for Internal Oracle Users or external users as well.
+
+
+        :param is_oracle_users_only: The is_oracle_users_only of this CreateRelatedDocumentAttachmentDetails.
+        :type: bool
+        """
+        self._is_oracle_users_only = is_oracle_users_only
 
     def __repr__(self):
         return formatted_flat_dict(self)

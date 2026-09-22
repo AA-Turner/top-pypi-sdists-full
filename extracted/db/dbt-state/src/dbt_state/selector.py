@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 from collections import defaultdict, deque
 from itertools import islice
 from pathlib import Path
@@ -209,6 +210,7 @@ class StateSelector(StateSelectorMethod):
         selector: str,
         included_nodes: set[UniqueId],
     ) -> t.Iterator[UniqueId]:
+        request_id = str(uuid.uuid4())
         dbt_project_id = run_cache_config.dbt_project_id
 
         selector_criteria = _SELECTOR_CRITERIA_MAP.get(selector)
@@ -221,7 +223,12 @@ class StateSelector(StateSelectorMethod):
         target_name = run_cache_config.defer_to
 
         requests = self._create_request_batches(
-            included_nodes, target_name, dbt_project_id, runtime_config, selector_criteria
+            included_nodes,
+            target_name,
+            dbt_project_id,
+            runtime_config,
+            selector_criteria,
+            request_id,
         )
 
         for request in requests:
@@ -236,6 +243,7 @@ class StateSelector(StateSelectorMethod):
         dbt_project_id: t.Optional[str],
         runtime_config: RuntimeConfig,
         selector_criteria: selector_service_models.SelectorCriteria,
+        request_id: str,
     ) -> t.List[selector_service_models.SelectorRequest]:
 
         def generate_node_data() -> t.Iterator[selector_service_models.DbtNodeData]:
@@ -273,6 +281,7 @@ class StateSelector(StateSelectorMethod):
                 project_id=dbt_project_id,  # ty:ignore[invalid-argument-type]
                 nodes=batch,
                 selector_criteria=selector_criteria,
+                request_id=request_id,
             )
             requests.append(request)
 

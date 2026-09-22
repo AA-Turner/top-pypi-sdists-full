@@ -382,9 +382,16 @@ def test_text_model_gets_prose_and_a_schema_bound_to_the_same_questions():
     assert "- 3: data or money at risk" in prose
     assert REPORT_TEXT in prose
 
-    schema = config.response_format.json_schema.schema_.model_dump(
-        mode="json", by_alias=True, exclude_none=True
+    # A PLAIN DICT. Every translator reads this field with isinstance(...,
+    # dict) — Anthropic's `_build_anthropic_output_format` returns None on its
+    # first line otherwise, so the schema is silently NOT enforced and the
+    # model answers in prose (seen live on claude-sonnet-5, 2026-09-20).
+    assert isinstance(config.response_format, dict), (
+        "response_format must be the normalized dict, not the Pydantic model — "
+        "UnifiedConfig is a dataclass and does not validate on assignment."
     )
+    assert config.response_format["type"] == "json_schema"
+    schema = config.response_format["json_schema"]["schema"]
     answers_schema = schema["properties"]["answers"]
     assert set(answers_schema["required"]) == {"is_defect", "owning_surface", "urgency"}
     assert answers_schema["properties"]["owning_surface"]["properties"]["answer"]["enum"] == [
@@ -622,3 +629,206 @@ def test_the_questions_a_user_asked_are_never_the_runs_output():
     asked = DecisionQuestionsContent(questions=[dict(q) for q in TRIAGE_QUESTIONS])
     assert asked.get_output() == ""
     assert "is_defect" in asked.to_prose()
+
+
+# --- The live stream: a decision reaches the surface as it lands ------------
+#
+# THE BREAK THIS CATCHES: the decision routes stop emitting the
+# `decision_answers` data event, or emit something other than the part they
+# return. Both are invisible to every assertion above — the run succeeds, the
+# part is correct, the response is correct — and both leave an agent-battle
+# column reading "this run finished without writing an answer" over a paid
+# decision (feedback efc7c841, 2026-09-21). The event IS the fix, so the event
+# is what is asserted.
+
+
+@pytest.fixture
+def stream_recorder(monkeypatch):
+    """Capture everything the decision path sends on the stream."""
+    from matrx_ai.context import app_context as app_context_mod
+
+    sent: list = []
+
+    class _Emitter:
+        async def send_data(self, payload):
+            sent.append(payload)
+
+    monkeypatch.setattr(
+        app_context_mod,
+        "try_get_app_context",
+        lambda *_a, **_k: SimpleNamespace(emitter=_Emitter()),
+    )
+    return sent
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("provider_answers", "defect", "surface", "score"),
+    [
+        (
+            {
+                "is_defect": {"type": "noul", "noul": 0.91},
+                "urgency": {
+                    "type": "score",
+                    "score": 3.4,
+                    "probabilities": {"1": 0.0, "2": 0.1, "3": 0.4, "4": 0.4, "5": 0.1},
+                    "confidence": 0.4,
+                    "legend": {
+                        "1": "cosmetic",
+                        "2": "minor friction",
+                        "3": "a feature is blocked",
+                        "4": "data or money at risk",
+                        "5": "down for someone",
+                    },
+                },
+                "owning_surface": {
+                    "type": "choice",
+                    "choice": "data",
+                    "probabilities": {
+                        "frontend": 0.1,
+                        "server": 0.2,
+                        "data": 0.62,
+                        "infrastructure": 0.03,
+                        "unclear": 0.05,
+                    },
+                    "confidence": 0.62,
+                },
+            },
+            True,
+            "data",
+            3.4,
+        ),
+        (
+            {
+                "is_defect": {"type": "noul", "noul": 0.21},
+                "urgency": {
+                    "type": "score",
+                    "score": 1.2,
+                    "probabilities": {"1": 0.6, "2": 0.3, "3": 0.05, "4": 0.03, "5": 0.02},
+                    "confidence": 0.6,
+                    "legend": {
+                        "1": "cosmetic",
+                        "2": "minor friction",
+                        "3": "a feature is blocked",
+                        "4": "data or money at risk",
+                        "5": "down for someone",
+                    },
+                },
+                "owning_surface": {
+                    "type": "choice",
+                    "choice": "frontend",
+                    "probabilities": {
+                        "frontend": 0.8,
+                        "server": 0.1,
+                        "data": 0.05,
+                        "infrastructure": 0.03,
+                        "unclear": 0.02,
+                    },
+                    "confidence": 0.8,
+                },
+            },
+            False,
+            "frontend",
+            1.2,
+        ),
+    ],
+)
+async def test_native_decision_streams_the_same_part_it_returns(
+    decision_wire, stream_recorder, provider_answers, defect, surface, score
+):
+    decision_wire.install(provider_answers)
+    config = UnifiedConfig(model="jev-1.13", messages=[_triage_message()])
+    response = await UnifiedAIClient().execute(
+        AIMatrixRequest(conversation_id="triage-live", config=config)
+    )
+
+    events = [event for event in stream_recorder if getattr(event, "type", "") == "decision_answers"]
+    assert len(events) == 1, (
+        "A decision turn emits exactly ONE decision_answers event. Zero means the "
+        "live surface shows nothing; more than one means a column would render "
+        "the same verdict twice."
+    )
+    event = events[0]
+
+    # The event and the returned part are the SAME decision, field for field.
+    part = response.messages[0].content[0].answers
+    assert event.model == part.model
+    assert event.method == part.method == "native"
+    assert event.cost_usd == part.cost_usd
+    assert event.usage.input_tokens == part.usage.input_tokens
+    assert set(event.answers) == set(part.answers)
+
+    # The values are the RUN's, not a constant: both rows differ in all three.
+    assert event.answers["is_defect"].answer is defect
+    assert event.answers["owning_surface"].answer == surface
+    assert event.answers["urgency"].answer == pytest.approx(score)
+
+    # The kind marker is DATA and rides the event — the frontend dispatches on
+    # it to commit the part (`__kind` law).
+    assert event.model_dump(by_alias=True)["__kind"] == "decision_answers"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resolved_name", ["claude-sonnet-5", "gpt-5.2"])
+async def test_verbalized_answer_records_the_resolved_model_name_not_the_uuid(
+    monkeypatch, stream_recorder, resolved_name
+):
+    """THE BREAK: the answer's `model` goes back to reading ``config.model``.
+
+    An agent names its model by the ``ai.model`` UUID, so that read wrote
+    "0f9c…" into the answer while the native route wrote "jev-1.13.0" — the
+    same fact spelled two ways, and unreadable in a battle's model column.
+    """
+    from matrx_ai.providers import unified_client as unified_client_mod
+
+    agent_model_uuid = "6f0a3b52-2b77-4e64-9c3a-1f2ab0f5d901"
+    config = UnifiedConfig(model=agent_model_uuid, messages=[_triage_message()])
+    overlay = prepare_verbalized_decision(
+        config, model_name=resolved_name, supports_structured_output=True
+    )
+    assert overlay is not None
+    config.metadata = {unified_client_mod._VERBALIZED_DECISION_KEY: overlay}
+
+    reply = SimpleNamespace(
+        messages=[
+            UnifiedMessage(
+                role="assistant",
+                content=[
+                    TextContent(
+                        text=(
+                            '{"answers": {'
+                            '"is_defect": {"answer": true, "probability": 0.93, '
+                            '"confidence": 0.93},'
+                            '"owning_surface": {"answer": "data", "probabilities": '
+                            '{"frontend": 0.08, "server": 0.14, "data": 0.7, '
+                            '"infrastructure": 0.03, "unclear": 0.05}, "confidence": 0.7},'
+                            '"urgency": {"probabilities": {"0": 0.0, "1": 0.1, "2": 0.2, '
+                            '"3": 0.6, "4": 0.1}, "confidence": 0.6}}}'
+                        )
+                    )
+                ],
+            )
+        ],
+        usage=SimpleNamespace(input_tokens=1204, output_tokens=180),
+        metadata={},
+    )
+
+    async def _dispatch(_self, _request):
+        return reply
+
+    monkeypatch.setattr(UnifiedAIClient, "_execute_dispatch", _dispatch)
+
+    response = await UnifiedAIClient().execute(
+        AIMatrixRequest(conversation_id="triage-verbalized", config=config)
+    )
+    answers = response.messages[-1].content[0].answers
+    assert answers.model == resolved_name
+    assert agent_model_uuid not in answers.model
+
+    # And the verbalized route streams the identical event the native one does.
+    events = [
+        event for event in stream_recorder if getattr(event, "type", "") == "decision_answers"
+    ]
+    assert len(events) == 1
+    assert events[0].model == resolved_name
+    assert events[0].method == "verbalized"

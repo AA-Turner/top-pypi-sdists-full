@@ -26,6 +26,9 @@
 #include "SciQLopPlots/SciQLopPlotInterface.hpp"
 #include <limits>
 
+class ColorScaleController;
+class SciQLopNDProjectionCurves;
+
 class SciQLopNDProjectionPlot : public SciQLopPlotInterface
 {
     Q_OBJECT
@@ -40,14 +43,15 @@ protected:
     bool m_linked_crosshairs = false;
     bool m_time_color_enabled = false;
     bool m_enforcing_aspect = false;
-    QColor m_time_color_start { 0, 0, 255 };
-    QColor m_time_color_end { 255, 0, 0 };
+    bool m_shared_legend = false;
+    ColorScaleController* m_scale = nullptr;
     QList<QCPItemEllipse*> m_time_markers;
     double m_time_marker_key = std::numeric_limits<double>::quiet_NaN();
     QPointer<SciQLopTheme> m_theme;
 
     Q_SLOT void _enforce_equal_aspect();
     void _ensure_marker_layer();
+    void _setup_color_scale();
 
     virtual SciQLopGraphInterface*
     plot_impl(GetDataPyCallable callable, QStringList labels = QStringList(),
@@ -114,12 +118,39 @@ public:
         const QString& label = QString(),
         const QColor& color = QColor());
 
+    //! Shows the legend on the first pane only, instead of repeating it in every pane.
+    void set_shared_legend(bool shared);
+    inline bool shared_legend() const noexcept { return m_shared_legend; }
+
     void set_linked_crosshairs(bool enabled) noexcept;
     bool linked_crosshairs() const noexcept { return m_linked_crosshairs; }
 
     void set_time_color_enabled(bool enabled) noexcept;
     bool time_color_enabled() const noexcept { return m_time_color_enabled; }
     void set_time_color_gradient(const QColor& start, const QColor& end) noexcept;
+    //! Two-stop gradient of the shared scale, and so of every scalar-coloured curve. It
+    //! also colours by time, so one choice serves both modes.
+    void set_z_gradient_colors(const QColor& start, const QColor& end);
+    //! Preset gradient of the shared scale.
+    void set_z_gradient(::ColorGradient gradient);
+
+    /*!
+     * \brief z_axis The plot's one colour scale, shared by every pane and graph.
+     *        It sits next to the last pane and only shows once a graph is coloured
+     *        by a scalar.
+     */
+    inline virtual SciQLopPlotAxisInterface* z_axis() const noexcept override
+    {
+        return m_plots.isEmpty() ? nullptr : m_plots.last()->z_axis();
+    }
+    //! While on (the default) the scale range follows the coloured data of all graphs;
+    //! setting the range through z_axis() switches it off.
+    bool z_auto_range() const noexcept;
+    void set_z_auto_range(bool enabled);
+#ifndef BINDINGS_H
+    //! For the graphs only: called when their colour scalar changes or they go away.
+    void update_color_scale();
+#endif
 
     /*!
      * \brief set_time_marker Highlight, on every subplot, the trajectory point
@@ -134,6 +165,15 @@ public:
      *       a subplot whose curve carries no time values has nothing to mark.
      */
     inline double time_marker_key() const noexcept { return m_time_marker_key; }
+
+#ifdef BINDINGS_H
+signals:
+#endif
+    //! Emitted when the marker moves to a new time, with NaN when it is cleared.
+    Q_SIGNAL void time_marker_changed(double t);
+#ifdef BINDINGS_H
+public:
+#endif
 
     inline virtual SciQLopPlotAxisInterface* time_axis() const noexcept override
     {

@@ -51,6 +51,13 @@ pub struct PyPdfResult {
     /// Whether encoding issues were detected.
     #[pyo3(get)]
     pub has_encoding_issues: bool,
+    /// Fonts whose ToUnicode CMap — or, for a font without one, the embedded
+    /// program's cmap table — lacked an entry for a code the document shows
+    /// through it, with the counts of codes shown, read from their neighbours
+    /// and left as U+FFFD. Always empty for `detect_pdf`, which decodes no
+    /// text; otherwise empty when every such code had an entry.
+    #[pyo3(get)]
+    pub cmap_gaps: Vec<PyFontCMapGaps>,
 }
 
 #[pymethods]
@@ -81,6 +88,37 @@ impl PyPageOcrReasons {
         format!(
             "PageOcrReasons(page={}, reasons={:?})",
             self.page, self.reasons
+        )
+    }
+}
+
+/// A font whose ToUnicode CMap — or, for a font without one, the embedded
+/// program's cmap table — had no entry for some of the codes the document
+/// shows through it, and what became of those codes.
+#[pyclass(name = "FontCMapGaps")]
+#[derive(Clone)]
+pub struct PyFontCMapGaps {
+    /// The font's /BaseFont name, or its resource name when it has none.
+    #[pyo3(get)]
+    pub font: String,
+    /// Codes shown through the font's CMap, repeats included: two-byte codes,
+    /// or the bytes of a single-byte CMap.
+    #[pyo3(get)]
+    pub codes: u32,
+    /// Codes without an entry that were read from the mapped codes around them.
+    #[pyo3(get)]
+    pub interpolated: u32,
+    /// Codes without an entry that could not be read; each is a U+FFFD in the text.
+    #[pyo3(get)]
+    pub unmapped: u32,
+}
+
+#[pymethods]
+impl PyFontCMapGaps {
+    fn __repr__(&self) -> String {
+        format!(
+            "FontCMapGaps(font={:?}, codes={}, interpolated={}, unmapped={})",
+            self.font, self.codes, self.interpolated, self.unmapped
         )
     }
 }
@@ -503,7 +541,19 @@ fn to_py_result(r: crate::PdfProcessResult) -> PyPdfResult {
         pages_with_tables: r.layout.pages_with_tables,
         pages_with_columns: r.layout.pages_with_columns,
         has_encoding_issues: r.has_encoding_issues,
+        cmap_gaps: to_py_font_cmap_gaps(r.cmap_gaps),
     }
+}
+
+fn to_py_font_cmap_gaps(gaps: Vec<crate::FontCMapGaps>) -> Vec<PyFontCMapGaps> {
+    gaps.into_iter()
+        .map(|gap| PyFontCMapGaps {
+            font: gap.font,
+            codes: gap.codes,
+            interpolated: gap.interpolated,
+            unmapped: gap.unmapped,
+        })
+        .collect()
 }
 
 fn to_py_page_ocr_reasons(reasons: Vec<crate::PageOcrReasons>) -> Vec<PyPageOcrReasons> {
@@ -874,7 +924,7 @@ fn detect_pdf_bytes(data: &[u8]) -> PyResult<PyPdfResult> {
 /// Pages in pages_needing_ocr are 0-indexed.
 #[pyfunction]
 fn classify_pdf(path: &str) -> PyResult<PyPdfClassification> {
-    let data = std::fs::read(path).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let data = crate::read_file(std::path::Path::new(path)).map_err(to_py_err)?;
     classify_pdf_bytes(&data)
 }
 
@@ -939,7 +989,7 @@ fn extract_text_with_positions(
     // The threshold is checked whichever path the call takes.
     position_options(bold_from_weight, bold_weight_threshold)?;
     if bold_from_weight {
-        let data = std::fs::read(path).map_err(|e| to_py_err(crate::PdfError::Io(e)))?;
+        let data = crate::read_file(std::path::Path::new(path)).map_err(to_py_err)?;
         return extract_text_with_positions_bytes(
             &data,
             pages,
@@ -1052,7 +1102,7 @@ fn extract_text_with_positions_and_rotations(
 ) -> PyResult<PyPositionedText> {
     // The threshold is checked before the file is read.
     position_options(bold_from_weight, bold_weight_threshold)?;
-    let data = std::fs::read(path).map_err(|e| to_py_err(crate::PdfError::Io(e)))?;
+    let data = crate::read_file(std::path::Path::new(path)).map_err(to_py_err)?;
     extract_text_with_positions_and_rotations_bytes(&data, bold_from_weight, bold_weight_threshold)
 }
 
@@ -1128,7 +1178,7 @@ fn extract_text_in_regions(
 ) -> PyResult<Vec<PyPageRegionTexts>> {
     // The threshold is checked before the file is read.
     position_options(bold_from_weight, bold_weight_threshold)?;
-    let data = std::fs::read(path).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let data = crate::read_file(std::path::Path::new(path)).map_err(to_py_err)?;
     extract_text_in_regions_bytes(&data, page_regions, bold_from_weight, bold_weight_threshold)
 }
 
@@ -1251,6 +1301,7 @@ fn extract_structure_elements_bytes(
 fn pdf_inspector(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPdfResult>()?;
     m.add_class::<PyPageOcrReasons>()?;
+    m.add_class::<PyFontCMapGaps>()?;
     m.add_class::<PyOcrModelIdentity>()?;
     m.add_class::<PyOcrTimings>()?;
     m.add_class::<PyOcrPageProvenance>()?;

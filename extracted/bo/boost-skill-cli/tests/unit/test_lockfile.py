@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import sys
 
 import pytest
 
@@ -45,6 +48,20 @@ class TestRead:
         backup = p.with_name(p.name + ".corrupt")
         assert backup.exists()
         assert backup.read_text(encoding="utf-8") == "{definitely not json"
+
+    # Bytes that are not UTF-8, and JSON that is not an object: the first
+    # escaped the JSONDecodeError guard as a UnicodeDecodeError, the second
+    # reached `.setdefault` on a list. Either took down every command that
+    # reads the lock (list, doctor, sync, heal, install, verify) at exit 70.
+    @pytest.mark.parametrize("raw", [b"\xff\xfe", b"[]", b"null"])
+    def test_an_unusable_file_is_preserved_and_read_as_empty(self, sandbox,
+                                                              raw):
+        paths.ensure_dirs()
+        p = paths.lockfile_path()
+        p.write_bytes(raw)
+        lock = lockfile.read()
+        assert lock["version"] == 3 and lock["skills"] == {}
+        assert p.with_name(p.name + ".corrupt").read_bytes() == raw
 
     def test_missing_file_leaves_no_sidecar(self, sandbox):
         lockfile.read()
@@ -101,6 +118,12 @@ class TestCheck:
         integ = lockfile.check()
         assert not integ.ok
         assert integ.problem == "corrupt"
+
+    @pytest.mark.parametrize("raw", [b"\xff\xfe", b"[]"])
+    def test_an_unusable_file_is_corrupt(self, sandbox, raw):
+        paths.ensure_dirs()
+        paths.lockfile_path().write_bytes(raw)
+        assert lockfile.check() == (False, "corrupt", None)
 
     def test_wrong_schema_version(self, sandbox):
         paths.ensure_dirs()
@@ -351,6 +374,30 @@ class TestHistory:
         self._seed_history()
         assert lockfile.history_list() == lockfile.history_list(with_skipped=False)
 
+    @pytest.mark.parametrize("raw", [b"\xff\xfe", b"[]"])
+    def test_an_unusable_snapshot_is_skipped_and_unreadable(self, sandbox, raw):
+        paths.ensure_dirs()
+        (paths.lock_history_dir() / "lock-20200101T000000Z.json").write_bytes(raw)
+        assert lockfile.history_list(with_skipped=True) == ([], 1)
+        with pytest.raises(BoostError) as ei:
+            lockfile.history_read("20200101T000000Z")
+        assert ei.value.message.startswith(
+            "lock history entry 20200101T000000Z is unreadable: ")
+        assert ei.value.hint == "list other entries with `boost replay`"
+
+    @pytest.mark.parametrize("raw", [b"\xff\xfe", b"[]"])
+    def test_writing_over_an_unusable_lock_archives_it(self, sandbox, raw):
+        # write() stamps the outgoing lock's history name from its `updated`
+        # field, which meant parsing it: either shape crashed the very write
+        # that would have replaced it.
+        paths.ensure_dirs()
+        paths.lockfile_path().write_bytes(raw)
+        lockfile.write({"skills": {}})
+        assert json.loads(paths.lockfile_path().read_text(
+            encoding="utf-8"))["skills"] == {}
+        [snap] = paths.lock_history_dir().glob("lock-*.json")
+        assert snap.read_bytes() == raw
+
     def test_history_list_skips_corrupt_without_stopping(self, sandbox):
         # a corrupt snapshot that sorts BEFORE a valid one must be skipped, not
         # halt the scan — pins the `continue` (a `break` would drop the later
@@ -553,3 +600,75 @@ class TestAgentNames:
         assert lockfile.agent_names("rule", {"materializations": []}) == []
         assert lockfile.agent_names("skill", {}) == []
         assert lockfile.agent_names("rule", {}) == []
+
+
+_POSIX_MODES = [
+    pytest.mark.skipif(sys.platform == "win32",
+                       reason="chmod can't make a directory unwritable on Windows"),
+    pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                       reason="root ignores mode bits"),
+]
+
+
+class TestHistoryIsARecordNotTheWork:
+    """A refused history snapshot failed the lock write after an install had
+    already copied, linked or written its files, so nothing recorded them."""
+
+    pytestmark = _POSIX_MODES
+
+    @pytest.fixture(autouse=True)
+    def _fresh_warning(self, monkeypatch):
+        # raising=False: the flag is new, so the old code fails on behaviour.
+        monkeypatch.setattr(lockfile, "_WARNED_UNSAVED", False, raising=False)
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+    def test_a_history_dir_it_cannot_create_still_writes_the_lock(
+            self, sandbox, capsys):
+        lockfile.set_skill("a", {"version": "1"})
+        shutil.rmtree(paths.lock_history_dir(), ignore_errors=True)
+        state = paths.state_dir()
+        state.mkdir(parents=True, exist_ok=True)
+        state.chmod(0o500)
+        try:
+            lockfile.set_skill("b", {"version": "1"})
+            lockfile.set_skill("c", {"version": "1"})
+        finally:
+            state.chmod(0o700)
+        assert sorted(lockfile.read()["skills"]) == ["a", "b", "c"]
+        err = self._flat(capsys.readouterr().err)
+        assert err.count("could not keep a history snapshot") == 1
+        assert "make ~/.boost/state writable" in err
+        assert not paths.lock_history_dir().exists()
+
+    def test_a_read_only_history_dir_names_itself(self, sandbox, capsys):
+        lockfile.set_skill("a", {"version": "1"})
+        hist = paths.lock_history_dir()
+        hist.mkdir(parents=True, exist_ok=True)
+        kept = sorted(hist.iterdir())
+        hist.chmod(0o500)
+        try:
+            lockfile.set_skill("b", {"version": "1"})
+        finally:
+            hist.chmod(0o700)
+        assert sorted(lockfile.read()["skills"]) == ["a", "b"]
+        assert sorted(hist.iterdir()) == kept
+        err = self._flat(capsys.readouterr().err)
+        assert "make ~/.boost/state/lock-history writable" in err
+
+    def test_a_writable_history_takes_the_snapshot_silently(self, sandbox,
+                                                            capsys):
+        lockfile.set_skill("a", {"version": "1"})
+        lockfile.set_skill("b", {"version": "1"})
+        snaps = list(paths.lock_history_dir().glob("lock-*.json"))
+        assert len(snaps) == 1
+        assert "a" in json.loads(snaps[0].read_text(encoding="utf-8"))["skills"]
+        assert capsys.readouterr().err == ""
+
+    def test_the_lock_needs_only_its_own_dir(self, sandbox):
+        # The first write on a fresh HOME: no ~/.boost at all, and the lock
+        # still lands in the store.
+        lockfile.set_skill("a", {"version": "1"})
+        assert paths.lockfile_path().is_file()

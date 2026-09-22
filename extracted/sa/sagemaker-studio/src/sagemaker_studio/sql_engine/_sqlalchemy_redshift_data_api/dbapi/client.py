@@ -5,6 +5,7 @@ This module handles the creation and management of boto3 redshift-data clients,
 including IAM credential handling and connection validation.
 """
 
+import os
 from typing import Any, Dict
 
 import boto3
@@ -12,6 +13,17 @@ from botocore.exceptions import ClientError, NoCredentialsError, PartialCredenti
 
 from .connection_params import ConnectionParams
 from .exceptions import ClusterNotFoundError, InterfaceError, OperationalError
+
+# Custom redshift-data endpoint override, read from the environment so a caller can
+# point the client at a non-default (e.g. VPC or test) endpoint without code changes.
+REDSHIFT_DATA_ENDPOINT_URL_ENV_VAR = "AWS_REDSHIFT_DATA_ENDPOINT_URL"
+
+# Custom region override for the redshift-data client, allowing callers to override
+# the region specified in connection parameters without code changes.
+REDSHIFT_DATA_REGION_ENV_VAR = "AWS_REDSHIFT_DATA_REGION"
+
+# Reserved workgroup name that identifies a Redshift Express connection.
+REDSHIFT_EXPRESS_WORKGROUP_NAME = "express-default"
 
 
 class RedshiftDataAPIClient:
@@ -68,10 +80,16 @@ class RedshiftDataAPIClient:
             # Create a boto3 session based on the authentication method
             self._session = self._create_boto3_session()
 
-            # Create the redshift-data client with the specified region
-            self._client = self._session.client(
-                "redshift-data", region_name=self.connection_params.region
-            )
+            # Create the redshift-data client with the specified region. A custom
+            # endpoint_url is passed only when the env var is set (non-empty), so
+            # default connections are unaffected. Similarly, region can be overridden
+            # via environment variable for testing purposes.
+            region = os.environ.get(REDSHIFT_DATA_REGION_ENV_VAR) or self.connection_params.region
+            client_kwargs = {"region_name": region}
+            endpoint_url = os.environ.get(REDSHIFT_DATA_ENDPOINT_URL_ENV_VAR)
+            if endpoint_url:
+                client_kwargs["endpoint_url"] = endpoint_url
+            self._client = self._session.client("redshift-data", **client_kwargs)
 
         except (NoCredentialsError, PartialCredentialsError) as e:
             # These are boto3 credential exceptions that should be caught at the session level
@@ -212,6 +230,10 @@ class RedshiftDataAPIClient:
             list_params = {
                 "Database": self.connection_params.database_name,
             }
+
+            # Express rejects a real database on this probe
+            if self.connection_params.workgroup_name == REDSHIFT_EXPRESS_WORKGROUP_NAME:
+                list_params["Database"] = ""
 
             # Only add DbUser if db_user is provided (not None) and not using secret ARN
             if self.connection_params.db_user is not None and not self.connection_params.secret_arn:

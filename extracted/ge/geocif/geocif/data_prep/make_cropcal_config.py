@@ -40,11 +40,26 @@ DEFAULT_TEMPLATE = DEFAULT_CONFIG_ROOT / "agmet" / "geobase.txt"
 PROJECT = "cropcal"
 BOUNDARY_FILE = "Global_Regions_202609.shp"
 BOUNDARY_STEM = "Global_Regions_202609"
-CALENDAR_FILE = "GlobalCM_2026-09-11.xlsx"
+# The geomerge-schema copy written by convert_calendar_for_geomerge.py.
+# geoprepare needs sheets named `maize_1` and a `country2` column, and skips
+# every combination without them -- silently, as a logged error. geocif's own
+# reader accepts either schema, so one file serves both.
+CALENDAR_FILE = "GlobalCM_2026-09-11_geomerge.xlsx"
 
 #: NDVI plus the two CHIRTS-ERA5 temperature fields the GDD accumulation needs.
-#: Nothing else: the validation reads only a vegetation index and air temperature.
-EO_MODEL = ["ndvi", "chirts_era5_tmax", "chirts_era5_tmin"]
+#: The rule-based validator uses ONLY those three -- a vegetation index and air
+#: temperature. The rest are extracted for the model comparison and for
+#: diagnosing disagreements (is a late satellite greenup a wet-season onset
+#: effect, a moisture limit, or a stress signal?), not by the ported algorithm.
+EO_MODEL = [
+    "ndvi",
+    "chirts_era5_tmax",
+    "chirts_era5_tmin",
+    "chirps",          # daily precipitation, CHIRPS v3 (see geobase [CHIRPS])
+    "esi_4wk",         # evaporative stress index, 4-week composite, weekly
+    "nsidc_surface",   # soil moisture, surface layer
+    "nsidc_rootzone",  # soil moisture, root zone
+]
 
 START_YEAR, END_YEAR = 2015, 2026
 
@@ -129,7 +144,10 @@ def write_countries(entries: dict[str, dict], out_path: Path) -> None:
         "use_cropland_mask = False",
         f"mask = {FALLBACK_MASK}",
         "statistics_file = statistics.csv",
-        "zone_file = countries.csv",
+        # Deduplicated copy: the zone merge is a plain left join on country, so
+        # duplicate rows fan out EVERY merged row. The live file is shared with
+        # other projects and is left untouched.
+        "zone_file = countries_dedup.csv",
         "annotate_regions = False",
         f"eo_model = {_py_list(EO_MODEL)}",
         "seasons = [1]",

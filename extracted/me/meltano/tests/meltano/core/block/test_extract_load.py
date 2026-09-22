@@ -32,8 +32,15 @@ from meltano.core.runner import RunnerError
 from meltano.core.runner.singer import SingerRunner
 
 if t.TYPE_CHECKING:
+    import sys
+
     from meltano.core.plugin.project_plugin import ProjectPlugin
     from meltano.core.project import Project
+
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
 
 TEST_STATE_ID = "test_job"
 MOCK_STATE_MESSAGE = json.dumps({"type": "STATE"})
@@ -171,16 +178,19 @@ class TestELBContextBuilder:
 class TestExtractLoadBlocks:
     @pytest.fixture
     def log_level_debug(self):
-        root_logger = logging.getLogger()  # noqa: TID251
-        log_level = root_logger.level
+        # Set the intermediate logger rather than root: pytest's catching_logs
+        # overrides root to log_level (INFO) during the test call, which would
+        # suppress DEBUG even after setting root to DEBUG in fixture setup.
+        logger = logging.getLogger("meltano.plugin.stdout")  # noqa: TID251
+        orig = logger.level
+        logger.setLevel(logging.DEBUG)
         try:
-            root_logger.setLevel(logging.DEBUG)
             yield
         finally:
-            root_logger.setLevel(log_level)
+            logger.setLevel(orig)
 
     @pytest.fixture
-    def log(self, tmp_path: Path) -> t.Generator[t.IO[str], None, None]:
+    def log(self, tmp_path: Path) -> Generator[t.IO[str]]:
         with tempfile.NamedTemporaryFile(mode="w+", dir=tmp_path) as file:
             yield file
 
@@ -240,6 +250,22 @@ class TestExtractLoadBlocks:
         target.stdout.readline = AsyncMock(return_value="{}")
         target.wait = AsyncMock(return_value=0)
         return target
+
+    @pytest.mark.usefixtures("log_level_debug")
+    def test_log_level_debug_affects_invoker_logger(
+        self,
+        tap,
+        tap_config_dir,
+        plugin_invoker_factory,
+    ) -> None:
+        """log_level_debug must enable DEBUG on the logger _link_io checks.
+
+        If the fixture stops covering the right logger namespace or the logger
+        name constructed by get_logger changes, this test fails immediately
+        rather than silently omitting the stdout link in test_link_io.
+        """
+        invoker = plugin_invoker_factory(tap, config_dir=tap_config_dir)
+        assert invoker.get_logger("stdout", "stdlib").isEnabledFor(logging.DEBUG)
 
     @pytest.mark.asyncio
     @pytest.mark.usefixtures("session", "subject", "log", "log_level_debug")

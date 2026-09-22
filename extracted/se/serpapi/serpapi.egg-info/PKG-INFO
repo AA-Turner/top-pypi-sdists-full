@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: serpapi
-Version: 1.1.1
+Version: 1.1.2
 Summary: The official Python client for SerpApi.com.
 Author-email: SerpApi <support@serpapi.com>
 License: MIT
@@ -238,7 +238,7 @@ import serpapi
 client = serpapi.Client(api_key=os.getenv("API_KEY"))
 results = client.search({
     'engine': 'home_depot',
-    'q': 'table',
+    'q': 'chair',
 })
 ```
 - API Documentation: [serpapi.com/home-depot-search-api](https://serpapi.com/home-depot-search-api)
@@ -405,7 +405,7 @@ import serpapi
 client = serpapi.Client(api_key=os.getenv("API_KEY"))
 results = client.search({
     'engine': 'google_jobs',
-    'q': 'coffee',
+    'q': 'software engineer',
 })
 ```
 - API Documentation: [serpapi.com/google-jobs-api](https://serpapi.com/google-jobs-api)

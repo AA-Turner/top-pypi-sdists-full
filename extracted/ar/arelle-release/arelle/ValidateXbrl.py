@@ -69,7 +69,7 @@ class ValidateXbrl:
     ixdsFootnotes: dict[str, ModelObject]
     ixdsFootnotesById: dict[str, list[ModelObject]]
     ixdsHeaderCount: int
-    ixdsReferences: dict[str, Any]
+    ixdsReferences: dict[str | None, Any]
     ixdsRelationships: list[ModelObject]
     ixdsRoleRefURIs: dict[Any, Any]
     ixdsArcroleRefURIs: dict[Any, Any]
@@ -532,11 +532,10 @@ class ValidateXbrl:
                 else:
                     if self.validateGFM:
                         elt = objs[0]
-                        id = elt.footnoteID
-                        if id and id not in factFootnoteRefs and elt.textValue:
+                        if _id not in factFootnoteRefs and elt.textValue:
                             self.modelXbrl.error(("EFM.N/A", "GFM:1.10.15"),
                                 _("Inline XBRL non-empty footnote %(footnoteID)s is not referenced by any fact"),
-                                modelObject=elt, footnoteID=id)
+                                modelObject=elt, footnoteID=_id)
             if not self.ixdsHeaderCount:
                 modelXbrl.error(ixMsgCode("headerMissing", ns=_ixNS, name="header", sect="validation"),
                     _("Inline XBRL document set must have at least one ix:header element"),
@@ -845,7 +844,7 @@ class ValidateXbrl:
                                 self.modelXbrl.error("xbrl.4.6.3:missingPrecisionDecimals",
                                     _("Fact %(fact)s context %(contextID)s is a numeric concept and must have either precision or decimals"),
                                     modelObject=f, fact=f.qname, contextID=f.contextID)
-                            elif f.concept.instanceOfType(dtrNoDecimalsItemTypes):  # type: ignore[union-attr]
+                            elif concept.instanceOfType(dtrNoDecimalsItemTypes):
                                 evaluatedDecimals = inferredDecimals(f)
                                 if evaluatedDecimals > 0 and not math.isinf(evaluatedDecimals):
                                     if hasDecimals:

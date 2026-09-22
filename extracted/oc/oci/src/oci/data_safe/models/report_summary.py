@@ -64,6 +64,10 @@ class ReportSummary(object):
     DATA_SOURCE_SECURITY_ASSESSMENT = "SECURITY_ASSESSMENT"
 
     #: A constant which can be used with the data_source property of a ReportSummary.
+    #: This constant has a value of "CRYPTO_ASSESSMENT"
+    DATA_SOURCE_CRYPTO_ASSESSMENT = "CRYPTO_ASSESSMENT"
+
+    #: A constant which can be used with the data_source property of a ReportSummary.
     #: This constant has a value of "VIOLATIONS"
     DATA_SOURCE_VIOLATIONS = "VIOLATIONS"
 
@@ -128,7 +132,7 @@ class ReportSummary(object):
 
         :param data_source:
             The value to assign to the data_source property of this ReportSummary.
-            Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type data_source: str
 
@@ -476,7 +480,7 @@ class ReportSummary(object):
         Gets the data_source of this ReportSummary.
         Specifies the name of a resource that provides data for the report. For example alerts, events.
 
-        Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -495,7 +499,7 @@ class ReportSummary(object):
         :param data_source: The data_source of this ReportSummary.
         :type: str
         """
-        allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
+        allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
         if not value_allowed_none_or_none_sentinel(data_source, allowed_values):
             data_source = 'UNKNOWN_ENUM_VALUE'
         self._data_source = data_source

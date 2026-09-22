@@ -20,6 +20,7 @@ from pyparsing import (
 from abc import ABC
 
 import sigma.exceptions as sigma_exceptions
+from sigma.conditions import unwrap_parse_result_operand
 from sigma.exceptions import SigmaRuleLocation, SigmaTimespanError
 from sigma.processing.tracking import ProcessingItemTrackingMixin
 from sigma.rule import EnumLowercaseStringMixin, SigmaRule, SigmaRuleBase
@@ -136,7 +137,7 @@ class SigmaCorrelationCondition:
                 cond_op = SigmaCorrelationConditionOperator[op.upper()]
                 try:
                     cond_count = int(d[op])
-                except ValueError:
+                except (ValueError, OverflowError):
                     raise sigma_exceptions.SigmaCorrelationConditionError(
                         f"'{ d[op] }' is no valid Sigma correlation condition count", source=source
                     )
@@ -192,16 +193,37 @@ class CorrelationConditionItem(ABC):
         t: ParseResults | list[SigmaRuleReference | "CorrelationConditionItem"],
     ) -> list["CorrelationConditionItem"]:
         """Create condition object from parse result."""
+        args: list[SigmaRuleReference | CorrelationConditionItem]
         if cls.arg_count == 1:
             # Unary operator (NOT)
             if isinstance(t, ParseResults):
-                args = [t[0][-1]]
+                operand = unwrap_parse_result_operand(
+                    t[0][-1],
+                    error_class=sigma_exceptions.SigmaCorrelationConditionError,
+                    error_message="Invalid wrapped correlation condition operand",
+                )
+                if operand is None:
+                    raise sigma_exceptions.SigmaCorrelationConditionError(
+                        "Invalid wrapped correlation condition operand"
+                    )
+                args = [operand]
             else:
                 args = [t[-1]]
         elif cls.arg_count > 1:
             # Binary operators (AND, OR) - handle flat lists from pyparsing
             if isinstance(t, ParseResults):
-                args = t[0][0::2]  # Take every other element (skip operators)
+                args = []
+                for a in t[0][0::2]:
+                    operand = unwrap_parse_result_operand(
+                        a,
+                        error_class=sigma_exceptions.SigmaCorrelationConditionError,
+                        error_message="Invalid wrapped correlation condition operand",
+                    )
+                    if operand is None:
+                        raise sigma_exceptions.SigmaCorrelationConditionError(
+                            "Invalid wrapped correlation condition operand"
+                        )
+                    args.append(operand)
             else:
                 args = t[0::2]
         else:
@@ -274,7 +296,7 @@ class SigmaExtendedCorrelationCondition:
 
         # Define expression using infix notation
         # Precedence: not (highest) > and > or (lowest)
-        expr = infix_notation(
+        expr = infix_notation(  # type: ignore[no-untyped-call]
             rule_identifier,
             [
                 (Keyword("not"), 1, opAssoc.RIGHT, CorrelationConditionNOT.from_parsed),
@@ -329,30 +351,38 @@ class SigmaCorrelationTimespan:
     count: int = field(init=False)
     unit: str = field(init=False)
 
+    timespan_re: ClassVar[re.Pattern[str]] = re.compile("(?P<count>[0-9]+)(?P<unit>[smhdwMy])")
+    unit_seconds: ClassVar[dict[str, int]] = {
+        "s": 1,
+        "m": 60,
+        "h": 3600,
+        "d": 86400,
+        "w": 604800,
+        "M": 2629746,
+        "y": 31556952,
+    }
+
     def __post_init__(self: Self) -> None:
         """
         Parses a string representing a time span and stores the equivalent number of seconds.
 
+        A time span must be a positive integer count followed by one of the unit characters
+        s, m, h, d, w, M or y.
+
         Raises:
             sigma_exceptions.SigmaTimespanError: If the given time span is invalid.
         """
-        try:
-            self.count = int(self.spec[:-1])
-            self.unit = self.spec[-1]
-            self.seconds = (
-                self.count
-                * {
-                    "s": 1,
-                    "m": 60,
-                    "h": 3600,
-                    "d": 86400,
-                    "w": 604800,
-                    "M": 2629746,
-                    "y": 31556952,
-                }[self.unit]
-            )
-        except (ValueError, KeyError):
+        parsed = self.timespan_re.fullmatch(self.spec) if isinstance(self.spec, str) else None
+        if parsed is None:
             raise sigma_exceptions.SigmaTimespanError(f"Timespan '{ self.spec }' is invalid.")
+        count = int(parsed.group("count"))
+        if count <= 0:
+            raise sigma_exceptions.SigmaTimespanError(
+                f"Timespan '{ self.spec }' must be greater than zero."
+            )
+        self.count = count
+        self.unit = parsed.group("unit")
+        self.seconds = self.count * self.unit_seconds[self.unit]
 
 
 @dataclass

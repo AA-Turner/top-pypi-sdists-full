@@ -4,6 +4,7 @@ from typing import TypeGuard
 
 from flask import flash
 from peewee import CharField
+from peewee import DoesNotExist
 from peewee import Expression
 from peewee import Field
 from peewee import ForeignKeyField
@@ -11,8 +12,10 @@ from peewee import JOIN
 from peewee import ModelBase
 from peewee import ModelSelect
 from peewee import PrimaryKeyField
+from peewee import SqliteDatabase
 from peewee import TextField
 from wtforms import Form
+from wtforms.form import BaseForm
 
 from flask_admin._compat import string_types
 from flask_admin.actions import action
@@ -195,7 +198,7 @@ class ModelView(BaseModelView):
     def __init__(
         self,
         model: type[T_PEEWEE_MODEL],
-        name: str | None = None,
+        name: SqliteDatabase | None = None,
         category: str | None = None,
         endpoint: str | None = None,
         url: str | None = None,
@@ -207,7 +210,7 @@ class ModelView(BaseModelView):
         self._search_fields: list[t.Any] = []
         super().__init__(
             model,
-            name,
+            name,  # type: ignore[arg-type]
             category,
             endpoint,
             url,
@@ -230,17 +233,17 @@ class ModelView(BaseModelView):
         return get_primary_key(self.model)
 
     def get_pk_value(self, model: type[T_PEEWEE_MODEL]) -> t.Any:  # type: ignore[override]
-        if self.model._meta.composite_key:  # type: ignore[attr-defined]
+        if self.model._meta.composite_key:
             return tuple(
                 [
                     getattr(model, field_name)
-                    for field_name in self.model._meta.primary_key.field_names  # type: ignore[attr-defined]
+                    for field_name in self.model._meta.primary_key.field_names  # type: ignore[union-attr]
                 ]
             )
         return getattr(model, self._primary_key)
 
     def scaffold_list_columns(self) -> list[str]:
-        columns = []
+        columns: list[str] = []
 
         for n, f in self._get_model_fields():
             if isinstance(f, ForeignKeyField):
@@ -331,7 +334,7 @@ class ModelView(BaseModelView):
         )
 
         if self.inline_models:
-            form_class = self.scaffold_inline_form_models(form_class)
+            form_class = self.scaffold_inline_form_models(form_class)  # type: ignore[assignment]
 
         return form_class
 
@@ -360,10 +363,9 @@ class ModelView(BaseModelView):
 
         return create_editable_list_form(self.form_base_class, form_class, widget)
 
-    def scaffold_inline_form_models(self, form_class: type[Form]) -> type[Form]:
+    def scaffold_inline_form_models(self, form_class: type[BaseForm]) -> type[BaseForm]:
         converter = self.model_form_converter(self)
         inline_converter = self.inline_model_form_converter(self)
-
         for m in self.inline_models:  # type: ignore[union-attr]
             form_class = inline_converter.contribute(
                 converter,
@@ -399,7 +401,7 @@ class ModelView(BaseModelView):
     def _order_by(
         self, query: ModelSelect, joins: set[str], order: list[tuple[str, bool]]
     ) -> tuple[ModelSelect, set[str]]:
-        clauses = []
+        clauses: list[Expression] = []
         for sort_field, sort_desc in order:
             query, joins, clause = self._sort_clause(
                 query, joins, sort_field, sort_desc
@@ -524,11 +526,16 @@ class ModelView(BaseModelView):
         return count, query
 
     def get_one(self, id: t.Any) -> t.Any:
-        if self.model._meta.composite_key:  # type: ignore[attr-defined]
-            return self.model.get(
-                **dict(zip(self.model._meta.primary_key.field_names, id, strict=False))  # type: ignore[attr-defined]
+        if self.model._meta.composite_key:
+            kwargs = dict(
+                zip(self.model._meta.primary_key.field_names, id, strict=False)  # type: ignore[union-attr]
             )
-        return self.model.get(**{self._primary_key: id})
+        else:
+            kwargs = {self._primary_key: id}
+        try:
+            return self.model.get(**kwargs)
+        except DoesNotExist:
+            return None
 
     def create_model(self, form: Form) -> t.Union[bool, T_PEEWEE_MODEL]:
         try:

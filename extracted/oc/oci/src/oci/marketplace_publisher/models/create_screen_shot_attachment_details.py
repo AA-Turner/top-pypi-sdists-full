@@ -45,6 +45,10 @@ class CreateScreenShotAttachmentDetails(CreateListingRevisionAttachmentDetails):
             The value to assign to the defined_tags property of this CreateScreenShotAttachmentDetails.
         :type defined_tags: dict(str, dict(str, object))
 
+        :param source_type:
+            The value to assign to the source_type property of this CreateScreenShotAttachmentDetails.
+        :type source_type: str
+
         """
         self.swagger_types = {
             'listing_revision_id': 'str',
@@ -52,7 +56,8 @@ class CreateScreenShotAttachmentDetails(CreateListingRevisionAttachmentDetails):
             'description': 'str',
             'attachment_type': 'str',
             'freeform_tags': 'dict(str, str)',
-            'defined_tags': 'dict(str, dict(str, object))'
+            'defined_tags': 'dict(str, dict(str, object))',
+            'source_type': 'str'
         }
         self.attribute_map = {
             'listing_revision_id': 'listingRevisionId',
@@ -60,7 +65,8 @@ class CreateScreenShotAttachmentDetails(CreateListingRevisionAttachmentDetails):
             'description': 'description',
             'attachment_type': 'attachmentType',
             'freeform_tags': 'freeformTags',
-            'defined_tags': 'definedTags'
+            'defined_tags': 'definedTags',
+            'source_type': 'sourceType'
         }
         self._listing_revision_id = None
         self._display_name = None
@@ -68,7 +74,32 @@ class CreateScreenShotAttachmentDetails(CreateListingRevisionAttachmentDetails):
         self._attachment_type = None
         self._freeform_tags = None
         self._defined_tags = None
+        self._source_type = None
         self._attachment_type = 'SCREENSHOT'
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this CreateScreenShotAttachmentDetails.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this CreateScreenShotAttachmentDetails.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this CreateScreenShotAttachmentDetails.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this CreateScreenShotAttachmentDetails.
+        :type: str
+        """
+        self._source_type = source_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

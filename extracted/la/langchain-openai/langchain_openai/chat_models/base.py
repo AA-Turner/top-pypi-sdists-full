@@ -1206,7 +1206,7 @@ class BaseChatOpenAI(BaseChatModel):
     use_responses_api: bool | None = None
     """Whether to use the Responses API instead of the Chat API.
 
-    If not specified then will be inferred based on invocation params.
+    If not specified, set to `True` when instance settings require the Responses API,
 
     !!! version-added "Added in `langchain-openai` 0.3.9"
     """
@@ -1323,6 +1323,13 @@ class BaseChatOpenAI(BaseChatModel):
         `langchain-openai` version entry.
         """
         self._add_version("langchain-openai", __version__)
+        return self
+
+    @model_validator(mode="after")
+    def _infer_use_responses_api(self) -> Self:
+        """Expose unconditional instance-level Responses API routing."""
+        if self.use_responses_api is None and self._use_responses_api({}):
+            self.use_responses_api = True
         return self
 
     @model_validator(mode="after")
@@ -1932,6 +1939,10 @@ class BaseChatOpenAI(BaseChatModel):
             or self.truncation is not None
             or self.use_previous_response_id
             or _model_prefers_responses_api(self.model_name)
+            or (
+                (self.model_name or "").lower().startswith("gpt-6")
+                and payload.get("tools")
+            )
         ):
             return True
         return _use_responses_api(payload)
@@ -2295,7 +2306,7 @@ class BaseChatOpenAI(BaseChatModel):
         except KeyError:
             model_lower = model.lower()
             encoder = "cl100k_base"
-            if model_lower.startswith(("gpt-4o", "gpt-4.1", "gpt-5")):
+            if model_lower.startswith(("gpt-4o", "gpt-4.1", "gpt-5", "gpt-6")):
                 encoder = "o200k_base"
             encoding = tiktoken.get_encoding(encoder)
         return model, encoding
@@ -2346,7 +2357,9 @@ class BaseChatOpenAI(BaseChatModel):
             tokens_per_message = 4
             # if there's a name, the role is omitted
             tokens_per_name = -1
-        elif model.startswith(("gpt-3.5-turbo", "gpt-4", "gpt-5", "o1", "o3", "o4")):
+        elif model.startswith(
+            ("gpt-3.5-turbo", "gpt-4", "gpt-5", "gpt-6", "o1", "o3", "o4")
+        ):
             tokens_per_message = 3
             tokens_per_name = 1
         else:

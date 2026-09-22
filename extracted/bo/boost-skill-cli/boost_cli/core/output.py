@@ -226,6 +226,28 @@ def _wrap_lines(msg: str, lead: int) -> list[str]:
     return wrap(msg, term_width() - lead) or [msg]
 
 
+def _stdout_first(stream) -> None:
+    """Flush stdout before a line goes to any other stream.
+
+    Into a pipe stdout is block-buffered and stderr is not, so `boost import
+    many 2>&1 | cat` printed "Error: multiple skills found" above the listing
+    it refers to — the table was still sitting in stdout's buffer. Every
+    emitter that can write elsewhere calls this first, so callers never have
+    to remember. A line bound for stdout itself needs no flush and gets none.
+
+    A flush that fails (the reader closed the pipe) is swallowed: the line
+    about to be written is usually the error, and losing it to a broken stdout
+    helps nobody. The same failure still surfaces at the final flush in
+    ``cli._route``, where it is handled. With fd 1 closed at launch
+    (``boost … >&-``) Python sets ``sys.stdout`` to None: nothing is held, so
+    there is nothing to flush.
+    """
+    if stream is None or sys.stdout is None or stream is sys.stdout:
+        return
+    with contextlib.suppress(OSError, ValueError):
+        sys.stdout.flush()
+
+
 def ok(msg: str) -> None:
     """Print msg as an indented success line with a green check mark."""
     print("  " + role("✓", "success") + " " + msg)
@@ -243,11 +265,18 @@ def warn(msg: str, stream=None, wrap: bool = False) -> None:
     long line is prose: `pulse`'s `source=` paths and `fingerprint`'s hash are
     data, and folding those destroys the information the line exists to carry.
     Prose hints pass it; data lines do not.
+
+    Colour is decided by the stream the line is written to, not by stdout:
+    `boost bundle dump > Boostfile` sends its notice to a terminal while
+    stdout is a file, and `2>log` sends it to a file while stdout is a
+    terminal. Asking stdout left the first plain and wrote escape codes into
+    the second.
     """
     body = _wrap_lines(msg, 4) if wrap else [msg]
+    _stdout_first(stream)
     for i, line in enumerate(body):
-        lead = "  " + role("!", "warn") + " " if i == 0 else "    "
-        print(lead + role(line, "warn"), file=stream)
+        lead = "  " + role("!", "warn", stream=stream) + " " if i == 0 else "    "
+        print(lead + role(line, "warn", stream=stream), file=stream)
 
 
 def err(msg: str, hint: str | None = None) -> None:
@@ -258,6 +287,7 @@ def err(msg: str, hint: str | None = None) -> None:
     0, unindented and visually disconnected from the "hint:" label above
     them. Every line after the first is indented to align under it instead.
     """
+    _stdout_first(sys.stderr)
     print(c("Error: ", RED, BOLD) + msg, file=sys.stderr)
     if hint:
         lead = "  hint: "
@@ -272,6 +302,7 @@ def info(msg: str = "", stream=None, wrap: bool = False) -> None:
     ``wrap`` as in :func:`warn`, and it never turns the empty message into no
     output at all: a caller printing a blank spacer still gets its blank line.
     """
+    _stdout_first(stream)
     if wrap and msg:
         for line in _wrap_lines(msg, 2):
             print("  " + line, file=stream)
@@ -320,6 +351,7 @@ def heading(msg: str, stream=None) -> None:
     # Brand the section marker in the accent role (Aurora cyan — truecolor,
     # 16-color fallback, plain under NO_COLOR) so every command's headers read
     # as one system.
+    _stdout_first(stream)
     print(role("==>", "accent") + " " + c(msg, BOLD), file=stream)
 
 
@@ -431,7 +463,7 @@ def _wrap_tokens(text: str) -> list[str]:
 
     A backtick span is one token even though it contains spaces, because the
     spans in boost's hints are shell commands the user is meant to select and
-    paste — `pip install 'boost-skill-cli[rag]'`. A `**bold**` span is atomic
+    paste — `pip install "boost-skill-cli[rag]"`. A `**bold**` span is atomic
     for a different reason: `commands/info.py`'s `_render_markdown` wraps a
     line first and colorizes each wrapped chunk after, via the same regex
     `_inline()` uses (``\\*\\*([^*]+)\\*\\*``) — a span split across that wrap
@@ -537,10 +569,16 @@ def panel(lines, title: str | None = None, hue: str = "cyan") -> str:
     # itself to its content and sailed past the pane: `boost count` drew 108
     # columns into an 80-column terminal, and a box whose border wraps is the
     # worst-looking overflow the CLI has, because the shape itself breaks.
-    room = term_width() - 4
-    if title:
-        title = _clip_visible(title, room - 2)
-    lines = [_clip_visible(x, room) for x in lines]
+    #
+    # Fitted to the *pane*, not `term_width()`: a pipe has none, and fitting
+    # to an assumed 80 clipped `boost count | …`'s 110-column summary to 76,
+    # dropping its tail — the one panel whose lines are data. As `table` does.
+    avail = pane_width()
+    if avail is not None:
+        room = avail - 4
+        if title:
+            title = _clip_visible(title, room - 2)
+        lines = [_clip_visible(x, room) for x in lines]
     widths = [visible_len(x) for x in lines]
     tw = visible_len(title) if title else 0
     # A titled rule needs a space each side, hence the +2 / -2. Clipping above
@@ -629,6 +667,41 @@ def meter_hue(frac: float) -> str:
     return "pink"
 
 
+#: The fraction the page's weakest row is held at. An empty ``▱▱▱▱`` on a row
+#: the ranker chose to show reads as "no match", which is a claim it never
+#: made; one lit cell says "last on this page" instead.
+METER_FLOOR = 0.25
+
+
+def relevance_fractions(scores: Sequence[float]) -> list[float]:
+    """Map one screen of scores onto meter fractions, in the order given.
+
+    The bar reads as *standing on this page*: the best row fills it, the
+    weakest keeps one lit cell at :data:`METER_FLOOR`, and the rest land in
+    between. So the same row can draw a different bar under a different
+    ``--limit`` — the honest reading, because nothing here knows what a "good"
+    BM25 or RRF score is in the absolute.
+
+    Dividing by the top score alone cannot say this. A retrieval engine's
+    top-k scores are compressed by construction, and ``round(frac * 4)`` needs
+    a 12.5% gap before one of four cells goes out, so a whole screen draws the
+    same bar in the same hue. Stretching the page's own span adapts to
+    whatever spread it has, rather than to a constant tuned to one engine on
+    one corpus.
+
+    Equal scores carry no ordering, so a page that is all ties — and a page of
+    one row — fills every bar rather than inventing a loser.
+    """
+    if not scores:
+        return []
+    lo, hi = min(scores), max(scores)
+    if hi <= lo:
+        return [1.0] * len(scores)
+    span = hi - lo
+    return [METER_FLOOR + (1.0 - METER_FLOOR) * ((s - lo) / span)
+            for s in scores]
+
+
 def kind_label(kind: str) -> str:
     """Bracketed display text for a catalog kind — ``[skill]`` / ``[rule]`` /
     ``[workflow]``, an unknown kind bracketed verbatim, a missing one shown as
@@ -647,6 +720,10 @@ _SEARCH_INDENT = 2
 _CURATED_TAIL_W = 11
 
 
+#: A width no line reaches: what an unfitted plan (a pipe) measures against.
+_UNPANED = 10 ** 6
+
+
 @dataclass(frozen=True)
 class SearchLayout:
     """Column plan for one search-result screen, in visible cells.
@@ -661,45 +738,78 @@ class SearchLayout:
     desc_w: int          # room for an uncurated row's description
 
 
-def search_layout(cols: int, names: Sequence[str], kinds: Sequence[str],
-                  taps: Sequence[str]) -> SearchLayout:
+def search_layout(cols: int | None, names: Sequence[str],
+                  kinds: Sequence[str], taps: Sequence[str]) -> SearchLayout:
     """Plan the search-result columns for a ``cols``-wide terminal.
 
-    Sizing: the name column fits the widest shown name (capped at 32), the
-    kind column the widest shown kind label (capped at ``[workflow]``'s 10),
-    the tap column the widest shown tap (capped at 20). The description gets
-    the remainder.
+    ``cols=None`` means there is no pane at all (a pipe — see
+    :func:`pane_width`): nothing is fitted, so no column is dropped, capped or
+    truncated. The name and the tap are what ``grep owner/repo`` and ``boost
+    info owner/repo:name`` need whole, and a 20-cell tap cap left
+    ``sickn33/antigravity…`` in a pipe that has room for anything.
 
-    Drop priority when narrow — provenance is the first luxury, prose the
-    last: the tap goes below 84 columns or whenever it would leave the
-    description under 24 cells; then the description shrinks toward its floor
-    of 8; then the name cap tightens 32 → 24 → 16 → 12; the kind column is
-    dropped outright below 48 columns. The meter, the mark column, the name
-    and the curated tail are never dropped. Every row assembled from the plan
-    measures within ``cols`` (indent included) for any terminal 40 cells wide
-    or more.
+    Sizing: the kind column fits the widest shown kind label (capped at
+    ``[workflow]``'s 10); the name and tap columns fit the widest shown name
+    and tap, **whole** when the pane has room, and the description gets the
+    remainder.
+
+    The name and the tap are the two copy targets — ``boost info tap:name``
+    is built from them — so the description gives way before either is
+    clipped. The plan is the first of these that leaves the description at
+    least 24 cells:
+
+    1. name whole, tap whole;
+    2. name whole, tap capped at 20;
+    3. name capped at 32, tap whole;
+    4. name capped at 32, tap capped at 20;
+    5. tap dropped, name whole;
+    6. tap dropped, name capped at 32.
+
+    An identifier is shown whole or at its cap, never in between:
+    ``sickn33/antigravity-awesome-ski…`` is exactly as useless to paste as
+    ``sickn33/antigravity…``, so a longer clip would spend prose on nothing.
+    When a page's names fit 32 cells and its taps 20, every step above is the
+    same plan, and this is the capped layout unchanged at every width.
+
+    Past step 6 — the narrow panes — provenance is the first luxury and prose
+    the last: the tap is already gone (and never shows below 84 columns);
+    then the description shrinks toward its floor of 8; then the name cap
+    tightens 32 → 24 → 16 → 12; the kind column is dropped outright below 48
+    columns. The meter, the mark column, the name and the curated tail are
+    never dropped. Every row assembled from the plan measures within ``cols``
+    (indent included) for any terminal 40 cells wide or more.
     """
+    if cols is None:
+        return SearchLayout(
+            cols=_UNPANED, name_w=max((visible_len(n) for n in names), default=1),
+            kind_w=max((visible_len(kind_label(k)) for k in kinds), default=0),
+            tap_w=max((visible_len(t) for t in taps), default=0),
+            desc_w=_UNPANED)
     avail = cols - _SEARCH_INDENT - _SEARCH_FIXED
-    name_w = min(max((visible_len(n) for n in names), default=1), 32)
     kind_w = 0
     if cols >= 48:
         kind_w = min(max((visible_len(kind_label(k)) for k in kinds), default=0), 10)
-    tap_w = 0
-    if cols >= 84:
-        tap_w = min(max((visible_len(t) for t in taps), default=0), 20)
 
-    def desc_room(nw: int) -> int:
+    def desc_room(nw: int, tw: int) -> int:
         return (avail - nw - 2 - (kind_w + 2 if kind_w else 0)
-                - (tap_w + 2 if tap_w else 0))
+                - (tw + 2 if tw else 0))
 
-    if tap_w and desc_room(name_w) < 24:
-        tap_w = 0
+    name_whole = max((visible_len(n) for n in names), default=1)
+    tap_whole = 0
+    if cols >= 84:
+        tap_whole = max((visible_len(t) for t in taps), default=0)
+    name_cap, tap_cap = min(name_whole, 32), min(tap_whole, 20)
+    for name_w, tap_w in ((name_whole, tap_whole), (name_whole, tap_cap),
+                          (name_cap, tap_whole), (name_cap, tap_cap),
+                          (name_whole, 0), (name_cap, 0)):
+        if desc_room(name_w, tap_w) >= 24:
+            break
     for cap in (24, 16, 12):
-        if desc_room(name_w) >= 8:
+        if desc_room(name_w, tap_w) >= 8:
             break
         name_w = min(name_w, cap)
     return SearchLayout(cols=cols, name_w=name_w, kind_w=kind_w, tap_w=tap_w,
-                        desc_w=max(8, desc_room(name_w)))
+                        desc_w=max(8, desc_room(name_w, tap_w)))
 
 
 def format_search_row(name: str, desc: str, kind: str, tap: str, frac: float,
@@ -825,7 +935,8 @@ def _fit_widths(widths, numeric, avail: int, sep: int = 2, floor: int = 1,
     fits `avail` columns (or nothing text-like is left to shrink). Numeric
     columns are never squeezed — a truncated number is a wrong number — and
     neither are the `protected` indexes, whose cells are identifiers rather
-    than prose (see :func:`table`'s ``keep``), so a narrow pane spends its
+    than prose: :func:`table`'s ``keep`` and ``whole`` columns alike, which
+    :func:`_fit_columns` passes in together. A narrow pane spends its
     shrinking on chrome first."""
     widths = list(widths)
     if not widths:
@@ -845,6 +956,87 @@ def _fit_widths(widths, numeric, avail: int, sep: int = 2, floor: int = 1,
     return widths
 
 
+#: The narrowest a squeezed column may get before it is dropped instead: six
+#: visible characters and the ellipsis, which still carry a word.
+#:
+#: Why 7: piped at COLUMNS=66, `boost hooks list` fits all six of its columns
+#: with `event` squeezed to 7 — six, as it showed before columns could be
+#: dropped at all. At 8 that pane lost `matcher`, 8 wide and carrying real
+#: data, to buy one cell, and the row measured 61 into a 66-wide pane.
+#:
+#: What it costs, on what boost actually prints: `boost taps` renders UPDATED
+#: as YYYY-MM-DD (`_tap_updated_display`), so a date squeezed to the floor
+#: reads "2026-0…" — the month is gone, and the cell is barely more than the
+#: placeholder this function exists to stop printing. At 6 it would read
+#: "2026-…"; at 8, "2026-09…". A URL at the floor ("https:…") says nothing.
+_MIN_COL = 7
+
+
+def _fit_columns(widths, numeric, avail: int, sep: int = 2, protected=(),
+                 whole=()):
+    """Choose which columns an `avail`-wide pane shows, and how wide.
+
+    Shrinking first (:func:`_fit_widths`, down to :data:`_MIN_COL`), then
+    dropping: a column that cannot be shown at a legible width is removed
+    **with its separator**, which is the only move that recovers the width
+    when the dead columns are leading ones — `rstrip` cannot reach a gutter
+    that has data to its right, so shrinking alone left `boost hooks list` 7
+    columns over an 80-column pane having already destroyed five of its six
+    columns.
+
+    An empty column — header and every cell with nothing to show, like
+    `boost taps`' curated column when no tap is curated — goes before anything
+    is shrunk: it carries no data and still costs a gutter, and keeping it
+    squeezed the real date beside it (piped at COLUMNS=57, "2026-0…" where 56
+    gave "2026-09…"). Only when the row does not fit as it is: a table that
+    fits is printed exactly as it always was.
+
+    Drop order is right to left, skipping `protected` (:func:`table`'s
+    ``keep``), which is never dropped, even when empty: these tables put the
+    identifier the user acts on first and the chrome that repeats on every row
+    last. The drop loop never removes the last column either — an empty table
+    is not a better answer than an over-wide one — and once nothing more may
+    go, the floor stops applying, so that column clips to the pane the way it
+    always did. When every column is protected the row overflows whole,
+    unchanged.
+
+    `whole` columns (:func:`table`'s ``whole``) are the third class: never
+    shrunk, and dropped in the same right-to-left order as any other column,
+    empty ones first. The width a shrink would have taken from one comes off
+    the shrinkable columns, or a column goes. A whole column that is the last
+    one standing overflows rather than clipping, as a protected one does: a
+    clipped identifier reads like data and is not.
+
+    Returns the surviving column indexes (ascending) and their widths.
+    """
+    protected = set(protected)
+    unshrinkable = protected | set(whole)
+    show = list(range(len(widths)))
+
+    def total(ws) -> int:
+        return sum(ws) + sep * (len(ws) - 1)
+
+    if total(widths) > avail:
+        show = [i for i in show if widths[i] or i in protected] or show
+    order = [i for i in reversed(show) if i not in protected]
+
+    def fit(floor: int):
+        return _fit_widths([widths[i] for i in show],
+                           [numeric[i] for i in show], avail, sep=sep,
+                           floor=floor,
+                           protected=[j for j, i in enumerate(show)
+                                      if i in unshrinkable])
+
+    while True:
+        fitted = fit(_MIN_COL)
+        if total(fitted) <= avail:
+            return show, fitted
+        if not order or len(show) <= 1:
+            break
+        show.remove(order.pop(0))
+    return show, fit(1)
+
+
 def _keep_indexes(keep, headers, ncols) -> set[int]:
     """Resolve `table`'s ``keep`` — column indexes, header names, or a mix —
     to indexes. An unknown name is ignored rather than raising: a call site
@@ -861,7 +1053,8 @@ def _keep_indexes(keep, headers, ncols) -> set[int]:
     return out_idx
 
 
-def table(rows, headers=None, stream=None, keep=(), text=()) -> None:
+def table(rows, headers=None, stream=None, keep=(), text=(),
+          whole=()) -> None:
     """Print an aligned table. rows: list of tuples of strings.
 
     Column widths are measured by visible width (ignoring ANSI color codes),
@@ -869,6 +1062,17 @@ def table(rows, headers=None, stream=None, keep=(), text=()) -> None:
     numeric columns are right-aligned, and when a row would overflow the
     terminal the widest text column is shrunk (its cells clipped with an
     ellipsis) so wide catalogs stay on one line instead of wrapping.
+
+    A text column is shrunk no narrower than :data:`_MIN_COL` (7 cells), and
+    a column that cannot be shown at that floor is **dropped** — the column
+    and its separator, in the header and the body alike — rather than rendered
+    as a placeholder that costs ink and carries nothing. A column with nothing
+    in it goes first; after that the order is right to left, skipping
+    ``keep``; the last surviving column is never dropped and clips to the
+    pane instead, unless it is ``keep`` or ``whole``, which overflow. See
+    :func:`_fit_columns`, and :func:`search_layout` for the same shape on the
+    search screen. Nothing is announced: a dropped column is a layout
+    decision, not an event.
 
     On a color terminal, columns are joined by a dim ``│`` separator — the
     terminal cousin of the web stat blocks' hairline borders. Non-color output
@@ -884,6 +1088,13 @@ def table(rows, headers=None, stream=None, keep=(), text=()) -> None:
     ``keep`` names the columns — by index or header — whose cells are
     identifiers rather than prose (a snapshot ID, a digest, a hook command),
     so a narrow pane shrinks the chrome beside them instead.
+
+    ``whole`` (same resolution) names columns that may be dropped but never
+    shrunk: the handle a later command takes as an argument, like the NAME
+    that `boost uninstall` wants or the hook name `hooks remove -n` wants.
+    ``brainstorm…`` is not a name any command accepts, so such a column is
+    shown whole or not at all. It is not ``keep``: two never-dropped columns
+    together can outgrow the pane with nothing left to give.
 
     ``text`` names columns (same index-or-header resolution as ``keep``) that
     must never right-align as numeric, however their cells look: an all-digit
@@ -906,21 +1117,29 @@ def table(rows, headers=None, stream=None, keep=(), text=()) -> None:
     else:
         sep, sep_w = "  ", 2
     avail = pane_width(stream)
+    show = list(range(ncols))
     if avail is not None:
-        widths = _fit_widths(widths, numeric, avail, sep=sep_w,
-                             protected=_keep_indexes(keep, headers, ncols))
+        show, fitted = _fit_columns(widths, numeric, avail, sep=sep_w,
+                                    protected=_keep_indexes(keep, headers,
+                                                            ncols),
+                                    whole=_keep_indexes(whole, headers,
+                                                        ncols))
+        for i, w in zip(show, fitted, strict=True):
+            widths[i] = w
 
     def fmt(cell: str, i: int) -> str:
         cell = _clip_visible(cell, widths[i])
         return _rpad(cell, widths[i]) if numeric[i] else _pad(cell, widths[i])
 
+    _stdout_first(stream)
     if headers:
         # Bold each header cell individually: a whole-line wrap would be
         # cancelled at the first separator's RESET on color terminals.
-        cells = [c(fmt(str(h), i), BOLD) for i, h in enumerate(headers)]
+        cells = [c(fmt(str(headers[i]), i), BOLD)
+                 for i in show if i < len(headers)]
         print(sep.join(cells).rstrip(), file=stream)
     for r in rows:
-        print(sep.join(fmt(cell, i) for i, cell in enumerate(r)).rstrip(),
+        print(sep.join(fmt(r[i], i) for i in show if i < len(r)).rstrip(),
               file=stream)
 
 

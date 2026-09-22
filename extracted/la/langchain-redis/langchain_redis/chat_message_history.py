@@ -1,8 +1,9 @@
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from langchain_core._api import deprecated
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import BaseMessage, ToolMessage, messages_from_dict
 from redis import Redis
@@ -19,27 +20,31 @@ logger = logging.getLogger(__name__)
 
 
 def _noop_push_handler(response: Any) -> None:
-    """
-    No-op push response handler to prevent _set_info_logger from being called.
+    """No-op push response handler to prevent `_set_info_logger` from being called.
 
     Redis's PubSub functionality creates a special INFO level logger called
     'push_response' when no handler is provided. This affects global logging config
-    by creating a new INFO level logger while an app might be using DEBUG level.
+    by creating a new `INFO` level logger while an app might be using `DEBUG` level.
 
     This handler simply does nothing with the push responses, preventing Redis from
-    creating its own INFO logger. If an app needs to process push responses,
+    creating its own `INFO` logger. If an app needs to process push responses,
     it should provide its own custom handler when instantiating RedisChatMessageHistory.
 
     Args:
         response: The push response from Redis that we're ignoring.
-
-    Returns:
-        None
     """
     # Explicitly do nothing with the response
     pass
 
 
+@deprecated(
+    since="0.2.6",
+    removal="1.0.0",
+    addendum=(
+        "See the short-term memory documentation for recommended alternatives: "
+        "https://docs.langchain.com/oss/python/langchain/short-term-memory"
+    ),
+)
 class RedisChatMessageHistory(BaseChatMessageHistory):
     """Redis-based implementation of chat message history using RedisVL.
 
@@ -55,58 +60,59 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
 
     Args:
         session_id (str): A unique identifier for the chat session.
-        redis_url (str, optional): URL of the Redis instance. Defaults to "redis://localhost:6379".
-        key_prefix (str, optional): Prefix for Redis keys. Defaults to "chat:".
+        redis_url (str, optional): URL of the Redis instance.
+        key_prefix (str, optional): Prefix for Redis keys.
         ttl (Optional[int], optional): Time-to-live for entries in seconds.
-            Defaults to None (no expiration).
         index_name (str, optional): Name of the Redis search index.
-            Defaults to "idx:chat_history".
         redis_client (Optional[Redis], optional): Existing Redis client instance.
-            If provided, redis_url is ignored.
+
+            If provided, `redis_url` is ignored.
         overwrite_index (bool, optional): Whether to overwrite an existing index
-            if it already exists. Defaults to False. If False and an index exists
-            with a different key_prefix, a warning will be logged.
+            if it already exists.
+
+            If `False` and an index exists with a different `key_prefix`, a warning will
+            be logged.
         **kwargs: Additional keyword arguments to pass to the Redis client.
 
     Raises:
-        ValueError: If session_id is empty or None.
+        ValueError: If `session_id` is empty or `None`.
         ResponseError: If Redis connection fails or RedisVL operations fail.
 
     Example:
-        .. code-block:: python
+        ```python
+        from langchain_redis import RedisChatMessageHistory
+        from langchain_core.messages import HumanMessage, AIMessage
 
-            from langchain_redis import RedisChatMessageHistory
-            from langchain_core.messages import HumanMessage, AIMessage
+        history = RedisChatMessageHistory(
+            session_id="user123",
+            redis_url="redis://localhost:6379",
+            ttl=3600  # Expire chat history after 1 hour
+        )
 
-            history = RedisChatMessageHistory(
-                session_id="user123",
-                redis_url="redis://localhost:6379",
-                ttl=3600  # Expire chat history after 1 hour
-            )
+        # Add messages to the history
+        history.add_message(HumanMessage(content="Hello, AI!"))
+        history.add_message(
+            AIMessage(content="Hello, human! How can I assist you today?")
+        )
 
-            # Add messages to the history
-            history.add_message(HumanMessage(content="Hello, AI!"))
-            history.add_message(
-              AIMessage(content="Hello, human! How can I assist you today?")
-            )
+        # Retrieve all messages
+        messages = history.messages
+        for message in messages:
+            print(f"{message.type}: {message.content}")
 
-            # Retrieve all messages
-            messages = history.messages
-            for message in messages:
-                print(f"{message.type}: {message.content}")
-
-            # Clear the history for the session
-            history.clear()
+        # Clear the history for the session
+        history.clear()
+        ```
 
     Note:
         - This class uses RedisVL for managing Redis JSON storage and search indexes,
-          providing efficient querying and retrieval.
+            providing efficient querying and retrieval.
         - A Redis search index is created to enable fast lookups and search
-          capabilities over the chat history.
+            capabilities over the chat history.
         - If TTL is set, message entries will automatically expire after the
-          specified duration.
-        - The session_id is used to group messages belonging to the same conversation
-          or user session.
+            specified duration.
+        - The `session_id` is used to group messages belonging to the same conversation
+            or user session.
         - RedisVL automatically handles tokenization and escaping for search queries.
     """
 
@@ -222,7 +228,7 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         """Retrieve all messages for the current session, sorted by timestamp.
 
         Returns:
-            List[BaseMessage]: A list of messages in chronological order.
+            A list of messages in chronological order.
 
         Raises:
             ResponseError: If Redis connection fails or RedisVL operations fail.
@@ -264,56 +270,79 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         using RedisVL's document loading capabilities.
 
         Args:
-            message (BaseMessage): The message to add to the history. This should be an
-                                   instance of a class derived from BaseMessage, such as
-                                   HumanMessage, AIMessage, or SystemMessage.
+            message (BaseMessage): The message to add to the history.
+
+                This should be an instance of a class derived from `BaseMessage`, such
+                as `HumanMessage`, `AIMessage`, or `SystemMessage`.
 
         Raises:
             ResponseError: If Redis connection fails or RedisVL operations fail.
-            ValueError: If message is None or invalid.
+            ValueError: If message is `None` or invalid.
 
         Example:
-            .. code-block:: python
+            ```python
+            from langchain_redis import RedisChatMessageHistory
+            from langchain_core.messages import HumanMessage, AIMessage
 
-                from langchain_redis import RedisChatMessageHistory
-                from langchain_core.messages import HumanMessage, AIMessage
+            history = RedisChatMessageHistory(
+                session_id="user123",
+                redis_url="redis://localhost:6379",
+                ttl=3600  # optional: set TTL to 1 hour
+            )
 
-                history = RedisChatMessageHistory(
-                    session_id="user123",
-                    redis_url="redis://localhost:6379",
-                    ttl=3600  # optional: set TTL to 1 hour
-                )
+            # Add a human message
+            history.add_message(HumanMessage(content="Hello, AI!"))
 
-                # Add a human message
-                history.add_message(HumanMessage(content="Hello, AI!"))
+            # Add an AI message
+            history.add_message(
+                AIMessage(content="Hello! How can I assist you today?")
+            )
 
-                # Add an AI message
-                history.add_message(
-                  AIMessage(content="Hello! How can I assist you today?")
-                )
-
-                # Verify messages were added
-                print(f"Number of messages: {len(history.messages)}")
+            # Verify messages were added
+            print(f"Number of messages: {len(history.messages)}")
+            ```
 
         Note:
             - Each message is stored as a separate entry in Redis, associated
-              with the current session_id.
+                with the current `session_id`.
             - Messages are stored using RedisVL's JSON capabilities for efficient
-              storage and retrieval.
+                storage and retrieval.
             - If a TTL (Time To Live) was specified when initializing the history,
-              it will be applied to each message.
+                it will be applied to each message.
             - The message's content, type, and any additional data (like timestamp)
-              are stored.
+                are stored.
             - This method is thread-safe and can be used in concurrent environments.
             - The Redis search index is automatically updated to include the new
-              message, enabling future searches.
+                message, enabling future searches.
             - Large message contents may impact performance and storage usage.
-              Consider implementing size limits if dealing with potentially
-              large messages.
+                Consider implementing size limits if dealing with potentially
+                large messages.
+            - When adding several messages at once (e.g. a human/AI turn pair),
+                prefer `add_messages` which writes them in a single Redis
+                round-trip instead of calling this method in a loop.
         """
         if message is None:
             raise ValueError("Message cannot be None")
 
+        data, key = self._build_message_entry(message)
+
+        # Use RedisVL to load the data
+        self.index.load(
+            data=[data],
+            keys=[key],
+            ttl=self.ttl,
+        )
+
+    def _build_message_entry(self, message: BaseMessage) -> Tuple[Dict[str, Any], str]:
+        """Build the RedisVL document and key for a single message.
+
+        Args:
+            message (BaseMessage): The message to convert.
+
+        Returns:
+            A tuple of `(data, key)` suitable for passing to
+            `self.index.load(data=[...], keys=[...])`.
+        """
         timestamp = datetime.now().timestamp()
         message_id = str(ULID())
         common_data_to_store: Dict[str, Any] = {
@@ -331,49 +360,94 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
             common_data_to_store["data"]["tool_call_id"] = message.tool_call_id
             common_data_to_store["data"]["status"] = message.status
 
-        # Use RedisVL to load the data
+        return common_data_to_store, self._message_key(message_id)
+
+    def add_messages(self, messages: Sequence[BaseMessage]) -> None:
+        """Add multiple messages to the chat history in a single Redis round-trip.
+
+        This overrides the default `BaseChatMessageHistory.add_messages`, which
+        would otherwise call `add_message` once per message (one Redis
+        round-trip per message). Here, all messages are built up-front and
+        loaded into Redis with a single `RedisVL` call.
+
+        Args:
+            messages (Sequence[BaseMessage]): The messages to add to the
+                history, in order.
+
+        Raises:
+            ResponseError: If Redis connection fails or RedisVL operations fail.
+            ValueError: If `messages` contains a `None` entry.
+
+        Example:
+            ```python
+            from langchain_redis import RedisChatMessageHistory
+            from langchain_core.messages import HumanMessage, AIMessage
+
+            history = RedisChatMessageHistory(
+                session_id="user123",
+                redis_url="redis://localhost:6379",
+            )
+
+            history.add_messages(
+                [
+                    HumanMessage(content="Hello, AI!"),
+                    AIMessage(content="Hello! How can I assist you today?"),
+                ]
+            )
+            ```
+        """
+        if not messages:
+            return
+
+        if any(message is None for message in messages):
+            raise ValueError("Message cannot be None")
+
+        entries = [self._build_message_entry(message) for message in messages]
+        data = [entry[0] for entry in entries]
+        keys = [entry[1] for entry in entries]
+
         self.index.load(
-            data=[common_data_to_store],
-            keys=[self._message_key(message_id)],
+            data=data,
+            keys=keys,
             ttl=self.ttl,
         )
 
     def clear(self) -> None:
         """Clear all messages from the chat history for the current session.
 
-        This method removes all messages associated with the current session_id from
+        This method removes all messages associated with the current `session_id` from
         the Redis store using RedisVL queries.
 
         Raises:
             ResponseError: If Redis connection fails or RedisVL operations fail.
 
         Example:
-            .. code-block:: python
+            ```python
+            from langchain_redis import RedisChatMessageHistory
+            from langchain_core.messages import HumanMessage, AIMessage
 
-                from langchain_redis import RedisChatMessageHistory
-                from langchain_core.messages import HumanMessage, AIMessage
+            history = RedisChatMessageHistory(session_id="user123", redis_url="redis://localhost:6379")
 
-                history = RedisChatMessageHistory(session_id="user123", redis_url="redis://localhost:6379")
+            # Add some messages
+            history.add_message(HumanMessage(content="Hello, AI!"))
+            history.add_message(AIMessage(content="Hello, human!"))
 
-                # Add some messages
-                history.add_message(HumanMessage(content="Hello, AI!"))
-                history.add_message(AIMessage(content="Hello, human!"))
+            # Clear the history
+            history.clear()
 
-                # Clear the history
-                history.clear()
-
-                # Verify that the history is empty
-                assert len(history.messages) == 0
+            # Verify that the history is empty
+            assert len(history.messages) == 0
+            ```
 
         Note:
-            - This method only clears messages for the current session_id.
+            - This method only clears messages for the current `session_id`.
             - It uses RedisVL's FilterQuery to find all relevant messages and then
-              deletes them individually using the Redis client.
+                deletes them individually using the Redis client.
             - The operation removes all messages for the current session only.
             - After clearing, the Redis search index is still maintained, allowing
-              for immediate use of the same session_id for new messages if needed.
+                for immediate use of the same `session_id` for new messages if needed.
             - This operation is irreversible. Make sure you want to remove all messages
-              before calling this method.
+                before calling this method.
         """
         # Get total count of records to delete
         session_filter = Tag("session_id") == self.session_id
@@ -412,60 +486,59 @@ class RedisChatMessageHistory(BaseChatMessageHistory):
         Args:
             query (str): The search query string to match against message content.
             limit (int, optional): The maximum number of results to return.
-                Defaults to 10.
 
         Returns:
-            List[Dict[str, Any]]: A list of dictionaries, each representing a
-                                  matching message.
-            Each dictionary contains the message content and metadata.
+            A list of dictionaries, each representing a matching message.
+
+                Each dictionary contains the message content and metadata.
 
         Raises:
             ResponseError: If Redis connection fails or RedisVL operations fail.
 
         Example:
-            .. code-block:: python
+            ```python
+            from langchain_redis import RedisChatMessageHistory
+            from langchain_core.messages import HumanMessage, AIMessage
 
-                from langchain_redis import RedisChatMessageHistory
-                from langchain_core.messages import HumanMessage, AIMessage
+            history = RedisChatMessageHistory(session_id="user123", redis_url="redis://localhost:6379")
 
-                history = RedisChatMessageHistory(session_id="user123", redis_url="redis://localhost:6379")
-
-                # Add some messages
-                history.add_message(
-                  HumanMessage(content="Tell me about Machine Learning")
+            # Add some messages
+            history.add_message(
+                HumanMessage(content="Tell me about Machine Learning")
+            )
+            history.add_message(
+                AIMessage(content="Machine Learning is a subset of AI...")
+            )
+            history.add_message(
+                HumanMessage(content="What are neural networks?")
+            )
+            history.add_message(
+                AIMessage(
+                content="Neural networks are a key component of deep learning..."
                 )
-                history.add_message(
-                  AIMessage(content="Machine Learning is a subset of AI...")
-                )
-                history.add_message(
-                  HumanMessage(content="What are neural networks?")
-                )
-                history.add_message(
-                  AIMessage(
-                    content="Neural networks are a key component of deep learning..."
-                  )
-                )
+            )
 
-                # Search for messages containing "learning"
-                results = history.search_messages("learning", limit=5)
+            # Search for messages containing "learning"
+            results = history.search_messages("learning", limit=5)
 
-                for result in results:
-                    print(f"Content: {result['content']}")
-                    print(f"Type: {result['type']}")
-                    print("---")
+            for result in results:
+                print(f"Content: {result['content']}")
+                print(f"Type: {result['type']}")
+                print("---")
+            ```
 
         Note:
             - The search is performed using RedisVL's TextQuery capabilities, which
-              allows for efficient full-text search.
+                allows for efficient full-text search.
             - The search is case-insensitive and uses Redis' default tokenization
-              and stemming.
-            - Only messages from the current session (as defined by session_id)
-              are searched.
+                and stemming.
+            - Only messages from the current session (as defined by `session_id`)
+                are searched.
             - The returned dictionaries include all stored fields, which typically
-              include 'content', 'type', and any additional metadata stored
-              with the message.
+                include `'content'`, `'type'`, and any additional metadata stored
+                with the message.
             - This method is useful for quickly finding relevant parts of a
-              conversation without having to iterate through all messages.
+                conversation without having to iterate through all messages.
         """
         if not query or not isinstance(query, str):
             return []

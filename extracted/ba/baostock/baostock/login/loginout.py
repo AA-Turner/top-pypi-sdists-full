@@ -13,6 +13,8 @@ import baostock.data.messageheader as msgheader
 import datetime
 import baostock.common.context as conx
 
+# Base62字符集：数字(0-9)、大写字母(A-Z)、小写字母(a-z)，共62个字符
+ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 def login(user_id='anonymous', password='123456'):
     """登录系统
@@ -39,10 +41,17 @@ def login(user_id='anonymous', password='123456'):
         return data
 
     options = '0' # '0'为默认值
+    apiKey = '0' # '0'为默认值
     if hasattr(conx, "apiKey"):
         apiKey = getattr(conx, "apiKey")
-        options = apiKey
 
+        if(apiKey != '0'):
+            # 长度检查，“校验和”检查,BSERR_APIKey_FORMAT_INCORRECT
+            if(valid_API_key(apiKey) == False):
+                data.error_msg = "APIKey格式不正确."
+                data.error_code = cons.BSERR_APIKey_FORMAT_INCORRECT
+                return data
+        options = apiKey
 
     # 组织体信息
     msg_body = "login" + cons.MESSAGE_SPLIT + user_id + cons.MESSAGE_SPLIT + \
@@ -60,7 +69,7 @@ def login(user_id='anonymous', password='123456'):
     # 发送并接收消息
     mySocketUtil = sock.SocketUtil()
     # 创建连接
-    mySocketUtil.connect()
+    mySocketUtil.connect(apiKey)
 
     receive_data = sock.send_msg(
         head_body + cons.MESSAGE_SPLIT + str(crc32str))
@@ -90,6 +99,63 @@ def login(user_id='anonymous', password='123456'):
         print("login failed!")
 
     return data
+
+
+def valid_API_key(API_key):
+    '''
+    简单的检验API-KEY的正确性；（长度检查，“校验和”检查）
+    BSERR_APIKey_FORMAT_INCORRECT
+    return false:apiKey格式不正确
+    '''
+    # API-KEY是33位字符串，整体设计构造如下：bs-<2位字符串><27位字符串><1位校验和>
+    if API_key is None or not isinstance(API_key, str) or API_key == "":
+        print("Invalid API_key: empty or not a string")
+        return False
+
+    if len(API_key) != 33:
+        print("Invalid API_key: length must be 33")
+        return False
+
+    if not API_key.startswith("bs-"):
+        print("Invalid API_key: prefix must be 'bs-'")
+        return False
+
+    role_code = API_key[3:5]
+    payload_b62 = API_key[5:32]   # 27 位
+    checksum = API_key[32]
+
+    body = role_code + payload_b62 + checksum
+    if any(ch not in ALPHABET for ch in body):
+        print("Invalid API_key: contains non-Base62 characters")
+        return False
+
+    expected_checksum = calculate_checksum(role_code, payload_b62)
+    if checksum != expected_checksum:
+        print("Invalid API_key: checksum mismatch")
+        return False
+
+    return True
+
+def calculate_checksum(role_code: str, payload: str) -> str:
+    """
+    计算校验和
+
+    校验和规则：
+    1. 将3位role密文和28位载荷拼接
+    2. 计算所有字符在ALPHABET中的索引值之和
+    3. 对62取模得到索引，对应ALPHABET中的字符
+
+    Args:
+        role_code: 3位Base62编码的role密文
+        payload: 28位Base62编码的载荷
+
+    Returns:
+        1位Base62校验和字符
+    """
+    combined = role_code + payload
+    total = sum(ALPHABET.index(ch) for ch in combined)
+    index = total % 62
+    return ALPHABET[index]
 
 
 def set_API_key(apiKey=''):

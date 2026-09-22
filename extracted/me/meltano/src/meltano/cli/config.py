@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import enum
 import json
+import operator
 import sys
 import tempfile
 import typing as t
@@ -36,7 +38,7 @@ from meltano.core.setting_definition import SettingValueJSONEncoder
 from meltano.core.settings_service import SettingValueStore
 from meltano.core.settings_store import StoreNotSupportedError
 from meltano.core.tracking.contexts import CliEvent, PluginsTrackingContext
-from meltano.core.utils import run_async
+from meltano.core.utils import run_async, split_path
 
 if sys.version_info >= (3, 12):
     from typing import override  # noqa: ICN003
@@ -53,6 +55,17 @@ if t.TYPE_CHECKING:
     from meltano.core.tracking.tracker import Tracker
 
 logger = structlog.stdlib.get_logger(__name__)
+
+_SettingBucket = list[tuple[str, dict[str, t.Any]]]
+
+
+class _Bucket(enum.Enum):
+    REQUIRED = enum.auto()
+    CONFIGURED = enum.auto()
+    OPTIONAL = enum.auto()
+    CUSTOM = enum.auto()
+    CUSTOM_EXTRAS = enum.auto()
+
 
 install, no_install, only_install = get_install_options(include_only_install=True)
 
@@ -88,6 +101,69 @@ def _required_label(groups: list[int], num_groups: int) -> str:
     group_str = ", ".join(map(str, groups))
     plural = "s" if len(groups) > 1 else ""
     return f"required by group{plural} {group_str}"
+
+
+def _print_setting(
+    name: str,
+    config_metadata: dict[str, t.Any],
+    *,
+    settings: PluginSettingsService | ProjectSettingsService,
+    setting_groups: dict[str, list[int]],
+    num_groups: int,
+    safe: bool,
+) -> None:
+    """Print a single setting with its metadata."""
+    value = config_metadata["value"]
+    source = config_metadata["source"]
+    setting_def: SettingDefinition = config_metadata["setting"]
+
+    click.secho(name, fg="blue", nl=False)
+    # With a single validation group, the `Required:` section header and the
+    # `Required settings:` summary already convey what `(required)` would.
+    # Skip the per-setting label there; keep it for multi-group plugins where
+    # `(required by group N)` carries unique information.
+    if name in setting_groups and num_groups > 1:
+        click.secho(
+            f" ({_required_label(setting_groups[name], num_groups)})",
+            fg="red",
+            nl=False,
+        )
+
+    env_keys = [var.definition for var in settings.setting_env_vars(setting_def)]
+    click.echo(f" [env: {', '.join(env_keys)}]", nl=False)
+
+    if source is not SettingValueStore.DEFAULT:
+        default_value = setting_def.value
+        if default_value is not None:
+            click.echo(f" (default: {default_value!r})", nl=False)
+
+    if source is SettingValueStore.DEFAULT:
+        label = "default"
+    elif source is SettingValueStore.INHERITED:
+        label = f"inherited from '{settings.plugin.parent.name}'"  # type: ignore[union-attr]  # ty:ignore[unresolved-attribute]
+    else:
+        label = get_label(config_metadata, source)
+
+    redacted_with_value = safe and setting_def.is_redacted and value is not None
+
+    current_value = click.style(
+        value if redacted_with_value else f"{value!r}",
+        fg="yellow" if redacted_with_value else "green",
+    )
+
+    click.echo(f" current value: {current_value}", nl=False)
+
+    unexpanded_value = config_metadata.get("unexpanded_value")
+    if not unexpanded_value or unexpanded_value == value:
+        click.echo(f" ({label})")
+    else:
+        click.echo(f" ({label}: {unexpanded_value!r})")
+
+    if setting_def.description:
+        click.echo("\t", nl=False)
+        if setting_def.label:
+            click.echo(f"{setting_def.label}: ", nl=False)
+        click.echo(f"{setting_def.description}")
 
 
 @t.overload
@@ -352,13 +428,29 @@ def print_config(
     cls=PartialInstrumentedCmd,
     name="list",
     short_help=(
-        "List all settings for the specified plugin with their names, "
+        "List settings for the specified plugin with their names, "
         "environment variables, and current values."
     ),
 )
 @click.argument("plugin_name")
 @click.option("--plugin-type", type=PluginTypeArg())
 @click.option("--extras", is_flag=True, help="List only plugin extras.")
+@click.option(
+    "--all",
+    "show_all",
+    is_flag=True,
+    help=(
+        "Show all settings, including optional settings at their default values. "
+        "By default only required, configured, and custom settings are shown. "
+        "Ignored when --filter is set; --filter always searches all settings."
+    ),
+)
+@click.option(
+    "--filter",
+    "filter_pattern",
+    metavar="SUBSTRING",
+    help="Show only settings whose name contains SUBSTRING (case-insensitive).",
+)
 @pass_project(migrate=True)
 @click.pass_context
 def list_settings(
@@ -368,10 +460,19 @@ def list_settings(
     plugin_name: str,
     plugin_type: PluginType | None,
     extras: bool,
+    show_all: bool,
+    filter_pattern: str | None,
 ) -> None:
-    """List all settings for the specified plugin with their names, environment variables, and current values."""  # noqa: E501
+    """List settings for the specified plugin with their names, environment variables, and current values."""  # noqa: E501
     safe: bool = ctx.obj["safe"]
     tracker: Tracker = ctx.obj["tracker"]
+
+    # Normalize `--filter`: strip surrounding whitespace and treat empty/
+    # whitespace-only values as not set. An empty pattern would match every
+    # setting (`"" in name`), and a stray trailing space would silently fail
+    # to match (e.g. `--filter "ssl "` would not match `"ssl"`).
+    if filter_pattern is not None:
+        filter_pattern = filter_pattern.strip() or None
 
     _, Session = project_engine(project)  # noqa: N806
     session = Session()
@@ -386,11 +487,9 @@ def list_settings(
     )
     settings = _get_settings(project=project, plugin=plugin)
 
-    printed_custom_heading = False
-    printed_extra_heading = extras
-
-    # If `--extras` is not specified (`False`), we still want to load both
-    # regular and extra settings, since we show custom extras.
+    # `config_with_metadata(extras=True)` returns only extras; `extras=None`
+    # returns both regular and extras. When `--extras` is not specified we
+    # still need both, since custom extras appear in the default listing.
     load_extras = True if extras else None
 
     full_config = settings.config_with_metadata(
@@ -407,84 +506,115 @@ def list_settings(
         for setting_name in group:
             setting_groups[setting_name].append(i)
     num_groups = len(validation_groups)
-    if num_groups > 1:
+    # The validation groups summary orients users on what `Required:` means.
+    # Always emit it for non-extras listings (including filter mode): without
+    # it, `--filter` matches that fall in a single validation group would be
+    # framed under `Required:` as if they were the full required set, which
+    # is misleading for plugins with alternative validation groups.
+    if not extras and num_groups > 1:
         click.echo("Setting groups (one of the following combinations is required):")
         for i, group in enumerate(validation_groups, 1):
             click.echo(f"  Group {i}: {', '.join(sorted(group))}")
         click.echo()
-    elif num_groups == 1:
+    elif not extras and num_groups == 1:
         click.echo(f"Required settings: {', '.join(sorted(validation_groups[0]))}")
         click.echo()
 
+    # Bucket settings into groups
+    buckets: dict[_Bucket, _SettingBucket] = {key: [] for key in _Bucket}
+
     for name, config_metadata in full_config.items():
-        value = config_metadata["value"]
-        source = config_metadata["source"]
         setting_def: SettingDefinition = config_metadata["setting"]
+        source = config_metadata["source"]
 
         if extras:
-            if not setting_def.is_extra:
-                continue
-
-            if setting_def.is_custom and not printed_custom_heading:
-                click.echo()
-                click.echo("Custom:")
-                printed_custom_heading = True
+            if setting_def.is_custom:
+                buckets[_Bucket.CUSTOM].append((name, config_metadata))
+            elif source is not SettingValueStore.DEFAULT:
+                buckets[_Bucket.CONFIGURED].append((name, config_metadata))
+            else:
+                buckets[_Bucket.OPTIONAL].append((name, config_metadata))
         elif setting_def.is_extra:
-            if not setting_def.is_custom:
+            if setting_def.is_custom:
+                buckets[_Bucket.CUSTOM_EXTRAS].append((name, config_metadata))
+            else:
                 continue
+        elif setting_def.is_custom:
+            buckets[_Bucket.CUSTOM].append((name, config_metadata))
+        elif name in setting_groups:
+            buckets[_Bucket.REQUIRED].append((name, config_metadata))
+        elif source is not SettingValueStore.DEFAULT:
+            buckets[_Bucket.CONFIGURED].append((name, config_metadata))
+        else:
+            buckets[_Bucket.OPTIONAL].append((name, config_metadata))
 
-            if not printed_extra_heading:
-                click.echo()
-                click.echo("Custom extras, plugin-specific options handled by Meltano:")
-                printed_extra_heading = True
-        elif setting_def.is_custom and not printed_custom_heading:
+    for bucket in buckets.values():
+        bucket.sort(key=operator.itemgetter(0))
+
+    # When filtering, the user is searching, so optional-at-defaults are not
+    # hidden; the filter result is the narrowed view.
+    if filter_pattern is not None:
+        needle = filter_pattern.lower()
+        buckets = {
+            key: [item for item in bucket if needle in item[0].lower()]
+            for key, bucket in buckets.items()
+        }
+        hidden_optional_count = 0
+    elif not show_all:
+        hidden_optional_count = len(buckets[_Bucket.OPTIONAL])
+        buckets[_Bucket.OPTIONAL] = []
+    else:
+        hidden_optional_count = 0
+
+    # Build ordered section list
+    if extras:
+        # Preserve the historical un-headered listing when there's only an
+        # Optional bucket (adding an `Optional:` header in that case would be
+        # a gratuitous output change for `--all --extras` callers).
+        optional_label = "Optional:" if buckets[_Bucket.CONFIGURED] else None
+        section_defs: list[tuple[str | None, _SettingBucket]] = [
+            ("Configured:", buckets[_Bucket.CONFIGURED]),
+            (optional_label, buckets[_Bucket.OPTIONAL]),
+            ("Custom:", buckets[_Bucket.CUSTOM]),
+        ]
+    else:
+        section_defs = [
+            ("Required:", buckets[_Bucket.REQUIRED]),
+            ("Configured:", buckets[_Bucket.CONFIGURED]),
+            ("Optional:", buckets[_Bucket.OPTIONAL]),
+            ("Custom, possibly unsupported by the plugin:", buckets[_Bucket.CUSTOM]),
+            (
+                "Custom extras, plugin-specific options handled by Meltano:",
+                buckets[_Bucket.CUSTOM_EXTRAS],
+            ),
+        ]
+    sections = [(h, b) for h, b in section_defs if b]
+
+    for i, (header, bucket) in enumerate(sections):
+        if i > 0:
             click.echo()
-            click.echo("Custom, possibly unsupported by the plugin:")
-            printed_custom_heading = True
-
-        click.secho(name, fg="blue", nl=False)
-        if name in setting_groups:
-            click.secho(
-                f" ({_required_label(setting_groups[name], num_groups)})",
-                fg="red",
-                nl=False,
+        if header:
+            click.echo(header)
+        for name, config_metadata in bucket:
+            _print_setting(
+                name,
+                config_metadata,
+                settings=settings,
+                setting_groups=setting_groups,
+                num_groups=num_groups,
+                safe=safe,
             )
 
-        env_keys = [var.definition for var in settings.setting_env_vars(setting_def)]
-        click.echo(f" [env: {', '.join(env_keys)}]", nl=False)
+    if filter_pattern is not None and not sections:
+        click.secho(f"No settings match {filter_pattern!r}.", fg="yellow")
 
-        if source is not SettingValueStore.DEFAULT:
-            default_value = setting_def.value
-            if default_value is not None:
-                click.echo(f" (default: {default_value!r})", nl=False)
-
-        if source is SettingValueStore.DEFAULT:
-            label = "default"
-        elif source is SettingValueStore.INHERITED:
-            label = f"inherited from '{settings.plugin.parent.name}'"  # type: ignore[union-attr]  # ty:ignore[unresolved-attribute]
-        else:
-            label = f"{get_label(config_metadata, source)}"
-
-        redacted_with_value = safe and setting_def.is_redacted and value is not None
-
-        current_value = click.style(
-            value if redacted_with_value else f"{value!r}",
-            fg="yellow" if redacted_with_value else "green",
+    if hidden_optional_count > 0:
+        if sections:
+            click.echo()
+        click.echo(
+            f"Optional settings with default values: {hidden_optional_count} "
+            "hidden. Use --all to show all."
         )
-
-        click.echo(f" current value: {current_value}", nl=False)
-
-        unexpanded_value = config_metadata.get("unexpanded_value")
-        if not unexpanded_value or unexpanded_value == value:
-            click.echo(f" ({label})")
-        else:
-            click.echo(f" ({label}: {unexpanded_value!r})")
-
-        if setting_def.description:
-            click.echo("\t", nl=False)
-            if setting_def.label:
-                click.echo(f"{setting_def.label}: ", nl=False)
-            click.echo(f"{setting_def.description}")
 
     if docs_url := settings.docs_url:
         click.echo()
@@ -581,8 +711,12 @@ def set_(
         tracker=tracker,
     )
     settings = _get_settings(project=project, plugin=plugin)
+    # Segments stay escaped: the escaped name is what identifies the setting
+    # both in `meltano.yml` and in its `SettingDefinition`.
     setting_name = (
-        tuple(setting_name[0].split(".")) if len(setting_name) == 1 else setting_name
+        tuple(split_path(setting_name[0], unescape=False))
+        if len(setting_name) == 1
+        else setting_name
     )
 
     interaction = InteractiveConfig(
@@ -670,6 +804,7 @@ async def test(
                 (
                     "Plugin configuration is invalid",
                     detail or "Plugin did not emit any output",
+                    f"Run 'meltano config list {plugin_name}' to review the plugin settings.",  # noqa: E501
                 ),
             ),
         )

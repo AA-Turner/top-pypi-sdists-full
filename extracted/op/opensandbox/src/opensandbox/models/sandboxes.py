@@ -1,5 +1,5 @@
 #
-# Copyright 2025 Alibaba Group Holding Ltd.
+# Copyright 2025 The OpenSandbox Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,13 @@ Models for sandbox creation, configuration, status, and lifecycle management.
 
 import re
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+if TYPE_CHECKING:
+    from opensandbox.config import ConnectionConfig
+    from opensandbox.config.connection_sync import ConnectionConfigSync
 
 
 class SandboxImageAuth(BaseModel):
@@ -783,6 +787,37 @@ class SandboxEndpoint(BaseModel):
         default_factory=dict,
         description="Headers that must be included on every request targeting this endpoint (e.g. when the server requires them for routing or auth). Empty if not required.",
     )
+    origin: str | None = Field(
+        default=None,
+        description=(
+            "Origin of the sandbox taken from the server's "
+            "OPEN-SANDBOX-ORIGIN response header (see SandboxOrigin). "
+            "None when the server does not send it."
+        ),
+    )
+
+    def build_request_headers(
+        self,
+        connection_config: "ConnectionConfig | ConnectionConfigSync",
+    ) -> dict[str, str]:
+        """
+        Default headers for execd-plane requests to this endpoint.
+
+        The API key is attached only when the client declared server-proxy
+        mode (``ConnectionConfig.use_server_proxy``): such requests pass the
+        server's auth gate. In direct mode execd performs no auth and the
+        key must never travel into the untrusted sandbox.
+        """
+        headers = {
+            "User-Agent": connection_config.user_agent,
+            **connection_config.headers,
+            **self.headers,
+        }
+        if connection_config.use_server_proxy:
+            api_key = connection_config.get_api_key()
+            if api_key:
+                headers["OPEN-SANDBOX-API-KEY"] = api_key
+        return headers
 
 
 class PaginationInfo(BaseModel):
@@ -964,6 +999,38 @@ class SandboxState:
     @classmethod
     def values(cls) -> set[str]:
         """Returns a set of all known state values."""
+        return {
+            v for k, v in cls.__dict__.items() if k.isupper() and not k.startswith("_")
+        }
+
+
+class SandboxOrigin:
+    """Origin backing a sandbox.
+
+    The protocol defines a single origin value: ``template`` (reported by
+    the server via the ``OPEN-SANDBOX-ORIGIN`` response header, and set
+    locally when the sandbox was explicitly created from a template).
+    Anything else - including sandboxes created from an image or a snapshot
+    - carries no origin value.
+
+    Known values:
+        TEMPLATE (str): Runs on a fsb golden-image template (no sandbox-side
+            egress sidecar; egress policy goes through the lifecycle control
+            plane).
+        UNKNOWN (str): The origin could not be determined (create from an
+            image or snapshot, or an older server that does not send the
+            header).
+
+    The server may introduce new values in future versions; clients should
+    handle unknown string values gracefully.
+    """
+
+    TEMPLATE = "template"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def values(cls) -> set[str]:
+        """Returns a set of all known source values."""
         return {
             v for k, v in cls.__dict__.items() if k.isupper() and not k.startswith("_")
         }

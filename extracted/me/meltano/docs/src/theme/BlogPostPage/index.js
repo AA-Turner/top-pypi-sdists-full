@@ -7,7 +7,7 @@ import {
 import {
   BlogPostProvider,
   useBlogPost,
-} from '@docusaurus/theme-common/internal';
+} from '@docusaurus/plugin-content-blog/client';
 import BlogLayout from '@theme/BlogLayout';
 import BlogPostItem from '@theme/BlogPostItem';
 import BlogPostPaginator from '@theme/BlogPostPaginator';
@@ -25,6 +25,7 @@ function BlogPostPageContent({ sidebar, children }) {
   return (
     <BlogLayout
       sidebar={sidebar}
+      isPostPage
       toc={
         !hideTableOfContents && toc.length > 0 ? (
           <TOC

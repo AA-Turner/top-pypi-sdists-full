@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyai-adk
-Version: 0.59.0
+Version: 0.60.0
 Summary: Agent Development Kit (ADK) — a CLI for managing Agent Studio projects locally
 License: Apache-2.0
 Requires-Python: >=3.14.0
@@ -19,6 +19,11 @@ Requires-Dist: argcomplete>=3.0.0
 Requires-Dist: langcodes==3.5.1
 Requires-Dist: posthog==7.35.4
 Requires-Dist: packaging>=24.0
+Requires-Dist: aiortc==1.15.0
+Requires-Dist: sounddevice==0.5.6
+Requires-Dist: websockets==17.1
+Requires-Dist: numpy==2.5.3
+Requires-Dist: pywebrtc-audio==0.2.0
 Provides-Extra: dev
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
 Requires-Dist: pytest>=8.0.0; extra == "dev"

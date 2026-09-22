@@ -93,6 +93,10 @@ class ServiceListingRevision(ListingRevision):
             The value to assign to the icon property of this ServiceListingRevision.
         :type icon: oci.marketplace_publisher.models.ListingRevisionIconAttachment
 
+        :param banner:
+            The value to assign to the banner property of this ServiceListingRevision.
+        :type banner: oci.marketplace_publisher.models.ListingRevisionBannerAttachment
+
         :param status:
             The value to assign to the status property of this ServiceListingRevision.
             Allowed values for this property are: "NEW", "PENDING_REVIEW", "REVIEW_IN_PROGRESS", "REJECTED", "APPROVED", "PUBLISH_IN_PROGRESS", "PUBLISH_FAILED", "PUBLISHED", "PUBLISH_AS_PRIVATE_FAILED", "PUBLISHED_AS_PRIVATE", "PUBLISH_AS_PRIVATE_IN_PROGRESS", "UNPUBLISH_IN_PROGRESS", "UNPUBLISHED"
@@ -177,6 +181,7 @@ class ServiceListingRevision(ListingRevision):
             'support_contacts': 'list[SupportContact]',
             'support_links': 'list[NamedLink]',
             'icon': 'ListingRevisionIconAttachment',
+            'banner': 'ListingRevisionBannerAttachment',
             'status': 'str',
             'status_notes': 'str',
             'lifecycle_state': 'str',
@@ -212,6 +217,7 @@ class ServiceListingRevision(ListingRevision):
             'support_contacts': 'supportContacts',
             'support_links': 'supportLinks',
             'icon': 'icon',
+            'banner': 'banner',
             'status': 'status',
             'status_notes': 'statusNotes',
             'lifecycle_state': 'lifecycleState',
@@ -246,6 +252,7 @@ class ServiceListingRevision(ListingRevision):
         self._support_contacts = None
         self._support_links = None
         self._icon = None
+        self._banner = None
         self._status = None
         self._status_notes = None
         self._lifecycle_state = None

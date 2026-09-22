@@ -1,12 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: meltano
-Version: 4.2.2
+Version: 4.3.0
 Summary: Meltano is your CLI for ELT+: Open Source, Flexible, and Scalable. Move, transform, and test your data with confidence using a streamlined data engineering workflow you’ll love.
-Project-URL: Homepage, https://meltano.com
-Project-URL: Repository, https://github.com/meltano/meltano
-Project-URL: Documentation, https://docs.meltano.com
 Project-URL: Changelog, https://github.com/meltano/meltano/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://docs.meltano.com
+Project-URL: Homepage, https://meltano.com
 Project-URL: Issue Tracker, https://github.com/meltano/meltano/issues
+Project-URL: Repository, https://github.com/meltano/meltano
+Project-URL: Security, https://github.com/meltano/.github/blob/main/SECURITY.md
 Project-URL: Slack, https://meltano.com/slack
 Project-URL: Twitter, https://twitter.com/meltanodata/
 Project-URL: Youtube, https://www.youtube.com/meltano
@@ -26,7 +27,7 @@ Requires-Python: >=3.10
 Requires-Dist: alembic<2,>=1.14.0
 Requires-Dist: anyio<5,>=4.4.0
 Requires-Dist: backports-strenum<2,>=1.3.1; python_version < '3.11'
-Requires-Dist: click!=8.2.2,<8.4,>=8.2
+Requires-Dist: click!=8.2.2,<8.5,>=8.2
 Requires-Dist: click-default-group<2,>=1.2.4
 Requires-Dist: dateparser>=1.2.1
 Requires-Dist: fasteners<0.21,>=0.19
@@ -40,12 +41,12 @@ Requires-Dist: psutil<8,>=7.0.0
 Requires-Dist: python-dotenv<2,>=1.0.1
 Requires-Dist: pyyaml<7,>=6.0.2
 Requires-Dist: requests<3,>=2.32.3
-Requires-Dist: rich<14.4,>=14.0
+Requires-Dist: rich<16,>=15
 Requires-Dist: ruamel-yaml<0.20,>=0.18.6
-Requires-Dist: smart-open<8,>=7.0.5
+Requires-Dist: smart-open<9,>=7.0.5
 Requires-Dist: snowplow-tracker<2,>=1.0.4
 Requires-Dist: sqlalchemy<2.1,>=2.0.35
-Requires-Dist: structlog<26,>=25.5.0
+Requires-Dist: structlog<27,>=25.5.0
 Requires-Dist: typing-extensions<5,>=4.12.2
 Requires-Dist: tzlocal~=5.3
 Requires-Dist: urllib3>=1.26.20
@@ -57,7 +58,7 @@ Requires-Dist: azure-core<2,>=1.32.0; extra == 'azure'
 Requires-Dist: azure-identity<2,>=1.19.0; extra == 'azure'
 Requires-Dist: azure-storage-blob<13,>=12.24.0; extra == 'azure'
 Provides-Extra: containers
-Requires-Dist: aiodocker<0.27,>=0.24.0; extra == 'containers'
+Requires-Dist: aiodocker<0.28,>=0.24.0; extra == 'containers'
 Provides-Extra: gcs
 Requires-Dist: google-cloud-storage>=3; extra == 'gcs'
 Provides-Extra: mssql

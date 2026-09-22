@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arcgis2geojson
-Version: 3.1.1
+Version: 3.1.2
 Summary: A Python library for converting ArcGIS JSON to GeoJSON
 License-Expression: MIT
 License-File: LICENCE
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Home, https://github.com/chris48s/arcgis2geojson
 Project-URL: Source, https://github.com/chris48s/arcgis2geojson
 Description-Content-Type: text/markdown

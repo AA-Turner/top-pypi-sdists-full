@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -34,6 +35,7 @@ from matrx_utils import vcprint
 # models/bases when their impl modules load, which raises DBNotConfiguredError
 # in a CLIENT host. Both are resolved lazily at CALL time via the helpers
 # below (config errors at CALL time, never import time).
+from matrx_ai.agents import live_structure
 from matrx_ai.db.control_tokens import (
     clean_assistant_content,
     merge_control_token_metadata,
@@ -469,6 +471,77 @@ async def _backfill_tool_message(
     return pointer_blocks
 
 
+
+@dataclass(frozen=True)
+class StructuralConversationUpdate:
+    """What a completed turn may write to the STRUCTURAL half of its row."""
+
+    config: dict[str, Any]
+    system_instruction: str | None
+    mark_request_frozen: bool
+    is_mandate_held: bool
+
+
+def structural_conversation_update(
+    *,
+    assembled_config: dict[str, Any],
+    existing_config: dict[str, Any],
+    existing_system_instruction: str | None,
+    incoming_system_instruction: str | None,
+    request_already_frozen: bool,
+) -> StructuralConversationUpdate:
+    """The end-of-turn write to a conversation's structural half.
+
+    TWO KINDS OF CONVERSATION, and conflating them is the defect this exists
+    for:
+
+    * An ORDINARY conversation adopted an agent's structure on its first turn
+      and keeps it. The system prompt is a write-once cacheable prefix; the
+      assembled config (including the belt the turn really ran with) is the
+      row's own state from then on.
+
+    * A MANDATE-HELD conversation never owned its structure. A Personal Staff
+      thread is answered by whoever holds `personal_staff.front_line` RIGHT
+      NOW, and an organization rebinds that Holder from the console with no
+      deploy. Writing the assembled belt back here froze last turn's Holder
+      onto the row — and because this runs at the END OF EVERY TURN, the in-app
+      door's repair (which drops exactly these keys) held for one turn and only
+      on the surface that opened the door. The SMS worker, the voice ingress,
+      crash recovery and the deferred-result inbox driver all ran the stale
+      belt: `ask_person` was added to the Chief of Staff and five minutes later
+      a headless turn on the live thread assembled the OLD eighteen and
+      answered with the OLD refusal.
+
+    Extracted and named so it can be exercised directly — the class is a
+    DECISION, and a decision buried in a 600-line write path is a decision
+    nobody can prove. Guard:
+    ``packages/matrx-ai/tests/persistence/test_a_mandate_held_row_is_never_refrozen.py``.
+    """
+
+    if live_structure.marks_live_structure(existing_config):
+        return StructuralConversationUpdate(
+            config=live_structure.stamp_live_structure(
+                assembled_config,
+                mandate_key=live_structure.mandate_key_of(existing_config),
+            ),
+            system_instruction=None,
+            mark_request_frozen=False,
+            is_mandate_held=True,
+        )
+
+    write_prompt = (
+        not request_already_frozen
+        and not existing_system_instruction
+        and incoming_system_instruction is not None
+    )
+    return StructuralConversationUpdate(
+        config={**assembled_config, "system_prompt_frozen": True},
+        system_instruction=incoming_system_instruction if write_prompt else None,
+        mark_request_frozen=True,
+        is_mandate_held=False,
+    )
+
+
 async def persist_completed_request(
     completed: CompletedRequest,
     conversation_id: str | None = None,
@@ -715,6 +788,7 @@ async def persist_completed_request(
             # completed turn creates it; later turns may update config/history,
             # but never replace the provider-cache prefix.
             existing_system_instruction = None
+            existing_config: dict[str, Any] = {}
             try:
                 existing_conversation = await _cxm().conversation.load_conversation_by_id(
                     db_conversation_id
@@ -722,6 +796,9 @@ async def persist_completed_request(
                 existing_system_instruction = getattr(
                     existing_conversation, "system_instruction", None
                 )
+                _existing_cfg = getattr(existing_conversation, "config", None)
+                if isinstance(_existing_cfg, dict):
+                    existing_config = _existing_cfg
             except Exception as exc:  # noqa: BLE001 - gate INSERT may still be queued
                 vcprint(
                     f"[CX PERSISTENCE] system-prompt freeze lookup deferred for "
@@ -735,17 +812,38 @@ async def persist_completed_request(
             # request config frozen immediately makes this process-local state
             # authoritative until that write is durable and prevents a second
             # immutable-column UPDATE from aborting the whole transaction.
-            if (
-                not completed.request.config.system_prompt_frozen
-                and not existing_system_instruction
-                and conv_data.get("system_instruction") is not None
-            ):
-                update_kwargs["system_instruction"] = conv_data["system_instruction"]
-            update_kwargs["config"] = {
-                **update_kwargs["config"],
-                "system_prompt_frozen": True,
-            }
-            completed.request.config.system_prompt_frozen = True
+            # 🚨 A MANDATE-HELD ROW IS NEVER RE-FROZEN. Its structural half —
+            # prompt, model, tools, settings — belongs to whoever holds the
+            # mandate RIGHT NOW, not to whatever ran on it last. Writing the
+            # assembled belt back here is what made a rebound Holder invisible
+            # to every continuation surface that does not open the in-app door
+            # (the SMS worker, the voice ingress, crash recovery, the
+            # deferred-result inbox driver): the door's repair dropped the
+            # frozen keys and THIS line put them straight back at the end of
+            # the same turn. The marker rides in the config blob deliberately,
+            # so the code that preserves it and the code that would clobber it
+            # are the same code. Law + resolver side: `agents/live_structure.py`.
+            _structural = structural_conversation_update(
+                assembled_config=update_kwargs["config"],
+                existing_config=existing_config,
+                existing_system_instruction=existing_system_instruction,
+                incoming_system_instruction=conv_data.get("system_instruction"),
+                request_already_frozen=bool(
+                    completed.request.config.system_prompt_frozen
+                ),
+            )
+            update_kwargs["config"] = _structural.config
+            if _structural.system_instruction is not None:
+                update_kwargs["system_instruction"] = _structural.system_instruction
+            if _structural.mark_request_frozen:
+                completed.request.config.system_prompt_frozen = True
+            if _structural.is_mandate_held:
+                vcprint(
+                    f"[CX PERSISTENCE] conversation {db_conversation_id} is "
+                    f"mandate-held — its Holder's prompt and belt are NOT frozen "
+                    f"onto the row; every continuation resolves them live.",
+                    color="cyan",
+                )
             if conv_data.get("metadata") is not None:
                 update_kwargs["metadata"] = conv_data["metadata"]
             if conv_data.get("parent_conversation_id") and _is_valid_uuid(

@@ -20,6 +20,10 @@ class UpdateManagedComputeClusterInstanceConfigurationDetails(object):
         Initializes a new UpdateManagedComputeClusterInstanceConfigurationDetails object with values from keyword arguments.
         The following keyword arguments are supported (corresponding to the getters/setters of this class):
 
+        :param capacity_reservation_ids:
+            The value to assign to the capacity_reservation_ids property of this UpdateManagedComputeClusterInstanceConfigurationDetails.
+        :type capacity_reservation_ids: list[str]
+
         :param instance_shape:
             The value to assign to the instance_shape property of this UpdateManagedComputeClusterInstanceConfigurationDetails.
         :type instance_shape: str
@@ -34,18 +38,49 @@ class UpdateManagedComputeClusterInstanceConfigurationDetails(object):
 
         """
         self.swagger_types = {
+            'capacity_reservation_ids': 'list[str]',
             'instance_shape': 'str',
             'boot_volume_size_in_gbs': 'int',
             'instance_shape_details': 'ManagedComputeClusterInstanceShapeDetails'
         }
         self.attribute_map = {
+            'capacity_reservation_ids': 'capacityReservationIds',
             'instance_shape': 'instanceShape',
             'boot_volume_size_in_gbs': 'bootVolumeSizeInGBs',
             'instance_shape_details': 'instanceShapeDetails'
         }
+        self._capacity_reservation_ids = None
         self._instance_shape = None
         self._boot_volume_size_in_gbs = None
         self._instance_shape_details = None
+
+    @property
+    def capacity_reservation_ids(self):
+        """
+        Gets the capacity_reservation_ids of this UpdateManagedComputeClusterInstanceConfigurationDetails.
+        The list of `OCID`__ of the compute capacity reservation.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_ids of this UpdateManagedComputeClusterInstanceConfigurationDetails.
+        :rtype: list[str]
+        """
+        return self._capacity_reservation_ids
+
+    @capacity_reservation_ids.setter
+    def capacity_reservation_ids(self, capacity_reservation_ids):
+        """
+        Sets the capacity_reservation_ids of this UpdateManagedComputeClusterInstanceConfigurationDetails.
+        The list of `OCID`__ of the compute capacity reservation.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_ids: The capacity_reservation_ids of this UpdateManagedComputeClusterInstanceConfigurationDetails.
+        :type: list[str]
+        """
+        self._capacity_reservation_ids = capacity_reservation_ids
 
     @property
     def instance_shape(self):

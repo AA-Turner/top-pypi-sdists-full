@@ -32,6 +32,7 @@
 #include <memory>
 #include <optional>
 class QCPAxis;
+class QCPColorGradient;
 class QCPColorScale;
 namespace _impl { class SciQLopPlot; }
 
@@ -315,7 +316,9 @@ class SciQLopPlotColorScaleAxis : public SciQLopPlotAxis
 {
     Q_OBJECT
     QPointer<QCPColorScale> m_axis;
-    ColorGradient m_color_gradient;
+    ColorGradient m_color_gradient = ColorGradient::Grayscale;
+    bool m_color_gradient_set = false;
+    bool m_custom_gradient = false;
 #ifndef BINDINGS_H
     // Lets the owning colormap supply a custom rescale range (e.g. percentile
     // over visible data). Returning nullopt falls back to plain min/max.
@@ -359,12 +362,18 @@ public:
     void set_log(bool log) noexcept override;
     void set_label(const QString& label) noexcept override;
     void set_color_gradient(const ColorGradient gradient) noexcept;
+    //! A gradient that is not one of the presets. Forgets the tracked preset, so
+    //! the next set_color_gradient() applies even when it names the same preset.
+    void set_custom_gradient(const QCPColorGradient& gradient) noexcept;
 
     SciQLopPlotRange range() const noexcept override;
     bool visible() const noexcept override;
     bool log() const noexcept override;
     QString label() const noexcept override;
     ColorGradient color_gradient() const noexcept;
+    //! True while a gradient that is no preset shows: color_gradient() then only names
+    //! the last preset.
+    bool shows_custom_gradient() const noexcept { return m_custom_gradient; }
     Qt::Orientation orientation() const noexcept override;
     Qt::Axis axis() const noexcept override;
     Qt::AnchorPoint anchor() const noexcept override;
@@ -390,4 +399,5 @@ public:
 signals:
 #endif
     Q_SIGNAL void color_gradient_changed(ColorGradient gradient);
+    Q_SIGNAL void custom_gradient_set();
 };

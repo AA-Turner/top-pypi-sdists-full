@@ -53,6 +53,10 @@ class UpdateSupportedServiceAttachment(UpdateListingRevisionAttachmentDetails):
             The value to assign to the type property of this UpdateSupportedServiceAttachment.
         :type type: str
 
+        :param source_type:
+            The value to assign to the source_type property of this UpdateSupportedServiceAttachment.
+        :type source_type: str
+
         """
         self.swagger_types = {
             'display_name': 'str',
@@ -62,7 +66,8 @@ class UpdateSupportedServiceAttachment(UpdateListingRevisionAttachmentDetails):
             'defined_tags': 'dict(str, dict(str, object))',
             'service_name': 'str',
             'url': 'str',
-            'type': 'str'
+            'type': 'str',
+            'source_type': 'str'
         }
         self.attribute_map = {
             'display_name': 'displayName',
@@ -72,7 +77,8 @@ class UpdateSupportedServiceAttachment(UpdateListingRevisionAttachmentDetails):
             'defined_tags': 'definedTags',
             'service_name': 'serviceName',
             'url': 'url',
-            'type': 'type'
+            'type': 'type',
+            'source_type': 'sourceType'
         }
         self._display_name = None
         self._description = None
@@ -82,6 +88,7 @@ class UpdateSupportedServiceAttachment(UpdateListingRevisionAttachmentDetails):
         self._service_name = None
         self._url = None
         self._type = None
+        self._source_type = None
         self._attachment_type = 'SUPPORTED_SERVICES'
 
     @property
@@ -155,6 +162,30 @@ class UpdateSupportedServiceAttachment(UpdateListingRevisionAttachmentDetails):
         :type: str
         """
         self._type = type
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this UpdateSupportedServiceAttachment.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this UpdateSupportedServiceAttachment.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this UpdateSupportedServiceAttachment.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this UpdateSupportedServiceAttachment.
+        :type: str
+        """
+        self._source_type = source_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

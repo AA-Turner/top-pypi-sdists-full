@@ -30,6 +30,48 @@ class JobsClient:
         """
         return self._raw_client
 
+    def list(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        archived: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.List[ToolsJobSchema]:
+        """
+        List the organization's jobs, newest first.
+
+        Pass name to look up one job, since job names are unique within an
+        organization; the list is then empty or holds that job. Archived jobs
+        are left out unless archived is true.
+
+        Requires an API key with the `read` scope.
+
+        Parameters
+        ----------
+        name : typing.Optional[str]
+
+        archived : typing.Optional[bool]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[ToolsJobSchema]
+            OK
+
+        Examples
+        --------
+        from labric import Labric
+
+        client = Labric(
+            api_key="YOUR_API_KEY",
+        )
+        client.jobs.list()
+        """
+        _response = self._raw_client.list(name=name, archived=archived, request_options=request_options)
+        return _response.data
+
     def create(
         self,
         *,
@@ -291,6 +333,56 @@ class AsyncJobsClient:
         AsyncRawJobsClient
         """
         return self._raw_client
+
+    async def list(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        archived: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.List[ToolsJobSchema]:
+        """
+        List the organization's jobs, newest first.
+
+        Pass name to look up one job, since job names are unique within an
+        organization; the list is then empty or holds that job. Archived jobs
+        are left out unless archived is true.
+
+        Requires an API key with the `read` scope.
+
+        Parameters
+        ----------
+        name : typing.Optional[str]
+
+        archived : typing.Optional[bool]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[ToolsJobSchema]
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from labric import AsyncLabric
+
+        client = AsyncLabric(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.jobs.list()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list(name=name, archived=archived, request_options=request_options)
+        return _response.data
 
     async def create(
         self,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: breathe
-Version: 4.36.0
+Version: 5.0.0
 Summary: Sphinx Doxygen renderer
 Author-email: Michael Jones <m.pricejones@gmail.com>
 Requires-Python: >=3.9
@@ -30,6 +30,7 @@ Classifier: Topic :: Text Processing
 Classifier: Topic :: Utilities
 License-File: LICENSE
 Requires-Dist: Sphinx>=7.2
+Requires-Dist: setuptools>=80.9.0 ; extra == "build"
 Requires-Dist: furo ; extra == "docs"
 Requires-Dist: sphinx-copybutton ; extra == "docs"
 Requires-Dist: sphinxcontrib-spelling ; extra == "docs"
@@ -39,17 +40,19 @@ Requires-Dist: types-docutils ; extra == "lint"
 Requires-Dist: types-Pygments ; extra == "lint"
 Requires-Dist: pytest>=8.0 ; extra == "lint"
 Requires-Dist: sphinxcontrib-phpdomain ; extra == "lint"
-Requires-Dist: sphinx-csharp ; extra == "lint"
 Requires-Dist: pytest>=8.0 ; extra == "test"
+Requires-Dist: Sphinx[test] ; extra == "test"
 Project-URL: Changelog, https://github.com/breathe-doc/breathe/blob/main/CHANGELOG.rst
 Project-URL: Code, https://github.com/breathe-doc/breathe/
 Project-URL: Documentation, https://breathe.readthedocs.io/
 Project-URL: Download, https://pypi.org/project/breathe/
 Project-URL: Homepage, https://www.breathe-doc.org/
 Project-URL: Issue tracker, https://github.com/breathe-doc/breathe/issues
+Provides-Extra: build
 Provides-Extra: docs
 Provides-Extra: lint
 Provides-Extra: test
+Import-Name: breathe
 
 .. image:: https://www.breathe-doc.org/img/logo.svg
    :align: center

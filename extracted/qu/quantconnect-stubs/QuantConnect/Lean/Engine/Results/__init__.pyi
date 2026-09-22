@@ -133,7 +133,19 @@ class ResultHandlerInitializeParameters(System.Object):
     def performance_tracking_tool(self, value: QuantConnect.Util.PerformanceTrackingTool) -> None:
         ...
 
-    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, messaging_handler: QuantConnect.Interfaces.IMessagingHandler, api: QuantConnect.Interfaces.IApi, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool = None) -> None:
+    @property
+    def data_monitor(self) -> QuantConnect.Interfaces.IDataMonitor:
+        """
+        The data monitor tracking the data requests, whose report the result handler can store on exit.
+        Optional: may be null when the host doesn't monitor data requests.
+        """
+        ...
+
+    @data_monitor.setter
+    def data_monitor(self, value: QuantConnect.Interfaces.IDataMonitor) -> None:
+        ...
+
+    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, messaging_handler: QuantConnect.Interfaces.IMessagingHandler, api: QuantConnect.Interfaces.IApi, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool = None, data_monitor: QuantConnect.Interfaces.IDataMonitor = None) -> None:
         """Creates a new instance"""
         ...
 
@@ -794,6 +806,20 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
 
     @performance_tracking_tool.setter
     def performance_tracking_tool(self, value: QuantConnect.Util.PerformanceTrackingTool) -> None:
+        ...
+
+    @property
+    def data_monitor(self) -> QuantConnect.Interfaces.IDataMonitor:
+        """
+        The data monitor tracking the data requests. May be null when the host doesn't monitor data requests.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @data_monitor.setter
+    def data_monitor(self, value: QuantConnect.Interfaces.IDataMonitor) -> None:
         ...
 
     MAX_RUNTIME_STATISTICS_COUNT: int = 50
@@ -1526,6 +1552,14 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         Calculates and gets the current statistics for the algorithm
         
         :returns: The current statistics.
+        """
+        ...
+
+    def store_data_monitor_report(self) -> None:
+        """
+        Stores the data monitor report, see DataMonitor
+        
+        This Class is protected.
         """
         ...
 

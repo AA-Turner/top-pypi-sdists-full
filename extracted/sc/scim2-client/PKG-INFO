@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scim2-client
-Version: 0.8.0
+Version: 0.9.0
 Summary: Pythonically build SCIM requests and parse SCIM responses
 Keywords: scim,scim2,provisioning,rfc7643,rfc7644,httpx2,api
 Author: Yaal Coop
@@ -218,8 +218,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Environment :: Web Environment
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
-Requires-Dist: scim2-models>=0.7.0,<0.8
-Requires-Dist: httpx>=0.28.0 ; extra == 'httpx'
+Requires-Dist: scim2-models>=0.8.0
 Requires-Dist: httpx2>=2.12 ; extra == 'httpx2'
 Requires-Dist: werkzeug>=3.1.3 ; extra == 'werkzeug'
 Requires-Python: >=3.10
@@ -227,7 +226,6 @@ Project-URL: documentation, https://scim2-client.readthedocs.io
 Project-URL: repository, https://github.com/python-scim/scim2-client
 Project-URL: changelog, https://scim2-client.readthedocs.io/en/latest/changelog.html
 Project-URL: funding, https://github.com/sponsors/python-scim
-Provides-Extra: httpx
 Provides-Extra: httpx2
 Provides-Extra: werkzeug
 Description-Content-Type: text/markdown
@@ -252,6 +250,7 @@ It allows users and groups creations, modifications and deletions to be synchron
 
 - **CRUD Operations**: `create`, `query`, `replace`, `delete` methods for SCIM resources
 - **PATCH Support**: Partial resource modifications with `add`, `remove` and `replace` operations
+- **Bulk Operations**: Multiple operations sent in a single request with the `bulk` method
 - **Server Discovery**: Automatic retrieval of `ServiceProviderConfig`, `ResourceTypes` and `Schemas`
 - **Search & Filtering**: Support for SCIM filters, sorting, pagination and attribute selection
 - **Sync & Async**: Both synchronous and asynchronous clients available
@@ -266,9 +265,6 @@ pip install scim2-client[httpx2]
 ```
 
 ## Usage
-
-Check the [tutorial](https://scim2-client.readthedocs.io/en/latest/tutorial.html)
-and the [reference](https://scim2-client.readthedocs.io/en/latest/reference.html) for more details.
 
 Here is an example of usage:
 
@@ -311,6 +307,21 @@ except SCIMException as exc:
         == "One or more of the attribute values are already in use or are reserved."
     )
 ```
+
+## Documentation
+
+- [Overview](https://scim2-client.readthedocs.io/en/latest/overview.html) tours the operations a
+  SCIM client performs.
+- [How-to guides](https://scim2-client.readthedocs.io/en/latest/how-to/index.html) cover focused
+  tasks.
+- [Explanation](https://scim2-client.readthedocs.io/en/latest/explanation/index.html) covers what
+  the client checks and what it knows about a server.
+- [Reference](https://scim2-client.readthedocs.io/en/latest/reference.html) lists the public API.
+
+## Contributing
+
+The [contribution page](https://scim2-client.readthedocs.io/en/latest/contributing.html)
+describes how to run the tests, the style checks and the documentation build.
 
 scim2-client belongs in a collection of SCIM tools developed by [Yaal Coop](https://yaal.coop),
 with [scim2-models](https://github.com/python-scim/scim2-models),

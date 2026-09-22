@@ -7,9 +7,11 @@ bs.set_API_key(API_KEY)
 
 #### 登陆系统 ####
 lg = bs.login()
+
 # 显示登陆返回信息
 print('login respond error_code:'+lg.error_code)
 print('login respond  error_msg:'+lg.error_msg)
+
 
 #### 获取历史K线数据 ####
 # 详细指标参数，参见“历史行情指标参数”章节

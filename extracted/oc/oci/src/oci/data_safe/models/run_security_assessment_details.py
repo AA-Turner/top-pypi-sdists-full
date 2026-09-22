@@ -58,7 +58,7 @@ class RunSecurityAssessmentDetails(object):
     def compartment_id(self):
         """
         Gets the compartment_id of this RunSecurityAssessmentDetails.
-        The OCID of the compartment that contains the security assessment.
+        This field is ignored when refreshing a security assessment.
 
 
         :return: The compartment_id of this RunSecurityAssessmentDetails.
@@ -70,7 +70,7 @@ class RunSecurityAssessmentDetails(object):
     def compartment_id(self, compartment_id):
         """
         Sets the compartment_id of this RunSecurityAssessmentDetails.
-        The OCID of the compartment that contains the security assessment.
+        This field is ignored when refreshing a security assessment.
 
 
         :param compartment_id: The compartment_id of this RunSecurityAssessmentDetails.

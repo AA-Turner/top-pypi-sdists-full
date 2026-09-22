@@ -24,6 +24,10 @@ class ManagedComputeClusterInstanceConfigurationDetails(object):
             The value to assign to the instance_shape property of this ManagedComputeClusterInstanceConfigurationDetails.
         :type instance_shape: str
 
+        :param capacity_reservation_ids:
+            The value to assign to the capacity_reservation_ids property of this ManagedComputeClusterInstanceConfigurationDetails.
+        :type capacity_reservation_ids: list[str]
+
         :param boot_volume_size_in_gbs:
             The value to assign to the boot_volume_size_in_gbs property of this ManagedComputeClusterInstanceConfigurationDetails.
         :type boot_volume_size_in_gbs: int
@@ -35,15 +39,18 @@ class ManagedComputeClusterInstanceConfigurationDetails(object):
         """
         self.swagger_types = {
             'instance_shape': 'str',
+            'capacity_reservation_ids': 'list[str]',
             'boot_volume_size_in_gbs': 'int',
             'instance_shape_details': 'ManagedComputeClusterInstanceShapeDetails'
         }
         self.attribute_map = {
             'instance_shape': 'instanceShape',
+            'capacity_reservation_ids': 'capacityReservationIds',
             'boot_volume_size_in_gbs': 'bootVolumeSizeInGBs',
             'instance_shape_details': 'instanceShapeDetails'
         }
         self._instance_shape = None
+        self._capacity_reservation_ids = None
         self._boot_volume_size_in_gbs = None
         self._instance_shape_details = None
 
@@ -70,6 +77,34 @@ class ManagedComputeClusterInstanceConfigurationDetails(object):
         :type: str
         """
         self._instance_shape = instance_shape
+
+    @property
+    def capacity_reservation_ids(self):
+        """
+        Gets the capacity_reservation_ids of this ManagedComputeClusterInstanceConfigurationDetails.
+        The list of `OCID`__ of the compute capacity reservation.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_ids of this ManagedComputeClusterInstanceConfigurationDetails.
+        :rtype: list[str]
+        """
+        return self._capacity_reservation_ids
+
+    @capacity_reservation_ids.setter
+    def capacity_reservation_ids(self, capacity_reservation_ids):
+        """
+        Sets the capacity_reservation_ids of this ManagedComputeClusterInstanceConfigurationDetails.
+        The list of `OCID`__ of the compute capacity reservation.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_ids: The capacity_reservation_ids of this ManagedComputeClusterInstanceConfigurationDetails.
+        :type: list[str]
+        """
+        self._capacity_reservation_ids = capacity_reservation_ids
 
     @property
     def boot_volume_size_in_gbs(self):

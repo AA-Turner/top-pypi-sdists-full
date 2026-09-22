@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: epik8s-tools
-Version: 0.16.4
+Version: 0.17.0
 Summary: A set of tools for generating Kubernetes Helm charts for EPICS-based systems.
 Home-page: https://github.com/infn-epics/epik8s-tools
 Author: Andrea Michelotti
@@ -91,6 +91,23 @@ Generate a new project structure for a beamline with the following command:
 ```bash
 epik8s-tools my_project --beamline MyBeamline --iocbaseip 10.96.0.0/12 --beamlinerepogit https://github.com/beamline/repo.git
 ```
+
+#### IOC configuration format
+
+`epicsConfiguration.iocs` is a map keyed by IOC name (the key is used as `name` when the entry does not define one). The legacy list form (`- name: ...`) is still accepted by all the tools.
+
+```yaml
+epicsConfiguration:
+  iocs:
+    ocem-dvl644-ser23001:
+      template: ocem
+      iocprefix: "DAFNE:ACC:MAG:OCEME642"
+      devices:
+        - name: DHPTT001
+          id: 5
+```
+
+Per-template defaults from `iocDefaults` are merged into every IOC; IOC-specific values always win.
 
 ### Generating OPI Panels
 
@@ -226,6 +243,16 @@ epicsConfiguration:
 ```
 
 `epik8s-compose` will bind-mount that directory into `/home/jovyan/work` instead of generating the default `notebook-work` folder under the compose output.
+
+If your site needs an HTTP proxy for runtime package installs, define top-level proxy keys in the beamline YAML and `epik8s-compose` will propagate them to generated container environments:
+
+```yaml
+http_proxy: http://squid.lnf.infn.it:3128
+https_proxy: http://squid.lnf.infn.it:3128
+no_proxy: localhost,127.0.0.1,::1,10.0.0.0/8,192.168.0.0/16,.svc,.svc.cluster.local,.lnf.infn.it
+```
+
+This is especially relevant for compose services that install Python packages at container startup, such as custom Python soft IOCs and the notebook service.
 
 ---
 

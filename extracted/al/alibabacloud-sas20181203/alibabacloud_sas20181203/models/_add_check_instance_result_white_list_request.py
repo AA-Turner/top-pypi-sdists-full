@@ -26,13 +26,17 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         self.check_id = check_id
         # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        # Specifies whether to perform only a dry run. Valid values:
+        # - true: performs only a dry run without executing the actual operation.
+        # - false: performs the actual operation.
+        # 
+        # Default value: false.
         self.dry_run = dry_run
         # The collection of asset instance IDs.
         self.instance_ids = instance_ids
         # The collection of asset instance information.
         self.instance_list = instance_list
-        # The remarks. Maximum length: 65535 bytes.
+        # The remarks. Maximum length: 65,535 bytes.
         self.remark = remark
         # The rule type. Default value: **WHITE**. Valid values:
         # - WHITE: whitelist

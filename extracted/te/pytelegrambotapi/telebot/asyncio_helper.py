@@ -25,6 +25,8 @@ session = None
 FILE_URL = None
 
 REQUEST_TIMEOUT = 300
+RETRY_ON_ERROR = False
+RETRY_TIMEOUT = 2
 MAX_RETRIES = 3
 
 REQUEST_LIMIT = 50
@@ -90,28 +92,28 @@ async def _process_request(token, url, method='get', params=None, files=None, **
     params = _prepare_data(params, files)
 
     timeout = aiohttp.ClientTimeout(total=request_timeout)
-    got_result = False
-    current_try=0
+    max_attempts = max(1, MAX_RETRIES if RETRY_ON_ERROR else 1)
+    last_error = None
     session = await session_manager.get_session()
-    while not got_result and current_try<MAX_RETRIES-1:
-        current_try +=1
+    for current_try in range(1, max_attempts + 1):
         try:
             async with session.request(method=method, url=API_URL.format(token, url), data=params, timeout=timeout, proxy=proxy) as resp:
-                got_result = True
                 logger.debug("Request: method={0} url={1} params={2} files={3} request_timeout={4} current_try={5}".format(method, url, params, files, request_timeout, current_try).replace(token, token.split(':')[0] + ":{TOKEN}"))
                 
                 json_result = await _check_result(url, resp)
                 if json_result:
                     return json_result['result']
-        except (ApiTelegramException,ApiInvalidJSONException, ApiHTTPException) as e:
-            raise e
-        except aiohttp.ClientError as e:
-            logger.error('Aiohttp ClientError: {0}'.format(e.__class__.__name__))
-        except Exception as e:
-            logger.error(f'Unknown error: {e.__class__.__name__}')
-        if not got_result:
-            raise RequestTimeout("Request timeout. Request: method={0} url={1} params={2} files={3} request_timeout={4}".format(method, url, params, files, request_timeout, current_try))
-    return None
+                return None
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            last_error = e
+            logger.error('Aiohttp request error: {0} (try #{1})'.format(e.__class__.__name__, current_try))
+
+            if current_try == max_attempts:
+                break
+
+            await asyncio.sleep(RETRY_TIMEOUT)
+
+    raise RequestTimeout("Request timeout. Request: method={0} url={1} params={2} files={3} request_timeout={4} current_try={5}".format(method, url, params, files, request_timeout, current_try)) from last_error
         
 def _prepare_file(obj):
     """
@@ -294,7 +296,7 @@ async def send_message(
         parse_mode=None, disable_notification=None, timeout=None,
         entities=None, protect_content=None,
         message_thread_id=None, reply_parameters=None, link_preview_options=None, business_connection_id=None, message_effect_id=None,
-        allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+        allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_name = 'sendMessage'
     params = {'chat_id': str(chat_id), 'text': text}
     if link_preview_options is not None:
@@ -325,17 +327,16 @@ async def send_message(
         params['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         params['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        params['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        params['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        params['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_name, params=params, method='post')
+
 
 async def send_rich_message(
         token, chat_id, rich_message,
         disable_notification=None, protect_content=None, message_effect_id=None,
         reply_parameters=None, reply_markup=None, business_connection_id=None,  allow_paid_broadcast=None, direct_messages_topic_id=None,
-        suggested_post_parameters=None, message_thread_id=None):
+        suggested_post_parameters=None, message_thread_id=None, ephemeral_message_parameters=None):
     method_url = r'sendRichMessage'
     payload = {'chat_id': str(chat_id), 'rich_message': rich_message.to_json()}
     if disable_notification is not None:
@@ -358,14 +359,21 @@ async def send_rich_message(
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
     if message_thread_id is not None:
         payload['message_thread_id'] = message_thread_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     
     return await _process_request(token, method_url, params=payload, method='post')
 
-async def send_rich_message_draft(token, chat_id, draft_id, rich_message, message_thread_id=None):
+
+async def send_rich_message_draft(token, chat_id, draft_id, rich_message, message_thread_id=None, can_stop=None, keep_on_stop=None):
     method_url = r'sendRichMessageDraft'
     payload = {'chat_id': chat_id, 'draft_id': draft_id, 'rich_message': rich_message.to_json()}
     if message_thread_id is not None:
         payload['message_thread_id'] = message_thread_id
+    if can_stop is not None:
+        payload['can_stop'] = can_stop
+    if keep_on_stop is not None:
+        payload['keep_on_stop'] = keep_on_stop
     return await _process_request(token, method_url, params=payload, method='post')
 
 
@@ -465,13 +473,13 @@ async def delete_chat_sticker_set(token, chat_id):
     return await _process_request(token, method_url, params=payload)
 
 
-async def answer_web_app_query(token, web_app_query_id, result: types.InlineQueryResultBase):
+async def answer_web_app_query(token, web_app_query_id, result: types.InlineQueryResult):
     method_url = 'answerWebAppQuery'
     payload = {'web_app_query_id': web_app_query_id, 'result': result.to_json()}
     return await _process_request(token, method_url, params=payload, method='post')
 
 
-async def save_prepared_inline_message(token, user_id, result: types.InlineQueryResultBase, allow_user_chats=None, allow_bot_chats=None, allow_group_chats=None, allow_channel_chats=None):
+async def save_prepared_inline_message(token, user_id, result: types.InlineQueryResult, allow_user_chats=None, allow_bot_chats=None, allow_group_chats=None, allow_channel_chats=None):
     method_url = r'savePreparedInlineMessage'
     payload = {'user_id': user_id, 'result': result.to_json()}
     if allow_user_chats is not None:
@@ -634,7 +642,7 @@ async def send_photo(
         caption_entities=None,  protect_content=None,
         message_thread_id=None, has_spoiler=None,reply_parameters=None,
         business_connection_id=None, message_effect_id=None, show_caption_above_media=None, allow_paid_broadcast=None,
-        direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+        direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendPhoto'
     payload = {'chat_id': chat_id}
     files = None
@@ -676,10 +684,8 @@ async def send_photo(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload, files=files, method='post')
     
 async def send_live_photo(
@@ -689,7 +695,7 @@ async def send_live_photo(
         caption_entities=None,  protect_content=None,
         message_thread_id=None, has_spoiler=None,reply_parameters=None,
         business_connection_id=None, message_effect_id=None, show_caption_above_media=None, allow_paid_broadcast=None,
-        direct_messages_topic_id=None, suggested_post_parameters=None):
+        direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendLivePhoto'
     payload = {'chat_id': chat_id}
     files = {}
@@ -735,6 +741,8 @@ async def send_live_photo(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload, files=files, method='post')
 
 async def send_paid_media(
@@ -819,7 +827,7 @@ async def send_location(
         timeout=None, horizontal_accuracy=None, heading=None,
         proximity_alert_radius=None,  protect_content=None, message_thread_id=None,reply_parameters=None, business_connection_id=None,
         message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, 
-        receiver_user_id=None, callback_query_id=None):
+        ephemeral_message_parameters=None):
     method_url = r'sendLocation'
     payload = {'chat_id': chat_id, 'latitude': latitude, 'longitude': longitude}
     if live_period:
@@ -852,10 +860,8 @@ async def send_location(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload)
 
 
@@ -914,7 +920,7 @@ async def send_venue(
          google_place_id=None,
         google_place_type=None, protect_content=None, message_thread_id=None,reply_parameters=None, business_connection_id=None,
         message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-        receiver_user_id=None, callback_query_id=None):
+        ephemeral_message_parameters=None):
     method_url = r'sendVenue'
     payload = {'chat_id': chat_id, 'latitude': latitude, 'longitude': longitude, 'title': title, 'address': address}
     if foursquare_id:
@@ -947,10 +953,8 @@ async def send_venue(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload)
 
 
@@ -958,7 +962,7 @@ async def send_contact(
         token, chat_id, phone_number, first_name, last_name=None, vcard=None,
         disable_notification=None,  reply_markup=None, timeout=None,
          protect_content=None, message_thread_id=None,reply_parameters=None, business_connection_id=None, message_effect_id=None,
-         allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+         allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendContact'
     payload = {'chat_id': chat_id, 'phone_number': phone_number, 'first_name': first_name}
     if last_name:
@@ -987,15 +991,14 @@ async def send_contact(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload)
+
 
 async def send_message_draft(
         token, chat_id, draft_id, text,
-        message_thread_id=None, parse_mode=None, entities=None):
+        message_thread_id=None, parse_mode=None, entities=None, can_stop=None, keep_on_stop=None):
     method_url = r'sendMessageDraft'
     payload = {'chat_id': chat_id, 'draft_id': draft_id, 'text': text}
     if message_thread_id is not None:
@@ -1004,7 +1007,12 @@ async def send_message_draft(
         payload['parse_mode'] = parse_mode
     if entities:
         payload['entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(entities))
+    if can_stop is not None:
+        payload['can_stop'] = can_stop
+    if keep_on_stop is not None:
+        payload['keep_on_stop'] = keep_on_stop
     return await _process_request(token, method_url, params=payload)
+
 
 async def send_chat_action(token, chat_id, action, timeout=None, message_thread_id=None, business_connection_id=None):
     method_url = r'sendChatAction'
@@ -1023,7 +1031,7 @@ async def send_video(token, chat_id, data, duration=None, caption=None,  reply_m
                      thumbnail=None, width=None, height=None, caption_entities=None, 
                      protect_content=None, message_thread_id=None, has_spoiler=None,reply_parameters=None, business_connection_id=None,
                      message_effect_id=None, show_caption_above_media=None, allow_paid_broadcast=None, cover=None, start_timestamp=None,
-                     direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+                     direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendVideo'
     payload = {'chat_id': chat_id}
     files = None
@@ -1089,10 +1097,8 @@ async def send_video(token, chat_id, data, duration=None, caption=None,  reply_m
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:   
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload, files=files, method='post')
 
 
@@ -1101,7 +1107,7 @@ async def send_animation(
         parse_mode=None, disable_notification=None, timeout=None, thumbnail=None, caption_entities=None,
          width=None, height=None, protect_content=None, message_thread_id=None,
         has_spoiler=None,reply_parameters=None, business_connection_id=None, message_effect_id=None, show_caption_above_media=None,
-        allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+        allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendAnimation'
     payload = {'chat_id': chat_id}
     files = None
@@ -1141,10 +1147,8 @@ async def send_animation(
         payload['protect_content'] = protect_content
     if message_thread_id:
         payload['message_thread_id'] = message_thread_id
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     if has_spoiler is not None:
         payload['has_spoiler'] = has_spoiler
     if business_connection_id:
@@ -1165,7 +1169,7 @@ async def send_animation(
 async def send_voice(token, chat_id, voice, caption=None, duration=None,  reply_markup=None,
                parse_mode=None, disable_notification=None, timeout=None, caption_entities=None,
                 protect_content=None, message_thread_id=None,reply_parameters=None,business_connection_id=None, message_effect_id=None,
-                allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+                allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendVoice'
     payload = {'chat_id': chat_id}
     files = None
@@ -1203,17 +1207,15 @@ async def send_voice(token, chat_id, voice, caption=None, duration=None,  reply_
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload, files=files, method='post')
 
 
 async def send_video_note(token, chat_id, data, duration=None, length=None,  reply_markup=None,
                           disable_notification=None, timeout=None, thumbnail=None,  protect_content=None,
                           message_thread_id=None,reply_parameters=None, business_connection_id=None, message_effect_id=None, allow_paid_broadcast=None,
-                          direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+                          direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendVideoNote'
     payload = {'chat_id': chat_id}
     files = None
@@ -1257,17 +1259,15 @@ async def send_video_note(token, chat_id, data, duration=None, length=None,  rep
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload, files=files, method='post')
 
 
 async def send_audio(token, chat_id, audio, caption=None, duration=None, performer=None, title=None, 
                      reply_markup=None, parse_mode=None, disable_notification=None, timeout=None, thumbnail=None,
                      caption_entities=None,  protect_content=None, message_thread_id=None,reply_parameters=None, business_connection_id=None,
-                     message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+                     message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendAudio'
     payload = {'chat_id': chat_id}
     files = None
@@ -1307,10 +1307,8 @@ async def send_audio(token, chat_id, audio, caption=None, duration=None, perform
         payload['protect_content'] = protect_content
     if message_thread_id:
         payload['message_thread_id'] = message_thread_id
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     if business_connection_id:
         payload['business_connection_id'] = business_connection_id
     if message_effect_id:
@@ -1328,7 +1326,7 @@ async def send_data(token, chat_id, data, data_type,  reply_markup=None, parse_m
                     disable_notification=None, timeout=None, caption=None, thumbnail=None, caption_entities=None,
                      disable_content_type_detection=None, visible_file_name=None, protect_content=None,
                     message_thread_id=None, emoji=None,reply_parameters=None, business_connection_id=None, message_effect_id=None,
-                    allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+                    allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = await get_method_by_type(data_type)
     payload = {'chat_id': chat_id}
     files = None
@@ -1379,10 +1377,8 @@ async def send_data(token, chat_id, data, data_type,  reply_markup=None, parse_m
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return await _process_request(token, method_url, params=payload, files=files, method='post')
 
 
@@ -1435,7 +1431,8 @@ async def promote_chat_member(
         can_edit_messages=None, can_delete_messages=None, can_invite_users=None,
         can_restrict_members=None, can_pin_messages=None, can_promote_members=None,
         is_anonymous=None, can_manage_chat=None, can_manage_video_chats=None, can_manage_topics=None,
-        can_post_stories=None, can_edit_stories=None, can_delete_stories=None, 
+        can_post_stories=None, can_edit_stories=None, can_delete_stories=None,
+        can_send_welcome_messages=None,
         can_manage_direct_messages=None, can_manage_tags=None):
     method_url = 'promoteChatMember'
     payload = {'chat_id': chat_id, 'user_id': user_id}
@@ -1469,6 +1466,8 @@ async def promote_chat_member(
         payload['can_edit_stories'] = can_edit_stories
     if can_delete_stories is not None:
         payload['can_delete_stories'] = can_delete_stories
+    if can_send_welcome_messages is not None:
+        payload['can_send_welcome_messages'] = can_send_welcome_messages
     if can_manage_direct_messages is not None:
         payload['can_manage_direct_messages'] = can_manage_direct_messages
     if can_manage_tags is not None:
@@ -2965,19 +2964,17 @@ async def convert_input_media(media):
 async def convert_input_media_array(array):
     media = []
     files = {}
-    key = ""
     for input_media in array:
         if isinstance(input_media, types.InputMedia) or isinstance(input_media, types.InputPaidMedia):
             media_dict = input_media.to_dict()
-            if media_dict['media'].startswith('attach://'):
-                key = media_dict['media'].replace('attach://', '')
-                files[key] = input_media.media
-            if 'thumbnail' in media_dict:
-                thumbnail = media_dict['thumbnail']
-                if isinstance(thumbnail, types.InputFile):
-                    thumbnail_key = 'thumbnail_' + key  
-                    files[thumbnail_key] = thumbnail    
-                    media_dict['thumbnail'] = 'attach://' + thumbnail_key     
+            if ('media' in media_dict) and media_dict['media'].startswith('attach://'):
+                files[input_media._media_name] = input_media.media
+            if ('thumbnail' in media_dict) and media_dict['thumbnail'].startswith('attach://'):
+                files[input_media._thumbnail_name] = input_media.thumbnail
+            if ('cover' in media_dict) and media_dict['cover'].startswith('attach://'):
+                files[input_media._cover_name] = input_media.cover
+            if ('photo' in media_dict) and media_dict['photo'].startswith('attach://'):
+                files[input_media._photo_name] = input_media.photo
             media.append(media_dict)
     return json.dumps(media), files
 
@@ -3000,20 +2997,23 @@ async def stop_poll(token, chat_id, message_id, reply_markup=None, business_conn
         payload['business_connection_id'] = business_connection_id
     return await _process_request(token, method_url, params=payload)
 
-async def edit_ephemeral_message_text(token, chat_id, receiver_user_id, ephemeral_message_id, text,
+async def edit_ephemeral_message_text(token, chat_id, receiver_user_id, ephemeral_message_id, text=None,
                                     parse_mode=None, entities=None, link_preview_options=None,
-                                    reply_markup=None):
+                                    rich_message=None, reply_markup=None):
     method_url = r'editEphemeralMessageText'
     payload = {
         'chat_id': chat_id,
         'receiver_user_id': receiver_user_id,
-        'ephemeral_message_id': ephemeral_message_id,
-        'text': text
+        'ephemeral_message_id': ephemeral_message_id
     }
+    if text is not None:
+        payload['text'] = text
     if parse_mode:
         payload['parse_mode'] = parse_mode
     if entities:
         payload['entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(entities))
+    if rich_message is not None:
+        payload['rich_message'] = rich_message.to_json()
     if link_preview_options:
         payload['link_preview_options'] = json.dumps(link_preview_options.to_dict())
     if reply_markup:
@@ -3045,7 +3045,8 @@ async def delete_ephemeral_message(token, chat_id, receiver_user_id, ephemeral_m
     return await _process_request(token, method_url, params=payload)
 
 async def edit_ephemeral_message_caption(token, chat_id, receiver_user_id, ephemeral_message_id, caption,
-                                    parse_mode=None, caption_entities=None, reply_markup=None):
+                                    parse_mode=None, caption_entities=None, show_caption_above_media=None,
+                                    reply_markup=None):
     method_url = r'editEphemeralMessageCaption'
     payload = {
         'chat_id': chat_id,
@@ -3058,6 +3059,8 @@ async def edit_ephemeral_message_caption(token, chat_id, receiver_user_id, ephem
         payload['parse_mode'] = parse_mode
     if caption_entities:
         payload['caption_entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(caption_entities))
+    if show_caption_above_media is not None:
+        payload['show_caption_above_media'] = show_caption_above_media
     if reply_markup:
         payload['reply_markup'] = await _convert_markup(reply_markup)
     return await _process_request(token, method_url, params=payload)

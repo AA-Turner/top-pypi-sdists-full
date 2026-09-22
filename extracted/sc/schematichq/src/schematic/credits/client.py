@@ -16,13 +16,16 @@ from ..types.billing_credit_expiry_unit import BillingCreditExpiryUnit
 from ..types.billing_credit_grant_reason import BillingCreditGrantReason
 from ..types.billing_credit_grant_zeroed_out_reason import BillingCreditGrantZeroedOutReason
 from ..types.billing_credit_rollover_policy import BillingCreditRolloverPolicy
+from ..types.billing_plan_credit_grant_billing_mode import BillingPlanCreditGrantBillingMode
 from ..types.billing_plan_credit_grant_reset_cadence import BillingPlanCreditGrantResetCadence
 from ..types.billing_plan_credit_grant_reset_start import BillingPlanCreditGrantResetStart
 from ..types.billing_plan_credit_grant_reset_type import BillingPlanCreditGrantResetType
+from ..types.billing_tiers_mode import BillingTiersMode
 from ..types.credit_auto_topup_amount_type import CreditAutoTopupAmountType
 from ..types.credit_bundle_currency_price_request_body import CreditBundleCurrencyPriceRequestBody
 from ..types.credit_currency_price_request_body import CreditCurrencyPriceRequestBody
 from ..types.credit_event_type import CreditEventType
+from ..types.credit_grant_price_tier_request_body import CreditGrantPriceTierRequestBody
 from ..types.credit_grant_sort_order import CreditGrantSortOrder
 from ..types.credit_spend_policy_scope import CreditSpendPolicyScope
 from ..types.plan_credit_grant_scaling import PlanCreditGrantScaling
@@ -1152,6 +1155,7 @@ class CreditsClient:
         requested_amount : float
 
         expires_at : typing.Optional[dt.datetime]
+            When the hold lapses if the lease is never released; defaults to five minutes from now and may be at most one hour out. The unspent hold is refunded on expiry
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1189,6 +1193,7 @@ class CreditsClient:
         *,
         additional_amount: float,
         expires_at: typing.Optional[dt.datetime] = OMIT,
+        idempotency_key: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ExtendCreditLeaseResponse:
         """
@@ -1200,6 +1205,10 @@ class CreditsClient:
         additional_amount : float
 
         expires_at : typing.Optional[dt.datetime]
+            Pushes the lease's expiry out; may be at most one hour from now. Leave unset to keep the expiry the lease already has
+
+        idempotency_key : typing.Optional[str]
+            A caller-chosen key for safe retries: a second request with the same key returns the lease as it stands instead of growing it again. Keys are unique per environment across every extend
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1222,7 +1231,11 @@ class CreditsClient:
         )
         """
         _response = self._raw_client.extend_credit_lease(
-            lease_id, additional_amount=additional_amount, expires_at=expires_at, request_options=request_options
+            lease_id,
+            additional_amount=additional_amount,
+            expires_at=expires_at,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
         )
         return _response.data
 
@@ -1351,6 +1364,7 @@ class CreditsClient:
         auto_topup_self_service: typing.Optional[bool] = OMIT,
         auto_topup_threshold_credits: typing.Optional[int] = OMIT,
         auto_topup_threshold_percent: typing.Optional[int] = OMIT,
+        billing_mode: typing.Optional[BillingPlanCreditGrantBillingMode] = OMIT,
         can_buy_bundles: typing.Optional[bool] = OMIT,
         company_credit_amount: typing.Optional[int] = OMIT,
         expiry_type: typing.Optional[BillingCreditExpiryType] = OMIT,
@@ -1362,9 +1376,13 @@ class CreditsClient:
         postpaid_enabled: typing.Optional[bool] = OMIT,
         postpaid_rate_per_unit: typing.Optional[int] = OMIT,
         postpaid_rate_per_unit_decimal: typing.Optional[str] = OMIT,
+        price_tiers: typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]] = OMIT,
         reset_type: typing.Optional[BillingPlanCreditGrantResetType] = OMIT,
         rollover_percentage: typing.Optional[int] = OMIT,
         scaling: typing.Optional[PlanCreditGrantScaling] = OMIT,
+        tier_mode: typing.Optional[BillingTiersMode] = OMIT,
+        unit_price: typing.Optional[int] = OMIT,
+        unit_price_decimal: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateBillingPlanCreditGrantResponse:
         """
@@ -1386,7 +1404,7 @@ class CreditsClient:
             Which boundary closes a monthly arrears window: the subscription's own recurrence (billing_period_start) or the calendar month (month_end). Only applies when arrears_cadence is monthly; defaults to billing_period_start.
 
         arrears_cadence : typing.Optional[BillingArrearsCadence]
-            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly.
+            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly. Quarterly is not available for postpaid charges.
 
         auto_topup_amount : typing.Optional[int]
 
@@ -1407,6 +1425,9 @@ class CreditsClient:
         auto_topup_threshold_credits : typing.Optional[int]
 
         auto_topup_threshold_percent : typing.Optional[int]
+
+        billing_mode : typing.Optional[BillingPlanCreditGrantBillingMode]
+            Whether the credits are included in the plan price (granted) or billed as their own subscription line at a price per credit (billed). Billed is only available on custom plans. Defaults to granted.
 
         can_buy_bundles : typing.Optional[bool]
             Deprecated: use compatible_plan_ids on credit bundles instead. Still accepted; writes through to the credit's bundle compatibility.
@@ -1437,6 +1458,9 @@ class CreditsClient:
         postpaid_rate_per_unit_decimal : typing.Optional[str]
             Decimal string form of postpaid_rate_per_unit, for rates finer than one minor unit (for example 0.0002). Takes precedence over postpaid_rate_per_unit when both are set, matching how the credit's own price_per_unit_decimal behaves.
 
+        price_tiers : typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]]
+            Tier table pricing the credits on this grant, cheapest bound first, the last tier unbounded. Give this instead of unit_price to charge a rate that changes with the number of credits on the invoice. Requires tier_mode.
+
         reset_type : typing.Optional[BillingPlanCreditGrantResetType]
 
         rollover_percentage : typing.Optional[int]
@@ -1444,6 +1468,15 @@ class CreditsClient:
 
         scaling : typing.Optional[PlanCreditGrantScaling]
             Whether the grant is a fixed amount per company, or issued once per license the company holds. Defaults to fixed.
+
+        tier_mode : typing.Optional[BillingTiersMode]
+            How price_tiers apply: volume prices every credit at the rate of the tier the total lands in, graduated prices each tier's own credits at its own rate. Required with price_tiers.
+
+        unit_price : typing.Optional[int]
+            Price per credit in the plan currency's smallest unit. Required when billing_mode is billed, unless unit_price_decimal or price_tiers is set.
+
+        unit_price_decimal : typing.Optional[str]
+            Price per credit as a decimal in the plan currency's smallest unit, for prices below one cent.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1487,6 +1520,7 @@ class CreditsClient:
             auto_topup_self_service=auto_topup_self_service,
             auto_topup_threshold_credits=auto_topup_threshold_credits,
             auto_topup_threshold_percent=auto_topup_threshold_percent,
+            billing_mode=billing_mode,
             can_buy_bundles=can_buy_bundles,
             company_credit_amount=company_credit_amount,
             expiry_type=expiry_type,
@@ -1498,9 +1532,13 @@ class CreditsClient:
             postpaid_enabled=postpaid_enabled,
             postpaid_rate_per_unit=postpaid_rate_per_unit,
             postpaid_rate_per_unit_decimal=postpaid_rate_per_unit_decimal,
+            price_tiers=price_tiers,
             reset_type=reset_type,
             rollover_percentage=rollover_percentage,
             scaling=scaling,
+            tier_mode=tier_mode,
+            unit_price=unit_price,
+            unit_price_decimal=unit_price_decimal,
             request_options=request_options,
         )
         return _response.data
@@ -1557,6 +1595,7 @@ class CreditsClient:
         auto_topup_self_service: typing.Optional[bool] = OMIT,
         auto_topup_threshold_credits: typing.Optional[int] = OMIT,
         auto_topup_threshold_percent: typing.Optional[int] = OMIT,
+        billing_mode: typing.Optional[BillingPlanCreditGrantBillingMode] = OMIT,
         can_buy_bundles: typing.Optional[bool] = OMIT,
         company_credit_amount: typing.Optional[int] = OMIT,
         credit_amount: typing.Optional[int] = OMIT,
@@ -1568,9 +1607,13 @@ class CreditsClient:
         postpaid_enabled: typing.Optional[bool] = OMIT,
         postpaid_rate_per_unit: typing.Optional[int] = OMIT,
         postpaid_rate_per_unit_decimal: typing.Optional[str] = OMIT,
+        price_tiers: typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]] = OMIT,
         reset_type: typing.Optional[BillingPlanCreditGrantResetType] = OMIT,
         rollover_percentage: typing.Optional[int] = OMIT,
         scaling: typing.Optional[PlanCreditGrantScaling] = OMIT,
+        tier_mode: typing.Optional[BillingTiersMode] = OMIT,
+        unit_price: typing.Optional[int] = OMIT,
+        unit_price_decimal: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateBillingPlanCreditGrantResponse:
         """
@@ -1589,7 +1632,7 @@ class CreditsClient:
             Which boundary closes a monthly arrears window: the subscription's own recurrence (billing_period_start) or the calendar month (month_end). Only applies when arrears_cadence is monthly; defaults to billing_period_start. Send null to fall back to the default.
 
         arrears_cadence : typing.Optional[BillingArrearsCadence]
-            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly. Send null to fall back to the default.
+            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly. Quarterly is not available for postpaid charges. Send null to fall back to the default.
 
         auto_topup_amount : typing.Optional[int]
 
@@ -1610,6 +1653,9 @@ class CreditsClient:
         auto_topup_threshold_credits : typing.Optional[int]
 
         auto_topup_threshold_percent : typing.Optional[int]
+
+        billing_mode : typing.Optional[BillingPlanCreditGrantBillingMode]
+            Whether the credits are included in the plan price (granted) or billed as their own subscription line at a price per credit (billed). Billed is only available on custom plans.
 
         can_buy_bundles : typing.Optional[bool]
             Deprecated: use compatible_plan_ids on credit bundles instead. Still accepted; writes through to the credit's bundle compatibility.
@@ -1640,6 +1686,9 @@ class CreditsClient:
         postpaid_rate_per_unit_decimal : typing.Optional[str]
             Decimal string form of postpaid_rate_per_unit, for rates finer than one minor unit (for example 0.0002). Takes precedence over postpaid_rate_per_unit when both are set, matching how the credit's own price_per_unit_decimal behaves. Send null to clear it.
 
+        price_tiers : typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]]
+            Tier table pricing the credits on this grant, cheapest bound first, the last tier unbounded. Sending it moves the grant off one rate per credit. Requires tier_mode.
+
         reset_type : typing.Optional[BillingPlanCreditGrantResetType]
 
         rollover_percentage : typing.Optional[int]
@@ -1647,6 +1696,15 @@ class CreditsClient:
 
         scaling : typing.Optional[PlanCreditGrantScaling]
             Whether the grant is a fixed amount per company, or issued once per license the company holds. Changing this re-issues the credits companies already hold for this grant.
+
+        tier_mode : typing.Optional[BillingTiersMode]
+            How price_tiers apply: volume prices every credit at the rate of the tier the total lands in, graduated prices each tier's own credits at its own rate. Required with price_tiers.
+
+        unit_price : typing.Optional[int]
+            Price per credit in the plan currency's smallest unit. Required when billing_mode is billed, unless unit_price_decimal or price_tiers is set. Sending it moves a tiered grant back to one rate per credit.
+
+        unit_price_decimal : typing.Optional[str]
+            Price per credit as a decimal in the plan currency's smallest unit, for prices below one cent.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1686,6 +1744,7 @@ class CreditsClient:
             auto_topup_self_service=auto_topup_self_service,
             auto_topup_threshold_credits=auto_topup_threshold_credits,
             auto_topup_threshold_percent=auto_topup_threshold_percent,
+            billing_mode=billing_mode,
             can_buy_bundles=can_buy_bundles,
             company_credit_amount=company_credit_amount,
             credit_amount=credit_amount,
@@ -1697,9 +1756,13 @@ class CreditsClient:
             postpaid_enabled=postpaid_enabled,
             postpaid_rate_per_unit=postpaid_rate_per_unit,
             postpaid_rate_per_unit_decimal=postpaid_rate_per_unit_decimal,
+            price_tiers=price_tiers,
             reset_type=reset_type,
             rollover_percentage=rollover_percentage,
             scaling=scaling,
+            tier_mode=tier_mode,
+            unit_price=unit_price,
+            unit_price_decimal=unit_price_decimal,
             request_options=request_options,
         )
         return _response.data
@@ -3581,6 +3644,7 @@ class AsyncCreditsClient:
         requested_amount : float
 
         expires_at : typing.Optional[dt.datetime]
+            When the hold lapses if the lease is never released; defaults to five minutes from now and may be at most one hour out. The unspent hold is refunded on expiry
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3626,6 +3690,7 @@ class AsyncCreditsClient:
         *,
         additional_amount: float,
         expires_at: typing.Optional[dt.datetime] = OMIT,
+        idempotency_key: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ExtendCreditLeaseResponse:
         """
@@ -3637,6 +3702,10 @@ class AsyncCreditsClient:
         additional_amount : float
 
         expires_at : typing.Optional[dt.datetime]
+            Pushes the lease's expiry out; may be at most one hour from now. Leave unset to keep the expiry the lease already has
+
+        idempotency_key : typing.Optional[str]
+            A caller-chosen key for safe retries: a second request with the same key returns the lease as it stands instead of growing it again. Keys are unique per environment across every extend
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3667,7 +3736,11 @@ class AsyncCreditsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.extend_credit_lease(
-            lease_id, additional_amount=additional_amount, expires_at=expires_at, request_options=request_options
+            lease_id,
+            additional_amount=additional_amount,
+            expires_at=expires_at,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
         )
         return _response.data
 
@@ -3812,6 +3885,7 @@ class AsyncCreditsClient:
         auto_topup_self_service: typing.Optional[bool] = OMIT,
         auto_topup_threshold_credits: typing.Optional[int] = OMIT,
         auto_topup_threshold_percent: typing.Optional[int] = OMIT,
+        billing_mode: typing.Optional[BillingPlanCreditGrantBillingMode] = OMIT,
         can_buy_bundles: typing.Optional[bool] = OMIT,
         company_credit_amount: typing.Optional[int] = OMIT,
         expiry_type: typing.Optional[BillingCreditExpiryType] = OMIT,
@@ -3823,9 +3897,13 @@ class AsyncCreditsClient:
         postpaid_enabled: typing.Optional[bool] = OMIT,
         postpaid_rate_per_unit: typing.Optional[int] = OMIT,
         postpaid_rate_per_unit_decimal: typing.Optional[str] = OMIT,
+        price_tiers: typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]] = OMIT,
         reset_type: typing.Optional[BillingPlanCreditGrantResetType] = OMIT,
         rollover_percentage: typing.Optional[int] = OMIT,
         scaling: typing.Optional[PlanCreditGrantScaling] = OMIT,
+        tier_mode: typing.Optional[BillingTiersMode] = OMIT,
+        unit_price: typing.Optional[int] = OMIT,
+        unit_price_decimal: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateBillingPlanCreditGrantResponse:
         """
@@ -3847,7 +3925,7 @@ class AsyncCreditsClient:
             Which boundary closes a monthly arrears window: the subscription's own recurrence (billing_period_start) or the calendar month (month_end). Only applies when arrears_cadence is monthly; defaults to billing_period_start.
 
         arrears_cadence : typing.Optional[BillingArrearsCadence]
-            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly.
+            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly. Quarterly is not available for postpaid charges.
 
         auto_topup_amount : typing.Optional[int]
 
@@ -3868,6 +3946,9 @@ class AsyncCreditsClient:
         auto_topup_threshold_credits : typing.Optional[int]
 
         auto_topup_threshold_percent : typing.Optional[int]
+
+        billing_mode : typing.Optional[BillingPlanCreditGrantBillingMode]
+            Whether the credits are included in the plan price (granted) or billed as their own subscription line at a price per credit (billed). Billed is only available on custom plans. Defaults to granted.
 
         can_buy_bundles : typing.Optional[bool]
             Deprecated: use compatible_plan_ids on credit bundles instead. Still accepted; writes through to the credit's bundle compatibility.
@@ -3898,6 +3979,9 @@ class AsyncCreditsClient:
         postpaid_rate_per_unit_decimal : typing.Optional[str]
             Decimal string form of postpaid_rate_per_unit, for rates finer than one minor unit (for example 0.0002). Takes precedence over postpaid_rate_per_unit when both are set, matching how the credit's own price_per_unit_decimal behaves.
 
+        price_tiers : typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]]
+            Tier table pricing the credits on this grant, cheapest bound first, the last tier unbounded. Give this instead of unit_price to charge a rate that changes with the number of credits on the invoice. Requires tier_mode.
+
         reset_type : typing.Optional[BillingPlanCreditGrantResetType]
 
         rollover_percentage : typing.Optional[int]
@@ -3905,6 +3989,15 @@ class AsyncCreditsClient:
 
         scaling : typing.Optional[PlanCreditGrantScaling]
             Whether the grant is a fixed amount per company, or issued once per license the company holds. Defaults to fixed.
+
+        tier_mode : typing.Optional[BillingTiersMode]
+            How price_tiers apply: volume prices every credit at the rate of the tier the total lands in, graduated prices each tier's own credits at its own rate. Required with price_tiers.
+
+        unit_price : typing.Optional[int]
+            Price per credit in the plan currency's smallest unit. Required when billing_mode is billed, unless unit_price_decimal or price_tiers is set.
+
+        unit_price_decimal : typing.Optional[str]
+            Price per credit as a decimal in the plan currency's smallest unit, for prices below one cent.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3956,6 +4049,7 @@ class AsyncCreditsClient:
             auto_topup_self_service=auto_topup_self_service,
             auto_topup_threshold_credits=auto_topup_threshold_credits,
             auto_topup_threshold_percent=auto_topup_threshold_percent,
+            billing_mode=billing_mode,
             can_buy_bundles=can_buy_bundles,
             company_credit_amount=company_credit_amount,
             expiry_type=expiry_type,
@@ -3967,9 +4061,13 @@ class AsyncCreditsClient:
             postpaid_enabled=postpaid_enabled,
             postpaid_rate_per_unit=postpaid_rate_per_unit,
             postpaid_rate_per_unit_decimal=postpaid_rate_per_unit_decimal,
+            price_tiers=price_tiers,
             reset_type=reset_type,
             rollover_percentage=rollover_percentage,
             scaling=scaling,
+            tier_mode=tier_mode,
+            unit_price=unit_price,
+            unit_price_decimal=unit_price_decimal,
             request_options=request_options,
         )
         return _response.data
@@ -4034,6 +4132,7 @@ class AsyncCreditsClient:
         auto_topup_self_service: typing.Optional[bool] = OMIT,
         auto_topup_threshold_credits: typing.Optional[int] = OMIT,
         auto_topup_threshold_percent: typing.Optional[int] = OMIT,
+        billing_mode: typing.Optional[BillingPlanCreditGrantBillingMode] = OMIT,
         can_buy_bundles: typing.Optional[bool] = OMIT,
         company_credit_amount: typing.Optional[int] = OMIT,
         credit_amount: typing.Optional[int] = OMIT,
@@ -4045,9 +4144,13 @@ class AsyncCreditsClient:
         postpaid_enabled: typing.Optional[bool] = OMIT,
         postpaid_rate_per_unit: typing.Optional[int] = OMIT,
         postpaid_rate_per_unit_decimal: typing.Optional[str] = OMIT,
+        price_tiers: typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]] = OMIT,
         reset_type: typing.Optional[BillingPlanCreditGrantResetType] = OMIT,
         rollover_percentage: typing.Optional[int] = OMIT,
         scaling: typing.Optional[PlanCreditGrantScaling] = OMIT,
+        tier_mode: typing.Optional[BillingTiersMode] = OMIT,
+        unit_price: typing.Optional[int] = OMIT,
+        unit_price_decimal: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateBillingPlanCreditGrantResponse:
         """
@@ -4066,7 +4169,7 @@ class AsyncCreditsClient:
             Which boundary closes a monthly arrears window: the subscription's own recurrence (billing_period_start) or the calendar month (month_end). Only applies when arrears_cadence is monthly; defaults to billing_period_start. Send null to fall back to the default.
 
         arrears_cadence : typing.Optional[BillingArrearsCadence]
-            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly. Send null to fall back to the default.
+            How often postpaid charges are closed and invoiced: end_of_billing_period (the default) or monthly. Quarterly is not available for postpaid charges. Send null to fall back to the default.
 
         auto_topup_amount : typing.Optional[int]
 
@@ -4087,6 +4190,9 @@ class AsyncCreditsClient:
         auto_topup_threshold_credits : typing.Optional[int]
 
         auto_topup_threshold_percent : typing.Optional[int]
+
+        billing_mode : typing.Optional[BillingPlanCreditGrantBillingMode]
+            Whether the credits are included in the plan price (granted) or billed as their own subscription line at a price per credit (billed). Billed is only available on custom plans.
 
         can_buy_bundles : typing.Optional[bool]
             Deprecated: use compatible_plan_ids on credit bundles instead. Still accepted; writes through to the credit's bundle compatibility.
@@ -4117,6 +4223,9 @@ class AsyncCreditsClient:
         postpaid_rate_per_unit_decimal : typing.Optional[str]
             Decimal string form of postpaid_rate_per_unit, for rates finer than one minor unit (for example 0.0002). Takes precedence over postpaid_rate_per_unit when both are set, matching how the credit's own price_per_unit_decimal behaves. Send null to clear it.
 
+        price_tiers : typing.Optional[typing.Sequence[CreditGrantPriceTierRequestBody]]
+            Tier table pricing the credits on this grant, cheapest bound first, the last tier unbounded. Sending it moves the grant off one rate per credit. Requires tier_mode.
+
         reset_type : typing.Optional[BillingPlanCreditGrantResetType]
 
         rollover_percentage : typing.Optional[int]
@@ -4124,6 +4233,15 @@ class AsyncCreditsClient:
 
         scaling : typing.Optional[PlanCreditGrantScaling]
             Whether the grant is a fixed amount per company, or issued once per license the company holds. Changing this re-issues the credits companies already hold for this grant.
+
+        tier_mode : typing.Optional[BillingTiersMode]
+            How price_tiers apply: volume prices every credit at the rate of the tier the total lands in, graduated prices each tier's own credits at its own rate. Required with price_tiers.
+
+        unit_price : typing.Optional[int]
+            Price per credit in the plan currency's smallest unit. Required when billing_mode is billed, unless unit_price_decimal or price_tiers is set. Sending it moves a tiered grant back to one rate per credit.
+
+        unit_price_decimal : typing.Optional[str]
+            Price per credit as a decimal in the plan currency's smallest unit, for prices below one cent.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -4171,6 +4289,7 @@ class AsyncCreditsClient:
             auto_topup_self_service=auto_topup_self_service,
             auto_topup_threshold_credits=auto_topup_threshold_credits,
             auto_topup_threshold_percent=auto_topup_threshold_percent,
+            billing_mode=billing_mode,
             can_buy_bundles=can_buy_bundles,
             company_credit_amount=company_credit_amount,
             credit_amount=credit_amount,
@@ -4182,9 +4301,13 @@ class AsyncCreditsClient:
             postpaid_enabled=postpaid_enabled,
             postpaid_rate_per_unit=postpaid_rate_per_unit,
             postpaid_rate_per_unit_decimal=postpaid_rate_per_unit_decimal,
+            price_tiers=price_tiers,
             reset_type=reset_type,
             rollover_percentage=rollover_percentage,
             scaling=scaling,
+            tier_mode=tier_mode,
+            unit_price=unit_price,
+            unit_price_decimal=unit_price_decimal,
             request_options=request_options,
         )
         return _response.data

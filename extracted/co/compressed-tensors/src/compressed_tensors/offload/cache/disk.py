@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 import torch
 import torch.distributed as dist
 from compressed_tensors.distributed import is_source_process
+from compressed_tensors.logger import logger
 from compressed_tensors.offload.cache import OffloadCache
 from compressed_tensors.offload.utils import send_tensors, to_tensor
 from compressed_tensors.utils import is_accelerator_type
@@ -98,6 +99,12 @@ class DiskCache(OffloadCache):
         if offloaded is None:
             offloaded = send_tensors(tensor, device="meta")
 
+        if tensor.dtype != offloaded.dtype:
+            logger.bind(log_once=True).warning(
+                f"Dtype mismatch during offload: tensor dtype {tensor.dtype} "
+                f"does not match offloaded meta tensor dtype {offloaded.dtype}"
+            )
+
         file_path = self._get_ct_file_path(self.offload_dir, offloaded)
         self.index[offloaded] = {
             "safetensors_file": file_path,
@@ -106,7 +113,9 @@ class DiskCache(OffloadCache):
         }
 
         assert self._is_ct_file_path(file_path), f"Attempted to write to {file_path}"
-        save_file({"weight": tensor}, file_path)
+        # safetensors requires contiguous tensors; compressed/packed weights (e.g.
+        # NVFP4, FP8 block) may be non-contiguous views after compression.
+        save_file({"weight": tensor.contiguous()}, file_path)
         return offloaded
 
     def __delitem__(self, key: str):
@@ -163,6 +172,15 @@ class DiskCache(OffloadCache):
             raise ValueError(
                 "Must provide an `offload_dir` to perform disk offloading "
                 "(add `offload_folder` argument to `from_pretrained`)"
+            )
+
+        # Warn if dtype mismatch between offloaded meta tensor and weight_info
+        weight_info_dtype = getattr(torch, weight_info["dtype"])
+        if offloaded.dtype != weight_info_dtype:
+            logger.bind(log_once=True).warning(
+                f"Dtype mismatch during create_checkpoint_symlink: offloaded meta "
+                f"tensor dtype {offloaded.dtype} does not match weight_info dtype "
+                f"{weight_info_dtype}."
             )
 
         # Resolve relative paths to absolute paths for symlink creation

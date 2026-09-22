@@ -439,6 +439,35 @@ def _shutdown_budget(state: Optional[RaindropState] = None) -> float | None:
     return deadline - time.monotonic()
 
 
+def _prepare_event_for_send(
+    event: Dict[str, Any], state: RaindropState
+) -> Optional[Dict[str, Any]]:
+    """Apply deferred PII redaction and the ingest-size gate; None means drop."""
+    data = event["data"]
+    if not event.get("_redact_pii"):
+        return data
+    try:
+        data = perform_pii_redaction(data)
+    except Exception as e:
+        _rate_limited_log(
+            "pii_redaction_failed",
+            logging.ERROR,
+            "PII redaction failed for event; sending unredacted event was NOT attempted: %s",
+            e,
+        )
+        return None
+    size = _get_size(data)
+    if size > max_ingest_size_bytes:
+        _rate_limited_log(
+            "redacted_event_oversized",
+            logging.WARNING,
+            "[raindrop] redacted event > %d MB; skipping",
+            max_ingest_size_bytes // (1024 * 1024),
+        )
+        return None
+    return data
+
+
 def _redact_url_for_log(url: str) -> str:
     """Strip userinfo (and query) from a URL before logging.
 
@@ -585,7 +614,22 @@ def flush(
             events_with_policy = list(policy_events)
             for i in range(0, len(events_with_policy), st.upload_size):
                 batch_events = events_with_policy[i : i + st.upload_size]
-                batch = [event["data"] for event in batch_events]
+                batch = []
+                for event in batch_events:
+                    budget = _shutdown_budget(state=st)
+                    if budget is not None and budget <= 0:
+                        _rate_limited_log(
+                            "flush.shutdown_deadline",
+                            logging.WARNING,
+                            "[raindrop] shutdown flush deadline exceeded; dropping remaining buffered payloads",
+                        )
+                        break
+                    data = _prepare_event_for_send(event, st)
+                    if data is None:
+                        continue
+                    batch.append(data)
+                if not batch:
+                    continue
                 batch_max_attempts = (
                     None
                     if _background or retry_on_explicit_flush
@@ -1066,7 +1110,10 @@ def save_to_buffer(event: Dict[str, Union[str, Dict]], state: Optional[RaindropS
     logger.debug(f"Adding event to buffer: {event}")
 
     if st.shutdown_event.is_set():
-        send_request(event["type"], [event["data"]], state=st)
+        data = _prepare_event_for_send(event, st)
+        if data is None:
+            return
+        send_request(event["type"], [data], state=st)
         return
 
     with st.flush_lock:
@@ -1124,9 +1171,6 @@ def track(
 
         data = payload.model_dump(mode="json")
 
-        if st.redact_pii:
-            data = perform_pii_redaction(data)
-
         size = _get_size(data)
         if size > max_ingest_size_bytes:
             logger.warning(
@@ -1139,6 +1183,7 @@ def track(
             {
                 "type": "events/track",
                 "data": data,
+                "_redact_pii": st.redact_pii,
                 "_defer_initial_flush": True,
                 "_retry_on_explicit_flush": True,
             },
@@ -1207,10 +1252,6 @@ def track_ai(
     data = payload.model_dump(mode="json")
     data["ai_data"] = payload.ai_data.model_dump(mode="json", exclude_none=True)
 
-    # Apply PII redaction if enabled
-    if st.redact_pii:
-        data = perform_pii_redaction(data)
-
     size = _get_size(data)
     if size > max_ingest_size_bytes:
         logger.warning(
@@ -1219,7 +1260,10 @@ def track_ai(
         )
         return None  # Skip adding oversized events to buffer
 
-    save_to_buffer({"type": "events/track", "data": data}, state=st)
+    save_to_buffer(
+        {"type": "events/track", "data": data, "_redact_pii": st.redact_pii},
+        state=st,
+    )
     return event_id
 
 

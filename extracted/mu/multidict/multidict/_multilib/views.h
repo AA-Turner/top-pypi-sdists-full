@@ -573,6 +573,8 @@ multidict_itemsview_or2_impl(_Multidict_ViewObject* self, PyObject* other)
             }
         }
         Py_CLEAR(arg);
+        Py_CLEAR(identity);
+        Py_CLEAR(value);
     }
     if (st < 0) {
         goto fail;
@@ -694,6 +696,8 @@ multidict_itemsview_sub1_impl(_Multidict_ViewObject* self, PyObject* other)
             }
         }
         Py_CLEAR(arg);
+        Py_CLEAR(identity);
+        Py_CLEAR(value);
     }
     if (st < 0) {
         goto fail;
@@ -731,13 +735,13 @@ multidict_itemsview_sub1_impl(_Multidict_ViewObject* self, PyObject* other)
     Py_CLEAR(tmp_set);
     return ret;
 fail:
+    Py_CLEAR(arg);
     Py_CLEAR(identity);
     Py_CLEAR(key);
     Py_CLEAR(value);
     Py_CLEAR(ret);
     Py_CLEAR(tmp_set);
     Py_CLEAR(iter);
-    Py_CLEAR(ret);
     return NULL;
 }
 
@@ -948,8 +952,15 @@ multidict_itemsview_contains_impl(_Multidict_ViewObject* self, PyObject* obj)
         if (PyList_GET_SIZE(obj) != 2) {
             return 0;
         }
-        key = Py_NewRef(PyList_GET_ITEM(obj, 0));
-        value = Py_NewRef(PyList_GET_ITEM(obj, 1));
+        key = _list_getitem_ref(obj, 0);
+        if (_list_item_gone(key)) {
+            return -1;
+        }
+        value = _list_getitem_ref(obj, 1);
+        if (_list_item_gone(value)) {
+            Py_DECREF(key);
+            return -1;
+        }
     } else {
         tmp = PyObject_Length(obj);
         if (tmp < 0) {

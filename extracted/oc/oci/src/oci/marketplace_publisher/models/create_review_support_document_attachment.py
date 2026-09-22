@@ -53,6 +53,10 @@ class CreateReviewSupportDocumentAttachment(CreateListingRevisionAttachmentDetai
             The value to assign to the template_code property of this CreateReviewSupportDocumentAttachment.
         :type template_code: str
 
+        :param source_type:
+            The value to assign to the source_type property of this CreateReviewSupportDocumentAttachment.
+        :type source_type: str
+
         """
         self.swagger_types = {
             'listing_revision_id': 'str',
@@ -62,7 +66,8 @@ class CreateReviewSupportDocumentAttachment(CreateListingRevisionAttachmentDetai
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'document_name': 'str',
-            'template_code': 'str'
+            'template_code': 'str',
+            'source_type': 'str'
         }
         self.attribute_map = {
             'listing_revision_id': 'listingRevisionId',
@@ -72,7 +77,8 @@ class CreateReviewSupportDocumentAttachment(CreateListingRevisionAttachmentDetai
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'document_name': 'documentName',
-            'template_code': 'templateCode'
+            'template_code': 'templateCode',
+            'source_type': 'sourceType'
         }
         self._listing_revision_id = None
         self._display_name = None
@@ -82,6 +88,7 @@ class CreateReviewSupportDocumentAttachment(CreateListingRevisionAttachmentDetai
         self._defined_tags = None
         self._document_name = None
         self._template_code = None
+        self._source_type = None
         self._attachment_type = 'REVIEW_SUPPORT_DOCUMENT'
 
     @property
@@ -131,6 +138,30 @@ class CreateReviewSupportDocumentAttachment(CreateListingRevisionAttachmentDetai
         :type: str
         """
         self._template_code = template_code
+
+    @property
+    def source_type(self):
+        """
+        Gets the source_type of this CreateReviewSupportDocumentAttachment.
+        The specified attachment type is Internal or External.
+
+
+        :return: The source_type of this CreateReviewSupportDocumentAttachment.
+        :rtype: str
+        """
+        return self._source_type
+
+    @source_type.setter
+    def source_type(self, source_type):
+        """
+        Sets the source_type of this CreateReviewSupportDocumentAttachment.
+        The specified attachment type is Internal or External.
+
+
+        :param source_type: The source_type of this CreateReviewSupportDocumentAttachment.
+        :type: str
+        """
+        self._source_type = source_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

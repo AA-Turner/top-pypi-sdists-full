@@ -271,7 +271,7 @@ class RunCache:
 
         self._clone_time_travel_limit: t.Optional[int] = (
             run_cache_config.clone_time_travel_limit
-            if self.dialect in SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
+            if self._adapter.type() in SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
             else 0
         )
 
@@ -1355,7 +1355,7 @@ class RunCache:
 
         return sql_service_models.SubmitValuesRequest(
             target_table=node.relation_name or "",
-            dialect=self._adapter.type(),
+            dialect=self.dialect,
             default_catalog=self._adapter_ext.default_catalog,
             values_hash=calculator.calculate_node_hash(),
             semantic_extras=semantic_extras,
@@ -1465,7 +1465,7 @@ class RunCache:
             if execution_type != shared_models.ModelExecutionType.DBT_DATA_TEST
             else None
         )
-        dialect = self._adapter.type()
+        dialect = self.dialect
         default_catalog = self._adapter_ext.default_catalog
         node_config = node.config
 
@@ -2112,7 +2112,8 @@ class RunCache:
 
     @property
     def dialect(self) -> str:
-        return self._adapter.type()
+        """The sqlglot dialect for the warehouse."""
+        return self._adapter_ext.dialect
 
     @property
     def run_cache_config(self) -> RunCacheConfig:

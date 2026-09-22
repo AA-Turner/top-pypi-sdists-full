@@ -14,6 +14,8 @@ import logging
 import numbers
 import sys
 
+from .__version__ import __version__
+
 logger = logging.getLogger(__name__)
 
 
@@ -266,7 +268,7 @@ def convert(arcgis, idAttribute=None):
 
     if "geometry" in arcgis or "attributes" in arcgis:
         geojson["type"] = "Feature"
-        if "geometry" in arcgis:
+        if arcgis.get("geometry") is not None:
             geojson["geometry"] = convert(arcgis["geometry"])
         else:
             geojson["geometry"] = None
@@ -325,6 +327,9 @@ def main():
         help="Attribute to use as feature ID",
         required=False,
         default=None,
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     args = parser.parse_args()
 

@@ -24,6 +24,7 @@ from absl import logging
 from etils import epath
 from jax import monitoring as jax_monitoring
 from orbax.checkpoint._src.multihost import multihost
+from orbax.checkpoint._src.serialization import ocdbt_process_spec
 from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
 import tensorstore as ts
 
@@ -166,10 +167,9 @@ async def merge_ocdbt_per_process_files(
   """
   start_time = time.time()
   open_ops = []
-  for process_dir in directory.glob(f'{ts_utils.PROCESS_SUBDIR_PREFIX}*'):
-    child_kvstore_tspec = ts_utils.build_kvstore_tspec_for_merge(
-        directory.as_posix(),
-        process_dir.name,
+  for process_dir in directory.glob(f'{ocdbt_process_spec.PROCESS_PREFIX}*'):
+    child_kvstore_tspec = ts_utils.build_kvstore_tspec(
+        process_dir.as_posix(), use_ocdbt=True
     )
     logging.vlog(1, 'child_kvstore_tspec: %s', child_kvstore_tspec)
     open_ops.append(ts_utils.open_kv_store(child_kvstore_tspec, ts_context))
@@ -184,9 +184,12 @@ async def merge_ocdbt_per_process_files(
     return
 
   parent_kvstore_tspec = ts_utils.build_kvstore_tspec(
-      directory.as_posix(), use_ocdbt=True
+      directory.as_posix(),
+      use_ocdbt=True,
+      ocdbt_write_options=ts_utils.OcdbtKvStoreWriteOptions(
+          mode=ts_utils.OcdbtWriteMode.MERGE
+      ),
   )
-  ts_utils.add_ocdbt_write_options(parent_kvstore_tspec)
   open_ops.append(ts_utils.open_kv_store(parent_kvstore_tspec, ts_context))
 
   opened = await asyncio.gather(*open_ops)
@@ -215,6 +218,42 @@ async def merge_ocdbt_per_process_files(
       '/jax/orbax/write/merge_ocdbt_per_process_files_secs',
       duration_secs,
   )
+
+
+async def commit_temporary_ocdbt_metadata(
+    persistent_path: epath.Path,
+    temporary_metadata_context: ts_utils.OcdbtTemporaryMetadataContext,
+    ts_context: ts.Context,
+    *,
+    store_ocdbt_metadata_and_values_separately: bool = False,
+) -> None:
+  """Commits temporary OCDBT metadata to the persistent metadata directory."""
+  target_kvstore_tspec = ts_utils.build_kvstore_tspec(
+      persistent_path.as_posix(),
+      use_ocdbt=True,
+      ocdbt_write_options=ts_utils.OcdbtKvStoreWriteOptions(
+          mode=ts_utils.OcdbtWriteMode.COMMIT_TEMPORARY,
+          store_ocdbt_metadata_and_values_separately=(
+              store_ocdbt_metadata_and_values_separately
+          ),
+      ),
+      ocdbt_temporary_metadata_context=temporary_metadata_context,
+  )
+  source_kvstore_tspec = ts_utils.build_kvstore_tspec(
+      persistent_path.as_posix(),
+      use_ocdbt=True,
+      ocdbt_temporary_metadata_context=temporary_metadata_context,
+  )
+  target_kvstore, source_kvstore = await asyncio.gather(
+      ts_utils.open_kv_store(target_kvstore_tspec, ts_context),
+      ts_utils.open_kv_store(source_kvstore_tspec, ts_context),
+  )
+
+  txn = ts.Transaction(atomic=True)
+  await source_kvstore.experimental_copy_range_to(
+      target_kvstore.with_transaction(txn)
+  )
+  await txn.commit_async()
 
 
 def get_process_index_for_subdir(

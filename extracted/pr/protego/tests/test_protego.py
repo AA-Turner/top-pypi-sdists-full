@@ -3,7 +3,7 @@ from datetime import time
 import pytest
 
 from protego import Protego
-from protego._utils import _parse_time_period
+from protego._utils import _parse_time_period, _quote_path, _quote_pattern
 
 
 class TestProtego:
@@ -179,28 +179,32 @@ class TestProtego:
         rp = Protego.parse(content=content)
         assert rp.preferred_host is None
 
-    def test_crawl_delay(self):
+    @pytest.mark.parametrize("value", [0, 10, 15])
+    def test_crawl_delay(self, value: int) -> None:
         content = (
             "User-agent: * \n"
             "Disallow: /disallowed \n"
             "Allow: /allowed \n"
             "Crawl-delay: 10 \n"
             "User-agent: testbot\n"
-            "Crawl-delay: 15 \n"
+            f"Crawl-delay: {value}\n"
         )
         rp = Protego.parse(content=content)
         assert rp.crawl_delay("*") == 10.0
-        assert rp.crawl_delay("testbot") == 15.0
+        assert rp.crawl_delay("testbot") == value
 
-    def test_malformed_crawl_delay(self):
+    @pytest.mark.parametrize(
+        "value", ["random_word", "-5", "-0.5", "inf", "-inf", "nan"]
+    )
+    def test_malformed_crawl_delay(self, value: str) -> None:
         content = (
             "User-agent: * \n"
             "Disallow: /disallowed \n"
             "Allow: /allowed \n"
-            "Crawl-delay: random_word"
+            f"Crawl-delay: {value}"
         )
         rp = Protego.parse(content=content)
-        assert rp.crawl_delay("*") is None
+        assert rp.crawl_delay("*") is None, value
 
     def test_no_crawl_delay(self):
         content = "User-agent: * \nDisallow: /disallowed \nAllow: /allowed"
@@ -317,6 +321,25 @@ class TestProtego:
         rp = Protego.parse(content=content)
         assert rp.request_rate("two") is None
 
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "one/two",
+            "5",
+            "-1/5",
+            "0/5",
+            "1/0",
+            "0/0",
+            "1/-5",
+            # A malformed time window invalidates the whole rule.
+            "1/5 9-17",
+        ],
+    )
+    def test_malformed_request_rate(self, value):
+        content = f"User-agent: *\nRequest-rate: {value}"
+        rp = Protego.parse(content=content)
+        assert rp.request_rate("*") is None
+
     def test_empty_response(self):
         """empty response should equal 'allow all'"""
         rp = Protego.parse(content="")
@@ -324,6 +347,21 @@ class TestProtego:
         assert rp.can_fetch("https://site.local/", "chrome")
         assert rp.can_fetch("https://site.local/index.html", "*")
         assert rp.can_fetch("https://site.local/disallowed", "*")
+
+    def test_wildcard_rule_in_a_rule_set_with_plain_rules(self):
+        content = """User-agent: *
+                     Disallow: /admin/
+                     Disallow: /private/
+                     Disallow: /*.pdf
+                     Disallow: /tmp$
+                """
+        rp = Protego.parse(content=content)
+
+        assert not rp.can_fetch("https://site.local/docs/manual.pdf", "bot")
+        assert not rp.can_fetch("https://site.local/tmp", "bot")
+        assert not rp.can_fetch("https://site.local/admin/index.html", "bot")
+        assert rp.can_fetch("https://site.local/docs/manual.txt", "bot")
+        assert rp.can_fetch("https://site.local/tmp/file", "bot")
 
     def test_allowed_wildcards(self):
         content = """User-agent: first
@@ -655,6 +693,21 @@ class TestProtego:
         assert rp.can_fetch("https://site.local/path1", "two")
         assert rp.can_fetch("https://site.local/path2", "two")
 
+    def test_directives_without_path(self):
+        """Values whose path is empty after quoting, such as a bare URL
+        without a path, add no rule."""
+        content = """
+        User-Agent: one
+        Disallow: ftp://site.local
+
+        User-Agent: two
+        Allow: ftp://site.local
+        Disallow: /
+        """
+        rp = Protego.parse(content=content)
+        assert rp.can_fetch("https://site.local/path", "one")
+        assert not rp.can_fetch("https://site.local/path", "two")
+
     def test_empty_record_group(self):
         content = """
         User-Agent: harrybot
@@ -664,6 +717,108 @@ class TestProtego:
         rp = Protego.parse(content=content)
         assert rp.can_fetch("https://site.local/path1", "testbot")
         assert rp.can_fetch("https://site.local/path2", "testbot")
+
+    def test_empty_user_agent_line(self):
+        """A user agent line with no value still starts a new record group."""
+        content = """
+        User-Agent: alpha
+        Disallow: /x
+        User-Agent:
+        User-Agent: beta
+        Disallow: /y
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/x", "alpha")
+        assert rp.can_fetch("https://site.local/y", "alpha")
+        assert rp.can_fetch("https://site.local/x", "beta")
+        assert not rp.can_fetch("https://site.local/y", "beta")
+
+        # Rules following a lone empty user agent line apply to no one.
+        content = """
+        User-Agent: alpha
+        Disallow: /x
+        User-Agent:
+        Disallow: /y
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/x", "alpha")
+        assert rp.can_fetch("https://site.local/y", "alpha")
+
+        # An empty user agent line between two user agent lines does not
+        # split their group.
+        content = """
+        User-Agent: alpha
+        User-Agent:
+        User-Agent: beta
+        Disallow: /x
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/x", "alpha")
+        assert not rp.can_fetch("https://site.local/x", "beta")
+
+        # A colon-less, value-less user agent line behaves the same as
+        # "User-Agent:".
+        content = """
+        User-Agent: alpha
+        Disallow: /x
+        user agent
+        Disallow: /y
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/x", "alpha")
+        assert rp.can_fetch("https://site.local/y", "alpha")
+
+    def test_global_directives_do_not_split_groups(self):
+        """Sitemap and Host lines are site-wide; consecutive user agent lines
+        form a single group across them."""
+        content = """
+        User-Agent: one
+        Sitemap: https://site.local/sitemap.xml
+        User-Agent: two
+        Host: www.site.local
+        User-Agent: three
+        Disallow: /disallowed
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/disallowed", "one")
+        assert not rp.can_fetch("https://site.local/disallowed", "two")
+        assert not rp.can_fetch("https://site.local/disallowed", "three")
+        assert list(rp.sitemaps) == ["https://site.local/sitemap.xml"]
+        assert rp.preferred_host == "www.site.local"
+
+        # They do not prevent a legitimate group split either.
+        content = """
+        User-Agent: one
+        Disallow: /disallowed
+        Sitemap: https://site.local/sitemap.xml
+        User-Agent: two
+        Crawl-delay: 5
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/disallowed", "one")
+        assert rp.can_fetch("https://site.local/disallowed", "two")
+        assert rp.crawl_delay("one") is None
+        assert rp.crawl_delay("two") == 5.0
+
+    def test_preferred_host_before_user_agent(self):
+        """Host, like Sitemap, is a site-wide directive and needs no
+        preceding user agent line."""
+        content = """
+        Host: www.site.local
+        Sitemap: https://site.local/sitemap.xml
+        """
+        rp = Protego.parse(content=content)
+        assert rp.preferred_host == "www.site.local"
+        assert list(rp.sitemaps) == ["https://site.local/sitemap.xml"]
+
+        content = """
+        Host: www.site.local
+        User-Agent: *
+        Disallow: /disallowed
+        """
+        rp = Protego.parse(content=content)
+        assert rp.preferred_host == "www.site.local"
+        assert not rp.can_fetch("https://site.local/disallowed", "FooBot")
 
     def test_1994rfc_example(self):
         """Test parser on examples form 1994 RFC."""
@@ -823,6 +978,16 @@ class TestProtego:
         assert not rp.can_fetch("/", "SomeOtherBot")
         assert not rp.can_fetch("/blahblahblah", "SomeOtherBot")
 
+    def test_robotstxt_is_always_allowed(self):
+        content = """
+        User-agent: *
+        Disallow: /
+        """
+        rp = Protego.parse(content=content)
+        assert rp.can_fetch("/robots.txt", "foobot")
+        assert rp.can_fetch("http://www.example.com/robots.txt", "foobot")
+        assert not rp.can_fetch("http://www.example.com/a/robots.txt", "foobot")
+
     def test_grouping_unknown_keys(self):
         """
         When we encounter unknown keys, we should disregard any grouping that may have
@@ -885,6 +1050,103 @@ class TestProtego:
         rp = Protego.parse(content=wildcards_in_user_agent)
         assert not rp.can_fetch("http://foo.bar/myprofile", "foo*bot")
         assert not rp.can_fetch("http://foo.bar/myprofile", "foobot")
+
+    def test_generosity_case_insensitivity(self):
+        """Colon-less directive lines are salvaged regardless of case."""
+        content = """
+        User-Agent FooBot
+        Disallow /disallowed
+        Allow /disallowed/exception
+        Crawl-delay 5
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/disallowed", "FooBot")
+        assert rp.can_fetch("https://site.local/disallowed/exception", "FooBot")
+        assert rp.can_fetch("https://site.local/disallowed", "BarBot")
+        assert rp.crawl_delay("FooBot") == 5.0
+
+    def test_generosity_visit_time(self):
+        """Colon-less Visit-time lines are salvaged like other directives."""
+        content = """
+        User-agent: *
+        visit-time 0200 0630
+        """
+        rp = Protego.parse(content=content)
+        visit_time = rp.visit_time("FooBot")
+        assert visit_time is not None
+        assert visit_time.start_time == time(2, 0)
+        assert visit_time.end_time == time(6, 30)
+
+    def test_generosity_sitemap(self):
+        """A colon-less Sitemap line still contains a colon in its URL value,
+        so it is parsed as "<field>:<value>" with a nonsense field before the
+        space-separated fallback can salvage it."""
+        content = """
+        User-agent: *
+        Disallow: /disallowed
+        Sitemap https://site.local/sitemap.xml
+        """
+        rp = Protego.parse(content=content)
+        assert list(rp.sitemaps) == ["https://site.local/sitemap.xml"]
+        assert not rp.can_fetch("https://site.local/disallowed", "FooBot")
+
+    def test_generosity_not_for_unknown_colon_directives(self):
+        """A line with an unknown "<field>: <value>" directive is ignored,
+        even if it starts with a directive name; only a colon that cannot be
+        a field separator (e.g. inside a URL) triggers the space-separated
+        fallback."""
+        content = """
+        User-agent: *
+        Disallow: /disallowed
+        User-agent must match exactly: see the docs
+        Allow: /disallowed/exception
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/disallowed", "FooBot")
+        assert rp.can_fetch("https://site.local/disallowed/exception", "FooBot")
+
+        content = """
+        Host: www.site.local
+        Host name: www.other.example
+        Sitemap index: see https://site.local/sitemap.xml
+        """
+        rp = Protego.parse(content=content)
+        assert rp.preferred_host == "www.site.local"
+        assert list(rp.sitemaps) == []
+
+    def test_generosity_tab_separated(self):
+        """Colon-less directive lines may use any whitespace as the
+        field-value separator."""
+        content = "User-agent: *\nDisallow\t/disallowed"
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/disallowed", "FooBot")
+
+    def test_empty_field_line_does_not_merge_groups(self):
+        """A line with an empty field (e.g. a stray ":") is ignored and does
+        not prevent the next user agent line from starting a new group."""
+        content = """
+        User-Agent: alpha
+        Disallow: /x
+        :
+        User-Agent: beta
+        Disallow: /y
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/x", "alpha")
+        assert rp.can_fetch("https://site.local/y", "alpha")
+        assert not rp.can_fetch("https://site.local/y", "beta")
+
+        content = """
+        User-Agent: alpha
+        Disallow: /x
+        : foo
+        User-Agent: beta
+        Disallow: /y
+        """
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("https://site.local/x", "alpha")
+        assert rp.can_fetch("https://site.local/y", "alpha")
+        assert not rp.can_fetch("https://site.local/y", "beta")
 
     def test_directive_case_insensitivity(self):
         content = """
@@ -957,6 +1219,9 @@ class TestProtego:
         assert rp.can_fetch("http://foo.com/allowed-slash/index.html", "footbot")
         assert not rp.can_fetch("http://foo.com/allowed-slash/index.htm", "footbot")
         assert not rp.can_fetch("http://foo.com/anyother-url", "footbot")
+        # The "$" anchor of the added directory rule must not leak a rule
+        # matching a literal dollar sign.
+        assert not rp.can_fetch("http://foo.com/allowed-slash/$budget", "footbot")
 
     def test_percentage_encoding(self):
         content = (
@@ -983,6 +1248,29 @@ class TestProtego:
         rp = Protego.parse(content=content)
         assert rp.can_fetch("http://foo.bar/foo/bar/baz", "FooBot")
         assert rp.can_fetch("http://foo.bar/foo/bar/%62%61%7A", "FooBot")
+
+    def test_percentage_encoding_query(self):
+        """Queries are encoded like paths, so that a rule matches a URL
+        regardless of how either of the two spells a character."""
+        content = "User-agent: FooBot\nDisallow: /en-uk/*q=*relevance*\n"
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch(
+            "http://foo.bar/en-uk/c/4018?q=%3Arelevance%3Atype%3AFood", "FooBot"
+        )
+        assert not rp.can_fetch("http://foo.bar/en-uk/c/4018?q=:relevance", "FooBot")
+        assert rp.can_fetch("http://foo.bar/en-uk/c/4018?q=:price", "FooBot")
+
+        content = "User-agent: FooBot\nDisallow: /\nAllow: /foo?bar=ツ\n"
+        rp = Protego.parse(content=content)
+        assert rp.can_fetch("http://foo.bar/foo?bar=ツ", "FooBot")
+        assert rp.can_fetch("http://foo.bar/foo?bar=%E3%83%84", "FooBot")
+        assert rp.can_fetch("http://foo.bar/foo?bar=%e3%83%84", "FooBot")
+
+        # A parameter and a query are matched against, a fragment is not.
+        content = "User-agent: FooBot\nDisallow: /foo;a=b?c=d$\n"
+        rp = Protego.parse(content=content)
+        assert not rp.can_fetch("http://foo.bar/foo;a=b?c=d", "FooBot")
+        assert not rp.can_fetch("http://foo.bar/foo;a=b?c=d#e", "FooBot")
 
     def test_url_case_sensitivity(self):
         content = "user-agent: FooBot\ndisallow: /x/\n"
@@ -1058,7 +1346,7 @@ class TestProtego:
 
     def test_bytestrings(self):
         content = b"User-Agent: FootBot\nDisallow: /something"
-        with pytest.raises(ValueError, match=r"Protego\.parse expects str, got bytes"):
+        with pytest.raises(TypeError, match=r"Protego\.parse expects str, got bytes"):
             Protego.parse(content=content)  # type: ignore[arg-type]
 
     def test_leading_double_slash_in_pattern(self):
@@ -1072,14 +1360,39 @@ class TestProtego:
         assert not rp.can_fetch("http://example.com//folder/page", "FooBot")
 
     def test_visit_time(self):
-        """Some website specified allow time for crawling in UTC"""
-        content = "User-Agent: *\nVisit-time: 0200 0630\nUser-Agent: NoTime"
+        """The de-facto Visit-time convention, from the "Extended Standard
+        for Robot Exclusion", is hyphen-separated."""
+        content = "User-Agent: *\nVisit-time: 0400-0845\nUser-Agent: NoTime"
         rp = Protego.parse(content)
-        visit_time = rp.visit_time("FooBoot")
+        visit_time = rp.visit_time("FooBot")
+        assert visit_time is not None
+        assert visit_time.start_time == time(4, 0)
+        assert visit_time.end_time == time(8, 45)
+        assert rp.visit_time("NoTime") is None
+
+        # The space-separated form is also accepted.
+        content = "User-Agent: *\nVisit-time: 0200 0630"
+        rp = Protego.parse(content)
+        visit_time = rp.visit_time("FooBot")
         assert visit_time is not None
         assert visit_time.start_time == time(2, 0)
         assert visit_time.end_time == time(6, 30)
-        assert rp.visit_time("NoTime") is None
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "9-17",
+            "900",
+            "0400-",
+            "0400-0845-1000",
+            "2500-2600",
+            "abcd-efgh",
+        ],
+    )
+    def test_malformed_visit_time(self, value):
+        content = f"User-Agent: *\nVisit-time: {value}"
+        rp = Protego.parse(content)
+        assert rp.visit_time("FooBot") is None
 
     def test_parse_time_period(self):
         start_time, end_time = _parse_time_period("0100-1000")
@@ -1090,12 +1403,35 @@ class TestProtego:
         assert start_time == time(5, 0)
         assert end_time == time(6, 0)
 
+        # Three-digit values are read as HMM.
+        start_time, end_time = _parse_time_period("900-1700")
+        assert start_time == time(9, 0)
+        assert end_time == time(17, 0)
+
+        for time_period in ["9-17", "18-19", "-", "0900-", "090000-100000"]:
+            with pytest.raises(ValueError, match="Invalid time of day"):
+                _parse_time_period(time_period)
+
     def test_disallow_query_wildcard(self):
         content = "User-agent: * \nDisallow: /*s="
         rp = Protego.parse(content=content)
         assert rp.can_fetch("https://www.site.local/", "*")
         assert rp.can_fetch("https://www.site.local/s/", "*")
         assert not rp.can_fetch("https://www.site.local/?s=asd", "*")
+
+
+@pytest.mark.parametrize(
+    ("url", "allowed"),
+    [
+        ("https://example.com/1/filter/page=5/", True),
+        ("https://example.com/1/filter/page%3D5/", True),
+        ("https://example.com/1/filter/page=5/x", False),
+    ],
+)
+def test_equal_sign_in_path(url, allowed):
+    content = "User-agent: *\nAllow: /*/filter/page=*/$\nDisallow: /\n"
+    rp = Protego.parse(content)
+    assert rp.can_fetch(url, "*") == allowed
 
 
 @pytest.mark.parametrize(
@@ -1121,3 +1457,29 @@ def test_redos():
     content = f"User-agent: *\nDisallow: {disallow}\n"
     rp = Protego.parse(content)
     assert rp.can_fetch(url, "*")
+
+
+@pytest.mark.parametrize(
+    ("value", "path", "pattern"),
+    [
+        ("/a/b", "/a/b", "/a/b"),
+        ("/a=b", "/a=b", "/a=b"),
+        ("//host/path", "/path", "//host/path"),
+        ("/a%2fb", "/a%2Fb", "/a%2Fb"),
+        ("/a?b", "/a%3Fb", "/a%3Fb"),
+        ("/a;b", "/a%3Bb", "/a%3Bb"),
+        ("/a:b", "/a%3Ab", "/a%3Ab"),
+        ("/a b", "/a%20b", "/a%20b"),
+        ("/á", "/%C3%A1", "/%C3%A1"),
+        ("/a*b", "/a%2Ab", "/a*b"),
+        ("/a$b", "/a%24b", "/a%24b"),
+        ("/a$", "/a%24", "/a$"),
+        ("https://example.com/a/b", "/a/b", "/https%3A//example.com/a/b"),
+        ("https://example.com/a b", "/a%20b", "/https%3A//example.com/a%20b"),
+        ("https://example.com//a", "//a", "/https%3A//example.com//a"),
+        ("https://example.com", "/", "/https%3A//example.com"),
+    ],
+)
+def test_quoting(value, path, pattern):
+    assert _quote_path(value) == path
+    assert _quote_pattern(value) == pattern

@@ -22,9 +22,13 @@ extensions = [
 
 llms_txt_summary_enabled = False
 llms_txt_summary_model = "qwen3.5:2b"
+# These documentation fixtures intentionally exercise nodes that the Markdown
+# translator does not support.  This suppresses only their diagnostics; their
+# subtrees remain omitted from the generated Markdown.
+llms_txt_suppress_unknown_node_warnings = ["admonition", "meta"]
 llms_txt_description = """A collection of Sphinx extensions for working with LLMs in your documentation.
 This includes:
-- Generating rich `llms.txt` and `llms-full.txt` markdown context files and individual page markdown context files.
+- Generating a rich `llms.txt` index and individual page markdown context files.
 - A directive for summarising and referencing other pages in your documentation.
 """
 

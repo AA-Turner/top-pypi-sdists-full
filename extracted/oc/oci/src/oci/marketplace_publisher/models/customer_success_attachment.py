@@ -46,6 +46,11 @@ class CustomerSuccessAttachment(ListingRevisionAttachment):
             Allowed values for this property are: "RELATED_DOCUMENT", "SCREENSHOT", "VIDEO", "REVIEW_SUPPORT_DOCUMENT", "CUSTOMER_SUCCESS", "SUPPORTED_SERVICES"
         :type attachment_type: str
 
+        :param source_type:
+            The value to assign to the source_type property of this CustomerSuccessAttachment.
+            Allowed values for this property are: "EXTERNAL", "INTERNAL"
+        :type source_type: str
+
         :param lifecycle_state:
             The value to assign to the lifecycle_state property of this CustomerSuccessAttachment.
             Allowed values for this property are: "ACTIVE", "INACTIVE", "DELETED"
@@ -99,6 +104,7 @@ class CustomerSuccessAttachment(ListingRevisionAttachment):
             'display_name': 'str',
             'description': 'str',
             'attachment_type': 'str',
+            'source_type': 'str',
             'lifecycle_state': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
@@ -118,6 +124,7 @@ class CustomerSuccessAttachment(ListingRevisionAttachment):
             'display_name': 'displayName',
             'description': 'description',
             'attachment_type': 'attachmentType',
+            'source_type': 'sourceType',
             'lifecycle_state': 'lifecycleState',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
@@ -136,6 +143,7 @@ class CustomerSuccessAttachment(ListingRevisionAttachment):
         self._display_name = None
         self._description = None
         self._attachment_type = None
+        self._source_type = None
         self._lifecycle_state = None
         self._time_created = None
         self._time_updated = None

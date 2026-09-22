@@ -39,7 +39,7 @@ class ActivateTargetDatabaseDetails(object):
     @property
     def credentials(self):
         """
-        **[Required]** Gets the credentials of this ActivateTargetDatabaseDetails.
+        Gets the credentials of this ActivateTargetDatabaseDetails.
 
         :return: The credentials of this ActivateTargetDatabaseDetails.
         :rtype: oci.data_safe.models.Credentials

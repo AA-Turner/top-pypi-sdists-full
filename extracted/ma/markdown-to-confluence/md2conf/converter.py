@@ -27,19 +27,19 @@ from .coalesce import coalesce_dataclass
 from .collection import ConfluencePageCollection, ConfluenceUserCollection
 from .compatibility import override, path_relative_to
 from .csf import AC_ATTR, AC_ELEM, HTML, RI_ATTR, RI_ELEM, ElementType, ParseError, elements_from_strings, elements_to_string, normalize_inline
-from .drawio.extension import DrawioExtension
+from .drawio.extension import DrawioExtensionFactory
 from .emoticon import emoji_to_emoticon
 from .environment import PageError
-from .extension import DiagramExtension, ExtensionOptions
+from .extension import ExtensionOptions, ImageGenerator, ImageGeneratorOptions, MarketplaceExtension
 from .formatting import FormattingContext, ImageAlignment, ImageAttributes
-from .image import ImageGenerator, ImageGeneratorOptions, to_element_attrs
+from .image import DefaultImageGenerator, to_element_attrs
 from .latex import render_latex
 from .markdown import markdown_to_html, markdown_with_line_numbers
-from .mermaid.extension import MermaidExtension
+from .mermaid.extension import MermaidExtensionFactory
 from .metadata import ConfluenceSiteMetadata
 from .options import ConfluencePageID, ProcessorOptions
-from .options_converter import ConverterOptions, MarketplaceExtension
-from .plantuml.extension import PlantUMLExtension
+from .options_converter import ConverterOptions
+from .plantuml.extension import PlantUMLExtensionFactory
 from .png import remove_png_chunks
 from .scanner import ScannedDocument, Scanner
 from .serializer import JsonType
@@ -461,6 +461,50 @@ def transform_skip_comments_in_html(html: str) -> str:
 
 _FOOTNOTE_REF_REGEXP = re.compile(r"^fnref(\d*):(.+)$")
 _TASKLIST_REGEXP = re.compile(r"^\[([x X])\]")
+_GITHUB_ALERT_REGEXP = re.compile(r"^\[!([A-Z]+)\]\s*")
+
+
+def _is_alert_paragraph(element: ElementType) -> bool:
+    "True if the element is a paragraph that starts with a GitHub alert marker `[!TYPE]`."
+
+    return element.tag == "p" and element.text is not None and _GITHUB_ALERT_REGEXP.match(element.text) is not None
+
+
+def _split_github_alert_groups(root: ElementType) -> None:
+    """
+    Splits a block-quote with several back-to-back `[!TYPE]` alerts into one block-quote per alert.
+
+    GitHub alerts written without a blank line between them (e.g. a `[!WARNING]` paragraph directly
+    followed by a `[!NOTE]` paragraph within the same block-quote) parse as a single block-quote with
+    multiple embedded paragraphs, each starting with its own `[!TYPE]` marker. This runs as a preprocessing
+    step on the raw parsed tree, before the tree visitor, so it can replace one such block-quote with
+    several sibling block-quotes -- one per alert -- moving each paragraph (and the non-alert content that
+    follows it) into its own block-quote. The tree visitor then sees the same structure it would see had
+    the alerts been written as genuinely separate block-quotes in the Markdown source, and produces
+    identical output for both cases.
+
+    :param root: Root of the parsed HTML element tree, mutated in place.
+    """
+
+    for blockquote in list(root.iterchildren("blockquote")):
+        children = list(blockquote)
+        if not children or not _is_alert_paragraph(children[0]):
+            continue
+
+        group_count = sum(1 for e in children if _is_alert_paragraph(e))
+        if group_count < 2:
+            continue
+
+        groups: list[ElementType] = []
+        for element in children:
+            if _is_alert_paragraph(element):
+                groups.append(blockquote.makeelement(blockquote.tag, blockquote.attrib))
+            blockquote.remove(element)
+            groups[-1].append(element)
+
+        index = root.index(blockquote)
+        groups[-1].tail = blockquote.tail
+        root[index : index + 1] = groups
 
 
 @dataclass(frozen=True)
@@ -544,19 +588,19 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         self.page_metadata = page_metadata or ConfluencePageCollection()
         self.user_metadata = user_metadata or ConfluenceUserCollection()
 
-        self.image_generator = ImageGenerator(
+        self.image_generator = DefaultImageGenerator(
             self.base_dir,
             self.attachments,
             ImageGeneratorOptions(self.options.diagram_output_format, self.options.prefer_raster, self.options.layout.image.max_width),
         )
 
         if options.extensions is not None:
-            self.extensions = options.extensions
+            self.extensions = [factory.create(self.image_generator, ExtensionOptions(render=self.options.render_other)) for factory in options.extensions]
         else:
-            extensions: Sequence[DiagramExtension] = [
-                DrawioExtension(self.image_generator, ExtensionOptions(render=self.options.render_drawio)),
-                MermaidExtension(self.image_generator, ExtensionOptions(render=self.options.render_mermaid)),
-                PlantUMLExtension(self.image_generator, ExtensionOptions(render=self.options.render_plantuml)),
+            extensions: Sequence[MarketplaceExtension] = [
+                DrawioExtensionFactory().create(self.image_generator, ExtensionOptions(render=self.options.render_drawio)),
+                MermaidExtensionFactory().create(self.image_generator, ExtensionOptions(render=self.options.render_mermaid)),
+                PlantUMLExtensionFactory().create(self.image_generator, ExtensionOptions(render=self.options.render_plantuml)),
             ]
             self.extensions = extensions
 
@@ -1078,6 +1122,9 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
     def _transform_github_alert(self, blockquote: ElementType) -> ElementType:
         """
         Creates a GitHub-style panel, normally triggered with a block-quote starting with a capitalized string such as `[!TIP]`.
+
+        By the time this runs, `split_github_alert_groups` has already ensured `blockquote` holds a single
+        alert, even if the Markdown source had several `[!TYPE]` markers back-to-back in one block-quote.
         """
 
         for e in blockquote:
@@ -1090,8 +1137,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         if content.text is None:
             raise DocumentError(blockquote, "empty content for GitHub alert")
 
-        pattern = re.compile(r"^\[!([A-Z]+)\]\s*")
-        match = pattern.match(content.text)
+        match = _GITHUB_ALERT_REGEXP.match(content.text)
         if not match:
             raise DocumentError(blockquote, "not a GitHub alert")
         alert = match.group(1)
@@ -1963,6 +2009,9 @@ class ConfluenceDocument:
             self.root = elements_from_strings(content)
         except ParseError as ex:
             raise ConversionError(f"failed to convert Markdown file: {path}") from ex
+
+        # normalize back-to-back GitHub alerts into separate block-quotes before the tree visitor runs
+        _split_github_alert_groups(self.root)
 
         # configure HTML-to-Confluence converter
         converter_options = copy.deepcopy(self.options.converter)

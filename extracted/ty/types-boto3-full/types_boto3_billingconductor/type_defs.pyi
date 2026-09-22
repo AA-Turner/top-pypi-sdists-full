@@ -50,6 +50,7 @@ __all__ = (
     "AssociateResourceErrorTypeDef",
     "AssociateResourceResponseElementTypeDef",
     "AttributeTypeDef",
+    "AutoTransferBillingGroupCreationPreferenceTypeDef",
     "BatchAssociateResourcesToCustomLineItemInputTypeDef",
     "BatchAssociateResourcesToCustomLineItemOutputTypeDef",
     "BatchDisassociateResourcesFromCustomLineItemInputTypeDef",
@@ -92,6 +93,8 @@ __all__ = (
     "FreeTierConfigTypeDef",
     "GetBillingGroupCostReportInputTypeDef",
     "GetBillingGroupCostReportOutputTypeDef",
+    "GetBillingTransferPreferenceInputTypeDef",
+    "GetBillingTransferPreferenceOutputTypeDef",
     "LineItemFilterOutputTypeDef",
     "LineItemFilterTypeDef",
     "LineItemFilterUnionTypeDef",
@@ -153,6 +156,8 @@ __all__ = (
     "UpdateBillingGroupAccountGroupingTypeDef",
     "UpdateBillingGroupInputTypeDef",
     "UpdateBillingGroupOutputTypeDef",
+    "UpdateBillingTransferPreferenceInputTypeDef",
+    "UpdateBillingTransferPreferenceOutputTypeDef",
     "UpdateCustomLineItemChargeDetailsTypeDef",
     "UpdateCustomLineItemFlatChargeDetailsTypeDef",
     "UpdateCustomLineItemInputTypeDef",
@@ -201,6 +206,10 @@ class AssociateResourceErrorTypeDef(TypedDict):
 class AttributeTypeDef(TypedDict):
     Key: NotRequired[str]
     Value: NotRequired[str]
+
+class AutoTransferBillingGroupCreationPreferenceTypeDef(TypedDict):
+    Enabled: bool
+    PricingPlanArn: NotRequired[str]
 
 class CustomLineItemBillingPeriodRangeTypeDef(TypedDict):
     InclusiveStartBillingPeriod: str
@@ -269,6 +278,9 @@ class DisassociatePricingRulesInputTypeDef(TypedDict):
 
 class FreeTierConfigTypeDef(TypedDict):
     Activated: bool
+
+class GetBillingTransferPreferenceInputTypeDef(TypedDict):
+    ResponsibilityTransferArn: str
 
 class LineItemFilterOutputTypeDef(TypedDict):
     Attribute: LineItemFilterAttributeNameType
@@ -473,6 +485,23 @@ class BillingGroupCostReportResultElementTypeDef(TypedDict):
     MarginPercentage: NotRequired[str]
     Currency: NotRequired[str]
     Attributes: NotRequired[list[AttributeTypeDef]]
+
+class GetBillingTransferPreferenceOutputTypeDef(TypedDict):
+    ResponsibilityTransferArn: str
+    AutoBillingTransferBillingGroupCreation: AutoTransferBillingGroupCreationPreferenceTypeDef
+    LastModifiedTime: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateBillingTransferPreferenceInputTypeDef(TypedDict):
+    ResponsibilityTransferArn: str
+    AutoBillingTransferBillingGroupCreation: AutoTransferBillingGroupCreationPreferenceTypeDef
+    ClientToken: NotRequired[str]
+
+class UpdateBillingTransferPreferenceOutputTypeDef(TypedDict):
+    ResponsibilityTransferArn: str
+    AutoBillingTransferBillingGroupCreation: AutoTransferBillingGroupCreationPreferenceTypeDef
+    LastModifiedTime: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchAssociateResourcesToCustomLineItemInputTypeDef(TypedDict):
     TargetArn: str

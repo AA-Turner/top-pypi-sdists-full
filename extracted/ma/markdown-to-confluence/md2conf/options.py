@@ -11,10 +11,11 @@ from pathlib import Path
 from typing import Literal, NewType
 
 from .clio import boolean_option, composite_option, nullable_option, value_option
+from .extension import MarketplaceExtension as MarketplaceExtension
+from .extension import MarketplaceExtensionFactory as MarketplaceExtensionFactory
 from .options_converter import ConverterOptions
 from .options_converter import ImageLayoutOptions as ImageLayoutOptions
 from .options_converter import LayoutOptions as LayoutOptions
-from .options_converter import MarketplaceExtension as MarketplaceExtension
 from .options_converter import TableLayoutOptions as TableLayoutOptions
 
 # Encapsulates a Confluence page ID
@@ -36,6 +37,7 @@ class ProcessorOptions:
     :param overwrite: Whether to overwrite (manual) page changes that occurred since last synchronization.
     :param comments: Behavior for inline comments when page is updated: remove, check if open, or keep.
     :param skip_update: Whether to skip saving Confluence page ID in Markdown files.
+    :param keep_state: Whether to keep the Confluence content state (rough draft, in progress, ready for review, verified, etc.) when updating a page.
     :param converter: Options for converting an HTML tree into Confluence Storage Format.
     :param line_numbers: Inject line numbers in Markdown source file to help localize conversion errors.
     :param global_properties: JSON or YAML file of Confluence content properties to merge for every synchronized Markdown file.
@@ -78,6 +80,13 @@ class ProcessorOptions:
         metadata=boolean_option(
             "Skip saving Confluence page ID in Markdown files.",
             "Inject published Confluence page ID in Markdown files.",
+        ),
+    )
+    keep_state: bool = field(
+        default=False,
+        metadata=boolean_option(
+            "Keep the Confluence content state (rough draft, in progress, ready for review, verified, etc.) when updating a page.",
+            "Clear the Confluence content state when updating a page.",
         ),
     )
     converter: ConverterOptions = field(default_factory=ConverterOptions, metadata=composite_option(flatten=True))

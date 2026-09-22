@@ -69,6 +69,8 @@ from .type_defs import (
     DisassociatePricingRulesOutputTypeDef,
     GetBillingGroupCostReportInputTypeDef,
     GetBillingGroupCostReportOutputTypeDef,
+    GetBillingTransferPreferenceInputTypeDef,
+    GetBillingTransferPreferenceOutputTypeDef,
     ListAccountAssociationsInputTypeDef,
     ListAccountAssociationsOutputTypeDef,
     ListBillingGroupCostReportsInputTypeDef,
@@ -95,6 +97,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateBillingGroupInputTypeDef,
     UpdateBillingGroupOutputTypeDef,
+    UpdateBillingTransferPreferenceInputTypeDef,
+    UpdateBillingTransferPreferenceOutputTypeDef,
     UpdateCustomLineItemInputTypeDef,
     UpdateCustomLineItemOutputTypeDef,
     UpdatePricingPlanInputTypeDef,
@@ -317,6 +321,16 @@ class BillingConductorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billingconductor/client/#get_billing_group_cost_report)
         """
 
+    def get_billing_transfer_preference(
+        self, **kwargs: Unpack[GetBillingTransferPreferenceInputTypeDef]
+    ) -> GetBillingTransferPreferenceOutputTypeDef:
+        """
+        Retrieves the auto billing group creation preference for a billing transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billingconductor/client/get_billing_transfer_preference.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billingconductor/client/#get_billing_transfer_preference)
+        """
+
     def list_account_associations(
         self, **kwargs: Unpack[ListAccountAssociationsInputTypeDef]
     ) -> ListAccountAssociationsOutputTypeDef:
@@ -458,6 +472,16 @@ class BillingConductorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billingconductor/client/update_billing_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billingconductor/client/#update_billing_group)
+        """
+
+    def update_billing_transfer_preference(
+        self, **kwargs: Unpack[UpdateBillingTransferPreferenceInputTypeDef]
+    ) -> UpdateBillingTransferPreferenceOutputTypeDef:
+        """
+        Sets the auto billing group creation preference for a billing transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billingconductor/client/update_billing_transfer_preference.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billingconductor/client/#update_billing_transfer_preference)
         """
 
     def update_custom_line_item(

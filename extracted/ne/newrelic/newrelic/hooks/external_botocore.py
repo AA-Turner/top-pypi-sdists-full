@@ -1611,6 +1611,9 @@ CUSTOM_TRACE_POINTS = {
     ("kinesis", "add_tags_to_stream"): aws_function_trace(
         "add_tags_to_stream", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
     ),
+    ("kinesis", "create_channel"): aws_function_trace(
+        "create_channel", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
+    ),
     ("kinesis", "create_stream"): aws_function_trace(
         "create_stream", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
     ),
@@ -1619,6 +1622,12 @@ CUSTOM_TRACE_POINTS = {
         extract_kinesis,
         extract_agent_attrs=extract_kinesis_agent_attrs,
         library="Kinesis",
+    ),
+    ("kinesis", "delete_channel"): aws_function_trace(
+        "delete_channel", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
+    ),
+    ("kinesis", "describe_channel"): aws_function_trace(
+        "describe_channel", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
     ),
     ("kinesis", "delete_resource_policy"): aws_function_trace(
         "delete_resource_policy", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
@@ -1667,6 +1676,9 @@ CUSTOM_TRACE_POINTS = {
         extract_agent_attrs=extract_kinesis_agent_attrs,
         library="Kinesis",
     ),
+    ("kinesis", "list_channels"): aws_function_trace(
+        "list_channels", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
+    ),
     ("kinesis", "list_shards"): aws_function_trace(
         "list_shards", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
     ),
@@ -1711,6 +1723,9 @@ CUSTOM_TRACE_POINTS = {
         "untag_resource", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
     ),
     ("kinesis", "update_account_settings"): aws_function_trace("update_account_settings", library="Kinesis"),
+    ("kinesis", "update_channel"): aws_function_trace(
+        "update_channel", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
+    ),
     ("kinesis", "update_max_record_size"): aws_function_trace(
         "update_max_record_size", extract_kinesis, extract_agent_attrs=extract_kinesis_agent_attrs, library="Kinesis"
     ),
@@ -1831,6 +1846,7 @@ def _nr_endpoint_make_request_(wrapped, instance, args, kwargs):
     operation_model, request_dict = _bind_make_request_params(*args, **kwargs)
     url = request_dict.get("url")
     method = request_dict.get("method")
+    headers = request_dict.get("headers") or {}
 
     with ExternalTrace(library="botocore", url=url, method=method, source=wrapped) as trace:
         try:
@@ -1840,6 +1856,14 @@ def _nr_endpoint_make_request_(wrapped, instance, args, kwargs):
             if lambda_arn:
                 trace._add_agent_attribute("cloud.platform", "aws_lambda")
                 trace._add_agent_attribute("cloud.resource_id", lambda_arn)
+
+            # Insert DT Headers now to avoid issues with signing.
+            if hasattr(trace, "generate_request_headers"):
+                dt_headers = dict(trace.generate_request_headers(trace.transaction))
+                if headers:
+                    dt_headers.update(headers)
+                request_dict["headers"] = dt_headers
+
         except:
             pass
 

@@ -6,9 +6,10 @@
 @contact: baostock@163.com
 """
 # 版本信息
-BAOSTOCK_CLIENT_VERSION = "00.9.30"
+BAOSTOCK_CLIENT_VERSION = "00.9.40"
 BAOSTOCK_AUTHOR = "baostock.com"
-BAOSTOCK_SERVER_IP = "public-api.baostock.com"  # localhost  public-api.baostock.com   127.0.0.1
+BAOSTOCK_SERVER_IP = "public-api.baostock.com"   # localhost 127.0.0.1 public-api.baostock.com
+BAOSTOCK_VIP_SERVER_IP = "vip-api.baostock.com"  # localhost 127.0.0.1 vip-api.baostock.com
 BAOSTOCK_SERVER_PORT = 10030
 
 
@@ -150,6 +151,7 @@ BSERR_USERNAME_EMPTY = "10001008"  # 用户名为空
 BSERR_PASSWORD_EMPTY = "10001009"  # 密码为空
 BSERR_LOGOUT_FAIL = "10001010"  # 用户登出失败
 BSERR_BLACKLIST_USER = "10001011"  # 黑名单用户
+BSERR_APIKey_FORMAT_INCORRECT = "10001012"  #APIKey格式不正确
 BSERR_SOCKET_ERR = "10002001"  # 网络错误
 BSERR_CONNECT_FAIL = "10002002"  # 网络连接失败
 BSERR_CONNECT_TIMEOUT = "10002003"  # 网络连接超时

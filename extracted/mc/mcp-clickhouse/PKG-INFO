@@ -1,13 +1,19 @@
 Metadata-Version: 2.5
 Name: mcp-clickhouse
-Version: 0.6.0
+Version: 0.7.0
 Summary: An MCP server for ClickHouse.
 Project-URL: Home, https://github.com/ClickHouse/mcp-clickhouse
 License-Expression: Apache-2.0
 License-File: LICENSE
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: cachetools>=5.5.0
-Requires-Dist: clickhouse-connect>=0.8.16
+Requires-Dist: clickhouse-connect<2,>=1.0.0
 Requires-Dist: fastmcp<4.1.0,>=4.0.0
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: simplejson<5,>=3.17.2
@@ -53,7 +59,9 @@ integers and booleans keep their JSON types.
 * `run_query`
   * Execute SQL queries on your ClickHouse cluster.
   * Input: `query` (string): The SQL query to execute.
+  * Optional input: `params` (object): Named values for ClickHouse `{name:Type}` placeholders. See [Query parameters](#query-parameters).
   * Queries run in read-only mode by default (`CLICKHOUSE_ALLOW_WRITE_ACCESS=false`), but writes can be enabled explicitly if needed.
+  * `DESCRIBE (<query>)` and `EXPLAIN ESTIMATE <query>` run here too and are optional ways to inspect a query's result schema or its estimated reads. See [Checking a query before running it](#checking-a-query-before-running-it).
 
 * `list_databases`
   * List all databases on your ClickHouse cluster.
@@ -71,6 +79,90 @@ integers and booleans keep their JSON types.
     * `next_page_token`: Pass this single-use value back before it expires to fetch the next page, or `null` when there are no more tables.
     * `total_tables`: Total count of tables that match the supplied filters.
 
+#### Query parameters
+
+Pass values separately from SQL through the optional `params` object:
+
+```json
+{
+  "query": "SELECT {id:UInt32} AS id, {name:String} AS name",
+  "params": {"id": 13, "name": "O'Reilly"}
+}
+```
+
+Use ClickHouse's `{name:Type}` placeholders without quoting them. Keep the opening
+brace, name, and colon adjacent, as in `{id:UInt32}`. Spaces after the colon and
+within the type are supported, as in `{id: UInt32}` and `{amount:Decimal(18, 4)}`.
+For compatibility across supported driver versions, start names with a letter or
+underscore and use only letters, digits, and underscores.
+Python-style `%s` or `%(name)s` formatting and the driver's `$name$` raw binary
+parameters are not supported. Calls with only `query` still work. Omitting `params`,
+passing `null`, or passing an empty object leaves the query unbound.
+
+Parameter values can be JSON strings, numbers, booleans, `null`, or arrays, provided
+they match the declared ClickHouse type:
+
+- Use `null` with a `Nullable(...)` type.
+- Pass exact integers outside JavaScript's safe range as decimal strings, for
+  example `"18446744073709551615"` with `{id:UInt64}`. Dates, timestamps, and exact
+  decimals can also be passed as strings with the corresponding ClickHouse type.
+- Bind vectors as one array, for example `{vector:Array(Float32)}` with
+  `"params": {"vector": [0.25, 0.5, 0.75]}`.
+- Nulls inside arrays depend on the installed driver. They work with
+  clickhouse-connect 1.8.0 but fail with the supported minimum 1.0.0.
+- JSON lists and objects cannot bind to ClickHouse `Tuple` and `Map` types.
+
+Missing values and incompatible types return query errors. With non-empty `params`,
+a query carrying many unterminated `{name:` placeholder starts is rejected, including
+placeholder-like text in comments or string literals.
+Parameterized queries use the same write protection, timeouts, cancellation, and
+JSON result encoding as other queries.
+
+Parameter values stay out of the MCP server's normal SQL log messages, but remain
+in MCP tool arguments and may appear in backend errors. ClickHouse 26.3.20.7
+substitutes values into the query text in `system.query_log`, `system.processes`,
+and `system.text_log`. Parameter binding is not a privacy feature and does not
+reduce the number of vector values sent in a tool call.
+
+#### Checking a query before running it
+
+`run_query` also runs `DESCRIBE` and `EXPLAIN ESTIMATE`. Both are optional checks: reach for `DESCRIBE` when you need a query's output columns and types, and for `EXPLAIN ESTIMATE` before a `SELECT` that could be expensive.
+
+`DESCRIBE (<query>)` inspects the result schema and returns the same output-column metadata as `DESCRIBE TABLE`:
+
+```sql
+DESCRIBE (SELECT user, sum(amt) FROM events WHERE ts > now() - INTERVAL 30 DAY GROUP BY user)
+```
+
+```text
+user      String
+sum(amt)  Decimal(38, 2)
+```
+
+ClickHouse has to analyze the query to answer, so analysis errors surface here, with ClickHouse's own message, instead of part way through execution:
+
+```text
+DESCRIBE (SELECT usr FROM events)  -> Code: 47. Unknown expression identifier `usr` ... Maybe you meant: ['user']
+DESCRIBE (SELECT * FROM nosuch)    -> Code: 60. Unknown table expression identifier 'nosuch'
+```
+
+A query that describes cleanly can still fail when it runs, on a memory limit or a remote server error, and it says nothing about cost.
+
+`EXPLAIN ESTIMATE <query>` returns the parts, rows and marks the query would read, one row per table, which is what separates a primary key lookup from a full scan:
+
+```sql
+EXPLAIN ESTIMATE SELECT count() FROM events WHERE id = 42
+```
+
+```text
+database  table   parts  rows   marks
+default   events  1      8192   1
+```
+
+Those are estimated reads from [MergeTree](https://clickhouse.com/docs/engines/table-engines/mergetree-family/mergetree) family tables, after primary key and partition pruning. They are not run time and not result size, and other table engines are not covered.
+
+Neither statement runs the query body, but analysis is not always free: `DESCRIBE (SELECT (SELECT sleep(1)))` executes the scalar subquery while analyzing. Both are read-only and work under the default `CLICKHOUSE_ALLOW_WRITE_ACCESS=false`. See the ClickHouse documentation for [EXPLAIN ESTIMATE](https://clickhouse.com/docs/sql-reference/statements/explain#explain-estimate) and [DESCRIBE](https://clickhouse.com/docs/sql-reference/statements/describe-table).
+
 ### chDB Tools
 
 * `run_chdb_select_query`
@@ -86,6 +178,7 @@ When running with HTTP or SSE transport, a health check endpoint is available at
 - Returns `200 OK` (body: `OK`) if the server is healthy and can connect to ClickHouse
 - Returns `503 Service Unavailable` with a generic error message if the server cannot connect to ClickHouse
 - Returns `503` if a ClickHouse probe does not finish within two seconds. Concurrent requests share one in-flight probe
+- Reuses a completed probe result for one second, so probes that arrive in quick succession do not each connect to ClickHouse. A failure or a recovery can therefore be reported up to a second late
 
 GET and HEAD requests to the endpoint are intentionally unauthenticated and exempt from Host and Origin validation so orchestrator probes (e.g. Kubernetes liveness/readiness, load balancers) can use runtime-assigned pod or target IPs without extra configuration. `/health` is reserved and cannot be used as the MCP transport path. The response body is deliberately minimal to avoid leaking backend version strings or error details; debug failures via the server logs.
 
@@ -226,6 +319,7 @@ export CLICKHOUSE_MCP_ALLOWED_HOSTS=127.0.0.1:8000,localhost:8000
 ## Configuration
 
 This MCP server supports both ClickHouse and chDB. You can enable either or both depending on your needs.
+Python 3.10 through 3.14 are supported. Python 3.12 is recommended for local launches.
 
 1. Open the Claude Desktop configuration file located at:
    * On macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -243,7 +337,7 @@ This MCP server supports both ClickHouse and chDB. You can enable either or both
         "--with",
         "mcp-clickhouse",
         "--python",
-        "3.10",
+        "3.12",
         "mcp-clickhouse"
       ],
       "env": {
@@ -275,7 +369,7 @@ Or, if you'd like to try it out with the [ClickHouse SQL Playground](https://sql
         "--with",
         "mcp-clickhouse",
         "--python",
-        "3.10",
+        "3.12",
         "mcp-clickhouse"
       ],
       "env": {
@@ -304,7 +398,7 @@ For chDB (embedded ClickHouse engine), add the following configuration:
         "--with",
         "mcp-clickhouse[chdb]",
         "--python",
-        "3.10",
+        "3.12",
         "mcp-clickhouse"
       ],
       "env": {
@@ -329,7 +423,7 @@ You can also enable both ClickHouse and chDB simultaneously:
         "--with",
         "mcp-clickhouse[chdb]",
         "--python",
-        "3.10",
+        "3.12",
         "mcp-clickhouse"
       ],
       "env": {
@@ -358,7 +452,7 @@ By default, this MCP enforces read-only queries so that accidental mutations can
 
 ### Destructive Operation Protection
 
-Even when write access is enabled (`CLICKHOUSE_ALLOW_WRITE_ACCESS=true`), destructive operations require an additional opt-in flag for safety. The check covers any `DROP` statement (including the `ALTER TABLE ... DROP PARTITION` / `DROP PART` / `DROP COLUMN` clauses), any `TRUNCATE`, `DELETE` and `UPDATE` (both the lightweight statements and the `ALTER TABLE ... DELETE` / `ALTER TABLE ... UPDATE` mutations), `REPLACE TABLE`, `CREATE OR REPLACE`, `ALTER TABLE ... REPLACE PARTITION`, `ALTER TABLE ... CLEAR COLUMN` / `CLEAR INDEX` / `CLEAR PROJECTION`, and `DETACH ... PERMANENTLY`. Keywords inside string literals, quoted identifiers, and SQL comments are ignored, so they neither trigger the check nor hide a statement from it.
+Even when write access is enabled (`CLICKHOUSE_ALLOW_WRITE_ACCESS=true`), destructive operations require an additional opt-in flag for safety. The check covers any `DROP` statement (including the `ALTER TABLE ... DROP PARTITION` / `DROP PART` / `DROP COLUMN` clauses), any `TRUNCATE`, `DELETE` and `UPDATE` (both the lightweight statements and the `ALTER TABLE ... DELETE` / `ALTER TABLE ... UPDATE` mutations), `REPLACE TABLE`, `CREATE OR REPLACE`, `ALTER TABLE ... REPLACE PARTITION`, `ALTER TABLE ... CLEAR COLUMN` / `CLEAR INDEX` / `CLEAR PROJECTION`, and `DETACH ... PERMANENTLY`. Keywords inside string literals, quoted identifiers, SQL comments, and `{name:Type}` parameter names are ignored, so they neither trigger the check nor hide a statement from it.
 
 This check runs in the MCP server and is a best-effort guard against accidents. It is not a security boundary. The security boundary is the ClickHouse user's grants. Read-only mode (the default) is enforced server-side via `readonly=1`. The destructive-operation gate is not server-enforced.
 
@@ -489,7 +583,7 @@ def setup_middleware(mcp):
   "mcpServers": {
     "mcp-clickhouse": {
       "command": "uv",
-      "args": ["run", "--with", "mcp-clickhouse", "--python", "3.10", "mcp-clickhouse"],
+      "args": ["run", "--with", "mcp-clickhouse", "--python", "3.12", "mcp-clickhouse"],
       "env": {
         "CLICKHOUSE_HOST": "<clickhouse-host>",
         "CLICKHOUSE_USER": "<clickhouse-user>",
@@ -566,6 +660,22 @@ a ClickHouse client is created. `CLICKHOUSE_ROLE` remains active unless the over
 supplies `settings.role`. Top-level `role` and `ch_role` keys, plus the same keys under
 `generic_args`, are rejected.
 
+Set `verify`, `ca_cert`, `client_cert`, `client_cert_key`, `tls_mode`, `server_host_name`,
+and `pool_mgr` only as top-level overrides. They cannot be nested under `generic_args`. A
+custom `pool_mgr` cannot be combined with managed CA or client certificate settings. DSN query
+parameters cannot set these keys, and a DSN cannot select the chdb backend. Use explicit
+top-level `host`, `port`, `username`, `password`, `database`, and `secure` overrides to change
+the connection. A forwarded DSN does not replace populated base connection fields or select
+TLS. It can fill empty fields and supply supported query parameters such as `query_limit`.
+`secure` and `verify` overrides accept booleans or the strings `true` and `false`.
+`verify` also accepts `proxy`, which behaves as
+`tls_mode: proxy` when `tls_mode` is unset and therefore uses Basic authentication with the
+environment password. A `secure` override selects the matching `https` or `http` interface and
+does not change the port. An explicit `interface` override must be `http` or `https` and agree
+with `secure`. After merging overrides, default and `mutual` client certificate modes omit the
+password. `proxy` and `strict` modes use Basic authentication with the environment password
+unless the override supplies its own credentials.
+
 Treat these overrides as trusted middleware input. Middleware must authenticate and authorize
 request-derived values before setting them. Use `serializable=False` so FastMCP keeps the
 value in request-local state. The default `serializable=True` stores session state and is
@@ -607,30 +717,58 @@ CLICKHOUSE_PASSWORD=clickhouse
    curl http://localhost:8000/health
    ```
 
+### Code layout
+
+The package uses a flat module layout. Start with [mcp_server.py](mcp_clickhouse/mcp_server.py)
+for server assembly and registration, then follow the implementation into its owning module.
+
+| Module | Responsibility |
+|--------|----------------|
+| [mcp_server.py](mcp_clickhouse/mcp_server.py), [main.py](mcp_clickhouse/main.py) | Startup assembly, tool and prompt registration, shutdown coordination, and CLI startup |
+| [clients.py](mcp_clickhouse/clients.py) | Request configuration, cached ClickHouse connections, and client leases |
+| [queries.py](mcp_clickhouse/queries.py) | Query execution, cancellation, and destructive-operation guards |
+| [metadata.py](mcp_clickhouse/metadata.py) | Database and table discovery, metadata models, and pagination |
+| [chdb_backend.py](mcp_clickhouse/chdb_backend.py), [chdb_prompt.py](mcp_clickhouse/chdb_prompt.py) | Optional chDB initialization, query execution, and prompt content |
+| [health.py](mcp_clickhouse/health.py), [executors.py](mcp_clickhouse/executors.py) | Health probes and caching, and the worker pools used by server operations |
+| [auth.py](mcp_clickhouse/auth.py), [transport.py](mcp_clickhouse/transport.py), [http_security.py](mcp_clickhouse/http_security.py) | Dotenv loading, authentication, HTTP/SSE app construction, and Host/Origin validation |
+| [mcp_env.py](mcp_clickhouse/mcp_env.py), [serialization.py](mcp_clickhouse/serialization.py) | Environment configuration and JSON result encoding |
+| [mcp_middleware_hook.py](mcp_clickhouse/mcp_middleware_hook.py), [skills_advisor.py](mcp_clickhouse/skills_advisor.py) | Custom middleware loading and server instructions |
+
+Each server assembly owns its worker pools, client cache, active queries, pagination cache,
+health state, and chDB backend. Worker and client cleanup runs at process exit. Package imports
+initialize the default server, including when first importing an extracted module.
+
+In tests, patch the module or owner instance where the code reads a dependency. For example,
+patch `mcp_clickhouse.clients.clickhouse_connect.get_client` for client creation. Compatibility
+imports in `mcp_server.py` can be separate bindings from the ones an implementation uses.
+
 ### Environment Variables
 
 Configuration is split into **independent** groups. Mixing them up is a common cause of hard-to-debug connection failures:
 
 | Group | Variables | Controls |
 |-------|-----------|----------|
-| **ClickHouse database connection** | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_SECURE`, `CLICKHOUSE_VERIFY`, … | How **this MCP server** connects to your ClickHouse cluster over the **HTTP interface** |
+| **ClickHouse database connection** | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`, `CLICKHOUSE_SECURE`, `CLICKHOUSE_VERIFY`, certificate variables | How **this MCP server** connects to your ClickHouse cluster over the **HTTP interface** |
 | **MCP server / transport** | `CLICKHOUSE_MCP_*`, `FASTMCP_SERVER_AUTH`, `FASTMCP_SERVER_AUTH_*`, `FASTMCP_ENV_FILE` | MCP transport, authentication, and query-tool execution limits |
 | **Middleware / chDB** | `MCP_MIDDLEWARE_MODULE`, `CHDB_*` | Optional extensions |
 
 > [!IMPORTANT]
-> Variables such as `CLICKHOUSE_SECURE`, `CLICKHOUSE_VERIFY`, and `CLICKHOUSE_PORT` apply to the **ClickHouse database** connection only. They do **not** configure TLS, ports, or auth for the MCP protocol endpoint.
+> `CLICKHOUSE_SECURE`, `CLICKHOUSE_VERIFY`, `CLICKHOUSE_CA_CERT`, `CLICKHOUSE_CLIENT_CERT`, `CLICKHOUSE_CLIENT_CERT_KEY`, `CLICKHOUSE_TLS_MODE`, and `CLICKHOUSE_PORT` apply to the outbound **ClickHouse database** connection only. They do **not** configure TLS, client certificates, ports, or authentication for the inbound MCP HTTP/SSE endpoint.
 >
 > Example: if the MCP server runs in Kubernetes behind an ingress that terminates TLS, that is an **MCP transport** concern. Keep `CLICKHOUSE_SECURE` aligned with how the pod reaches ClickHouse itself (HTTPS → `true`, plain HTTP → `false`). Setting `CLICKHOUSE_SECURE=false` because the MCP server is behind an ingress will make the server dial ClickHouse over HTTP—often against an HTTPS-only port—and produce opaque HTTP/TLS errors in the server logs.
 
 #### ClickHouse database connection
 
 These variables configure the [clickhouse-connect](https://clickhouse.com/docs/en/integrations/python) HTTP client and the behavior of ClickHouse-backed tools such as `run_query`, `list_databases`, and `list_tables`.
+mcp-clickhouse requires clickhouse-connect 1.x, starting with 1.0.0.
 
 ##### Required Variables
 
 * `CLICKHOUSE_HOST`: The hostname of your ClickHouse server (database endpoint, not the MCP server bind address)
 * `CLICKHOUSE_USER`: The username for **ClickHouse** authentication
 * `CLICKHOUSE_PASSWORD`: The password for **ClickHouse** authentication
+  * Required unless `CLICKHOUSE_CLIENT_CERT` uses the default or `"mutual"` TLS mode
+  * In default or `"mutual"` mode, certificate authentication is used and the password is not sent
 
 > [!CAUTION]
 > It is important to treat your MCP database user as you would any external client connecting to your database, granting only the minimum necessary privileges required for its operation. The use of default or administrative users should be strictly avoided at all times.
@@ -656,7 +794,31 @@ These variables configure the [clickhouse-connect](https://clickhouse.com/docs/e
 * `CLICKHOUSE_VERIFY`: Enable/disable SSL certificate verification for the **ClickHouse** HTTPS connection
   * Default: `"true"`
   * Set to `"false"` to disable certificate verification (not recommended for production)
-  * TLS certificates: The package uses your operating system trust store for TLS certificate verification via `truststore`. We call `truststore.inject_into_ssl()` at startup to ensure proper certificate handling. Python’s default SSL behavior is used as a fallback only if an unexpected error occurs.
+  * TLS certificates: The package uses your operating system trust store via `truststore.inject_into_ssl()` at startup. Python's default SSL handling is used if injection is disabled with `MCP_CLICKHOUSE_TRUSTSTORE_DISABLE=1` or fails.
+* `MCP_CLICKHOUSE_TRUSTSTORE_DISABLE`: Disable the process-wide operating system trust store integration for TLS
+  * Default: unset (trust store integration is enabled)
+  * Set to exactly `"1"` before startup to skip `truststore.inject_into_ssl()` and use Python's default SSL certificate handling. Other values do not disable the integration.
+  * This does not disable certificate verification. `CLICKHOUSE_VERIFY` still controls verification for the ClickHouse HTTPS connection.
+* `CLICKHOUSE_CA_CERT`: Path to a PEM CA certificate bundle for the **ClickHouse** HTTPS connection
+  * Default: None (uses the operating system trust store unless truststore injection is disabled or fails)
+  * Use this by itself when a ClickHouse server or private proxy presents a certificate signed by a private CA. This changes server certificate verification and does not enable client certificate authentication.
+  * Requires `CLICKHOUSE_SECURE=true` and `CLICKHOUSE_VERIFY=true`
+* `CLICKHOUSE_CLIENT_CERT`: Path to a PEM client certificate for the **ClickHouse** HTTPS connection
+  * Default: None
+  * The file may also contain the private key. Otherwise set `CLICKHOUSE_CLIENT_CERT_KEY`.
+  * The ClickHouse user still comes from `CLICKHOUSE_USER`.
+* `CLICKHOUSE_CLIENT_CERT_KEY`: Path to the PEM private key for `CLICKHOUSE_CLIENT_CERT`
+  * Default: None
+  * Optional when the private key is included in the client certificate file
+  * Cannot be used without `CLICKHOUSE_CLIENT_CERT`
+* `CLICKHOUSE_TLS_MODE`: How clickhouse-connect uses `CLICKHOUSE_CLIENT_CERT`
+  * Default: None, which behaves as `"mutual"` when a client certificate is set
+  * `"mutual"`: Use the client certificate for ClickHouse X.509 user authentication. `CLICKHOUSE_PASSWORD` is optional and is not sent.
+  * `"proxy"`: Present the client certificate to a TLS-terminating proxy, then use ClickHouse Basic authentication. `CLICKHOUSE_PASSWORD` is required.
+  * `"strict"`: Present the client certificate because the ClickHouse server requires one at the TLS layer, then use ClickHouse Basic authentication. `CLICKHOUSE_PASSWORD` is required. This mode does not strengthen server certificate verification. `CLICKHOUSE_VERIFY` controls that verification.
+  * clickhouse-connect treats `"proxy"` and `"strict"` identically. The two names document intent.
+  * Values are trimmed and case-insensitive. A blank value is treated as unset. Other values are rejected before a ClickHouse client is created, on the first ClickHouse tool call or `/health` probe.
+  * Requires `CLICKHOUSE_CLIENT_CERT`. All client certificate options require `CLICKHOUSE_SECURE=true`.
 * `CLICKHOUSE_SERVER_HOST_NAME`: Server hostname for SNI override and certificate validation on the **ClickHouse** connection
   * Default: None (uses the connection hostname)
   * This is useful when connecting through proxies or load balancers where the certificate hostname differs from the connection hostname. When set, this hostname will be used for both SNI (Server Name Indication) during the TLS handshake and for certificate hostname validation.
@@ -683,6 +845,26 @@ These variables configure the [clickhouse-connect](https://clickhouse.com/docs/e
   * Default: `"false"`
   * Only takes effect when `CLICKHOUSE_ALLOW_WRITE_ACCESS=true` is also set
   * This gate is a best-effort accident guard in the MCP server, not a security boundary. Restrict the ClickHouse user's grants for real enforcement (see [Destructive Operation Protection](#destructive-operation-protection))
+
+##### ClickHouse TLS certificate files
+
+The certificate variables contain file paths, not PEM contents. mcp-clickhouse passes these
+paths to clickhouse-connect. For Docker or Kubernetes, mount the certificate and private key
+as read-only files and use their paths inside the container. Do not bake a private key into an
+image, commit it to source control, or put its contents in an environment variable.
+
+In `mutual` mode, the configured client certificate identifies this mcp-clickhouse process as
+`CLICKHOUSE_USER`. It does not authenticate inbound MCP clients or pass their identities to
+ClickHouse. Configure MCP transport authentication separately.
+
+Restart mcp-clickhouse after replacing a certificate or key at the same path when immediate
+rotation or revocation is required. Cached clients can retain existing TLS connections, and
+the cache does not track file contents or modification times.
+
+ClickHouse Cloud does not support X.509 client certificate authentication for database users.
+Use `CLICKHOUSE_USER` and `CLICKHOUSE_PASSWORD` for ClickHouse Cloud. A CA certificate can
+still be useful when a private proxy in front of an endpoint presents a certificate signed by
+a private CA.
 
 #### MCP server and transport
 
@@ -856,6 +1038,45 @@ CLICKHOUSE_PASSWORD=
 # Uses secure defaults (HTTPS on port 8443)
 ```
 
+For a private server CA without client certificate authentication:
+
+```env
+CLICKHOUSE_HOST=your-secure-clickhouse.example.com
+CLICKHOUSE_USER=your-user
+CLICKHOUSE_PASSWORD=your-password
+CLICKHOUSE_SECURE=true
+CLICKHOUSE_VERIFY=true
+CLICKHOUSE_CA_CERT=/run/secrets/clickhouse-ca.pem
+```
+
+For ClickHouse X.509 client certificate authentication:
+
+```env
+CLICKHOUSE_HOST=your-secure-clickhouse.example.com
+CLICKHOUSE_USER=your-certificate-user
+CLICKHOUSE_SECURE=true
+CLICKHOUSE_CLIENT_CERT=/run/secrets/clickhouse-client.pem
+CLICKHOUSE_CLIENT_CERT_KEY=/run/secrets/clickhouse-client-key.pem
+# CLICKHOUSE_CA_CERT=/run/secrets/clickhouse-ca.pem  # Only for a private server CA
+# CLICKHOUSE_TLS_MODE=mutual  # Optional. This is the default with a client certificate.
+```
+
+For a client certificate required by a strict TLS server while ClickHouse uses Basic
+authentication:
+
+```env
+CLICKHOUSE_HOST=your-secure-clickhouse.example.com
+CLICKHOUSE_USER=your-user
+CLICKHOUSE_PASSWORD=your-password
+CLICKHOUSE_SECURE=true
+CLICKHOUSE_CLIENT_CERT=/run/secrets/clickhouse-client.pem
+CLICKHOUSE_CLIENT_CERT_KEY=/run/secrets/clickhouse-client-key.pem
+CLICKHOUSE_TLS_MODE=strict
+```
+
+Use `CLICKHOUSE_TLS_MODE=proxy` instead when a TLS-terminating proxy requires the client
+certificate and ClickHouse still uses Basic authentication.
+
 For chDB only (in-memory):
 
 ```env
@@ -914,7 +1135,7 @@ You can set these variables in your environment, in a `.env` file, or in the Cla
         "--with",
         "mcp-clickhouse",
         "--python",
-        "3.10",
+        "3.12",
         "mcp-clickhouse"
       ],
       "env": {

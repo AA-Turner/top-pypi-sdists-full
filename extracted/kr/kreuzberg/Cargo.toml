@@ -4,7 +4,7 @@ exclude = ["packages/r/src/rust", "packages/ruby/ext/kreuzberg_rb/native", "test
 resolver = "2"
 
 [workspace.package]
-version = "4.10.3"
+version = "4.10.4"
 edition = "2024"
 rust-version = "1.91"
 authors = ["Na'aman Hirschfeld <naaman@kreuzberg.dev>"]
@@ -19,10 +19,10 @@ async-trait = "0.1.92"
 base64 = "0.23.1"
 blake3 = "1"
 bytes = { version = "1", features = ["serde"] }
-cfb = "0.14"
+cfb = "0.15"
 chrono = "0.4"
 clap = { version = "4.6", features = ["derive", "color", "suggestions"] }
-comrak = { version = "0.54", default-features = false }
+comrak = { version = "0.55", default-features = false }
 console_error_panic_hook = "0.1"
 criterion = { version = "0.8", features = ["html_reports"] }
 ctor = "1.0"
@@ -30,17 +30,17 @@ dbase = "0.8"
 futures = "0.3"
 getrandom = { version = "0.4.3", features = ["wasm_js"] }
 hex = "0.4.3"
-html-to-markdown-rs = { version = "3.12.0", default-features = false }
+html-to-markdown-rs = { version = "3.14.3", default-features = false }
 image = { version = "0.25.10", default-features = false }
 itertools = "0.15"
 js-sys = "0.3"
-kreuzberg = { path = "./crates/kreuzberg", version = "4.10.3", default-features = false }
-kreuzberg-ffi = { path = "./crates/kreuzberg-ffi", version = "4.10.3" }
+kreuzberg = { path = "./crates/kreuzberg", version = "4.10.4", default-features = false }
+kreuzberg-ffi = { path = "./crates/kreuzberg-ffi", version = "4.10.4" }
 lazy_static = "1.5.0"
 libc = "0.2.189"
-liter-llm = { version = "1.19", default-features = false, features = ["native-http"] }
+liter-llm = { version = "2.0.3", default-features = false, features = ["native-http"] }
 log = "0.4"
-lzma-rust2 = { version = "0.20.1" }
+lzma-rust2 = { version = "0.21" }
 memmap2 = "0.9.11"
 minijinja = "2"
 num_cpus = "1.17.0"
@@ -50,7 +50,7 @@ ort = { version = "=2.0.0-rc.12", default-features = false, features = ["std", "
 parking_lot = "0.12.5"
 pdfium-render = { package = "kreuzberg-pdfium-render", path = "crates/kreuzberg-pdfium-render", version = "4.3" }
 rayon = "1.12.0"
-reqwest = { version = "0.13.4", default-features = false }
+reqwest = { version = "0.13.5", default-features = false }
 
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151" }
@@ -67,9 +67,9 @@ tokio = { version = "1.53.1", features = [
     "time",
     "io-util",
 ] }
-toml = "1.1.5"
+toml = "1.1.6"
 tracing = "0.1"
-tree-sitter-language-pack = { version = "1.16.1", default-features = false, features = ["serde"] }
+tree-sitter-language-pack = { version = "1.20.0", default-features = false, features = ["serde"] }
 wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [

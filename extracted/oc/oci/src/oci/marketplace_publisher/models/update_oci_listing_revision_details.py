@@ -94,6 +94,14 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
             The value to assign to the products property of this UpdateOciListingRevisionDetails.
         :type products: list[oci.marketplace_publisher.models.ListingProduct]
 
+        :param partner_registration_url:
+            The value to assign to the partner_registration_url property of this UpdateOciListingRevisionDetails.
+        :type partner_registration_url: str
+
+        :param term_id:
+            The value to assign to the term_id property of this UpdateOciListingRevisionDetails.
+        :type term_id: str
+
         :param vanity_url:
             The value to assign to the vanity_url property of this UpdateOciListingRevisionDetails.
         :type vanity_url: str
@@ -113,6 +121,14 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
         :param is_rover_exportable:
             The value to assign to the is_rover_exportable property of this UpdateOciListingRevisionDetails.
         :type is_rover_exportable: bool
+
+        :param demo_url:
+            The value to assign to the demo_url property of this UpdateOciListingRevisionDetails.
+        :type demo_url: str
+
+        :param self_paced_training_url:
+            The value to assign to the self_paced_training_url property of this UpdateOciListingRevisionDetails.
+        :type self_paced_training_url: str
 
         """
         self.swagger_types = {
@@ -134,11 +150,15 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
             'system_requirements': 'str',
             'pricing_type': 'str',
             'products': 'list[ListingProduct]',
+            'partner_registration_url': 'str',
+            'term_id': 'str',
             'vanity_url': 'str',
             'recommended_service_provider_listing_ids': 'list[str]',
             'availability_and_pricing_policy': 'str',
             'pricing_plans': 'list[PricingPlan]',
-            'is_rover_exportable': 'bool'
+            'is_rover_exportable': 'bool',
+            'demo_url': 'str',
+            'self_paced_training_url': 'str'
         }
         self.attribute_map = {
             'display_name': 'displayName',
@@ -159,11 +179,15 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
             'system_requirements': 'systemRequirements',
             'pricing_type': 'pricingType',
             'products': 'products',
+            'partner_registration_url': 'partnerRegistrationUrl',
+            'term_id': 'termId',
             'vanity_url': 'vanityUrl',
             'recommended_service_provider_listing_ids': 'recommendedServiceProviderListingIds',
             'availability_and_pricing_policy': 'availabilityAndPricingPolicy',
             'pricing_plans': 'pricingPlans',
-            'is_rover_exportable': 'isRoverExportable'
+            'is_rover_exportable': 'isRoverExportable',
+            'demo_url': 'demoUrl',
+            'self_paced_training_url': 'selfPacedTrainingUrl'
         }
         self._display_name = None
         self._headline = None
@@ -183,11 +207,15 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
         self._system_requirements = None
         self._pricing_type = None
         self._products = None
+        self._partner_registration_url = None
+        self._term_id = None
         self._vanity_url = None
         self._recommended_service_provider_listing_ids = None
         self._availability_and_pricing_policy = None
         self._pricing_plans = None
         self._is_rover_exportable = None
+        self._demo_url = None
+        self._self_paced_training_url = None
         self._listing_type = 'OCI_APPLICATION'
 
     @property
@@ -281,6 +309,54 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
         :type: list[oci.marketplace_publisher.models.ListingProduct]
         """
         self._products = products
+
+    @property
+    def partner_registration_url(self):
+        """
+        Gets the partner_registration_url of this UpdateOciListingRevisionDetails.
+        The url provided by partner for the registration of subscription.
+
+
+        :return: The partner_registration_url of this UpdateOciListingRevisionDetails.
+        :rtype: str
+        """
+        return self._partner_registration_url
+
+    @partner_registration_url.setter
+    def partner_registration_url(self, partner_registration_url):
+        """
+        Sets the partner_registration_url of this UpdateOciListingRevisionDetails.
+        The url provided by partner for the registration of subscription.
+
+
+        :param partner_registration_url: The partner_registration_url of this UpdateOciListingRevisionDetails.
+        :type: str
+        """
+        self._partner_registration_url = partner_registration_url
+
+    @property
+    def term_id(self):
+        """
+        Gets the term_id of this UpdateOciListingRevisionDetails.
+        The unique id of the term attached to the listing.
+
+
+        :return: The term_id of this UpdateOciListingRevisionDetails.
+        :rtype: str
+        """
+        return self._term_id
+
+    @term_id.setter
+    def term_id(self, term_id):
+        """
+        Sets the term_id of this UpdateOciListingRevisionDetails.
+        The unique id of the term attached to the listing.
+
+
+        :param term_id: The term_id of this UpdateOciListingRevisionDetails.
+        :type: str
+        """
+        self._term_id = term_id
 
     @property
     def vanity_url(self):
@@ -401,6 +477,54 @@ class UpdateOciListingRevisionDetails(UpdateListingRevisionDetails):
         :type: bool
         """
         self._is_rover_exportable = is_rover_exportable
+
+    @property
+    def demo_url(self):
+        """
+        Gets the demo_url of this UpdateOciListingRevisionDetails.
+        Url to demo of the listing
+
+
+        :return: The demo_url of this UpdateOciListingRevisionDetails.
+        :rtype: str
+        """
+        return self._demo_url
+
+    @demo_url.setter
+    def demo_url(self, demo_url):
+        """
+        Sets the demo_url of this UpdateOciListingRevisionDetails.
+        Url to demo of the listing
+
+
+        :param demo_url: The demo_url of this UpdateOciListingRevisionDetails.
+        :type: str
+        """
+        self._demo_url = demo_url
+
+    @property
+    def self_paced_training_url(self):
+        """
+        Gets the self_paced_training_url of this UpdateOciListingRevisionDetails.
+        Url to training resources of the listing
+
+
+        :return: The self_paced_training_url of this UpdateOciListingRevisionDetails.
+        :rtype: str
+        """
+        return self._self_paced_training_url
+
+    @self_paced_training_url.setter
+    def self_paced_training_url(self, self_paced_training_url):
+        """
+        Sets the self_paced_training_url of this UpdateOciListingRevisionDetails.
+        Url to training resources of the listing
+
+
+        :param self_paced_training_url: The self_paced_training_url of this UpdateOciListingRevisionDetails.
+        :type: str
+        """
+        self._self_paced_training_url = self_paced_training_url
 
     def __repr__(self):
         return formatted_flat_dict(self)

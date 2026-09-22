@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import InitVar, dataclass, field
 from enum import Enum, auto
 from ipaddress import IPv4Network, IPv6Network, ip_network
-from math import inf
+from math import inf, isfinite
 from typing import (
     ClassVar,
     Type,
@@ -200,7 +200,7 @@ class SigmaString(SigmaType):
             if idx.step is not None:
                 raise IndexError("SigmaString slice index with step is not allowed")
             start = idx.start or 0
-            end = idx.stop or inf
+            end = idx.stop if idx.stop is not None else inf
         else:
             raise TypeError("SigmaString indices must be integers or slices")
 
@@ -231,7 +231,11 @@ class SigmaString(SigmaType):
                 if e_len > start:
                     # else:
                     if end < e_len:  # end lies within this string part
-                        return self.__class__(e[start : cast(int, end)])
+                        s = self.__class__()
+                        s.s = [
+                            e[start : cast(int, end)]
+                        ]  # don't re-parse the cut-out substring: plain wildcard characters from escaped sequences would be interpreted as special characters again
+                        return s
                     else:  # end lies behind the current string part
                         result.append(e[start:])
                         # end -= start
@@ -669,13 +673,15 @@ class SigmaNumber(SigmaType):
 
     def __post_init__(self, init_number: Any) -> None:
         try:  # Only use float number if it can't be represented as int.
-            i = int(init_number)
             f = float(init_number)
+            if not isfinite(f):
+                raise ValueError("Invalid number")
+            i = int(init_number)
             if i == f:
                 self.number = i
             else:
                 self.number = f
-        except ValueError as e:
+        except (ValueError, OverflowError) as e:
             raise SigmaValueError("Invalid number") from e
 
     def __str__(self) -> str:
@@ -878,6 +884,11 @@ class SigmaCIDRExpression(NoPlainConversionMixin, SigmaType):
 
         Setting wildcard to None indicates that this feature is not need and the query language handles CIDR notation properly.
         """
+        if (
+            wildcard is None
+        ):  # The query language handles CIDR notation properly: return the network itself in CIDR notation
+            return [str(self.network)]
+
         patterns = []
         if isinstance(
             self.network, IPv4Network
@@ -915,19 +926,21 @@ class SigmaCIDRExpression(NoPlainConversionMixin, SigmaType):
             ):  # Generate all the subnetworks where the prefix ends at the next 4 bit boundary
                 first_addr = str(subnet_v6.network_address)
                 last_addr = str(subnet_v6.broadcast_address)
-                wildcard_required = False  # There's the possibility that no wildcard is required at all if the prefix is /128 (e.g. localhost)
-                for i in range(
-                    len(first_addr)
-                ):  # Determine the first char that differs between the first and last network address of the network. This is the location where the wildcard has to be placed.
-                    if first_addr[i] != last_addr[i]:
-                        wildcard_required = True
-                        break  # location found
-                if wildcard_required:
+                if (
+                    first_addr == last_addr
+                ):  # The /128 case - single address, use network_address not network (avoid "::1/128" literal)
+                    patterns.append(str(subnet_v6.network_address))
+                else:
+                    for i in range(
+                        len(first_addr)
+                    ):  # Determine the first char that differs between the first and last network address of the network. This is the location where the wildcard has to be placed.
+                        if first_addr[i] != last_addr[i]:
+                            break  # location found
+                    else:  # The compressed broadcast address only extends the compressed network address (e.g. 2001:db8::/64): the wildcard belongs directly after the network address
+                        i = len(first_addr)
                     patterns.append(
                         str(subnet_v6)[:i] + wildcard
                     )  # Generate pattern by cutting of at first difference
-                else:  # The /128 case - single address, use network_address not network (avoid "::1/128" literal)
-                    patterns.append(str(subnet_v6.network_address))
         return patterns
 
 

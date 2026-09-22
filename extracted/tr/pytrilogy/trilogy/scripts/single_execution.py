@@ -14,6 +14,7 @@ from trilogy.execution.report import (
     emit_asset_refresh,
     emit_asset_refresh_query,
     emit_refresh_plan,
+    emit_report,
     emit_statement_end,
 )
 from trilogy.execution.state import RefreshPlan
@@ -427,6 +428,24 @@ def _plan_and_execute_refresh(
         suffix = f" in {name}" if name else ""
         print_warning(f"{label} {plan.stale_count} stale asset(s){suffix}")
 
+    if plan.out_of_scope:
+        # Never silent: this run judged them stale and chose not to build them.
+        # The report record is what an orchestrator sees — to it, a run that
+        # built nothing of its own exits 2 and reads as "up to date".
+        stale = sorted(a.datasource_id for a in plan.out_of_scope)
+        message = (
+            f"{len(stale)} stale imported asset(s) not built: {', '.join(stale)}."
+            " Refresh the file that declares them, or pass --include-imports."
+        )
+        emit_report(
+            "warning",
+            code="stale_imports_not_built",
+            message=message,
+            datasources=stale,
+        )
+        if not quiet:
+            print_warning(message)
+
     if plan.concept_max_watermarks and not quiet:
         show_root_probe_breakdown(plan.root_watermarks, plan.concept_max_watermarks)
 
@@ -546,9 +565,12 @@ def execute_refresh_mode(
     print_watermarks: bool = False,
     dry_run: bool = False,
     interactive: bool = False,
-    script_path: Any = None,
 ) -> StateRefreshResult:
-    """Execute refresh mode on an already-parsed executor."""
+    """Execute refresh mode on an already-parsed executor.
+
+    What this builds is scoped by ``policy.build_scope``, which the caller sets
+    from the entrypoint (``RefreshParams.policy``) — the entrypoint is not passed
+    separately, so there is one place a narrowing can go missing."""
     from trilogy.execution.state import RefreshPolicy, create_refresh_plan
 
     policy = policy if policy is not None else RefreshPolicy()

@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.get_settings_response_200_datatable_datatables_additional_property_forked_from import (
         GetSettingsResponse200DatatableDatatablesAdditionalPropertyForkedFrom,
     )
+    from ..models.get_settings_response_200_datatable_datatables_additional_property_governed_by import (
+        GetSettingsResponse200DatatableDatatablesAdditionalPropertyGovernedBy,
+    )
     from ..models.get_settings_response_200_datatable_datatables_additional_property_reference import (
         GetSettingsResponse200DatatableDatatablesAdditionalPropertyReference,
     )
@@ -29,6 +32,8 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
         reference (Union[Unset, GetSettingsResponse200DatatableDatatablesAdditionalPropertyReference]): The workspace
             and data table that govern this one. Server-owned: written by fork creation, and carried across a settings save
             whatever the request says.
+        governed_by (Union[Unset, GetSettingsResponse200DatatableDatatablesAdditionalPropertyGovernedBy]): On a clone,
+            the data table it was copied from, whose roles it takes. Server-owned like `reference`.
         migrations_enabled (Union[Unset, bool]): Whether the SQL migrations feature is opted in for this data table
         forked_from (Union[Unset, GetSettingsResponse200DatatableDatatablesAdditionalPropertyForkedFrom]): Fork origin
             info with schema snapshot
@@ -36,6 +41,7 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
 
     database: Union[Unset, "GetSettingsResponse200DatatableDatatablesAdditionalPropertyDatabase"] = UNSET
     reference: Union[Unset, "GetSettingsResponse200DatatableDatatablesAdditionalPropertyReference"] = UNSET
+    governed_by: Union[Unset, "GetSettingsResponse200DatatableDatatablesAdditionalPropertyGovernedBy"] = UNSET
     migrations_enabled: Union[Unset, bool] = UNSET
     forked_from: Union[Unset, "GetSettingsResponse200DatatableDatatablesAdditionalPropertyForkedFrom"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -49,6 +55,10 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
         if not isinstance(self.reference, Unset):
             reference = self.reference.to_dict()
 
+        governed_by: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.governed_by, Unset):
+            governed_by = self.governed_by.to_dict()
+
         migrations_enabled = self.migrations_enabled
         forked_from: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.forked_from, Unset):
@@ -61,6 +71,8 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
             field_dict["database"] = database
         if reference is not UNSET:
             field_dict["reference"] = reference
+        if governed_by is not UNSET:
+            field_dict["governed_by"] = governed_by
         if migrations_enabled is not UNSET:
             field_dict["migrations_enabled"] = migrations_enabled
         if forked_from is not UNSET:
@@ -75,6 +87,9 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
         )
         from ..models.get_settings_response_200_datatable_datatables_additional_property_forked_from import (
             GetSettingsResponse200DatatableDatatablesAdditionalPropertyForkedFrom,
+        )
+        from ..models.get_settings_response_200_datatable_datatables_additional_property_governed_by import (
+            GetSettingsResponse200DatatableDatatablesAdditionalPropertyGovernedBy,
         )
         from ..models.get_settings_response_200_datatable_datatables_additional_property_reference import (
             GetSettingsResponse200DatatableDatatablesAdditionalPropertyReference,
@@ -95,6 +110,13 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
         else:
             reference = GetSettingsResponse200DatatableDatatablesAdditionalPropertyReference.from_dict(_reference)
 
+        _governed_by = d.pop("governed_by", UNSET)
+        governed_by: Union[Unset, GetSettingsResponse200DatatableDatatablesAdditionalPropertyGovernedBy]
+        if isinstance(_governed_by, Unset):
+            governed_by = UNSET
+        else:
+            governed_by = GetSettingsResponse200DatatableDatatablesAdditionalPropertyGovernedBy.from_dict(_governed_by)
+
         migrations_enabled = d.pop("migrations_enabled", UNSET)
 
         _forked_from = d.pop("forked_from", UNSET)
@@ -107,6 +129,7 @@ class GetSettingsResponse200DatatableDatatablesAdditionalProperty:
         get_settings_response_200_datatable_datatables_additional_property = cls(
             database=database,
             reference=reference,
+            governed_by=governed_by,
             migrations_enabled=migrations_enabled,
             forked_from=forked_from,
         )

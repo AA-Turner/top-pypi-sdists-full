@@ -53,48 +53,52 @@ OneOrManyOptionalKwargs: TypeAlias = OneOrSequence[OptionalKwargs] | None
 
 
 def is_private(class_name: str, module_name: str, main_is_private: bool = True) -> bool:
-    """
-    Decide whether a class in a module is considered private.
+    """Decide whether a class in a module is considered private.
 
-    :param class_name:
-        the class name, i.e., `cls.__name__`
-    :param module_name:
-        the module name, i.e., `cls.__module__`
-    :param main_is_private:
-        whether the `__main__` module is considered private
+    :param class_name: the class name, i.e., `cls.__name__`
+    :param module_name: the module name, i.e., `cls.__module__`
+    :param main_is_private: whether the `__main__` module is considered private
 
-    :return:
-        whether the class should be considered private
+    :returns: whether the class should be considered private
     """
     # note: this method has been separated for better testability
     if class_name.startswith("_"):
         return True
     if not main_is_private and module_name.startswith("__main__"):
         return False
-    if any(part.startswith("_") for part in module_name.split(".")):
-        return True
-    return False
+    return bool(any(part.startswith("_") for part in module_name.split(".")))
 
 
 def get_subclasses(
     cls: type[X],
+    *,
     exclude_private: bool = True,
     exclude_external: bool = True,
     main_is_private: bool = True,
+    exclude_predicate: Callable[[type[X]], bool] | None = None,
 ) -> Iterable[type[X]]:
     """Get all subclasses.
 
     :param cls: The ancestor class
     :param exclude_private: If true, will skip any class that comes from a module
-        starting with an underscore (i.e., a private module). This is typically
-        done when having shadow duplicate classes implemented in C
+        starting with an underscore (i.e., a private module). This is typically done
+        when having shadow duplicate classes implemented in C
     :param exclude_external: If true, will exclude any class that does not originate
         from the same package as the base class.
     :param main_is_private: If true, __main__ is considered a private module.
+    :param exclude_predicate: If given, will exclude any class that causes the function
+        to return true
+
     :yields: Descendant classes of the ancestor class
     """
     for subclass in cls.__subclasses__():
-        yield from get_subclasses(subclass)
+        yield from get_subclasses(
+            subclass,
+            exclude_private=exclude_private,
+            exclude_external=exclude_external,
+            main_is_private=main_is_private,
+            exclude_predicate=exclude_predicate,
+        )
         if exclude_private and is_private(
             class_name=subclass.__name__,
             module_name=subclass.__module__,
@@ -102,6 +106,8 @@ def get_subclasses(
         ):
             continue
         if exclude_external and not same_module(cls, subclass):
+            continue
+        if exclude_predicate is not None and exclude_predicate(subclass):
             continue
         yield subclass
 
@@ -122,8 +128,11 @@ def normalize_string(s: str, *, suffix: str | None = None) -> str:
 def upgrade_to_sequence(x: X | Sequence[X]) -> Sequence[X]:
     """Ensure that the input is a sequence.
 
-    :param x: A literal or sequence of literals (don't consider a string x as a sequence)
-    :return: If a literal was given, a one element tuple with it in it. Otherwise, return the given value.
+    :param x: A literal or sequence of literals (don't consider a string x as a
+        sequence)
+
+    :returns: If a literal was given, a one element tuple with it in it. Otherwise,
+        return the given value.
 
     >>> upgrade_to_sequence(1)
     (1,)
@@ -187,23 +196,17 @@ def normalize_with_default(
     default: Y | None = None,
     default_kwargs: OptionalKwargs = None,
 ) -> tuple[X | Y | None, OptionalKwargs]:
-    """
-    Normalize a choice for class resolver, with default options.
+    """Normalize a choice for class resolver, with default options.
 
-    :param choice:
-        the choice. If None, use the default instead.
-    :param kwargs:
-        the keyword-based parameters for instantiation. Will only be used if choice is *not* None.
-    :param default:
-        the default choice. Used of choice=None.
-    :param default_kwargs:
-        the default keyword-based parameters
+    :param choice: the choice. If None, use the default instead.
+    :param kwargs: the keyword-based parameters for instantiation. Will only be used if
+        choice is *not* None.
+    :param default: the default choice. Used of choice=None.
+    :param default_kwargs: the default keyword-based parameters
 
-    :raises ValueError:
-        if choice and default both are None
+    :returns: a pair (hint, optional kwargs).
 
-    :return:
-        a pair (hint, optional kwargs).
+    :raises ValueError: if choice and default both are None
     """
     if choice is not None:
         return choice, kwargs or default_kwargs

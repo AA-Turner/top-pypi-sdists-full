@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scout_apm
-Version: 3.5.3
+Version: 4.0.0
 Summary: Scout Application Performance Monitoring Agent
 Home-page: https://github.com/scoutapp/scout_apm_python
 Author: Scout
@@ -16,6 +16,9 @@ Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.0
 Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Flask
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: System :: Monitoring
@@ -23,12 +26,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8, <4
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asgiref

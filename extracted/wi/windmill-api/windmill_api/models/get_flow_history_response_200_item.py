@@ -17,11 +17,13 @@ class GetFlowHistoryResponse200Item:
         id (int):
         created_at (datetime.datetime):
         deployment_msg (Union[Unset, str]):
+        created_by (Union[Unset, str]):
     """
 
     id: int
     created_at: datetime.datetime
     deployment_msg: Union[Unset, str] = UNSET
+    created_by: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -29,6 +31,7 @@ class GetFlowHistoryResponse200Item:
         created_at = self.created_at.isoformat()
 
         deployment_msg = self.deployment_msg
+        created_by = self.created_by
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -40,6 +43,8 @@ class GetFlowHistoryResponse200Item:
         )
         if deployment_msg is not UNSET:
             field_dict["deployment_msg"] = deployment_msg
+        if created_by is not UNSET:
+            field_dict["created_by"] = created_by
 
         return field_dict
 
@@ -52,10 +57,13 @@ class GetFlowHistoryResponse200Item:
 
         deployment_msg = d.pop("deployment_msg", UNSET)
 
+        created_by = d.pop("created_by", UNSET)
+
         get_flow_history_response_200_item = cls(
             id=id,
             created_at=created_at,
             deployment_msg=deployment_msg,
+            created_by=created_by,
         )
 
         get_flow_history_response_200_item.additional_properties = d

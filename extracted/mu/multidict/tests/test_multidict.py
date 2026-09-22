@@ -2204,6 +2204,172 @@ def test_getall_update_vs_lock_free_reads_thread_safety() -> None:
 
 
 @pytest.mark.c_extension
+def test_update_vs_update_same_key_thread_safety() -> None:
+    """Regression for #1483/#1489: concurrent update()/__setitem__/merge()
+    on the same key must not lose it, duplicate it, or crash (GIL build:
+    Py_BEGIN_CRITICAL_SECTION is a no-op, so a __del__-triggered GIL
+    release is the only suspension point). Evil's slow __del__ widens the
+    race window enough to hit it reliably."""
+
+    class Evil:
+        def __init__(self, n: int) -> None:
+            self.n = n
+
+        def __del__(self) -> None:
+            time.sleep(0.002)
+
+    d: MultiDict[Evil] = MultiDict(k=Evil(-1))
+
+    def update_worker(n: int) -> None:
+        for i in range(40):
+            d.update({"k": Evil(n * 1000 + i)})
+
+    def setitem_worker(n: int) -> None:
+        for i in range(40):
+            d["k"] = Evil(n * 1000 + i)
+
+    def merge_worker(n: int) -> None:
+        for i in range(40):
+            d.merge({"k": Evil(n * 1000 + i)})
+
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        futures = [executor.submit(update_worker, i) for i in range(4)]
+        futures += [executor.submit(setitem_worker, i) for i in range(4)]
+        futures += [executor.submit(merge_worker, i) for i in range(4)]
+        for f in futures:
+            f.result()
+
+    assert len(d) == 1  # winner is racy; presence/uniqueness isn't
+    assert len(d.getall("k")) == 1
+
+
+@pytest.mark.c_extension
+def test_setdefault_vs_update_same_key_thread_safety() -> None:
+    """Same family as #1483/#1489: setdefault() racing update() on the
+    same key must not insert a duplicate. setdefault()'s masked-comparison
+    fix (not deferred-decref) closes this; both builds covered."""
+
+    class Evil:
+        def __init__(self, n: int) -> None:
+            self.n = n
+
+        def __del__(self) -> None:
+            time.sleep(0.002)
+
+    d: MultiDict[Evil] = MultiDict(k=Evil(-1))
+
+    def setdefault_worker(n: int) -> None:
+        for i in range(40):
+            d.setdefault("k", Evil(n * 1000 + i))
+
+    def update_worker(n: int) -> None:
+        for i in range(40):
+            d.update({"k": Evil(n * 1000 + i)})
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(setdefault_worker, i) for i in range(4)]
+        futures += [executor.submit(update_worker, i) for i in range(4)]
+        for f in futures:
+            f.result()
+
+    assert len(d) == 1
+    assert len(d.getall("k")) == 1
+
+
+@pytest.mark.parametrize("op", ["setitem", "update"])
+def test_replace_many_duplicates_releases_all(
+    case_sensitive_multidict_class: type[MultiDict[object]], op: str
+) -> None:
+    """Enough replaced duplicates to overflow the free-threaded build's
+    deferred-decref buffer into several heap blocks; every old value
+    must still be released."""
+
+    class Tracked:
+        pass
+
+    values = [Tracked() for _ in range(3000)]
+    refs = [weakref.ref(v) for v in values]
+    d = case_sensitive_multidict_class([("k", v) for v in values])
+    del values
+
+    if op == "setitem":
+        d["k"] = "v"
+    else:
+        d.update(k="v")
+
+    assert list(d.items()) == [("k", "v")]
+    gc.collect()
+    assert all(r() is None for r in refs)
+
+
+@pytest.mark.c_extension
+@pytest.mark.skipif(
+    hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled(),
+    reason=(
+        "hits a separate, pre-existing bug on free-threaded builds "
+        "(stale cached entries/iterator in md_del()/md_pop_all(), "
+        "unrelated to this fix) -- see aio-libs/multidict#1492"
+    ),
+)
+def test_del_pop_vs_update_same_key_gil_build_thread_safety() -> None:
+    """Regression for #1489 (GIL-build __delitem__/pop()/popall()):
+    _md_del_at() now finishes table bookkeeping before any decref, so a
+    __del__-triggered GIL release can't expose a half-deleted entry.
+    Each worker re-sets the key after removing it, so it's always
+    present at join regardless of interleaving."""
+
+    class Evil:
+        def __init__(self, n: int) -> None:
+            self.n = n
+
+        def __del__(self) -> None:
+            time.sleep(0.002)
+
+    d: MultiDict[Evil] = MultiDict(k=Evil(-1))
+
+    def update_worker(n: int) -> None:
+        for i in range(30):
+            d.update({"k": Evil(n * 1000 + i)})
+
+    def setitem_worker(n: int) -> None:
+        for i in range(30):
+            d["k"] = Evil(n * 1000 + i)
+
+    def merge_worker(n: int) -> None:
+        for i in range(30):
+            d.merge({"k": Evil(n * 1000 + i)})
+
+    def delitem_worker(n: int) -> None:
+        for i in range(30):
+            with contextlib.suppress(KeyError):
+                del d["k"]
+            d["k"] = Evil(n * 4000 + i)
+
+    def pop_worker(n: int) -> None:
+        for i in range(30):
+            d.pop("k", None)
+            d["k"] = Evil(n * 5000 + i)
+
+    def popall_worker(n: int) -> None:
+        for i in range(30):
+            d.popall("k", None)
+            d["k"] = Evil(n * 6000 + i)
+
+    with ThreadPoolExecutor(max_workers=18) as executor:
+        futures = [executor.submit(update_worker, i) for i in range(3)]
+        futures += [executor.submit(setitem_worker, i) for i in range(3)]
+        futures += [executor.submit(merge_worker, i) for i in range(3)]
+        futures += [executor.submit(delitem_worker, i) for i in range(3)]
+        futures += [executor.submit(pop_worker, i) for i in range(3)]
+        futures += [executor.submit(popall_worker, i) for i in range(3)]
+        for f in futures:
+            f.result()
+
+    assert len(d) == 1
+    assert len(d.getall("k")) == 1
+
+
+@pytest.mark.c_extension
 def test_to_dict_vs_lock_free_reads_thread_safety() -> None:
     """Concurrent to_dict() alongside lock-free contains()/get() on the
     same, never-deleted keys must not crash and must never observe a
@@ -3015,3 +3181,183 @@ def test_non_typeerror_exceptions_are_not_swallowed() -> None:
 
     # __eq__ against a non-mapping still works (AttributeError is cleared)
     assert md != [("a", "1")]
+
+
+@pytest.mark.parametrize(
+    "probe",
+    ([], ["key"], ["key", "one", "extra"], ["nope", "one"], ["key", "nope"]),
+    ids=("empty", "one-item", "three-items", "wrong-key", "wrong-value"),
+)
+def test_items_contains_list_that_is_not_a_present_pair(
+    any_multidict_class: type[MultiDict[str]], probe: list[str]
+) -> None:
+    d = any_multidict_class([("key", "one")])
+    assert probe not in d.items()  # type: ignore[operator]
+    assert ["key", "one"] in d.items()  # type: ignore[operator]
+
+
+@pytest.mark.c_extension
+def test_update_from_list_shrunk_by_another_thread() -> None:
+    """A source list that shrinks while it is consumed must not be read past
+    its end; the constructor either completes or reports the change."""
+    shared = [(f"k{i}", i) for i in range(32)]
+    stop = threading.Event()
+
+    def build() -> None:
+        for _ in range(3000):
+            try:
+                multidict.MultiDict(shared)
+            except RuntimeError as exc:
+                assert str(exc) == "list changed size during iteration"
+
+    def shrink() -> None:
+        i = 0
+        while not stop.is_set():
+            del shared[1:]
+            shared.extend((f"k{j}", i + j) for j in range(1, 32))
+            i += 1
+
+    builders = [threading.Thread(target=build) for _ in range(8)]
+    mutators = [threading.Thread(target=shrink) for _ in range(4)]
+    for t in builders + mutators:
+        t.start()
+    for t in builders:
+        t.join()
+    stop.set()
+    for t in mutators:
+        t.join()
+
+
+@pytest.mark.c_extension
+def test_update_from_pair_list_shrunk_by_another_thread() -> None:
+    """A ``[key, value]`` item that shrinks between its length check and the
+    reads must not be indexed past its end; the update either succeeds,
+    reports the bad length, or reports the change."""
+    probe: list[object] = ["k1", 1]
+    stop = threading.Event()
+
+    def build() -> None:
+        for _ in range(30000):
+            try:
+                multidict.MultiDict([probe])  # type: ignore[arg-type]
+            except ValueError:
+                pass  # seen mid-mutation with the wrong length
+            except RuntimeError as exc:
+                assert str(exc) == "list changed size during iteration"
+
+    def shrink() -> None:
+        i = 0
+        while not stop.is_set():
+            del probe[1:]
+            probe.append(i)
+            i += 1
+
+    builders = [threading.Thread(target=build) for _ in range(8)]
+    mutators = [threading.Thread(target=shrink) for _ in range(4)]
+    for t in builders + mutators:
+        t.start()
+    for t in builders:
+        t.join()
+    stop.set()
+    for t in mutators:
+        t.join()
+
+
+@pytest.mark.c_extension
+def test_items_contains_list_shrunk_by_another_thread() -> None:
+    """A probe list that shrinks between the length check and the reads must
+    not be indexed past its end; the check either answers or reports the
+    change."""
+    probe: list[object] = ["k1", 1]
+    stop = threading.Event()
+
+    def check() -> None:
+        # One multidict per thread: the shared object under test is the list.
+        items = multidict.MultiDict([(f"k{i}", i) for i in range(8)]).items()
+        for _ in range(30000):
+            try:
+                items.__contains__(probe)  # type: ignore[operator]
+            except RuntimeError as exc:
+                assert str(exc) == "list changed size during iteration"
+
+    def shrink() -> None:
+        i = 0
+        while not stop.is_set():
+            del probe[1:]
+            probe.append(i)
+            i += 1
+
+    checkers = [threading.Thread(target=check) for _ in range(8)]
+    mutators = [threading.Thread(target=shrink) for _ in range(4)]
+    for t in checkers + mutators:
+        t.start()
+    for t in checkers:
+        t.join()
+    stop.set()
+    for t in mutators:
+        t.join()
+
+
+def test_items_iter_key_finalizer_mutates(
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    """Caching the istr drops the stored str key, whose __del__ can mutate
+    the multidict; the C iterator used to read the freed entry after it."""
+
+    class Key(str):
+        def __del__(self) -> None:
+            d.clear()
+
+    d = case_insensitive_multidict_class()
+    d[Key("a")] = "v"
+    d["b"] = "w"
+    it = iter(d.items())
+    assert next(it) == ("a", "v")
+    with contextlib.suppress(RuntimeError):
+        next(it)
+    d.clear()
+    assert not d
+
+
+def test_items_iter_key_str_mutates(
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    """Building the istr calls a str subclass's __str__, which can mutate the
+    multidict and free the entry the C iterator is still converting."""
+
+    class Key(str):
+        def __str__(self) -> str:
+            d.clear()
+            return str.__str__(self)
+
+    d = case_insensitive_multidict_class()
+    d[Key("a")] = "v"
+    d["b"] = "w"
+    it = iter(d.items())
+    assert next(it) == ("a", "v")
+    with pytest.raises(RuntimeError, match="changed during iteration"):
+        next(it)
+    assert not d
+
+
+def test_items_iter_key_str_reinits(
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    """A __str__ re-initializing the multidict from a copy frees the entry
+    being converted; the C clone used to restore the version checked after."""
+
+    class Key(str):
+        def __str__(self) -> str:
+            d.__init__(other)  # type: ignore[misc]
+            return str.__str__(self)
+
+    d = case_insensitive_multidict_class()
+    d[Key("a")] = "v"
+    d["b"] = "w"
+    other = d.copy()
+    it = iter(d.items())
+    assert next(it) == ("a", "v")
+    with contextlib.suppress(RuntimeError):
+        next(it)
+    assert len(d) == 2
+    assert d["b"] == "w"

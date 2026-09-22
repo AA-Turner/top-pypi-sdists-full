@@ -6,19 +6,33 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_data_table_tables_response_200_item import ListDataTableTablesResponse200Item
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
+    *,
+    datatable_name: Union[Unset, None, str] = UNSET,
+    role_for: Union[Unset, None, str] = UNSET,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["datatable_name"] = datatable_name
+
+    params["role_for"] = role_for
+
+    params["role"] = role
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/w/{workspace}/workspaces/list_datatable_tables".format(
             workspace=workspace,
         ),
+        "params": params,
     }
 
 
@@ -55,11 +69,17 @@ def sync_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    datatable_name: Union[Unset, None, str] = UNSET,
+    role_for: Union[Unset, None, str] = UNSET,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListDataTableTablesResponse200Item"]]:
     """list tables of all connected Datatables
 
     Args:
         workspace (str):
+        datatable_name (Union[Unset, None, str]):
+        role_for (Union[Unset, None, str]):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,6 +91,9 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        datatable_name=datatable_name,
+        role_for=role_for,
+        role=role,
     )
 
     response = client.get_httpx_client().request(
@@ -84,11 +107,17 @@ def sync(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    datatable_name: Union[Unset, None, str] = UNSET,
+    role_for: Union[Unset, None, str] = UNSET,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListDataTableTablesResponse200Item"]]:
     """list tables of all connected Datatables
 
     Args:
         workspace (str):
+        datatable_name (Union[Unset, None, str]):
+        role_for (Union[Unset, None, str]):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -101,6 +130,9 @@ def sync(
     return sync_detailed(
         workspace=workspace,
         client=client,
+        datatable_name=datatable_name,
+        role_for=role_for,
+        role=role,
     ).parsed
 
 
@@ -108,11 +140,17 @@ async def asyncio_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    datatable_name: Union[Unset, None, str] = UNSET,
+    role_for: Union[Unset, None, str] = UNSET,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListDataTableTablesResponse200Item"]]:
     """list tables of all connected Datatables
 
     Args:
         workspace (str):
+        datatable_name (Union[Unset, None, str]):
+        role_for (Union[Unset, None, str]):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,6 +162,9 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        datatable_name=datatable_name,
+        role_for=role_for,
+        role=role,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -135,11 +176,17 @@ async def asyncio(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    datatable_name: Union[Unset, None, str] = UNSET,
+    role_for: Union[Unset, None, str] = UNSET,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListDataTableTablesResponse200Item"]]:
     """list tables of all connected Datatables
 
     Args:
         workspace (str):
+        datatable_name (Union[Unset, None, str]):
+        role_for (Union[Unset, None, str]):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,5 +200,8 @@ async def asyncio(
         await asyncio_detailed(
             workspace=workspace,
             client=client,
+            datatable_name=datatable_name,
+            role_for=role_for,
+            role=role,
         )
     ).parsed

@@ -41,7 +41,7 @@ keywords = [
 requires-python = ">=3.10"
 dependencies = [
     "boost-histogram>=1.7,<1.9",
-    "histoprint>=2.2.0",
+    "histoprint>=2.3.0",
     'numpy>=1.21.3',
     'packaging>=23',
     'typing-extensions>=4;python_version<"3.11"',
@@ -96,6 +96,10 @@ test = [
     { include-group = "test-core" },
     { include-group = "fit" },
     "awkward>=2.0.7",
+    # tests/test_graphed.py; graphed requires Python 3.11+
+    'graphed[awkward,numpy]>=0.0.2;python_version>="3.11"',
+    'graphed-histogram>=0.0.2;python_version>="3.11"',
+    'graphed-executors>=0.0.2;python_version>="3.11"',
 ]
 test-core = [
     "pytest >=8",
@@ -121,6 +125,7 @@ docs = [
     "pillow",
     "uncertainties>=3",
     "myst_parser>=0.14",
+    "sphinx-llm",
 ]
 
 
@@ -157,6 +162,7 @@ module = [
     "iminuit.*",
     "mplhep.*",
     "dask_histogram.*",
+    "graphed_histogram.*",
 ]
 ignore_missing_imports = true
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-sso
-Version: 0.22.0
+Version: 0.23.0
 Summary: FastAPI plugin to enable SSO to most common providers (such as Facebook login, Google login and login via Microsoft Office 365 Account)
 License: MIT
 License-File: LICENSE.md
@@ -15,6 +15,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Provides-Extra: crypto
+Requires-Dist: cryptography (>=3.4) ; extra == "crypto"
 Requires-Dist: fastapi (>=0.80)
 Requires-Dist: httpx (>=0.23.0)
 Requires-Dist: oauthlib (>=3.1.0)

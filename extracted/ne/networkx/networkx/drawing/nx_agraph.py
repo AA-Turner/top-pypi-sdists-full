@@ -139,7 +139,7 @@ def to_agraph(N):
     try:
         import pygraphviz
     except ImportError as err:
-        raise ImportError("requires pygraphviz http://pygraphviz.github.io/") from err
+        raise ImportError("requires pygraphviz https://pygraphviz.github.io/") from err
     directed = N.is_directed()
     strict = nx.number_of_selfloops(N) == 0 and not N.is_multigraph()
 
@@ -161,7 +161,10 @@ def to_agraph(N):
         a = A.get_node(n)
         for key, val in nodedata.items():
             if key == "pos":
-                a.attr["pos"] = f"{val[0]},{val[1]}!"
+                if isinstance(val, str):
+                    a.attr["pos"] = val
+                else:
+                    a.attr["pos"] = f"{val[0]},{val[1]}!"
             else:
                 a.attr[key] = str(val)
 
@@ -220,7 +223,7 @@ def read_dot(path):
         import pygraphviz
     except ImportError as err:
         raise ImportError(
-            "read_dot() requires pygraphviz http://pygraphviz.github.io/"
+            "read_dot() requires pygraphviz https://pygraphviz.github.io/"
         ) from err
     A = pygraphviz.AGraph(file=path)
     gr = from_agraph(A)
@@ -305,7 +308,7 @@ def pygraphviz_layout(G, prog="neato", root=None, args=""):
     try:
         import pygraphviz
     except ImportError as err:
-        raise ImportError("requires pygraphviz http://pygraphviz.github.io/") from err
+        raise ImportError("requires pygraphviz https://pygraphviz.github.io/") from err
     if root is not None:
         args += f"-Groot={root}"
     A = to_agraph(G)

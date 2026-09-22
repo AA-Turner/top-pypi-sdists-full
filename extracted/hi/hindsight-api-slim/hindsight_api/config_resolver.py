@@ -31,6 +31,8 @@ from hindsight_api.extensions.tenant import TenantExtension
 from hindsight_api.models import RequestContext
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from hindsight_api.engine.db.base import DatabaseBackend
 
 logger = logging.getLogger(__name__)
@@ -578,6 +580,13 @@ class ConfigResolver:
             except Exception as e:
                 raise ValueError(f"Invalid entity_labels format: {e}")
 
+        # Both of these are merged into a request the API also accepts directly, so
+        # hold them to the same contract as the request that carries those fields.
+        if normalized_updates.get("knowledge_page_default_trigger") is not None:
+            _validate_knowledge_page_default_trigger(normalized_updates["knowledge_page_default_trigger"])
+        if normalized_updates.get("reflect_default_options") is not None:
+            _validate_reflect_default_options(normalized_updates["reflect_default_options"])
+
         # Validate retain_strategies: reject empty string keys
         if "retain_strategies" in normalized_updates and normalized_updates["retain_strategies"]:
             empty_keys = [k for k in normalized_updates["retain_strategies"] if not str(k).strip()]
@@ -790,6 +799,34 @@ _TYPE_DESCRIPTIONS: dict[type, str] = {
 
 def _describe_types(allowed: tuple[type, ...]) -> str:
     return " or ".join(dict.fromkeys(_TYPE_DESCRIPTIONS.get(t, t.__name__) for t in allowed))
+
+
+def _validate_against_model(key: str, value: dict[str, Any], model: "type[BaseModel]", noun: str) -> None:
+    """Reject unknown fields and values the request model itself would refuse."""
+    from pydantic import ValidationError
+
+    unknown = sorted(set(value) - set(model.model_fields))
+    if unknown:
+        raise ValueError(f"{key} has unknown fields: {', '.join(unknown)}")
+    try:
+        model.model_validate(value)
+    except ValidationError as e:
+        problems = "; ".join(f"{'.'.join(map(str, err['loc'])) or noun}: {err['msg']}" for err in e.errors())
+        raise ValueError(f"Invalid {key}: {problems}") from e
+
+
+def _validate_knowledge_page_default_trigger(value: dict[str, Any]) -> None:
+    """Reject unknown trigger fields and values ``MentalModelTrigger`` refuses."""
+    from hindsight_api.api.http import MentalModelTrigger
+
+    _validate_against_model("knowledge_page_default_trigger", value, MentalModelTrigger, "trigger")
+
+
+def _validate_reflect_default_options(value: dict[str, Any]) -> None:
+    """Reject unknown option fields and values ``ReflectDefaultOptions`` refuses."""
+    from hindsight_api.api.http import ReflectDefaultOptions
+
+    _validate_against_model("reflect_default_options", value, ReflectDefaultOptions, "options")
 
 
 def _validate_config_value_types(updates: dict[str, Any]) -> None:

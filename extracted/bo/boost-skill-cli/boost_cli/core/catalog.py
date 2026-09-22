@@ -25,10 +25,11 @@ import json
 import operator
 import os
 import re
+import sys
 from pathlib import Path
 
 from ..errors import BoostError
-from . import config, frontmatter, gitutil, paths, registry, util
+from . import config, frontmatter, gitutil, jsonstate, output, paths, registry, util
 
 # Bumped whenever a scan starts recording something the previous scan did not,
 # so 460 caches on a real machine invalidate on read instead of needing a
@@ -239,6 +240,10 @@ def scan_dir(root: Path, tap_name: str = "local", curated: bool = False) -> list
     return entries
 
 
+#: Taps whose cache could not be saved this process — warned about once.
+_UNSAVED: set[str] = set()
+
+
 def rebuild_tap(tap: registry.Tap) -> list[dict]:
     """Rescan a cloned tap and rewrite its JSON cache file -> entries.
 
@@ -249,15 +254,42 @@ def rebuild_tap(tap: registry.Tap) -> list[dict]:
         raise BoostError("tap %s is not cloned" % tap.name,
                         hint="run `boost update %s`" % tap.name)
     entries = scan_dir(tap.path, tap.name, tap.curated)
-    paths.ensure_dirs()
-    tap.cache_file.write_text(json.dumps({
+    payload = json.dumps({
         "tap": tap.name,
         "url": tap.url,
         "format": CACHE_FORMAT,
         "generated": util.now_iso(),
         "commit": gitutil.head_commit(tap.path),
         "skills": entries,
-    }, indent=1), encoding="utf-8")
+    }, indent=1)
+    # Replaced, not rewritten in place: a cache file this process cannot
+    # write (what one `sudo boost` run leaves behind) turned the next
+    # CACHE_FORMAT bump into exit 70 on search, info, update and heal — and
+    # `update`, the remedy, crashed the same way. A replace needs the
+    # directory writable, so a read-only dir holding a writable file falls
+    # back to the in-place write that always worked there. If neither lands
+    # (a full disk), the scan in hand is still the answer: a cache is a
+    # speed-up, and failing to keep one is never an error (see load_tap).
+    # That includes a cache dir it cannot create under a read-only ~/.boost,
+    # which exited 70 here before `reindex` reached the error it owes.
+    try:
+        paths.ensure_dirs()
+        util.atomic_write_text(tap.cache_file, payload)
+    except OSError:
+        try:
+            tap.cache_file.write_text(payload, encoding="utf-8")
+        except OSError as e:
+            # Once per tap per process: a command loads a tap more than once.
+            if tap.name not in _UNSAVED:
+                _UNSAVED.add(tap.name)
+                # Name the nearest directory that exists: when the cache
+                # dir itself could not be created, it is its parent that
+                # refuses, which is what rag._unsaved names too.
+                where = paths.nearest_existing(tap.cache_file.parent)
+                output.warn("could not save the catalog cache for %s (%s) — "
+                            "this command uses a fresh scan; make %s writable"
+                            % (tap.name, e.strerror or e, paths.tilde(where)),
+                            stream=sys.stderr, wrap=True)
     # Drop the mtime-keyed cache so a rebuild is visible to an immediately
     # following load even when the filesystem mtime granularity is coarse.
     _ENTRY_CACHE.pop(str(tap.cache_file), None)
@@ -296,9 +328,8 @@ def _cached_tap(tap: registry.Tap) -> tuple[list[dict], bool] | None:
     cached = _ENTRY_CACHE.get(key)
     if cached is not None and cached[0] == stamp:
         return cached[1], cached[2]
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    data = jsonstate.read_object(p)[0]
+    if data is None:
         _ENTRY_CACHE.pop(key, None)
         return None
     skills = data.get("skills", [])
@@ -529,6 +560,28 @@ def select_lock_source(matches: list[dict], lk: dict) -> tuple[dict | None, str 
     fallback = matches[0]
     return fallback, ("%s no longer at its installed source (%s) — using %s"
                       % (fallback.get("name", "?"), wanted, fallback.get(field, "?")))
+
+
+def upstream_path(entry: dict) -> str:
+    """The path inside its tap that *is* this item, for a lock or catalog entry.
+
+    A skill is a directory: SKILL.md plus the scripts and assets beside it.
+    A rule or a workflow is a single file, and the directory holding it is
+    shared: one real ``rules/ci-cd`` holds eleven rules, and one ``agents/``
+    holds 138 workflows. Using ``rel_dir`` for those made ``git log -- <dir>``
+    show every sibling's commits as this item's history. It also made
+    ``boost home`` link the folder instead of the file.
+
+    Both entry shapes are accepted, with the key pairing
+    :func:`select_lock_source` uses. A lock records ``source_file`` for a
+    rule or workflow and ``source_dir`` for a skill. A catalog entry records
+    ``skill_md`` (the defining file) and ``rel_dir`` for every kind.
+    """
+    if entry.get("source_file"):
+        return str(entry["source_file"])
+    if entry.get("kind", "skill") != "skill" and entry.get("skill_md"):
+        return str(entry["skill_md"])
+    return str(entry.get("source_dir") or entry.get("rel_dir") or ".")
 
 
 def _identity(entry: dict) -> str:

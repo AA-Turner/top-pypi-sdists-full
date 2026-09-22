@@ -25,13 +25,10 @@ class DataSafeClientCompositeOperations(object):
         """
         self.client = client
 
-    def activate_target_database_and_wait_for_state(self, activate_target_database_details, target_database_id, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
+    def activate_target_database_and_wait_for_state(self, target_database_id, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
         """
         Calls :py:func:`~oci.data_safe.DataSafeClient.activate_target_database` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
         to enter the given state(s).
-
-        :param oci.data_safe.models.ActivateTargetDatabaseDetails activate_target_database_details: (required)
-            The details used to reactivate a target database in Data Safe.
 
         :param str target_database_id: (required)
             The OCID of the Data Safe target database.
@@ -46,7 +43,7 @@ class DataSafeClientCompositeOperations(object):
             A dictionary of keyword arguments to pass to the :py:func:`oci.wait_until` function. For example, you could pass ``max_interval_seconds`` or ``max_interval_seconds``
             as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
         """
-        operation_result = self.client.activate_target_database(activate_target_database_details, target_database_id, **operation_kwargs)
+        operation_result = self.client.activate_target_database(target_database_id, **operation_kwargs)
         if not wait_for_states:
             return operation_result
         lowered_wait_for_states = [w.lower() for w in wait_for_states]
@@ -704,6 +701,48 @@ class DataSafeClientCompositeOperations(object):
             as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
         """
         operation_result = self.client.change_audit_profile_compartment(audit_profile_id, change_audit_profile_compartment_details, **operation_kwargs)
+        if not wait_for_states:
+            return operation_result
+        lowered_wait_for_states = [w.lower() for w in wait_for_states]
+        if 'opc-work-request-id' not in operation_result.headers:
+            return operation_result
+        wait_for_resource_id = operation_result.headers['opc-work-request-id']
+
+        try:
+            waiter_result = oci.wait_until(
+                self.client,
+                self.client.get_work_request(wait_for_resource_id),
+                evaluate_response=lambda r: getattr(r.data, 'status') and getattr(r.data, 'status').lower() in lowered_wait_for_states,
+                **waiter_kwargs
+            )
+            result_to_return = waiter_result
+
+            return result_to_return
+        except Exception as e:
+            raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
+
+    def change_crypto_assessment_compartment_and_wait_for_state(self, crypto_assessment_id, change_crypto_assessment_compartment_details, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
+        """
+        Calls :py:func:`~oci.data_safe.DataSafeClient.change_crypto_assessment_compartment` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
+        to enter the given state(s).
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.ChangeCryptoAssessmentCompartmentDetails change_crypto_assessment_compartment_details: (required)
+            The details used to change the compartment of a crypto assessment.
+
+        :param list[str] wait_for_states:
+            An array of states to wait on. These should be valid values for :py:attr:`~oci.data_safe.models.WorkRequest.status`
+
+        :param dict operation_kwargs:
+            A dictionary of keyword arguments to pass to :py:func:`~oci.data_safe.DataSafeClient.change_crypto_assessment_compartment`
+
+        :param dict waiter_kwargs:
+            A dictionary of keyword arguments to pass to the :py:func:`oci.wait_until` function. For example, you could pass ``max_interval_seconds`` or ``max_interval_seconds``
+            as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
+        """
+        operation_result = self.client.change_crypto_assessment_compartment(crypto_assessment_id, change_crypto_assessment_compartment_details, **operation_kwargs)
         if not wait_for_states:
             return operation_result
         lowered_wait_for_states = [w.lower() for w in wait_for_states]
@@ -2905,6 +2944,53 @@ class DataSafeClientCompositeOperations(object):
         except Exception as e:
             raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
 
+    def delete_crypto_assessment_and_wait_for_state(self, crypto_assessment_id, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
+        """
+        Calls :py:func:`~oci.data_safe.DataSafeClient.delete_crypto_assessment` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
+        to enter the given state(s).
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param list[str] wait_for_states:
+            An array of states to wait on. These should be valid values for :py:attr:`~oci.data_safe.models.WorkRequest.status`
+
+        :param dict operation_kwargs:
+            A dictionary of keyword arguments to pass to :py:func:`~oci.data_safe.DataSafeClient.delete_crypto_assessment`
+
+        :param dict waiter_kwargs:
+            A dictionary of keyword arguments to pass to the :py:func:`oci.wait_until` function. For example, you could pass ``max_interval_seconds`` or ``max_interval_seconds``
+            as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
+        """
+        operation_result = None
+        try:
+            operation_result = self.client.delete_crypto_assessment(crypto_assessment_id, **operation_kwargs)
+        except oci.exceptions.ServiceError as e:
+            if e.status == 404:
+                return WAIT_RESOURCE_NOT_FOUND
+            else:
+                raise e
+
+        if not wait_for_states:
+            return operation_result
+        lowered_wait_for_states = [w.lower() for w in wait_for_states]
+        if 'opc-work-request-id' not in operation_result.headers:
+            return operation_result
+        wait_for_resource_id = operation_result.headers['opc-work-request-id']
+
+        try:
+            waiter_result = oci.wait_until(
+                self.client,
+                self.client.get_work_request(wait_for_resource_id),
+                evaluate_response=lambda r: getattr(r.data, 'status') and getattr(r.data, 'status').lower() in lowered_wait_for_states,
+                **waiter_kwargs
+            )
+            result_to_return = waiter_result
+
+            return result_to_return
+        except Exception as e:
+            raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
+
     def delete_data_safe_private_endpoint_and_wait_for_state(self, data_safe_private_endpoint_id, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
         """
         Calls :py:func:`~oci.data_safe.DataSafeClient.delete_data_safe_private_endpoint` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
@@ -4330,6 +4416,48 @@ class DataSafeClientCompositeOperations(object):
         except Exception as e:
             raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
 
+    def generate_crypto_assessment_report_and_wait_for_state(self, crypto_assessment_id, generate_crypto_assessment_report_details, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
+        """
+        Calls :py:func:`~oci.data_safe.DataSafeClient.generate_crypto_assessment_report` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
+        to enter the given state(s).
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.GenerateCryptoAssessmentReportDetails generate_crypto_assessment_report_details: (required)
+            Details of the report.
+
+        :param list[str] wait_for_states:
+            An array of states to wait on. These should be valid values for :py:attr:`~oci.data_safe.models.WorkRequest.status`
+
+        :param dict operation_kwargs:
+            A dictionary of keyword arguments to pass to :py:func:`~oci.data_safe.DataSafeClient.generate_crypto_assessment_report`
+
+        :param dict waiter_kwargs:
+            A dictionary of keyword arguments to pass to the :py:func:`oci.wait_until` function. For example, you could pass ``max_interval_seconds`` or ``max_interval_seconds``
+            as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
+        """
+        operation_result = self.client.generate_crypto_assessment_report(crypto_assessment_id, generate_crypto_assessment_report_details, **operation_kwargs)
+        if not wait_for_states:
+            return operation_result
+        lowered_wait_for_states = [w.lower() for w in wait_for_states]
+        if 'opc-work-request-id' not in operation_result.headers:
+            return operation_result
+        wait_for_resource_id = operation_result.headers['opc-work-request-id']
+
+        try:
+            waiter_result = oci.wait_until(
+                self.client,
+                self.client.get_work_request(wait_for_resource_id),
+                evaluate_response=lambda r: getattr(r.data, 'status') and getattr(r.data, 'status').lower() in lowered_wait_for_states,
+                **waiter_kwargs
+            )
+            result_to_return = waiter_result
+
+            return result_to_return
+        except Exception as e:
+            raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
+
     def generate_discovery_report_for_download_and_wait_for_state(self, sensitive_data_model_id, generate_discovery_report_for_download_details, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
         """
         Calls :py:func:`~oci.data_safe.DataSafeClient.generate_discovery_report_for_download` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
@@ -5261,6 +5389,48 @@ class DataSafeClientCompositeOperations(object):
             as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
         """
         operation_result = self.client.purge_sql_collection_logs(sql_collection_id, **operation_kwargs)
+        if not wait_for_states:
+            return operation_result
+        lowered_wait_for_states = [w.lower() for w in wait_for_states]
+        if 'opc-work-request-id' not in operation_result.headers:
+            return operation_result
+        wait_for_resource_id = operation_result.headers['opc-work-request-id']
+
+        try:
+            waiter_result = oci.wait_until(
+                self.client,
+                self.client.get_work_request(wait_for_resource_id),
+                evaluate_response=lambda r: getattr(r.data, 'status') and getattr(r.data, 'status').lower() in lowered_wait_for_states,
+                **waiter_kwargs
+            )
+            result_to_return = waiter_result
+
+            return result_to_return
+        except Exception as e:
+            raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
+
+    def refresh_crypto_assessment_and_wait_for_state(self, crypto_assessment_id, run_crypto_assessment_details, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
+        """
+        Calls :py:func:`~oci.data_safe.DataSafeClient.refresh_crypto_assessment` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
+        to enter the given state(s).
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.RunCryptoAssessmentDetails run_crypto_assessment_details: (required)
+            The details required to create an on-demand saved crypto assessment.
+
+        :param list[str] wait_for_states:
+            An array of states to wait on. These should be valid values for :py:attr:`~oci.data_safe.models.WorkRequest.status`
+
+        :param dict operation_kwargs:
+            A dictionary of keyword arguments to pass to :py:func:`~oci.data_safe.DataSafeClient.refresh_crypto_assessment`
+
+        :param dict waiter_kwargs:
+            A dictionary of keyword arguments to pass to the :py:func:`oci.wait_until` function. For example, you could pass ``max_interval_seconds`` or ``max_interval_seconds``
+            as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
+        """
+        operation_result = self.client.refresh_crypto_assessment(crypto_assessment_id, run_crypto_assessment_details, **operation_kwargs)
         if not wait_for_states:
             return operation_result
         lowered_wait_for_states = [w.lower() for w in wait_for_states]
@@ -6356,6 +6526,48 @@ class DataSafeClientCompositeOperations(object):
             as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
         """
         operation_result = self.client.update_audit_trail(audit_trail_id, update_audit_trail_details, **operation_kwargs)
+        if not wait_for_states:
+            return operation_result
+        lowered_wait_for_states = [w.lower() for w in wait_for_states]
+        if 'opc-work-request-id' not in operation_result.headers:
+            return operation_result
+        wait_for_resource_id = operation_result.headers['opc-work-request-id']
+
+        try:
+            waiter_result = oci.wait_until(
+                self.client,
+                self.client.get_work_request(wait_for_resource_id),
+                evaluate_response=lambda r: getattr(r.data, 'status') and getattr(r.data, 'status').lower() in lowered_wait_for_states,
+                **waiter_kwargs
+            )
+            result_to_return = waiter_result
+
+            return result_to_return
+        except Exception as e:
+            raise oci.exceptions.CompositeOperationError(partial_results=[operation_result], cause=e)
+
+    def update_crypto_assessment_and_wait_for_state(self, crypto_assessment_id, update_crypto_assessment_details, wait_for_states=[], operation_kwargs={}, waiter_kwargs={}):
+        """
+        Calls :py:func:`~oci.data_safe.DataSafeClient.update_crypto_assessment` and waits for the :py:class:`~oci.data_safe.models.WorkRequest`
+        to enter the given state(s).
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.UpdateCryptoAssessmentDetails update_crypto_assessment_details: (required)
+            The information to be updated.
+
+        :param list[str] wait_for_states:
+            An array of states to wait on. These should be valid values for :py:attr:`~oci.data_safe.models.WorkRequest.status`
+
+        :param dict operation_kwargs:
+            A dictionary of keyword arguments to pass to :py:func:`~oci.data_safe.DataSafeClient.update_crypto_assessment`
+
+        :param dict waiter_kwargs:
+            A dictionary of keyword arguments to pass to the :py:func:`oci.wait_until` function. For example, you could pass ``max_interval_seconds`` or ``max_interval_seconds``
+            as dictionary keys to modify how long the waiter function will wait between retries and the maximum amount of time it will wait
+        """
+        operation_result = self.client.update_crypto_assessment(crypto_assessment_id, update_crypto_assessment_details, **operation_kwargs)
         if not wait_for_states:
             return operation_result
         lowered_wait_for_states = [w.lower() for w in wait_for_states]

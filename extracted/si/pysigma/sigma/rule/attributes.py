@@ -124,14 +124,20 @@ class SigmaRelatedItem:
     @classmethod
     def from_dict(cls, value: dict[str, str]) -> "SigmaRelatedItem":
         """Returns Related item from dict with fields."""
+        if not isinstance(value["id"], str):
+            raise sigma_exceptions.SigmaRelatedError(
+                "Sigma related identifier must be a string UUID"
+            )
         try:
             id = UUID(value["id"])
         except ValueError:
             raise sigma_exceptions.SigmaRelatedError("Sigma related identifier must be an UUID")
 
+        if not isinstance(value["type"], str):
+            raise sigma_exceptions.SigmaRelatedError("Sigma related type must be a string")
         try:
             type = SigmaRelatedType[value["type"].upper()]
-        except:
+        except KeyError:
             raise sigma_exceptions.SigmaRelatedError(
                 f"{value['type']} is not a Sigma related valid type"
             )
@@ -152,6 +158,10 @@ class SigmaRelated:
 
         list_ret: list[SigmaRelatedItem] = []
         for v in val:
+            if not isinstance(v, dict):
+                raise sigma_exceptions.SigmaRelatedError(
+                    "Sigma related items must be maps with an id and type field"
+                )
             if "id" not in v.keys():
                 raise sigma_exceptions.SigmaRelatedError("Sigma related must have an id field")
             elif "type" not in v.keys():

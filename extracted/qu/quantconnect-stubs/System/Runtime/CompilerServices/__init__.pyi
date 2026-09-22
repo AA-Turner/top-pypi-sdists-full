@@ -149,15 +149,6 @@ class IAsyncStateMachine(metaclass=abc.ABCMeta):
         ...
 
 
-class IUnion(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def value(self) -> System.Object:
-        ...
-
-
 class StringFreezingAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -1053,10 +1044,6 @@ class ScopedRefAttribute(System.Attribute):
 
     def __init__(self) -> None:
         ...
-
-
-class UnionAttribute(System.Attribute):
-    """This class has no documentation."""
 
 
 class ITuple(metaclass=abc.ABCMeta):

@@ -4,8 +4,10 @@
 
 The work splits along a line drawn by how much of it a script can honestly do:
 
-* **Mechanical.** Which release the docs were checked against, and when. Those
-  are facts, so ``src/lib/version.ts`` is rewritten in place.
+* **Mechanical.** Which release the docs were checked against, and when, and
+  which pages have changed since the site's last commit. Those are facts, so
+  ``src/lib/version.ts`` is rewritten in place and the changed pages get a
+  fresh ``<lastmod>`` in the sitemap (and ``dateModified`` in their JSON-LD).
 * **Semantic.** Tool inventories, parameter lists, environment variables — every
   one of these carries prose a script has no business inventing. So they are
   *checked*, not written: the release's own diff is mined for anything the site
@@ -34,12 +36,17 @@ SITE_REPO_ENV = "WORKSPACE_SITE_REPO"
 # that identifies a directory as the site repo.
 VERSION_TS = Path("src/lib/version.ts")
 TOOLS_TS = Path("src/lib/tools.ts")
+SERVICES_TS = Path("src/lib/services.ts")
+SITEMAP_XML = Path("static/sitemap.xml")
+ROUTES_DIR = Path("src/routes")
 SITE_SOURCE_DIR = Path("src")
 SITE_TEXT_SUFFIXES = {".svelte", ".ts", ".js", ".md", ".html", ".json"}
 
 # Injected by the tool decorators rather than supplied by the caller; the site
-# documents neither, and shouldn't.
+# documents neither, and shouldn't. require_multiple_services injects its
+# clients as "<type>_service", hence the suffix match below.
 IMPLICIT_TOOL_PARAMS = {"service", "user_google_email"}
+IMPLICIT_TOOL_PARAM_SUFFIX = "_service"
 
 # Runtime plumbing rather than user-facing configuration — never documented, so
 # flagging them as missing would be noise.
@@ -57,6 +64,22 @@ TOOL_NAME_RE = re.compile(r"name: '([^']+)',(?:\s*$|\s*tier:)")
 PARAM_RE = re.compile(r"\{ name: '([^']+)', required: (true|false)")
 
 ENV_NAME_RE = re.compile(r"[A-Z][A-Z0-9_]{3,}")
+
+# --- Page timestamps ----------------------------------------------------------
+# Each service's block in tools.ts and services.ts opens with a line naming its
+# slug, so a changed line belongs to the service whose anchor last preceded it.
+# /docs renders every service's tool inventory, so tools.ts edits reach it too.
+DATA_FILE_SLUG_RES = {
+    TOOLS_TS: SITE_SLUG_RE,
+    SERVICES_TS: re.compile(r"^\s*slug: '([a-z0-9-]+)',"),
+}
+TOOL_INVENTORY_PAGE = "/docs"
+SERVICE_ROUTE = "[service]"
+HUNK_RE = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", re.MULTILINE)
+SITEMAP_LASTMOD_RE = re.compile(
+    r"(<loc>[^<]*?//[^/<]+(/[^<]*)</loc>\s*<lastmod>)[^<]*(</lastmod>)"
+)
+DATE_MODIFIED_RE = re.compile(r"""(dateModified:\s*["'])\d{4}-\d{2}-\d{2}(["'])""")
 
 
 def git(args, cwd, check=True):
@@ -127,6 +150,112 @@ def update_version_pin(site_repo, tag, synced_at, write=True):
     return status
 
 
+# --- Mechanical: page timestamps --------------------------------------------
+
+
+def changed_site_files(site_repo):
+    """Site source edited since the site's last commit, including new routes."""
+    edited = git(
+        ["diff", "--name-only", "HEAD", "--", str(SITE_SOURCE_DIR)], cwd=site_repo
+    )
+    added = git(
+        ["ls-files", "--others", "--exclude-standard", "--", str(ROUTES_DIR)],
+        cwd=site_repo,
+    )
+    return sorted({Path(name) for name in (edited + added).splitlines()})
+
+
+def _touched_slugs(site_repo, path, anchor_re):
+    """Slugs of the service blocks that contain an uncommitted change to `path`."""
+    lines = (site_repo / path).read_text(encoding="utf-8").splitlines()
+    anchors = [
+        (number, match.group(1))
+        for number, line in enumerate(lines, 1)
+        if (match := anchor_re.match(line))
+    ]
+    diff = git(["diff", "-U0", "HEAD", "--", str(path)], cwd=site_repo)
+    slugs = set()
+    for hunk in HUNK_RE.finditer(diff):
+        start = int(hunk.group(1))
+        count = int(hunk.group(2) or 1)
+        for line in range(start, start + max(count, 1)):
+            owners = [slug for number, slug in anchors if number <= line]
+            if owners:
+                slugs.add(owners[-1])
+    return slugs
+
+
+def _route_paths(route_file, service_slugs):
+    """URL paths a `+page` file under src/routes renders, or [] for other files."""
+    parts = route_file.relative_to(ROUTES_DIR).parts
+    if not parts[-1].startswith("+page"):
+        return []
+    segments = [s for s in parts[:-1] if not (s.startswith("(") and s.endswith(")"))]
+    if segments == [SERVICE_ROUTE]:
+        return [f"/{slug}" for slug in service_slugs]
+    if any(s.startswith("[") for s in segments):
+        return []
+    return ["/" + "/".join(segments)]
+
+
+def changed_pages(site_repo, changed_files, service_slugs):
+    """URL paths whose rendered content differs from the site's last commit."""
+    pages = set()
+    for path in changed_files:
+        if path in DATA_FILE_SLUG_RES:
+            slugs = _touched_slugs(site_repo, path, DATA_FILE_SLUG_RES[path])
+            pages |= {f"/{slug}" for slug in slugs}
+            if slugs and path == TOOLS_TS:
+                pages.add(TOOL_INVENTORY_PAGE)
+        elif path.is_relative_to(ROUTES_DIR):
+            pages.update(_route_paths(path, service_slugs))
+    return pages
+
+
+def stamp_changed_pages(site_repo, service_slugs, synced_at, write=True):
+    """Dates every changed page's sitemap `<lastmod>` and JSON-LD `dateModified`.
+
+    Idempotent: re-running after further edits stamps the newly changed pages
+    and rewrites the same date on the rest.
+    """
+    changed_files = changed_site_files(site_repo)
+    pages = changed_pages(site_repo, changed_files, service_slugs)
+    listed = set()
+
+    def bump_lastmod(match):
+        path = match.group(2).rstrip("/") or "/"
+        if path not in pages:
+            return match.group(0)
+        listed.add(path)
+        return f"{match.group(1)}{synced_at}{match.group(3)}"
+
+    edits = {}
+    sitemap = site_repo / SITEMAP_XML
+    if sitemap.exists():
+        edits[SITEMAP_XML] = SITEMAP_LASTMOD_RE.sub(
+            bump_lastmod, sitemap.read_text(encoding="utf-8")
+        )
+    for path in changed_files:
+        if path.is_relative_to(ROUTES_DIR) and path.name == "+page.svelte":
+            text = (site_repo / path).read_text(encoding="utf-8")
+            edits[path] = DATE_MODIFIED_RE.sub(rf"\g<1>{synced_at}\g<2>", text)
+
+    written = []
+    for path, text in edits.items():
+        if text != (site_repo / path).read_text(encoding="utf-8"):
+            if write:
+                (site_repo / path).write_text(text, encoding="utf-8")
+            written.append(str(path))
+
+    return {
+        "date": synced_at,
+        "stamped": sorted(listed),
+        "unlisted": sorted(pages - listed),
+        "files": sorted(written),
+        "applied": write,
+    }
+
+
 # --- Semantic: tool and parameter drift -------------------------------------
 
 
@@ -148,12 +277,17 @@ def _signature_params(node):
     first_defaulted = len(positional) - len(args.defaults)
     params = {}
     for index, arg in enumerate(positional):
-        if arg.arg not in IMPLICIT_TOOL_PARAMS:
+        if not _is_implicit(arg.arg):
             params[arg.arg] = index < first_defaulted
     for arg, default in zip(args.kwonlyargs, args.kw_defaults):
-        if arg.arg not in IMPLICIT_TOOL_PARAMS:
+        if not _is_implicit(arg.arg):
             params[arg.arg] = default is None
     return params
+
+
+def _is_implicit(name):
+    """True for parameters the tool decorators inject rather than the caller."""
+    return name in IMPLICIT_TOOL_PARAMS or name.endswith(IMPLICIT_TOOL_PARAM_SUFFIX)
 
 
 def _module_source(source, rev=None):
@@ -443,6 +577,7 @@ def _section(title, lines, empty):
 def render_report(result):
     """Renders the sync result as the markdown left behind in dist/."""
     pin = result["version_pin"]
+    stamps = result["page_timestamps"]
     if not pin["changed"]:
         pin_line = f"already pinned to {pin['release']} ({pin['synced_at']})"
     elif pin["written"]:
@@ -461,6 +596,19 @@ def render_report(result):
         f"Site repo: `{result['site_repo']}`  ",
         f"Compared: `{result['previous_tag'] or 'n/a'}` → `{result['tag']}`\n",
         _section("Version pin", [f"`{pin['file']}`: {pin_line}"], ""),
+        _section(
+            "Page timestamps",
+            [
+                f"`{path}` {'dated' if stamps['applied'] else 'would be dated'} "
+                f"{stamps['date']}"
+                for path in stamps["stamped"]
+            ]
+            + [
+                f"`{path}` changed but is not in `{SITEMAP_XML}` (add it if it should be indexed)"
+                for path in stamps["unlisted"]
+            ],
+            "none — no page has changed since the site's last commit",
+        ),
         _section(
             "Documented modules this release touched",
             [
@@ -527,6 +675,9 @@ def sync(tag, previous_tag=None, site_repo=None, synced_at=None, write=True):
         "previous_tag": previous_tag,
         "site_repo": str(repo),
         "version_pin": update_version_pin(repo, tag, synced_at, write=write),
+        "page_timestamps": stamp_changed_pages(
+            repo, sorted(services), synced_at, write=write
+        ),
         "changed_modules": changed_tool_modules(services, previous_tag, tag),
         "new_to_document": new_to_document,
         "stale_docs": stale_docs,
@@ -562,7 +713,7 @@ def parse_args():
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Report drift without editing the version pin",
+        help="Report drift without editing the version pin or page dates",
     )
     parser.add_argument(
         "--json", dest="as_json", action="store_true", help="Emit the result as JSON"

@@ -206,6 +206,10 @@ class ListingRevision(object):
             The value to assign to the icon property of this ListingRevision.
         :type icon: oci.marketplace_publisher.models.ListingRevisionIconAttachment
 
+        :param banner:
+            The value to assign to the banner property of this ListingRevision.
+        :type banner: oci.marketplace_publisher.models.ListingRevisionBannerAttachment
+
         :param status:
             The value to assign to the status property of this ListingRevision.
             Allowed values for this property are: "NEW", "PENDING_REVIEW", "REVIEW_IN_PROGRESS", "REJECTED", "APPROVED", "PUBLISH_IN_PROGRESS", "PUBLISH_FAILED", "PUBLISHED", "PUBLISH_AS_PRIVATE_FAILED", "PUBLISHED_AS_PRIVATE", "PUBLISH_AS_PRIVATE_IN_PROGRESS", "UNPUBLISH_IN_PROGRESS", "UNPUBLISHED", 'UNKNOWN_ENUM_VALUE'.
@@ -270,6 +274,7 @@ class ListingRevision(object):
             'support_contacts': 'list[SupportContact]',
             'support_links': 'list[NamedLink]',
             'icon': 'ListingRevisionIconAttachment',
+            'banner': 'ListingRevisionBannerAttachment',
             'status': 'str',
             'status_notes': 'str',
             'lifecycle_state': 'str',
@@ -299,6 +304,7 @@ class ListingRevision(object):
             'support_contacts': 'supportContacts',
             'support_links': 'supportLinks',
             'icon': 'icon',
+            'banner': 'banner',
             'status': 'status',
             'status_notes': 'statusNotes',
             'lifecycle_state': 'lifecycleState',
@@ -327,6 +333,7 @@ class ListingRevision(object):
         self._support_contacts = None
         self._support_links = None
         self._icon = None
+        self._banner = None
         self._status = None
         self._status_notes = None
         self._lifecycle_state = None
@@ -779,6 +786,26 @@ class ListingRevision(object):
         :type: oci.marketplace_publisher.models.ListingRevisionIconAttachment
         """
         self._icon = icon
+
+    @property
+    def banner(self):
+        """
+        Gets the banner of this ListingRevision.
+
+        :return: The banner of this ListingRevision.
+        :rtype: oci.marketplace_publisher.models.ListingRevisionBannerAttachment
+        """
+        return self._banner
+
+    @banner.setter
+    def banner(self, banner):
+        """
+        Sets the banner of this ListingRevision.
+
+        :param banner: The banner of this ListingRevision.
+        :type: oci.marketplace_publisher.models.ListingRevisionBannerAttachment
+        """
+        self._banner = banner
 
     @property
     def status(self):

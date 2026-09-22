@@ -1,5 +1,5 @@
 #
-# Copyright 2025 Alibaba Group Holding Ltd.
+# Copyright 2025 The OpenSandbox Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,11 +112,7 @@ class EgressAdapter(Egress):
         base_url = f"{self.connection_config.protocol}://{self.endpoint.endpoint}"
         timeout_seconds = self.connection_config.request_timeout.total_seconds()
         timeout = httpx.Timeout(timeout_seconds)
-        headers = {
-            "User-Agent": self.connection_config.user_agent,
-            **self.connection_config.headers,
-            **self.endpoint.headers,
-        }
+        headers = self.endpoint.build_request_headers(self.connection_config)
 
         self._client = Client(
             base_url=base_url,

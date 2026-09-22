@@ -1,5 +1,5 @@
 project('pkgconf', 'c',
-  version : '3.0.1',
+  version : '3.0.7',
   license : 'ISC',
   default_options : [
     'c_std=c99',
@@ -18,6 +18,7 @@ if cc.get_argument_syntax() != 'msvc'
     )
   endif
   add_project_arguments(
+    '-D_ATFILE_SOURCE',
     '-D_BSD_SOURCE',
     '-D_DARWIN_C_SOURCE',
     '-D_DEFAULT_SOURCE',
@@ -65,6 +66,7 @@ endif
 cdata = configuration_data()
 
 check_functions = [
+  ['getc_unlocked', 'stdio.h'],
   ['strndup', 'string.h'],
   ['strdup', 'string.h'],
   ['strncasecmp', 'strings.h'],
@@ -73,11 +75,13 @@ check_functions = [
   ['pledge', 'unistd.h'],
   ['unveil', 'unistd.h'],
   ['readlinkat', 'unistd.h'],
+  ['mkdtemp', 'stdlib.h'],
 ]
 
 # Feature-test macros mirroring those defined globally by the build, so that
 # the function probes below see the same declarations as the actual sources.
 feature_macros = {
+  '_ATFILE_SOURCE': '',
   '_BSD_SOURCE': '',
   '_DARWIN_C_SOURCE': '',
   '_DEFAULT_SOURCE': '',
@@ -367,25 +371,29 @@ oom_wrap_args = [
 ]
 
 if build_oom_tests
-  # Unit test: fault-inject spdxtool's own allocations.  It links libpkgconf
-  # normally (shared); only spdxtool's compiled-in allocations are wrapped,
-  # which is exactly what we want to fail here.
-  test_api_oom_spdxtool_exe = executable('test-api-oom-spdxtool',
-    'tests/api/test-oom-spdxtool.c',
-    'fuzzer/alloc-inject.c',
-    'cli/spdxtool/core.c',
-    'cli/spdxtool/software.c',
-    'cli/spdxtool/serialize.c',
-    'cli/spdxtool/simplelicensing.c',
-    'cli/spdxtool/util.c',
-    windows_manifest,
-    link_with : libpkgconf,
-    c_args : build_static,
-    link_args : oom_wrap_args,
-    include_directories : [include_directories('.'), include_directories('tests/api'), include_directories('cli/spdxtool'), include_directories('fuzzer')],
-    install : false,
-    build_by_default : false)
-  test('api-oom-spdxtool', test_api_oom_spdxtool_exe)
+  # Unit test: fault-inject spdxtool's own allocations.  It requires a shared
+  # libpkgconf so that the linker's --wrap only reaches spdxtool's compiled-in
+  # allocations.  With a static libpkgconf its allocations are wrapped too,
+  # invalidating the test's expectation that every injected failure makes the
+  # spdxtool operation fail.
+  if libtype != 'static'
+    test_api_oom_spdxtool_exe = executable('test-api-oom-spdxtool',
+      'tests/api/test-oom-spdxtool.c',
+      'fuzzer/alloc-inject.c',
+      'cli/spdxtool/core.c',
+      'cli/spdxtool/software.c',
+      'cli/spdxtool/serialize.c',
+      'cli/spdxtool/simplelicensing.c',
+      'cli/spdxtool/util.c',
+      windows_manifest,
+      link_with : libpkgconf,
+      c_args : build_static,
+      link_args : oom_wrap_args,
+      include_directories : [include_directories('.'), include_directories('tests/api'), include_directories('cli/spdxtool'), include_directories('fuzzer')],
+      install : false,
+      build_by_default : false)
+    test('api-oom-spdxtool', test_api_oom_spdxtool_exe)
+  endif
 
   # Replay the existing parser/solver fuzz targets over their seed corpus,
   # deterministically and without libFuzzer, so the libpkgconf OOM paths they

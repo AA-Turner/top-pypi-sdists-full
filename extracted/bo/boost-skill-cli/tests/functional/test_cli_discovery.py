@@ -8,10 +8,12 @@ asserting exact output shapes, exit codes, and on-disk cache effects.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import sqlite3
 import subprocess
+import sys
 import time
 import types
 
@@ -82,6 +84,37 @@ def _make_tap(root):
     return root
 
 
+def _make_crowded_tap(root):
+    """A tap whose three skills all answer one query at almost the same score.
+
+    The shape a real registry produces by the hundred — near-duplicate skills
+    on one topic — and the one BM25 cannot spread apart: the bodies differ
+    only in trailing filler, so the scores separate by length normalization
+    alone and land within ~1.2% of each other.
+    """
+    body = "Kubernetes deployment guidance for kubernetes clusters. " * 6
+    for i, name in enumerate(
+            ("kubernetes-alpha", "kubernetes-beta", "kubernetes-gamma")):
+        d = root / "skills" / name
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(
+            "---\nname: %s\ndescription: Kubernetes deployment guidance\n"
+            "version: 1.0.0\n---\n\n# %s\n\n%s\n%s\n"
+            % (name, name, body, "filler word " * (i * 3)), encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "skills")
+    return root
+
+
+@pytest.fixture()
+def crowded_tap(boost, tmp_path):
+    """Sandbox holding only the near-tied tap (see :func:`_make_crowded_tap`)."""
+    tap = _make_crowded_tap(tmp_path / "crowded-tap")
+    boost("tap", tap)
+    return tap
+
+
 def _make_mirror_tap(root, name, desc):
     """A tap shipping one skill — for a curated fallback with duplicate names."""
     d = root / "skills" / name
@@ -120,6 +153,32 @@ class TestSearch:
         assert "▰" in r.out
         top = next(l for l in r.out.splitlines() if "commit-messages" in l)
         assert "▰▰▰▰" in top
+
+    def test_meter_separates_a_page_whose_scores_barely_differ(
+            self, boost, crowded_tap):
+        # The defect end to end. These three hits land within 1.2% of each
+        # other, and score/top needs a 12.5% gap before one of four cells goes
+        # out — so all three used to draw an identical ▰▰▰▰.
+        data = json.loads(boost("search", "kubernetes", "--json").out)
+        assert [e["name"] for e in data] == [
+            "kubernetes-alpha", "kubernetes-beta", "kubernetes-gamma"]
+        assert data[-1]["score"] / data[0]["score"] > 0.875
+        rows = [ln for ln in boost("search", "kubernetes").out.splitlines()
+                if "kubernetes-" in ln]
+        bars = [ln.split()[0] for ln in rows]
+        # The endpoints are the contract; the middle row is only asserted to
+        # differ from both, because pinning its exact cell count would make
+        # this test hostage to BM25's length normalization.
+        assert bars[0] == "▰▰▰▰"
+        assert bars[-1] == "▰▱▱▱"
+        assert len(set(bars)) == 3
+
+    def test_single_result_fills_the_meter(self, boost, tapped):
+        # A page of one has no spread to show, so it is not drawn as the
+        # weakest row of anything.
+        r = boost("search", "brainstorming")
+        row = next(l for l in r.out.splitlines() if "brainstorming" in l)
+        assert "▰▰▰▰" in row
 
     def test_limit_caps_rows_but_footer_counts_all(self, boost, tapped):
         r = boost("search", "workflow", "--limit", "1")
@@ -215,6 +274,45 @@ class TestSearch:
         top = next(ln for ln in narrow.out.splitlines()
                    if "commit-messages" in ln)
         assert "fixture-tap" not in top
+
+    def test_a_pipe_keeps_the_tap_column(self, boost, tapped, monkeypatch):
+        # No COLUMNS and no TTY is a pipe: there is no pane to fit, so the
+        # plan must not assume `term_width()`'s 80 and drop the tap (it needs
+        # 84) — `boost search x | grep owner/repo` has to find the row.
+        monkeypatch.delenv("COLUMNS", raising=False)
+        piped = boost("search", "commit", "messages")
+        top = next(ln for ln in piped.out.splitlines()
+                   if "commit-messages" in ln)
+        assert "fixture-tap" in top
+
+    def test_a_wide_pane_shows_both_copy_targets_whole(self, boost, tmp_path,
+                                                       monkeypatch):
+        # Two taps ship one 38-cell name, so `info` needs the `tap:name`
+        # qualifier — and at 300 columns the row used to show it as
+        # `sickn33-antigravity…:doc-coauthoring-with-structured…`, which
+        # `info` rejects. The row itself must be enough to build the command.
+        # (Two descriptions, because identical content is one search row.)
+        # Both over their caps (32, 20), and short enough that the clone
+        # stays well inside Windows' 260-character path limit.
+        name = "doc-coauthoring-with-structured-review"
+        long_tap = "sickn33-antigravity-awesome-skills"
+        for tap, desc in ((long_tap, "Coauthor documents with review"),
+                          ("short-tap", "Coauthor documents with handoff")):
+            boost("tap", _make_mirror_tap(tmp_path / tap, name, desc))
+        monkeypatch.setenv("COLUMNS", "300")
+        r = boost("search", "coauthor", "documents")
+        row = next(ln for ln in r.out.splitlines() if "sickn33" in ln)
+        cells = row.split()
+        assert "…" not in row and cells[1] == name and cells[3] == long_tap
+        boost("info", name, expect=1)                 # ambiguous unqualified
+        info = boost("info", "%s:%s" % (cells[3], cells[1]))
+        assert name in info.out and long_tap in info.out
+        # Narrow panes keep the fitted plan: capped name, no tap, in the pane.
+        monkeypatch.setenv("COLUMNS", "60")
+        narrow = boost("search", "coauthor", "documents")
+        rows = [ln for ln in narrow.out.splitlines() if "doc-coauthoring" in ln]
+        assert rows and all(output.visible_len(ln) <= 60 for ln in rows)
+        assert not any("short-tap" in ln or "sickn33" in ln for ln in rows)
 
     def test_curated_tap_gets_star(self, boost, fixture_tap_src):
         boost("tap", fixture_tap_src, "--curated")
@@ -347,6 +445,12 @@ class TestSearch:
         r = boost("search", "commit", "messages")
         assert "commit-messages" in r.out
         assert "ranked by heuristic relevance" in r.out
+
+    def test_k_is_an_alias_of_limit(self, boost, tapped):
+        # chat took -k and search did not: `search "…" -k 5` was a usage error.
+        short = boost("search", "workflow", "-k", "1")
+        assert short.out == boost("search", "workflow", "--limit", "1").out
+        assert "jira-integration" not in short.out
 
     def test_limit_must_be_positive_int(self, boost, tapped):
         r = boost("search", "x", "--limit", "0", expect=2)
@@ -1511,6 +1615,42 @@ class TestBrowse:
         discovery._browse_tui(_FakeCurses(keys), entries, install=slow_install)
         assert not overlapped, "installs ran concurrently: %r" % overlapped
 
+    def test_an_in_place_install_names_an_agent_it_skipped(self, boost, tapped):
+        """The detail pane is the only report an in-place install gets, and it
+        showed the store path alone — "installed" over an agent dir that
+        refused the link."""
+        from boost_cli.commands import discovery
+        from boost_cli.core import catalog
+
+        refused = paths.home() / ".cursor" / "skills"
+
+        def install(entry):
+            return types.SimpleNamespace(
+                dest=paths.store_dir() / entry["name"], linked=["claude-code"],
+                conflicts=[], unwritable=[str(refused)], kind="skill")
+
+        class Polls(_FakeCurses):
+            """Enter, then poll ticks until the worker's report is drawn."""
+
+            ticks = 0
+
+            def getch(self):
+                if self.keys:
+                    return self.keys.pop(0)
+                drawn = " ".join(" ".join(self.drawn).split())
+                if "is not writable" not in drawn and self.ticks < 250:
+                    self.ticks += 1
+                    time.sleep(0.02)
+                    return -1                             # redraw, no key
+                return 27
+
+        entries = sorted(catalog.all_entries(), key=lambda e: e["name"])
+        fake = Polls([10], size=(30, 140))
+        discovery._browse_tui(fake, entries, install=install)
+        drawn = " ".join(" ".join(fake.drawn).split())
+        assert ("installed ~/.agents/skills/brainstorming · not linked: "
+                "~/.cursor/skills is not writable") in drawn
+
     def test_space_types_into_the_query_instead_of_selecting(self, boost, tapped):
         """The reported bug: SPACE was bound to select and excluded from the
         printable range, so two words could never be searched for."""
@@ -2082,6 +2222,55 @@ class TestReindex:
         r = boost("reindex")
         assert "indexed" in r.out and "passages" in r.out
         assert rag.ready() is True
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_an_unwritable_cache_dir_is_one_error_not_a_crash(self, boost,
+                                                               tapped):
+        # search, browse, info and update degrade in a cache dir boost cannot
+        # write; reindex exited 70 with a PermissionError crash report.
+        from boost_cli.core import rag
+        boost("reindex")
+        before = rag.index_path().read_bytes()
+        paths.cache_dir().chmod(0o500)
+        try:
+            r = boost("reindex", "--force", expect=1)
+        finally:
+            paths.cache_dir().chmod(0o700)
+        assert r.err.splitlines() == [
+            "Error: could not save the search index in ~/.boost/cache "
+            "(Permission denied)",
+            "  hint: run `chmod u+w ~/.boost/cache`"]
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+        # The index already there is untouched, and search still reads it.
+        assert rag.index_path().read_bytes() == before
+        assert rag.ready() is True
+        assert not list(paths.cache_dir().glob(".rag_postings.sqlite.*.tmp"))
+        boost("reindex", "--force")               # and once it is writable
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_a_cache_dir_it_cannot_create_names_boost_home(self, boost,
+                                                           tapped):
+        # A cloned tap, no cache dir and a read-only ~/.boost: rebuild_tap
+        # exited 70 creating the dir before the index could say what to fix.
+        shutil.rmtree(paths.cache_dir())
+        paths.boost_home().chmod(0o500)
+        try:
+            r = boost("reindex", expect=1)
+        finally:
+            paths.boost_home().chmod(0o700)
+        assert "could not save the catalog cache for fixture-tap" \
+            in " ".join(r.err.split())
+        assert r.err.splitlines()[-2:] == [
+            "Error: could not save the search index in ~/.boost "
+            "(Permission denied)",
+            "  hint: run `chmod u+w ~/.boost`"]
+        assert not list(paths.logs_dir().glob("crash-*.log"))
 
     def test_json_stats(self, boost, tapped):
         r = boost("reindex", "--json")

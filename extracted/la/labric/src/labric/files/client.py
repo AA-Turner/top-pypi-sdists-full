@@ -8,6 +8,7 @@ from ..core.request_options import RequestOptions
 from ..types.file_content_schema import FileContentSchema
 from ..types.file_info_schema import FileInfoSchema
 from ..types.file_upload_schema import FileUploadSchema
+from ..types.file_upload_url_schema import FileUploadUrlSchema
 from .raw_client import AsyncRawFilesClient, RawFilesClient
 
 # this is used as the default value for optional parameters
@@ -93,15 +94,20 @@ class FilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> FileUploadSchema:
         """
-        Upload a file.
+        Upload a file in one multipart/form-data request.
 
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
+        Request bodies over 4.5 MB are rejected at the platform edge before they
+        reach this route. For larger files, create an upload URL and PUT the bytes
+        to it instead; the SDK's files.upload() does that for files of any size.
+        The [Upload files](https://docs.labric.co/upload-files) guide walks
+        through both flows.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
 
         Requires an API key with the `write` scope.
 
@@ -134,6 +140,121 @@ class FilesClient:
         _response = self._raw_client.upload(
             file=file, job_execution_id=job_execution_id, instrument_id=instrument_id, request_options=request_options
         )
+        return _response.data
+
+    def create_upload_url(
+        self,
+        *,
+        file_name: str,
+        content_type: typing.Optional[str] = OMIT,
+        job_execution_id: typing.Optional[str] = OMIT,
+        instrument_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> FileUploadUrlSchema:
+        """
+        Start an upload that sends the file bytes straight to storage.
+
+        Creates the file record and returns a signed URL that accepts the bytes as
+        the body of an HTTP PUT for the next 15 minutes. Send exactly the returned
+        headers on the PUT and no Authorization header, then confirm the upload to
+        make the file visible. The URL only creates the object, never replaces one,
+        and refuses bodies over 500 MB. Asking again for an instrument path whose
+        upload was never confirmed returns a fresh URL for the same file, so a
+        failed PUT can be retried. The SDK's files.upload() runs all three steps;
+        the [Upload files](https://docs.labric.co/upload-files) guide shows them
+        with curl.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_name : str
+            The file name to record, e.g. results.csv.
+
+        content_type : typing.Optional[str]
+            MIME type of the file. Defaults to application/octet-stream, which is also substituted for types a browser could render as a page.
+
+        job_execution_id : typing.Optional[str]
+            The job execution producing the file, for a job artifact.
+
+        instrument_id : typing.Optional[str]
+            The instrument that captured the file, for off-platform data.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        FileUploadUrlSchema
+            OK
+
+        Examples
+        --------
+        from labric import Labric
+
+        client = Labric(
+            api_key="YOUR_API_KEY",
+        )
+        client.files.create_upload_url(
+            file_name="file_name",
+        )
+        """
+        _response = self._raw_client.create_upload_url(
+            file_name=file_name,
+            content_type=content_type,
+            job_execution_id=job_execution_id,
+            instrument_id=instrument_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def confirm_upload(
+        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> FileUploadSchema:
+        """
+        Finish an upload after the PUT to its upload URL has succeeded.
+
+        Records the stored file's size and checksum, makes the file visible in
+        listings, and notifies triggers and parsers. Files over 500 MB and native
+        executables are discarded with a 400, as the one-request upload rejects
+        them. Confirming a file that is already confirmed returns its record again
+        without notifying anyone twice. The
+        [Upload files](https://docs.labric.co/upload-files) guide shows the full
+        sequence.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        FileUploadSchema
+            OK
+
+        Examples
+        --------
+        from labric import Labric
+
+        client = Labric(
+            api_key="YOUR_API_KEY",
+        )
+        client.files.confirm_upload(
+            file_id="file_id",
+        )
+        """
+        _response = self._raw_client.confirm_upload(file_id, request_options=request_options)
         return _response.data
 
     def get_content(
@@ -262,15 +383,20 @@ class AsyncFilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> FileUploadSchema:
         """
-        Upload a file.
+        Upload a file in one multipart/form-data request.
 
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
+        Request bodies over 4.5 MB are rejected at the platform edge before they
+        reach this route. For larger files, create an upload URL and PUT the bytes
+        to it instead; the SDK's files.upload() does that for files of any size.
+        The [Upload files](https://docs.labric.co/upload-files) guide walks
+        through both flows.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
 
         Requires an API key with the `write` scope.
 
@@ -311,6 +437,137 @@ class AsyncFilesClient:
         _response = await self._raw_client.upload(
             file=file, job_execution_id=job_execution_id, instrument_id=instrument_id, request_options=request_options
         )
+        return _response.data
+
+    async def create_upload_url(
+        self,
+        *,
+        file_name: str,
+        content_type: typing.Optional[str] = OMIT,
+        job_execution_id: typing.Optional[str] = OMIT,
+        instrument_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> FileUploadUrlSchema:
+        """
+        Start an upload that sends the file bytes straight to storage.
+
+        Creates the file record and returns a signed URL that accepts the bytes as
+        the body of an HTTP PUT for the next 15 minutes. Send exactly the returned
+        headers on the PUT and no Authorization header, then confirm the upload to
+        make the file visible. The URL only creates the object, never replaces one,
+        and refuses bodies over 500 MB. Asking again for an instrument path whose
+        upload was never confirmed returns a fresh URL for the same file, so a
+        failed PUT can be retried. The SDK's files.upload() runs all three steps;
+        the [Upload files](https://docs.labric.co/upload-files) guide shows them
+        with curl.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_name : str
+            The file name to record, e.g. results.csv.
+
+        content_type : typing.Optional[str]
+            MIME type of the file. Defaults to application/octet-stream, which is also substituted for types a browser could render as a page.
+
+        job_execution_id : typing.Optional[str]
+            The job execution producing the file, for a job artifact.
+
+        instrument_id : typing.Optional[str]
+            The instrument that captured the file, for off-platform data.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        FileUploadUrlSchema
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from labric import AsyncLabric
+
+        client = AsyncLabric(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.files.create_upload_url(
+                file_name="file_name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_upload_url(
+            file_name=file_name,
+            content_type=content_type,
+            job_execution_id=job_execution_id,
+            instrument_id=instrument_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def confirm_upload(
+        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> FileUploadSchema:
+        """
+        Finish an upload after the PUT to its upload URL has succeeded.
+
+        Records the stored file's size and checksum, makes the file visible in
+        listings, and notifies triggers and parsers. Files over 500 MB and native
+        executables are discarded with a 400, as the one-request upload rejects
+        them. Confirming a file that is already confirmed returns its record again
+        without notifying anyone twice. The
+        [Upload files](https://docs.labric.co/upload-files) guide shows the full
+        sequence.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        FileUploadSchema
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from labric import AsyncLabric
+
+        client = AsyncLabric(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.files.confirm_upload(
+                file_id="file_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.confirm_upload(file_id, request_options=request_options)
         return _response.data
 
     async def get_content(

@@ -5,11 +5,42 @@ isort:skip_file
 
 import builtins
 import google.protobuf.descriptor
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
+import sys
 import typing
 
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
+
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _PartnerBillingStrategy:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _PartnerBillingStrategyEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_PartnerBillingStrategy.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    PARTNER_BILLING_STRATEGY_UNSPECIFIED: _PartnerBillingStrategy.ValueType  # 0
+    """3rd party bills the customer independently. The platform records a $0
+    invoice.
+    """
+    PARTNER_BILLING_STRATEGY_VERCEL: _PartnerBillingStrategy.ValueType  # 1
+    """Platform calculates the invoice and submits it to Vercel."""
+
+class PartnerBillingStrategy(_PartnerBillingStrategy, metaclass=_PartnerBillingStrategyEnumTypeWrapper):
+    """The invoicing and collection behavior for a partner-billed contract."""
+
+PARTNER_BILLING_STRATEGY_UNSPECIFIED: PartnerBillingStrategy.ValueType  # 0
+"""3rd party bills the customer independently. The platform records a $0
+invoice.
+"""
+PARTNER_BILLING_STRATEGY_VERCEL: PartnerBillingStrategy.ValueType  # 1
+"""Platform calculates the invoice and submits it to Vercel."""
+global___PartnerBillingStrategy = PartnerBillingStrategy
 
 @typing.final
 class SponsorshipConfig(google.protobuf.message.Message):
@@ -104,16 +135,20 @@ class PartnerConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SELF_SERVE_FIELD_NUMBER: builtins.int
+    BILLING_STRATEGY_FIELD_NUMBER: builtins.int
     self_serve: builtins.bool
     """Whether the marketplace provisions through the channel flow, which leaves
     the customer able to change their own plan.
     """
+    billing_strategy: global___PartnerBillingStrategy.ValueType
+    """How is this customer invoiced?"""
     def __init__(
         self,
         *,
         self_serve: builtins.bool = ...,
+        billing_strategy: global___PartnerBillingStrategy.ValueType = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["self_serve", b"self_serve"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["billing_strategy", b"billing_strategy", "self_serve", b"self_serve"]) -> None: ...
 
 global___PartnerConfig = PartnerConfig
 

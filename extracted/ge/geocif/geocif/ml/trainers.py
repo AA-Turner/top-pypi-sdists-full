@@ -1154,6 +1154,7 @@ def auto_train(
     mitra_params: dict = None,
     tabpfn_params: dict = None,
     causilo_params: dict = None,
+    limix_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -1826,6 +1827,39 @@ def auto_train(
                 mitra.get("fine_tune", False)
             )
             model = MitraYieldRegressor(seed=int(seed), **mitra)
+        elif model_name == "limix":
+            # LimiX-2 (StableAI, 2026-09-16) — in-context tabular foundation
+            # model, ~400 M params. Same family as tabpfn/mitra/causilo: the
+            # support set and queries go through one forward pass, no gradient
+            # step at fit time.
+            #
+            # NON-COMMERCIAL WEIGHTS. The checkpoint is under the StableAI
+            # LimiX Non-Commercial License v1.0 (the code is Apache-2.0 with
+            # attribution clauses, the weights are not). Research/paper use
+            # only — never an operational or commercial forecast product. Same
+            # standing caveat as `causilo`.
+            #
+            # It also needs its OWN INTERPRETER: LimiX declares
+            # requires-python >= 3.12 and expects CUDA, while the production
+            # pixi env is Python 3.11 + CPU torch. Launch from the side env
+            # (/gpfs/data1/cmongp1/ritvik/limix_env) on a GPU node via
+            # ~/run_limix.sh; ml/limix.py raises a message naming that env if
+            # the import fails.
+            #
+            # Unlike mitra, this wrapper returns point predictions only, so it
+            # is left to the normal conformal path below (crepes/mapie) rather
+            # than being added to the unwrapped list.
+            if model_type != "REGRESSION":
+                raise ValueError(
+                    "model = 'limix' supports REGRESSION only; the "
+                    "classification task would need a different LimiX "
+                    "inference config and is not wired into geocif."
+                )
+            from .limix import LimiXYieldRegressor
+
+            limix = dict(device="auto")
+            limix.update(limix_params or {})
+            model = LimiXYieldRegressor(seed=int(seed), **limix)
         elif model_name == "causilo":
             # Causilo (Nums AI Inc., github.com/nums-ai/causilo) -- pretrained
             # tabular foundation model in the TabPFN/Mitra family: in-context,

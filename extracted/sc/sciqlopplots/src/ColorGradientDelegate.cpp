@@ -24,7 +24,10 @@
 #include "magic_enum/magic_enum_utility.hpp"
 #include "qcustomplot.h"
 #include <QPainter>
+#include <QSignalBlocker>
 
+
+static const QString custom_text = "Custom";
 
 QIcon icon(ColorGradient gradient)
 {
@@ -42,7 +45,11 @@ ColorGradientDelegate::ColorGradientDelegate(ColorGradient gradient, QWidget* pa
         : QComboBox(parent)
 {
     connect(this, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index)
-            { emit gradientChanged(this->itemData(index).value<ColorGradient>()); });
+            {
+                const auto data = this->itemData(index);
+                if (data.isValid())
+                    emit gradientChanged(data.value<ColorGradient>());
+            });
 
     magic_enum::enum_for_each<ColorGradient>(
         [this](ColorGradient gradient) {
@@ -55,7 +62,22 @@ void ColorGradientDelegate::setGradient(ColorGradient gradient)
 {
     m_gradient = gradient;
     setCurrentIndex(findData(QVariant::fromValue(gradient)));
+    removeCustomEntry();
     emit gradientChanged(gradient);
+}
+
+void ColorGradientDelegate::removeCustomEntry()
+{
+    if (const auto row = findText(custom_text); row >= 0)
+        removeItem(row);
+}
+
+void ColorGradientDelegate::show_custom()
+{
+    QSignalBlocker blocker(this);
+    if (findText(custom_text) < 0)
+        addItem(custom_text);
+    setCurrentIndex(findText(custom_text));
 }
 
 ColorGradient ColorGradientDelegate::gradient() const

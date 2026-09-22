@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import logging
 import warnings
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Any, Generic, TypeVar
 
 from .base import BaseResolver
@@ -68,7 +68,7 @@ MISSING_ARGS = [
 ]
 
 
-class ClassResolver(Generic[X], BaseResolver[type[X], X]):
+class ClassResolver(BaseResolver[type[X], X], Generic[X]):
     """Resolve from a list of classes."""
 
     #: The base class
@@ -98,9 +98,9 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         :param suffix: The optional shared suffix of all instances. If not none, will
             override ``base_as_suffix``.
         :param synonyms: The optional synonym dictionary
-        :param synonym_attribute:
-            The attribute or list of attributes to look in each class for synonyms.
-            Defaults to ``synonyms``. Explicitly set to None to turn off synonym lookup.
+        :param synonym_attribute: The attribute or list of attributes to look in each
+            class for synonyms. Defaults to ``synonyms``. Explicitly set to None to turn
+            off synonym lookup.
         :param base_as_suffix: Should the base class's name be used as the suffix if
             none is given? Defaults to true.
         :param location: The location used to document the resolver in sphinx
@@ -169,6 +169,7 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         skip: Collection[type[X]] | None = None,
         exclude_private: bool = True,
         exclude_external: bool = True,
+        exclude_predicate: Callable[[type[X]], bool] | None = None,
         **kwargs: Any,
     ) -> ClassResolver[X]:
         """Make a resolver from the subclasses of a given class.
@@ -181,6 +182,8 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
             when having shadow duplicate classes implemented in C
         :param exclude_external: If true, will exclude any class that does not originate
             from the same package as the base class.
+        :param exclude_func: If given, will exclude any class that causes the function
+            to return true
         :param kwargs: remaining keyword arguments to pass to :func:`Resolver.__init__`
 
         :returns: A resolver instance
@@ -189,7 +192,12 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
         return cls(
             {
                 subcls
-                for subcls in get_subclasses(base, exclude_private=exclude_private, exclude_external=exclude_external)
+                for subcls in get_subclasses(
+                    base,
+                    exclude_private=exclude_private,
+                    exclude_external=exclude_external,
+                    exclude_predicate=exclude_predicate,
+                )
                 if subcls not in skip
             },
             base=base,
@@ -240,7 +248,7 @@ class ClassResolver(Generic[X], BaseResolver[type[X], X]):
                     raise KeywordArgumentError(cls, e.args[0]) from None
                 if any(text in e.args[0] for text in MISSING_ARGS):
                     raise UnexpectedKeywordError(cls) from None
-                raise e
+                raise
 
         # An instance was passed, and it will go through without modification.
         return query

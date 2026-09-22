@@ -4,7 +4,6 @@ from itertools import chain, combinations, permutations, product
 
 import networkx as nx
 from networkx import density
-from networkx.exception import NetworkXException
 from networkx.utils import arbitrary_element
 
 __all__ = [
@@ -200,11 +199,11 @@ def quotient_graph(
     Examples
     --------
     The quotient graph of the complete bipartite graph under the "same
-    neighbors" equivalence relation is `K_2`. Under this relation, two nodes
+    neighbors" equivalence relation is ``K_2``. Under this relation, two nodes
     are equivalent if they are not adjacent but have the same neighbor set.
 
     >>> G = nx.complete_bipartite_graph(2, 3)
-    >>> same_neighbors = lambda u, v: (u not in G[v] and v not in G[u] and G[u] == G[v])
+    >>> same_neighbors = lambda u, v: u not in G[v] and v not in G[u] and G[u] == G[v]
     >>> Q = nx.quotient_graph(G, same_neighbors)
     >>> K2 = nx.complete_graph(2)
     >>> nx.is_isomorphic(Q, K2)
@@ -212,8 +211,8 @@ def quotient_graph(
 
     The quotient graph of a directed graph under the "same strongly connected
     component" equivalence relation is the condensation of the graph (see
-    :func:`condensation`). This example comes from the Wikipedia article
-    *`Strongly connected component`_*.
+    :func:`~networkx.algorithms.components.condensation`).
+    This example comes from the Wikipedia article `Strongly connected component`_.
 
     >>> G = nx.DiGraph()
     >>> edges = [
@@ -331,7 +330,9 @@ def quotient_graph(
         G = G.subgraph(partition_nodes)
     # Each node in the graph/subgraph must be in exactly one block.
     if not nx.community.is_partition(G, partition):
-        raise NetworkXException("each node must be in exactly one part of `partition`")
+        raise nx.NetworkXException(
+            "each node must be in exactly one part of `partition`"
+        )
     return _quotient_graph(
         G,
         partition,

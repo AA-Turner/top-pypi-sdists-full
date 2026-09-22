@@ -47,6 +47,9 @@ class Point(TypedDict):
     markerSize: ItemOrList[ItemOrList[float | int | None,]] | None
     bbox: BBox | None
 
+_ID_PROP = "id"
+_DIV_ID_PROP = "divId"
+
 class Plotly(NoSSRComponent):
     def add_imports(self) -> ImportDict: ...
     def add_custom_code(self) -> list[str]: ...

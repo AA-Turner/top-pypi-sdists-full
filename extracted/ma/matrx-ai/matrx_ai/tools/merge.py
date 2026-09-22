@@ -284,8 +284,12 @@ def enforce_hard_tool_exclusions(
     removed = (before_registered - len(config.tools)) + (before_inline - len(config.custom_tools))
     if removed:
         vcprint(
+            # The two numbers are different questions and used to read like a
+            # contradiction in the log ("removed 8" beside a list of 11): the
+            # first is how many were actually ON this request, the second is
+            # the whole policy. Both are named so neither looks like a bug.
             f"[merge_request_tools] HARD EXCLUSION removed {removed} active "
-            f"tool(s): {sorted(hard)}",
+            f"tool(s) under a policy naming {len(hard)}: {sorted(hard)}",
             color="cyan",
         )
     return ctx

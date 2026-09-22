@@ -63,6 +63,7 @@ class ScoutConfig(object):
         "app_server",
         "application_root",
         "collect_remote_ip",
+        "core_agent_ca_cert",
         "core_agent_config_file",
         "core_agent_dir",
         "core_agent_download",
@@ -229,7 +230,7 @@ class Defaults(object):
             "core_agent_log_level": "info",
             "core_agent_permissions": 700,
             "core_agent_socket_path": "tcp://127.0.0.1:6590",
-            "core_agent_version": "v1.5.1",  # can be an exact tag name, or 'latest'
+            "core_agent_version": "v1.6.0",  # can be an exact tag name, or 'latest'
             "disabled_instruments": [],
             "download_url": (
                 "https://s3-us-west-1.amazonaws.com/scout-public-downloads/"

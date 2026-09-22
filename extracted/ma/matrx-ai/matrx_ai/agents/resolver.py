@@ -28,6 +28,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from matrx_utils import vcprint
 
+from matrx_ai.agents import live_structure
 from matrx_ai.agents.cache import AgentCache
 from matrx_ai.agents.definition import Agent
 from matrx_ai.config import LLMParams, UnifiedConfig
@@ -199,6 +200,117 @@ class ConversationResolver:
 
             agent = Agent(config=deepcopy(config))
             AgentCache.set(conversation_id, agent)
+
+        # ── A ROW THAT NAMES AN AGENT BUT NEVER RAN ONE ──────────────────
+        # `system_instruction` on the conversation row is written by the turn
+        # that adopted an agent's structure. A conversation created by a DOOR
+        # — a Personal Staff thread minted so a text, a call and the in-app
+        # page continue ONE conversation — never had such a turn, so the row
+        # names its agent in `initial_agent_id` and carries none of that
+        # agent's configuration. Every turn on it is a continuation, so
+        # without this the agent's system prompt and its whole belt stay in
+        # the database forever and the model answers from nothing: on
+        # 2026-09-21 a Chief of Staff asked to run a shell command in its
+        # owner's box printed a plausible hostname it had read in its briefing
+        # and called no tool at all.
+        #
+        # Done HERE rather than in one caller because three continuation
+        # surfaces share this resolver — the agent route, `/conversations/{id}`,
+        # and crash recovery — and a fix in one of them leaves a person's staff
+        # amnesiac on the other two. It costs one extra read, and only on a
+        # conversation that is already in this state.
+        #
+        # TWO SYMPTOMS, ONE STATE. A row that never adopted an agent has no
+        # frozen prompt; a row whose adoption was interrupted (a crash-recovery
+        # turn rewrote its config blob from a turn that had nothing) keeps the
+        # prompt and loses the belt — and a staff thread with a prompt but no
+        # tools is the fabricating agent again, this time politely. Either
+        # symptom means the same thing: the row is not carrying the agent it
+        # names. The tool read costs one primary-key lookup and happens only on
+        # a conversation that carries no tools at all, which on a tool-using
+        # platform is the anomaly, not the norm.
+        #
+        # A THIRD STATE, AND THE ONE THE OTHER TWO KEPT COMING BACK FROM: the
+        # row is MANDATE-HELD. Its structural half never belonged to it — it
+        # belongs to whoever holds the mandate right now — so a frozen prompt
+        # and a frozen belt on such a row are not evidence of adoption, they
+        # are last week's Holder. `chat.conversation.config` is rewritten
+        # wholesale at the end of every turn, so the in-app door's repair
+        # (`personal_staff/thread_row.py`) held for exactly one turn and only
+        # on the surface that opened the door; the SMS worker, the voice
+        # ingress, crash recovery and the deferred-result inbox driver ran the
+        # stale belt. The marker and the rule live in `agents/live_structure.py`
+        # — read it before changing this branch.
+        _structureless = not str(getattr(config, "system_instruction", None) or "").strip() or not (
+            getattr(config, "tools", None) or getattr(config, "custom_tools", None)
+        )
+        source = None
+        if not responder_agent_id:
+            source = await live_structure.read_structure_source(conversation_id)
+
+        if source is not None and source.is_live:
+            live_agent, live_is_version = await live_structure.resolve_live_structure_agent(
+                source
+            )
+            if live_agent:
+                vcprint(
+                    f"[ConversationResolver] {conversation_id} is mandate-held"
+                    + (f" ({source.mandate_key})" if source.mandate_key else "")
+                    + f" — resolving the structural half (prompt, model, tools, "
+                    f"settings) LIVE from Holder {live_agent} while the conversation "
+                    f"supplies the history. The row's own config is never the "
+                    f"authority here.",
+                    color="cyan",
+                )
+                return await ConversationResolver.from_conversation_id(
+                    conversation_id,
+                    user_input=user_input,
+                    config_overrides=config_overrides,
+                    responder_agent_id=live_agent,
+                    responder_is_version=live_is_version,
+                )
+            vcprint(
+                f"[ConversationResolver] {conversation_id} is marked mandate-held but "
+                f"no Holder could be resolved for it. This turn runs with the "
+                f"conversation's own configuration, which on a mandate-held row is "
+                f"whatever a previous Holder left behind.",
+                color="red",
+            )
+
+        if not responder_agent_id and _structureless:
+            named = source.named_agent_id if source is not None else None
+            named_is_version = source.named_is_version if source is not None else False
+            if named and str(getattr(config, "system_instruction", None) or "").strip():
+                # The prompt is already frozen, so the only thing worth taking
+                # from the agent is a belt it actually has. Without this an
+                # agent that legitimately carries no tools would have its
+                # conversation re-resolved from the live definition on every
+                # turn — quietly unfreezing a prompt the person's first turn
+                # deliberately froze.
+                try:
+                    probe = await Agent.from_agent(
+                        named, is_version=named_is_version, variables={}
+                    )
+                except Exception:  # noqa: BLE001 — a probe never fails a turn
+                    named = None
+                else:
+                    if not (probe.config.tools or probe.config.custom_tools):
+                        named = None
+            if named:
+                vcprint(
+                    f"[ConversationResolver] {conversation_id} has no frozen system "
+                    f"instruction and names agent {named} — resolving the structural "
+                    f"half (prompt, model, tools, settings) from that agent while the "
+                    f"conversation supplies the history.",
+                    color="yellow",
+                )
+                return await ConversationResolver.from_conversation_id(
+                    conversation_id,
+                    user_input=user_input,
+                    config_overrides=config_overrides,
+                    responder_agent_id=named,
+                    responder_is_version=named_is_version,
+                )
 
         return await ConversationResolver._finish(
             config,

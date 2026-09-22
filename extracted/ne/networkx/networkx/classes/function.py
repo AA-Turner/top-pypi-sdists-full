@@ -156,8 +156,32 @@ def degree_histogram(G):
     -----
     Note: the bins are width one, hence len(list) can be large
     (Order(number_of_edges))
+
+    Examples
+    --------
+    >>> G = nx.star_graph(5)
+
+    `degree_histogram` returns the "dense" frequency distribution, including
+    0's for all degree values that do not occur in the graph:
+
+    >>> nx.degree_histogram(G)
+    [0, 5, 0, 0, 0, 1]
+
+    The degree values can be made explicit with `enumerate`:
+
+    >>> # A mapping of {degree: number of nodes in `G` of that degree}
+    >>> dict(enumerate(nx.degree_histogram(G)))
+    {0: 0, 1: 5, 2: 0, 3: 0, 4: 0, 5: 1}
+
+    For a "sparse" representation of the degree frequency distribution that
+    directly maps degree value: number of occurrences (omitting the 0's), use
+    `collections.Counter` instead:
+
+    >>> from collections import Counter
+    >>> Counter(d for _, d in G.degree)
+    Counter({1: 5, 5: 1})
     """
-    counts = Counter(d for n, d in G.degree())
+    counts = Counter(d for _, d in G.degree)
     return [counts.get(i, 0) for i in range(max(counts) + 1 if counts else 0)]
 
 
@@ -448,6 +472,32 @@ def edge_subgraph(G, edges):
     [0, 1, 3, 4]
     >>> list(H.edges)
     [(0, 1), (3, 4)]
+
+    For multi graphs, `edges` must include the edge keys:
+
+    >>> G = nx.MultiGraph(G)
+    >>> H = nx.edge_subgraph(G, [(0, 1, 0), (3, 4, 0)])
+    >>> list(H.edges)
+    [(0, 1, 0), (3, 4, 0)]
+
+    Edge attributes can be used to filter multiedges:
+
+    >>> G.add_edge(0, 1, color="blue")
+    1
+    >>> G.add_edge(0, 1, color="green", weight=10)
+    2
+    >>> H = nx.edge_subgraph(
+    ...     G,
+    ...     (
+    ...         (u, v, k)
+    ...         for u, v, k, clr in G.edges(keys=True, data="color")
+    ...         if clr == "green"
+    ...     ),
+    ... )
+    >>> H.edges(keys=True, data=True)
+    MultiEdgeDataView([(0, 1, 2, {'color': 'green', 'weight': 10})])
+
+
     """
     nxf = nx.filters
     edges = set(edges)
@@ -730,6 +780,8 @@ def remove_node_attributes(G, *attr_names, nbunch=None):
     >>> nx.get_node_attributes(G, "color")
     {}
     """
+    if not attr_names:
+        return
 
     if nbunch is None:
         nbunch = G.nodes()
@@ -741,6 +793,7 @@ def remove_node_attributes(G, *attr_names, nbunch=None):
                     del d[attr]
                 except KeyError:
                     pass
+    nx._clear_cache(G)
 
 
 @nx._dispatchable(preserve_edge_attrs=True, mutates_input=True)
@@ -946,6 +999,9 @@ def remove_edge_attributes(G, *attr_names, ebunch=None):
     >>> nx.get_edge_attributes(G, "weight")
     {}
     """
+    if not attr_names:
+        return
+
     if ebunch is None:
         ebunch = G.edges(keys=True) if G.is_multigraph() else G.edges()
 
@@ -959,6 +1015,7 @@ def remove_edge_attributes(G, *attr_names, ebunch=None):
                     del d[attr]
                 except KeyError:
                     pass
+    nx._clear_cache(G)
 
 
 def all_neighbors(graph, node):
@@ -1477,6 +1534,7 @@ def describe(G, describe_hook=None):
     Bipartite                      : True
     Average degree (min, max)      : 1.60 (1, 2)
     Number of connected components : 1
+    Density                        : 0.4
 
     >>> def augment_description(G):
     ...     return {"Average Shortest Path Length": nx.average_shortest_path_length(G)}
@@ -1489,6 +1547,7 @@ def describe(G, describe_hook=None):
     Bipartite                      : True
     Average degree (min, max)      : 1.60 (1, 2)
     Number of connected components : 1
+    Density                        : 0.4
     Average Shortest Path Length   : 2.0
 
     >>> G.name = "Path Graph of 5 nodes"
@@ -1502,6 +1561,7 @@ def describe(G, describe_hook=None):
     Bipartite                      : True
     Average degree (min, max)      : 1.60 (1, 2)
     Number of connected components : 1
+    Density                        : 0.4
 
     """
     info_dict = _create_describe_info_dict(G)
@@ -1546,4 +1606,6 @@ def _create_describe_info_dict(G):
         )
     else:
         info["Number of connected components"] = nx.number_connected_components(G)
+    # Add density after number of components
+    info["Density"] = nx.density(G)
     return info

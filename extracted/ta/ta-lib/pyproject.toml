@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "TA-Lib"
-version = "0.8.0"
+version = "0.8.1"
 description = "Python wrapper for TA-Lib"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -34,15 +34,17 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
 ]
 dependencies = [
+    "build>=1.4.4",
     "cython>=3.3.0",
     "numpy",
     "pandas>=2.3.3",
     "pip>=26.0.1",
     "polars>=1.36.1",
     "pytest>=8.4.2",
+    "twine>=6.2.0",
 ]
 requires-python = '>=3.9'
 
 [tool.setuptools]
 packages = ["talib"]
-package-data = {"talib" = ["_ta_lib.pyi", "py.typed", "abstract.pyi"]}
+package-data = {"talib" = ["_ta_lib.pyi", "py.typed", "abstract.pyi", "stream.pyi"]}

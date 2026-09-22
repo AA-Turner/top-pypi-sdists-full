@@ -11,6 +11,8 @@ from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
 
+_RECHARTS_LIBRARY = "recharts@3.10.1"
+
 class Recharts(Component):
     @classmethod
     def create(

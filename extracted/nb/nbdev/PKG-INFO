@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: nbdev
-Version: 3.3.20
+Version: 3.3.21
 Summary: Create delightful software with Jupyter Notebooks
 Author-email: "Jeremy Howard and the fast.ai community" <j@fast.ai>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/AnswerDotAI/nbdev
 Project-URL: Documentation, https://nbdev.fast.ai/
 Keywords: nbdev,fastai,jupyter,notebook,export
@@ -12,7 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -39,6 +38,8 @@ Requires-Dist: pysym2md>=0.0.6; extra == "dev"
 Requires-Dist: llms-txt; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: plum-dispatch; extra == "dev"
+Requires-Dist: nbclient; extra == "dev"
+Requires-Dist: ipykernel; extra == "dev"
 Dynamic: license-file
 
 # Getting Started

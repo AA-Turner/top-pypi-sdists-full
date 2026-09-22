@@ -7,6 +7,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.ai_config_code_completion_model import AIConfigCodeCompletionModel
+    from ..models.ai_config_context_window_per_model import AIConfigContextWindowPerModel
     from ..models.ai_config_custom_prompts import AIConfigCustomPrompts
     from ..models.ai_config_default_model import AIConfigDefaultModel
     from ..models.ai_config_free_tier import AIConfigFreeTier
@@ -32,6 +33,8 @@ class AIConfig:
         free_tier (Union[Unset, AIConfigFreeTier]): Read-only. Present when the workspace has no AI provider of its own
             and is running on Windmill's free tier. Ignored on write.
         model_pricing (Union[Unset, AIConfigModelPricing]):
+        context_window_per_model (Union[Unset, AIConfigContextWindowPerModel]): Context window in tokens per
+            `provider:model`, overriding the built-in table the AI chat uses to decide when to compact its history.
         copilot_disabled (Union[Unset, bool]): Hides the Windmill AI assistant (chat, sessions, code generation,
             completion, fixes) from the workspace UI. Read from the workspace's own settings even when the providers served
             fall back to the instance config. AI agent steps and the AI sandbox in flows are unaffected.
@@ -50,6 +53,7 @@ class AIConfig:
     max_tokens_per_model: Union[Unset, "AIConfigMaxTokensPerModel"] = UNSET
     free_tier: Union[Unset, "AIConfigFreeTier"] = UNSET
     model_pricing: Union[Unset, "AIConfigModelPricing"] = UNSET
+    context_window_per_model: Union[Unset, "AIConfigContextWindowPerModel"] = UNSET
     copilot_disabled: Union[Unset, bool] = UNSET
     sessions_storage_disabled: Union[Unset, bool] = UNSET
     sessions_retention_days: Union[Unset, int] = UNSET
@@ -88,6 +92,10 @@ class AIConfig:
         if not isinstance(self.model_pricing, Unset):
             model_pricing = self.model_pricing.to_dict()
 
+        context_window_per_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.context_window_per_model, Unset):
+            context_window_per_model = self.context_window_per_model.to_dict()
+
         copilot_disabled = self.copilot_disabled
         sessions_storage_disabled = self.sessions_storage_disabled
         sessions_retention_days = self.sessions_retention_days
@@ -111,6 +119,8 @@ class AIConfig:
             field_dict["free_tier"] = free_tier
         if model_pricing is not UNSET:
             field_dict["model_pricing"] = model_pricing
+        if context_window_per_model is not UNSET:
+            field_dict["context_window_per_model"] = context_window_per_model
         if copilot_disabled is not UNSET:
             field_dict["copilot_disabled"] = copilot_disabled
         if sessions_storage_disabled is not UNSET:
@@ -123,6 +133,7 @@ class AIConfig:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.ai_config_code_completion_model import AIConfigCodeCompletionModel
+        from ..models.ai_config_context_window_per_model import AIConfigContextWindowPerModel
         from ..models.ai_config_custom_prompts import AIConfigCustomPrompts
         from ..models.ai_config_default_model import AIConfigDefaultModel
         from ..models.ai_config_free_tier import AIConfigFreeTier
@@ -188,6 +199,13 @@ class AIConfig:
         else:
             model_pricing = AIConfigModelPricing.from_dict(_model_pricing)
 
+        _context_window_per_model = d.pop("context_window_per_model", UNSET)
+        context_window_per_model: Union[Unset, AIConfigContextWindowPerModel]
+        if isinstance(_context_window_per_model, Unset):
+            context_window_per_model = UNSET
+        else:
+            context_window_per_model = AIConfigContextWindowPerModel.from_dict(_context_window_per_model)
+
         copilot_disabled = d.pop("copilot_disabled", UNSET)
 
         sessions_storage_disabled = d.pop("sessions_storage_disabled", UNSET)
@@ -203,6 +221,7 @@ class AIConfig:
             max_tokens_per_model=max_tokens_per_model,
             free_tier=free_tier,
             model_pricing=model_pricing,
+            context_window_per_model=context_window_per_model,
             copilot_disabled=copilot_disabled,
             sessions_storage_disabled=sessions_storage_disabled,
             sessions_retention_days=sessions_retention_days,

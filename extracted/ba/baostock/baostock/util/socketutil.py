@@ -31,11 +31,15 @@ class SocketUtil(object):
     def __init__(self):
         SocketUtil.init_flag = True
 
-    def connect(self):
+    def connect(self,api_key):
         """创建连接"""
         try:
             mySockect = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            mySockect.connect((cons.BAOSTOCK_SERVER_IP, cons.BAOSTOCK_SERVER_PORT))
+            if api_key.startswith("bs-"):
+                mySockect.connect((cons.BAOSTOCK_VIP_SERVER_IP, cons.BAOSTOCK_SERVER_PORT))
+            else:
+                mySockect.connect((cons.BAOSTOCK_SERVER_IP, cons.BAOSTOCK_SERVER_PORT))
+
         except Exception:
             print("服务器连接失败，请稍后再试。")
         setattr(context, "default_socket", mySockect)

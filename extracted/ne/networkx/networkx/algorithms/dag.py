@@ -7,12 +7,11 @@ to the user to check for that.
 
 import heapq
 from collections import deque
-from functools import partial
-from itertools import chain, combinations, product, starmap
+from itertools import combinations, product
 from math import gcd
 
 import networkx as nx
-from networkx.utils import arbitrary_element, not_implemented_for, pairwise
+from networkx.utils import not_implemented_for, pairwise
 
 __all__ = [
     "descendants",
@@ -31,8 +30,6 @@ __all__ = [
     "dag_longest_path_length",
     "dag_to_branching",
 ]
-
-chaini = chain.from_iterable
 
 
 @nx._dispatchable
@@ -111,7 +108,20 @@ def ancestors(G, source):
 
 @nx._dispatchable
 def has_cycle(G):
-    """Decides whether the directed graph has a cycle."""
+    """Decides whether the directed graph has a cycle.
+
+    Examples
+    --------
+    >>> G = nx.DiGraph([(0, 1), (0, 2), (1, 2)])
+    >>> nx.dag.has_cycle(G)
+    False
+    >>> G.add_edge(2, 0)
+    >>> nx.dag.has_cycle(G)
+    True
+
+    See Also
+    --------
+    is_directed_acyclic_graph"""
     try:
         # Feed the entire iterator into a zero-length deque.
         deque(topological_sort(G), maxlen=0)
@@ -162,6 +172,59 @@ def is_directed_acyclic_graph(G):
     return G.is_directed() and not has_cycle(G)
 
 
+@not_implemented_for("undirected")
+@nx._dispatchable
+def antichain_width(G):
+    """Returns the width of the partial order defined by the DAG `G`.
+
+    The width is the largest number of nodes in `G` such that no node in the
+    set can reach another node in the set.
+
+    By Dilworth's theorem [1]_ the width is also equal to the minimum number of
+    chains needed to cover all nodes. This function reduces the problem to a
+    maximum bipartite matching on the transitive closure of `G`.
+
+    Parameters
+    ----------
+    G : NetworkX DiGraph
+        A directed acyclic graph representing a partial order.
+
+    Returns
+    -------
+    int
+        The width of the poset (size of a maximum antichain).
+
+    Raises
+    ------
+    NetworkXUnfeasible
+        If `G` is not acyclic.
+    NetworkXNotImplemented
+        If `G` is not directed
+
+    Examples
+    --------
+    >>> G = nx.DiGraph([(1, 2), (1, 3), (2, 4), (3, 4)])
+    >>> nx.dag.antichain_width(G)
+    2
+
+    References
+    ----------
+    .. [1] https://en.wikipedia.org/wiki/Antichain
+    """
+    nodes = list(G)
+    transitive_closure = nx.transitive_closure_dag(G)
+
+    B = nx.Graph()
+    left = [("L", v) for v in nodes]
+    right = [("R", v) for v in nodes]
+    B.add_nodes_from(left + right)
+
+    B.add_edges_from((("L", u), ("R", v)) for u, v in transitive_closure.edges())
+
+    matching = nx.bipartite.maximum_matching(B, top_nodes=left)
+    return len(nodes) - len(matching) // 2
+
+
 @nx._dispatchable
 def topological_generations(G):
     """Stratifies a DAG into generations.
@@ -203,6 +266,11 @@ def topological_generations(G):
 
     Notes
     -----
+    This function returns a generator. Therefore, exceptions such as
+    NetworkXUnfeasible for cyclic graphs may not be raised immediately
+    when the function is called, but rather during iteration over the
+    returned generator.
+
     The generation in which a node resides can also be determined by taking the
     max-path-distance from the node to the farthest leaf node. That value can
     be obtained with this function using `enumerate(topological_generations(G))`.
@@ -293,6 +361,11 @@ def topological_sort(G):
 
     Notes
     -----
+    This function returns a generator. Therefore, exceptions such as
+    NetworkXUnfeasible for cyclic graphs may not be raised immediately
+    when the function is called, but rather during iteration over the
+    returned generator.
+
     This algorithm is based on a description and proof in
     "Introduction to Algorithms: A Creative Approach" [1]_ .
 
@@ -325,13 +398,12 @@ def lexicographical_topological_sort(G, key=None):
     topological sort and to determine a single, unique ordering.  This can be useful in comparing
     sort results.
 
-    The lexicographical order can be customized by providing a function to the `key=` parameter.
-    The definition of the key function is the same as used in python's built-in `sort()`.
+    The lexicographical order can be customized by providing a function to the `key` parameter.
+    The definition of the key function is the same as used in Python's built-in `sorted`.
     The function takes a single argument and returns a key to use for sorting purposes.
 
     Lexicographical sorting can fail if the node names are un-sortable. See the example below.
     The solution is to provide a function to the `key=` argument that returns sortable keys.
-
 
     Parameters
     ----------
@@ -345,7 +417,7 @@ def lexicographical_topological_sort(G, key=None):
     Yields
     ------
     nodes
-        Yields the nodes of G in lexicographical topological sort order.
+        Yields the nodes of `G` in lexicographical topological sort order.
 
     Raises
     ------
@@ -380,8 +452,7 @@ def lexicographical_topological_sort(G, key=None):
     >>> list(nx.lexicographical_topological_sort(DG))
     Traceback (most recent call last):
     ...
-    TypeError: '<' not supported between instances of 'str' and 'int'
-    ...
+    TypeError: Consider using `key=` parameter to resolve ambiguities in the sort order.
 
     Incomparable nodes can be resolved using a `key` function. This example function
     allows comparison of integers and strings by returning a tuple where the first
@@ -430,6 +501,7 @@ def lexicographical_topological_sort(G, key=None):
 
         if node not in G:
             raise RuntimeError("Graph changed during iteration")
+        # G.edges() is used here instead of neighbors to handle MultiDiGraphs
         for _, child in G.edges(node):
             try:
                 indegree_map[child] -= 1
@@ -440,8 +512,8 @@ def lexicographical_topological_sort(G, key=None):
                     heapq.heappush(zero_indegree, create_tuple(child))
                 except TypeError as err:
                     raise TypeError(
-                        f"{err}\nConsider using `key=` parameter to resolve ambiguities in the sort order."
-                    )
+                        "Consider using `key=` parameter to resolve ambiguities in the sort order."
+                    ) from err
                 del indegree_map[child]
 
         yield node
@@ -571,9 +643,10 @@ def all_topological_sorts(G):
             break
 
 
+@not_implemented_for("undirected")
 @nx._dispatchable
 def is_aperiodic(G):
-    """Returns True if `G` is aperiodic.
+    """Determine whether a directed graph is aperiodic.
 
     A strongly connected directed graph is aperiodic if there is no integer ``k > 1``
     that divides the length of every cycle in the graph.
@@ -588,22 +661,22 @@ def is_aperiodic(G):
 
     Parameters
     ----------
-    G : NetworkX DiGraph
-        A directed graph
+    G : NetworkX graph
+        A directed graph.
 
     Returns
     -------
     bool
-        True if the graph is aperiodic False otherwise
+        Whether the graph is aperiodic.
 
     Raises
     ------
+    NetworkXNotImplemented
+        If `G` is not directed.
     NetworkXError
-        If `G` is not directed
-    NetworkXError
-        If `G` is not strongly connected
+        If `G` is not strongly connected.
     NetworkXPointlessConcept
-        If `G` has no nodes
+        If `G` has no nodes.
 
     Examples
     --------
@@ -689,29 +762,26 @@ def is_aperiodic(G):
        in Shier, D. R.; Wallenius, K. T., Applied Mathematical Modeling:
        A Multidisciplinary Approach, CRC Press.
     """
-    if not G.is_directed():
-        raise nx.NetworkXError("is_aperiodic not defined for undirected graphs")
     if len(G) == 0:
         raise nx.NetworkXPointlessConcept("Graph has no nodes.")
     if not nx.is_strongly_connected(G):
         raise nx.NetworkXError("Graph is not strongly connected.")
-    s = arbitrary_element(G)
+
+    s = nx.utils.arbitrary_element(G)
     levels = {s: 0}
-    this_level = [s]
     g = 0
-    lev = 1
-    while this_level:
-        next_level = []
-        for u in this_level:
-            for v in G[u]:
-                if v in levels:  # Non-Tree Edge
-                    g = gcd(g, levels[u] - levels[v] + 1)
-                else:  # Tree Edge
-                    next_level.append(v)
-                    levels[v] = lev
-        this_level = next_level
-        lev += 1
-    return g == 1
+    # There are 3 relevant possible edge types in `dfs_labeled_edges`:
+    # "forward", "reverse", and "nontree".
+    for u, v, d in nx.dfs_labeled_edges(G, s):
+        if d == "forward":
+            # "forward" edges indicate a new node.
+            levels[v] = levels[u] + 1
+        elif d == "nontree" and (g := gcd(g, levels[u] - levels[v] + 1)) == 1:
+            # "nontree" edges indicate a previously explored node.
+            # Check whether this affects the common factor of cycle lengths.
+            return True
+        # "reverse" edges indicate backtracking in DFS and can be ignored.
+    return False
 
 
 @nx._dispatchable(preserve_all_attrs=True, returns_graph=True)
@@ -1170,9 +1240,9 @@ def root_to_leaf_paths(G):
     """
     roots = (v for v, d in G.in_degree() if d == 0)
     leaves = (v for v, d in G.out_degree() if d == 0)
-    all_paths = partial(nx.all_simple_paths, G)
-    # TODO In Python 3, this would be better as `yield from ...`.
-    return chaini(starmap(all_paths, product(roots, leaves)))
+
+    for root, leaf in product(roots, leaves):
+        yield from nx.all_simple_paths(G, root, leaf)
 
 
 @not_implemented_for("multigraph")

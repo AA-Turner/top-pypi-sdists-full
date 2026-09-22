@@ -47,6 +47,9 @@ class TestSyncCreateRequest(unittest.TestCase):
                 polling_interval_seconds = 30.0,
                 batch_size = 1.0,
                 skip_batch_submission = True,
+                batch_collection_ids = [
+                    ''
+                    ],
                 skip_duplicates = True,
                 reconcile = mixpeek.models.reconcile_settings.ReconcileSettings(
                     on_delete = True, 

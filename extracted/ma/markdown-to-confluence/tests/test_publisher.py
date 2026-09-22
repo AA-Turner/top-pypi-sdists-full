@@ -18,7 +18,7 @@ from md2conf.api_base import ConfluenceSession
 from md2conf.api_types import ConfluencePageProperties
 from md2conf.options import ConfluencePageID, ProcessorOptions
 from md2conf.options_converter import ConverterOptions
-from md2conf.publisher import Publisher
+from md2conf.publisher import AggregateOptions, DocumentHasher, Publisher
 from md2conf.scanner import Scanner
 from tests.api import MockConfluenceAPI
 
@@ -75,6 +75,18 @@ def _get_page_for_document(api: ConfluenceSession, absolute_path: Path) -> Confl
 
 
 class TestPublisher(unittest.TestCase):
+    def test_document_hash_includes_converter_version(self) -> None:
+        "Checks if the document hash changes when the library version changes."
+
+        with _create_temporary_directory() as source_dir:
+            document_path = source_dir / "index.md"
+            document_path.write_text("# Document\n", encoding="utf-8")
+
+            current_digest = DocumentHasher("1.0.0", AggregateOptions(), document_path).digest()
+            previous_digest = DocumentHasher("2.0.0", AggregateOptions(), document_path).digest()
+
+            self.assertNotEqual(current_digest, previous_digest)
+
     def get_processor_options(self, api: ConfluenceSession, *, keep_hierarchy: bool, skip_update: bool) -> ProcessorOptions:
         return ProcessorOptions(
             root_page=ConfluencePageID(api.get_homepage_id("SPACE_ID")),
@@ -154,6 +166,29 @@ class TestPublisher(unittest.TestCase):
             remove_checksum_after_first_upload=False,
             change_content=True,
         )
+
+    def test_synchronize_repeated_attachment_reference(self) -> None:
+        """Checks if an image shown several times on a page is uploaded only once."""
+
+        with MockConfluenceAPI() as api, _create_temporary_directory() as source_dir:
+            document_path = source_dir / "index.md"
+            attachment_path = source_dir / "diagram.png"
+            document_path.write_text(
+                "# Diagram\n\n" + "![diagram](diagram.png)\n\n" * 3,
+                encoding="utf-8",
+            )
+            attachment_path.write_bytes((Path(__file__).parent / "source" / "figure" / "raster.png").read_bytes())
+
+            publisher = Publisher(api, self.get_processor_options(api, keep_hierarchy=False, skip_update=True))
+            publisher.process_directory(source_dir)
+
+            page = api.get_page_properties_by_title("Diagram")
+            first_version = api.get_attachment_by_name(page.id, "diagram.png").version.number
+            self.assertEqual(first_version, 1)
+
+            publisher.process_directory(source_dir)
+            unchanged_version = api.get_attachment_by_name(page.id, "diagram.png").version.number
+            self.assertEqual(unchanged_version, first_version)
 
     def test_initialize_missing_attachment_checksum(self) -> None:
         """Checks if REST API v2 initializes a missing checksum with one upload."""

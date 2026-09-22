@@ -573,12 +573,26 @@ class VerbalizedDecisionOverlay:
     question that was asked.
     """
 
-    __slots__ = ("batch", "message_index", "state")
+    __slots__ = ("batch", "message_index", "state", "model_name")
 
-    def __init__(self, batch: DecisionQuestions, message_index: int, state: dict[str, Any]):
+    def __init__(
+        self,
+        batch: DecisionQuestions,
+        message_index: int,
+        state: dict[str, Any],
+        model_name: str = "",
+    ):
         self.batch = batch
         self.message_index = message_index
         self.state = state
+        #: THE MODEL'S NAME, resolved by the catalog — never ``config.model``.
+        #: ``config.model`` is whatever the caller named the model by, and an
+        #: agent names it by its ai.model UUID, so a verbalized answer used to
+        #: record ``model="7d4c…"`` while a native one recorded
+        #: ``"claude-sonnet-5"``. The same fact must read the same way on both
+        #: wires, so the resolved ``profile.model_name`` is captured HERE,
+        #: where the route is known, and carried to the finalizer.
+        self.model_name = model_name
 
 
 def prepare_verbalized_decision(
@@ -636,6 +650,14 @@ def prepare_verbalized_decision(
     ]
     message.content.append(TextContent(text=verbalized_instructions(state, batch)))
 
+    # A PLAIN DICT, never the model. ``UnifiedConfig`` is a dataclass with no
+    # validation on assignment, and every translator reads this field with
+    # ``isinstance(..., dict)`` (the normalizer in unified_config.py says so in
+    # one line: "translators require dict access"). Assigning the model here
+    # left Anthropic's ``_build_anthropic_output_format`` returning None on its
+    # first line, so the schema was SILENTLY not enforced and Sonnet answered
+    # the questions in prose — correctly, and with no probabilities anything
+    # could record (2026-09-20, the first text-model decision run).
     config.response_format = ResponseFormatJsonSchema(
         type="json_schema",
         json_schema=OutputSchemaEnvelope(
@@ -643,8 +665,8 @@ def prepare_verbalized_decision(
             schema=verbalized_response_schema(batch),
             strict=True,
         ),
-    )
-    return VerbalizedDecisionOverlay(batch, index, state)
+    ).model_dump(by_alias=True, exclude_none=True)
+    return VerbalizedDecisionOverlay(batch, index, state, model_name=model_name)
 
 
 def finalize_verbalized_decision(

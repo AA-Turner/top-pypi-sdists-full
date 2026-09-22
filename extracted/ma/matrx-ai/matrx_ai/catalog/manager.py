@@ -131,6 +131,9 @@ class AiCatalogManager:
         self._model_ids: frozenset[str] = frozenset()
         self._model_names: dict[str, str] = {}
         self._aliases: dict[str, str] = {}
+        # NAMING, which is not routing: every model's `common_name`, reachable
+        # by id AND by name, deprecated rows included. See `_display_names`.
+        self._display_names: dict[str, str] = {}
         self._loaded = False
         self._load_lock = asyncio.Lock()
 
@@ -472,9 +475,25 @@ class AiCatalogManager:
         # (alias / deprecated / latest) resolves identically at lookup.
         model_ids: set[str] = set()
         model_names: dict[str, str] = {}
+        # 🚨 NAMING IS NOT ROUTING (cold walk 17, defect C). A DEPRECATED model
+        # surrenders its NAME slot below so an alias can redirect the routing —
+        # correct, and it silently took the model's human name with it. The
+        # Bench screen then printed "The cheap one: claude-sonnet-4-5" beside
+        # two properly named "Claude Opus 5" arms, because the row exists, is
+        # not retired, HAS a `common_name` ("Claude Sonnet 4.5"), and is still
+        # what the arm runs on — it is merely deprecated. A model a person is
+        # told about has a name whatever its routing status, so display names
+        # are collected here, by id and by name, for every row.
+        display_names: dict[str, str] = {}
         for m in models or []:
             mid = str(m.get("id") or "")
             mname = str(m.get("name") or "")
+            common = str(m.get("common_name") or "").strip()
+            if common:
+                if mid:
+                    display_names[mid] = common
+                if mname:
+                    display_names.setdefault(mname, common)
             if mid:
                 model_ids.add(mid)
             # A DEPRECATED model keeps its id slot (history/read paths resolve
@@ -500,6 +519,11 @@ class AiCatalogManager:
                 )
                 continue
             alias_map[alias] = model_id
+            # An alias is a name a person can be shown too — it resolves to a
+            # model whose `common_name` is that model's name.
+            target = display_names.get(model_id)
+            if target:
+                display_names.setdefault(alias, target)
 
         self._settings = parsed_settings
         self._endpoints = parsed_endpoints
@@ -517,6 +541,7 @@ class AiCatalogManager:
         self._model_ids = frozenset(model_ids)
         self._model_names = model_names
         self._aliases = alias_map
+        self._display_names = display_names
         self._loaded = True
 
     # ── reads ────────────────────────────────────────────────────────────────
@@ -574,14 +599,43 @@ class AiCatalogManager:
         ``claude-sonnet-4-5`` at a non-technical Expert because the only thing
         the server had to hand was the routing ref. Every surface that names a
         model to a person calls this; nobody keeps a second table of names.
+
+        🚨 AND IT ANSWERS FOR A DEPRECATED MODEL TOO (cold walk 17, defect C).
+        This used to go through :meth:`resolve_model_ref`, which is the ROUTING
+        map — and a deprecated row deliberately surrenders its name slot there
+        so an alias can redirect traffic. ``claude-sonnet-4-5`` is deprecated,
+        un-aliased, un-retired and still the Bench's cheap arm, so routing
+        returned the ref unchanged, no state row matched, and the screen fell
+        back to printing the raw id at a non-technical Expert. Naming reads its
+        own map, which holds every row's ``common_name`` by id and by name.
         """
         if not model_ref:
             return None
-        state = self._model_state.get(self.resolve_model_ref(str(model_ref)))
+        ref = str(model_ref).strip()
+        direct = self._display_names.get(ref)
+        if direct:
+            return direct
+        state = self._model_state.get(self.resolve_model_ref(ref))
         if not state:
             return None
         common = str(state.get("common_name") or "").strip()
         return common or None
+
+    #: What a person is told when a model ref resolves to no catalog row at all.
+    #: A plain description, never the routing ref: an Expert reading "The cheap
+    #: one: claude-sonnet-4-5" learns nothing and is shown our plumbing.
+    UNNAMED_MODEL = "a model our catalog has no name for yet"
+
+    def model_name_for_person(self, model_ref: str | None) -> str:
+        """THE NAME A SURFACE PRINTS — never None, never the raw ref.
+
+        :meth:`model_display_name` is the honest lookup and returns None when
+        the catalog cannot name the ref; every call site that RENDERS to a
+        person goes through this instead, so "an id with no catalog row" has
+        exactly one wording platform-wide rather than each screen inventing a
+        fallback (and the Bench screen's fallback was the id itself).
+        """
+        return self.model_display_name(model_ref) or self.UNNAMED_MODEL
 
     def model_states(self) -> dict[str, dict[str, Any]]:
         """Every live model's state row (id -> dict) — the input to

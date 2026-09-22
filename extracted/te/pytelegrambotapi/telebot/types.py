@@ -97,6 +97,7 @@ class JsonDeserializable(object):
         :meta private:
 
         :param json_type: input json or parsed dict
+
         :param dict_copy: if dict is passed and it is changed outside - should be True!
         :return: Dictionary parsed from json or original dict
         """
@@ -119,12 +120,9 @@ class Update(JsonDeserializable):
     """
     This object represents an incoming update.At most one of the optional parameters can be present in any given update.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#update
+    Telegram documentation: https://core.telegram.org/bots/api#update
 
-    :param update_id: The update's unique identifier. Update identifiers start from a certain positive number and
-        increase sequentially. This ID becomes especially handy if you're using webhooks, since it allows you to ignore
-        repeated updates or to restore the correct update sequence, should they get out of order. If there are no new updates
-        for at least a week, then identifier of the next update will be chosen randomly instead of sequentially.
+    :param update_id: The update's unique identifier. Update identifiers start from a certain positive number and increase sequentially. This ID becomes especially handy if you're using webhooks, since it allows you to ignore repeated updates or to restore the correct update sequence, should they get out of order. If there are no new updates for at least a week, then identifier of the next update will be chosen randomly instead of sequentially.
     :type update_id: :obj:`int`
 
     :param message: Optional. New incoming message of any kind - text, photo, sticker, etc.
@@ -139,20 +137,16 @@ class Update(JsonDeserializable):
     :param edited_channel_post: Optional. New version of a channel post that is known to the bot and was edited
     :type edited_channel_post: :class:`telebot.types.Message`
 
-    :param message_reaction: Optional. A reaction to a message was changed by a user. The bot must be an administrator in the chat
-        and must explicitly specify "message_reaction" in the list of allowed_updates to receive these updates. The update isn't received for reactions set by bots.
+    :param message_reaction: Optional. A reaction to a message was changed by a user. The bot must be an administrator in the chat and must explicitly specify "message_reaction" in the list of allowed_updates to receive these updates. The update isn't received for reactions set by bots.
     :type message_reaction: :class:`telebot.types.MessageReactionUpdated`
 
-    :param message_reaction_count: Optional. Reactions to a message with anonymous reactions were changed. The bot must be an administrator in the chat and must explicitly specify
-        "message_reaction_count" in the list of allowed_updates to receive these updates.
+    :param message_reaction_count: Optional. Reactions to a message with anonymous reactions were changed. The bot must be an administrator in the chat and must explicitly specify "message_reaction_count" in the list of allowed_updates to receive these updates.
     :type message_reaction_count: :class:`telebot.types.MessageReactionCountUpdated`
 
     :param inline_query: Optional. New incoming inline query
     :type inline_query: :class:`telebot.types.InlineQuery`
 
-    :param chosen_inline_result: Optional. The result of an inline query that was chosen by a user and sent to their chat
-        partner. Please see our documentation on the feedback collecting for details on how to enable these updates for your
-        bot.
+    :param chosen_inline_result: Optional. The result of an inline query that was chosen by a user and sent to their chat partner. Please see our documentation on the feedback collecting for details on how to enable these updates for your bot.
     :type chosen_inline_result: :class:`telebot.types.ChosenInlineResult`
 
     :param callback_query: Optional. New incoming callback query
@@ -161,31 +155,25 @@ class Update(JsonDeserializable):
     :param shipping_query: Optional. New incoming shipping query. Only for invoices with flexible price
     :type shipping_query: :class:`telebot.types.ShippingQuery`
 
-    :param pre_checkout_query: Optional. New incoming pre-checkout query. Contains full information about
-        checkout
+    :param pre_checkout_query: Optional. New incoming pre-checkout query. Contains full information about checkout
     :type pre_checkout_query: :class:`telebot.types.PreCheckoutQuery`
 
     :purchased_paid_media: Optional. A user purchased paid media with a non-empty payload sent by the bot in a non-channel chat
     :type purchased_paid_media: :class:`telebot.types.PaidMediaPurchased`
 
-    :param poll: Optional. New poll state. Bots receive only updates about stopped polls and polls, which are sent by the
-        bot
+    :param poll: Optional. New poll state. Bots receive only updates about stopped polls and polls, which are sent by the bot
     :type poll: :class:`telebot.types.Poll`
 
-    :param poll_answer: Optional. A user changed their answer in a non-anonymous poll. Bots receive new votes only in
-        polls that were sent by the bot itself.
+    :param poll_answer: Optional. A user changed their answer in a non-anonymous poll. Bots receive new votes only in polls that were sent by the bot itself.
     :type poll_answer: :class:`telebot.types.PollAnswer`
 
-    :param my_chat_member: Optional. The bot's chat member status was updated in a chat. For private chats, this update
-        is received only when the bot is blocked or unblocked by the user.
+    :param my_chat_member: Optional. The bot's chat member status was updated in a chat. For private chats, this update is received only when the bot is blocked or unblocked by the user.
     :type my_chat_member: :class:`telebot.types.ChatMemberUpdated`
 
-    :param chat_member: Optional. A chat member's status was updated in a chat. The bot must be an administrator in the
-        chat and must explicitly specify “chat_member” in the list of allowed_updates to receive these updates.
+    :param chat_member: Optional. A chat member's status was updated in a chat. The bot must be an administrator in the chat and must explicitly specify “chat_member” in the list of allowed_updates to receive these updates.
     :type chat_member: :class:`telebot.types.ChatMemberUpdated`
 
-    :param chat_join_request: Optional. A request to join the chat has been sent. The bot must have the
-        can_invite_users administrator right in the chat to receive these updates.
+    :param chat_join_request: Optional. A request to join the chat has been sent. The bot must have the can_invite_users administrator right in the chat to receive these updates.
     :type chat_join_request: :class:`telebot.types.ChatJoinRequest`
 
     :param chat_boost: Optional. A chat boost was added or changed. The bot must be an administrator in the chat to receive these updates.
@@ -214,6 +202,9 @@ class Update(JsonDeserializable):
 
     :param subscription: Optional. User payment subscription has changed
     :type subscription: :class:`telebot.types.BotSubscriptionUpdated`
+
+    :param stopped_message_generation: Optional. A user asked the bot to stop the generation of a message
+    :type stopped_message_generation: :class:`telebot.types.MessageGenerationStopped`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.Update`
@@ -250,18 +241,21 @@ class Update(JsonDeserializable):
         managed_bot = ManagedBotUpdated.de_json(obj.get('managed_bot'))
         guest_message = Message.de_json(obj.get('guest_message'))
         subscription = BotSubscriptionUpdated.de_json(obj.get('subscription'))
+        stopped_message_generation = MessageGenerationStopped.de_json(obj.get('stopped_message_generation'))
 
         return cls(update_id, message, edited_message, channel_post, edited_channel_post, inline_query,
                    chosen_inline_result, callback_query, shipping_query, pre_checkout_query, poll, poll_answer,
                    my_chat_member, chat_member, chat_join_request, message_reaction, message_reaction_count,
                    removed_chat_boost, chat_boost, business_connection, business_message, edited_business_message,
-                   deleted_business_messages, purchased_paid_media, managed_bot, guest_message, subscription)
+                   deleted_business_messages, purchased_paid_media, managed_bot, guest_message, subscription,
+                   stopped_message_generation)
 
     def __init__(self, update_id, message, edited_message, channel_post, edited_channel_post, inline_query,
                  chosen_inline_result, callback_query, shipping_query, pre_checkout_query, poll, poll_answer,
                  my_chat_member, chat_member, chat_join_request, message_reaction, message_reaction_count,
                  removed_chat_boost, chat_boost, business_connection, business_message, edited_business_message,
-                 deleted_business_messages, purchased_paid_media, managed_bot, guest_message, subscription):
+                 deleted_business_messages, purchased_paid_media, managed_bot, guest_message, subscription,
+                 stopped_message_generation):
         self.update_id: int = update_id
         self.message: Optional[Message] = message
         self.edited_message: Optional[Message] = edited_message
@@ -289,12 +283,13 @@ class Update(JsonDeserializable):
         self.managed_bot: Optional[ManagedBotUpdated] = managed_bot
         self.guest_message: Optional[Message] = guest_message
         self.subscription: Optional[BotSubscriptionUpdated] = subscription
+        self.stopped_message_generation: Optional[MessageGenerationStopped] = stopped_message_generation
 
 class ChatMemberUpdated(JsonDeserializable):
     """
     This object represents changes in the status of a chat member.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmemberupdated
+    Telegram documentation: https://core.telegram.org/bots/api#chatmemberupdated
 
     :param chat: Chat the user belongs to
     :type chat: :class:`telebot.types.Chat`
@@ -311,8 +306,7 @@ class ChatMemberUpdated(JsonDeserializable):
     :param new_chat_member: New information about the chat member
     :type new_chat_member: :class:`telebot.types.ChatMember`
 
-    :param invite_link: Optional. Chat invite link, which was used by the user to join the chat; for joining by invite
-        link events only.
+    :param invite_link: Optional. Chat invite link, which was used by the user to join the chat; for joining by invite link events only.
     :type invite_link: :class:`telebot.types.ChatInviteLink`
 
     :param via_join_request: Optional. True, if the user joined the chat after sending a direct join request without using an invite link and being approved by an administrator
@@ -335,8 +329,9 @@ class ChatMemberUpdated(JsonDeserializable):
         obj['invite_link'] = ChatInviteLink.de_json(obj.get('invite_link'))
         return cls(**obj)
 
-    def __init__(self, chat, from_user, date, old_chat_member, new_chat_member, invite_link=None,
-                 via_join_request=None, via_chat_folder_invite_link=None,
+    def __init__(self, chat: Chat, from_user: User, date: int, old_chat_member: ChatMember, new_chat_member: ChatMember,
+                 invite_link: Optional[ChatInviteLink] = None, via_join_request: Optional[bool] = None,
+                 via_chat_folder_invite_link: Optional[bool] = None,
                  **kwargs):
         self.chat: Chat = chat
         self.from_user: User = from_user
@@ -372,7 +367,7 @@ class ChatJoinRequest(JsonDeserializable):
     """
     Represents a join request sent to a chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatjoinrequest
+    Telegram documentation: https://core.telegram.org/bots/api#chatjoinrequest
 
     :param chat: Chat to which the request was sent
     :type chat: :class:`telebot.types.Chat`
@@ -380,11 +375,7 @@ class ChatJoinRequest(JsonDeserializable):
     :param from_user: User that sent the join request
     :type from_user: :class:`telebot.types.User`
 
-    :param user_chat_id: Optional. Identifier of a private chat with the user who sent the join request.
-        This number may have more than 32 significant bits and some programming languages may have difficulty/silent
-        defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision
-        float type are safe for storing this identifier. The bot can use this identifier for 24 hours to send messages
-        until the join request is processed, assuming no other administrator contacted the user.
+    :param user_chat_id: Identifier of a private chat with the user who sent the join request. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier. The bot can use this identifier for 5 minutes to send messages until the join request is processed, assuming no other administrator contacted the user.
     :type user_chat_id: :obj:`int`
 
     :param date: Date the request was sent in Unix time
@@ -396,8 +387,7 @@ class ChatJoinRequest(JsonDeserializable):
     :param invite_link: Optional. Chat invite link that was used by the user to send the join request
     :type invite_link: :class:`telebot.types.ChatInviteLink`
 
-    :param query_id: Optional. Identifier of the join request query; for bots assigned to process join request only.
-        If present, then the bot must call sendChatJoinRequestWebApp or directly call answerChatJoinRequestQuery within 10 seconds.
+    :param query_id: Optional. Identifier of the join request query; for bots assigned to process join requests only. If present, then the bot must call sendChatJoinRequestWebApp or directly call answerChatJoinRequestQuery within 10 seconds.
     :type query_id: :obj:`str`
 
     :return: Instance of the class
@@ -412,10 +402,12 @@ class ChatJoinRequest(JsonDeserializable):
         obj['invite_link'] = ChatInviteLink.de_json(obj.get('invite_link'))
         return cls(**obj)
 
-    def __init__(self, chat, from_user, user_chat_id, date, bio=None, invite_link=None, query_id=None, **kwargs):
+    def __init__(self, chat: Chat, from_user: User, user_chat_id: int, date: int,
+                 bio: Optional[str] = None, invite_link: Optional[ChatInviteLink] = None,
+                 query_id: Optional[str] = None, **kwargs):
         self.chat: Chat = chat
         self.from_user: User = from_user
-        self.date: str = date
+        self.date: int = date
         self.bio: Optional[str] = bio
         self.invite_link: Optional[ChatInviteLink] = invite_link
         self.user_chat_id: int = user_chat_id
@@ -426,7 +418,7 @@ class WebhookInfo(JsonDeserializable):
     """
     Describes the current status of a webhook.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#webhookinfo
+    Telegram documentation: https://core.telegram.org/bots/api#webhookinfo
 
     :param url: Webhook URL, may be empty if webhook is not set up
     :type url: :obj:`str`
@@ -440,24 +432,19 @@ class WebhookInfo(JsonDeserializable):
     :param ip_address: Optional. Currently used webhook IP address
     :type ip_address: :obj:`str`
 
-    :param last_error_date: Optional. Unix time for the most recent error that happened when trying to deliver an
-        update via webhook
+    :param last_error_date: Optional. Unix time for the most recent error that happened when trying to deliver an update via webhook
     :type last_error_date: :obj:`int`
 
-    :param last_error_message: Optional. Error message in human-readable format for the most recent error that
-        happened when trying to deliver an update via webhook
+    :param last_error_message: Optional. Error message in human-readable format for the most recent error that happened when trying to deliver an update via webhook
     :type last_error_message: :obj:`str`
 
-    :param last_synchronization_error_date: Optional. Unix time of the most recent error that happened when trying
-        to synchronize available updates with Telegram datacenters
+    :param last_synchronization_error_date: Optional. Unix time of the most recent error that happened when trying to synchronize available updates with Telegram datacenters
     :type last_synchronization_error_date: :obj:`int`
 
-    :param max_connections: Optional. The maximum allowed number of simultaneous HTTPS connections to the webhook
-        for update delivery
+    :param max_connections: Optional. The maximum allowed number of simultaneous HTTPS connections to the webhook for update delivery
     :type max_connections: :obj:`int`
 
-    :param allowed_updates: Optional. A list of update types the bot is subscribed to. Defaults to all update types
-        except chat_member
+    :param allowed_updates: Optional. A list of update types the bot is subscribed to. Defaults to all update types except chat_member
     :type allowed_updates: :obj:`list` of :obj:`str`
 
     :return: Instance of the class
@@ -487,11 +474,9 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
     """
     This object represents a Telegram user or bot.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#user
+    Telegram documentation: https://core.telegram.org/bots/api#user
 
-    :param id: Unique identifier for this user or bot. This number may have more than 32 significant bits and some
-        programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant
-        bits, so a 64-bit integer or double-precision float type are safe for storing this identifier.
+    :param id: Unique identifier for this user or bot. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier.
     :type id: :obj:`int`
 
     :param is_bot: True, if this user is a bot
@@ -509,17 +494,16 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
     :param language_code: Optional. IETF language tag of the user's language
     :type language_code: :obj:`str`
 
-    :param is_premium: Optional. :obj:`bool`, if this user is a Telegram Premium user
+    :param is_premium: Optional. True, if this user is a Telegram Premium user
     :type is_premium: :obj:`bool`
 
-    :param added_to_attachment_menu: Optional. :obj:`bool`, if this user added the bot to the attachment menu
+    :param added_to_attachment_menu: Optional. True, if this user added the bot to the attachment menu
     :type added_to_attachment_menu: :obj:`bool`
 
     :param can_join_groups: Optional. True, if the bot can be invited to groups. Returned only in getMe.
     :type can_join_groups: :obj:`bool`
 
-    :param can_read_all_group_messages: Optional. True, if privacy mode is disabled for the bot. Returned only in
-        getMe.
+    :param can_read_all_group_messages: Optional. True, if privacy mode is disabled for the bot. Returned only in getMe.
     :type can_read_all_group_messages: :obj:`bool`
 
     :param supports_guest_queries: Optional. True, if the bot supports guest queries from chats it is not a member of. Returned only in getMe.
@@ -528,7 +512,7 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
     :param supports_inline_queries: Optional. True, if the bot supports inline queries. Returned only in getMe.
     :type supports_inline_queries: :obj:`bool`
 
-    :param can_connect_to_business: Optional. True, if the bot can be connected to a Telegram Business account to receive its messages. Returned only in getMe.
+    :param can_connect_to_business: Optional. True, if the bot can be connected to a user account to manage it. Returned only in getMe.
     :type can_connect_to_business: :obj:`bool`
 
     :param has_main_web_app: Optional. True, if the bot has a main Web App. Returned only in getMe.
@@ -556,11 +540,22 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
         return cls(**obj)
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, id, is_bot, first_name, last_name=None, username=None, language_code=None,
-                 can_join_groups=None, can_read_all_group_messages=None, supports_inline_queries=None, 
-                 is_premium=None, added_to_attachment_menu=None, can_connect_to_business=None, 
-                 has_main_web_app=None, has_topics_enabled=None, allows_users_to_create_topics=None, can_manage_bots=None,
-                 supports_guest_queries=None, supports_join_request_queries=None, **kwargs):
+    def __init__(
+        self, id: int, is_bot: bool, first_name: str,
+        last_name: Optional[str] = None, username: Optional[str] = None,
+        language_code: Optional[str] = None, is_premium: Optional[bool] = None,
+        added_to_attachment_menu: Optional[bool] = None,
+        can_join_groups: Optional[bool] = None,
+        can_read_all_group_messages: Optional[bool] = None,
+        supports_guest_queries: Optional[bool] = None,
+        supports_inline_queries: Optional[bool] = None,
+        can_connect_to_business: Optional[bool] = None,
+        has_main_web_app: Optional[bool] = None,
+        has_topics_enabled: Optional[bool] = None,
+        allows_users_to_create_topics: Optional[bool] = None,
+        can_manage_bots: Optional[bool] = None,
+        supports_join_request_queries: Optional[bool] = None,
+        **kwargs):
         self.id: int = id
         self.is_bot: bool = is_bot
         self.first_name: str = first_name
@@ -634,16 +629,14 @@ class GroupChat(JsonDeserializable):
 # noinspection PyShadowingBuiltins
 class ChatFullInfo(JsonDeserializable):
     """
-    This object represents a chat.
+    This object contains full information about a chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chat
+    Telegram documentation: https://core.telegram.org/bots/api#chatfullinfo
 
-    :param id: Unique identifier for this chat. This number may have more than 32 significant bits and some programming
-        languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed
-        64-bit integer or double-precision float type are safe for storing this identifier.
+    :param id: Unique identifier for this chat. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this identifier.
     :type id: :obj:`int`
 
-    :param type: Type of chat, can be either “private”, “group”, “supergroup” or “channel”
+    :param type: Type of the chat, can be either “private”, “group”, “supergroup” or “channel”
     :type type: :obj:`str`
 
     :param title: Optional. Title, for supergroups, channels and group chats
@@ -664,136 +657,130 @@ class ChatFullInfo(JsonDeserializable):
     :param is_direct_messages: Optional. True, if the chat is the direct messages chat of a channel
     :type is_direct_messages: :obj:`bool`
 
-    :param max_reaction_count: Optional. The maximum number of reactions that can be set on a message in the chat
+    :param max_reaction_count: The maximum number of reactions that can be set on a message in the chat
     :type max_reaction_count: :obj:`int`
 
-    :param photo: Optional. Chat photo. Returned only in getChat.
+    :param photo: Optional. Chat photo
     :type photo: :class:`telebot.types.ChatPhoto`
 
-    :param active_usernames: Optional. If non-empty, the list of all active chat usernames; for private chats, supergroups and channels. Returned only in getChat.
+    :param active_usernames: Optional. If non-empty, the list of all active chat usernames ; for private chats, supergroups and channels
     :type active_usernames: :obj:`list` of :obj:`str`
 
-    :param birthdate: Optional. Birthdate of the other party in a private chat. Returned only in getChat.
+    :param birthdate: Optional. For private chats, the date of birth of the user
     :type birthdate: :obj:`str`
 
-    :param business_intro: Optional. Business intro for the chat. Returned only in getChat.
+    :param business_intro: Optional. For private chats with business accounts, the intro of the business
     :type business_intro: :class:`telebot.types.BusinessIntro`
 
-    :param business_location: Optional. Business location for the chat. Returned only in getChat.
+    :param business_location: Optional. For private chats with business accounts, the location of the business
     :type business_location: :class:`telebot.types.BusinessLocation`
 
-    :param business_opening_hours : Optional. Business opening hours for the chat. Returned only in getChat.
+    :param business_opening_hours: Optional. For private chats with business accounts, the opening hours of the business
     :type business_opening_hours: :class:`telebot.types.BusinessHours`
 
-    :param personal_chat: Optional. For private chats, the personal channel of the user. Returned only in getChat.
+    :param personal_chat: Optional. For private chats, the personal channel of the user
     :type personal_chat: :class:`telebot.types.Chat`
 
     :param parent_chat: Optional. Information about the corresponding channel chat; for direct messages chats only
     :type parent_chat: :class:`telebot.types.Chat`
 
-    :param available_reactions: Optional. List of available chat reactions; for private chats, supergroups and channels. Returned only in getChat.
+    :param available_reactions: Optional. List of available reactions allowed in the chat. If omitted, then all emoji reactions are allowed.
     :type available_reactions: :obj:`list` of :class:`telebot.types.ReactionType`
 
-    :param accent_color_id: Optional. Optional. Identifier of the accent color for the chat name and backgrounds of the chat photo,
-        reply header, and link preview. See accent colors for more details. Returned only in getChat. Always returned in getChat.
+    :param accent_color_id: Identifier of the accent color for the chat name and backgrounds of the chat photo, reply header, and link preview. See accent colors for more details.
     :type accent_color_id: :obj:`int`
 
-    :param background_custom_emoji_id: Optional. Custom emoji identifier of emoji chosen by the chat for the reply header and link preview background. Returned only in getChat.
+    :param background_custom_emoji_id: Optional. Custom emoji identifier of the emoji chosen by the chat for the reply header and link preview background
     :type background_custom_emoji_id: :obj:`str`
 
-    :param profile_accent_color_id: Optional. Identifier of the accent color for the chat's profile background. See profile accent colors for more details. Returned only in getChat.
+    :param profile_accent_color_id: Optional. Identifier of the accent color for the chat's profile background. See profile accent colors for more details.
     :type profile_accent_color_id: :obj:`int`
 
-    :param profile_background_custom_emoji_id: Optional. Custom emoji identifier of the emoji chosen by the chat for its profile background. Returned only in getChat.
+    :param profile_background_custom_emoji_id: Optional. Custom emoji identifier of the emoji chosen by the chat for its profile background
     :type profile_background_custom_emoji_id: :obj:`str`
 
-    :param emoji_status_custom_emoji_id: Optional. Custom emoji identifier of emoji status of the other party in a private chat. Returned only in getChat.
+    :param emoji_status_custom_emoji_id: Optional. Custom emoji identifier of the emoji status of the chat or the other party in a private chat
     :type emoji_status_custom_emoji_id: :obj:`str`
 
-    :param emoji_status_expiration_date: Optional. Expiration date of the emoji status of the other party in a private chat, if any. Returned only in getChat.
+    :param emoji_status_expiration_date: Optional. Expiration date of the emoji status of the chat or the other party in a private chat, in Unix time, if any
     :type emoji_status_expiration_date: :obj:`int`
 
-    :param bio: Optional. Bio of the other party in a private chat. Returned only in getChat.
+    :param bio: Optional. Bio of the other party in a private chat
     :type bio: :obj:`str`
 
-    :param has_private_forwards: Optional. :obj:`bool`, if privacy settings of the other party in the private chat allows to use tg://user?id=<user_id> links only in chats with the user. Returned only in getChat.
+    :param has_private_forwards: Optional. True , if privacy settings of the other party in the private chat allows to use tg://user?id=<user_id> links only in chats with the user
     :type has_private_forwards: :obj:`bool`
 
-    :param has_restricted_voice_and_video_messages: Optional. True, if the privacy settings of the other party restrict sending voice and video note messages in the private chat. Returned only in getChat.
-    :type :obj:`bool`
+    :param has_restricted_voice_and_video_messages: Optional. True , if the privacy settings of the other party restrict sending voice and video note messages in the private chat
+    :type has_restricted_voice_and_video_messages: :obj:`bool`
 
-    :param join_to_send_messages: Optional. :obj:`bool`, if users need to join the supergroup before they can send messages. Returned only in getChat.
+    :param join_to_send_messages: Optional. True , if users need to join the supergroup before they can send messages
     :type join_to_send_messages: :obj:`bool`
 
-    :param join_by_request: Optional. :obj:`bool`, if all users directly joining the supergroup need to be approved by supergroup administrators. Returned only in getChat.
+    :param join_by_request: Optional. True , if all users directly joining the supergroup without using an invite link need to be approved by supergroup administrators
     :type join_by_request: :obj:`bool`
 
-    :param description: Optional. Description, for groups, supergroups and channel chats. Returned only in getChat.
+    :param description: Optional. Description, for groups, supergroups and channel chats
     :type description: :obj:`str`
 
-    :param invite_link: Optional. Primary invite link, for groups, supergroups and channel chats. Returned only in getChat.
+    :param invite_link: Optional. Primary invite link, for groups, supergroups and channel chats
     :type invite_link: :obj:`str`
 
-    :param pinned_message: Optional. The most recent pinned message (by sending date). Returned only in getChat.
+    :param pinned_message: Optional. The most recent pinned message (by sending date)
     :type pinned_message: :class:`telebot.types.Message`
 
-    :param permissions: Optional. Default chat member permissions, for groups and supergroups. Returned only in getChat.
+    :param permissions: Optional. Default chat member permissions, for groups and supergroups
     :type permissions: :class:`telebot.types.ChatPermissions`
 
-    :param can_send_gift: deprecated, use accepted_gift_types instead.
+    :param can_send_gift: Deprecated, use accepted_gift_types instead.
     :type can_send_gift: :obj:`bool`
 
     :param accepted_gift_types: Information about types of gifts that are accepted by the chat or by the corresponding user for private chats
     :type accepted_gift_types: :class:`telebot.types.AcceptedGiftTypes`
 
-    :param can_send_paid_media: Optional. True, if paid media messages can be sent or forwarded to the channel chat.
-        The field is available only for channel chats.
+    :param can_send_paid_media: Optional. True, if paid media messages can be sent or forwarded to the channel chat. The field is available only for channel chats.
     :type can_send_paid_media: :obj:`bool`
 
-    :param slow_mode_delay: Optional. For supergroups, the minimum allowed delay between consecutive messages sent by each unpriviledged user; in seconds. Returned only in getChat.
+    :param slow_mode_delay: Optional. For supergroups, the minimum allowed delay between consecutive messages sent by each unprivileged user; in seconds
     :type slow_mode_delay: :obj:`int`
 
-    :param unrestrict_boost_count: Optional. For supergroups, the minimum number of boosts that a non-administrator user needs to add in order to ignore slow mode and chat permissions. Returned only in getChat.
+    :param unrestrict_boost_count: Optional. For supergroups, the minimum number of boosts that a non-administrator user needs to add in order to ignore slow mode and chat permissions
     :type unrestrict_boost_count: :obj:`int`
 
-    :param message_auto_delete_time: Optional. The time after which all messages sent to the chat will be automatically deleted; in seconds. Returned only in getChat.
+    :param message_auto_delete_time: Optional. The time after which all messages sent to the chat will be automatically deleted; in seconds
     :type message_auto_delete_time: :obj:`int`
 
-    :param has_aggressive_anti_spam_enabled: Optional. :obj:`bool`, if the chat has enabled aggressive anti-spam protection. Returned only in getChat.
+    :param has_aggressive_anti_spam_enabled: Optional. True , if aggressive anti-spam checks are enabled in the supergroup. The field is only available to chat administrators.
     :type has_aggressive_anti_spam_enabled: :obj:`bool`
 
-    :param has_hidden_members: Optional. :obj:`bool`, if the chat has enabled hidden members. Returned only in getChat.
+    :param has_hidden_members: Optional. True , if non-administrators can only get the list of bots and administrators in the chat
     :type has_hidden_members: :obj:`bool`
 
-    :param has_protected_content: Optional. :obj:`bool`, if messages from the chat can't be forwarded to other chats. Returned only in getChat.
+    :param has_protected_content: Optional. True , if messages from the chat can't be forwarded to other chats
     :type has_protected_content: :obj:`bool`
 
-    :param has_visible_history: Optional. True, if new chat members will have access to old messages; available only to chat administrators. Returned only in getChat.
+    :param has_visible_history: Optional. True , if new chat members will have access to old messages; available only to chat administrators
     :type has_visible_history: :obj:`bool`
 
-    :param sticker_set_name: Optional. For supergroups, name of group sticker set. Returned only in getChat.
+    :param sticker_set_name: Optional. For supergroups, name of the group sticker set
     :type sticker_set_name: :obj:`str`
 
-    :param can_set_sticker_set: Optional. :obj:`bool`, if the bot can change the group sticker set. Returned only in getChat.
+    :param can_set_sticker_set: Optional. True , if the bot can change the group sticker set
     :type can_set_sticker_set: :obj:`bool`
 
-    :param custom_emoji_sticker_set_name: Optional. For supergroups, the name of the group's custom emoji sticker set.
-        Custom emoji from this set can be used by all users and bots in the group. Returned only in getChat.
-    :param custom_emoji_sticker_set_name: :obj:`str`
+    :param custom_emoji_sticker_set_name: Optional. For supergroups, the name of the group's custom emoji sticker set. Custom emoji from this set can be used by all users and bots in the group.
+    :type custom_emoji_sticker_set_name: :obj:`str`
 
-    :param linked_chat_id: Optional. Unique identifier for the linked chat, i.e. the discussion group identifier for
-        a channel and vice versa; for supergroups and channel chats. This identifier may be greater than 32 bits and some
-        programming languages may have difficulty/silent defects in interpreting it. But it is smaller than 52 bits, so a
-        signed 64 bit integer or double-precision float type are safe for storing this identifier. Returned only in getChat.
+    :param linked_chat_id: Optional. Unique identifier for the linked chat, i.e. the discussion group identifier for a channel and vice versa; for supergroups and channel chats. This identifier may be greater than 32 bits and some programming languages may have difficulty/silent defects in interpreting it. But it is smaller than 52 bits, so a signed 64 bit integer or double-precision float type are safe for storing this identifier.
     :type linked_chat_id: :obj:`int`
 
-    :param location: Optional. For supergroups, the location to which the supergroup is connected. Returned only in getChat.
+    :param location: Optional. For supergroups, the location to which the supergroup is connected
     :type location: :class:`telebot.types.ChatLocation`
 
     :param rating: Optional. For private chats, the rating of the user if any
     :type rating: :class:`telebot.types.UserRating`
 
-    :param paid_message_star_count: Optional. The number of Telegram Stars a general user have to pay to send a message to the chat
+    :param paid_message_star_count: Optional. The number of Telegram Stars a general user has to pay to send a message to the chat
     :type paid_message_star_count: :obj:`int`
 
     :param first_profile_audio: Optional. For private chats, the first audio added to the profile of the user
@@ -851,22 +838,51 @@ class ChatFullInfo(JsonDeserializable):
             obj['community'] = Community.de_json(obj['community'])
         return cls(**obj)
 
-    def __init__(self, id, type, title=None, username=None, first_name=None,
-                last_name=None, photo=None, bio=None, has_private_forwards=None,
-                description=None, invite_link=None, pinned_message=None,
-                permissions=None, slow_mode_delay=None,
-                message_auto_delete_time=None, has_protected_content=None, sticker_set_name=None,
-                can_set_sticker_set=None, linked_chat_id=None, location=None,
-                join_to_send_messages=None, join_by_request=None, has_restricted_voice_and_video_messages=None,
-                is_forum=None, max_reaction_count=None, active_usernames=None, emoji_status_custom_emoji_id=None,
-                has_hidden_members=None, has_aggressive_anti_spam_enabled=None, emoji_status_expiration_date=None,
-                available_reactions=None, accent_color_id=None, background_custom_emoji_id=None, profile_accent_color_id=None,
-                profile_background_custom_emoji_id=None, has_visible_history=None,
-                unrestrict_boost_count=None, custom_emoji_sticker_set_name=None, business_intro=None, business_location=None,
-                business_opening_hours=None, personal_chat=None, birthdate=None,
-                can_send_paid_media=None,
-                accepted_gift_types=None, is_direct_messages=None, parent_chat=None, rating=None, paid_message_star_count=None,
-                unique_gift_colors=None, first_profile_audio=None, guard_bot=None, community=None, **kwargs):
+    def __init__(self, id: int, type: str,
+                 title: Optional[str] = None, username: Optional[str] = None,
+                 first_name: Optional[str] = None, last_name: Optional[str] = None,
+                 photo: Optional[ChatPhoto] = None, bio: Optional[str] = None,
+                 has_private_forwards: Optional[bool] = None,
+                 description: Optional[str] = None, invite_link: Optional[str] = None,
+                 pinned_message: Optional[Message] = None,
+                 permissions: Optional[ChatPermissions] = None,
+                 slow_mode_delay: Optional[int] = None,
+                 message_auto_delete_time: Optional[int] = None,
+                 has_protected_content: Optional[bool] = None,
+                 sticker_set_name: Optional[str] = None,
+                 can_set_sticker_set: Optional[bool] = None,
+                 linked_chat_id: Optional[int] = None, location: Optional[ChatLocation] = None,
+                 join_to_send_messages: Optional[bool] = None,
+                 join_by_request: Optional[bool] = None,
+                 has_restricted_voice_and_video_messages: Optional[bool] = None,
+                 is_forum: Optional[bool] = None,
+                 accent_color_id: int = 0,
+                 max_reaction_count: int = 0,
+                 active_usernames: Optional[List[str]] = None,
+                 emoji_status_custom_emoji_id: Optional[str] = None,
+                 has_hidden_members: Optional[bool] = None,
+                 has_aggressive_anti_spam_enabled: Optional[bool] = None,
+                 emoji_status_expiration_date: Optional[int] = None,
+                 available_reactions: Optional[List[ReactionType]] = None,
+                 background_custom_emoji_id: Optional[str] = None,
+                 profile_accent_color_id: Optional[int] = None,
+                 profile_background_custom_emoji_id: Optional[str] = None,
+                 has_visible_history: Optional[bool] = None,
+                 unrestrict_boost_count: Optional[int] = None,
+                 custom_emoji_sticker_set_name: Optional[str] = None,
+                 business_intro: Optional[BusinessIntro] = None,
+                 business_location: Optional[BusinessLocation] = None,
+                 business_opening_hours: Optional[BusinessOpeningHours] = None,
+                 personal_chat: Optional[Chat] = None, birthdate: Optional[Birthdate] = None,
+                 can_send_paid_media: Optional[bool] = None,
+                 accepted_gift_types: AcceptedGiftTypes = None,
+                 is_direct_messages: Optional[bool] = None, parent_chat: Optional[Chat] = None,
+                 rating: Optional[UserRating] = None,
+                 paid_message_star_count: Optional[int] = None,
+                 unique_gift_colors: Optional[UniqueGiftColors] = None,
+                 first_profile_audio: Optional[Audio] = None,
+                 guard_bot: Optional[User] = None, community: Optional[Community] = None,
+                 **kwargs):
         self.id: int = id
         self.type: str = type
         self.title: Optional[str] = title
@@ -874,7 +890,7 @@ class ChatFullInfo(JsonDeserializable):
         self.first_name: Optional[str] = first_name
         self.last_name: Optional[str] = last_name
         self.is_forum: Optional[bool] = is_forum
-        self.max_reaction_count: Optional[int] = max_reaction_count
+        self.max_reaction_count: int = max_reaction_count
         self.photo: Optional[ChatPhoto] = photo
         self.bio: Optional[str] = bio
         self.join_to_send_messages: Optional[bool] = join_to_send_messages
@@ -898,7 +914,7 @@ class ChatFullInfo(JsonDeserializable):
         self.has_aggressive_anti_spam_enabled: Optional[bool] = has_aggressive_anti_spam_enabled
         self.emoji_status_expiration_date: Optional[int] = emoji_status_expiration_date
         self.available_reactions: Optional[List[ReactionType]] = available_reactions
-        self.accent_color_id: Optional[int] = accent_color_id
+        self.accent_color_id: int = accent_color_id
         self.background_custom_emoji_id: Optional[str] = background_custom_emoji_id
         self.profile_accent_color_id: Optional[int] = profile_accent_color_id
         self.profile_background_custom_emoji_id: Optional[str] = profile_background_custom_emoji_id
@@ -937,23 +953,63 @@ class ChatFullInfo(JsonDeserializable):
 
 class Chat(ChatFullInfo):
     """
-    In BotAPI 7.3 Chat was reduced and full info moved to ChatFullInfo:
-    "Split out the class ChatFullInfo from the class Chat and changed the return type of the method getChat to ChatFullInfo."
+    This object represents a chat.
 
-    https://core.telegram.org/bots/api#chatfullinfo
+    Telegram documentation: https://core.telegram.org/bots/api#chat
 
-    Currently Chat is left as full copy of ChatFullInfo for compatibility.
+    :param id: Unique identifier for this chat. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this identifier.
+    :type id: :obj:`int`
+
+    :param type: Type of the chat, can be either "private", "group", "supergroup" or "channel"
+    :type type: :obj:`str`
+
+    :param title: Optional. Title, for supergroups, channels and group chats
+    :type title: :obj:`str`
+
+    :param username: Optional. Username, for private chats, supergroups and channels if available
+    :type username: :obj:`str`
+
+    :param first_name: Optional. First name of the other party in a private chat
+    :type first_name: :obj:`str`
+
+    :param last_name: Optional. Last name of the other party in a private chat
+    :type last_name: :obj:`str`
+
+    :param is_forum: Optional. True , if the supergroup chat is a forum (has topics enabled)
+    :type is_forum: :obj:`bool`
+
+    :param is_direct_messages: Optional. True, if the chat is the direct messages chat of a channel
+    :type is_direct_messages: :obj:`bool`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.Chat`
     """
     pass
 
 
-class MessageID(JsonDeserializable):
+class MessageID(JsonDeserializable, ABC):
+    """
+    Deprecated. Use `MessageId` instead.
+    """
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string, dict_copy=False)
+        return cls(**obj)
+
+    def __init__(self, message_id, **kwargs):
+        self.message_id: int = message_id
+        log_deprecation_warning('The class "MessageID" is deprecated, use "MessageId" instead')
+
+
+# noinspection missing-constructor
+class MessageId(MessageID):
     """
     This object represents a unique message identifier.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#messageid
+    Telegram documentation: https://core.telegram.org/bots/api#messageid
 
-    :param message_id: Unique message identifier
+    :param message_id: Unique message identifier. In specific instances (e.g., message containing a video sent to a big chat), the server might automatically schedule a message instead of sending it immediately. In such cases, this field will be 0 and the relevant message will be unusable until it is actually sent.
     :type message_id: :obj:`int`
 
     :return: Instance of the class
@@ -965,7 +1021,7 @@ class MessageID(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, message_id, **kwargs):
+    def __init__(self, message_id: int, **kwargs):
         self.message_id: int = message_id
 
 
@@ -973,26 +1029,24 @@ class WebAppData(JsonDeserializable, Dictionaryable):
     """
     Describes data sent from a Web App to the bot.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#webappdata
+    Telegram documentation: https://core.telegram.org/bots/api#webappdata
 
     :param data: The data. Be aware that a bad client can send arbitrary data in this field.
     :type data: :obj:`str`
 
-    :param button_text: Text of the web_app keyboard button from which the Web App was opened. Be aware that a bad client
-        can send arbitrary data in this field.
+    :param button_text: Text of the web_app keyboard button from which the Web App was opened. Be aware that a bad client can send arbitrary data in this field.
     :type button_text: :obj:`str`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.WebAppData`
     """
-
     @classmethod
     def de_json(cls, json_string):
         if json_string is None: return None
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, data, button_text, **kwargs):
+    def __init__(self, data: str, button_text: str, **kwargs):
         self.data: str = data
         self.button_text: str = button_text
     def to_dict(self):
@@ -1004,70 +1058,60 @@ class Message(JsonDeserializable):
     """
     This object represents a message.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#message
+    Telegram documentation: https://core.telegram.org/bots/api#message
 
-    :param message_id: Unique message identifier inside this chat
+    :param message_id: Unique message identifier inside this chat; 0 for ephemeral messages. In specific instances (e.g., a message containing a video sent to a big chat), the server might automatically schedule a message instead of sending it immediately. In such cases, this field will be 0 and the relevant message will be unusable until it is actually sent.
     :type message_id: :obj:`int`
 
-    :param message_thread_id: Optional. Unique identifier of a message thread to which the message belongs; for supergroups and private chats only
+    :param message_thread_id: Optional. Unique identifier of a message thread or forum topic to which the message belongs; for supergroups and private chats only
     :type message_thread_id: :obj:`int`
 
     :param direct_messages_topic: Optional. Information about the direct messages chat topic that contains the message
     :type direct_messages_topic: :class:`telebot.types.DirectMessagesTopic`
 
-    :param from_user: Optional. Sender of the message; empty for messages sent to channels. For backward compatibility, the
-        field contains a fake sender user in non-channel chats, if the message was sent on behalf of a chat.
+    :param from_user: Optional. Sender of the message; may be empty for messages sent to channels. For backward compatibility, if the message was sent on behalf of a chat, the field contains a fake sender user in non-channel chats.
     :type from_user: :class:`telebot.types.User`
 
-    :param sender_chat: Optional. Sender of the message, sent on behalf of a chat. For example, the channel itself for
-        channel posts, the supergroup itself for messages from anonymous group administrators, the linked channel for
-        messages automatically forwarded to the discussion group. For backward compatibility, the field from contains a
-        fake sender user in non-channel chats, if the message was sent on behalf of a chat.
+    :param sender_chat: Optional. Sender of the message when sent on behalf of a chat. For example, the supergroup itself for messages sent by its anonymous administrators or a linked channel for messages automatically forwarded to the channel's discussion group. For backward compatibility, if the message was sent on behalf of a chat, the field from contains a fake sender user in non-channel chats.
     :type sender_chat: :class:`telebot.types.Chat`
 
     :param sender_boost_count: Optional. If the sender of the message boosted the chat, the number of boosts added by the user
     :type sender_boost_count: :obj:`int`
 
-    :param sender_tag: Optional. The tag of the message sender in the chat
+    :param sender_tag: Optional. Tag or custom title of the sender of the message; for supergroups only
     :type sender_tag: :obj:`str`
 
     :param receiver_user: Optional. For ephemeral messages, the user who received the message
     :type receiver_user: :class:`telebot.types.User`
 
-    :param ephemeral_message_id: Optional. For ephemeral messages, identifier of the ephemeral message inside this chat.
-        The identifier may be reused for another ephemeral message after the message is deleted or expires.
+    :param ephemeral_message_id: Optional. For ephemeral messages, identifier of the ephemeral message inside this chat. The identifier may be reused for another ephemeral message after the message is deleted or expires.
     :type ephemeral_message_id: :obj:`int`
 
-    :param sender_business_bot info: Optional. Information about the business bot that sent the message
-    :type sender_business_bot_info: :class:`telebot.types.User`
+    :param sender_business_bot: Optional. The bot that actually sent the message on behalf of the business account. Available only for outgoing messages sent on behalf of the connected business account.
+    :type sender_business_bot: :class:`telebot.types.User`
 
-    :param date: Date the message was sent in Unix time
+    :param date: Date the message was sent in Unix time. It is always a positive number, representing a valid date.
     :type date: :obj:`int`
 
-    :param guest_query_id: Optional. The unique identifier for the guest query. Use this identifier with the method answerGuestQuery
-        to send a response message. If non-empty, the message belongs to the chat where the guest bot was summoned, which may not coincide
-        with other existing bot chats sharing the same identifier.
+    :param guest_query_id: Optional. The unique identifier for the guest query. Use this identifier with the method answerGuestQuery to send a response message. If non-empty, the message belongs to the chat where the guest bot was summoned, which may not coincide with other existing bot chats sharing the same identifier.
     :type guest_query_id: :obj:`str`
 
-    :param business_connection_id: Optional. Unique identifier of the business connection from which the message was received. If non-empty,
-        the message belongs to a chat of the corresponding business account that is independent from any potential bot chat which might share the same identifier.
+    :param business_connection_id: Optional. Unique identifier of the business connection from which the message was received. If non-empty, the message belongs to a chat of the corresponding business account that is independent from any potential bot chat which might share the same identifier.
     :type business_connection_id: :obj:`str`
 
-    :param chat: Conversation the message belongs to
+    :param chat: Chat the message belongs to
     :type chat: :class:`telebot.types.Chat`
 
-    :forward_origin: Optional. For forwarded messages, information about the original message;
+    :param forward_origin: Optional. Information about the original message for forwarded messages
     :type forward_origin: :class:`telebot.types.MessageOrigin`
 
     :param is_topic_message: Optional. True, if the message is sent to a topic in a forum supergroup or a private chat with the bot
     :type is_topic_message: :obj:`bool`
 
-    :param is_automatic_forward: Optional. :obj:`bool`, if the message is a channel post that was automatically
-        forwarded to the connected discussion group
+    :param is_automatic_forward: Optional. True, if the message is a channel post that was automatically forwarded to the connected discussion group
     :type is_automatic_forward: :obj:`bool`
 
-    :param reply_to_message: Optional. For replies, the original message. Note that the Message object in this field
-        will not contain further reply_to_message fields even if it itself is a reply.
+    :param reply_to_message: Optional. For replies in the same chat and message thread, the original message. Note that the Message object in this field will not contain further reply_to_message fields even if it itself is a reply. If the message is a reply to an ephemeral message, then this field may be omitted.
     :type reply_to_message: :class:`telebot.types.Message`
 
     :param external_reply: Optional. Information about the message that is being replied to, which may come from another chat or forum topic
@@ -1097,22 +1141,19 @@ class Message(JsonDeserializable):
     :param edit_date: Optional. Date the message was last edited in Unix time
     :type edit_date: :obj:`int`
 
-    :param has_protected_content: Optional. :obj:`bool`, if the message can't be forwarded
+    :param has_protected_content: Optional. True, if the message can't be forwarded
     :type has_protected_content: :obj:`bool`
 
-    :param is_from_offline: Optional. True, if the message was sent by an implicit action, for example,
-        as an away or a greeting business message, or as a scheduled message
+    :param is_from_offline: Optional. True, if the message was sent by an implicit action, for example, as an away or a greeting business message, or as a scheduled message
     :type is_from_offline: :obj:`bool`
 
-    :param is_paid_post: Optional. True, if the message is a paid post. Note that such posts must not be
-        deleted for 24 hours to receive the payment and can't be edited.
+    :param is_paid_post: Optional. True, if the message is a paid post. Note that such posts must not be deleted for 24 hours to receive the payment and can't be edited.
     :type is_paid_post: :obj:`bool`
 
-    :param media_group_id: Optional. The unique identifier of a media message group this message belongs to
+    :param media_group_id: Optional. The unique identifier inside this chat of a media message group this message belongs to
     :type media_group_id: :obj:`str`
 
-    :param author_signature: Optional. Signature of the post author for messages in channels, or the custom title of an
-        anonymous group administrator
+    :param author_signature: Optional. Signature of the post author for messages in channels, or the custom title of an anonymous group administrator
     :type author_signature: :obj:`str`
 
     :param paid_star_count: Optional. The number of Telegram Stars that were paid by the sender of the message to send it
@@ -1121,16 +1162,13 @@ class Message(JsonDeserializable):
     :param text: Optional. For text messages, the actual UTF-8 text of the message
     :type text: :obj:`str`
 
-    :param entities: Optional. For text messages, special entities like usernames, URLs, bot commands, etc. that
-        appear in the text
+    :param entities: Optional. For text messages, special entities like usernames, URLs, bot commands, etc. that appear in the text
     :type entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
-    :param link_preview_options: Optional. Options used for link preview generation for the message,
-        if it is a text message and link preview options were changed
+    :param link_preview_options: Optional. Options used for link preview generation for the message, if it is a text message and link preview options were changed
     :type link_preview_options: :class:`telebot.types.LinkPreviewOptions`
 
-    :param suggested_post_info: Optional. Information about suggested post parameters if the message is a suggested post
-        in a channel direct messages chat. If the message is an approved or declined suggested post, then it can't be edited.
+    :param suggested_post_info: Optional. Information about suggested post parameters if the message is a suggested post in a channel direct messages chat. If the message is an approved or declined suggested post, then it can't be edited.
     :type suggested_post_info: :class:`telebot.types.SuggestedPostInfo`
 
     :param effect_id: Optional. Unique identifier of the message effect added to the message
@@ -1139,8 +1177,7 @@ class Message(JsonDeserializable):
     :param rich_message: Optional. Message is a rich formatted message
     :type rich_message: :class:`telebot.types.RichMessage`
 
-    :param animation: Optional. Message is an animation, information about the animation. For backward
-        compatibility, when this field is set, the document field will also be set
+    :param animation: Optional. Message is an animation, information about the animation. For backward compatibility, when this field is set, the document field will also be set
     :type animation: :class:`telebot.types.Animation`
 
     :param audio: Optional. Message is an audio file, information about the file
@@ -1149,8 +1186,7 @@ class Message(JsonDeserializable):
     :param document: Optional. Message is a general file, information about the file
     :type document: :class:`telebot.types.Document`
 
-    :param live_photo: Optional. Message is a live photo, information about the live photo.
-        For backward compatibility, when this field is set, the photo field will also be set
+    :param live_photo: Optional. Message is a live photo, information about the live photo. For backward compatibility, when this field is set, the photo field will also be set
     :type live_photo: :class:`telebot.types.LivePhoto`
 
     :param paid_media: Optional. Message contains paid media; information about the paid media
@@ -1174,11 +1210,10 @@ class Message(JsonDeserializable):
     :param voice: Optional. Message is a voice message, information about the file
     :type voice: :class:`telebot.types.Voice`
 
-    :param caption: Optional. Caption for the animation, audio, document, photo, video or voice
+    :param caption: Optional. Caption for the animation, audio, document, paid media, photo, video or voice
     :type caption: :obj:`str`
 
-    :param caption_entities: Optional. For messages with a caption, special entities like usernames, URLs, bot
-        commands, etc. that appear in the caption
+    :param caption_entities: Optional. For messages with a caption, special entities like usernames, URLs, bot commands, etc. that appear in the caption
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param show_caption_above_media: Optional. True, if the caption must be shown above the message media
@@ -1202,19 +1237,16 @@ class Message(JsonDeserializable):
     :param poll: Optional. Message is a native poll, information about the poll
     :type poll: :class:`telebot.types.Poll`
 
-    :param venue: Optional. Message is a venue, information about the venue. For backward compatibility, when this
-        field is set, the location field will also be set
+    :param venue: Optional. Message is a venue, information about the venue. For backward compatibility, when this field is set, the location field will also be set
     :type venue: :class:`telebot.types.Venue`
 
     :param location: Optional. Message is a shared location, information about the location
     :type location: :class:`telebot.types.Location`
 
-    :param new_chat_members: Optional. New members that were added to the group or supergroup and information about
-        them (the bot itself may be one of these members)
+    :param new_chat_members: Optional. New members that were added to the group or supergroup and information about them (the bot itself may be one of these members)
     :type new_chat_members: :obj:`list` of :class:`telebot.types.User`
 
-    :param left_chat_member: Optional. A member was removed from the group, information about them (this member may be
-        the bot itself)
+    :param left_chat_member: Optional. A member was removed from the group, information about them (this member may be the bot itself)
     :type left_chat_member: :class:`telebot.types.User`
 
     :param chat_owner_left: Optional. Service message: chat owner has left
@@ -1235,47 +1267,34 @@ class Message(JsonDeserializable):
     :param group_chat_created: Optional. Service message: the group has been created
     :type group_chat_created: :obj:`bool`
 
-    :param supergroup_chat_created: Optional. Service message: the supergroup has been created. This field can't be
-        received in a message coming through updates, because bot can't be a member of a supergroup when it is created. It can
-        only be found in reply_to_message if someone replies to a very first message in a directly created supergroup.
+    :param supergroup_chat_created: Optional. Service message: the supergroup has been created. This field can't be received in a message coming through updates, because bot can't be a member of a supergroup when it is created. It can only be found in reply_to_message if someone replies to a very first message in a directly created supergroup.
     :type supergroup_chat_created: :obj:`bool`
 
-    :param channel_chat_created: Optional. Service message: the channel has been created. This field can't be
-        received in a message coming through updates, because bot can't be a member of a channel when it is created. It can only
-        be found in reply_to_message if someone replies to a very first message in a channel.
+    :param channel_chat_created: Optional. Service message: the channel has been created. This field can't be received in a message coming through updates, because bot can't be a member of a channel when it is created. It can only be found in reply_to_message if someone replies to a very first message in a channel.
     :type channel_chat_created: :obj:`bool`
 
-    :param message_auto_delete_timer_changed: Optional. Service message: auto-delete timer settings changed in
-        the chat
+    :param message_auto_delete_timer_changed: Optional. Service message: auto-delete timer settings changed in the chat
     :type message_auto_delete_timer_changed: :class:`telebot.types.MessageAutoDeleteTimerChanged`
 
-    :param migrate_to_chat_id: Optional. The group has been migrated to a supergroup with the specified identifier.
-        This number may have more than 32 significant bits and some programming languages may have difficulty/silent
-        defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision
-        float type are safe for storing this identifier.
+    :param migrate_to_chat_id: Optional. The group has been migrated to a supergroup with the specified identifier. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this identifier.
     :type migrate_to_chat_id: :obj:`int`
 
-    :param migrate_from_chat_id: Optional. The supergroup has been migrated from a group with the specified
-        identifier. This number may have more than 32 significant bits and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this identifier.
+    :param migrate_from_chat_id: Optional. The supergroup has been migrated from a group with the specified identifier. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this identifier.
     :type migrate_from_chat_id: :obj:`int`
 
-    :param pinned_message: Optional. Specified message was pinned. Note that the Message object in this field will not
-        contain further reply_to_message fields even if it is itself a reply.
+    :param pinned_message: Optional. Specified message was pinned. Note that the Message object in this field will not contain further reply_to_message fields even if it itself is a reply.
     :type pinned_message: :class:`telebot.types.Message` or :class:`telebot.types.InaccessibleMessage`
 
     :param invoice: Optional. Message is an invoice for a payment, information about the invoice. More about payments »
     :type invoice: :class:`telebot.types.Invoice`
 
-    :param successful_payment: Optional. Message is a service message about a successful payment, information about
-        the payment. More about payments »
+    :param successful_payment: Optional. Message is a service message about a successful payment, information about the payment. More about payments »
     :type successful_payment: :class:`telebot.types.SuccessfulPayment`
 
     :param refunded_payment: Optional. Message is a service message about a refunded payment, information about the payment. More about payments »
     :type refunded_payment: :class:`telebot.types.RefundedPayment`
 
-    :param users_shared: Optional. Service message: a user was shared with the bot
+    :param users_shared: Optional. Service message: users were shared with the bot
     :type users_shared: :class:`telebot.types.UsersShared`
 
     :param chat_shared: Optional. Service message: a chat was shared with the bot
@@ -1290,19 +1309,16 @@ class Message(JsonDeserializable):
     :param gift_upgrade_sent: Optional. Service message: upgrade of a gift was purchased after the gift was sent
     :type gift_upgrade_sent: :class:`telebot.types.GiftInfo`
 
-    :param connected_website: Optional. The domain name of the website on which the user has logged in. More about
-        Telegram Login »
+    :param connected_website: Optional. The domain name of the website on which the user has logged in. More about Telegram Login »
     :type connected_website: :obj:`str`
 
-    :param write_access_allowed: Optional. Service message: the user allowed the bot added to the attachment
-        menu to write messages
+    :param write_access_allowed: Optional. Service message: the user allowed the bot to write messages after adding it to the attachment or side menu, launching a Web App from a link, or accepting an explicit request from a Web App sent by the method requestWriteAccess
     :type write_access_allowed: :class:`telebot.types.WriteAccessAllowed`
 
     :param passport_data: Optional. Telegram Passport data
     :type passport_data: :class:`telebot.types.PassportData`
 
-    :param proximity_alert_triggered: Optional. Service message. A user in the chat triggered another user's
-        proximity alert while sharing Live Location.
+    :param proximity_alert_triggered: Optional. Service message: a user in the chat triggered another user's proximity alert while sharing Live Location
     :type proximity_alert_triggered: :class:`telebot.types.ProximityAlertTriggered`
 
     :param boost_added: Optional. Service message: user boosted the chat
@@ -1322,6 +1338,9 @@ class Message(JsonDeserializable):
 
     :param community_chat_removed: Optional. Service message: chat removed from a Community
     :type community_chat_removed: :class:`telebot.types.CommunityChatRemoved`
+
+    :param community_chat_joined: Optional. Service message: chat was joined by a user from a Community
+    :type community_chat_joined: :class:`telebot.types.CommunityChatJoined`
 
     :param direct_message_price_changed: Optional. Service message: the price for paid messages in the corresponding direct messages chat of a channel has changed
     :type direct_message_price_changed: :class:`telebot.types.DirectMessagePriceChanged`
@@ -1344,16 +1363,16 @@ class Message(JsonDeserializable):
     :param general_forum_topic_unhidden: Optional. Service message: the 'General' forum topic unhidden
     :type general_forum_topic_unhidden: :class:`telebot.types.GeneralForumTopicUnhidden`
 
-    :param giveaway_created: Optional. Service message: a giveaway has been created
+    :param giveaway_created: Optional. Service message: a scheduled giveaway was created
     :type giveaway_created: :class:`telebot.types.GiveawayCreated`
 
     :param giveaway: Optional. The message is a scheduled giveaway message
     :type giveaway: :class:`telebot.types.Giveaway`
 
-    :param giveaway_winners: Optional. Service message: giveaway winners(public winners)
+    :param giveaway_winners: Optional. A giveaway with public winners was completed
     :type giveaway_winners: :class:`telebot.types.GiveawayWinners`
 
-    :param giveaway_completed: Optional. Service message: giveaway completed, without public winners
+    :param giveaway_completed: Optional. Service message: a giveaway without public winners was completed
     :type giveaway_completed: :class:`telebot.types.GiveawayCompleted`
 
     :param managed_bot_created: Optional. Service message: user created a bot that will be managed by the current bot
@@ -1729,6 +1748,9 @@ class Message(JsonDeserializable):
         if 'community_chat_removed' in obj:
             opts['community_chat_removed'] = CommunityChatRemoved.de_json(obj['community_chat_removed'])
             content_type = 'community_chat_removed'
+        if 'community_chat_joined' in obj:
+            opts['community_chat_joined'] = CommunityChatJoined.de_json(obj['community_chat_joined'])
+            content_type = 'community_chat_joined'
         return cls(message_id, from_user, date, chat, content_type, opts, json_string)
 
     @classmethod
@@ -1876,6 +1898,13 @@ class Message(JsonDeserializable):
         self.guest_query_id: Optional[str] = None
         self.live_photo: Optional[LivePhoto] = None
         self.rich_message: Optional[RichMessage] = None
+        self.receiver_user: Optional[User] = None
+        self.ephemeral_message_id: Optional[str] = None
+        self.community_chat_added: Optional[CommunityChatAdded] = None
+        self.community_chat_removed: Optional[CommunityChatRemoved] = None
+        self.community_chat_joined: Optional[CommunityChatJoined] = None
+        self.game: Optional[Game] = None
+        self.passport_data: Optional[PassportData] = None
 
         for key in options:
             setattr(self, key, options[key])
@@ -1989,13 +2018,9 @@ class MessageEntity(Dictionaryable, JsonSerializable, JsonDeserializable):
     """
     This object represents one special entity in a text message. For example, hashtags, usernames, URLs, etc.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#messageentity
+    Telegram documentation: https://core.telegram.org/bots/api#messageentity
 
-    :param type: Type of the entity. Currently, can be “mention” (@username), “hashtag” (#hashtag or #hashtag@chatusername), “cashtag” ($USD or $USD@chatusername),
-        “bot_command” (/start@jobs_bot), “url” (https://telegram.org), “email” (do-not-reply@telegram.org), “phone_number” (+1-212-555-0123), “bold” (bold text),
-        “italic” (italic text), “underline” (underlined text), “strikethrough” (strikethrough text), “spoiler” (spoiler message), “blockquote” (block quotation),
-        “expandable_blockquote” (collapsed-by-default block quotation), “code” (monowidth string), “pre” (monowidth block), “text_link” (for clickable text URLs),
-        “text_mention” (for users without usernames), “custom_emoji” (for inline custom emoji stickers), “date_time” (formatted date and time)
+    :param type: Type of the entity. Currently, can be “mention” ( @username ), "hashtag" ( #hashtag or #hashtag@chatusername ), "cashtag" ( $USD or $USD@chatusername ), “bot_command” ( /start@jobs_bot ), "url" ( https://telegram.org ), "email" ( do-not-reply@telegram.org ), “phone_number” ( +1-212-555-0123 ), "bold" ( bold text ), "italic" ( italic text ), “underline” (underlined text), “strikethrough” (strikethrough text), “spoiler” (spoiler message), “blockquote” (block quotation), “expandable_blockquote” (collapsed-by-default block quotation), “code” (monowidth string), “pre” (monowidth block), “text_link” (for clickable text URLs), “text_mention” (for users without usernames ), “custom_emoji” (for inline custom emoji stickers), or “date_time” (for formatted date and time).
     :type type: :obj:`str`
 
     :param offset: Offset in UTF-16 code units to the start of the entity
@@ -2013,14 +2038,13 @@ class MessageEntity(Dictionaryable, JsonSerializable, JsonDeserializable):
     :param language: Optional. For “pre” only, the programming language of the entity text
     :type language: :obj:`str`
 
-    :param custom_emoji_id: Optional. For “custom_emoji” only, unique identifier of the custom emoji.
-        Use get_custom_emoji_stickers to get full information about the sticker.
+    :param custom_emoji_id: Optional. For “custom_emoji” only, unique identifier of the custom emoji. Use getCustomEmojiStickers to get full information about the sticker.
     :type custom_emoji_id: :obj:`str`
 
-    :param unix_time: Optional. For “date_time” only, Unix time associated with the entity
+    :param unix_time: Optional. For “date_time” only, the Unix time associated with the entity
     :type unix_time: :obj:`int`
 
-    :param date_time_format: Optional. For “date_time” only, name of the formatting style to use
+    :param date_time_format: Optional. For “date_time” only, the string that defines the formatting of the date and time. See date-time entity formatting for more details.
     :type date_time_format: :obj:`str`
 
     :return: Instance of the class
@@ -2046,14 +2070,15 @@ class MessageEntity(Dictionaryable, JsonSerializable, JsonDeserializable):
             obj['user'] = User.de_json(obj['user'])
         return cls(**obj)
 
-    def __init__(self, type, offset, length, url=None, user=None, language=None, custom_emoji_id=None,
-                 unix_time=None, date_time_format=None, **kwargs):
+    def __init__(self, type: str, offset: int, length: int, url: Optional[str] = None, user: Optional[User] = None,
+                 language: Optional[str] = None, custom_emoji_id: Optional[str] = None, unix_time: Optional[int] = None,
+                 date_time_format: Optional[str] = None, **kwargs):
         self.type: str = type
         self.offset: int = offset
         self.length: int = length
-        self.url: str = url
-        self.user: User = user
-        self.language: str = language
+        self.url: Optional[str] = url
+        self.user: Optional[User] = user
+        self.language: Optional[str] = language
         self.custom_emoji_id: Optional[str] = custom_emoji_id
         self.unix_time: Optional[int] = unix_time
         self.date_time_format: Optional[str] = date_time_format
@@ -2077,7 +2102,7 @@ class Dice(JsonSerializable, Dictionaryable, JsonDeserializable):
     """
     This object represents an animated emoji that displays a random value.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#dice
+    Telegram documentation: https://core.telegram.org/bots/api#dice
 
     :param emoji: Emoji on which the dice throw animation is based
     :type emoji: :obj:`str`
@@ -2094,7 +2119,7 @@ class Dice(JsonSerializable, Dictionaryable, JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, value, emoji, **kwargs):
+    def __init__(self, value: int, emoji: str, **kwargs):
         self.value: int = value
         self.emoji: str = emoji
 
@@ -2110,13 +2135,12 @@ class PhotoSize(JsonDeserializable):
     """
     This object represents one size of a photo or a file / sticker thumbnail.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#photosize
+    Telegram documentation: https://core.telegram.org/bots/api#photosize
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
     :param width: Photo width
@@ -2137,7 +2161,8 @@ class PhotoSize(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, width, height, file_size=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, width: int, height: int,
+                 file_size: Optional[int] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.width: int = width
@@ -2149,33 +2174,30 @@ class Audio(JsonDeserializable):
     """
     This object represents an audio file to be treated as music by the Telegram clients.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#audio
+    Telegram documentation: https://core.telegram.org/bots/api#audio
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param duration: Duration of the audio in seconds as defined by sender
+    :param duration: Duration of the audio in seconds as defined by the sender
     :type duration: :obj:`int`
 
-    :param performer: Optional. Performer of the audio as defined by sender or by audio tags
+    :param performer: Optional. Performer of the audio as defined by the sender or by audio tags
     :type performer: :obj:`str`
 
-    :param title: Optional. Title of the audio as defined by sender or by audio tags
+    :param title: Optional. Title of the audio as defined by the sender or by audio tags
     :type title: :obj:`str`
 
-    :param file_name: Optional. Original filename as defined by sender
+    :param file_name: Optional. Original filename as defined by the sender
     :type file_name: :obj:`str`
 
-    :param mime_type: Optional. MIME type of the file as defined by sender
+    :param mime_type: Optional. MIME type of the file as defined by the sender
     :type mime_type: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
     :param thumbnail: Optional. Thumbnail of the album cover to which the music file belongs
@@ -2194,8 +2216,11 @@ class Audio(JsonDeserializable):
             obj['thumbnail'] = None
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, duration, performer=None, title=None, file_name=None, mime_type=None,
-                 file_size=None, thumbnail=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, duration: int,
+                 performer: Optional[str] = None, title: Optional[str] = None,
+                 file_name: Optional[str] = None, mime_type: Optional[str] = None,
+                 file_size: Optional[int] = None, thumbnail: Optional[PhotoSize] = None,
+                 **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.duration: int = duration
@@ -2216,24 +2241,21 @@ class Voice(JsonDeserializable):
     """
     This object represents a voice note.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#voice
+    Telegram documentation: https://core.telegram.org/bots/api#voice
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param duration: Duration of the audio in seconds as defined by sender
+    :param duration: Duration of the audio in seconds as defined by the sender
     :type duration: :obj:`int`
 
-    :param mime_type: Optional. MIME type of the file as defined by sender
+    :param mime_type: Optional. MIME type of the file as defined by the sender
     :type mime_type: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
     :return: Instance of the class
@@ -2245,7 +2267,8 @@ class Voice(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, duration, mime_type=None, file_size=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, duration: int,
+                 mime_type: Optional[str] = None, file_size: Optional[int] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.duration: int = duration
@@ -2257,27 +2280,24 @@ class Document(JsonDeserializable):
     """
     This object represents a general file (as opposed to photos, voice messages and audio files).
 
-    Telegram Documentation: https://core.telegram.org/bots/api#document
+    Telegram documentation: https://core.telegram.org/bots/api#document
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param thumbnail: Optional. Document thumbnail as defined by sender
+    :param thumbnail: Optional. Document thumbnail as defined by the sender
     :type thumbnail: :class:`telebot.types.PhotoSize`
 
-    :param file_name: Optional. Original filename as defined by sender
+    :param file_name: Optional. Original filename as defined by the sender
     :type file_name: :obj:`str`
 
-    :param mime_type: Optional. MIME type of the file as defined by sender
+    :param mime_type: Optional. MIME type of the file as defined by the sender
     :type mime_type: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
     :return: Instance of the class
@@ -2293,7 +2313,9 @@ class Document(JsonDeserializable):
             obj['thumbnail'] = None
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, thumbnail=None, file_name=None, mime_type=None, file_size=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, thumbnail: Optional[PhotoSize] = None,
+                 file_name: Optional[str] = None, mime_type: Optional[str] = None,
+                 file_size: Optional[int] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.thumbnail: Optional[PhotoSize] = thumbnail
@@ -2311,45 +2333,42 @@ class Video(JsonDeserializable):
     """
     This object represents a video file.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#video
+    Telegram documentation: https://core.telegram.org/bots/api#video
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param width: Video width as defined by sender
+    :param width: Video width as defined by the sender
     :type width: :obj:`int`
 
-    :param height: Video height as defined by sender
+    :param height: Video height as defined by the sender
     :type height: :obj:`int`
 
-    :param duration: Duration of the video in seconds as defined by sender
+    :param duration: Duration of the video in seconds as defined by the sender
     :type duration: :obj:`int`
 
     :param thumbnail: Optional. Video thumbnail
     :type thumbnail: :class:`telebot.types.PhotoSize`
 
     :param cover: Optional. Available sizes of the cover of the video in the message
-    :type cover: List[:class:`telebot.types.PhotoSize`]
+    :type cover: :obj:`list` of :class:`telebot.types.PhotoSize`
 
     :param start_timestamp: Optional. Timestamp in seconds from which the video will play in the message
     :type start_timestamp: :obj:`int`
 
     :param qualities: Optional. List of available qualities of the video
-    :type qualities: List[:class:`telebot.types.VideoQuality`]
+    :type qualities: :obj:`list` of :class:`telebot.types.VideoQuality`
 
-    :param file_name: Optional. Original filename as defined by sender
+    :param file_name: Optional. Original filename as defined by the sender
     :type file_name: :obj:`str`
 
-    :param mime_type: Optional. MIME type of the file as defined by sender
+    :param mime_type: Optional. MIME type of the file as defined by the sender
     :type mime_type: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
     :return: Instance of the class
@@ -2367,14 +2386,17 @@ class Video(JsonDeserializable):
             obj['qualities'] = [VideoQuality.de_json(q) for q in obj['qualities']]
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, width, height, duration, thumbnail=None, file_name=None, mime_type=None, file_size=None,
-                    cover=None, start_timestamp=None, qualities=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, width: int, height: int, duration: int,
+                 thumbnail: Optional[PhotoSize] = None, cover: Optional[List[PhotoSize]] = None,
+                 start_timestamp: Optional[int] = None, qualities: Optional[List[VideoQuality]] = None,
+                 file_name: Optional[str] = None, mime_type: Optional[str] = None, file_size: Optional[int] = None,
+                 **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.width: int = width
         self.height: int = height
         self.duration: int = duration
-        self.thumbnail: PhotoSize = thumbnail
+        self.thumbnail: Optional[PhotoSize] = thumbnail
         self.file_name: Optional[str] = file_name
         self.mime_type: Optional[str] = mime_type
         self.file_size: Optional[int] = file_size
@@ -2392,19 +2414,18 @@ class VideoNote(JsonDeserializable):
     """
     This object represents a video message (available in Telegram apps as of v.4.0).
 
-    Telegram Documentation: https://core.telegram.org/bots/api#videonote
+    Telegram documentation: https://core.telegram.org/bots/api#videonote
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param length: Video width and height (diameter of the video message) as defined by sender
+    :param length: Video width and height (diameter of the video message) as defined by the sender
     :type length: :obj:`int`
 
-    :param duration: Duration of the video in seconds as defined by sender
+    :param duration: Duration of the video in seconds as defined by the sender
     :type duration: :obj:`int`
 
     :param thumbnail: Optional. Video thumbnail
@@ -2424,7 +2445,8 @@ class VideoNote(JsonDeserializable):
             obj['thumbnail'] = PhotoSize.de_json(obj['thumbnail'])
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, length, duration, thumbnail=None, file_size=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, length: int, duration: int,
+                 thumbnail: Optional[PhotoSize] = None, file_size: Optional[int] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.length: int = length
@@ -2442,7 +2464,7 @@ class Contact(JsonDeserializable):
     """
     This object represents a phone contact.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#contact
+    Telegram documentation: https://core.telegram.org/bots/api#contact
 
     :param phone_number: Contact's phone number
     :type phone_number: :obj:`str`
@@ -2453,9 +2475,7 @@ class Contact(JsonDeserializable):
     :param last_name: Optional. Contact's last name
     :type last_name: :obj:`str`
 
-    :param user_id: Optional. Contact's user identifier in Telegram. This number may have more than 32 significant bits
-        and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52
-        significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier.
+    :param user_id: Optional. Contact's user identifier in Telegram. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier.
     :type user_id: :obj:`int`
 
     :param vcard: Optional. Additional data about the contact in the form of a vCard
@@ -2470,7 +2490,8 @@ class Contact(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, phone_number, first_name, last_name=None, user_id=None, vcard=None, **kwargs):
+    def __init__(self, phone_number: str, first_name: str, last_name: Optional[str] = None,
+                 user_id: Optional[int] = None, vcard: Optional[str] = None, **kwargs):
         self.phone_number: str = phone_number
         self.first_name: str = first_name
         self.last_name: Optional[str] = last_name
@@ -2482,26 +2503,24 @@ class Location(JsonDeserializable, JsonSerializable, Dictionaryable):
     """
     This object represents a point on the map.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#location
+    Telegram documentation: https://core.telegram.org/bots/api#location
 
-    :param longitude: Longitude as defined by sender
+    :param longitude: Longitude as defined by the sender
     :type longitude: :obj:`float`
 
-    :param latitude: Latitude as defined by sender
+    :param latitude: Latitude as defined by the sender
     :type latitude: :obj:`float`
 
     :param horizontal_accuracy: Optional. The radius of uncertainty for the location, measured in meters; 0-1500
     :type horizontal_accuracy: :obj:`float` number
 
-    :param live_period: Optional. Time relative to the message sending date, during which the location can be updated;
-        in seconds. For active live locations only.
+    :param live_period: Optional. Time relative to the message sending date, during which the location can be updated; in seconds. For active live locations only.
     :type live_period: :obj:`int`
 
     :param heading: Optional. The direction in which user is moving, in degrees; 1-360. For active live locations only.
     :type heading: :obj:`int`
 
-    :param proximity_alert_radius: Optional. The maximum distance for proximity alerts about approaching another
-        chat member, in meters. For sent live locations only.
+    :param proximity_alert_radius: Optional. The maximum distance for proximity alerts about approaching another chat member, in meters. For sent live locations only.
     :type proximity_alert_radius: :obj:`int`
 
     :return: Instance of the class
@@ -2513,8 +2532,10 @@ class Location(JsonDeserializable, JsonSerializable, Dictionaryable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, longitude, latitude, horizontal_accuracy=None,
-                 live_period=None, heading=None, proximity_alert_radius=None, **kwargs):
+    def __init__(self, latitude: float, longitude: float,
+                 horizontal_accuracy: Optional[float] = None, live_period: Optional[int] = None,
+                 heading: Optional[int] = None, proximity_alert_radius: Optional[int] = None,
+                 **kwargs):
         self.longitude: float = longitude
         self.latitude: float = latitude
         self.horizontal_accuracy: Optional[float] = horizontal_accuracy
@@ -2545,7 +2566,7 @@ class Venue(JsonDeserializable):
     """
     This object represents a venue.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#venue
+    Telegram documentation: https://core.telegram.org/bots/api#venue
 
     :param location: Venue location. Can't be a live location
     :type location: :class:`telebot.types.Location`
@@ -2559,8 +2580,7 @@ class Venue(JsonDeserializable):
     :param foursquare_id: Optional. Foursquare identifier of the venue
     :type foursquare_id: :obj:`str`
 
-    :param foursquare_type: Optional. Foursquare type of the venue. (For example, “arts_entertainment/default”,
-        “arts_entertainment/aquarium” or “food/icecream”.)
+    :param foursquare_type: Optional. Foursquare type of the venue. (For example, “arts_entertainment/default”, “arts_entertainment/aquarium” or “food/icecream”.)
     :type foursquare_type: :obj:`str`
 
     :param google_place_id: Optional. Google Places identifier of the venue
@@ -2579,8 +2599,10 @@ class Venue(JsonDeserializable):
         obj['location'] = Location.de_json(obj['location'])
         return cls(**obj)
 
-    def __init__(self, location, title, address, foursquare_id=None, foursquare_type=None,
-                 google_place_id=None, google_place_type=None, **kwargs):
+    def __init__(self, location: Location, title: str, address: str,
+                 foursquare_id: Optional[str] = None, foursquare_type: Optional[str] = None,
+                 google_place_id: Optional[str] = None, google_place_type: Optional[str] = None,
+                 **kwargs):
         self.location: Location = location
         self.title: str = title
         self.address: str = address
@@ -2594,7 +2616,7 @@ class UserProfilePhotos(JsonDeserializable):
     """
     This object represent a user's profile pictures.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#userprofilephotos
+    Telegram documentation: https://core.telegram.org/bots/api#userprofilephotos
 
     :param total_count: Total number of profile pictures the target user has
     :type total_count: :obj:`int`
@@ -2614,31 +2636,27 @@ class UserProfilePhotos(JsonDeserializable):
             obj['photos'] = photos
         return cls(**obj)
 
-    def __init__(self, total_count, photos=None, **kwargs):
+    def __init__(self, total_count: int, photos: List[List[PhotoSize]] = None, **kwargs):
         self.total_count: int = total_count
-        self.photos: List[PhotoSize] = photos
+        self.photos: List[List[PhotoSize]] = photos
 
 
 class File(JsonDeserializable):
     """
     This object represents a file ready to be downloaded. The file can be downloaded via the link https://api.telegram.org/file/bot<token>/<file_path>. It is guaranteed that the link will be valid for at least 1 hour. When the link expires, a new one can be requested by calling getFile.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#file
+    Telegram documentation: https://core.telegram.org/bots/api#file
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
-    :param file_path: Optional. File path. Use https://api.telegram.org/file/bot<token>/<file_path> to get the
-        file.
+    :param file_path: Optional. File path. Use https://api.telegram.org/file/bot<token>/<file_path> to get the file.
     :type file_path: :obj:`str`
 
     :return: Instance of the class
@@ -2650,7 +2668,8 @@ class File(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, file_size=None, file_path=None, **kwargs):
+    def __init__(self, file_id: str, file_unique_id: str, file_size: Optional[int] = None,
+                 file_path: Optional[str] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.file_size: Optional[int] = file_size
@@ -2662,30 +2681,29 @@ class ForceReply(JsonSerializable):
     """
     Upon receiving a message with this object, Telegram clients will display a reply interface to the user (act as if the user has selected the bot's message and tapped 'Reply'). This can be extremely useful if you want to create user-friendly step-by-step interfaces without having to sacrifice privacy mode.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#forcereply
+    Telegram documentation: https://core.telegram.org/bots/api#forcereply
 
-    :param force_reply: Shows reply interface to the user, as if they manually selected the bot's message and tapped
-        'Reply'
+    :param force_reply: Shows reply interface to the user, as if they manually selected the bot's message and tapped 'Reply'
     :type force_reply: :obj:`bool`
 
-    :param input_field_placeholder: Optional. The placeholder to be shown in the input field when the reply is active;
-        1-64 characters
+    :param input_field_placeholder: Optional. The placeholder to be shown in the input field when the reply is active; 1-64 characters
     :type input_field_placeholder: :obj:`str`
 
-    :param selective: Optional. Use this parameter if you want to force reply from specific users only. Targets: 1) users
-        that are @mentioned in the text of the Message object; 2) if the bot's message is a reply to a message in the same
-        chat and forum topic, sender of the original message.
+    :param selective: Optional. Use this parameter if you want to force reply from specific users only. Targets: 1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a reply to a message in the same chat and forum topic, sender of the original message.
     :type selective: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.ForceReply`
     """
-    def __init__(self, selective: Optional[bool]=None, input_field_placeholder: Optional[str]=None):
+    def __init__(
+        self, force_reply: bool = True, selective: Optional[bool] = None,
+        input_field_placeholder: Optional[str] = None):
+        self.force_reply: bool = force_reply
         self.selective: Optional[bool] = selective
         self.input_field_placeholder: Optional[str] = input_field_placeholder
 
     def to_json(self):
-        json_dict = {'force_reply': True}
+        json_dict = {'force_reply': self.force_reply}
         if self.selective is not None:
             json_dict['selective'] = self.selective
         if self.input_field_placeholder:
@@ -2696,32 +2714,27 @@ class ForceReply(JsonSerializable):
 # noinspection PyUnresolvedReferences
 class ReplyKeyboardRemove(JsonSerializable):
     """
-    Upon receiving a message with this object, Telegram clients will remove the current custom keyboard and display the default letter-keyboard. By default, custom keyboards are displayed until a new keyboard is sent by a bot. An exception is made for one-time keyboards that are hidden immediately after the user presses a button (see ReplyKeyboardMarkup).
+    Upon receiving a message with this object, Telegram clients will remove the current custom keyboard and display the default letter-keyboard. By default, custom keyboards are displayed until a new keyboard is sent by a bot. An exception is made for one-time keyboards that are hidden immediately after the user presses a button (see ReplyKeyboardMarkup). Not supported in channels and for messages sent on behalf of a business account.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#replykeyboardremove
+    Telegram documentation: https://core.telegram.org/bots/api#replykeyboardremove
 
-    :param remove_keyboard: Requests clients to remove the custom keyboard (user will not be able to summon this
-        keyboard; if you want to hide the keyboard from sight but keep it accessible, use one_time_keyboard in
-        ReplyKeyboardMarkup)
-        Note that this parameter is set to True by default by the library. You cannot modify it.
+    :param remove_keyboard: Requests clients to remove the custom keyboard (user will not be able to summon this keyboard; if you want to hide the keyboard from sight but keep it accessible, use one_time_keyboard in ReplyKeyboardMarkup)
     :type remove_keyboard: :obj:`bool`
 
-    :param selective: Optional. Use this parameter if you want to remove the keyboard for specific users only. Targets:
-        1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a reply (has
-        reply_to_message_id), sender of the original message.Example: A user votes in a poll, bot returns confirmation
-        message in reply to the vote and removes the keyboard for that user, while still showing the keyboard with poll options
-        to users who haven't voted yet.
+    :param selective: Optional. Use this parameter if you want to remove the keyboard for specific users only. Targets: 1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a reply to a message in the same chat and forum topic, sender of the original message. Example: A user votes in a poll, bot returns confirmation message in reply to the vote and removes the keyboard for that user, while still showing the keyboard with poll options to users who haven't voted yet.
     :type selective: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.ReplyKeyboardRemove`
     """
-    def __init__(self, selective: Optional[bool]=None):
+    def __init__(
+        self, remove_keyboard: bool = True, selective: Optional[bool] = None):
+        self.remove_keyboard: bool = remove_keyboard
         self.selective: Optional[bool] = selective
 
     def to_json(self):
-        json_dict = {'remove_keyboard': True}
-        if self.selective:
+        json_dict = {'remove_keyboard': self.remove_keyboard}
+        if self.selective is not None:
             json_dict['selective'] = self.selective
         return json.dumps(json_dict)
 
@@ -2730,7 +2743,7 @@ class WebAppInfo(JsonDeserializable, Dictionaryable):
     """
     Describes a Web App.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#webappinfo
+    Telegram documentation: https://core.telegram.org/bots/api#webappinfo
 
     :param url: An HTTPS URL of a Web App to be opened with additional data as specified in Initializing Web Apps
     :type url: :obj:`str`
@@ -2744,7 +2757,7 @@ class WebAppInfo(JsonDeserializable, Dictionaryable):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, url, **kwargs):
+    def __init__(self, url: str, **kwargs):
         self.url: str = url
 
     def to_dict(self):
@@ -2754,9 +2767,11 @@ class WebAppInfo(JsonDeserializable, Dictionaryable):
 # noinspection PyUnresolvedReferences
 class ReplyKeyboardMarkup(JsonSerializable):
     """
-    This object represents a custom keyboard with reply options (see Introduction to bots for details and examples).
+    This object represents a custom keyboard with reply options (see Introduction to bots for details and examples). Not supported in channels and for messages sent on behalf of a business account.
 
-    .. code-block:: python3
+    Telegram documentation: https://core.telegram.org/bots/api#replykeyboardmarkup
+
+        .. code-block:: python3
         :caption: Example on creating ReplyKeyboardMarkup object
 
         from telebot.types import ReplyKeyboardMarkup, KeyboardButton
@@ -2769,48 +2784,38 @@ class ReplyKeyboardMarkup(JsonSerializable):
         # display this markup:
         bot.send_message(chat_id, 'Text', reply_markup=markup)
 
-    Telegram Documentation: https://core.telegram.org/bots/api#replykeyboardmarkup
-
-    :param keyboard: :obj:`list` of button rows, each represented by an :obj:`list` of
-        :class:`telebot.types.KeyboardButton` objects
+    :param keyboard: Array of button rows, each represented by an Array of KeyboardButton objects
     :type keyboard: :obj:`list` of :obj:`list` of :class:`telebot.types.KeyboardButton`
 
-    :param resize_keyboard: Optional. Requests clients to resize the keyboard vertically for optimal fit (e.g., make
-        the keyboard smaller if there are just two rows of buttons). Defaults to false, in which case the custom keyboard is
-        always of the same height as the app's standard keyboard.
+    :param resize_keyboard: Optional. Requests clients to resize the keyboard vertically for optimal fit (e.g., make the keyboard smaller if there are just two rows of buttons). Defaults to False, in which case the custom keyboard is always of the same height as the app's standard keyboard.
     :type resize_keyboard: :obj:`bool`
 
-    :param one_time_keyboard: Optional. Requests clients to hide the keyboard as soon as it's been used. The keyboard
-        will still be available, but clients will automatically display the usual letter-keyboard in the chat - the user can
-        press a special button in the input field to see the custom keyboard again. Defaults to false.
+    :param one_time_keyboard: Optional. Requests clients to hide the keyboard as soon as it's been used. The keyboard will still be available, but clients will automatically display the usual letter-keyboard in the chat - the user can press a special button in the input field to see the custom keyboard again. Defaults to False.
     :type one_time_keyboard: :obj:`bool`
 
-    :param input_field_placeholder: Optional. The placeholder to be shown in the input field when the keyboard is
-        active; 1-64 characters
+    :param input_field_placeholder: Optional. The placeholder to be shown in the input field when the keyboard is active; 1-64 characters
     :type input_field_placeholder: :obj:`str`
 
-    :param selective: Optional. Use this parameter if you want to show the keyboard to specific users only. Targets:
-        1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a reply to a message
-        in the same chat and forum topic, sender of the original message. Example: A user requests to change the bot's
-        language, bot replies to the request with a keyboard to select the new language. Other users in the group don't
-        see the keyboard.
+    :param selective: Optional. Use this parameter if you want to show the keyboard to specific users only. Targets: 1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a reply to a message in the same chat and forum topic, sender of the original message. Example: A user requests to change the bot's language, bot replies to the request with a keyboard to select the new language. Other users in the group don't see the keyboard.
     :type selective: :obj:`bool`
 
-    :param is_persistent: Optional. Use this parameter if you want to show the keyboard to specific users only.
-        Targets: 1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a
-        reply (has reply_to_message_id), sender of the original message.
+    :param is_persistent: Optional. Requests clients to always show the keyboard when the regular keyboard is hidden. Defaults to False, in which case the custom keyboard can be hidden and opened with a keyboard icon.
+    :type is_persistent: :obj:`bool`
 
-        Example: A user requests to change the bot's language, bot replies to the request with a keyboard to
-        select the new language. Other users in the group don't see the keyboard.
+    :param force_reply: Optional. Pass True if the reply interface must be shown to the user, as if they had manually selected the bot's message and tapped 'Reply'
+    :type force_reply: :obj:`bool`
 
-    :return: Instance of the class
+    :param row_width: Non-API. The width of the row in the keyboard when adding keys using "add" method. Defaults to 3. Maximum value is 12.
+    :type row_width: :obj:`int`
+
     :rtype: :class:`telebot.types.ReplyKeyboardMarkup`
     """
     max_row_keys = 12
 
     def __init__(self, resize_keyboard: Optional[bool]=None, one_time_keyboard: Optional[bool]=None,
             selective: Optional[bool]=None, row_width: int=3, input_field_placeholder: Optional[str]=None,
-            is_persistent: Optional[bool]=None):
+            is_persistent: Optional[bool]=None, force_reply: Optional[bool]=None,
+            keyboard: Optional[List[List[KeyboardButton]]]=None):
         if row_width > self.max_row_keys:
             # Todo: Will be replaced with Exception in future releases
             if not DISABLE_KEYLEN_ERROR:
@@ -2822,8 +2827,10 @@ class ReplyKeyboardMarkup(JsonSerializable):
         self.selective: Optional[bool] = selective
         self.row_width: Optional[int] = row_width
         self.input_field_placeholder: Optional[str] = input_field_placeholder
-        self.keyboard: List[List[KeyboardButton]] = []
+        self.keyboard: List[List[KeyboardButton]] = keyboard or []
         self.is_persistent: Optional[bool] = is_persistent
+        self.force_reply: Optional[bool] = force_reply
+
 
     def add(self, *args, row_width=None) -> 'ReplyKeyboardMarkup':
         """
@@ -2891,6 +2898,8 @@ class ReplyKeyboardMarkup(JsonSerializable):
             json_dict['input_field_placeholder'] = self.input_field_placeholder
         if self.is_persistent is not None:
             json_dict['is_persistent'] = self.is_persistent
+        if self.force_reply is not None:
+            json_dict['force_reply'] = self.force_reply
         return json.dumps(json_dict)
 
 
@@ -2899,7 +2908,7 @@ class KeyboardButtonPollType(Dictionaryable):
     """
     This object represents type of a poll, which is allowed to be created and sent when the corresponding button is pressed.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#keyboardbuttonpolltype
+    Telegram documentation: https://core.telegram.org/bots/api#keyboardbuttonpolltype
 
     :param type: Optional. If quiz is passed, the user will be allowed to create only polls in the quiz mode. If regular is passed, only regular polls will be allowed. Otherwise, the user will be allowed to create a poll of any type.
     :type type: :obj:`str`
@@ -2907,8 +2916,8 @@ class KeyboardButtonPollType(Dictionaryable):
     :return: Instance of the class
     :rtype: :class:`telebot.types.KeyboardButtonPollType`
     """
-    def __init__(self, type=None):
-        self.type: str = type
+    def __init__(self, type: Optional[str] = None):
+        self.type: Optional[str] = type
 
     def to_dict(self):
         return {'type': self.type}
@@ -2916,33 +2925,29 @@ class KeyboardButtonPollType(Dictionaryable):
 
 class KeyboardButtonRequestUsers(Dictionaryable):
     """
-    This object defines the criteria used to request a suitable user.
-    The identifier of the selected user will be shared with the bot when the corresponding button is pressed.
+    This object defines the criteria used to request suitable users. Information about the selected users will be shared with the bot when the corresponding button is pressed.
 
     Telegram documentation: https://core.telegram.org/bots/api#keyboardbuttonrequestusers
 
-    :param request_id: Signed 32-bit identifier of the request, which will be received back in the UsersShared object.
-        Must be unique within the message
+    :param request_id: Signed 32-bit identifier of the request that will be received back in the UsersShared object. Must be unique within the message.
     :type request_id: :obj:`int`
 
-    :param user_is_bot: Optional. Pass True to request a bot, pass False to request a regular user.
-        If not specified, no additional restrictions are applied.
+    :param user_is_bot: Optional. Pass True to request bots, pass False to request regular users. If not specified, no additional restrictions are applied.
     :type user_is_bot: :obj:`bool`
 
-    :param user_is_premium: Optional. Pass True to request a premium user, pass False to request a non-premium user.
-        If not specified, no additional restrictions are applied.
+    :param user_is_premium: Optional. Pass True to request premium users, pass False to request non-premium users. If not specified, no additional restrictions are applied.
     :type user_is_premium: :obj:`bool`
 
     :param max_quantity: Optional. The maximum number of users to be selected; 1-10. Defaults to 1.
     :type max_quantity: :obj:`int`
 
-    :param request_name: Optional. Request name
+    :param request_name: Optional. Pass True to request the users' first and last names
     :type request_name: :obj:`bool`
 
-    :param request_username: Optional. Request username
+    :param request_username: Optional. Pass True to request the users' usernames
     :type request_username: :obj:`bool`
 
-    :param request_photo: Optional. Request photo
+    :param request_photo: Optional. Pass True to request the users' photos
     :type request_photo: :obj:`bool`
 
     :return: Instance of the class
@@ -2988,58 +2993,58 @@ class KeyboardButtonRequestUser(KeyboardButtonRequestUsers):
 
 class KeyboardButtonRequestChat(Dictionaryable):
     """
-    This object defines the criteria used to request a suitable chat. The identifier of the selected chat will
-    be shared with the bot when the corresponding button is pressed.
+    This object defines the criteria used to request a suitable chat. Information about the selected chat will be shared with the bot when the corresponding button is pressed. The bot will be granted requested rights in the chat if appropriate.
 
     Telegram documentation: https://core.telegram.org/bots/api#keyboardbuttonrequestchat
 
-    :param request_id: Signed 32-bit identifier of the request, which will be received back in the ChatShared object.
-        Must be unique within the message
+    :param request_id: Signed 32-bit identifier of the request, which will be received back in the ChatShared object. Must be unique within the message
     :type request_id: :obj:`int`
 
     :param chat_is_channel: Pass True to request a channel chat, pass False to request a group or a supergroup chat.
     :type chat_is_channel: :obj:`bool`
 
-    :param chat_is_forum: Optional. Pass True to request a forum supergroup, pass False to request a non-forum chat.
-        If not specified, no additional restrictions are applied.
+    :param chat_is_forum: Optional. Pass True to request a forum supergroup, pass False to request a non-forum chat. If not specified, no additional restrictions are applied.
     :type chat_is_forum: :obj:`bool`
 
-    :param chat_has_username: Optional. Pass True to request a supergroup or a channel with a username, pass False to request a
-        chat without a username. If not specified, no additional restrictions are applied.
+    :param chat_has_username: Optional. Pass True to request a supergroup or a channel with a username, pass False to request a chat without a username. If not specified, no additional restrictions are applied.
     :type chat_has_username: :obj:`bool`
 
     :param chat_is_created: Optional. Pass True to request a chat owned by the user. Otherwise, no additional restrictions are applied.
     :type chat_is_created: :obj:`bool`
 
-    :param user_administrator_rights: Optional. A JSON-serialized object listing the required administrator rights of the user in the chat.
-        The rights must be a superset of bot_administrator_rights. If not specified, no additional restrictions are applied.
+    :param user_administrator_rights: Optional. A JSON-serialized object listing the required administrator rights of the user in the chat. The rights must be a superset of bot_administrator_rights. If not specified, no additional restrictions are applied.
     :type user_administrator_rights: :class:`telebot.types.ChatAdministratorRights`
 
-    :param bot_administrator_rights: Optional. A JSON-serialized object listing the required administrator rights of the bot in the chat.
-        The rights must be a subset of user_administrator_rights. If not specified, no additional restrictions are applied.
+    :param bot_administrator_rights: Optional. A JSON-serialized object listing the required administrator rights of the bot in the chat. The rights must be a subset of user_administrator_rights. If not specified, no additional restrictions are applied.
     :type bot_administrator_rights: :class:`telebot.types.ChatAdministratorRights`
 
-    :param bot_is_member: Optional. Pass True to request a chat where the bot is a member. Otherwise, no additional restrictions are applied.
+    :param bot_is_member: Optional. Pass True to request a chat with the bot as a member. Otherwise, no additional restrictions are applied.
     :type bot_is_member: :obj:`bool`
 
-    :param request_title: Optional. Request title
+    :param request_title: Optional. Pass True to request the chat's title
     :type request_title: :obj:`bool`
 
-    :param request_photo: Optional. Request photo
+    :param request_photo: Optional. Pass True to request the chat's photo
     :type request_photo: :obj:`bool`
 
-    :param request_username: Optional. Request username
+    :param request_username: Optional. Pass True to request the chat's username
     :type request_username: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.KeyboardButtonRequestChat`
     """
 
-    def __init__(self, request_id: int, chat_is_channel: bool, chat_is_forum: Optional[bool]=None,
-                 chat_has_username: Optional[bool]=None, chat_is_created: Optional[bool]=None,
-                 user_administrator_rights: Optional[ChatAdministratorRights]=None,
-                 bot_administrator_rights: Optional[ChatAdministratorRights]=None, bot_is_member: Optional[bool]=None,
-                 request_title: Optional[bool]=None, request_photo: Optional[bool]=None, request_username: Optional[bool]=None):
+    def __init__(
+        self, request_id: int, chat_is_channel: bool,
+        chat_is_forum: Optional[bool] = None,
+        chat_has_username: Optional[bool] = None,
+        chat_is_created: Optional[bool] = None,
+        user_administrator_rights: Optional[ChatAdministratorRights] = None,
+        bot_administrator_rights: Optional[ChatAdministratorRights] = None,
+        bot_is_member: Optional[bool] = None,
+        request_title: Optional[bool] = None,
+        request_photo: Optional[bool] = None,
+        request_username: Optional[bool] = None):
         self.request_id: int = request_id
         self.chat_is_channel: bool = chat_is_channel
         self.chat_is_forum: Optional[bool] = chat_is_forum
@@ -3079,62 +3084,56 @@ class KeyboardButtonRequestChat(Dictionaryable):
 
 class KeyboardButton(Dictionaryable, JsonSerializable):
     """
-    This object represents one button of the reply keyboard. For simple text buttons String can be used instead of this object to specify text of the button. Optional fields web_app, request_contact, request_location, and request_poll are mutually exclusive.
+    This object represents one button of the reply keyboard. At most one of the fields other than text, icon_custom_emoji_id, and style must be used to specify the type of the button. For simple text buttons, String can be used instead of this object to specify the button text.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#keyboardbutton
+    Telegram documentation: https://core.telegram.org/bots/api#keyboardbutton
 
-    :param text: Text of the button. If none of the fields other than text, icon_custom_emoji_id, and style are used,
-        it will be sent as a message when the button is pressed
+    :param text: Text of the button. If none of the fields other than text, icon_custom_emoji_id, and style are used, it will be sent as a message when the button is pressed
     :type text: :obj:`str`
 
-    :param icon_custom_emoji_id: Optional. Unique identifier of the custom emoji shown before the text of the button.
-        Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private, group and supergroup chats
-        if the owner of the bot has a Telegram Premium subscription.
+    :param icon_custom_emoji_id: Optional. Unique identifier of the custom emoji shown before the text of the button. Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private, group and supergroup chats if the owner of the bot has a Telegram Premium subscription.
     :type icon_custom_emoji_id: :obj:`str`
 
     :param style: Optional. Style of the button. Must be one of “danger” (red), “success” (green) or “primary” (blue). If omitted, then an app-specific style is used.
     :type style: :obj:`str`
 
-    :param request_contact: Optional. If True, the user's phone number will be sent as a contact when the button is
-        pressed. Available in private chats only.
+    :param request_contact: Optional. If True, the user's phone number will be sent as a contact when the button is pressed. Available in private chats only.
     :type request_contact: :obj:`bool`
 
-    :param request_location: Optional. If True, the user's current location will be sent when the button is pressed.
-        Available in private chats only.
+    :param request_location: Optional. If True, the user's current location will be sent when the button is pressed. Available in private chats only.
     :type request_location: :obj:`bool`
 
-    :param request_poll: Optional. If specified, the user will be asked to create a poll and send it to the bot when the
-        button is pressed. Available in private chats only.
+    :param request_poll: Optional. If specified, the user will be asked to create a poll and send it to the bot when the button is pressed. Available in private chats only.
     :type request_poll: :class:`telebot.types.KeyboardButtonPollType`
 
-    :param web_app: Optional. If specified, the described Web App will be launched when the button is pressed. The Web App
-        will be able to send a “web_app_data” service message. Available in private chats only.
+    :param web_app: Optional. If specified, the described Web App will be launched when the button is pressed. The Web App will be able to send a “web_app_data” service message. Available in private chats only.
     :type web_app: :class:`telebot.types.WebAppInfo`
 
-    :param request_user: deprecated
+    :param request_user: Deprecated
     :type request_user: :class:`telebot.types.KeyboardButtonRequestUser`
 
-    :param request_users: Optional. If specified, pressing the button will open a list of suitable users.
-        Identifiers of selected users will be sent to the bot in a “users_shared” service message. Available in private chats only.
+    :param request_users: Optional. If specified, pressing the button will open a list of suitable users. Identifiers of selected users will be sent to the bot in a “users_shared” service message. Available in private chats only.
     :type request_users: :class:`telebot.types.KeyboardButtonRequestUsers`
 
-    :param request_chat: Optional. If specified, pressing the button will open a list of suitable chats. Tapping on a chat will
-        send its identifier to the bot in a “chat_shared” service message. Available in private chats only.
+    :param request_chat: Optional. If specified, pressing the button will open a list of suitable chats. Tapping on a chat will send its identifier to the bot in a “chat_shared” service message. Available in private chats only.
     :type request_chat: :class:`telebot.types.KeyboardButtonRequestChat`
 
-    :param request_managed_bot: Optional. If specified, pressing the button will ask the user to create and share a bot
-        that will be managed by the current bot. Available for bots that enabled management of other bots in the @BotFather
-        Mini App. Available in private chats only.
+    :param request_managed_bot: Optional. If specified, pressing the button will ask the user to create and share a bot that will be managed by the current bot. Available for bots that enabled management of other bots in the @BotFather Mini App. Available in private chats only.
     :type request_managed_bot: :class:`telebot.types.KeyboardButtonRequestManagedBot`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.KeyboardButton`
     """
-    def __init__(self, text: str, request_contact: Optional[bool]=None,
-            request_location: Optional[bool]=None, request_poll: Optional[KeyboardButtonPollType]=None,
-            web_app: Optional[WebAppInfo]=None, request_user: Optional[KeyboardButtonRequestUser]=None,
-            request_chat: Optional[KeyboardButtonRequestChat]=None, request_users: Optional[KeyboardButtonRequestUsers]=None,
-            icon_custom_emoji_id: Optional[str]=None, style: Optional[str]=None, request_managed_bot: Optional[KeyboardButtonRequestManagedBot]=None):
+    def __init__(
+        self, text: str, request_contact: Optional[bool] = None,
+        request_location: Optional[bool] = None,
+        request_poll: Optional[KeyboardButtonPollType] = None,
+        web_app: Optional[WebAppInfo] = None,
+        request_user: Optional[KeyboardButtonRequestUser] = None,
+        request_chat: Optional[KeyboardButtonRequestChat] = None,
+        request_users: Optional[KeyboardButtonRequestUsers] = None,
+        icon_custom_emoji_id: Optional[str] = None, style: Optional[str] = None,
+        request_managed_bot: Optional[KeyboardButtonRequestManagedBot] = None):
         self.text: str = text
         self.request_contact: Optional[bool] = request_contact
         self.request_location: Optional[bool] = request_location
@@ -3182,7 +3181,8 @@ class InlineKeyboardMarkup(Dictionaryable, JsonSerializable, JsonDeserializable)
     """
     This object represents an inline keyboard that appears right next to the message it belongs to.
 
-    .. note::
+        Telegram documentation: https://core.telegram.org/bots/api#inlinekeyboardmarkup
+
         It is recommended to use :meth:`telebot.util.quick_markup` instead.
 
     .. code-block:: python3
@@ -3198,13 +3198,16 @@ class InlineKeyboardMarkup(Dictionaryable, JsonSerializable, JsonDeserializable)
         # returns an InlineKeyboardMarkup with two buttons in a row, one leading to Twitter, the other to facebook
         # and a back button below
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinekeyboardmarkup
+    :param inline_keyboard: Array of button rows, each represented by an Array of InlineKeyboardButton objects
+    :type inline_keyboard: :obj:`list` of :obj:`list` of :class:`telebot.types.InlineKeyboardButton`
 
-    :param keyboard: :obj:`list` of button rows, each represented by an :obj:`list` of
-        :class:`telebot.types.InlineKeyboardButton` objects
+    :param force_reply: Optional. Pass True if the reply interface must be shown to the user, as if they had manually selected the bot's message and tapped 'Reply'. The value of the field can't be changed when the inline keyboard is edited.
+    :type force_reply: :obj:`bool`
+
+    :param keyboard: Deprecated. Use inline_keyboard instead.
     :type keyboard: :obj:`list` of :obj:`list` of :class:`telebot.types.InlineKeyboardButton`
 
-    :param row_width: number of :class:`telebot.types.InlineKeyboardButton` objects on each row
+    :param row_width: Non-API. The width of the row in the keyboard when adding keys using "add" method. Defaults to 3. Maximum value is 8.
     :type row_width: :obj:`int`
 
     :return: Instance of the class
@@ -3216,27 +3219,34 @@ class InlineKeyboardMarkup(Dictionaryable, JsonSerializable, JsonDeserializable)
     def de_json(cls, json_string):
         if json_string is None: return None
         obj = cls.check_json(json_string, dict_copy=False)
-        keyboard = [[InlineKeyboardButton.de_json(button) for button in row] for row in obj['inline_keyboard']]
-        return cls(keyboard = keyboard)
+        inline_keyboard = [[InlineKeyboardButton.de_json(button) for button in row] for row in obj['inline_keyboard']]
+        return cls(inline_keyboard=inline_keyboard)
 
-    def __init__(self, keyboard=None, row_width=3):
+    def __init__(
+        self, inline_keyboard: List[List[InlineKeyboardButton]] = None, row_width: int = 3,
+        keyboard: List[List[InlineKeyboardButton]] = None, force_reply: Optional[bool] = None, **kwargs):
         if row_width > self.max_row_keys:
             # Todo: Will be replaced with Exception in future releases
             logger.error('Telegram does not support inline keyboard row width over %d.' % self.max_row_keys)
             row_width = self.max_row_keys
 
         self.row_width: int = row_width
-        self.keyboard: List[List[InlineKeyboardButton]] = keyboard or []
+        self.inline_keyboard: List[List[InlineKeyboardButton]] = inline_keyboard or []
+        self.force_reply: Optional[bool] = force_reply
+        if keyboard is not None:
+            logger.warning('The "keyboard" parameter is deprecated. Use "inline_keyboard" instead.')
+            if not self.inline_keyboard:
+                self.inline_keyboard = keyboard
 
     def add(self, *args, row_width=None) -> 'InlineKeyboardMarkup':
         """
         This method adds buttons to the keyboard without exceeding row_width.
 
         E.g. InlineKeyboardMarkup.add("A", "B", "C") yields the json result:
-        {keyboard: [["A"], ["B"], ["C"]]}
+        {inline_keyboard: [["A"], ["B"], ["C"]]}
         when row_width is set to 1.
         When row_width is set to 2, the result:
-        {keyboard: [["A", "B"], ["C"]]}
+        {inline_keyboard: [["A", "B"], ["C"]]}
         See https://core.telegram.org/bots/api#inlinekeyboardmarkup
 
         :param args: Array of InlineKeyboardButton to append to the keyboard
@@ -3258,7 +3268,7 @@ class InlineKeyboardMarkup(Dictionaryable, JsonSerializable, JsonDeserializable)
 
         for row in service_utils.chunks(args, row_width):
             button_array = [button for button in row]
-            self.keyboard.append(button_array)
+            self.inline_keyboard.append(button_array)
 
         return self
 
@@ -3268,7 +3278,8 @@ class InlineKeyboardMarkup(Dictionaryable, JsonSerializable, JsonDeserializable)
         This method does not consider row_width.
 
         InlineKeyboardMarkup.row("A").row("B", "C").to_json() outputs:
-        '{keyboard: [["A"], ["B", "C"]]}'
+        '{inline_keyboard: [["A"], ["B", "C"]]}'
+
         See https://core.telegram.org/bots/api#inlinekeyboardmarkup
 
         :param args: Array of InlineKeyboardButton to append to the keyboard
@@ -3285,71 +3296,64 @@ class InlineKeyboardMarkup(Dictionaryable, JsonSerializable, JsonDeserializable)
 
     def to_dict(self):
         json_dict = dict()
-        json_dict['inline_keyboard'] = [[button.to_dict() for button in row] for row in self.keyboard]
+        json_dict['inline_keyboard'] = [[button.to_dict() for button in row] for row in self.inline_keyboard]
+        if self.force_reply is not None:
+            json_dict['force_reply'] = self.force_reply
         return json_dict
+
+    @property
+    def keyboard(self):
+        logger.warning('The "keyboard" property is deprecated. Use "inline_keyboard" instead.')
+        return self.inline_keyboard
 
 
 class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable):
     """
-    This object represents one button of an inline keyboard. You must use exactly one of the optional fields.
+    This object represents one button of an inline keyboard. Exactly one of the fields other than text, icon_custom_emoji_id, and style must be used to specify the type of the button.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinekeyboardbutton
+    Telegram documentation: https://core.telegram.org/bots/api#inlinekeyboardbutton
 
     :param text: Label text on the button
     :type text: :obj:`str`
 
-    :param icon_custom_emoji_id: Optional. Unique identifier of the custom emoji shown before the text of the button.
-        Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private,
-        group and supergroup chats if the owner of the bot has a Telegram Premium subscription.
+    :param icon_custom_emoji_id: Optional. Unique identifier of the custom emoji shown before the text of the button. Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private, group and supergroup chats if the owner of the bot has a Telegram Premium subscription.
     :type icon_custom_emoji_id: :obj:`str`
 
-    :param style: Optional. Style of the button. Must be one of “danger” (red), “success” (green) or “primary” (blue). If omitted,
-        then an app-specific style is used.
+    :param style: Optional. Style of the button. Must be one of “danger” (red), “success” (green) or “primary” (blue). If omitted, then an app-specific style is used.
     :type style: :obj:`str`
 
-    :param url: Optional. HTTP or tg:// URL to be opened when the button is pressed. Links tg://user?id=<user_id> can be
-        used to mention a user by their ID without using a username, if this is allowed by their privacy settings.
+    :param url: Optional. HTTP or tg:// URL to be opened when the button is pressed. Links tg://user?id=<user_id> can be used to mention a user by their identifier without using a username, if this is allowed by their privacy settings.
     :type url: :obj:`str`
 
-    :param callback_data: Optional. Data to be sent in a callback query to the bot when button is pressed, 1-64 bytes
+    :param callback_data: Optional. Data to be sent in a callback query to the bot when the button is pressed, 1-64 bytes
     :type callback_data: :obj:`str`
 
-    :param web_app: Optional. Description of the Web App that will be launched when the user presses the button. The Web
-        App will be able to send an arbitrary message on behalf of the user using the method answerWebAppQuery. Available only
-        in private chats between a user and the bot.
+    :param web_app: Optional. Description of the Web App that will be launched when the user presses the button. The Web App will be able to send an arbitrary message on behalf of the user using the method answerWebAppQuery. Available only in private chats between a user and the bot. Not supported for messages sent on behalf of a business account.
     :type web_app: :class:`telebot.types.WebAppInfo`
 
-    :param login_url: Optional. An HTTPS URL used to automatically authorize the user. Can be used as a replacement for
-        the Telegram Login Widget.
+    :param login_url: Optional. An HTTPS URL used to automatically authorize the user. Can be used as a replacement for the Telegram Login Widget.
     :type login_url: :class:`telebot.types.LoginUrl`
 
-    :param switch_inline_query: Optional. If set, pressing the button will prompt the user to select one of their chats,
-        open that chat and insert the bot's username and the specified inline query in the input field. May be empty, in which
-        case just the bot's username will be inserted.Note: This offers an easy way for users to start using your bot in inline
-        mode when they are currently in a private chat with it. Especially useful when combined with switch_pm… actions - in
-        this case the user will be automatically returned to the chat they switched from, skipping the chat selection screen.
+    :param switch_inline_query: Optional. If set, pressing the button will prompt the user to select one of their chats, open that chat and insert the bot's username and the specified inline query in the input field. May be empty, in which case just the bot's username will be inserted. Not supported for messages sent in channel direct messages chats and on behalf of a business account.
     :type switch_inline_query: :obj:`str`
 
-    :param switch_inline_query_current_chat: Optional. If set, pressing the button will insert the bot's username
-        and the specified inline query in the current chat's input field. May be empty, in which case only the bot's username
-        will be inserted.This offers a quick way for the user to open your bot in inline mode in the same chat - good for selecting
-        something from multiple options.
+    :param switch_inline_query_current_chat: Optional. If set, pressing the button will insert the bot's username and the specified inline query in the current chat's input field. May be empty, in which case only the bot's username will be inserted. This offers a quick way for the user to open your bot in inline mode in the same chat - good for selecting something from multiple options. Not supported in channels and for messages sent in channel direct messages chats and on behalf of a business account.
     :type switch_inline_query_current_chat: :obj:`str`
 
-    :param switch_inline_query_chosen_chat: Optional. If set, pressing the button will prompt the user to select one of their chats of the
-        specified type, open that chat and insert the bot's username and the specified inline query in the input field
+    :param switch_inline_query_chosen_chat: Optional. If set, pressing the button will prompt the user to select one of their chats of the specified type, open that chat and insert the bot's username and the specified inline query in the input field. Not supported for messages sent in channel direct messages chats and on behalf of a business account.
     :type switch_inline_query_chosen_chat: :class:`telebot.types.SwitchInlineQueryChosenChat`
 
-    :param callback_game: Optional. Description of the game that will be launched when the user presses the
-        button. NOTE: This type of button must always be the first button in the first row.
+    :param callback_game: Optional. Description of the game that will be launched when the user presses the button. NOTE: This type of button must always be the first button in the first row.
     :type callback_game: :class:`telebot.types.CallbackGame`
 
-    :param pay: Optional. Specify True, to send a Pay button. NOTE: This type of button must always be the first button in
-        the first row and can only be used in invoice messages.
+    :param pay: Optional. Specify True, to send a Pay button. Substrings “ ⭐ ” and “XTR” in the buttons's text will be replaced with a Telegram Star icon. NOTE: This type of button must always be the first button in the first row and can only be used in invoice messages.
     :type pay: :obj:`bool`
 
     :param copy_text: Optional. Description of the button that copies the specified text to the clipboard.
     :type copy_text: :class:`telebot.types.CopyTextButton`
+
+    :param disabled: Optional. If set, then the button is disabled and does nothing
+    :type disabled: :class:`telebot.types.DisabledButton`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.InlineKeyboardButton`
@@ -3366,13 +3370,19 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
             obj['switch_inline_query_chosen_chat'] = SwitchInlineQueryChosenChat.de_json(obj.get('switch_inline_query_chosen_chat'))
         if 'copy_text' in obj:
             obj['copy_text'] = CopyTextButton.de_json(obj.get('copy_text'))
+        if 'disabled' in obj:
+            obj['disabled'] = DisabledButton.de_json(obj.get('disabled'))
 
         return cls(**obj)
 
-    def __init__(self, text: str, url: Optional[str]=None, callback_data: Optional[str]=None, web_app: Optional[WebAppInfo]=None,
-            switch_inline_query: Optional[str]=None, switch_inline_query_current_chat: Optional[str]=None,
-            switch_inline_query_chosen_chat: Optional[SwitchInlineQueryChosenChat]=None, callback_game=None, pay: Optional[bool]=None,
-            login_url: Optional[LoginUrl]=None, copy_text: Optional[CopyTextButton]=None, icon_custom_emoji_id: Optional[str]=None, style: Optional[str]=None, **kwargs):
+    def __init__(self, text: str, url: Optional[str] = None, callback_data: Optional[str] = None,
+                 web_app: Optional[WebAppInfo] = None, switch_inline_query: Optional[str] = None,
+                 switch_inline_query_current_chat: Optional[str] = None,
+                 switch_inline_query_chosen_chat: Optional[SwitchInlineQueryChosenChat] = None,
+                 callback_game: Optional[CallbackGame] = None, pay: Optional[bool] = None,
+                 login_url: Optional[LoginUrl] = None, copy_text: Optional[CopyTextButton] = None,
+                 icon_custom_emoji_id: Optional[str] = None, style: Optional[str] = None,
+                 disabled: Optional[DisabledButton] = None, **kwargs):
         self.text: str = text
         self.url: Optional[str] = url
         self.callback_data: Optional[str] = callback_data
@@ -3380,12 +3390,13 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
         self.switch_inline_query: Optional[str] = switch_inline_query
         self.switch_inline_query_current_chat: Optional[str] = switch_inline_query_current_chat
         self.switch_inline_query_chosen_chat: Optional[SwitchInlineQueryChosenChat] = switch_inline_query_chosen_chat
-        self.callback_game = callback_game # Not Implemented
+        self.callback_game: Optional[CallbackGame] = callback_game # Not Implemented
         self.pay: Optional[bool] = pay
         self.login_url: Optional[LoginUrl] = login_url
         self.copy_text: Optional[CopyTextButton] = copy_text
         self.icon_custom_emoji_id: Optional[str] = icon_custom_emoji_id
         self.style: Optional[str] = style
+        self.disabled: Optional[DisabledButton] = disabled
 
     def to_json(self):
         return json.dumps(self.to_dict())
@@ -3412,6 +3423,8 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
             json_dict['switch_inline_query_chosen_chat'] = self.switch_inline_query_chosen_chat.to_dict()
         if self.copy_text:
             json_dict['copy_text'] = self.copy_text.to_dict()
+        if self.disabled:
+            json_dict['disabled'] = self.disabled.to_dict()
         if self.icon_custom_emoji_id:
             json_dict['icon_custom_emoji_id'] = self.icon_custom_emoji_id
         if self.style:
@@ -3421,27 +3434,20 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
 
 class LoginUrl(Dictionaryable, JsonSerializable, JsonDeserializable):
     """
-    This object represents a parameter of the inline keyboard button used to automatically authorize a user. Serves as a great replacement for the Telegram Login Widget when the user is coming from Telegram. All the user needs to do is tap/click a button and confirm that they want to log in:
+    This object represents a parameter of the inline keyboard button used to automatically authorize a user. Serves as a great replacement for the Telegram Login Widget when the user is coming from Telegram. All the user needs to do is tap/click a button and confirm that they want to log in: Telegram apps support these buttons as of version 5.7.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#loginurl
+    Telegram documentation: https://core.telegram.org/bots/api#loginurl
 
-    :param url: An HTTPS URL to be opened with user authorization data added to the query string when the button is pressed.
-        If the user refuses to provide authorization data, the original URL without information about the user will be
-        opened. The data added is the same as described in Receiving authorization data. NOTE: You must always check the hash
-        of the received data to verify the authentication and the integrity of the data as described in Checking
-        authorization.
+    :param url: An HTTPS URL to be opened with user authorization data added to the query string when the button is pressed. If the user refuses to provide authorization data, the original URL without information about the user will be opened. The data added is the same as described in Receiving authorization data.     NOTE: You must always check the hash of the received data to verify the authentication and the integrity of the data as described in Checking authorization.
     :type url: :obj:`str`
 
     :param forward_text: Optional. New text of the button in forwarded messages.
     :type forward_text: :obj:`str`
 
-    :param bot_username: Optional. Username of a bot, which will be used for user authorization. See Setting up a bot for
-        more details. If not specified, the current bot's username will be assumed. The url's domain must be the same as the
-        domain linked with the bot. See Linking your domain to the bot for more details.
+    :param bot_username: Optional. Username of a bot, which will be used for user authorization. See Setting up a bot for more details. If not specified, the current bot's username will be assumed. The url 's domain must be the same as the domain linked with the bot. See Linking your domain to the bot for more details.
     :type bot_username: :obj:`str`
 
-    :param request_write_access: Optional. Pass True to request the permission for your bot to send messages to the
-        user.
+    :param request_write_access: Optional. Pass True to request the permission for your bot to send messages to the user.
     :type request_write_access: :obj:`bool`
 
     :return: Instance of the class
@@ -3453,8 +3459,10 @@ class LoginUrl(Dictionaryable, JsonSerializable, JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, url: str, forward_text: Optional[str]=None, bot_username: Optional[str]=None, request_write_access: Optional[bool]=None,
-            **kwargs):
+    def __init__(
+        self, url: str, forward_text: Optional[str] = None,
+        bot_username: Optional[str] = None,
+        request_write_access: Optional[bool] = None, **kwargs):
         self.url: str = url
         self.forward_text: Optional[str] = forward_text
         self.bot_username: Optional[str] = bot_username
@@ -3479,7 +3487,7 @@ class CallbackQuery(JsonDeserializable):
     """
     This object represents an incoming callback query from a callback button in an inline keyboard. If the button that originated the query was attached to a message sent by the bot, the field message will be present. If the button was attached to a message sent via the bot (in inline mode), the field inline_message_id will be present. Exactly one of the fields data or game_short_name will be present.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#callbackquery
+    Telegram documentation: https://core.telegram.org/bots/api#callbackquery
 
     :param id: Unique identifier for this query
     :type id: :obj:`str`
@@ -3490,16 +3498,13 @@ class CallbackQuery(JsonDeserializable):
     :param message: Optional. Message sent by the bot with the callback button that originated the query
     :type message: :class:`telebot.types.Message` or :class:`telebot.types.InaccessibleMessage`
 
-    :param inline_message_id: Optional. Identifier of the message sent via the bot in inline mode, that originated the
-        query.
+    :param inline_message_id: Optional. Identifier of the message sent via the bot in inline mode, that originated the query.
     :type inline_message_id: :obj:`str`
 
-    :param chat_instance: Global identifier, uniquely corresponding to the chat to which the message with the callback
-        button was sent. Useful for high scores in games.
+    :param chat_instance: Global identifier, uniquely corresponding to the chat to which the message with the callback button was sent. Useful for high scores in games.
     :type chat_instance: :obj:`str`
 
-    :param data: Optional. Data associated with the callback button. Be aware that the message originated the query can
-        contain no callback buttons with this data.
+    :param data: Optional. Data associated with the callback button. Be aware that the message originated the query can contain no callback buttons with this data.
     :type data: :obj:`str`
 
     :param game_short_name: Optional. Short name of a Game to be returned, serves as the unique identifier for the game
@@ -3527,13 +3532,15 @@ class CallbackQuery(JsonDeserializable):
         return cls(**obj)
 
     def __init__(
-            self, id, from_user, data, chat_instance, json_string, message=None, inline_message_id=None,
-            game_short_name=None, **kwargs):
-        self.id: int = id
+        self, id: str, from_user: User, chat_instance: str, json_string: str,
+        data: Optional[str] = None,
+        message: Optional[MaybeInaccessibleMessage] = None, inline_message_id: Optional[str] = None,
+        game_short_name: Optional[str] = None, **kwargs):
+        self.id: str = id
         self.from_user: User = from_user
-        self.message: Optional[Union[Message, InaccessibleMessage]] = message
+        self.message: Optional[MaybeInaccessibleMessage] = message
         self.inline_message_id: Optional[str] = inline_message_id
-        self.chat_instance: Optional[str] = chat_instance
+        self.chat_instance: str = chat_instance
         self.data: Optional[str] = data
         self.game_short_name: Optional[str] = game_short_name
         self.json = json_string
@@ -3543,22 +3550,18 @@ class ChatPhoto(JsonDeserializable):
     """
     This object represents a chat photo.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatphoto
+    Telegram documentation: https://core.telegram.org/bots/api#chatphoto
 
-    :param small_file_id: File identifier of small (160x160) chat photo. This file_id can be used only for photo
-        download and only for as long as the photo is not changed.
+    :param small_file_id: File identifier of small (160x160) chat photo. This file_id can be used only for photo download and only for as long as the photo is not changed.
     :type small_file_id: :obj:`str`
 
-    :param small_file_unique_id: Unique file identifier of small (160x160) chat photo, which is supposed to be the same
-        over time and for different bots. Can't be used to download or reuse the file.
+    :param small_file_unique_id: Unique file identifier of small (160x160) chat photo, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type small_file_unique_id: :obj:`str`
 
-    :param big_file_id: File identifier of big (640x640) chat photo. This file_id can be used only for photo download and
-        only for as long as the photo is not changed.
+    :param big_file_id: File identifier of big (640x640) chat photo. This file_id can be used only for photo download and only for as long as the photo is not changed.
     :type big_file_id: :obj:`str`
 
-    :param big_file_unique_id: Unique file identifier of big (640x640) chat photo, which is supposed to be the same over
-        time and for different bots. Can't be used to download or reuse the file.
+    :param big_file_unique_id: Unique file identifier of big (640x640) chat photo, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type big_file_unique_id: :obj:`str`
 
     :return: Instance of the class
@@ -3570,7 +3573,8 @@ class ChatPhoto(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, small_file_id, small_file_unique_id, big_file_id, big_file_unique_id, **kwargs):
+    def __init__(self, small_file_id: str, small_file_unique_id: str,
+                 big_file_id: str, big_file_unique_id: str, **kwargs):
         self.small_file_id: str = small_file_id
         self.small_file_unique_id: str = small_file_unique_id
         self.big_file_id: str = big_file_id
@@ -3579,17 +3583,15 @@ class ChatPhoto(JsonDeserializable):
 
 class ChatMember(JsonDeserializable, ABC):
     """
-    This object contains information about one member of a chat.
-    Currently, the following 6 types of chat members are supported:
+    This object contains information about one member of a chat. Currently, the following 6 types of chat members are supported:
+        ChatMemberOwner
+        ChatMemberAdministrator
+        ChatMemberMember
+        ChatMemberRestricted
+        ChatMemberLeft
+        ChatMemberBanned
 
-    * :class:`telebot.types.ChatMemberOwner`
-    * :class:`telebot.types.ChatMemberAdministrator`
-    * :class:`telebot.types.ChatMemberMember`
-    * :class:`telebot.types.ChatMemberRestricted`
-    * :class:`telebot.types.ChatMemberLeft`
-    * :class:`telebot.types.ChatMemberBanned`
-
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmember
+    Telegram documentation: https://core.telegram.org/bots/api#chatmember
     """
 
     def __init__(self, user, status, **kwargs):
@@ -3624,7 +3626,7 @@ class ChatMemberOwner(ChatMember):
     """
     Represents a chat member that owns the chat and has all administrator privileges.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmemberowner
+    Telegram documentation: https://core.telegram.org/bots/api#chatmemberowner
 
     :param status: The member's status in the chat, always “creator”
     :type status: :obj:`str`
@@ -3641,7 +3643,7 @@ class ChatMemberOwner(ChatMember):
     :return: Instance of the class
     :rtype: :class:`telebot.types.ChatMemberOwner`
     """
-    def __init__(self, user, status, is_anonymous, custom_title=None, **kwargs):
+    def __init__(self, user, status, is_anonymous: bool, custom_title: Optional[str] = None, **kwargs):
         super().__init__(user, status, **kwargs)
         self.is_anonymous: bool = is_anonymous
         self.custom_title: Optional[str] = custom_title
@@ -3652,7 +3654,7 @@ class ChatMemberAdministrator(ChatMember):
     """
     Represents a chat member that has some additional privileges.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmemberadministrator
+    Telegram documentation: https://core.telegram.org/bots/api#chatmemberadministrator
 
     :param status: The member's status in the chat, always “administrator”
     :type status: :obj:`str`
@@ -3666,9 +3668,7 @@ class ChatMemberAdministrator(ChatMember):
     :param is_anonymous: True, if the user's presence in the chat is hidden
     :type is_anonymous: :obj:`bool`
 
-    :param can_manage_chat: True, if the administrator can access the chat event log, chat statistics, message
-        statistics in channels, see channel members, see anonymous administrators in supergroups and ignore slow mode.
-        Implied by any other administrator privilege
+    :param can_manage_chat: True, if the administrator can access the chat event log, get boost list, see hidden supergroup and channel members, report spam messages, ignore slow mode, and send messages to the chat without paying Telegram Stars. Implied by any other administrator privilege
     :type can_manage_chat: :obj:`bool`
 
     :param can_delete_messages: True, if the administrator can delete messages of other users
@@ -3677,12 +3677,10 @@ class ChatMemberAdministrator(ChatMember):
     :param can_manage_video_chats: True, if the administrator can manage video chats
     :type can_manage_video_chats: :obj:`bool`
 
-    :param can_restrict_members: True, if the administrator can restrict, ban or unban chat members
+    :param can_restrict_members: True, if the administrator can restrict, ban or unban chat members, or access supergroup statistics
     :type can_restrict_members: :obj:`bool`
 
-    :param can_promote_members: True, if the administrator can add new administrators with a subset of their own
-        privileges or demote administrators that he has promoted, directly or indirectly (promoted by administrators that
-        were appointed by the user)
+    :param can_promote_members: True, if the administrator can add new administrators with a subset of their own privileges or demote administrators that they have promoted, directly or indirectly (promoted by administrators that were appointed by the user)
     :type can_promote_members: :obj:`bool`
 
     :param can_change_info: True, if the user is allowed to change the chat title, photo and other settings
@@ -3691,31 +3689,34 @@ class ChatMemberAdministrator(ChatMember):
     :param can_invite_users: True, if the user is allowed to invite new users to the chat
     :type can_invite_users: :obj:`bool`
 
-    :param can_post_stories: True, if the administrator can post channel stories
+    :param can_post_stories: True, if the administrator can post stories to the chat
     :type can_post_stories: :obj:`bool`
 
-    :param can_edit_stories: True, if the administrator can edit stories
+    :param can_edit_stories: True, if the administrator can edit stories posted by other users, post stories to the chat page, pin chat stories, and access the chat's story archive
     :type can_edit_stories: :obj:`bool`
 
-    :param can_delete_stories: True, if the administrator can delete stories of other users
+    :param can_delete_stories: True, if the administrator can delete stories posted by other users
     :type can_delete_stories: :obj:`bool`
 
-    :param can_post_messages: Optional. True, if the administrator can post in the channel; channels only
+    :param can_send_welcome_messages: True, if the administrator can manage chat welcome messages or directly send them in the case of bots
+    :type can_send_welcome_messages: :obj:`bool`
+
+    :param can_post_messages: Optional. True, if the administrator can post messages in the channel, approve suggested posts, or access channel statistics; for channels only
     :type can_post_messages: :obj:`bool`
 
-    :param can_edit_messages: Optional. True, if the administrator can edit messages of other users and can pin messages; channels only
+    :param can_edit_messages: Optional. True, if the administrator can edit messages of other users and can pin messages; for channels only
     :type can_edit_messages: :obj:`bool`
 
-    :param can_pin_messages: Optional. True, if the user is allowed to pin messages; groups and supergroups only
+    :param can_pin_messages: Optional. True, if the user is allowed to pin messages; for groups and supergroups only
     :type can_pin_messages: :obj:`bool`
 
-    :param can_manage_topics: Optional. True, if the user is allowed to create, rename, close, and reopen forum topics; supergroups only
+    :param can_manage_topics: Optional. True, if the user is allowed to create, rename, close, and reopen forum topics; for supergroups only
     :type can_manage_topics: :obj:`bool`
 
     :param can_manage_direct_messages: Optional. True, if the administrator can manage direct messages of the channel and decline suggested posts; for channels only
     :type can_manage_direct_messages: :obj:`bool`
 
-    :param can_manage_tags: Optional. True, if the administrator can manage tags in the chat
+    :param can_manage_tags: Optional. True, if the administrator can edit the tags of regular members; for groups and supergroups only. If omitted, defaults to the value of can_pin_messages
     :type can_manage_tags: :obj:`bool`
 
     :param custom_title: Optional. Custom title for this user
@@ -3724,11 +3725,17 @@ class ChatMemberAdministrator(ChatMember):
     :return: Instance of the class
     :rtype: :class:`telebot.types.ChatMemberAdministrator`
     """
-    def __init__(self, user, status, can_be_edited, is_anonymous, can_manage_chat, can_delete_messages,
-                 can_manage_video_chats, can_restrict_members, can_promote_members, can_change_info, can_invite_users,
-                 can_post_stories, can_edit_stories, can_delete_stories, can_post_messages=None, can_edit_messages=None,
-                 can_pin_messages=None, can_manage_topics=None, custom_title=None, can_manage_direct_messages=None,
-                 can_manage_tags=None, **kwargs):
+    def __init__(
+        self, user: User, status: str, can_be_edited: bool, is_anonymous: bool,
+        can_manage_chat: bool, can_delete_messages: bool,
+        can_manage_video_chats: bool, can_restrict_members: bool, can_promote_members: bool,
+        can_change_info: bool, can_invite_users: bool, can_post_stories: bool,
+        can_edit_stories: bool, can_delete_stories: bool,
+        can_post_messages: Optional[bool] = None, can_edit_messages: Optional[bool] = None,
+        can_pin_messages: Optional[bool] = None, can_manage_topics: Optional[bool] = None,
+        custom_title: Optional[str] = None, can_send_welcome_messages: Optional[bool] = None,
+        can_manage_direct_messages: Optional[bool] = None,
+        can_manage_tags: Optional[bool] = None, **kwargs):
         super().__init__(user, status, **kwargs)
         self.can_be_edited: bool = can_be_edited
         self.is_anonymous: bool = is_anonymous
@@ -3747,6 +3754,7 @@ class ChatMemberAdministrator(ChatMember):
         self.can_pin_messages: Optional[bool] = can_pin_messages
         self.can_manage_topics: Optional[bool] = can_manage_topics
         self.custom_title: Optional[str] = custom_title
+        self.can_send_welcome_messages: Optional[bool] = can_send_welcome_messages
         self.can_manage_direct_messages: Optional[bool] = can_manage_direct_messages
         self.can_manage_tags: Optional[bool] = can_manage_tags
 
@@ -3761,7 +3769,7 @@ class ChatMemberMember(ChatMember):
     """
     Represents a chat member that has no additional privileges or restrictions.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmembermember
+    Telegram documentation: https://core.telegram.org/bots/api#chatmembermember
 
     :param status: The member's status in the chat, always “member”
     :type status: :obj:`str`
@@ -3769,16 +3777,16 @@ class ChatMemberMember(ChatMember):
     :param user: Information about the user
     :type user: :class:`telebot.types.User`
 
-    :param until_date: Optional. Date when the user's subscription will expire; Unix time. If 0, then the user is a member forever
+    :param until_date: Optional. Date when the user's subscription will expire; Unix time
     :type until_date: :obj:`int`
 
-    :param tag: Optional. User's tag in the chat
+    :param tag: Optional. Tag of the member
     :type tag: :obj:`str`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.ChatMemberMember`
     """
-    def __init__(self, user, status, until_date=None, tag=None, **kwargs):
+    def __init__(self, user, status, until_date: Optional[int] = None, tag: Optional[str] = None, **kwargs):
         super().__init__(user, status, **kwargs)
         self.until_date: Optional[int] = until_date
         self.tag: Optional[str] = tag
@@ -3789,7 +3797,7 @@ class ChatMemberRestricted(ChatMember):
     """
     Represents a chat member that is under certain restrictions in the chat. Supergroups only.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmemberrestricted
+    Telegram documentation: https://core.telegram.org/bots/api#chatmemberrestricted
 
     :param status: The member's status in the chat, always “restricted”
     :type status: :obj:`str`
@@ -3800,7 +3808,7 @@ class ChatMemberRestricted(ChatMember):
     :param is_member: True, if the user is a member of the chat at the moment of the request
     :type is_member: :obj:`bool`
 
-    :param can_send_messages: True, if the user is allowed to send text messages, contacts, locations and venues
+    :param can_send_messages: True, if the user is allowed to send text messages, rich messages, contacts, giveaways, giveaway winners, invoices, locations and venues
     :type can_send_messages: :obj:`bool`
 
     :param can_send_audios: True, if the user is allowed to send audios
@@ -3821,7 +3829,7 @@ class ChatMemberRestricted(ChatMember):
     :param can_send_voice_notes: True, if the user is allowed to send voice notes
     :type can_send_voice_notes: :obj:`bool`
 
-    :param can_send_polls: True, if the user is allowed to send polls
+    :param can_send_polls: True, if the user is allowed to send polls and checklists
     :type can_send_polls: :obj:`bool`
 
     :param can_send_other_messages: True, if the user is allowed to send animations, games, stickers and use inline bots
@@ -3845,23 +3853,27 @@ class ChatMemberRestricted(ChatMember):
     :param can_manage_topics: True, if the user is allowed to create forum topics
     :type can_manage_topics: :obj:`bool`
 
-    :param until_date: Date when restrictions will be lifted for this user; unix time. If 0, then the user is restricted forever
+    :param until_date: Date when restrictions will be lifted for this user; Unix time. If 0, then the user is restricted forever.
     :type until_date: :obj:`int`
 
-    :param tag: Optional. User's tag in the chat
+    :param tag: Optional. Tag of the member
     :type tag: :obj:`str`
 
-    :param can_edit_tag: Optional. True, if the user can edit their own tag in the chat
+    :param can_edit_tag: True, if the user is allowed to edit their own tag
     :type can_edit_tag: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.ChatMemberRestricted`
     """
-    def __init__(self, user, status, is_member, can_send_messages, can_send_audios, can_send_documents,
-                 can_send_photos, can_send_videos, can_send_video_notes, can_send_voice_notes, can_send_polls,
-                 can_send_other_messages, can_add_web_page_previews,
-                 can_change_info, can_invite_users, can_pin_messages, can_manage_topics,
-                 until_date=None, tag=None, can_edit_tag=None, can_react_to_messages=None, **kwargs):
+    def __init__(
+        self, user: ChatMember, status: str, is_member: bool,
+        can_send_messages: bool, can_send_audios: bool, can_send_documents: bool,
+        can_send_photos: bool, can_send_videos: bool, can_send_video_notes: bool,
+        can_send_voice_notes: bool, can_send_polls: bool,
+        can_send_other_messages: bool, can_add_web_page_previews: bool,
+        can_change_info: bool, can_invite_users: bool, can_pin_messages: bool,
+        can_manage_topics: bool, until_date: int = None, tag: Optional[str] = None,
+        can_edit_tag: bool = None, can_react_to_messages: bool = None, **kwargs):
         super().__init__(user, status, **kwargs)
         self.is_member: bool = is_member
         self.can_send_messages: bool = can_send_messages
@@ -3878,10 +3890,10 @@ class ChatMemberRestricted(ChatMember):
         self.can_invite_users: bool = can_invite_users
         self.can_pin_messages: bool = can_pin_messages
         self.can_manage_topics: bool = can_manage_topics
-        self.until_date: Optional[int] = until_date
+        self.until_date: int = until_date
         self.tag: Optional[str] = tag
-        self.can_edit_tag: Optional[bool] = can_edit_tag
-        self.can_react_to_messages: Optional[bool] = can_react_to_messages
+        self.can_edit_tag: bool = can_edit_tag
+        self.can_react_to_messages: bool = can_react_to_messages
 
 
 # noinspection PyUnresolvedReferences
@@ -3889,7 +3901,7 @@ class ChatMemberLeft(ChatMember):
     """
     Represents a chat member that isn't currently a member of the chat, but may join it themselves.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmemberleft
+    Telegram documentation: https://core.telegram.org/bots/api#chatmemberleft
 
     :param status: The member's status in the chat, always “left”
     :type status: :obj:`str`
@@ -3908,7 +3920,7 @@ class ChatMemberBanned(ChatMember):
     """
     Represents a chat member that was banned in the chat and can't return to the chat or view chat messages.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatmemberbanned
+    Telegram documentation: https://core.telegram.org/bots/api#chatmemberbanned
 
     :param status: The member's status in the chat, always “kicked”
     :type status: :obj:`str`
@@ -3916,24 +3928,24 @@ class ChatMemberBanned(ChatMember):
     :param user: Information about the user
     :type user: :class:`telebot.types.User`
 
-    :param until_date: Date when restrictions will be lifted for this user; unix time. If 0, then the user is banned forever
+    :param until_date: Date when restrictions will be lifted for this user; Unix time. If 0, then the user is banned forever.
     :type until_date: :obj:`int`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.ChatMemberBanned`
     """
-    def __init__(self, user, status, until_date=None, **kwargs):
+    def __init__(self, user, status, until_date: int = 0, **kwargs):
         super().__init__(user, status, **kwargs)
-        self.until_date: Optional[int] = until_date
+        self.until_date: int = until_date
 
 
 class ChatPermissions(JsonDeserializable, JsonSerializable, Dictionaryable):
     """
     Describes actions that a non-administrator user is allowed to take in a chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatpermissions
+    Telegram documentation: https://core.telegram.org/bots/api#chatpermissions
 
-    :param can_send_messages: Optional. True, if the user is allowed to send text messages, contacts, locations and venues
+    :param can_send_messages: Optional. True, if the user is allowed to send text messages, rich messages, contacts, giveaways, giveaway winners, invoices, locations and venues
     :type can_send_messages: :obj:`bool`
 
     :param can_send_audios: Optional. True, if the user is allowed to send audios
@@ -3954,22 +3966,19 @@ class ChatPermissions(JsonDeserializable, JsonSerializable, Dictionaryable):
     :param can_send_voice_notes: Optional. True, if the user is allowed to send voice notes
     :type can_send_voice_notes: :obj:`bool`
 
-    :param can_send_polls: Optional. True, if the user is allowed to send polls, implies can_send_messages
+    :param can_send_polls: Optional. True, if the user is allowed to send polls and checklists
     :type can_send_polls: :obj:`bool`
 
-    :param can_send_other_messages: Optional. True, if the user is allowed to send animations, games, stickers and use
-        inline bots
+    :param can_send_other_messages: Optional. True, if the user is allowed to send animations, games, stickers and use inline bots
     :type can_send_other_messages: :obj:`bool`
 
-    :param can_add_web_page_previews: Optional. True, if the user is allowed to add web page previews to their
-        messages
+    :param can_add_web_page_previews: Optional. True, if the user is allowed to add web page previews to their messages
     :type can_add_web_page_previews: :obj:`bool`
 
     :param can_react_to_messages: Optional. True, if the user is allowed to react to messages. If omitted, defaults to the value of can_send_messages.
     :type can_react_to_messages: :obj:`bool`
 
-    :param can_change_info: Optional. True, if the user is allowed to change the chat title, photo and other settings.
-        Ignored in public supergroups
+    :param can_change_info: Optional. True, if the user is allowed to change the chat title, photo and other settings. Ignored in public supergroups
     :type can_change_info: :obj:`bool`
 
     :param can_invite_users: Optional. True, if the user is allowed to invite new users to the chat
@@ -3978,14 +3987,13 @@ class ChatPermissions(JsonDeserializable, JsonSerializable, Dictionaryable):
     :param can_pin_messages: Optional. True, if the user is allowed to pin messages. Ignored in public supergroups
     :type can_pin_messages: :obj:`bool`
 
-    :param can_manage_topics: Optional. True, if the user is allowed to create forum topics. If omitted defaults to the
-        value of can_pin_messages
+    :param can_manage_topics: Optional. True, if the user is allowed to create forum topics. If omitted, defaults to the value of can_pin_messages.
     :type can_manage_topics: :obj:`bool`
 
-    :param can_edit_tag: Optional. True, if the user is allowed to edit their own tag in the chat
+    :param can_edit_tag: Optional. True, if the user is allowed to edit their own tag. If omitted, defaults to the value of can_pin_messages.
     :type can_edit_tag: :obj:`bool`
 
-    :param can_send_media_messages: deprecated.
+    :param can_send_media_messages: Deprecated.
     :type can_send_media_messages: :obj:`bool`
 
     :return: Instance of the class
@@ -3997,13 +4005,17 @@ class ChatPermissions(JsonDeserializable, JsonSerializable, Dictionaryable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj, de_json = True)
 
-    def __init__(self, can_send_messages=None, can_send_media_messages=None,can_send_audios=None,
-                    can_send_documents=None, can_send_photos=None,
-                    can_send_videos=None, can_send_video_notes=None,
-                    can_send_voice_notes=None, can_send_polls=None, can_send_other_messages=None,
-                    can_add_web_page_previews=None, can_change_info=None,
-                    can_invite_users=None, can_pin_messages=None,
-                    can_manage_topics=None, can_edit_tag=None, can_react_to_messages=None, **kwargs):
+    def __init__(self,
+                 can_send_messages: Optional[bool] = None, can_send_media_messages=None,
+                 can_send_audios: Optional[bool] = None, can_send_documents: Optional[bool] = None,
+                 can_send_photos: Optional[bool] = None,
+                 can_send_videos: Optional[bool] = None, can_send_video_notes: Optional[bool] = None,
+                 can_send_voice_notes: Optional[bool] = None, can_send_polls: Optional[bool] = None,
+                 can_send_other_messages: Optional[bool] = None,
+                 can_add_web_page_previews: Optional[bool] = None, can_change_info: Optional[bool] = None,
+                 can_invite_users: Optional[bool] = None, can_pin_messages: Optional[bool] = None,
+                 can_manage_topics: Optional[bool] = None, can_edit_tag: Optional[bool] = None,
+                 can_react_to_messages: Optional[bool] = None, **kwargs):
         self.can_send_messages: Optional[bool] = can_send_messages
         self.can_send_polls: Optional[bool] = can_send_polls
         self.can_send_other_messages: Optional[bool] = can_send_other_messages
@@ -4079,10 +4091,9 @@ class BotCommand(JsonSerializable, JsonDeserializable, Dictionaryable):
     """
     This object represents a bot command.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommand
+    Telegram documentation: https://core.telegram.org/bots/api#botcommand
 
-    :param command: Text of the command; 1-32 characters. Can contain only lowercase English letters, digits and
-        underscores.
+    :param command: Text of the command; 1-32 characters. Can contain only lowercase English letters, digits and underscores.
     :type command: :obj:`str`
 
     :param description: Description of the command; 1-256 characters.
@@ -4121,6 +4132,15 @@ class BotCommand(JsonSerializable, JsonDeserializable, Dictionaryable):
 class BotCommandScope(ABC, JsonSerializable):
     """
     This object represents the scope to which bot commands are applied. Currently, the following 7 scopes are supported:
+        BotCommandScopeDefault
+        BotCommandScopeAllPrivateChats
+        BotCommandScopeAllGroupChats
+        BotCommandScopeAllChatAdministrators
+        BotCommandScopeChat
+        BotCommandScopeChatAdministrators
+        BotCommandScopeChatMember
+
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscope
 
     * :class:`BotCommandScopeDefault`
     * :class:`BotCommandScopeAllPrivateChats`
@@ -4179,7 +4199,7 @@ class BotCommandScopeDefault(BotCommandScope):
     """
     Represents the default scope of bot commands. Default commands are used if no commands with a narrower scope are specified for the user.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopedefault
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopedefault
 
     :param type: Scope type, must be default
     :type type: :obj:`str`
@@ -4200,7 +4220,7 @@ class BotCommandScopeAllPrivateChats(BotCommandScope):
     """
     Represents the scope of bot commands, covering all private chats.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopeallprivatechats
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopeallprivatechats
 
     :param type: Scope type, must be all_private_chats
     :type type: :obj:`str`
@@ -4220,7 +4240,7 @@ class BotCommandScopeAllGroupChats(BotCommandScope):
     """
     Represents the scope of bot commands, covering all group and supergroup chats.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopeallgroupchats
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopeallgroupchats
 
     :param type: Scope type, must be all_group_chats
     :type type: :obj:`str`
@@ -4240,7 +4260,7 @@ class BotCommandScopeAllChatAdministrators(BotCommandScope):
     """
     Represents the scope of bot commands, covering all group and supergroup chat administrators.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopeallchatadministrators
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopeallchatadministrators
 
     :param type: Scope type, must be all_chat_administrators
     :type type: :obj:`str`
@@ -4260,13 +4280,12 @@ class BotCommandScopeChat(BotCommandScope):
     """
     Represents the scope of bot commands, covering a specific chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopechat
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopechat
 
     :param type: Scope type, must be chat
     :type type: :obj:`str`
 
-    :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format
-        @supergroupusername)
+    :param chat_id: Unique identifier for the target chat or username of the target supergroup in the format @username. Channel direct messages chats and channel chats aren't supported.
     :type chat_id: :obj:`int` or :obj:`str`
 
     :return: Instance of the class
@@ -4281,13 +4300,12 @@ class BotCommandScopeChatAdministrators(BotCommandScope):
     """
     Represents the scope of bot commands, covering all administrators of a specific group or supergroup chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopechatadministrators
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopechatadministrators
 
     :param type: Scope type, must be chat_administrators
     :type type: :obj:`str`
 
-    :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format
-        @supergroupusername)
+    :param chat_id: Unique identifier for the target chat or username of the target supergroup in the format @username. Channel direct messages chats and channel chats aren't supported.
     :type chat_id: :obj:`int` or :obj:`str`
 
     :return: Instance of the class
@@ -4302,13 +4320,12 @@ class BotCommandScopeChatMember(BotCommandScope):
     """
     Represents the scope of bot commands, covering a specific member of a group or supergroup chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botcommandscopechatmember
+    Telegram documentation: https://core.telegram.org/bots/api#botcommandscopechatmember
 
     :param type: Scope type, must be chat_member
     :type type: :obj:`str`
 
-    :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format
-        @supergroupusername)
+    :param chat_id: Unique identifier for the target chat or username of the target supergroup in the format @username. Channel direct messages chats and channel chats aren't supported.
     :type chat_id: :obj:`int` or :obj:`str`
 
     :param user_id: Unique identifier of the target user
@@ -4328,7 +4345,7 @@ class InlineQuery(JsonDeserializable):
     """
     This object represents an incoming inline query. When the user sends an empty query, your bot could return some default or trending results.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequery
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequery
 
     :param id: Unique identifier for this query
     :type id: :obj:`str`
@@ -4342,10 +4359,7 @@ class InlineQuery(JsonDeserializable):
     :param offset: Offset of the results to be returned, can be controlled by the bot
     :type offset: :obj:`str`
 
-    :param chat_type: Optional. Type of the chat from which the inline query was sent. Can be either “sender” for a private
-        chat with the inline query sender, “private”, “group”, “supergroup”, or “channel”. The chat type should be always
-        known for requests sent from official clients and most third-party clients, unless the request was sent from a secret
-        chat
+    :param chat_type: Optional. Type of the chat from which the inline query was sent. Can be either “sender” for a private chat with the inline query sender, “private”, “group”, “supergroup”, or “channel”. The chat type should be always known for requests sent from official clients and most third-party clients, unless the request was sent from a secret chat
     :type chat_type: :obj:`str`
 
     :param location: Optional. Sender location, only for bots that request user location
@@ -4376,20 +4390,18 @@ class InputTextMessageContent(Dictionaryable):
     """
     Represents the content of a text message to be sent as the result of an inline query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputtextmessagecontent
+    Telegram documentation: https://core.telegram.org/bots/api#inputtextmessagecontent
 
     :param message_text: Text of the message to be sent, 1-4096 characters
     :type message_text: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the message text. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the message text. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param entities: Optional. List of special entities that appear in message text, which can be specified instead of
-        parse_mode
+    :param entities: Optional. List of special entities that appear in message text, which can be specified instead of parse_mode
     :type entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
-    :param disable_web_page_preview: deprecated
+    :param disable_web_page_preview: Deprecated
     :type disable_web_page_preview: :obj:`bool`
 
     :param link_preview_options: Optional. Link preview generation options for the message
@@ -4427,7 +4439,7 @@ class InputLocationMessageContent(Dictionaryable):
     """
     Represents the content of a location message to be sent as the result of an inline query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputlocationmessagecontent
+    Telegram documentation: https://core.telegram.org/bots/api#inputlocationmessagecontent
 
     :param latitude: Latitude of the location in degrees
     :type latitude: :obj:`float`
@@ -4478,7 +4490,7 @@ class InputVenueMessageContent(Dictionaryable):
     """
     Represents the content of a venue message to be sent as the result of an inline query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputvenuemessagecontent
+    Telegram documentation: https://core.telegram.org/bots/api#inputvenuemessagecontent
 
     :param latitude: Latitude of the venue in degrees
     :type latitude: :obj:`float`
@@ -4495,8 +4507,7 @@ class InputVenueMessageContent(Dictionaryable):
     :param foursquare_id: Optional. Foursquare identifier of the venue, if known
     :type foursquare_id: :obj:`str`
 
-    :param foursquare_type: Optional. Foursquare type of the venue, if known. (For example,
-        “arts_entertainment/default”, “arts_entertainment/aquarium” or “food/icecream”.)
+    :param foursquare_type: Optional. Foursquare type of the venue, if known. (For example, “arts_entertainment/default”, “arts_entertainment/aquarium” or “food/icecream”.)
     :type foursquare_type: :obj:`str`
 
     :param google_place_id: Optional. Google Places identifier of the venue
@@ -4541,7 +4552,7 @@ class InputContactMessageContent(Dictionaryable):
     """
     Represents the content of a contact message to be sent as the result of an inline query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputcontactmessagecontent
+    Telegram documentation: https://core.telegram.org/bots/api#inputcontactmessagecontent
 
     :param phone_number: Contact's phone number
     :type phone_number: :obj:`str`
@@ -4577,7 +4588,7 @@ class InputInvoiceMessageContent(Dictionaryable):
     """
     Represents the content of an invoice message to be sent as the result of an inline query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputinvoicemessagecontent
+    Telegram documentation: https://core.telegram.org/bots/api#inputinvoicemessagecontent
 
     :param title: Product name, 1-32 characters
     :type title: :obj:`str`
@@ -4585,38 +4596,28 @@ class InputInvoiceMessageContent(Dictionaryable):
     :param description: Product description, 1-255 characters
     :type description: :obj:`str`
 
-    :param payload: Bot-defined invoice payload, 1-128 bytes. This will not be displayed to the user, use for your
-        internal processes.
+    :param payload: Bot-defined invoice payload, 1-128 bytes. This will not be displayed to the user, use for your internal processes.
     :type payload: :obj:`str`
 
-    :param provider_token: Payment provider token, obtained via @BotFather; To create invoice in stars,
-        provide an empty token.
+    :param provider_token: Payment provider token, obtained via @BotFather; To create invoice in stars, provide an empty token.
     :type provider_token: :obj:`str` or :obj:`None`
 
     :param currency: Three-letter ISO 4217 currency code, see more on currencies
     :type currency: :obj:`str`
 
-    :param prices: Price breakdown, a JSON-serialized list of components (e.g. product price, tax, discount, delivery
-        cost, delivery tax, bonus, etc.)
+    :param prices: Price breakdown, a JSON-serialized list of components (e.g. product price, tax, discount, delivery cost, delivery tax, bonus, etc.)
     :type prices: :obj:`list` of :class:`telebot.types.LabeledPrice`
 
-    :param max_tip_amount: Optional. The maximum accepted amount for tips in the smallest units of the currency
-        (integer, not float/double). For example, for a maximum tip of US$ 1.45 pass max_tip_amount = 145. See the exp
-        parameter in currencies.json, it shows the number of digits past the decimal point for each currency (2 for the
-        majority of currencies). Defaults to 0
+    :param max_tip_amount: Optional. The maximum accepted amount for tips in the smallest units of the currency (integer, not float/double). For example, for a maximum tip of US$ 1.45 pass max_tip_amount = 145. See the exp parameter in currencies.json, it shows the number of digits past the decimal point for each currency (2 for the majority of currencies). Defaults to 0
     :type max_tip_amount: :obj:`int`
 
-    :param suggested_tip_amounts: Optional. A JSON-serialized array of suggested amounts of tip in the smallest units
-        of the currency (integer, not float/double). At most 4 suggested tip amounts can be specified. The suggested tip
-        amounts must be positive, passed in a strictly increased order and must not exceed max_tip_amount.
+    :param suggested_tip_amounts: Optional. A JSON-serialized array of suggested amounts of tip in the smallest units of the currency (integer, not float/double). At most 4 suggested tip amounts can be specified. The suggested tip amounts must be positive, passed in a strictly increased order and must not exceed max_tip_amount.
     :type suggested_tip_amounts: :obj:`list` of :obj:`int`
 
-    :param provider_data: Optional. A JSON-serialized object for data about the invoice, which will be shared with the
-        payment provider. A detailed description of the required fields should be provided by the payment provider.
+    :param provider_data: Optional. A JSON-serialized object for data about the invoice, which will be shared with the payment provider. A detailed description of the required fields should be provided by the payment provider.
     :type provider_data: :obj:`str`
 
-    :param photo_url: Optional. URL of the product photo for the invoice. Can be a photo of the goods or a marketing image
-        for a service.
+    :param photo_url: Optional. URL of the product photo for the invoice. Can be a photo of the goods or a marketing image for a service.
     :type photo_url: :obj:`str`
 
     :param photo_size: Optional. Photo size in bytes
@@ -4637,8 +4638,7 @@ class InputInvoiceMessageContent(Dictionaryable):
     :param need_email: Optional. Pass True, if you require the user's email address to complete the order
     :type need_email: :obj:`bool`
 
-    :param need_shipping_address: Optional. Pass True, if you require the user's shipping address to complete the
-        order
+    :param need_shipping_address: Optional. Pass True, if you require the user's shipping address to complete the order
     :type need_shipping_address: :obj:`bool`
 
     :param send_phone_number_to_provider: Optional. Pass True, if the user's phone number should be sent to provider
@@ -4740,13 +4740,11 @@ class InputRichMessageContent(Dictionaryable):
         return json.dumps(self.to_dict())
 
 
-InputMessageContent = Union[InputTextMessageContent, InputLocationMessageContent, InputVenueMessageContent, InputContactMessageContent, InputInvoiceMessageContent, InputRichMessageContent]
-
 class ChosenInlineResult(JsonDeserializable):
     """
     Represents a result of an inline query that was chosen by the user and sent to their chat partner.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#choseninlineresult
+    Telegram documentation: https://core.telegram.org/bots/api#choseninlineresult
 
     :param result_id: The unique identifier for the result that was chosen
     :type result_id: :obj:`str`
@@ -4757,8 +4755,7 @@ class ChosenInlineResult(JsonDeserializable):
     :param location: Optional. Sender location, only for bots that require user location
     :type location: :class:`telebot.types.Location`
 
-    :param inline_message_id: Optional. Identifier of the sent inline message. Available only if there is an inline
-        keyboard attached to the message. Will be also received in callback queries and can be used to edit the message.
+    :param inline_message_id: Optional. Identifier of the sent inline message. Available only if there is an inline keyboard attached to the message. Will be also received in callback queries and can be used to edit the message.
     :type inline_message_id: :obj:`str`
 
     :param query: The query that was used to obtain the result
@@ -4784,8 +4781,48 @@ class ChosenInlineResult(JsonDeserializable):
         self.query: str = query
 
 
+class SentWebAppMessage(JsonDeserializable, Dictionaryable):
+    """
+    Describes an inline message sent by a Web App on behalf of a user.
+
+    Telegram documentation: https://core.telegram.org/bots/api#sentwebappmessage
+
+    :param inline_message_id: Optional. Identifier of the sent inline message. Available only if there is an inline keyboard attached to the message.
+    :type inline_message_id: :obj:`str`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.SentWebAppMessage`
+    """
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        return cls(**obj)
+
+    def __init__(self, inline_message_id: Optional[str] = None, **kwargs):
+        self.inline_message_id: Optional[str] = inline_message_id
+
+    def to_dict(self):
+        json_dict = {}
+        if self.inline_message_id:
+            json_dict['inline_message_id'] = self.inline_message_id
+        return json_dict
+
+
+class InlineQueryResultBase(Dictionaryable, JsonSerializable, ABC):
+    """
+    Deprecated. Use `InlineQueryResult` instead.
+    """
+
+
+class InlineQueryResultCachedBase(InlineQueryResultBase, ABC):
+    """
+    Deprecated. Use `InlineQueryResult` instead.
+    """
+
+
 # noinspection PyShadowingBuiltins
-class InlineQueryResultBase(ABC, Dictionaryable, JsonSerializable):
+class InlineQueryResult(InlineQueryResultCachedBase, ABC):
     """
     This object represents one result of an inline query. Telegram clients currently support results of the following 20 types:
 
@@ -4810,11 +4847,20 @@ class InlineQueryResultBase(ABC, Dictionaryable, JsonSerializable):
     * :class:`InlineQueryResultVideo`
     * :class:`InlineQueryResultVoice`
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresult
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresult
     """
+    # Inherited from InlineQueryResultBase for backward compatibility
+    # Inherited from InlineQueryResultCachedBase for backward compatibility
 
-    def __init__(self, type: str, id: str, title: Optional[str] = None, caption: Optional[str] = None, input_message_content: Optional[InputMessageContent] = None,
-                    reply_markup: Optional[InlineKeyboardMarkup] = None, caption_entities: Optional[List[MessageEntity]] = None, parse_mode: Optional[str] = None):
+    def __init__(self, type: str, id: str,
+                 title: Optional[str] = None,
+                 caption: Optional[str] = None,
+                 input_message_content: Optional[InputMessageContent] = None,
+                 reply_markup: Optional[InlineKeyboardMarkup] = None,
+                 caption_entities: Optional[List[MessageEntity]] = None,
+                 parse_mode: Optional[str] = None,
+                 description: Optional[str] = None,
+                 show_caption_above_media: Optional[bool] = None):
         self.type: str = type
         self.id: str = id
         self.title: Optional[str] = title
@@ -4823,6 +4869,8 @@ class InlineQueryResultBase(ABC, Dictionaryable, JsonSerializable):
         self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
         self.caption_entities: Optional[List[MessageEntity]] = caption_entities
         self.parse_mode: Optional[str] = parse_mode
+        self.description: Optional[str] = description
+        self.show_caption_above_media: Optional[bool] = show_caption_above_media
 
     def to_json(self):
         return json.dumps(self.to_dict())
@@ -4844,44 +4892,19 @@ class InlineQueryResultBase(ABC, Dictionaryable, JsonSerializable):
             json_dict['caption_entities'] = MessageEntity.to_list_of_dicts(self.caption_entities)
         if self.parse_mode:
             json_dict['parse_mode'] = self.parse_mode
-        return json_dict
-
-
-class SentWebAppMessage(JsonDeserializable, Dictionaryable):
-    """
-    Describes an inline message sent by a Web App on behalf of a user.
-
-    Telegram Documentation: https://core.telegram.org/bots/api#sentwebappmessage
-
-    :param inline_message_id: Optional. Identifier of the sent inline message. Available only if there is an inline
-        keyboard attached to the message.
-    :type inline_message_id: :obj:`str`
-
-    :return: Instance of the class
-    :rtype: :class:`telebot.types.SentWebAppMessage`
-    """
-    @classmethod
-    def de_json(cls, json_string):
-        if json_string is None: return None
-        obj = cls.check_json(json_string)
-        return cls(**obj)
-
-    def __init__(self, inline_message_id=None, **kwargs):
-        self.inline_message_id: Optional[str] = inline_message_id
-
-    def to_dict(self):
-        json_dict = {}
-        if self.inline_message_id:
-            json_dict['inline_message_id'] = self.inline_message_id
+        if self.description:
+            json_dict['description'] = self.description
+        if self.show_caption_above_media is not None:
+            json_dict['show_caption_above_media'] = self.show_caption_above_media
         return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultArticle(InlineQueryResultBase):
+class InlineQueryResultArticle(InlineQueryResult):
     """
     Represents a link to an article or web page.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultarticle
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultarticle
 
     :param type: Type of the result, must be article
     :type type: :obj:`str`
@@ -4901,7 +4924,7 @@ class InlineQueryResultArticle(InlineQueryResultBase):
     :param url: Optional. URL of the result
     :type url: :obj:`str`
 
-    :param hide_url: Optional. Pass True, if you don't want the URL to be shown in the message
+    :param hide_url: Deprecated. Use empty url instead
     :type hide_url: :obj:`bool`
 
     :param description: Optional. Short description of the result
@@ -4924,10 +4947,9 @@ class InlineQueryResultArticle(InlineQueryResultBase):
                  url: Optional[str] = None, hide_url: Optional[bool] = None, description: Optional[str] = None,
                  thumbnail_url: Optional[str] = None, thumbnail_width: Optional[int] = None, thumbnail_height: Optional[int] = None):
 
-        super().__init__('article', id, title = title, input_message_content = input_message_content, reply_markup = reply_markup)
+        super().__init__('article', id, title = title, input_message_content = input_message_content,
+                         reply_markup = reply_markup, description = description)
         self.url: Optional[str] = url
-        self.hide_url: Optional[bool] = hide_url
-        self.description: Optional[str] = description
         self.thumbnail_url: Optional[str] = thumbnail_url
         self.thumbnail_width: Optional[int] = thumbnail_width
         self.thumbnail_height: Optional[int] = thumbnail_height
@@ -4936,30 +4958,10 @@ class InlineQueryResultArticle(InlineQueryResultBase):
             log_deprecation_warning('The parameter "hide_url" is deprecated. Pass an empty string as url instead.')
             self.url = ''
 
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_width(self) -> int:
-        log_deprecation_warning('The parameter "thumb_width" is deprecated, use "thumbnail_width" instead')
-        return self.thumbnail_width
-
-    @property
-    def thumb_height(self) -> int:
-        log_deprecation_warning('The parameter "thumb_height" is deprecated, use "thumbnail_height" instead')
-        return self.thumbnail_height
-
     def to_dict(self):
         json_dict = super().to_dict()
         if self.url:
             json_dict['url'] = self.url
-        if self.hide_url:
-            json_dict['hide_url'] = self.hide_url
-        if self.description:
-            json_dict['description'] = self.description
         if self.thumbnail_url:
             json_dict['thumbnail_url'] = self.thumbnail_url
         if self.thumbnail_width:
@@ -4970,11 +4972,11 @@ class InlineQueryResultArticle(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultPhoto(InlineQueryResultBase):
+class InlineQueryResultPhoto(InlineQueryResult):
     """
     Represents a link to a photo. By default, this photo will be sent by the user with optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the photo.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultphoto
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultphoto
 
     :param type: Type of the result, must be photo
     :type type: :obj:`str`
@@ -5003,12 +5005,10 @@ class InlineQueryResultPhoto(InlineQueryResultBase):
     :param caption: Optional. Caption of the photo to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the photo caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the photo caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -5029,19 +5029,12 @@ class InlineQueryResultPhoto(InlineQueryResultBase):
                     show_caption_above_media: Optional[bool] = None):
         super().__init__('photo', id, title = title, caption = caption,
                          input_message_content = input_message_content, reply_markup = reply_markup,
-                         parse_mode = parse_mode, caption_entities = caption_entities)
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description,
+                         show_caption_above_media = show_caption_above_media)
         self.photo_url: str = photo_url
         self.thumbnail_url: str = thumbnail_url
         self.photo_width: Optional[int] = photo_width
         self.photo_height: Optional[int] = photo_height
-        self.description: Optional[str] = description
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
-
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
 
     def to_dict(self):
         json_dict = super().to_dict()
@@ -5051,19 +5044,15 @@ class InlineQueryResultPhoto(InlineQueryResultBase):
             json_dict['photo_width'] = self.photo_width
         if self.photo_height:
             json_dict['photo_height'] = self.photo_height
-        if self.description:
-            json_dict['description'] = self.description
-        if self.show_caption_above_media is not None:
-            json_dict['show_caption_above_media'] = self.show_caption_above_media
         return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultGif(InlineQueryResultBase):
+class InlineQueryResultGif(InlineQueryResult):
     """
     Represents a link to an animated GIF file. By default, this animated GIF file will be sent by the user with optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the animation.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultgif
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultgif
 
     :param type: Type of the result, must be gif
     :type type: :obj:`str`
@@ -5086,8 +5075,7 @@ class InlineQueryResultGif(InlineQueryResultBase):
     :param thumbnail_url: URL of the static (JPEG or GIF) or animated (MPEG4) thumbnail for the result
     :type thumbnail_url: :obj:`str`
 
-    :param thumbnail_mime_type: Optional. MIME type of the thumbnail, must be one of “image/jpeg”, “image/gif”, or
-        “video/mp4”. Defaults to “image/jpeg”
+    :param thumbnail_mime_type: Optional. MIME type of the thumbnail, must be one of “image/jpeg”, “image/gif”, or “video/mp4”. Defaults to “image/jpeg”
     :type thumbnail_mime_type: :obj:`str`
 
     :param title: Optional. Title for the result
@@ -5099,8 +5087,7 @@ class InlineQueryResultGif(InlineQueryResultBase):
     :param parse_mode: Optional. Mode for parsing entities in the caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -5123,24 +5110,14 @@ class InlineQueryResultGif(InlineQueryResultBase):
 
         super().__init__('gif', id, title = title, caption = caption,
                          input_message_content = input_message_content, reply_markup = reply_markup,
-                         parse_mode = parse_mode, caption_entities = caption_entities)
+                         parse_mode = parse_mode, caption_entities = caption_entities,
+                         show_caption_above_media = show_caption_above_media)
         self.gif_url: str = gif_url
         self.thumbnail_url: str = thumbnail_url
         self.gif_width: Optional[int] = gif_width
         self.gif_height: Optional[int] = gif_height
         self.gif_duration: Optional[int] = gif_duration
         self.thumbnail_mime_type: Optional[str] = thumbnail_mime_type
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_mime_type(self) -> str:
-        log_deprecation_warning('The parameter "thumb_mime_type" is deprecated, use "thumbnail_mime_type" instead')
-        return self.thumbnail_mime_type
 
     def to_dict(self):
         json_dict = super().to_dict()
@@ -5154,17 +5131,15 @@ class InlineQueryResultGif(InlineQueryResultBase):
             json_dict['gif_duration'] = self.gif_duration
         if self.thumbnail_mime_type:
             json_dict['thumbnail_mime_type'] = self.thumbnail_mime_type
-        if self.show_caption_above_media is not None:
-            json_dict['show_caption_above_media'] = self.show_caption_above_media
         return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultMpeg4Gif(InlineQueryResultBase):
+class InlineQueryResultMpeg4Gif(InlineQueryResult):
     """
     Represents a link to a video animation (H.264/MPEG-4 AVC video without sound). By default, this animated MPEG-4 file will be sent by the user with optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the animation.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultmpeg4gif
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultmpeg4gif
 
     :param type: Type of the result, must be mpeg4_gif
     :type type: :obj:`str`
@@ -5187,8 +5162,7 @@ class InlineQueryResultMpeg4Gif(InlineQueryResultBase):
     :param thumbnail_url: URL of the static (JPEG or GIF) or animated (MPEG4) thumbnail for the result
     :type thumbnail_url: :obj:`str`
 
-    :param thumbnail_mime_type: Optional. MIME type of the thumbnail, must be one of “image/jpeg”, “image/gif”, or
-        “video/mp4”. Defaults to “image/jpeg”
+    :param thumbnail_mime_type: Optional. MIME type of the thumbnail, must be one of “image/jpeg”, “image/gif”, or “video/mp4”. Defaults to “image/jpeg”
     :type thumbnail_mime_type: :obj:`str`
 
     :param title: Optional. Title for the result
@@ -5200,8 +5174,7 @@ class InlineQueryResultMpeg4Gif(InlineQueryResultBase):
     :param parse_mode: Optional. Mode for parsing entities in the caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -5223,24 +5196,14 @@ class InlineQueryResultMpeg4Gif(InlineQueryResultBase):
 
         super().__init__('mpeg4_gif', id, title = title, caption = caption,
                          input_message_content = input_message_content, reply_markup = reply_markup,
-                         parse_mode = parse_mode, caption_entities = caption_entities)
+                         parse_mode = parse_mode, caption_entities = caption_entities,
+                         show_caption_above_media = show_caption_above_media)
         self.mpeg4_url: str = mpeg4_url
         self.thumbnail_url: str = thumbnail_url
         self.mpeg4_width: Optional[int] = mpeg4_width
         self.mpeg4_height: Optional[int] = mpeg4_height
         self.mpeg4_duration: Optional[int] = mpeg4_duration
         self.thumbnail_mime_type: Optional[str] = thumbnail_mime_type
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_mime_type(self) -> str:
-        log_deprecation_warning('The parameter "thumb_mime_type" is deprecated, use "thumbnail_mime_type" instead')
-        return self.thumbnail_mime_type
 
     def to_dict(self):
         json_dict = super().to_dict()
@@ -5254,17 +5217,15 @@ class InlineQueryResultMpeg4Gif(InlineQueryResultBase):
             json_dict['mpeg4_duration '] = self.mpeg4_duration
         if self.thumbnail_mime_type:
             json_dict['thumbnail_mime_type'] = self.thumbnail_mime_type
-        if self.show_caption_above_media is not None:
-            json_dict['show_caption_above_media'] = self.show_caption_above_media
         return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultVideo(InlineQueryResultBase):
+class InlineQueryResultVideo(InlineQueryResult):
     """
     Represents a link to a page containing an embedded video player or a video file. By default, this video file will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the video.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultvideo
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultvideo
 
     :param type: Type of the result, must be video
     :type type: :obj:`str`
@@ -5287,12 +5248,10 @@ class InlineQueryResultVideo(InlineQueryResultBase):
     :param caption: Optional. Caption of the video to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the video caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the video caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param video_width: Optional. Video width
@@ -5310,8 +5269,7 @@ class InlineQueryResultVideo(InlineQueryResultBase):
     :param reply_markup: Optional. Inline keyboard attached to the message
     :type reply_markup: :class:`telebot.types.InlineKeyboardMarkup`
 
-    :param input_message_content: Optional. Content of the message to be sent instead of the video. This field is
-        required if InlineQueryResultVideo is used to send an HTML-page as a result (e.g., a YouTube video).
+    :param input_message_content: Optional. Content of the message to be sent instead of the video. This field is required if InlineQueryResultVideo is used to send an HTML-page as a result (e.g., a YouTube video).
     :type input_message_content: :class:`telebot.types.InputMessageContent`
 
     :param show_caption_above_media: Optional. If true, a caption is shown over the video
@@ -5328,20 +5286,14 @@ class InlineQueryResultVideo(InlineQueryResultBase):
 
         super().__init__('video', id, title = title, caption = caption,
                          input_message_content = input_message_content, reply_markup = reply_markup,
-                         parse_mode = parse_mode, caption_entities = caption_entities)
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description,
+                         show_caption_above_media = show_caption_above_media)
         self.video_url: str = video_url
         self.mime_type: str = mime_type
         self.thumbnail_url: str = thumbnail_url
         self.video_width: Optional[int] = video_width
         self.video_height: Optional[int] = video_height
         self.video_duration: Optional[int] = video_duration
-        self.description: Optional[str] = description
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
 
     def to_dict(self):
         json_dict = super().to_dict()
@@ -5352,19 +5304,15 @@ class InlineQueryResultVideo(InlineQueryResultBase):
             json_dict['video_height'] = self.video_height
         if self.video_duration:
             json_dict['video_duration'] = self.video_duration
-        if self.description:
-            json_dict['description'] = self.description
-        if self.show_caption_above_media is not None:
-            json_dict['show_caption_above_media'] = self.show_caption_above_media
         return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultAudio(InlineQueryResultBase):
+class InlineQueryResultAudio(InlineQueryResult):
     """
     Represents a link to an MP3 audio file. By default, this audio file will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the audio.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultaudio
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultaudio
 
     :param type: Type of the result, must be audio
     :type type: :obj:`str`
@@ -5381,12 +5329,10 @@ class InlineQueryResultAudio(InlineQueryResultBase):
     :param caption: Optional. Caption, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the audio caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the audio caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param performer: Optional. Performer
@@ -5426,11 +5372,11 @@ class InlineQueryResultAudio(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultVoice(InlineQueryResultBase):
+class InlineQueryResultVoice(InlineQueryResult):
     """
     Represents a link to a voice recording in an .OGG container encoded with OPUS. By default, this voice recording will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the the voice message.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultvoice
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultvoice
 
     :param type: Type of the result, must be voice
     :type type: :obj:`str`
@@ -5447,12 +5393,10 @@ class InlineQueryResultVoice(InlineQueryResultBase):
     :param caption: Optional. Caption, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the voice message caption. See formatting options for
-        more details.
+    :param parse_mode: Optional. Mode for parsing entities in the voice message caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param voice_duration: Optional. Recording duration in seconds
@@ -5486,11 +5430,11 @@ class InlineQueryResultVoice(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultDocument(InlineQueryResultBase):
+class InlineQueryResultDocument(InlineQueryResult):
     """
     Represents a link to a file. By default, this file will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the file. Currently, only .PDF and .ZIP files can be sent using this method.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultdocument
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultdocument
 
     :param type: Type of the result, must be document
     :type type: :obj:`str`
@@ -5504,12 +5448,10 @@ class InlineQueryResultDocument(InlineQueryResultBase):
     :param caption: Optional. Caption of the document to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the document caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the document caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param document_url: A valid URL for the file
@@ -5546,36 +5488,17 @@ class InlineQueryResultDocument(InlineQueryResultBase):
 
         super().__init__('document', id, title = title, caption = caption,
                          input_message_content = input_message_content, reply_markup = reply_markup,
-                         parse_mode = parse_mode, caption_entities = caption_entities)
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description)
         self.document_url: str = document_url
         self.mime_type: str = mime_type
-        self.description: Optional[str] = description
         self.thumbnail_url: Optional[str] = thumbnail_url
         self.thumbnail_width: Optional[int] = thumbnail_width
         self.thumbnail_height: Optional[int] = thumbnail_height
-
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_width(self) -> int:
-        log_deprecation_warning('The parameter "thumb_width" is deprecated, use "thumbnail_width" instead')
-        return self.thumbnail_width
-
-    @property
-    def thumb_height(self) -> int:
-        log_deprecation_warning('The parameter "thumb_height" is deprecated, use "thumbnail_height" instead')
-        return self.thumbnail_height
 
     def to_dict(self):
         json_dict = super().to_dict()
         json_dict['document_url'] = self.document_url
         json_dict['mime_type'] = self.mime_type
-        if self.description:
-            json_dict['description'] = self.description
         if self.thumbnail_url:
             json_dict['thumbnail_url'] = self.thumbnail_url
         if self.thumbnail_width:
@@ -5586,11 +5509,11 @@ class InlineQueryResultDocument(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultLocation(InlineQueryResultBase):
+class InlineQueryResultLocation(InlineQueryResult):
     """
     Represents a location on a map. By default, the location will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the location.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultlocation
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultlocation
 
     :param type: Type of the result, must be location
     :type type: :obj:`str`
@@ -5654,21 +5577,6 @@ class InlineQueryResultLocation(InlineQueryResultBase):
         self.thumbnail_width: Optional[int] = thumbnail_width
         self.thumbnail_height: Optional[int] = thumbnail_height
 
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_width(self) -> int:
-        log_deprecation_warning('The parameter "thumb_width" is deprecated, use "thumbnail_width" instead')
-        return self.thumbnail_width
-
-    @property
-    def thumb_height(self) -> int:
-        log_deprecation_warning('The parameter "thumb_height" is deprecated, use "thumbnail_height" instead')
-        return self.thumbnail_height
-
     def to_dict(self):
         json_dict = super().to_dict()
         json_dict['latitude'] = self.latitude
@@ -5691,11 +5599,11 @@ class InlineQueryResultLocation(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultVenue(InlineQueryResultBase):
+class InlineQueryResultVenue(InlineQueryResult):
     """
     Represents a venue. By default, the venue will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the venue.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultvenue
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultvenue
 
     :param type: Type of the result, must be venue
     :type type: :obj:`str`
@@ -5718,8 +5626,7 @@ class InlineQueryResultVenue(InlineQueryResultBase):
     :param foursquare_id: Optional. Foursquare identifier of the venue if known
     :type foursquare_id: :obj:`str`
 
-    :param foursquare_type: Optional. Foursquare type of the venue, if known. (For example,
-        “arts_entertainment/default”, “arts_entertainment/aquarium” or “food/icecream”.)
+    :param foursquare_type: Optional. Foursquare type of the venue, if known. (For example, “arts_entertainment/default”, “arts_entertainment/aquarium” or “food/icecream”.)
     :type foursquare_type: :obj:`str`
 
     :param google_place_id: Optional. Google Places identifier of the venue
@@ -5764,21 +5671,6 @@ class InlineQueryResultVenue(InlineQueryResultBase):
         self.thumbnail_width: Optional[int] = thumbnail_width
         self.thumbnail_height: Optional[int] = thumbnail_height
 
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_width(self) -> int:
-        log_deprecation_warning('The parameter "thumb_width" is deprecated, use "thumbnail_width" instead')
-        return self.thumbnail_width
-
-    @property
-    def thumb_height(self) -> int:
-        log_deprecation_warning('The parameter "thumb_height" is deprecated, use "thumbnail_height" instead')
-        return self.thumbnail_height
-
     def to_dict(self):
         json_dict = super().to_dict()
         json_dict['latitude'] = self.latitude
@@ -5802,11 +5694,11 @@ class InlineQueryResultVenue(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultContact(InlineQueryResultBase):
+class InlineQueryResultContact(InlineQueryResult):
     """
     Represents a contact with a phone number. By default, this contact will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the contact.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcontact
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcontact
 
     :param type: Type of the result, must be contact
     :type type: :obj:`str`
@@ -5858,22 +5750,6 @@ class InlineQueryResultContact(InlineQueryResultBase):
         self.thumbnail_width: Optional[int] = thumbnail_width
         self.thumbnail_height: Optional[int] = thumbnail_height
 
-
-    @property
-    def thumb_url(self) -> str:
-        log_deprecation_warning('The parameter "thumb_url" is deprecated, use "thumbnail_url" instead')
-        return self.thumbnail_url
-
-    @property
-    def thumb_width(self) -> int:
-        log_deprecation_warning('The parameter "thumb_width" is deprecated, use "thumbnail_width" instead')
-        return self.thumbnail_width
-
-    @property
-    def thumb_height(self) -> int:
-        log_deprecation_warning('The parameter "thumb_height" is deprecated, use "thumbnail_height" instead')
-        return self.thumbnail_height
-
     def to_dict(self):
         json_dict = super().to_dict()
         json_dict['phone_number'] = self.phone_number
@@ -5892,11 +5768,11 @@ class InlineQueryResultContact(InlineQueryResultBase):
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultGame(InlineQueryResultBase):
+class InlineQueryResultGame(InlineQueryResult):
     """
     Represents a Game.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultgame
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultgame
 
     :param type: Type of the result, must be game
     :type type: :obj:`str`
@@ -5923,52 +5799,12 @@ class InlineQueryResultGame(InlineQueryResultBase):
         return json_dict
 
 
-class InlineQueryResultCachedBase(ABC, JsonSerializable):
-    """
-    Base class of all InlineQueryResultCached* classes.
-    """
-    def __init__(self):
-        self.type: str = ""
-        self.id: str = ""
-        self.title: Optional[str] = None
-        self.description: Optional[str] = None
-        self.caption: Optional[str] = None
-        self.reply_markup: Optional[InlineKeyboardMarkup] = None
-        self.input_message_content: Optional[InputMessageContent] = None
-        self.parse_mode: Optional[str] = None
-        self.caption_entities: Optional[List[MessageEntity]] = None
-        self.payload_dic: Dict[str] = {}
-        self.show_caption_above_media: Optional[bool] = None
-
-    def to_json(self):
-        json_dict = self.payload_dic
-        json_dict['type'] = self.type
-        json_dict['id'] = self.id
-        if self.title:
-            json_dict['title'] = self.title
-        if self.description:
-            json_dict['description'] = self.description
-        if self.caption:
-            json_dict['caption'] = self.caption
-        if self.reply_markup:
-            json_dict['reply_markup'] = self.reply_markup.to_dict()
-        if self.input_message_content:
-            json_dict['input_message_content'] = self.input_message_content.to_dict()
-        if self.parse_mode:
-            json_dict['parse_mode'] = self.parse_mode
-        if self.caption_entities:
-            json_dict['caption_entities'] = MessageEntity.to_list_of_dicts(self.caption_entities)
-        if self.show_caption_above_media is not None:
-            json_dict['show_caption_above_media'] = self.show_caption_above_media
-        return json.dumps(json_dict)
-
-
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedPhoto(InlineQueryResultCachedBase):
+class InlineQueryResultCachedPhoto(InlineQueryResult):
     """
     Represents a link to a photo stored on the Telegram servers. By default, this photo will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the photo.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedphoto
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedphoto
 
     :param type: Type of the result, must be photo
     :type type: :obj:`str`
@@ -5988,12 +5824,10 @@ class InlineQueryResultCachedPhoto(InlineQueryResultCachedBase):
     :param caption: Optional. Caption of the photo to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the photo caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the photo caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6012,29 +5846,24 @@ class InlineQueryResultCachedPhoto(InlineQueryResultCachedBase):
                     caption: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
                     parse_mode: Optional[str] = None, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None, show_caption_above_media: Optional[bool] = None):
-
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'photo'
-        self.id: str = id
+        super().__init__('photo', id, title = title, caption = caption,
+                         input_message_content = input_message_content, reply_markup = reply_markup,
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description,
+                         show_caption_above_media = show_caption_above_media)
         self.photo_file_id: str = photo_file_id
-        self.title: Optional[str] = title
-        self.description: Optional[str] = description
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['photo_file_id'] = photo_file_id
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
 
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['photo_file_id'] = self.photo_file_id
+        return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedGif(InlineQueryResultCachedBase):
+class InlineQueryResultCachedGif(InlineQueryResult):
     """
     Represents a link to an animated GIF file stored on the Telegram servers. By default, this animated GIF file will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with specified content instead of the animation.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedgif
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedgif
 
     :param type: Type of the result, must be gif
     :type type: :obj:`str`
@@ -6054,8 +5883,7 @@ class InlineQueryResultCachedGif(InlineQueryResultCachedBase):
     :param parse_mode: Optional. Mode for parsing entities in the caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6074,28 +5902,24 @@ class InlineQueryResultCachedGif(InlineQueryResultCachedBase):
                     caption: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
                     parse_mode: Optional[str] = None, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None, show_caption_above_media: Optional[bool] = None):
-
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'gif'
-        self.id: str = id
+        super().__init__('gif', id, title = title, caption = caption,
+                         input_message_content = input_message_content, reply_markup = reply_markup,
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description,
+                         show_caption_above_media = show_caption_above_media)
         self.gif_file_id: str = gif_file_id
-        self.title: Optional[str] = title
-        self.description: Optional[str] = description
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['gif_file_id'] = gif_file_id
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
+
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['gif_file_id'] = self.gif_file_id
+        return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedMpeg4Gif(InlineQueryResultCachedBase):
+class InlineQueryResultCachedMpeg4Gif(InlineQueryResult):
     """
     Represents a link to a video animation (H.264/MPEG-4 AVC video without sound) stored on the Telegram servers. By default, this animated MPEG-4 file will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the animation.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedmpeg4gif
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedmpeg4gif
 
     :param type: Type of the result, must be mpeg4_gif
     :type type: :obj:`str`
@@ -6115,8 +5939,7 @@ class InlineQueryResultCachedMpeg4Gif(InlineQueryResultCachedBase):
     :param parse_mode: Optional. Mode for parsing entities in the caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6135,27 +5958,24 @@ class InlineQueryResultCachedMpeg4Gif(InlineQueryResultCachedBase):
                     caption: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
                     parse_mode: Optional[str] = None, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None, show_caption_above_media: Optional[bool] = None):
-
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'mpeg4_gif'
-        self.id: str = id
+        super().__init__('mpeg4_gif', id, title = title, caption = caption,
+                         input_message_content = input_message_content, reply_markup = reply_markup,
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description,
+                         show_caption_above_media = show_caption_above_media)
         self.mpeg4_file_id: str = mpeg4_file_id
-        self.title: Optional[str] = title
-        self.description: Optional[str] = description
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['mpeg4_file_id'] = mpeg4_file_id
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
+
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['mpeg4_file_id'] = self.mpeg4_file_id
+        return json_dict
+
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedSticker(InlineQueryResultCachedBase):
+class InlineQueryResultCachedSticker(InlineQueryResult):
     """
     Represents a link to a sticker stored on the Telegram servers. By default, this sticker will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the sticker.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedsticker
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedsticker
 
     :param type: Type of the result, must be sticker
     :type type: :obj:`str`
@@ -6177,22 +5997,21 @@ class InlineQueryResultCachedSticker(InlineQueryResultCachedBase):
     """
     def __init__(self, id: str, sticker_file_id: str, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None):
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'sticker'
-        self.id: str = id
+        super().__init__('sticker', id, input_message_content = input_message_content, reply_markup = reply_markup)
         self.sticker_file_id: str = sticker_file_id
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.payload_dic['sticker_file_id'] = sticker_file_id
 
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['sticker_file_id'] = self.sticker_file_id
+        return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedDocument(InlineQueryResultCachedBase):
+class InlineQueryResultCachedDocument(InlineQueryResult):
     """
     Represents a link to a file stored on the Telegram servers. By default, this file will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the file.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcacheddocument
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcacheddocument
 
     :param type: Type of the result, must be document
     :type type: :obj:`str`
@@ -6212,12 +6031,10 @@ class InlineQueryResultCachedDocument(InlineQueryResultCachedBase):
     :param caption: Optional. Caption of the document to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the document caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the document caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6234,27 +6051,23 @@ class InlineQueryResultCachedDocument(InlineQueryResultCachedBase):
                     caption: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
                     parse_mode: Optional[str] = None, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None):
-
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'document'
-        self.id: str = id
-        self.title: str = title
+        super().__init__('document', id, title = title, caption = caption,
+                         input_message_content = input_message_content, reply_markup = reply_markup,
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description)
         self.document_file_id: str = document_file_id
-        self.description: Optional[str] = description
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['document_file_id'] = document_file_id
+
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['document_file_id'] = self.document_file_id
+        return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedVideo(InlineQueryResultCachedBase):
+class InlineQueryResultCachedVideo(InlineQueryResult):
     """
     Represents a link to a video file stored on the Telegram servers. By default, this video file will be sent by the user with an optional caption. Alternatively, you can use input_message_content to send a message with the specified content instead of the video.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedvideo
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedvideo
 
     :param type: Type of the result, must be video
     :type type: :obj:`str`
@@ -6274,12 +6087,10 @@ class InlineQueryResultCachedVideo(InlineQueryResultCachedBase):
     :param caption: Optional. Caption of the video to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the video caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the video caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6299,28 +6110,24 @@ class InlineQueryResultCachedVideo(InlineQueryResultCachedBase):
                     caption: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
                     parse_mode: Optional[str] = None, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None, show_caption_above_media: Optional[bool] = None):
-
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'video'
-        self.id: str = id
+        super().__init__('video', id, title = title, caption = caption,
+                         input_message_content = input_message_content, reply_markup = reply_markup,
+                         parse_mode = parse_mode, caption_entities = caption_entities, description = description,
+                         show_caption_above_media = show_caption_above_media)
         self.video_file_id: str = video_file_id
-        self.title: str = title
-        self.description: Optional[str] = description
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['video_file_id'] = video_file_id
-        self.show_caption_above_media: Optional[bool] = show_caption_above_media
+
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['video_file_id'] = self.video_file_id
+        return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedVoice(InlineQueryResultCachedBase):
+class InlineQueryResultCachedVoice(InlineQueryResult):
     """
     Represents a link to a voice message stored on the Telegram servers. By default, this voice message will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the voice message.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedvoice
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedvoice
 
     :param type: Type of the result, must be voice
     :type type: :obj:`str`
@@ -6337,12 +6144,10 @@ class InlineQueryResultCachedVoice(InlineQueryResultCachedBase):
     :param caption: Optional. Caption, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the voice message caption. See formatting options for
-        more details.
+    :param parse_mode: Optional. Mode for parsing entities in the voice message caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6358,26 +6163,23 @@ class InlineQueryResultCachedVoice(InlineQueryResultCachedBase):
     def __init__(self, id: str, voice_file_id: str, title: str, caption: Optional[str] = None,
                     caption_entities: Optional[List[MessageEntity]] = None, parse_mode: Optional[str] = None,
                     reply_markup: Optional[InlineKeyboardMarkup] = None, input_message_content: Optional[InputMessageContent] = None):
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'voice'
-        self.id: str = id
+        super().__init__('voice', id, title = title, caption = caption,
+                         input_message_content = input_message_content, reply_markup = reply_markup,
+                         parse_mode = parse_mode, caption_entities = caption_entities)
         self.voice_file_id: str = voice_file_id
-        self.title: str = title
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['voice_file_id'] = voice_file_id
 
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['voice_file_id'] = self.voice_file_id
+        return json_dict
 
 
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
-class InlineQueryResultCachedAudio(InlineQueryResultCachedBase):
+class InlineQueryResultCachedAudio(InlineQueryResult):
     """
     Represents a link to an MP3 audio file stored on the Telegram servers. By default, this audio file will be sent by the user. Alternatively, you can use input_message_content to send a message with the specified content instead of the audio.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedaudio
+    Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultcachedaudio
 
     :param type: Type of the result, must be audio
     :type type: :obj:`str`
@@ -6391,12 +6193,10 @@ class InlineQueryResultCachedAudio(InlineQueryResultCachedBase):
     :param caption: Optional. Caption, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the audio caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the audio caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param reply_markup: Optional. Inline keyboard attached to the message
@@ -6412,25 +6212,21 @@ class InlineQueryResultCachedAudio(InlineQueryResultCachedBase):
     def __init__(self, id: str, audio_file_id: str, caption: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
                     parse_mode: Optional[str] = None, reply_markup: Optional[InlineKeyboardMarkup] = None,
                     input_message_content: Optional[InputMessageContent] = None):
-        InlineQueryResultCachedBase.__init__(self)
-        self.type: str = 'audio'
-        self.id: str = id
+        super().__init__('audio', id, caption = caption, input_message_content = input_message_content,
+                         reply_markup = reply_markup, parse_mode = parse_mode, caption_entities = caption_entities)
         self.audio_file_id: str = audio_file_id
-        self.caption: Optional[str] = caption
-        self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.reply_markup: Optional[InlineKeyboardMarkup] = reply_markup
-        self.input_message_content: Optional[InputMessageContent] = input_message_content
-        self.parse_mode: Optional[str] = parse_mode
-        self.payload_dic['audio_file_id'] = audio_file_id
 
+    def to_dict(self):
+        json_dict = super().to_dict()
+        json_dict['audio_file_id'] = self.audio_file_id
+        return json_dict
 
-# Games
 
 class Game(JsonDeserializable):
     """
     This object represents a game. Use BotFather to create and edit games, their short names will act as unique identifiers.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#game
+    Telegram documentation: https://core.telegram.org/bots/api#game
 
     :param title: Title of the game
     :type title: :obj:`str`
@@ -6441,9 +6237,7 @@ class Game(JsonDeserializable):
     :param photo: Photo that will be displayed in the game message in chats.
     :type photo: :obj:`list` of :class:`telebot.types.PhotoSize`
 
-    :param text: Optional. Brief description of the game or high scores included in the game message. Can be
-        automatically edited to include current high scores for the game when the bot calls setGameScore, or manually edited
-        using editMessageText. 0-4096 characters.
+    :param text: Optional. Brief description of the game or high scores included in the game message. Can be automatically edited to include current high scores for the game when the bot calls setGameScore, or manually edited using editMessageText. 0-4096 characters.
     :type text: :obj:`str`
 
     :param text_entities: Optional. Special entities that appear in text, such as usernames, URLs, bot commands, etc.
@@ -6499,36 +6293,33 @@ class Animation(JsonDeserializable):
     """
     This object represents an animation file (GIF or H.264/MPEG-4 AVC video without sound).
 
-    Telegram Documentation: https://core.telegram.org/bots/api#animation
+    Telegram documentation: https://core.telegram.org/bots/api#animation
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param width: Video width as defined by sender
+    :param width: Video width as defined by the sender
     :type width: :obj:`int`
 
-    :param height: Video height as defined by sender
+    :param height: Video height as defined by the sender
     :type height: :obj:`int`
 
-    :param duration: Duration of the video in seconds as defined by sender
+    :param duration: Duration of the video in seconds as defined by the sender
     :type duration: :obj:`int`
 
-    :param thumbnail: Optional. Animation thumbnail as defined by sender
+    :param thumbnail: Optional. Animation thumbnail as defined by the sender
     :type thumbnail: :class:`telebot.types.PhotoSize`
 
-    :param file_name: Optional. Original animation filename as defined by sender
+    :param file_name: Optional. Original animation filename as defined by the sender
     :type file_name: :obj:`str`
 
-    :param mime_type: Optional. MIME type of the file as defined by sender
+    :param mime_type: Optional. MIME type of the file as defined by the sender
     :type mime_type: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have
-        difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or
-        double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
     :return: Instance of the class
@@ -6544,13 +6335,16 @@ class Animation(JsonDeserializable):
             obj['thumbnail'] = None
         return cls(**obj)
 
-    def __init__(self, file_id, file_unique_id, width=None, height=None, duration=None,
-                 thumbnail=None, file_name=None, mime_type=None, file_size=None, **kwargs):
+    def __init__(
+            self, file_id: str, file_unique_id: str, width: int = None, height: int = None,
+            duration: int = None, thumbnail: Optional[PhotoSize] = None,
+            file_name: Optional[str] = None, mime_type: Optional[str] = None,
+            file_size: Optional[int] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
-        self.width: Optional[int] = width
-        self.height: Optional[int] = height
-        self.duration: Optional[int] = duration
+        self.width: int = width
+        self.height: int = height
+        self.duration: int = duration
         self.thumbnail: Optional[PhotoSize] = thumbnail
         self.file_name: Optional[str] = file_name
         self.mime_type: Optional[str] = mime_type
@@ -6566,7 +6360,7 @@ class GameHighScore(JsonDeserializable):
     """
     This object represents one row of the high scores table for a game.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#gamehighscore
+    Telegram documentation: https://core.telegram.org/bots/api#gamehighscore
 
     :param position: Position in high score table for the game
     :type position: :obj:`int`
@@ -6599,14 +6393,12 @@ class LabeledPrice(JsonSerializable, Dictionaryable):
     """
     This object represents a portion of the price for goods or services.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#labeledprice
+    Telegram documentation: https://core.telegram.org/bots/api#labeledprice
 
     :param label: Portion label
     :type label: :obj:`str`
 
-    :param amount: Price of the product in the smallest units of the currency (integer, not float/double). For example,
-        for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past
-        the decimal point for each currency (2 for the majority of currencies).
+    :param amount: Price of the product in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
     :type amount: :obj:`int`
 
     :return: Instance of the class
@@ -6629,7 +6421,7 @@ class Invoice(JsonDeserializable):
     """
     This object contains basic information about an invoice.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#invoice
+    Telegram documentation: https://core.telegram.org/bots/api#invoice
 
     :param title: Product name
     :type title: :obj:`str`
@@ -6643,9 +6435,7 @@ class Invoice(JsonDeserializable):
     :param currency: Three-letter ISO 4217 currency code
     :type currency: :obj:`str`
 
-    :param total_amount: Total price in the smallest units of the currency (integer, not float/double). For example,
-        for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past
-        the decimal point for each currency (2 for the majority of currencies).
+    :param total_amount: Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
     :type total_amount: :obj:`int`
 
     :return: Instance of the class
@@ -6669,7 +6459,7 @@ class ShippingAddress(JsonDeserializable):
     """
     This object represents a shipping address.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#shippingaddress
+    Telegram documentation: https://core.telegram.org/bots/api#shippingaddress
 
     :param country_code: Two-letter ISO 3166-1 alpha-2 country code
     :type country_code: :obj:`str`
@@ -6711,7 +6501,7 @@ class OrderInfo(JsonDeserializable):
     """
     This object represents information about an order.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#orderinfo
+    Telegram documentation: https://core.telegram.org/bots/api#orderinfo
 
     :param name: Optional. User name
     :type name: :obj:`str`
@@ -6747,7 +6537,7 @@ class ShippingOption(JsonSerializable):
     """
     This object represents one shipping option.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#shippingoption
+    Telegram documentation: https://core.telegram.org/bots/api#shippingoption
 
     :param id: Shipping option identifier
     :type id: :obj:`str`
@@ -6791,14 +6581,12 @@ class SuccessfulPayment(JsonDeserializable):
     """
     This object contains basic information about a successful payment.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#successfulpayment
+    Telegram documentation: https://core.telegram.org/bots/api#successfulpayment
 
     :param currency: Three-letter ISO 4217 currency code
     :type currency: :obj:`str`
 
-    :param total_amount: Total price in the smallest units of the currency (integer, not float/double). For example,
-        for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past
-        the decimal point for each currency (2 for the majority of currencies).
+    :param total_amount: Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
     :type total_amount: :obj:`int`
 
     :param invoice_payload: Bot specified invoice payload
@@ -6855,7 +6643,7 @@ class ShippingQuery(JsonDeserializable):
     """
     This object contains information about an incoming shipping query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#shippingquery
+    Telegram documentation: https://core.telegram.org/bots/api#shippingquery
 
     :param id: Unique query identifier
     :type id: :obj:`str`
@@ -6892,7 +6680,7 @@ class PreCheckoutQuery(JsonDeserializable):
     """
     This object contains information about an incoming pre-checkout query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#precheckoutquery
+    Telegram documentation: https://core.telegram.org/bots/api#precheckoutquery
 
     :param id: Unique query identifier
     :type id: :obj:`str`
@@ -6903,9 +6691,7 @@ class PreCheckoutQuery(JsonDeserializable):
     :param currency: Three-letter ISO 4217 currency code
     :type currency: :obj:`str`
 
-    :param total_amount: Total price in the smallest units of the currency (integer, not float/double). For example,
-        for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past
-        the decimal point for each currency (2 for the majority of currencies).
+    :param total_amount: Total price in the smallest units of the currency (integer, not float/double). For example, for a price of US$ 1.45 pass amount = 145. See the exp parameter in currencies.json, it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
     :type total_amount: :obj:`int`
 
     :param invoice_payload: Bot specified invoice payload
@@ -6944,7 +6730,7 @@ class StickerSet(JsonDeserializable):
     """
     This object represents a sticker set.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#stickerset
+    Telegram documentation: https://core.telegram.org/bots/api#stickerset
 
     :param name: Sticker set name
     :type name: :obj:`str`
@@ -7011,17 +6797,15 @@ class Sticker(JsonDeserializable):
     """
     This object represents a sticker.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#sticker
+    Telegram documentation: https://core.telegram.org/bots/api#sticker
 
     :param file_id: Identifier for this file, which can be used to download or reuse the file
     :type file_id: :obj:`str`
 
-    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different
-        bots. Can't be used to download or reuse the file.
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
     :type file_unique_id: :obj:`str`
 
-    :param type: Type of the sticker, currently one of “regular”, “mask”, “custom_emoji”. The type of the sticker is
-        independent from its format, which is determined by the fields is_animated and is_video.
+    :param type: Type of the sticker, currently one of “regular”, “mask”, “custom_emoji”. The type of the sticker is independent from its format, which is determined by the fields is_animated and is_video.
     :type type: :obj:`str`
 
     :param width: Sticker width
@@ -7054,9 +6838,7 @@ class Sticker(JsonDeserializable):
     :param custom_emoji_id: Optional. For custom emoji stickers, unique identifier of the custom emoji
     :type custom_emoji_id: :obj:`str`
 
-    :param needs_repainting: Optional. True, if the sticker must be repainted to a text color in messages,
-        the color of the Telegram Premium badge in emoji status, white color on chat photos, or another
-        appropriate color in other places
+    :param needs_repainting: Optional. True, if the sticker must be repainted to a text color in messages, the color of the Telegram Premium badge in emoji status, white color on chat photos, or another appropriate color in other places
     :type needs_repainting: :obj:`bool`
 
     :param file_size: Optional. File size in bytes
@@ -7109,18 +6891,15 @@ class MaskPosition(Dictionaryable, JsonDeserializable, JsonSerializable):
     """
     This object describes the position on faces where a mask should be placed by default.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#maskposition
+    Telegram documentation: https://core.telegram.org/bots/api#maskposition
 
-    :param point: The part of the face relative to which the mask should be placed. One of “forehead”, “eyes”, “mouth”, or
-        “chin”.
+    :param point: The part of the face relative to which the mask should be placed. One of “forehead”, “eyes”, “mouth”, or “chin”.
     :type point: :obj:`str`
 
-    :param x_shift: Shift by X-axis measured in widths of the mask scaled to the face size, from left to right. For example,
-        choosing -1.0 will place mask just to the left of the default mask position.
+    :param x_shift: Shift by X-axis measured in widths of the mask scaled to the face size, from left to right. For example, choosing -1.0 will place mask just to the left of the default mask position.
     :type x_shift: :obj:`float` number
 
-    :param y_shift: Shift by Y-axis measured in heights of the mask scaled to the face size, from top to bottom. For
-        example, 1.0 will place the mask just below the default mask position.
+    :param y_shift: Shift by Y-axis measured in heights of the mask scaled to the face size, from top to bottom. For example, 1.0 will place the mask just below the default mask position.
     :type y_shift: :obj:`float` number
 
     :param scale: Mask scaling coefficient. For example, 2.0 means double size.
@@ -7155,37 +6934,45 @@ class MaskPosition(Dictionaryable, JsonDeserializable, JsonSerializable):
 class InputMedia(Dictionaryable, JsonSerializable):
     """
     This object represents the content of a media message to be sent. It should be one of
+    InputMediaAnimation
+    InputMediaAudio
+    InputMediaDocument
+    InputMediaLivePhoto
+    InputMediaPhoto
+    InputMediaVideo
 
-    * :class:`InputMediaAnimation`
-    * :class:`InputMediaDocument`
-    * :class:`InputMediaAudio`
-    * :class:`InputMediaPhoto`
-    * :class:`InputMediaVideo`
+    Telegram documentation: https://core.telegram.org/bots/api#inputmedia
     """
-    def __init__(self, type, media=None, caption=None, parse_mode=None, caption_entities=None, thumbnail=None):
+    def __init__(self, type: str, media: Optional[Union[str, InputFile]] = None, caption: Optional[str] = None,
+                 parse_mode: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
+                 thumbnail: Optional[InputFile] = None):
         self.type: str = type
-        self.media: Optional[str] = media
+        self.media: Optional[Union[str, InputFile]] = media
         self.caption: Optional[str] = caption
         self.parse_mode: Optional[str] = parse_mode
         self.caption_entities: Optional[List[MessageEntity]] = caption_entities
-        self.thumbnail: Optional[Union[str, InputFile]] = thumbnail
+        self.thumbnail: Optional[InputFile] = thumbnail
 
-        if thumbnail is None:
-            self._thumbnail_name = ''
-            self._thumbnail_dic = None
-        elif service_utils.is_string(self.thumbnail):
-            self._thumbnail_name = ''
-            self._thumbnail_dic = self.thumbnail
-        else:
-            self._thumbnail_name = service_utils.generate_random_token()
-            self._thumbnail_dic = 'attach://{0}'.format(self._thumbnail_name)
-
-        if service_utils.is_string(self.media):
+        if media is None:
+            self._media_name = ''
+            self._media_dic = None
+        elif service_utils.is_string(self.media):
             self._media_name = ''
             self._media_dic = self.media
         else:
             self._media_name = service_utils.generate_random_token()
             self._media_dic = 'attach://{0}'.format(self._media_name)
+
+        if thumbnail is None:
+            self._thumbnail_name = ''
+            self._thumbnail_dic = None
+        elif service_utils.is_string(self.thumbnail):
+            # In fact t cannot be string because cannot be reused
+            self._thumbnail_name = ''
+            self._thumbnail_dic = self.thumbnail
+        else:
+            self._thumbnail_name = service_utils.generate_random_token()
+            self._thumbnail_dic = 'attach://{0}'.format(self._thumbnail_name)
 
         if self.__class__ is InputMedia:
             # Make InputMedia as ABC some time...
@@ -7212,44 +6999,47 @@ class InputMedia(Dictionaryable, JsonSerializable):
         """
         :meta private:
         """
+        files = {}
         if self.media is None:
-            return self.to_json(), None
+            pass
         elif service_utils.is_string(self.media):
-            return self.to_json(), None
-
-        media_dict = {self._media_name: self.media}
-        if self._thumbnail_name:
-            media_dict[self._thumbnail_name] = self.thumbnail
-
-        return self.to_json(), media_dict
+            pass
+        else:
+            files[self._media_name] = self.media
+        if self.thumbnail is None:
+            pass
+        elif service_utils.is_string(self.thumbnail):
+            pass
+        else:
+            files[self._thumbnail_name] = self.thumbnail
+        return self.to_json(), files
 
 
 class InputMediaPhoto(InputMedia):
     """
     Represents a photo to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediaphoto
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediaphoto
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an
-        HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using
-        multipart/form-data under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param type: Type of the media, must be photo
+    :type type: :obj:`str`
+
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
 
     :param caption: Optional. Caption of the photo to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the photo caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the photo caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
-    :param has_spoiler: Optional. True, if the uploaded photo is a spoiler
+    :param has_spoiler: Optional. Pass True if the photo needs to be covered with a spoiler animation
     :type has_spoiler: :obj:`bool`
 
-    :param show_caption_above_media: Optional. True, if the caption should be shown above the photo
+    :param show_caption_above_media: Optional. Pass True if the caption must be shown above the message media
     :type show_caption_above_media: :obj:`bool`
 
     :return: Instance of the class
@@ -7280,37 +7070,30 @@ class InputMediaVideo(InputMedia):
     """
     Represents a video to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediavideo
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediavideo
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an
-        HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using
-        multipart/form-data under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param type: Type of the media, must be video
+    :type type: :obj:`str`
 
-    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported
-        server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should
-        not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be
-        only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using
-        multipart/form-data under <file_attach_name>. More information on Sending Files »
-    :type thumbnail: InputFile or :obj:`str`
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name.
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
 
-    :param cover: Cover for the video in the message. Pass a file_id to send a file that exists on the Telegram servers (recommended),
-        pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under
-        <file_attach_name> name. More information on Sending Files »
+    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>.
+    :type thumbnail: :class:`telebot.types.InputFile`
+
+    :param cover: Optional. Cover for the video in the message. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name.
     :type cover: :obj:`str` or :class:`telebot.types.InputFile`
 
-    :param start_timestamp: Start timestamp for the video in the message
+    :param start_timestamp: Optional. Start timestamp for the video in the message
     :type start_timestamp: :obj:`int`
 
     :param caption: Optional. Caption of the video to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the video caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the video caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param width: Optional. Video width
@@ -7322,19 +7105,19 @@ class InputMediaVideo(InputMedia):
     :param duration: Optional. Video duration in seconds
     :type duration: :obj:`int`
 
-    :param supports_streaming: Optional. Pass True, if the uploaded video is suitable for streaming
+    :param supports_streaming: Optional. Pass True if the uploaded video is suitable for streaming
     :type supports_streaming: :obj:`bool`
 
-    :param has_spoiler: Optional. True, if the uploaded video is a spoiler
+    :param has_spoiler: Optional. Pass True if the video needs to be covered with a spoiler animation
     :type has_spoiler: :obj:`bool`
 
-    :param show_caption_above_media: Optional. True, if the caption should be shown above the video
+    :param show_caption_above_media: Optional. Pass True if the caption must be shown above the message media
     :type show_caption_above_media: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaVideo`
     """
-    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[Union[str, InputFile]] = None,
+    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[InputFile] = None,
                     caption: Optional[str] = None, parse_mode: Optional[str] = None,
                     caption_entities: Optional[List[MessageEntity]] = None, width: Optional[int] = None,
                     height: Optional[int] = None, duration: Optional[int] = None,
@@ -7349,8 +7132,18 @@ class InputMediaVideo(InputMedia):
         self.supports_streaming: Optional[bool] = supports_streaming
         self.has_spoiler: Optional[bool] = has_spoiler
         self.show_caption_above_media: Optional[bool] = show_caption_above_media
-        self.cover: Optional[str] = cover
+        self.cover: Optional[Union[str, InputFile]] = cover
         self.start_timestamp: Optional[int] = start_timestamp
+
+        if cover is None:
+            self._cover_name = ''
+            self._cover_dic = None
+        elif service_utils.is_string(self.cover):
+            self._cover_name = ''
+            self._cover_dic = self.cover
+        else:
+            self._cover_name = service_utils.generate_random_token()
+            self._cover_dic = 'attach://{0}'.format(self._cover_name)
 
     @property
     def thumb(self) -> Optional[Union[str, Any]]:
@@ -7371,40 +7164,45 @@ class InputMediaVideo(InputMedia):
             ret['has_spoiler'] = self.has_spoiler
         if self.show_caption_above_media is not None:
             ret['show_caption_above_media'] = self.show_caption_above_media
-        if self.cover:
-            ret['cover'] = self.cover
+        if self._cover_dic:
+            ret['cover'] = self._cover_dic
         if self.start_timestamp:
             ret['start_timestamp'] = self.start_timestamp
         return ret
+
+    def convert_input_media(self):
+        media_json, files = super(InputMediaVideo, self).convert_input_media()
+        if self.cover is None:
+            pass
+        elif service_utils.is_string(self.cover):
+            pass
+        else:
+            files[self._cover_name] = self.cover
+        return media_json, files
 
 
 class InputMediaAnimation(InputMedia):
     """
     Represents an animation file (GIF or H.264/MPEG-4 AVC video without sound) to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediaanimation
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediaanimation
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an
-        HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using
-        multipart/form-data under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param type: Type of the media, must be animation
+    :type type: :obj:`str`
 
-    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported
-        server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should
-        not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be
-        only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using
-        multipart/form-data under <file_attach_name>. More information on Sending Files »
-    :type thumbnail: InputFile or :obj:`str`
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
+
+    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>
+    :type thumbnail: :class:`telebot.types.InputFile`
 
     :param caption: Optional. Caption of the animation to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the animation caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the animation caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param width: Optional. Animation width
@@ -7416,17 +7214,17 @@ class InputMediaAnimation(InputMedia):
     :param duration: Optional. Animation duration in seconds
     :type duration: :obj:`int`
 
-    :param has_spoiler: Optional. True, if the uploaded animation is a spoiler
+    :param has_spoiler: Optional. Pass True if the animation needs to be covered with a spoiler animation
     :type has_spoiler: :obj:`bool`
 
-    :param show_caption_above_media: Optional. True, if the caption should be shown above the animation
+    :param show_caption_above_media: Optional. Pass True if the caption must be shown above the message media
     :type show_caption_above_media: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaAnimation`
     """
 
-    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[Union[str, InputFile]] = None,
+    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[InputFile] = None,
                     caption: Optional[str] = None, parse_mode: Optional[str] = None,
                     caption_entities: Optional[List[MessageEntity]] = None, width: Optional[int] = None,
                     height: Optional[int] = None, duration: Optional[int] = None,
@@ -7438,7 +7236,6 @@ class InputMediaAnimation(InputMedia):
         self.duration: Optional[int] = duration
         self.has_spoiler: Optional[bool] = has_spoiler
         self.show_caption_above_media: Optional[bool] = show_caption_above_media
-
 
     @property
     def thumb(self) -> Optional[Union[str, Any]]:
@@ -7464,29 +7261,24 @@ class InputMediaAudio(InputMedia):
     """
     Represents an audio file to be treated as music to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediaaudio
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediaaudio
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an
-        HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using
-        multipart/form-data under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param type: Type of the media, must be audio
+    :type type: :obj:`str`
 
-    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported
-        server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should
-        not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be
-        only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using
-        multipart/form-data under <file_attach_name>. More information on Sending Files »
-    :type thumbnail: InputFile or :obj:`str`
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
+
+    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>
+    :type thumbnail: :class:`telebot.types.InputFile`
 
     :param caption: Optional. Caption of the audio to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the audio caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the audio caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
     :param duration: Optional. Duration of the audio in seconds
@@ -7501,7 +7293,7 @@ class InputMediaAudio(InputMedia):
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaAudio`
     """
-    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[Union[str, InputFile]] = None,
+    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[InputFile] = None,
                     caption: Optional[str] = None, parse_mode: Optional[str] = None,
                     caption_entities: Optional[List[MessageEntity]] = None, duration: Optional[int] = None,
                     performer: Optional[str] = None, title: Optional[str] = None):
@@ -7531,39 +7323,33 @@ class InputMediaDocument(InputMedia):
     """
     Represents a general file to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediadocument
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediadocument
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an
-        HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using
-        multipart/form-data under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param type: Type of the media, must be document
+    :type type: :obj:`str`
 
-    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported
-        server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should
-        not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be
-        only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using
-        multipart/form-data under <file_attach_name>. More information on Sending Files »
-    :type thumbnail: InputFile or :obj:`str`
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
+
+    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>
+    :type thumbnail: :class:`telebot.types.InputFile`
 
     :param caption: Optional. Caption of the document to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
 
-    :param parse_mode: Optional. Mode for parsing entities in the document caption. See formatting options for more
-        details.
+    :param parse_mode: Optional. Mode for parsing entities in the document caption. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified
-        instead of parse_mode
+    :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
-    :param disable_content_type_detection: Optional. Disables automatic server-side content type detection for
-        files uploaded using multipart/form-data. Always True, if the document is sent as part of an album.
+    :param disable_content_type_detection: Optional. Disables automatic server-side content type detection for files uploaded using multipart/form-data. Always True, if the document is sent as part of an album.
     :type disable_content_type_detection: :obj:`bool`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaDocument`
     """
-    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[Union[str, InputFile]] = None,
+    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[InputFile] = None,
                     caption: Optional[str] = None, parse_mode: Optional[str] = None,
                     caption_entities: Optional[List[MessageEntity]] = None,
                     disable_content_type_detection: Optional[bool] = None):
@@ -7587,15 +7373,16 @@ class InputMediaLivePhoto(InputMedia):
     """
     Represents a live photo to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmedialivephoto
+    Telegram documentation: https://core.telegram.org/bots/api#inputmedialivephoto
 
-    :param media: Video of the live photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or pass “attach://<file_attach_name>”
-        to upload a new one using multipart/form-data under <file_attach_name> name. More information on Sending Files ». Sending live photos by a URL is currently unsupported.
-    :type media: :obj:`str`
+    :param type: Type of the media, must be live_photo
+    :type type: :obj:`str`
 
-    :param photo: The static photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or pass “attach://<file_attach_name>” to upload a new one
-        using multipart/form-data under <file_attach_name> name. More information on Sending Files ». Sending live photos by a URL is currently unsupported.
-    :type photo: :obj:`str`
+    :param media: Video of the live photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name. Sending live photos by a URL is currently unsupported.
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
+
+    :param photo: The static photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name. Sending live photos by a URL is currently unsupported.
+    :type photo: :obj:`str` or :class:`telebot.types.InputFile`
 
     :param caption: Optional. Caption of the live photo to be sent, 0-1024 characters after entities parsing
     :type caption: :obj:`str`
@@ -7606,7 +7393,7 @@ class InputMediaLivePhoto(InputMedia):
     :param caption_entities: Optional. List of special entities that appear in the caption, which can be specified instead of parse_mode
     :type caption_entities: :obj:`list` of :class:`telebot.types.MessageEntity`
 
-    :param show_caption_above_media: Optional. Pass True, if the caption must be shown above the message media
+    :param show_caption_above_media: Optional. Pass True if the caption must be shown above the message media
     :type show_caption_above_media: :obj:`bool`
 
     :param has_spoiler: Optional. Pass True if the live photo needs to be covered with a spoiler animation
@@ -7615,17 +7402,26 @@ class InputMediaLivePhoto(InputMedia):
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaLivePhoto`
     """
-    def __init__(self, media: str, photo: str, caption: Optional[str] = None, parse_mode: Optional[str] = None,
-                 caption_entities: Optional[List[MessageEntity]] = None, show_caption_above_media: Optional[bool] = None, has_spoiler: Optional[bool] = None):
-        super(InputMediaLivePhoto, self).__init__(type="live_photo", media=media, caption=caption, parse_mode=parse_mode, caption_entities=caption_entities)
-        self.photo: str = photo
+    def __init__(
+        self, media: Union[str, InputFile], photo: Union[str, InputFile],
+        caption: Optional[str] = None, parse_mode: Optional[str] = None,
+        caption_entities: Optional[List[MessageEntity]] = None,
+        show_caption_above_media: Optional[bool] = None,
+        has_spoiler: Optional[bool] = None):
+        super(InputMediaLivePhoto, self).__init__(
+            type="live_photo", media=media, caption=caption,
+            parse_mode=parse_mode, caption_entities=caption_entities)
+        self.photo: Union[str, InputFile] = photo
         self.show_caption_above_media: Optional[bool] = show_caption_above_media
         self.has_spoiler: Optional[bool] = has_spoiler
         self._photo_name = service_utils.generate_random_token()
-        if not service_utils.is_string(photo):
-            self._photo_dic = 'attach://{0}'.format(self._photo_name)
+
+        if service_utils.is_string(self.photo):
+            self._photo_name = ''
+            self._photo_dic = self.photo
         else:
-            self._photo_dic = photo
+            self._photo_name = service_utils.generate_random_token()
+            self._photo_dic = 'attach://{0}'.format(self._photo_name)
 
     def to_dict(self):
         json_dict = super(InputMediaLivePhoto, self).to_dict()
@@ -7637,18 +7433,22 @@ class InputMediaLivePhoto(InputMedia):
         return json_dict
 
     def convert_input_media(self):
-        media, files = super(InputMediaLivePhoto, self).convert_input_media()
-        if not service_utils.is_string(self.photo):
-            if files is None:
-                files = {}
+        media_json, files = super(InputMediaLivePhoto, self).convert_input_media()
+        if service_utils.is_string(self.photo):
+            pass
+        else:
             files[self._photo_name] = self.photo
-        return media, files
+        return media_json, files
+
 
 class InputMediaLocation(InputMedia):
     """
     Represents a location to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmedialocation
+    Telegram documentation: https://core.telegram.org/bots/api#inputmedialocation
+
+    :param type: Type of the media, must be location
+    :type type: :obj:`str`
 
     :param latitude: Latitude of the location
     :type latitude: :obj:`float`
@@ -7674,21 +7474,20 @@ class InputMediaLocation(InputMedia):
         json_dict['longitude'] = self.longitude
         if self.horizontal_accuracy is not None:
             json_dict['horizontal_accuracy'] = self.horizontal_accuracy
-        # Remove 'media' field as it's not used for location
-        json_dict.pop('media', None)
         return json_dict
+
 
 class InputMediaSticker(InputMedia):
     """
     Represents a sticker file to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediasticker
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediasticker
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended),
-        pass an HTTP URL for Telegram to get a .WEBP sticker from the Internet, or pass “attach://<file_attach_name>”
-        to upload a new .WEBP, .TGS, or .WEBM sticker using multipart/form-data under <file_attach_name> name. More information
-        on Sending Files »
-    :type media: :obj:`str`
+    :param type: Type of the media, must be sticker
+    :type type: :obj:`str`
+
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a .WEBP sticker from the Internet, or pass “attach://<file_attach_name>” to upload a new .WEBP, .TGS, or .WEBM sticker using multipart/form-data under <file_attach_name> name.
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
 
     :param emoji: Optional. Emoji associated with the sticker; only for just uploaded stickers
     :type emoji: :obj:`str`
@@ -7696,7 +7495,7 @@ class InputMediaSticker(InputMedia):
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaSticker`
     """
-    def __init__(self, media: str, emoji: Optional[str] = None):
+    def __init__(self, media: Union[str, InputFile], emoji: Optional[str] = None):
         super(InputMediaSticker, self).__init__(type="sticker", media=media)
         self.emoji: Optional[str] = emoji
 
@@ -7706,11 +7505,15 @@ class InputMediaSticker(InputMedia):
             json_dict['emoji'] = self.emoji
         return json_dict
 
+
 class InputMediaVenue(InputMedia):
     """
     Represents a venue to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputmediavenue
+    Telegram documentation: https://core.telegram.org/bots/api#inputmediavenue
+
+    :param type: Type of the media, must be venue
+    :type type: :obj:`str`
 
     :param latitude: Latitude of the location
     :type latitude: :obj:`float`
@@ -7739,8 +7542,12 @@ class InputMediaVenue(InputMedia):
     :return: Instance of the class
     :rtype: :class:`telebot.types.InputMediaVenue`
     """
-    def __init__(self, latitude: float, longitude: float, title: str, address: str, foursquare_id: Optional[str] = None,
-                 foursquare_type: Optional[str] = None, google_place_id: Optional[str] = None, google_place_type: Optional[str] = None):
+    def __init__(
+        self, latitude: float, longitude: float, title: str, address: str,
+        foursquare_id: Optional[str] = None,
+        foursquare_type: Optional[str] = None,
+        google_place_id: Optional[str] = None,
+        google_place_type: Optional[str] = None):
         super(InputMediaVenue, self).__init__(type="venue", media="")
         self.latitude: float = latitude
         self.longitude: float = longitude
@@ -7765,8 +7572,6 @@ class InputMediaVenue(InputMedia):
             json_dict['google_place_id'] = self.google_place_id
         if self.google_place_type:
             json_dict['google_place_type'] = self.google_place_type
-        # Remove 'media' field as it's not used for venue
-        json_dict.pop('media', None)
         return json_dict
     
 
@@ -7774,7 +7579,7 @@ class PollOption(JsonDeserializable):
     """
     This object contains information about one answer option in a poll.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#polloption
+    Telegram documentation: https://core.telegram.org/bots/api#polloption
 
     :param persistent_id: Unique identifier of the option, persistent on option addition and deletion
     :type persistent_id: :obj:`str`
@@ -7788,7 +7593,7 @@ class PollOption(JsonDeserializable):
     :param media: Optional. Media added to the poll option
     :type media: :class:`telebot.types.PollMedia`
 
-    :param voter_count: Number of users that voted for this option
+    :param voter_count: Number of users who voted for this option; may be 0 if unknown
     :type voter_count: :obj:`int`
 
     :param added_by_user: Optional. User who added the option; omitted if the option wasn't added by a user after poll creation
@@ -7817,7 +7622,10 @@ class PollOption(JsonDeserializable):
             obj['media'] = PollMedia.de_json(obj['media'])
         return cls(**obj)
 
-    def __init__(self, text, persistent_id, voter_count = 0, text_entities=None, added_by_user=None, added_by_chat=None, addition_date=None, media=None, **kwargs):
+    def __init__(self, persistent_id: str, text: str, voter_count: int = 0,
+                 text_entities: Optional[List[MessageEntity]] = None, added_by_user: Optional[User] = None,
+                 added_by_chat: Optional[Chat] = None, addition_date: Optional[int] = None,
+                 media: Optional[PollMedia] = None, **kwargs):
         self.text: str = text
         self.persistent_id: str = persistent_id
         self.voter_count: int = voter_count
@@ -7834,9 +7642,9 @@ class PollOption(JsonDeserializable):
 
 class InputPollOption(JsonSerializable):
     """
-    This object contains information about one answer option in a poll to send.
+    This object contains information about one answer option in a poll to be sent.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inputpolloption
+    Telegram documentation: https://core.telegram.org/bots/api#inputpolloption
 
     :param text: Option text, 1-100 characters
     :type text: :obj:`str`
@@ -7853,8 +7661,10 @@ class InputPollOption(JsonSerializable):
     :return: Instance of the class
     :rtype: :class:`telebot.types.PollOption`
     """
-    def __init__(self, text: str, text_parse_mode: Optional[str] = None, text_entities: Optional[List[MessageEntity]] = None,
-                    media: Optional[InputPollOptionMedia] = None, **kwargs):
+    def __init__(
+        self, text: str, text_parse_mode: Optional[str] = None,
+        text_entities: Optional[List[MessageEntity]] = None,
+        media: Optional[InputPollOptionMedia] = None, **kwargs):
         self.text: str = text
         self.text_parse_mode: Optional[str] = text_parse_mode
         self.text_entities: Optional[List[MessageEntity]] = text_entities
@@ -7881,7 +7691,7 @@ class Poll(JsonDeserializable):
     """
     This object contains information about a poll.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#poll
+    Telegram documentation: https://core.telegram.org/bots/api#poll
 
     :param id: Unique poll identifier
     :type id: :obj:`str`
@@ -7889,7 +7699,7 @@ class Poll(JsonDeserializable):
     :param question: Poll question, 1-300 characters
     :type question: :obj:`str`
 
-    :param options: A JSON-serialized list of 1-12 answer options
+    :param options: List of poll options
     :type options: :obj:`list` of :class:`telebot.types.PollOption`
 
     :param total_voter_count: Total number of users that voted in the poll
@@ -7937,7 +7747,7 @@ class Poll(JsonDeserializable):
     :param members_only: True if voting is limited to users who have been members of the chat where the poll was originally sent for more than 24 hours
     :type members_only: :obj:`bool`
 
-    :param country_codes: Optional. A list of two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which users can vote in the poll. If omitted, then users from any country can participate in the poll.
+    :param country_codes: Optional. A list of two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which users can vote in the poll. The country code "FT" is used for users with anonymous numbers. If omitted, then users from any country can participate in the poll.
     :type country_codes: :obj:`list` of :obj:`str`
 
     :param description: Optional. Description of the poll; for polls inside the Message object only
@@ -7956,7 +7766,6 @@ class Poll(JsonDeserializable):
     def de_json(cls, json_string):
         if json_string is None: return None
         obj = cls.check_json(json_string)
-        obj['poll_id'] = obj.pop('id')
         options = []
         for opt in obj['options']:
             options.append(PollOption.de_json(opt))
@@ -7971,20 +7780,23 @@ class Poll(JsonDeserializable):
             obj['media'] = PollMedia.de_json(obj['media'])
         if 'explanation_media' in obj:
             obj['explanation_media'] = PollMedia.de_json(obj['explanation_media'])
-        
         return cls(**obj)
 
     def __init__(
-            self,
-            question: str, options: List[PollOption],
-            poll_id: str = None, total_voter_count: int = None, is_closed: bool = None, is_anonymous: bool = None,
+            self, question: str, options: List[PollOption],
+            id: str = None, total_voter_count: int = None,
+            is_closed: bool = None, is_anonymous: bool = None,
             type: str = None, allows_multiple_answers: bool = None,
-            explanation: str = None, explanation_entities: List[MessageEntity] = None, open_period: int = None,
-            close_date: int = None, poll_type: str = None, question_entities: List[MessageEntity] = None,
-            correct_option_ids: List[int] = None, allows_revoting: bool = None,
-            description: str = None, description_entities: List[MessageEntity] = None,
-            media: PollMedia = None, members_only: bool = None, country_codes: List[str] = None, explanation_media: PollMedia = None, **kwargs):
-        self.id: str = poll_id
+            explanation: Optional[str] = None, explanation_entities: Optional[List[MessageEntity]] = None,
+            question_entities: Optional[List[MessageEntity]] = None,
+            open_period: Optional[int] = None, close_date: Optional[int] = None,
+            poll_type: Optional[str] = None, correct_option_ids: Optional[List[int]] = None,
+            allows_revoting: bool = None, description: Optional[str] = None,
+            description_entities: Optional[List[MessageEntity]] = None,
+            media: Optional[PollMedia] = None, members_only: bool = None,
+            country_codes: Optional[List[str]] = None,
+            explanation_media: Optional[PollMedia] = None, **kwargs):
+        self.id: str = id
         self.question: str = question
         self.options: List[PollOption] = options
         self.total_voter_count: int = total_voter_count
@@ -7996,19 +7808,19 @@ class Poll(JsonDeserializable):
             if type is None:
                 self.type: str = poll_type
         self.allows_multiple_answers: bool = allows_multiple_answers
-        self.explanation: str = explanation
-        self.explanation_entities: List[MessageEntity] = explanation_entities
-        self.question_entities: List[MessageEntity] = question_entities
-        self.open_period: int = open_period
-        self.close_date: int = close_date
-        self.correct_option_ids: List[int] = correct_option_ids
+        self.explanation: Optional[str] = explanation
+        self.explanation_entities: Optional[List[MessageEntity]] = explanation_entities
+        self.question_entities: Optional[List[MessageEntity]] = question_entities
+        self.open_period: Optional[int] = open_period
+        self.close_date: Optional[int] = close_date
+        self.correct_option_ids: Optional[List[int]] = correct_option_ids
         self.allows_revoting: bool = allows_revoting
-        self.description: str = description
-        self.description_entities: List[MessageEntity] = description_entities
-        self.media: PollMedia = media
-        self.explanation_media: PollMedia = explanation_media
+        self.description: Optional[str] = description
+        self.description_entities: Optional[List[MessageEntity]] = description_entities
+        self.media: Optional[PollMedia] = media
+        self.explanation_media: Optional[PollMedia] = explanation_media
         self.members_only: bool = members_only
-        self.country_codes: List[str] = country_codes
+        self.country_codes: Optional[List[str]] = country_codes
         
     @property
     def correct_option_id(self) -> Optional[int]:
@@ -8028,12 +7840,17 @@ class Poll(JsonDeserializable):
         else:
             self.options.append(PollOption(option, persistent_id))
 
+    @property
+    def poll_id(self) -> str:
+        log_deprecation_warning("Poll: poll_id parameter is deprecated. Use id instead.")
+        return self.id
+
 
 class PollAnswer(JsonSerializable, JsonDeserializable, Dictionaryable):
     """
     This object represents an answer of a user in a non-anonymous poll.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#pollanswer
+    Telegram documentation: https://core.telegram.org/bots/api#pollanswer
 
     :param poll_id: Unique poll identifier
     :type poll_id: :obj:`str`
@@ -8041,10 +7858,10 @@ class PollAnswer(JsonSerializable, JsonDeserializable, Dictionaryable):
     :param voter_chat: Optional. The chat that changed the answer to the poll, if the voter is anonymous
     :type voter_chat: :class:`telebot.types.Chat`
 
-    :param user: Optional. The user, who changed the answer to the poll
+    :param user: Optional. The user that changed the answer to the poll, if the voter isn't anonymous
     :type user: :class:`telebot.types.User`
 
-    :param option_ids: 0-based identifiers of answer options, chosen by the user. May be empty if the user retracted their vote.
+    :param option_ids: 0-based identifiers of chosen answer options. May be empty if the vote was retracted.
     :type option_ids: :obj:`list` of :obj:`int`
 
     :param option_persistent_ids: Persistent identifiers of the chosen answer options. May be empty if the vote was retracted.
@@ -8090,7 +7907,7 @@ class ChatLocation(JsonSerializable, JsonDeserializable, Dictionaryable):
     """
     Represents a location to which a chat is connected.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatlocation
+    Telegram documentation: https://core.telegram.org/bots/api#chatlocation
 
     :param location: The location to which the supergroup is connected. Can't be a live location.
     :type location: :class:`telebot.types.Location`
@@ -8126,10 +7943,15 @@ class ChatInviteLink(JsonSerializable, JsonDeserializable, Dictionaryable):
     """
     Represents an invite link for a chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatinvitelink
+    Telegram documentation: https://core.telegram.org/bots/api#chatinvitelink
 
-    :param invite_link: The invite link. If the link was created by another chat administrator, then the second part of
-        the link will be replaced with “…”.
+    :param subscription_price: Optional. The amount of Telegram Stars a user must pay initially and after each subsequent subscription period to be a member of the chat using the link
+    :type subscription_price: :obj:`typing.Any`
+
+    :param subscription_period: Optional. The number of seconds the subscription will be active for before the next payment
+    :type subscription_period: :obj:`typing.Any`
+
+    :param invite_link: The invite link. If the link was created by another chat administrator, then the second part of the link will be replaced with “…”.
     :type invite_link: :obj:`str`
 
     :param creator: Creator of the link
@@ -8150,8 +7972,7 @@ class ChatInviteLink(JsonSerializable, JsonDeserializable, Dictionaryable):
     :param expire_date: Optional. Point in time (Unix timestamp) when the link will expire or has been expired
     :type expire_date: :obj:`int`
 
-    :param member_limit: Optional. The maximum number of users that can be members of the chat simultaneously after
-        joining the chat via this invite link; 1-99999
+    :param member_limit: Optional. The maximum number of users that can be members of the chat simultaneously after joining the chat via this invite link; 1-99999
     :type member_limit: :obj:`int`
 
     :param pending_join_request_count: Optional. Number of pending join requests created using this link
@@ -8167,9 +7988,14 @@ class ChatInviteLink(JsonSerializable, JsonDeserializable, Dictionaryable):
         obj['creator'] = User.de_json(obj['creator'])
         return cls(**obj)
 
-    def __init__(self, invite_link: str, creator: User, creates_join_request: bool, is_primary: bool, is_revoked: bool,
-                name: Optional[str] = None, expire_date: Optional[int] = None, member_limit: Optional[int] = None,
-                pending_join_request_count: Optional[int] = None, **kwargs):
+    def __init__(
+        self, invite_link: str, creator: User, creates_join_request: bool,
+        is_primary: bool, is_revoked: bool,
+        name: Optional[str] = None, expire_date: Optional[int] = None,
+        member_limit: Optional[int] = None,
+        pending_join_request_count: Optional[int] = None,
+        subscription_period: Optional[int] = None,
+        subscription_price: Optional[int] = None, **kwargs):
         self.invite_link: str = invite_link
         self.creator: User = creator
         self.creates_join_request: bool = creates_join_request
@@ -8179,6 +8005,8 @@ class ChatInviteLink(JsonSerializable, JsonDeserializable, Dictionaryable):
         self.expire_date: Optional[int] = expire_date
         self.member_limit: Optional[int] = member_limit
         self.pending_join_request_count: Optional[int] = pending_join_request_count
+        self.subscription_period: Optional[int] = subscription_period
+        self.subscription_price: Optional[int] = subscription_price
 
     def to_json(self):
         return json.dumps(self.to_dict())
@@ -8206,7 +8034,7 @@ class ProximityAlertTriggered(JsonDeserializable):
     """
     This object represents the content of a service message, sent whenever a user in the chat triggers a proximity alert set by another user.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#proximityalerttriggered
+    Telegram documentation: https://core.telegram.org/bots/api#proximityalerttriggered
 
     :param traveler: User that triggered the alert
     :type traveler: :class:`telebot.types.User`
@@ -8226,7 +8054,7 @@ class ProximityAlertTriggered(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, traveler, watcher, distance, **kwargs):
+    def __init__(self, traveler: User, watcher: User, distance: int, **kwargs):
         self.traveler: User = traveler
         self.watcher: User = watcher
         self.distance: int = distance
@@ -8235,7 +8063,10 @@ class ProximityAlertTriggered(JsonDeserializable):
 class VideoChatStarted(JsonDeserializable):
     """
     This object represents a service message about a video chat started in the chat. Currently holds no information.
-    """
+
+        Telegram documentation: https://core.telegram.org/bots/api#videochatstarted
+
+        """
     @classmethod
     def de_json(cls, json_string):
         return cls()
@@ -8257,10 +8088,9 @@ class VideoChatScheduled(JsonDeserializable):
     """
     This object represents a service message about a video chat scheduled in the chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#videochatscheduled
+    Telegram documentation: https://core.telegram.org/bots/api#videochatscheduled
 
-    :param start_date: Point in time (Unix timestamp) when the video chat is supposed to be started by a chat
-        administrator
+    :param start_date: Point in time (Unix timestamp) when the video chat is supposed to be started by a chat administrator
     :type start_date: :obj:`int`
 
     :return: Instance of the class
@@ -8272,7 +8102,7 @@ class VideoChatScheduled(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, start_date, **kwargs):
+    def __init__(self, start_date: int, **kwargs):
         self.start_date: int = start_date
 
 
@@ -8289,7 +8119,7 @@ class VideoChatEnded(JsonDeserializable):
     """
     This object represents a service message about a video chat ended in the chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#videochatended
+    Telegram documentation: https://core.telegram.org/bots/api#videochatended
 
     :param duration: Video chat duration in seconds
     :type duration: :obj:`int`
@@ -8303,7 +8133,7 @@ class VideoChatEnded(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, duration, **kwargs):
+    def __init__(self, duration: int, **kwargs):
         self.duration: int = duration
 
 
@@ -8321,7 +8151,7 @@ class VideoChatParticipantsInvited(JsonDeserializable):
     """
     This object represents a service message about new members invited to a video chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#videochatparticipantsinvited
+    Telegram documentation: https://core.telegram.org/bots/api#videochatparticipantsinvited
 
     :param users: New members that were invited to the video chat
     :type users: :obj:`list` of :class:`telebot.types.User`
@@ -8336,7 +8166,7 @@ class VideoChatParticipantsInvited(JsonDeserializable):
         obj['users'] = [User.de_json(u) for u in obj['users']]
         return cls(**obj)
 
-    def __init__(self, users=None, **kwargs):
+    def __init__(self, users: List[User], **kwargs):
         self.users: List[User] = users
 
 
@@ -8353,7 +8183,7 @@ class MessageAutoDeleteTimerChanged(JsonDeserializable):
     """
     This object represents a service message about a change in auto-delete timer settings.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#messageautodeletetimerchanged
+    Telegram documentation: https://core.telegram.org/bots/api#messageautodeletetimerchanged
 
     :param message_auto_delete_time: New auto-delete time for messages in the chat; in seconds
     :type message_auto_delete_time: :obj:`int`
@@ -8367,21 +8197,23 @@ class MessageAutoDeleteTimerChanged(JsonDeserializable):
         obj = cls.check_json(json_string, dict_copy=False)
         return cls(**obj)
 
-    def __init__(self, message_auto_delete_time, **kwargs):
+    def __init__(self, message_auto_delete_time: int, **kwargs):
         self.message_auto_delete_time: int = message_auto_delete_time
 
 
 class MenuButton(JsonDeserializable, JsonSerializable, Dictionaryable):
     """
     This object describes the bot's menu button in a private chat. It should be one of
+        MenuButtonCommands
+        MenuButtonWebApp
+        MenuButtonDefault
 
-    * :class:`MenuButtonCommands`
-    * :class:`MenuButtonWebApp`
-    * :class:`MenuButtonDefault`
+        If a menu button other than MenuButtonDefault is set for a private chat, then it is applied
+        in the chat. Otherwise the default menu button is applied. By default, the menu button opens the list of bot commands.
 
-    If a menu button other than MenuButtonDefault is set for a private chat, then it is applied
-    in the chat. Otherwise the default menu button is applied. By default, the menu button opens the list of bot commands.
-    """
+        Telegram documentation: https://core.telegram.org/bots/api#menubutton
+
+        """
     @classmethod
     def de_json(cls, json_string):
         if json_string is None: return None
@@ -8411,7 +8243,7 @@ class MenuButtonCommands(MenuButton):
     """
     Represents a menu button, which opens the bot's list of commands.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#menubuttoncommands
+    Telegram documentation: https://core.telegram.org/bots/api#menubuttoncommands
 
     :param type: Type of the button, must be commands
     :type type: :obj:`str`
@@ -8420,7 +8252,7 @@ class MenuButtonCommands(MenuButton):
     :rtype: :class:`telebot.types.MenuButtonCommands`
     """
 
-    def __init__(self, type: str = None, **kwargs):
+    def __init__(self, **kwargs):
         self.type: str = "commands"
 
     def to_dict(self):
@@ -8435,7 +8267,7 @@ class MenuButtonWebApp(MenuButton):
     """
     Represents a menu button, which launches a Web App.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#menubuttonwebapp
+    Telegram documentation: https://core.telegram.org/bots/api#menubuttonwebapp
 
     :param type: Type of the button, must be web_app
     :type type: :obj:`str`
@@ -8443,17 +8275,14 @@ class MenuButtonWebApp(MenuButton):
     :param text: Text on the button
     :type text: :obj:`str`
 
-    :param web_app: Description of the Web App that will be launched when the user presses the button. The Web App will be
-        able to send an arbitrary message on behalf of the user using the method answerWebAppQuery. Alternatively, a t.me link
-        to a Web App of the bot can be specified in the object instead of the Web App's URL, in which case the Web App will be
-        opened as if the user pressed the link.
+    :param web_app: Description of the Web App that will be launched when the user presses the button. The Web App will be able to send an arbitrary message on behalf of the user using the method answerWebAppQuery. Alternatively, a t.me link to a Web App of the bot can be specified in the object instead of the Web App's URL, in which case the Web App will be opened as if the user pressed the link.
     :type web_app: :class:`telebot.types.WebAppInfo`
 
     :return: Instance of the class
     :rtype: :class:`telebot.types.MenuButtonWebApp`
     """
 
-    def __init__(self, type: str, text: str, web_app: WebAppInfo, **kwargs):
+    def __init__(self, text: str, web_app: WebAppInfo, **kwargs):
         self.type: str = "web_app"
         self.text: str = text
         self.web_app: WebAppInfo = web_app
@@ -8470,7 +8299,7 @@ class MenuButtonDefault(MenuButton):
     """
     Describes that no specific value for the menu button was set.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#menubuttondefault
+    Telegram documentation: https://core.telegram.org/bots/api#menubuttondefault
 
     :param type: Type of the button, must be default
     :type type: :obj:`str`
@@ -8478,7 +8307,7 @@ class MenuButtonDefault(MenuButton):
     :return: Instance of the class
     :rtype: :class:`telebot.types.MenuButtonDefault`
     """
-    def __init__(self, type: str = None, **kwargs):
+    def __init__(self, **kwargs):
         self.type: str = "default"
 
     def to_dict(self):
@@ -8492,14 +8321,12 @@ class ChatAdministratorRights(JsonDeserializable, JsonSerializable, Dictionaryab
     """
     Represents the rights of an administrator in a chat.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#chatadministratorrights
+    Telegram documentation: https://core.telegram.org/bots/api#chatadministratorrights
 
     :param is_anonymous: True, if the user's presence in the chat is hidden
     :type is_anonymous: :obj:`bool`
 
-    :param can_manage_chat: True, if the administrator can access the chat event log, chat statistics, message
-        statistics in channels, see channel members, see anonymous administrators in supergroups and ignore slow mode.
-        Implied by any other administrator privilege
+    :param can_manage_chat: True, if the administrator can access the chat event log, get boost list, see hidden supergroup and channel members, report spam messages, ignore slow mode, and send messages to the chat without paying Telegram Stars. Implied by any other administrator privilege
     :type can_manage_chat: :obj:`bool`
 
     :param can_delete_messages: True, if the administrator can delete messages of other users
@@ -8508,12 +8335,10 @@ class ChatAdministratorRights(JsonDeserializable, JsonSerializable, Dictionaryab
     :param can_manage_video_chats: True, if the administrator can manage video chats
     :type can_manage_video_chats: :obj:`bool`
 
-    :param can_restrict_members: True, if the administrator can restrict, ban or unban chat members
+    :param can_restrict_members: True, if the administrator can restrict, ban or unban chat members, or access supergroup statistics
     :type can_restrict_members: :obj:`bool`
 
-    :param can_promote_members: True, if the administrator can add new administrators with a subset of their own
-        privileges or demote administrators that he has promoted, directly or indirectly (promoted by administrators that
-        were appointed by the user)
+    :param can_promote_members: True, if the administrator can add new administrators with a subset of their own privileges or demote administrators that they have promoted, directly or indirectly (promoted by administrators that were appointed by the user)
     :type can_promote_members: :obj:`bool`
 
     :param can_change_info: True, if the user is allowed to change the chat title, photo and other settings
@@ -8522,32 +8347,34 @@ class ChatAdministratorRights(JsonDeserializable, JsonSerializable, Dictionaryab
     :param can_invite_users: True, if the user is allowed to invite new users to the chat
     :type can_invite_users: :obj:`bool`
 
-    :param can_post_messages: Optional. True, if the administrator can post in the channel; channels only
+    :param can_post_messages: Optional. True, if the administrator can post messages in the channel, approve suggested posts, or access channel statistics; for channels only
     :type can_post_messages: :obj:`bool`
 
-    :param can_edit_messages: Optional. True, if the administrator can edit messages of other users and can pin
-        messages; channels only
+    :param can_edit_messages: Optional. True, if the administrator can edit messages of other users and can pin messages; for channels only
     :type can_edit_messages: :obj:`bool`
 
-    :param can_pin_messages: Optional. True, if the user is allowed to pin messages; groups and supergroups only
+    :param can_pin_messages: Optional. True, if the user is allowed to pin messages; for groups and supergroups only
     :type can_pin_messages: :obj:`bool`
 
-    :param can_manage_topics: Optional. True, if the user is allowed to create, rename, close, and reopen forum topics; supergroups only
+    :param can_manage_topics: Optional. True, if the user is allowed to create, rename, close, and reopen forum topics; for supergroups only
     :type can_manage_topics: :obj:`bool`
 
-    :param can_post_stories: Optional. True, if the administrator can post channel stories
+    :param can_post_stories: True, if the administrator can post stories to the chat
     :type can_post_stories: :obj:`bool`
 
-    :param can_edit_stories: Optional. True, if the administrator can edit stories
+    :param can_edit_stories: True, if the administrator can edit stories posted by other users, post stories to the chat page, pin chat stories, and access the chat's story archive
     :type can_edit_stories: :obj:`bool`
 
-    :param can_delete_stories: Optional. True, if the administrator can delete stories of other users
+    :param can_delete_stories: True, if the administrator can delete stories posted by other users
     :type can_delete_stories: :obj:`bool`
+
+    :param can_send_welcome_messages: True, if the administrator can manage chat welcome messages or directly send them in the case of bots
+    :type can_send_welcome_messages: :obj:`bool`
 
     :param can_manage_direct_messages: Optional. True, if the administrator can manage direct messages of the channel and decline suggested posts; for channels only
     :type can_manage_direct_messages: :obj:`bool`
 
-    :param can_manage_tags: Optional. True, if the administrator can manage tags in the chat
+    :param can_manage_tags: Optional. True, if the administrator can edit the tags of regular members; for groups and supergroups only. If omitted, defaults to the value of can_pin_messages
     :type can_manage_tags: :obj:`bool`
 
     :return: Instance of the class
@@ -8565,12 +8392,9 @@ class ChatAdministratorRights(JsonDeserializable, JsonSerializable, Dictionaryab
         can_promote_members: bool, can_change_info: bool, can_invite_users: bool,
         can_post_messages: Optional[bool]=None, can_edit_messages: Optional[bool]=None,
         can_pin_messages: Optional[bool]=None, can_manage_topics: Optional[bool]=None,
-        can_post_stories: Optional[bool]=None, can_edit_stories: Optional[bool]=None,
-        can_delete_stories: Optional[bool]=None, can_manage_direct_messages: Optional[bool]=None,
-        can_manage_tags: Optional[bool]=None,
-        **kwargs
-        ) -> None:
-
+        can_post_stories: bool = False, can_edit_stories: bool = False,
+        can_delete_stories: bool = False, can_send_welcome_messages: Optional[bool] = None, can_manage_direct_messages: Optional[bool] = None,
+        can_manage_tags: Optional[bool]=None, **kwargs) -> None:
         self.is_anonymous: bool = is_anonymous
         self.can_manage_chat: bool = can_manage_chat
         self.can_delete_messages: bool = can_delete_messages
@@ -8583,9 +8407,10 @@ class ChatAdministratorRights(JsonDeserializable, JsonSerializable, Dictionaryab
         self.can_edit_messages: Optional[bool] = can_edit_messages
         self.can_pin_messages: Optional[bool] = can_pin_messages
         self.can_manage_topics: Optional[bool] = can_manage_topics
-        self.can_post_stories: Optional[bool] = can_post_stories
-        self.can_edit_stories: Optional[bool] = can_edit_stories
-        self.can_delete_stories: Optional[bool] = can_delete_stories
+        self.can_post_stories: bool = can_post_stories
+        self.can_edit_stories: bool = can_edit_stories
+        self.can_delete_stories: bool = can_delete_stories
+        self.can_send_welcome_messages: Optional[bool] = can_send_welcome_messages
         self.can_manage_direct_messages: Optional[bool] = can_manage_direct_messages
         self.can_manage_tags: Optional[bool] = can_manage_tags
 
@@ -8614,6 +8439,8 @@ class ChatAdministratorRights(JsonDeserializable, JsonSerializable, Dictionaryab
             json_dict['can_edit_stories'] = self.can_edit_stories
         if self.can_delete_stories is not None:
             json_dict['can_delete_stories'] = self.can_delete_stories
+        if self.can_send_welcome_messages is not None:
+            json_dict['can_send_welcome_messages'] = self.can_send_welcome_messages
         if self.can_manage_direct_messages is not None:
             json_dict['can_manage_direct_messages'] = self.can_manage_direct_messages
         if self.can_manage_tags is not None:
@@ -8766,12 +8593,14 @@ class ForumTopicEdited(JsonDeserializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#forumtopicedited
 
-    :param name: Optional, Name of the topic(if updated)
+    :param name: Optional. New name of the topic, if it was edited
     :type name: :obj:`str`
 
-    :param icon_custom_emoji_id: Optional. New identifier of the custom emoji shown as the topic icon, if it was edited;
-        an empty string if the icon was removed
+    :param icon_custom_emoji_id: Optional. New identifier of the custom emoji shown as the topic icon, if it was edited; an empty string if the icon was removed
     :type icon_custom_emoji_id: :obj:`str`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.ForumTopicEdited`
     """
     @classmethod
     def de_json(cls, json_string):
@@ -8864,11 +8693,10 @@ class WriteAccessAllowed(JsonDeserializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#writeaccessallowed
 
-    :param from_request: Optional. True, if the access was granted after the user accepted an
-        explicit request from a Web App sent by the method requestWriteAccess
+    :param from_request: Optional. True, if the access was granted after the user accepted an explicit request from a Web App sent by the method requestWriteAccess
     :type from_request: :obj:`bool`
 
-    :param web_app_name: Optional. Name of the Web App which was launched from a link
+    :param web_app_name: Optional. Name of the Web App, if the access was granted when the Web App was launched from a link
     :type web_app_name: :obj:`str`
 
     :param from_attachment_menu: Optional. True, if the access was granted when the bot was added to the attachment or side menu
@@ -8881,8 +8709,10 @@ class WriteAccessAllowed(JsonDeserializable):
         return cls(**obj)
 
 
-    def __init__(self, from_request: Optional[bool]=None, web_app_name: Optional[str]=None, from_attachment_menu: Optional[bool]=None,
-                 **kwargs) -> None:
+    def __init__(
+        self, from_request: Optional[bool] = None,
+        web_app_name: Optional[str] = None,
+        from_attachment_menu: Optional[bool] = None, **kwargs) -> None:
         self.web_app_name: Optional[str] = web_app_name
         self.from_request: Optional[bool] = from_request
         self.from_attachment_menu: Optional[bool] = from_attachment_menu
@@ -8890,27 +8720,26 @@ class WriteAccessAllowed(JsonDeserializable):
 
 class ChatShared(JsonDeserializable):
     """
-    This object contains information about the chat whose identifier was shared with the bot using a
-    `telebot.types.KeyboardButtonRequestChat` button.
+    This object contains information about a chat that was shared with the bot using a KeyboardButtonRequestChat button.
 
-    Telegram documentation: https://core.telegram.org/bots/api#Chatshared
+    Telegram documentation: https://core.telegram.org/bots/api#chatshared
 
-    :param request_id: identifier of the request
+    :param request_id: Identifier of the request
     :type request_id: :obj:`int`
 
-    :param chat_id: Identifier of the shared chat. This number may have more than 32 significant bits and some programming
-        languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit
-        integer or double-precision float type are safe for storing this identifier. The bot may not have access to the chat
-        and could be unable to use this identifier, unless the chat is already known to the bot by some other means.
+    :param chat_id: Identifier of the shared chat. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier. The bot may not have access to the chat and could be unable to use this identifier, unless the chat is already known to the bot by some other means.
     :type chat_id: :obj:`int`
 
-    :param title: Optional. Title of the shared chat
+    :param title: Optional. Title of the chat, if the title was requested by the bot
     :type title: :obj:`str`
 
-    :param photo: Optional. Array of Photosize
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.WriteAccessAllowed`
+
+    :param photo: Optional. Available sizes of the chat photo, if the photo was requested by the bot
     :type photo: :obj:`list` of :class:`telebot.types.PhotoSize`
 
-    :param username: Optional. Username of the shared chat
+    :param username: Optional. Username of the chat, if the username was requested by the bot and available
     :type username: :obj:`str`
 
     :return: Instance of the class
@@ -8934,11 +8763,11 @@ class ChatShared(JsonDeserializable):
 
 class BotDescription(JsonDeserializable):
     """
-    This object represents a bot description.
+    This object represents the bot's description.
 
     Telegram documentation: https://core.telegram.org/bots/api#botdescription
 
-    :param description: Bot description
+    :param description: The bot's description
     :type description: :obj:`str`
 
     :return: Instance of the class
@@ -8957,11 +8786,11 @@ class BotDescription(JsonDeserializable):
 
 class BotShortDescription(JsonDeserializable):
     """
-    This object represents a bot short description.
+    This object represents the bot's short description.
 
     Telegram documentation: https://core.telegram.org/bots/api#botshortdescription
 
-    :param short_description: Bot short description
+    :param short_description: The bot's short description
     :type short_description: :obj:`str`
 
     :return: Instance of the class
@@ -8983,9 +8812,9 @@ class InputSticker(Dictionaryable, JsonSerializable):
     """
     This object describes a sticker to be added to a sticker set.
 
-    :param sticker: The added sticker. Pass a file_id as a String to send a file that already exists on the Telegram servers,
-        pass an HTTP URL as a String for Telegram to get a file from the Internet, or upload a new one using multipart/form-data.
-        Animated and video stickers can't be uploaded via HTTP URL.
+    Telegram documentation: https://core.telegram.org/bots/api#inputsticker
+
+    :param sticker: The added sticker. Pass a file_id as a String to send a file that already exists on the Telegram servers, pass an HTTP URL as a String for Telegram to get a file from the Internet, or upload a new one using multipart/form-data. Animated and video stickers can't be uploaded via HTTP URL.
     :type sticker: :obj:`str` or :obj:`telebot.types.InputFile`
 
     :param emoji_list: One or more(up to 20) emoji(s) corresponding to the sticker
@@ -8994,8 +8823,7 @@ class InputSticker(Dictionaryable, JsonSerializable):
     :param mask_position: Optional. Position where the mask should be placed on faces. For “mask” stickers only.
     :type mask_position: :class:`telebot.types.MaskPosition`
 
-    :param keywords: Optional. List of 0-20 search keywords for the sticker with total length of up to 64 characters.
-        For “regular” and “custom_emoji” stickers only.
+    :param keywords: Optional. List of 0-20 search keywords for the sticker with total length of up to 64 characters. For “regular” and “custom_emoji” stickers only.
     :type keywords: :obj:`list` of :obj:`str`
 
     :param format: 	Format of the added sticker, must be one of “static” for a .WEBP or .PNG image, “animated” for a .TGS animation, “video” for a WEBM video
@@ -9021,10 +8849,7 @@ class InputSticker(Dictionaryable, JsonSerializable):
             self._sticker_name = ''
             self._sticker_dic = self.sticker
         else:
-            # work like in inputmedia: convert_input_media
             self._sticker_name = service_utils.generate_random_token()
-            # uses attach://_sticker_name for sticker param. then,
-            # actual file is sent using files param of the request
             self._sticker_dic = 'attach://{0}'.format(self._sticker_name)
 
     def to_dict(self) -> dict:
@@ -9033,7 +8858,6 @@ class InputSticker(Dictionaryable, JsonSerializable):
             'emoji_list': self.emoji_list,
             'format': self.format
         }
-
         if self.mask_position is not None:
             json_dict['mask_position'] = self.mask_position.to_dict()
         if self.keywords is not None:
@@ -9047,20 +8871,17 @@ class InputSticker(Dictionaryable, JsonSerializable):
     def convert_input_sticker(self) -> Tuple[str, Optional[dict]]:
         if service_utils.is_string(self.sticker):
             return self.to_json(), None
-
         return self.to_json(), {self._sticker_name: self.sticker}
 
 
 
 class SwitchInlineQueryChosenChat(JsonDeserializable, Dictionaryable, JsonSerializable):
     """
-    Represents an inline button that switches the current user to inline mode in a chosen chat,
-    with an optional default inline query.
+    This object represents an inline button that switches the current user to inline mode in a chosen chat, with an optional default inline query.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#inlinekeyboardbutton
+        Telegram documentation: https://core.telegram.org/bots/api#switchinlinequerychosenchat
 
-    :param query: Optional. The default inline query to be inserted in the input field.
-                  If left empty, only the bot's username will be inserted
+    :param query: Optional. The default inline query to be inserted in the input field. If left empty, only the bot's username will be inserted
     :type query: :obj:`str`
 
     :param allow_user_chats: Optional. True, if private chats with users can be chosen
@@ -9085,8 +8906,11 @@ class SwitchInlineQueryChosenChat(JsonDeserializable, Dictionaryable, JsonSerial
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, query: Optional[str]=None, allow_user_chats: Optional[bool]=None, allow_bot_chats: Optional[bool]=None,
-                    allow_group_chats: Optional[bool]=None, allow_channel_chats: Optional[bool]=None) -> None:
+    def __init__(
+        self, query: Optional[str] = None, allow_user_chats: Optional[bool] = None,
+        allow_bot_chats: Optional[bool] = None,
+        allow_group_chats: Optional[bool] = None,
+        allow_channel_chats: Optional[bool] = None) -> None:
         self.query: Optional[str] = query
         self.allow_user_chats: Optional[bool] = allow_user_chats
         self.allow_bot_chats: Optional[bool] = allow_bot_chats
@@ -9116,11 +8940,11 @@ class SwitchInlineQueryChosenChat(JsonDeserializable, Dictionaryable, JsonSerial
 
 class BotName(JsonDeserializable):
     """
-    This object represents a bot name.
+    This object represents the bot's name.
 
-    Telegram Documentation: https://core.telegram.org/bots/api#botname
+    Telegram documentation: https://core.telegram.org/bots/api#botname
 
-    :param name: The bot name
+    :param name: The bot's name
     :type name: :obj:`str`
 
     :return: Instance of the class
@@ -9139,25 +8963,17 @@ class BotName(JsonDeserializable):
 
 class InlineQueryResultsButton(JsonSerializable, Dictionaryable):
     """
-    This object represents a button to be shown above inline query results.
-    You must use exactly one of the optional fields.
+    This object represents a button to be shown above inline query results. You must use exactly one of the optional fields.
 
     Telegram documentation: https://core.telegram.org/bots/api#inlinequeryresultsbutton
 
     :param text: Label text on the button
     :type text: :obj:`str`
 
-    :param web_app: Optional. Description of the Web App that will be launched when the user presses the button.
-        The Web App will be able to switch back to the inline mode using the method web_app_switch_inline_query inside the Web App.
+    :param web_app: Optional. Description of the Web App that will be launched when the user presses the button. The Web App will be able to switch back to the inline mode using the method web_app_switch_inline_query inside the Web App.
     :type web_app: :class:`telebot.types.WebAppInfo`
 
-    :param start_parameter: Optional. Deep-linking parameter for the /start message sent to the bot when a user presses the button.
-        1-64 characters, only A-Z, a-z, 0-9, _ and - are allowed.
-        Example: An inline bot that sends YouTube videos can ask the user to connect the bot to their YouTube account to adapt search
-        results accordingly. To do this, it displays a 'Connect your YouTube account' button above the results, or even before showing
-        any. The user presses the button, switches to a private chat with the bot and, in doing so, passes a start parameter that instructs
-        the bot to return an OAuth link. Once done, the bot can offer a switch_inline button so that the user can easily return to the chat
-        where they wanted to use the bot's inline capabilities.
+    :param start_parameter: Optional. Deep-linking parameter for the /start message sent to the bot when a user presses the button. 1-64 characters, only A-Z, a-z, 0-9, _ and - are allowed.     Example: An inline bot that sends YouTube videos can ask the user to connect the bot to their YouTube account to adapt search results accordingly. To do this, it displays a 'Connect your YouTube account' button above the results, or even before showing any. The user presses the button, switches to a private chat with the bot and, in doing so, passes a start parameter that instructs the bot to return an OAuth link. Once done, the bot can offer a switch_inline button so that the user can easily return to the chat where they wanted to use the bot's inline capabilities.
     :type start_parameter: :obj:`str`
 
     :return: Instance of the class
@@ -9218,7 +9034,10 @@ class Story(JsonDeserializable):
 # noinspection PyShadowingBuiltins
 class ReactionType(JsonDeserializable, Dictionaryable, JsonSerializable):
     """
-    This object represents a reaction type.
+    This object describes the type of a reaction. Currently, it can be one of
+        ReactionTypeEmoji
+        ReactionTypeCustomEmoji
+        ReactionTypePaid
 
     Telegram documentation: https://core.telegram.org/bots/api#reactiontype
 
@@ -9264,14 +9083,14 @@ class ReactionType(JsonDeserializable, Dictionaryable, JsonSerializable):
 # noinspection PyUnresolvedReferences
 class ReactionTypeEmoji(ReactionType):
     """
-    This object represents an emoji reaction type.
+    The reaction is based on an emoji.
 
     Telegram documentation: https://core.telegram.org/bots/api#reactiontypeemoji
 
-    :param type: Type of the reaction, must be emoji
+    :param type: Type of the reaction, always "emoji"
     :type type: :obj:`str`
 
-    :param emoji: Reaction emoji. List is available on the API doc.
+    :param emoji: Reaction emoji. Currently, it can be one of "❤", "👍", "👎", "🔥", "🥰", "👏", "😁", "🤔", "🤯", "😱", "🤬", "😢", "🎉", "🤩", "🤮", "💩", "🙏", "👌", "🕊", "🤡", "🥱", "🥴", "😍", "🐳", "❤‍🔥", "🌚", "🌭", "💯", "🤣", "⚡", "🍌", "🏆", "💔", "🤨", "😐", "🍓", "🍾", "💋", "🖕", "😈", "😴", "😭", "🤓", "👻", "👨‍💻", "👀", "🎃", "🙈", "😇", "😨", "🤝", "✍", "🤗", "🫡", "🎅", "🎄", "☃", "💅", "🤪", "🗿", " 🆒 ", "💘", "🙉", "🦄", "😘", "💊", "🙊", "😎", "👾", "🤷‍♂", "🤷", "🤷‍♀", "😡".
     :type emoji: :obj:`str`
 
     :return: Instance of the class
@@ -9291,14 +9110,14 @@ class ReactionTypeEmoji(ReactionType):
 # noinspection PyUnresolvedReferences,PyUnusedLocal
 class ReactionTypeCustomEmoji(ReactionType):
     """
-    This object represents a custom emoji reaction type.
+    The reaction is based on a custom emoji.
 
     Telegram documentation: https://core.telegram.org/bots/api#reactiontypecustomemoji
 
-    :param type: Type of the reaction, must be custom_emoji
+    :param type: Type of the reaction, always "custom_emoji"
     :type type: :obj:`str`
 
-    :param custom_emoji_id: Identifier of the custom emoji
+    :param custom_emoji_id: Custom emoji identifier
     :type custom_emoji_id: :obj:`str`
 
     :return: Instance of the class
@@ -9317,11 +9136,11 @@ class ReactionTypeCustomEmoji(ReactionType):
 
 class ReactionTypePaid(ReactionType):
     """
-    This object represents a paid reaction type.
+    The reaction is paid.
 
     Telegram documentation: https://core.telegram.org/bots/api#reactiontypepaid
 
-    :param type: Type of the reaction, must be paid
+    :param type: Type of the reaction, always "paid"
     :type type: :obj:`str`
 
     :return: Instance of the class
@@ -9338,7 +9157,7 @@ class ReactionTypePaid(ReactionType):
 
 class MessageReactionUpdated(JsonDeserializable):
     """
-    This object represents a service message about a change in the list of the current user's reactions to a message.
+    This object represents a change of a reaction on a message performed by a user.
 
     Telegram documentation: https://core.telegram.org/bots/api#messagereactionupdated
 
@@ -9381,8 +9200,11 @@ class MessageReactionUpdated(JsonDeserializable):
         obj['new_reaction'] = [ReactionType.de_json(reaction) for reaction in obj['new_reaction']]
         return cls(**obj)
 
-    def __init__(self, chat: Chat, message_id: int, date: int, old_reaction: List[ReactionType], new_reaction: List[ReactionType],
-                 user: Optional[User]=None, actor_chat: Optional[Chat]=None, **kwargs) -> None:
+    def __init__(
+        self, chat: Chat, message_id: int, date: int,
+        old_reaction: List[ReactionType], new_reaction: List[ReactionType],
+        user: Optional[User] = None, actor_chat: Optional[Chat] = None,
+        **kwargs) -> None:
         self.chat: Chat = chat
         self.message_id: int = message_id
         self.user: Optional[User] = user
@@ -9395,7 +9217,7 @@ class MessageReactionUpdated(JsonDeserializable):
 
 class MessageReactionCountUpdated(JsonDeserializable):
     """
-    This object represents a service message about a change in the list of the current user's reactions to a message.
+    This object represents reaction changes on a message with anonymous reactions.
 
     Telegram documentation: https://core.telegram.org/bots/api#messagereactioncountupdated
 
@@ -9433,7 +9255,7 @@ class MessageReactionCountUpdated(JsonDeserializable):
 # noinspection PyShadowingBuiltins
 class ReactionCount(JsonDeserializable):
     """
-    This object represents a reaction added to a message along with the number of times it was added.
+    Represents a reaction added to a message along with the number of times it was added.
 
     Telegram documentation: https://core.telegram.org/bots/api#reactioncount
 
@@ -9490,7 +9312,7 @@ class ExternalReplyInfo(JsonDeserializable):
     :param live_photo: Optional. Message is a live photo, information about the live photo
     :type live_photo: :class:`LivePhoto`
 
-    :param paid_media: Optional. Message is a paid media content
+    :param paid_media: Optional. Message contains paid media; information about the paid media
     :type paid_media: :class:`PaidMedia`
 
     :param photo: Optional. Message is a photo, available sizes of the photo
@@ -9643,7 +9465,11 @@ class ExternalReplyInfo(JsonDeserializable):
 # noinspection PyUnresolvedReferences,PyShadowingBuiltins
 class MessageOrigin(JsonDeserializable, ABC):
     """
-    This object describes the origin of a message.
+    This object describes the origin of a message. It can be one of
+    MessageOriginUser
+    MessageOriginHiddenUser
+    MessageOriginChat
+    MessageOriginChannel
 
     Telegram documentation: https://core.telegram.org/bots/api#messageorigin
 
@@ -9697,9 +9523,19 @@ class MessageOriginUser(MessageOrigin):
     """
     The message was originally sent by a known user.
 
+        Telegram documentation: https://core.telegram.org/bots/api#messageoriginuser
+
+    :param type: Type of the message origin, always "user"
+    :type type: :obj:`str`
+
+    :param date: Date the message was sent originally in Unix time
+    :type date: :obj:`int`
+
     :param sender_user: User that sent the message originally
     :type sender_user: :class:`User`
-    """
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.MessageOriginUser`"""
 
     def __init__(self, date: int, sender_user: User) -> None:
         super().__init__('user', date)
@@ -9710,9 +9546,19 @@ class MessageOriginHiddenUser(MessageOrigin):
     """
     The message was originally sent by an unknown user.
 
+        Telegram documentation: https://core.telegram.org/bots/api#messageoriginhiddenuser
+
+    :param type: Type of the message origin, always "hidden_user"
+    :type type: :obj:`str`
+
+    :param date: Date the message was sent originally in Unix time
+    :type date: :obj:`int`
+
     :param sender_user_name: Name of the user that sent the message originally
     :type sender_user_name: :obj:`str`
-    """
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.MessageOriginHiddenUser`"""
 
     def __init__(self, date: int, sender_user_name: str) -> None:
         super().__init__('hidden_user', date)
@@ -9723,12 +9569,22 @@ class MessageOriginChat(MessageOrigin):
     """
     The message was originally sent on behalf of a chat to a group chat.
 
+        Telegram documentation: https://core.telegram.org/bots/api#messageoriginchat
+
+    :param type: Type of the message origin, always "chat"
+    :type type: :obj:`str`
+
+    :param date: Date the message was sent originally in Unix time
+    :type date: :obj:`int`
+
     :param sender_chat: Chat that sent the message originally
     :type sender_chat: :class:`Chat`
 
     :param author_signature: Optional. For messages originally sent by an anonymous chat administrator, original message author signature
     :type author_signature: :obj:`str`
-    """
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.MessageOriginChat`"""
 
     def __init__(self, date: int, sender_chat: Chat, author_signature: Optional[str] = None) -> None:
         super().__init__('chat', date)
@@ -9740,6 +9596,14 @@ class MessageOriginChannel(MessageOrigin):
     """
     The message was originally sent to a channel chat.
 
+    Telegram documentation: https://core.telegram.org/bots/api#messageoriginchannel
+
+    :param type: Type of the message origin, always “channel”
+    :type type: :obj:`str`
+
+    :param date: Date the message was sent originally in Unix time
+    :type date: :obj:`int`
+
     :param chat: Channel chat to which the message was originally sent
     :type chat: :class:`Chat`
 
@@ -9748,6 +9612,9 @@ class MessageOriginChannel(MessageOrigin):
 
     :param author_signature: Optional. Signature of the original post author
     :type author_signature: :obj:`str`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.MessageOriginChannel`
     """
 
     def __init__(self, date: int, chat: Chat, message_id: int, author_signature: Optional[str] = None) -> None:
@@ -9840,13 +9707,13 @@ class Giveaway(JsonDeserializable):
     :param prize_description: Optional. Description of additional giveaway prize
     :type prize_description: :obj:`str`
 
-    :param country_codes: Optional. A list of two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which eligible users for the giveaway must come. If empty, then all users can participate in the giveaway.
+    :param country_codes: Optional. A list of two-letter ISO 3166-1 alpha-2 country codes indicating the countries from which eligible users for the giveaway must come. If empty, then all users can participate in the giveaway. Users with a phone number that was bought on Fragment can always participate in giveaways.
     :type country_codes: :obj:`list` of :obj:`str`
 
     :param prize_star_count: Optional. The number of Telegram Stars to be split between giveaway winners; for Telegram Star giveaways only
     :type prize_star_count: :obj:`int`
 
-    :param premium_subscription_month_count: Optional. The number of months the Telegram Premium subscription won from the giveaway will be active for
+    :param premium_subscription_month_count: Optional. The number of months the Telegram Premium subscription won from the giveaway will be active for; for Telegram Premium giveaways only
     :type premium_subscription_month_count: :obj:`int`
 
     :return: Instance of the class
@@ -9863,7 +9730,8 @@ class Giveaway(JsonDeserializable):
     def __init__(self, chats: List[Chat], winners_selection_date: int, winner_count: int,
                  only_new_members: Optional[bool] = None, has_public_winners: Optional[bool] = None,
                  prize_description: Optional[str] = None, country_codes: Optional[List[str]] = None,
-                 premium_subscription_month_count: Optional[int] = None, prize_star_count: Optional[int] = None, **kwargs) -> None:
+                 premium_subscription_month_count: Optional[int] = None,
+                 prize_star_count: Optional[int] = None, **kwargs) -> None:
         self.chats: List[Chat] = chats
         self.winners_selection_date: int = winners_selection_date
         self.winner_count: int = winner_count
@@ -9884,7 +9752,7 @@ class GiveawayWinners(JsonDeserializable):
     :param chat: The chat that created the giveaway
     :type chat: :class:`Chat`
 
-    :param giveaway_message_id: Identifier of the messsage with the giveaway in the chat
+    :param giveaway_message_id: Identifier of the message with the giveaway in the chat
     :type giveaway_message_id: :obj:`int`
 
     :param winners_selection_date: Point in time (Unix timestamp) when winners of the giveaway were selected
@@ -9899,7 +9767,7 @@ class GiveawayWinners(JsonDeserializable):
     :param additional_chat_count: Optional. The number of other chats the user had to join in order to be eligible for the giveaway
     :type additional_chat_count: :obj:`int`
 
-    :param premium_subscription_month_count: Optional. The number of months the Telegram Premium subscription won from the giveaway will be active for
+    :param premium_subscription_month_count: Optional. The number of months the Telegram Premium subscription won from the giveaway will be active for; for Telegram Premium giveaways only
     :type premium_subscription_month_count: :obj:`int`
 
     :param unclaimed_prize_count: Optional. Number of undistributed prizes
@@ -9914,7 +9782,7 @@ class GiveawayWinners(JsonDeserializable):
     :param prize_description: Optional. Description of additional giveaway prize
     :type prize_description: :obj:`str`
 
-    :param prize_star_count: Optional. The number of Telegram Stars to be split between giveaway winners; for Telegram Star giveaways only
+    :param prize_star_count: Optional. The number of Telegram Stars that were split between giveaway winners; for Telegram Star giveaways only
     :type prize_star_count: :obj:`int`
 
     :return: Instance of the class
@@ -9963,7 +9831,7 @@ class GiveawayCompleted(JsonDeserializable):
     :param giveaway_message: Optional. Message with the giveaway that was completed, if it wasn't deleted
     :type giveaway_message: :class:`Message`
 
-    :param is_star_giveaway: Optional. True, if the giveaway was a Telegram Star giveaway
+    :param is_star_giveaway: Optional. True, if the giveaway is a Telegram Star giveaway. Otherwise, currently, the giveaway is a Telegram Premium giveaway.
     :type is_star_giveaway: :obj:`bool`
 
     :return: Instance of the class
@@ -9978,8 +9846,11 @@ class GiveawayCompleted(JsonDeserializable):
             obj['giveaway_message'] = Message.de_json(obj['giveaway_message'])
         return cls(**obj)
 
-    def __init__(self, winner_count: int, unclaimed_prize_count: Optional[int] = None,
-                    giveaway_message: Optional[Message] = None, is_star_giveaway: Optional[bool] = None, **kwargs) -> None:
+    def __init__(
+        self, winner_count: int,
+        unclaimed_prize_count: Optional[int] = None,
+        giveaway_message: Optional[Message] = None,
+        is_star_giveaway: Optional[bool] = None, **kwargs) -> None:
         self.winner_count: int = winner_count
         self.unclaimed_prize_count: Optional[int] = unclaimed_prize_count
         self.giveaway_message: Optional[Message] = giveaway_message
@@ -9990,10 +9861,13 @@ class GiveawayCreated(JsonDeserializable):
     """
     This object represents a service message about the creation of a scheduled giveaway.
 
-    :prize_star_count: Optional. The number of Telegram Stars to be split between giveaway winners; for Telegram Star giveaways only
-    :type prize_star_count: :obj:`int`
+    Telegram documentation: https://core.telegram.org/bots/api#giveawaycreated
+
+    :param prize_star_count: Optional. The number of Telegram Stars to be split between giveaway winners; for Telegram Star giveaways only
+    :type prize_star_count: :obj:`typing.Any`
 
     :return: Instance of the class
+    :rtype: :class:`GiveawayCreated`
     """
 
     @classmethod
@@ -10002,8 +9876,8 @@ class GiveawayCreated(JsonDeserializable):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, prize_star_count=None, **kwargs) -> None:
-        self.prize_star_count: Optional[str] = prize_star_count
+    def __init__(self, prize_star_count: Optional[int] = None, **kwargs) -> None:
+        self.prize_star_count: Optional[int] = prize_star_count
 
 
 class TextQuote(JsonDeserializable):
@@ -10041,7 +9915,7 @@ class TextQuote(JsonDeserializable):
                  is_manual: Optional[bool] = None, **kwargs) -> None:
         self.text: str = text
         self.entities: Optional[List[MessageEntity]] = entities
-        self.position: Optional[int] = position
+        self.position: int = position
         self.is_manual: Optional[bool] = is_manual
 
     @property
@@ -10060,27 +9934,19 @@ class ReplyParameters(JsonDeserializable, Dictionaryable, JsonSerializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#replyparameters
 
-    :param message_id: Optional. Identifier of the message that will be replied to in the current chat,
-        or in the chat chat_id if it is specified. Required if ephemeral_message_id isn't specified.
+    :param message_id: Optional. Identifier of the message that will be replied to in the current chat, or in the chat chat_id if it is specified. Required if ephemeral_message_id isn't specified.
     :type message_id: :obj:`int`
 
-    :param chat_id: Optional. If the message to be replied to is from a different chat, unique identifier for the chat or username
-        of the channel (in the format @channelusername)
+    :param chat_id: Optional. If the message to be replied to is from a different chat, unique identifier for the chat or username of the bot, supergroup or channel in the format @username. Not supported for messages sent on behalf of a business account, messages from channel direct messages chats and ephemeral messages.
     :type chat_id: :obj:`int` or :obj:`str`
 
-    :param ephemeral_message_id: Optional. Identifier of the incoming ephemeral message that will be replied to in the current chat.
-        A reply to an ephemeral message must itself be an ephemeral message. An ephemeral message may only be replied to within 15 seconds
-        of being sent. Required if message_id isn't specified.
+    :param ephemeral_message_id: Optional. Identifier of the incoming ephemeral message that will be replied to in the current chat. A reply to an ephemeral message must itself be an ephemeral message. An ephemeral message may only be replied to within 15 seconds of being sent. Required if message_id isn't specified.
     :type ephemeral_message_id: :obj:`int`
 
-    :param allow_sending_without_reply: Optional. Pass True if the message should be sent even if the specified message to be replied to is not found;
-        can be used only for replies in the same chat and forum topic.
+    :param allow_sending_without_reply: Optional. Pass True if the message should be sent even if the specified message to be replied to is not found. Always False for replies in another chat or forum topic, and sent ephemeral messages. Always True for messages sent on behalf of a business account.
     :type allow_sending_without_reply: :obj:`bool`
 
-    :param quote: Optional. Quoted part of the message to be replied to; 0-1024 characters after entities parsing.
-        The quote must be an exact substring of the message to be replied to, including bold, italic, underline,
-        strikethrough, spoiler, custom_emoji,   and date_time entities. The message will fail to send if the quote
-        isn't found in the original message.
+    :param quote: Optional. Quoted part of the message to be replied to; 0-1024 characters after entities parsing. The quote must be an exact substring of the message to be replied to, including bold, italic, underline, strikethrough, spoiler, custom_emoji, and date_time entities. The message will fail to send if the quote isn't found in the original message. Ignored for ephemeral messages.
     :type quote: :obj:`str`
 
     :param quote_parse_mode: Optional. Mode for parsing entities in the quote. See formatting options for more details.
@@ -10092,7 +9958,7 @@ class ReplyParameters(JsonDeserializable, Dictionaryable, JsonSerializable):
     :param quote_position: Optional. Position of the quote in the original message in UTF-16 code units
     :type quote_position: :obj:`int`
 
-    :param checklist_task_id: Optional. Optional. Identifier of the specific checklist task to be replied to
+    :param checklist_task_id: Optional. Identifier of the specific checklist task to be replied to
     :type checklist_task_id: :obj:`int`
 
     :param poll_option_id: Optional. Persistent identifier of the specific poll option to be replied to
@@ -10115,7 +9981,7 @@ class ReplyParameters(JsonDeserializable, Dictionaryable, JsonSerializable):
                  quote_parse_mode: Optional[str] = None, quote_entities: Optional[List[MessageEntity]] = None,
                  quote_position: Optional[int] = None, checklist_task_id: Optional[int] = None,
                     poll_option_id: Optional[str] = None, ephemeral_message_id: Optional[int] = None, **kwargs) -> None:
-        self.message_id: int = message_id
+        self.message_id: Optional[int] = message_id
         self.chat_id: Optional[Union[int, str]] = chat_id
         self.allow_sending_without_reply: Optional[bool] = allow_sending_without_reply
         self.quote: Optional[str] = quote
@@ -10203,7 +10069,7 @@ class ChatBoostUpdated(JsonDeserializable):
     :param chat: Chat which was boosted
     :type chat: :class:`Chat`
 
-    :param boost: Infomation about the chat boost
+    :param boost: Information about the chat boost
     :type boost: :class:`ChatBoost`
 
     :return: Instance of the class
@@ -10218,7 +10084,7 @@ class ChatBoostUpdated(JsonDeserializable):
         obj['boost'] = ChatBoost.de_json(obj['boost'])
         return cls(**obj)
 
-    def __init__(self, chat, boost, **kwargs):
+    def __init__(self, chat: Chat, boost: ChatBoost, **kwargs):
         self.chat: Chat = chat
         self.boost: ChatBoost = boost
 
@@ -10253,7 +10119,7 @@ class ChatBoostRemoved(JsonDeserializable):
         obj['source'] = ChatBoostSource.de_json(obj['source'])
         return cls(**obj)
 
-    def __init__(self, chat, boost_id, remove_date, source, **kwargs):
+    def __init__(self, chat: Chat, boost_id: str, remove_date: int, source: ChatBoostSource, **kwargs):
         self.chat: Chat = chat
         self.boost_id: str = boost_id
         self.remove_date: int = remove_date
@@ -10296,7 +10162,7 @@ class ChatBoostSourcePremium(ChatBoostSource):
     :param source: Source of the boost, always “premium”
     :type source: :obj:`str`
 
-    :param user: User that boosted the chat
+    :param user: User who subscribed to Telegram Premium or gifted a subscription
     :type user: :class:`User`
 
     :return: Instance of the class
@@ -10310,7 +10176,7 @@ class ChatBoostSourcePremium(ChatBoostSource):
         obj['user'] = User.de_json(obj['user'])
         return cls(**obj)
 
-    def __init__(self, source, user, **kwargs):
+    def __init__(self, source: str, user: User, **kwargs):
         self.source: str = source
         self.user: User = user
 
@@ -10318,7 +10184,7 @@ class ChatBoostSourcePremium(ChatBoostSource):
 # noinspection PyUnresolvedReferences
 class ChatBoostSourceGiftCode(ChatBoostSource):
     """
-    The boost was obtained by the creation of Telegram Premium gift codes to boost a chat.
+    The boost was obtained by the creation of Telegram Premium gift codes to boost a chat. Each such code boosts the chat 4 times for the duration of the corresponding Telegram Premium subscription.
 
     Telegram documentation: https://core.telegram.org/bots/api#chatboostsourcegiftcode
 
@@ -10339,7 +10205,7 @@ class ChatBoostSourceGiftCode(ChatBoostSource):
         obj['user'] = User.de_json(obj['user'])
         return cls(**obj)
 
-    def __init__(self, source, user, **kwargs):
+    def __init__(self, source: str, user: User, **kwargs):
         self.source: str = source
         self.user: User = user
 
@@ -10347,7 +10213,7 @@ class ChatBoostSourceGiftCode(ChatBoostSource):
 # noinspection PyUnresolvedReferences
 class ChatBoostSourceGiveaway(ChatBoostSource):
     """
-    The boost was obtained by the creation of a Telegram Premium giveaway.
+    The boost was obtained by the creation of a Telegram Premium or a Telegram Star giveaway. This boosts the chat 4 times for the duration of the corresponding Telegram Premium subscription for Telegram Premium giveaways and prize_star_count / 500 times for one year for Telegram Star giveaways.
 
     Telegram documentation: https://core.telegram.org/bots/api#chatboostsourcegiveaway
 
@@ -10357,10 +10223,10 @@ class ChatBoostSourceGiveaway(ChatBoostSource):
     :param giveaway_message_id: Identifier of a message in the chat with the giveaway; the message could have been deleted already. May be 0 if the message isn't sent yet.
     :type giveaway_message_id: :obj:`int`
 
-    :param user: User that won the prize in the giveaway if any
+    :param user: Optional. User that won the prize in the giveaway if any; for Telegram Premium giveaways only
     :type user: :class:`User`
 
-    :param is_unclaimed: True, if the giveaway was completed, but there was no user to win the prize
+    :param is_unclaimed: Optional. True , if the giveaway was completed, but there was no user to win the prize
     :type is_unclaimed: :obj:`bool`
 
     :param prize_star_count: Optional. The number of Telegram Stars to be split between giveaway winners; for Telegram Star giveaways only
@@ -10377,7 +10243,8 @@ class ChatBoostSourceGiveaway(ChatBoostSource):
         obj['user'] = User.de_json(obj.get('user'))
         return cls(**obj)
 
-    def __init__(self, source, giveaway_message_id, user=None, is_unclaimed=None, prize_star_count=None, **kwargs):
+    def __init__(self, source: str, giveaway_message_id: int, user: Optional[User] = None,
+                 is_unclaimed: Optional[bool] = None, prize_star_count: Optional[int] = None, **kwargs):
         self.source: str = source
         self.giveaway_message_id: int = giveaway_message_id
         self.user: Optional[User] = user
@@ -10400,7 +10267,7 @@ class ChatBoost(JsonDeserializable):
     :param expiration_date: Point in time (Unix timestamp) when the boost will automatically expire, unless the booster's Telegram Premium subscription is prolonged
     :type expiration_date: :obj:`int`
 
-    :param source: Optional. Source of the added boost (made Optional for now due to API error)
+    :param source: Source of the added boost
     :type source: :class:`ChatBoostSource`
 
     :return: Instance of the class
@@ -10427,7 +10294,7 @@ class ChatBoost(JsonDeserializable):
         obj['source'] = ChatBoostSource.de_json(source) if source else None
         return cls(**obj)
 
-    def __init__(self, boost_id, add_date, expiration_date, source, **kwargs):
+    def __init__(self, boost_id: str, add_date: int, expiration_date: int, source: ChatBoostSource, **kwargs):
         self.boost_id: str = boost_id
         self.add_date: int = add_date
         self.expiration_date: int = expiration_date
@@ -10454,7 +10321,7 @@ class UserChatBoosts(JsonDeserializable):
         obj['boosts'] = [ChatBoost.de_json(boost) for boost in obj['boosts']]
         return cls(**obj)
 
-    def __init__(self, boosts, **kwargs):
+    def __init__(self, boosts: List[ChatBoost], **kwargs):
         self.boosts: List[ChatBoost] = boosts
 
 
@@ -10484,7 +10351,7 @@ class InaccessibleMessage(JsonDeserializable):
         obj['chat'] = Chat.de_json(obj['chat'])
         return cls(**obj)
 
-    def __init__(self, chat, message_id, date, **kwargs):
+    def __init__(self, chat: Chat, message_id: int, date: int, **kwargs):
         self.chat: Chat = chat
         self.message_id: int = message_id
         self.date: int = date
@@ -10492,7 +10359,6 @@ class InaccessibleMessage(JsonDeserializable):
     @staticmethod
     def __universal_deprecation(property_name):
         log_deprecation_warning(f'Deprecation warning: the field "{property_name}" is not accessible for InaccessibleMessage. You should check if your object is Message instance before access.')
-        return None
 
     def __getattr__(self, item):
         if item in [
@@ -10510,7 +10376,8 @@ class InaccessibleMessage(JsonDeserializable):
             'giveaway', 'giveaway_winners', 'giveaway_completed', 'video_chat_scheduled', 'video_chat_started',
             'video_chat_ended', 'video_chat_participants_invited', 'web_app_data', 'reply_markup'
         ]:
-            return self.__universal_deprecation(item)
+            self.__universal_deprecation(item)
+            return
         else:
             raise AttributeError(f'"{self.__class__.__name__}" object has no attribute "{item}"')
 
@@ -10534,14 +10401,14 @@ class ChatBoostAdded(JsonDeserializable):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, boost_count, **kwargs):
+    def __init__(self, boost_count: int, **kwargs):
         self.boost_count: int = boost_count
 
 
 # noinspection PyShadowingBuiltins
 class BusinessConnection(JsonDeserializable):
     """
-    This object describes the connection of the bot with a business account.
+    Describes the connection of the bot with a business account.
 
     Telegram documentation: https://core.telegram.org/bots/api#businessconnection
 
@@ -10551,13 +10418,14 @@ class BusinessConnection(JsonDeserializable):
     :param user: Business account user that created the business connection
     :type user: :class:`User`
 
-    :param user_chat_id: Identifier of a private chat with the user who created the business connection
+    :param user_chat_id: Identifier of a private chat with the user who created the business connection. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier.
     :type user_chat_id: :obj:`int`
 
     :param date: Date the connection was established in Unix time
     :type date: :obj:`int`
 
     :param can_reply: Deprecated, use :attr:`rights` instead.
+    :type can_reply: :obj:`bool`
 
     :param rights: Optional. Rights of the business bot
     :type rights: :class:`BusinessBotRights`
@@ -10577,8 +10445,8 @@ class BusinessConnection(JsonDeserializable):
         obj['rights'] = BusinessBotRights.de_json(obj.get('rights'))
         return cls(**obj)
 
-    def __init__(self, id, user, user_chat_id, date, is_enabled,
-                    rights=None, **kwargs):
+    def __init__(self, id: str, user: User, user_chat_id: int, date: int, is_enabled: bool,
+                 rights: Optional[BusinessBotRights] = None, **kwargs):
         self.id: str = id
         self.user: User = user
         self.user_chat_id: int = user_chat_id
@@ -10608,7 +10476,7 @@ class BusinessMessagesDeleted(JsonDeserializable):
     :param chat: Information about a chat in the business account. The bot may not have access to the chat or the corresponding user.
     :type chat: :class:`Chat`
 
-    :param message_ids: A JSON-serialized list of identifiers of deleted messages in the chat of the business account
+    :param message_ids: The list of identifiers of deleted messages in the chat of the business account
     :type message_ids: :obj:`list` of :obj:`int`
 
     :return: Instance of the class
@@ -10623,7 +10491,7 @@ class BusinessMessagesDeleted(JsonDeserializable):
         return cls(**obj)
 
 
-    def __init__(self, business_connection_id, chat, message_ids, **kwargs):
+    def __init__(self, business_connection_id: str, chat: Chat, message_ids: List[int], **kwargs):
         self.business_connection_id: str = business_connection_id
         self.chat: Chat = chat
         self.message_ids: List[int] = message_ids
@@ -10631,7 +10499,7 @@ class BusinessMessagesDeleted(JsonDeserializable):
 
 class BusinessIntro(JsonDeserializable):
     """
-    This object represents a business intro.
+    Contains information about the start page settings of a Telegram Business account.
 
     Telegram documentation: https://core.telegram.org/bots/api#businessintro
 
@@ -10656,7 +10524,8 @@ class BusinessIntro(JsonDeserializable):
             obj['sticker'] = Sticker.de_json(obj['sticker'])
         return cls(**obj)
 
-    def __init__(self, title=None, message=None, sticker=None, **kwargs):
+    def __init__(self, title: Optional[str] = None, message: Optional[str] = None,
+                 sticker: Optional[Sticker] = None, **kwargs):
         self.title: Optional[str] = title
         self.message: Optional[str] = message
         self.sticker: Optional[Sticker] = sticker
@@ -10664,7 +10533,7 @@ class BusinessIntro(JsonDeserializable):
 
 class BusinessLocation(JsonDeserializable):
     """
-    This object represents a business location.
+    Contains information about the location of a Telegram Business account.
 
     Telegram documentation: https://core.telegram.org/bots/api#businesslocation
 
@@ -10686,21 +10555,21 @@ class BusinessLocation(JsonDeserializable):
             obj['location'] = Location.de_json(obj['location'])
         return cls(**obj)
 
-    def __init__(self, address, location=None, **kwargs):
+    def __init__(self, address: str, location: Optional[Location] = None, **kwargs):
         self.address: str = address
         self.location: Optional[Location] = location
 
 
 class BusinessOpeningHoursInterval(JsonDeserializable):
     """
-    This object represents a business opening hours interval.
+    Describes an interval of time during which a business is open.
 
     Telegram documentation: https://core.telegram.org/bots/api#businessopeninghoursinterval
 
-    :param opening_minute: The minute's sequence number in a week, starting on Monday, marking the start of the time interval during which the business is open; 0 - 7 24 60
+    :param opening_minute: The minute's sequence number in a week, starting on Monday, marking the start of the time interval during which the business is open; 0 - 7 * 24 * 60
     :type opening_minute: :obj:`int`
 
-    :param closing_minute: The minute's sequence number in a week, starting on Monday, marking the end of the time interval during which the business is open; 0 - 8 24 60
+    :param closing_minute: The minute's sequence number in a week, starting on Monday, marking the end of the time interval during which the business is open; 0 - 8 * 24 * 60
     :type closing_minute: :obj:`int`
 
     :return: Instance of the class
@@ -10713,15 +10582,14 @@ class BusinessOpeningHoursInterval(JsonDeserializable):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, opening_minute, closing_minute, **kwargs):
+    def __init__(self, opening_minute: int, closing_minute: int, **kwargs):
         self.opening_minute: int = opening_minute
         self.closing_minute: int = closing_minute
 
 
 class BusinessOpeningHours(JsonDeserializable):
     """
-
-    This object represents business opening hours.
+    Describes the opening hours of a business.
 
     Telegram documentation: https://core.telegram.org/bots/api#businessopeninghours
 
@@ -10743,14 +10611,14 @@ class BusinessOpeningHours(JsonDeserializable):
         obj['opening_hours'] = [BusinessOpeningHoursInterval.de_json(interval) for interval in obj['opening_hours']]
         return cls(**obj)
 
-    def __init__(self, time_zone_name, opening_hours, **kwargs):
+    def __init__(self, time_zone_name: str, opening_hours: List[BusinessOpeningHoursInterval], **kwargs):
         self.time_zone_name: str = time_zone_name
         self.opening_hours: List[BusinessOpeningHoursInterval] = opening_hours
 
 
 class SharedUser(JsonDeserializable):
     """
-    This object contains information about a user that was shared with the bot using a KeyboardButtonRequestUser button.
+    This object contains information about a user that was shared with the bot using a KeyboardButtonRequestUsers button.
 
     Telegram documentation: https://core.telegram.org/bots/api#shareduser
 
@@ -10781,7 +10649,8 @@ class SharedUser(JsonDeserializable):
             obj['photo'] = [PhotoSize.de_json(photo) for photo in obj['photo']]
         return cls(**obj)
 
-    def __init__(self, user_id, first_name=None, last_name=None, username=None, photo=None, **kwargs):
+    def __init__(self, user_id: int, first_name: Optional[str] = None, last_name: Optional[str] = None,
+                 username: Optional[str] = None, photo: Optional[List[PhotoSize]] = None, **kwargs):
         self.user_id: int = user_id
         self.first_name: Optional[str] = first_name
         self.last_name: Optional[str] = last_name
@@ -10791,7 +10660,7 @@ class SharedUser(JsonDeserializable):
 
 class Birthdate(JsonDeserializable):
     """
-    This object represents a user's birthdate.
+    Describes the birthdate of a user.
 
     Telegram documentation: https://core.telegram.org/bots/api#birthdate
 
@@ -10814,7 +10683,7 @@ class Birthdate(JsonDeserializable):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, day, month, year=None, **kwargs):
+    def __init__(self, day: int, month: int, year: Optional[int] = None, **kwargs):
         self.day: int = day
         self.month: int = month
         self.year: Optional[int] = year
@@ -10869,7 +10738,7 @@ class BackgroundFillSolid(BackgroundFill):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, type, color, **kwargs):
+    def __init__(self, type: str, color: int, **kwargs):
         self.type: str = type
         self.color: int = color
 
@@ -10903,7 +10772,7 @@ class BackgroundFillGradient(BackgroundFill):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, type, top_color, bottom_color, rotation_angle, **kwargs):
+    def __init__(self, type: str, top_color: int, bottom_color: int, rotation_angle: int, **kwargs):
         self.type: str = type
         self.top_color: int = top_color
         self.bottom_color: int = bottom_color
@@ -10933,7 +10802,7 @@ class BackgroundFillFreeformGradient(BackgroundFill):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, type, colors, **kwargs):
+    def __init__(self, type: str, colors: List[int], **kwargs):
         self.type: str = type
         self.colors: List[int] = colors
 
@@ -10994,7 +10863,7 @@ class BackgroundTypeFill(BackgroundFill):
         obj['fill'] = BackgroundFill.de_json(obj['fill'])
         return cls(**obj)
 
-    def __init__(self, type, fill, dark_theme_dimming, **kwargs):
+    def __init__(self, type: str, fill: BackgroundFill, dark_theme_dimming: int, **kwargs):
         self.type: str = type
         self.fill: BackgroundFill = fill
         self.dark_theme_dimming: int = dark_theme_dimming
@@ -11033,7 +10902,8 @@ class BackgroundTypeWallpaper(BackgroundFill):
         obj['document'] = Document.de_json(obj['document'])
         return cls(**obj)
 
-    def __init__(self, type, document, dark_theme_dimming, is_blurred=None, is_moving=None, **kwargs):
+    def __init__(self, type: str, document: Document, dark_theme_dimming: int,
+                 is_blurred: Optional[bool] = None, is_moving: Optional[bool] = None, **kwargs):
         self.type: str = type
         self.document: Document = document
         self.dark_theme_dimming: int = dark_theme_dimming
@@ -11044,11 +10914,11 @@ class BackgroundTypeWallpaper(BackgroundFill):
 # noinspection PyShadowingBuiltins
 class BackgroundTypePattern(BackgroundFill):
     """
-    The background is a wallpaper in the JPEG format.
+    The background is a .PNG or .TGV (gzipped subset of SVG with MIME type "application/x-tgwallpattern") pattern to be combined with the background fill chosen by the user.
 
     Telegram documentation: https://core.telegram.org/bots/api#backgroundtypepattern
 
-    :param type: Type of the background, always “pattern”
+    :param type: Type of the background, always "pattern"
     :type type: :obj:`str`
 
     :param document: Document with the pattern
@@ -11077,7 +10947,8 @@ class BackgroundTypePattern(BackgroundFill):
         obj['document'] = Document.de_json(obj['document'])
         return cls(**obj)
 
-    def __init__(self, type, document, fill, intensity, is_inverted=None, is_moving=None, **kwargs):
+    def __init__(self, type: str, document: Document, fill: BackgroundFill, intensity: int,
+                 is_inverted: Optional[bool] = None, is_moving: Optional[bool] = None, **kwargs):
         self.type: str = type
         self.document: Document = document
         self.fill: BackgroundFill = fill
@@ -11096,7 +10967,7 @@ class BackgroundTypeChatTheme(BackgroundFill):
     :param type: Type of the background, always “chat_theme”
     :type type: :obj:`str`
 
-    :param theme_name: Intensity of the pattern when it is shown above the filled background; 0-100
+    :param theme_name: Name of the chat theme, which is usually an emoji
     :type theme_name: :obj:`str`
 
     :return: Instance of the class
@@ -11109,7 +10980,7 @@ class BackgroundTypeChatTheme(BackgroundFill):
         obj = cls.check_json(json_string)
         return cls(**obj)
 
-    def __init__(self, type, theme_name, **kwargs):
+    def __init__(self, type: str, theme_name: str, **kwargs):
         self.type: str = type
         self.theme_name: str = theme_name
 
@@ -11135,7 +11006,7 @@ class ChatBackground(JsonDeserializable):
         obj['type'] = BackgroundType.de_json(obj['type'])
         return cls(**obj)
 
-    def __init__(self, type, **kwargs):
+    def __init__(self, type: BackgroundType, **kwargs):
         self.type: BackgroundType = type
 
 
@@ -11253,13 +11124,13 @@ class TransactionPartner(JsonDeserializable, ABC):
     # noinspection PyUnresolvedReferences
     """
     This object describes the source of a transaction, or its recipient for outgoing transactions. Currently, it can be one of
-        TransactionPartnerFragment
         TransactionPartnerUser
-        TransactionPartnerOther
+        TransactionPartnerChat
+        TransactionPartnerAffiliateProgram
+        TransactionPartnerFragment
         TransactionPartnerTelegramAds
         TransactionPartnerTelegramApi
-        TransactionPartnerAffiliateProgram
-        TransactionPartnerChat
+        TransactionPartnerOther
 
     Telegram documentation: https://core.telegram.org/bots/api#transactionpartner
 
@@ -11358,12 +11229,13 @@ class TransactionPartnerUser(TransactionPartner):
 
     Telegram documentation: https://core.telegram.org/bots/api#transactionpartneruser
 
+    :param paid_media_payload: Paid Media Payload
+    :type paid_media_payload: :obj:`str`
+
     :param type: Type of the transaction partner, always “user”
     :type type: :obj:`str`
 
-    :param transaction_type: Type of the transaction, currently one of “invoice_payment” for payments via invoices,
-        “paid_media_payment” for payments for paid media, “gift_purchase” for gifts sent by the bot, “premium_purchase” for Telegram Premium subscriptions
-        gifted by the bot, “business_account_transfer” for direct transfers from managed business accounts
+    :param transaction_type: Type of the transaction, currently one of “invoice_payment” for payments via invoices, “paid_media_payment” for payments for paid media, “gift_purchase” for gifts sent by the bot, “premium_purchase” for Telegram Premium subscriptions gifted by the bot, “business_account_transfer” for direct transfers from managed business accounts
     :type transaction_type: :obj:`str`
 
     :param user: Information about the user
@@ -11421,7 +11293,7 @@ class TransactionPartnerUser(TransactionPartner):
 # noinspection PyShadowingBuiltins
 class TransactionPartnerTelegramAds(TransactionPartner):
     """
-    Describes a transaction with Telegram Ads.
+    Describes a withdrawal transaction to the Telegram Ads platform.
 
     Telegram documentation: https://core.telegram.org/bots/api#transactionpartnertelegramads
 
@@ -11469,7 +11341,7 @@ class TransactionPartnerOther(TransactionPartner):
 # noinspection PyShadowingBuiltins
 class StarTransaction(JsonDeserializable):
     """
-    Describes a Telegram Star transaction.
+    Describes a Telegram Star transaction. Note that if the buyer initiates a chargeback with the payment provider from whom they acquired Stars (e.g., Apple, Google) following this transaction, the refunded Stars will be deducted from the bot's balance. This is outside of Telegram's control.
 
     Telegram documentation: https://core.telegram.org/bots/api#startransaction
 
@@ -11543,10 +11415,10 @@ class PaidMedia(JsonDeserializable, ABC):
     """
     This object describes paid media. Currently, it can be one of
 
-        PaidMediaPreview
-        PaidMediaPhoto
-        PaidMediaVideo
         PaidMediaLivePhoto
+        PaidMediaPhoto
+        PaidMediaPreview
+        PaidMediaVideo
 
     Telegram documentation: https://core.telegram.org/bots/api#paidmedia
 
@@ -11593,7 +11465,8 @@ class PaidMediaPreview(PaidMedia):
     :rtype: :class:`PaidMediaPreview`
     """
 
-    def __init__(self, type, width=None, height=None, duration=None, **kwargs):
+    def __init__(self, type: str, width: Optional[int] = None, height: Optional[int] = None,
+                 duration: Optional[int] = None, **kwargs):
         self.type: str = type
         self.width: Optional[int] = width
         self.height: Optional[int] = height
@@ -11606,6 +11479,7 @@ class PaidMediaPreview(PaidMedia):
         return cls(**obj)
 
 
+# noinspection PyShadowingBuiltins
 class PaidMediaLivePhoto(PaidMedia):
     """
     The paid media is a live photo.
@@ -11622,7 +11496,7 @@ class PaidMediaLivePhoto(PaidMedia):
     :rtype: :class:`PaidMediaLivePhoto`
     """
 
-    def __init__(self, type, live_photo, **kwargs):
+    def __init__(self, type: str, live_photo: LivePhoto, **kwargs):
         self.type: str = type
         self.live_photo: LivePhoto = live_photo
 
@@ -11652,7 +11526,7 @@ class PaidMediaPhoto(PaidMedia):
 
     """
 
-    def __init__(self, type, photo, **kwargs):
+    def __init__(self, type: str, photo: List[PhotoSize], **kwargs):
         self.type: str = type
         self.photo: List[PhotoSize] = photo
 
@@ -11682,7 +11556,7 @@ class PaidMediaVideo(PaidMedia):
     :rtype: :class:`PaidMediaVideo`
     """
 
-    def __init__(self, type, video, **kwargs):
+    def __init__(self, type: str, video: Video, **kwargs):
         self.type: str = type
         self.video: Video = video
 
@@ -11717,7 +11591,7 @@ class PaidMediaInfo(JsonDeserializable):
         obj['paid_media'] = [PaidMedia.de_json(media) for media in obj['paid_media']]
         return cls(**obj)
 
-    def __init__(self, star_count, paid_media, **kwargs):
+    def __init__(self, star_count: int, paid_media: List[PaidMedia], **kwargs):
         self.star_count: int = star_count
         self.paid_media: List[PaidMedia] = paid_media
 
@@ -11726,9 +11600,9 @@ class PaidMediaInfo(JsonDeserializable):
 class InputPaidMedia(Dictionaryable, JsonSerializable):
     """
     This object describes the paid media to be sent. Currently, it can be one of
+        InputPaidMediaLivePhoto
         InputPaidMediaPhoto
         InputPaidMediaVideo
-        InputPaidMediaLivePhoto
 
     Telegram documentation: https://core.telegram.org/bots/api#inputpaidmedia
 
@@ -11771,10 +11645,8 @@ class InputPaidMediaPhoto(InputPaidMedia):
     :param type: Type of the media, must be photo
     :type type: :obj:`str`
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for
-        Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data
-        under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name.
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
 
     :return: Instance of the class
     :rtype: :class:`InputPaidMediaPhoto`
@@ -11782,6 +11654,7 @@ class InputPaidMediaPhoto(InputPaidMedia):
 
     def __init__(self, media: Union[str, InputFile], **kwargs):
         super().__init__(type='photo', media=media)
+
 
 class InputPaidMediaLivePhoto(InputPaidMedia):
     """
@@ -11792,14 +11665,10 @@ class InputPaidMediaLivePhoto(InputPaidMedia):
     :param type: Type of the media, must be live_photo
     :type type: :obj:`str`
 
-    :param media: Video of the live photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or
-        pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name. More information on Sending Files ».
-        Sending live photos by a URL is currently unsupported.
+    :param media: Video of the live photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name. Sending live photos by a URL is currently unsupported.
     :type media: :obj:`str` or :class:`telebot.types.InputFile`
 
-    :param photo: The static photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or
-        pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name. More information on Sending Files ».
-        Sending live photos by a URL is currently unsupported.
+    :param photo: The static photo to send. Pass a file_id to send a file that exists on the Telegram servers (recommended) or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name. Sending live photos by a URL is currently unsupported.
     :type photo: :obj:`str` or :class:`telebot.types.InputFile`
 
     :return: Instance of the class
@@ -11808,13 +11677,13 @@ class InputPaidMediaLivePhoto(InputPaidMedia):
     def __init__(self, media: Union[str, InputFile], photo: Union[str, InputFile], **kwargs):
         super().__init__(type='live_photo', media=media)
         self.photo: Union[str, InputFile] = photo
-        self._photo_name = service_utils.generate_random_token()
-        self._photo_dic = None
 
-        if not service_utils.is_string(self.photo):
-            self._photo_dic = 'attach://{0}'.format(self._photo_name)
-        else:
+        if service_utils.is_string(self.photo):
+            self._photo_name = ''
             self._photo_dic = self.photo
+        else:
+            self._photo_name = service_utils.generate_random_token()
+            self._photo_dic = 'attach://{0}'.format(self._photo_name)
 
     def to_dict(self):
         data = super().to_dict()
@@ -11831,24 +11700,16 @@ class InputPaidMediaVideo(InputPaidMedia):
     :param type: Type of the media, must be video
     :type type: :obj:`str`
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for
-        Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data
-        under <file_attach_name> name. More information on Sending Files »
-    :type media: :obj:`str`
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name.
+    :type media: :obj:`str` or :class:`telebot.types.InputFile`
 
-    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side.
-        The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should not exceed 320.
-        Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be only uploaded as a new file,
-        so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>.
-        More information on Sending Files »
-    :type thumbnail: :class:`InputFile`
+    :param thumbnail: Optional. Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side. The thumbnail should be in JPEG format and less than 200 kB in size. A thumbnail's width and height should not exceed 320. Ignored if the file is not uploaded using multipart/form-data. Thumbnails can't be reused and can be only uploaded as a new file, so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>.
+    :type thumbnail: :class:`telebot.types.InputFile`
 
-    :param cover: Cover for the video in the message. Pass a file_id to send a file that exists on the Telegram servers (recommended),
-        pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under
-        <file_attach_name> name. More information on Sending Files »
+    :param cover: Optional. Cover for the video in the message. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name.
     :type cover: :obj:`str` or :class:`telebot.types.InputFile`
 
-    :param start_timestamp: Start timestamp for the video in the message
+    :param start_timestamp: Optional. Start timestamp for the video in the message
     :type start_timestamp: :obj:`int`
 
     :param width: Optional. Video width
@@ -11867,22 +11728,47 @@ class InputPaidMediaVideo(InputPaidMedia):
     :rtype: :class:`InputPaidMediaVideo`
 
     """
-    def __init__(self, media: Union[str, InputFile], thumbnail: Optional[InputFile] = None, width: Optional[int] = None,
-                 height: Optional[int] = None, duration: Optional[int] = None, supports_streaming: Optional[bool] = None,
-                 cover: Optional[Union[str,InputFile]] = None, start_timestamp: Optional[int] = None, **kwargs):
+    def __init__(
+        self, media: Union[str, InputFile], thumbnail: Optional[InputFile] = None,
+        width: Optional[int] = None, height: Optional[int] = None,
+        duration: Optional[int] = None,
+        supports_streaming: Optional[bool] = None,
+        cover: Optional[Union[str, InputFile]] = None, start_timestamp: Optional[int] = None,
+        **kwargs):
         super().__init__(type='video', media=media)
-        self.thumbnail: Optional[Union[str,InputFile]] = thumbnail
+        self.thumbnail: Optional[InputFile] = thumbnail
         self.width: Optional[int] = width
         self.height: Optional[int] = height
         self.duration: Optional[int] = duration
         self.supports_streaming: Optional[bool] = supports_streaming
-        self.cover: Optional[Union[str,InputFile]] = cover
+        self.cover: Optional[Union[str, InputFile]] = cover
         self.start_timestamp: Optional[int] = start_timestamp
+
+        if thumbnail is None:
+            self._thumbnail_name = ''
+            self._thumbnail_dic = None
+        elif service_utils.is_string(self.thumbnail):
+            # It cannot be string because cannot be reused
+            self._thumbnail_name = ''
+            self._thumbnail_dic = self.thumbnail
+        else:
+            self._thumbnail_name = service_utils.generate_random_token()
+            self._thumbnail_dic = 'attach://{0}'.format(self._thumbnail_name)
+
+        if cover is None:
+            self._cover_name = ''
+            self._cover_dic = None
+        elif service_utils.is_string(self.cover):
+            self._cover_name = ''
+            self._cover_dic = self.cover
+        else:
+            self._cover_name = service_utils.generate_random_token()
+            self._cover_dic = 'attach://{0}'.format(self._cover_name)
 
     def to_dict(self):
         data = super().to_dict()
-        if self.thumbnail:
-            data['thumbnail'] = self.thumbnail
+        if self._thumbnail_dic:
+            data['thumbnail'] = self._thumbnail_dic
         if self.width:
             data['width'] = self.width
         if self.height:
@@ -11891,8 +11777,8 @@ class InputPaidMediaVideo(InputPaidMedia):
             data['duration'] = self.duration
         if self.supports_streaming is not None:
             data['supports_streaming'] = self.supports_streaming
-        if self.cover:
-            data['cover'] = self.cover
+        if self._cover_dic:
+            data['cover'] = self._cover_dic
         if self.start_timestamp:
             data['start_timestamp'] = self.start_timestamp
         return data
@@ -12013,7 +11899,7 @@ class PreparedInlineMessage(JsonDeserializable):
     :rtype: :class:`PreparedInlineMessage`
     """
 
-    def __init__(self, id, expiration_date, **kwargs):
+    def __init__(self, id: str, expiration_date: int, **kwargs):
         self.id: str = id
         self.expiration_date: int = expiration_date
 
@@ -12049,10 +11935,10 @@ class Gift(JsonDeserializable):
     :param has_colors: Optional. True, if the gift can be used (after being upgraded) to customize a user's appearance
     :type has_colors: :obj:`bool`
 
-    :param total_count: Optional. The total number of the gifts of this type that can be sent; for limited gifts only
+    :param total_count: Optional. The total number of gifts of this type that can be sent by all users; for limited gifts only
     :type total_count: :obj:`int`
 
-    :param remaining_count: Optional. The number of remaining gifts of this type that can be sent; for limited gifts only
+    :param remaining_count: Optional. The number of remaining gifts of this type that can be sent by all users; for limited gifts only
     :type remaining_count: :obj:`int`
 
     :param personal_total_count: Optional. The total number of gifts of this type that can be sent by the bot; for limited gifts only
@@ -12074,9 +11960,12 @@ class Gift(JsonDeserializable):
     :rtype: :class:`Gift`
     """
 
-    def __init__(self, id, sticker, star_count, total_count=None, remaining_count=None, upgrade_star_count=None,
-                 personal_total_count=None, personal_remaining_count=None, is_premium=None, has_colors=None,
-                 background=None, publisher_chat=None, unique_gift_variant_count=None, **kwargs):
+    def __init__(self, id: str, sticker: Sticker, star_count: int, upgrade_star_count: Optional[int] = None,
+                 is_premium: Optional[bool] = None, has_colors: Optional[bool] = None,
+                 total_count: Optional[int] = None, remaining_count: Optional[int] = None,
+                 personal_total_count: Optional[int] = None, personal_remaining_count: Optional[int] = None,
+                 background: Optional[GiftBackground] = None, unique_gift_variant_count: Optional[int] = None,
+                 publisher_chat: Optional[Chat] = None, **kwargs):
         self.id: str = id
         self.sticker: Sticker = sticker
         self.star_count: int = star_count
@@ -12116,7 +12005,7 @@ class Gifts(JsonDeserializable):
     :rtype: :class:`Gifts`
     """
 
-    def __init__(self, gifts, **kwargs):
+    def __init__(self, gifts: List[Gift], **kwargs):
         self.gifts: List[Gift] = gifts
 
     @classmethod
@@ -12252,8 +12141,8 @@ class BusinessBotRights(JsonDeserializable):
     :param can_read_messages: Optional. True, if the bot can mark incoming private messages as read
     :type can_read_messages: :obj:`bool`
 
-    :param can_delete_outgoing_messages: Optional. True, if the bot can delete messages sent by the bot
-    :type can_delete_outgoing_messages: :obj:`bool`
+    :param can_delete_sent_messages: Optional. True, if the bot can delete messages sent by the bot
+    :type can_delete_sent_messages: :obj:`bool`
 
     :param can_delete_all_messages: Optional. True, if the bot can delete all private messages in managed chats
     :type can_delete_all_messages: :obj:`bool`
@@ -12291,13 +12180,18 @@ class BusinessBotRights(JsonDeserializable):
     :return: Instance of the class
     :rtype: :class:`BusinessBotRights`
     """
-    def __init__(self, can_reply=None, can_read_messages=None, can_delete_outgoing_messages=None, can_delete_all_messages=None,
-                    can_edit_name=None, can_edit_bio=None, can_edit_profile_photo=None, can_edit_username=None,
-                    can_change_gift_settings=None, can_view_gifts_and_stars=None, can_convert_gifts_to_stars=None,
-                    can_transfer_and_upgrade_gifts=None, can_transfer_stars=None, can_manage_stories=None, **kwargs):
+    def __init__(self,
+                 can_reply: Optional[bool] = None, can_read_messages: Optional[bool] = None,
+                 can_delete_sent_messages: Optional[bool] = None, can_delete_all_messages: Optional[bool] = None,
+                 can_edit_name: Optional[bool] = None, can_edit_bio: Optional[bool] = None,
+                 can_edit_profile_photo: Optional[bool] = None, can_edit_username: Optional[bool] = None,
+                 can_change_gift_settings: Optional[bool] = None, can_view_gifts_and_stars: Optional[bool] = None,
+                 can_convert_gifts_to_stars: Optional[bool] = None,
+                 can_transfer_and_upgrade_gifts: Optional[bool] = None, can_transfer_stars: Optional[bool] = None,
+                 can_manage_stories: Optional[bool] = None, **kwargs):
         self.can_reply: Optional[bool] = can_reply
         self.can_read_messages: Optional[bool] = can_read_messages
-        self.can_delete_outgoing_messages: Optional[bool] = can_delete_outgoing_messages
+        self.can_delete_sent_messages: Optional[bool] = can_delete_sent_messages
         self.can_delete_all_messages: Optional[bool] = can_delete_all_messages
         self.can_edit_name: Optional[bool] = can_edit_name
         self.can_edit_bio: Optional[bool] = can_edit_bio
@@ -12315,6 +12209,12 @@ class BusinessBotRights(JsonDeserializable):
         if json_string is None: return None
         obj = cls.check_json(json_string)
         return cls(**obj)
+
+    @property
+    def can_delete_outgoing_messages(self) -> Optional[int]:
+        """Deprecated. Use can_delete_sent_messages instead."""
+        log_deprecation_warning("can_delete_outgoing_messages is deprecated. Use can_delete_sent_messages instead.")
+        return self.can_delete_sent_messages
 
 
 class AcceptedGiftTypes(JsonDeserializable, JsonSerializable):
@@ -12384,7 +12284,7 @@ class StarAmount(JsonDeserializable):
     :return: Instance of the class
     :rtype: :class:`StarAmount`
     """
-    def __init__(self, amount, nanostar_amount=None, **kwargs):
+    def __init__(self, amount: int, nanostar_amount: Optional[int] = None, **kwargs):
         self.amount: int = amount
         self.nanostar_amount: Optional[int] = nanostar_amount
 
@@ -12424,7 +12324,7 @@ class OwnedGift(JsonDeserializable, ABC):
 # noinspection PyShadowingBuiltins
 class OwnedGiftRegular(OwnedGift):
     """
-    This object describes a regular gift owned by a user or a chat.
+    Describes a regular gift owned by a user or a chat.
 
     Telegram documentation: https://core.telegram.org/bots/api#ownedgiftregular
 
@@ -12461,10 +12361,10 @@ class OwnedGiftRegular(OwnedGift):
     :param was_refunded: Optional. True, if the gift was refunded and isn't available anymore
     :type was_refunded: :obj:`bool`
 
-    :param convert_star_count: Optional. Number of Telegram Stars that can be claimed by the receiver instead of the gift; omitted if the gift cannot be converted to Telegram Stars
+    :param convert_star_count: Optional. Number of Telegram Stars that can be claimed by the receiver instead of the gift; omitted if the gift cannot be converted to Telegram Stars; for gifts received on behalf of business accounts only
     :type convert_star_count: :obj:`int`
 
-    :param prepaid_upgrade_star_count: Optional. Number of Telegram Stars that were paid by the sender for the ability to upgrade the gift
+    :param prepaid_upgrade_star_count: Optional. Number of Telegram Stars that were paid for the ability to upgrade the gift
     :type prepaid_upgrade_star_count: :obj:`int`
 
     :param is_upgrade_separate: Optional. True, if the gift's upgrade was purchased after the gift was sent; for gifts received on behalf of business accounts only
@@ -12476,14 +12376,17 @@ class OwnedGiftRegular(OwnedGift):
     :return: Instance of the class
     :rtype: :class:`OwnedGiftRegular`
     """
-    def __init__(self, type, gift, owned_gift_id=None, sender_user=None, send_date=None, text=None, entities=None,
-                    is_private=None, is_saved=None, can_be_upgraded=None, was_refunded=None, convert_star_count=None,
-                    prepaid_upgrade_star_count=None, is_upgrade_separate=None, unique_gift_number=None, **kwargs):
+    def __init__(self, type, gift: Gift, owned_gift_id: Optional[str] = None, sender_user: Optional[User] = None,
+                 send_date: int = None, text: Optional[str] = None, entities: Optional[List[MessageEntity]] = None,
+                 is_private: Optional[bool] = None, is_saved: Optional[bool] = None,
+                 can_be_upgraded: Optional[bool] = None, was_refunded: Optional[bool] = None,
+                 convert_star_count: Optional[int] = None, prepaid_upgrade_star_count: Optional[int] = None,
+                 is_upgrade_separate: Optional[bool] = None, unique_gift_number: Optional[int] = None, **kwargs):
         super().__init__(type=type)
         self.gift: Gift = gift
         self.owned_gift_id: Optional[str] = owned_gift_id
         self.sender_user: Optional[User] = sender_user
-        self.send_date: Optional[int] = send_date
+        self.send_date: int = send_date
         self.text: Optional[str] = text
         self.entities: Optional[List[MessageEntity]] = entities
         self.is_private: Optional[bool] = is_private
@@ -12510,7 +12413,7 @@ class OwnedGiftRegular(OwnedGift):
 # noinspection PyShadowingBuiltins
 class OwnedGiftUnique(OwnedGift):
     """
-    This object describes a unique gift owned by a user or a chat.
+    Describes a unique gift received and owned by a user or a chat.
 
     Telegram documentation: https://core.telegram.org/bots/api#ownedgiftunique
 
@@ -12544,13 +12447,14 @@ class OwnedGiftUnique(OwnedGift):
     :return: Instance of the class
     :rtype: :class:`OwnedGiftUnique`
     """
-    def __init__(self, type, gift, owned_gift_id=None, sender_user=None, send_date=None, is_saved=None,
-                    can_be_transferred=None, transfer_star_count=None, next_transfer_date=None, **kwargs):
+    def __init__(self, type, gift: UniqueGift, owned_gift_id: Optional[str] = None, sender_user: Optional[User] = None,
+                 send_date: int = None, is_saved: Optional[bool] = None, can_be_transferred: Optional[bool] = None,
+                 transfer_star_count: Optional[int] = None, next_transfer_date: Optional[int] = None, **kwargs):
         super().__init__(type=type)
         self.gift: UniqueGift = gift
         self.owned_gift_id: Optional[str] = owned_gift_id
         self.sender_user: Optional[User] = sender_user
-        self.send_date: Optional[int] = send_date
+        self.send_date: int = send_date
         self.is_saved: Optional[bool] = is_saved
         self.can_be_transferred: Optional[bool] = can_be_transferred
         self.transfer_star_count: Optional[int] = transfer_star_count
@@ -12585,7 +12489,7 @@ class OwnedGifts(JsonDeserializable):
     :rtype: :class:`OwnedGifts`
 
     """
-    def __init__(self, total_count, gifts, next_offset=None, **kwargs):
+    def __init__(self, total_count: int, gifts: List[OwnedGift], next_offset: Optional[str] = None, **kwargs):
         self.total_count: int = total_count
         self.gifts: List[OwnedGift] = gifts
         self.next_offset: Optional[str] = next_offset
@@ -12628,7 +12532,7 @@ class UniqueGift(JsonDeserializable):
     :param is_from_blockchain: Optional. True, if the gift is assigned from the TON blockchain and can't be resold or transferred in Telegram
     :type is_from_blockchain: :obj:`bool`
 
-    :param is_premium: Optional. True, if the gift can only be purchased by Telegram Premium subscribers
+    :param is_premium: Optional. True, if the original regular gift was exclusively purchaseable by Telegram Premium subscribers
     :type is_premium: :obj:`bool`
 
     :param is_burned: Optional. True, if the gift was used to craft another gift and isn't available anymore
@@ -12636,14 +12540,18 @@ class UniqueGift(JsonDeserializable):
 
     :param colors: Optional. The color scheme that can be used by the gift's owner for the chat's name, replies to messages and link previews; for business account gifts and gifts that are currently on sale only
     :type colors: :class:`UniqueGiftColors`
+
     :param publisher_chat: Optional. Information about the chat that published the gift
     :type publisher_chat: :class:`Chat`
 
     :return: Instance of the class
     :rtype: :class:`UniqueGift`
     """
-    def __init__(self, base_name, name, number, model, symbol, backdrop, gift_id, publisher_chat=None, is_from_blockchain=None, is_premium=None, colors=None,
-                    is_burned=None, **kwargs):
+    def __init__(self, base_name: str, name: str, number: int, model: UniqueGiftModel, symbol: UniqueGiftSymbol,
+                 backdrop: UniqueGiftBackdrop, gift_id: str,
+                 is_premium: Optional[bool] = None, is_burned: Optional[bool] = None,
+                 is_from_blockchain: Optional[bool] = None, colors: Optional[UniqueGiftColors] = None,
+                 publisher_chat: Optional[Chat] = None, **kwargs):
         self.base_name: str = base_name
         self.name: str = name
         self.number: int = number
@@ -12683,7 +12591,7 @@ class UniqueGiftModel(JsonDeserializable):
     :param sticker: The sticker that represents the unique gift
     :type sticker: :class:`Sticker`
 
-    :param rarity_per_mille: The number of unique gifts that receive this model for every 1000 gifts upgraded
+    :param rarity_per_mille: The number of unique gifts that receive this model for every 1000 gift upgrades. Always 0 for crafted gifts.
     :type rarity_per_mille: :obj:`int`
 
     :param rarity: Optional. Rarity of the model if it is a crafted model. Currently, can be “uncommon”, “rare”, “epic”, or “legendary”.
@@ -12693,7 +12601,8 @@ class UniqueGiftModel(JsonDeserializable):
     :rtype: :class:`UniqueGiftModel`
 
     """
-    def __init__(self, name, sticker, rarity_per_mille, rarity=None, **kwargs):
+    def __init__(self, name: str, sticker: Sticker, rarity_per_mille: int,
+                 rarity: Optional[str] = None, **kwargs):
         self.name: str = name
         self.sticker: Sticker = sticker
         self.rarity_per_mille: int = rarity_per_mille
@@ -12726,7 +12635,7 @@ class UniqueGiftSymbol(JsonDeserializable):
     :rtype: :class:`UniqueGiftSymbol`
     """
 
-    def __init__(self, name, sticker, rarity_per_mille, **kwargs):
+    def __init__(self, name: str, sticker: Sticker, rarity_per_mille: int, **kwargs):
         self.name: str = name
         self.sticker: Sticker = sticker
         self.rarity_per_mille: int = rarity_per_mille
@@ -12760,7 +12669,7 @@ class UniqueGiftBackdropColors(JsonDeserializable):
     :return: Instance of the class
     :rtype: :class:`UniqueGiftBackdropColors`
     """
-    def __init__(self, center_color, edge_color, symbol_color, text_color, **kwargs):
+    def __init__(self, center_color: int, edge_color: int, symbol_color: int, text_color: int, **kwargs):
         self.center_color: int = center_color
         self.edge_color: int = edge_color
         self.symbol_color: int = symbol_color
@@ -12791,7 +12700,7 @@ class UniqueGiftBackdrop(JsonDeserializable):
     :return: Instance of the class
     :rtype: :class:`UniqueGiftBackdrop`
     """
-    def __init__(self, name, colors, rarity_per_mille, **kwargs):
+    def __init__(self, name: str, colors: UniqueGiftBackdropColors, rarity_per_mille: int, **kwargs):
         self.name: str = name
         self.colors: UniqueGiftBackdropColors = colors
         self.rarity_per_mille: int = rarity_per_mille
@@ -12819,11 +12728,14 @@ class InputStoryContent(JsonSerializable, ABC):
 
 class InputStoryContentPhoto(InputStoryContent):
     """
-    This object describes a photo to post as a story.
+    Describes a photo to post as a story.
 
     Telegram documentation: https://core.telegram.org/bots/api#inputstorycontentphoto
 
-    :param photo: The photo to post as a story. The photo must be of the size 1080x1920 and must not exceed 10 MB. The photo can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the photo was uploaded using multipart/form-data under <file_attach_name>. More information on Sending Files
+    :param type: Type of the content, must be photo
+    :type type: :obj:`str`
+
+    :param photo: The photo to post as a story. The photo must be of the size 1080x1920 and must not exceed 10 MB. The photo can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the photo was uploaded using multipart/form-data under <file_attach_name>.
     :type photo: :class:`telebot.types.InputFile`
 
     :return: Instance of the class
@@ -12851,11 +12763,14 @@ class InputStoryContentPhoto(InputStoryContent):
 
 class InputStoryContentVideo(InputStoryContent):
     """
-    This object describes a video to post as a story.
+    Describes a video to post as a story.
 
     Telegram documentation: https://core.telegram.org/bots/api#inputstorycontentvideo
 
-    :param video: The video to post as a story. The video must be of the size 720x1280, streamable, encoded with H.265 codec, with key frames added each second in the MPEG4 format, and must not exceed 30 MB. The video can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the video was uploaded using multipart/form-data under <file_attach_name>. More information on Sending Files
+    :param type: Type of the content, must be video
+    :type type: :obj:`str`
+
+    :param video: The video to post as a story. The video must be of the size 720x1280, streamable, encoded with H.265 codec, with key frames added each second in the MPEG4 format, and must not exceed 30 MB. The video can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the video was uploaded using multipart/form-data under <file_attach_name>.
     :type video: :class:`telebot.types.InputFile`
 
     :param duration: Optional. Precise duration of the video in seconds; 0-60
@@ -12870,8 +12785,10 @@ class InputStoryContentVideo(InputStoryContent):
     :return: Instance of the class
     :rtype: :class:`InputStoryContentVideo`
     """
-    def __init__(self, video: InputFile, duration: Optional[float] = None, cover_frame_timestamp: Optional[float] = None,
-                    is_animation: Optional[bool] = None, **kwargs):
+    def __init__(
+        self, video: InputFile, duration: Optional[float] = None,
+        cover_frame_timestamp: Optional[float] = None,
+        is_animation: Optional[bool] = None, **kwargs):
         super().__init__(type="video")
         self.video: InputFile = video
         self._video_name = service_utils.generate_random_token()
@@ -13005,7 +12922,7 @@ class StoryAreaType(JsonSerializable, ABC):
     StoryAreaTypeWeather
     StoryAreaTypeUniqueGift
 
-    Telegram documentation: https://core.telegram.org/bots/api#storyarea
+    Telegram documentation: https://core.telegram.org/bots/api#storyareatype
 
     :return: Instance of the class
     :rtype: :class:`StoryArea`
@@ -13029,13 +12946,14 @@ class StoryAreaTypeLocation(StoryAreaType):
     :param longitude: Location longitude in degrees
     :type longitude: :obj:`float`
 
-    :param address: Optional, Location address
+    :param address: Optional. Address of the location
     :type address: :class:`LocationAddress`
 
     :return: Instance of the class
     :rtype: :class:`StoryAreaTypeLocation`
     """
-    def __init__(self,latitude: float, longitude: float, address: LocationAddress = None, **kwargs):
+    def __init__(self, latitude: float, longitude: float, address: Optional[LocationAddress] = None,
+                 **kwargs):
         super().__init__(type="location")
         self.latitude: float = latitude
         self.longitude: float = longitude
@@ -13076,7 +12994,8 @@ class StoryAreaTypeSuggestedReaction(StoryAreaType):
     :return: Instance of the class
     :rtype: :class:`StoryAreaTypeSuggestedReaction`
     """
-    def __init__(self, reaction_type: ReactionType, is_dark: Optional[bool] = None, is_flipped: Optional[bool] = None, **kwargs):
+    def __init__(self, reaction_type: ReactionType, is_dark: Optional[bool] = None,
+                 is_flipped: Optional[bool] = None, **kwargs):
         super().__init__(type="suggested_reaction")
         self.reaction_type: ReactionType = reaction_type
         self.is_dark: Optional[bool] = is_dark
@@ -13231,7 +13150,7 @@ class StoryArea(JsonSerializable):
 
 class GiftInfo(JsonDeserializable):
     """
-    This object describes a service message about a regular gift that was sent or received.
+    Describes a service message about a regular gift that was sent or received.
 
     Telegram documentation: https://core.telegram.org/bots/api#giftinfo
 
@@ -13244,7 +13163,7 @@ class GiftInfo(JsonDeserializable):
     :param convert_star_count: Optional. Number of Telegram Stars that can be claimed by the receiver by converting the gift; omitted if conversion to Telegram Stars is impossible
     :type convert_star_count: :obj:`int`
 
-    :param prepaid_upgrade_star_count: Optional. Number of Telegram Stars that were prepaid by the sender for the ability to upgrade the gift
+    :param prepaid_upgrade_star_count: Optional. Number of Telegram Stars that were prepaid for the ability to upgrade the gift
     :type prepaid_upgrade_star_count: :obj:`int`
 
     :param is_upgrade_separate: Optional. True, if the gift's upgrade was purchased after the gift was sent
@@ -13296,26 +13215,33 @@ class GiftInfo(JsonDeserializable):
 
 class UniqueGiftInfo(JsonDeserializable):
     """
-    This object describes a service message about a unique gift that was sent or received.
+    Describes a service message about a unique gift that was sent or received.
 
     Telegram documentation: https://core.telegram.org/bots/api#uniquegiftinfo
 
     :param gift: Information about the gift
     :type gift: :class:`UniqueGift`
 
-    :param origin: 	Origin of the gift. Currently, either “upgrade” for gifts upgraded from regular gifts, “transfer” for gifts
-        transferred from other users or channels, “resale” for gifts bought from other users, “gifted_upgrade” for upgrades purchased
-        after the gift was sent, or “offer” for gifts bought or sold through gift purchase offers
+    :param origin: 	Origin of the gift. Currently, either “upgrade” for gifts upgraded from regular gifts, “transfer” for gifts transferred from other users or channels, “resale” for gifts bought from other users, “gifted_upgrade” for upgrades purchased after the gift was sent, or “offer” for gifts bought or sold through gift purchase offers
     :type origin: :obj:`str`
 
     :param last_resale_star_count: Deprecated. Use last_resale_currency and last_resale_amount instead. 
     :type last_resale_star_count: :obj:`int`
 
-    :param last_resale_currency: Optional. For gifts bought from other users, the currency in which the payment for the gift was done. Currently, one of “XTR” for Telegram Stars or “TON” for toncoins.
+    :param last_resale_currency: Optional. For gifts bought from other users, the currency in which the payment for the gift was done. Currently, one of “XTR” for Telegram Stars or “TON” for TON grams.
     :type last_resale_currency: :obj:`str`
 
-    :param last_resale_amount: Optional. For gifts bought from other users, the price paid for the gift in either Telegram Stars or nanotoncoins
+    :param last_resale_amount: Optional. For gifts bought from other users, the price paid for the gift in either Telegram Stars or nanograms
     :type last_resale_amount: :obj:`int`
+
+    :param text: Optional. Text of the message that was added to the gift
+    :type text: :obj:`str`
+
+    :param entities: Optional. Special entities that appear in the text
+    :type entities: :obj:`list` of :class:`telebot.types.MessageEntity`
+
+    :param is_private: Optional. True, if the sender and gift text are shown only to the gift receiver; otherwise, everyone will be able to see them
+    :type is_private: :obj:`bool`
 
     :param owned_gift_id: Optional. Unique identifier of the received gift for the bot; only present for gifts received on behalf of business accounts
     :type owned_gift_id: :obj:`str`
@@ -13332,7 +13258,8 @@ class UniqueGiftInfo(JsonDeserializable):
     def __init__(self, gift: UniqueGift, origin: str, owned_gift_id: Optional[str] = None,
                     transfer_star_count: Optional[int] = None, next_transfer_date: Optional[int] = None,
                     last_resale_currency: Optional[str] = None,
-                    last_resale_amount: Optional[int] = None, **kwargs):
+                    last_resale_amount: Optional[int] = None, text: Optional[str] = None,
+                    entities: Optional[List[MessageEntity]] = None, is_private: Optional[bool] = None, **kwargs):
         self.gift: UniqueGift = gift
         self.origin: str = origin
         self.last_resale_currency: Optional[str] = last_resale_currency
@@ -13340,6 +13267,9 @@ class UniqueGiftInfo(JsonDeserializable):
         self.owned_gift_id: Optional[str] = owned_gift_id
         self.transfer_star_count: Optional[int] = transfer_star_count
         self.next_transfer_date: Optional[int] = next_transfer_date
+        self.text: Optional[str] = text
+        self.entities: Optional[List[MessageEntity]] = entities
+        self.is_private: Optional[bool] = is_private
 
     @property 
     def last_resale_star_count(self) -> Optional[int]:
@@ -13355,6 +13285,8 @@ class UniqueGiftInfo(JsonDeserializable):
         if json_string is None: return None
         obj = cls.check_json(json_string)
         obj['gift'] = UniqueGift.de_json(obj['gift'])
+        if 'entities' in obj:
+            obj['entities'] = [MessageEntity.de_json(entity) for entity in obj['entities']]
         return cls(**obj)
 
 
@@ -13395,15 +13327,15 @@ class InputProfilePhoto(JsonSerializable, ABC):
 
 class InputProfilePhotoStatic(InputProfilePhoto):
     """
-    This object describes a static profile photo to set.
+    A static profile photo in the .JPG format.
 
     Telegram documentation: https://core.telegram.org/bots/api#inputprofilephotostatic
 
     :param type: Type of the profile photo, must be static
     :type type: :obj:`str`
 
-    :param photo: The static profile photo. Profile photos can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the photo was uploaded using multipart/form-data under <file_attach_name>. More information on Sending Files
-    :type photo: :obj:`str`
+    :param photo: The static profile photo. Profile photos can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the photo was uploaded using multipart/form-data under <file_attach_name>
+    :type photo: :class:`telebot.types.InputFile`
 
     :return: Instance of the class
     :rtype: :class:`InputProfilePhotoStatic`
@@ -13431,15 +13363,15 @@ class InputProfilePhotoStatic(InputProfilePhoto):
 
 class InputProfilePhotoAnimated(InputProfilePhoto):
     """
-    This object describes an animated profile photo to set.
+    An animated profile photo in the MPEG4 format.
 
     Telegram documentation: https://core.telegram.org/bots/api#inputprofilephotoanimated
 
     :param type: Type of the profile photo, must be animated
     :type type: :obj:`str`
 
-    :param animation: The animated profile photo. Profile photos can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the photo was uploaded using multipart/form-data under <file_attach_name>. More information on Sending Files
-    :type animation: :obj:`str`
+    :param animation: The animated profile photo. Profile photos can't be reused and can only be uploaded as a new file, so you can pass “attach://<file_attach_name>” if the photo was uploaded using multipart/form-data under <file_attach_name>
+    :type animation: :class:`telebot.types.InputFile`
 
     :param main_frame_timestamp: Optional. Timestamp in seconds of the frame that will be used as the static profile photo. Defaults to 0.0.
     :type main_frame_timestamp: :obj:`float`
@@ -13487,7 +13419,7 @@ class ChecklistTask(JsonDeserializable):
     :param text_entities: Optional. Special entities that appear in the task text
     :type text_entities: :obj:`list` of :class:`MessageEntity`
 
-    :param completed_by_user: Optional. User that completed the task; omitted if the task wasn't completed
+    :param completed_by_user: Optional. User that completed the task; omitted if the task wasn't completed by a user
     :type completed_by_user: :class:`User`
 
     :param completed_by_chat: Optional. Chat that completed the task; omitted if the task wasn't completed by a chat
@@ -13541,7 +13473,7 @@ class Checklist(JsonDeserializable):
     :param others_can_add_tasks: Optional. True, if users other than the creator of the list can add tasks to the list
     :type others_can_add_tasks: :obj:`bool`
 
-    :param others_can_mark_tasks_as_done: Optional. True, if users other than the creator of the list can mark tasks as done or not done in the list
+    :param others_can_mark_tasks_as_done: Optional. True, if users other than the creator of the list can mark tasks as done or not done
     :type others_can_mark_tasks_as_done: :obj:`bool`
 
     :return: Instance of the class
@@ -13583,8 +13515,7 @@ class InputChecklistTask(JsonSerializable):
     :param parse_mode: Optional. Mode for parsing entities in the text. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param text_entities: Optional. List of special entities that appear in the text, which can be specified instead of parse_mode.
-        Currently, only bold, italic, underline, strikethrough, spoiler, custom_emoji, and date_time entities are allowed.
+    :param text_entities: Optional. List of special entities that appear in the text, which can be specified instead of parse_mode. Currently, only bold, italic, underline, strikethrough, spoiler, custom_emoji, and date_time entities are allowed.
     :type text_entities: :obj:`list` of :class:`MessageEntity`
 
     :return: Instance of the class
@@ -13624,8 +13555,7 @@ class InputChecklist(JsonSerializable):
     :param parse_mode: Optional. Mode for parsing entities in the title. See formatting options for more details.
     :type parse_mode: :obj:`str`
 
-    :param title_entities: Optional. List of special entities that appear in the title, which can be specified instead of parse_mode.
-        Currently, only bold, italic, underline, strikethrough, spoiler, custom_emoji, and date_time entities are allowed.
+    :param title_entities: Optional. List of special entities that appear in the title, which can be specified instead of parse_mode. Currently, only bold, italic, underline, strikethrough, spoiler, custom_emoji, and date_time entities are allowed.
     :type title_entities: :obj:`list` of :class:`MessageEntity`
 
     :param tasks: List of 1-30 tasks in the checklist
@@ -13740,7 +13670,7 @@ class DirectMessagePriceChanged(JsonDeserializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#directmessagepricechanged
 
-    :param are_direct_messages_enabled: True, if direct messages are enabled for the channel chat; false otherwise
+    :param are_direct_messages_enabled: True, if direct messages are enabled for the channel chat; False otherwise
     :type are_direct_messages_enabled: :obj:`bool`
 
     :param direct_message_star_count: Optional. The new number of Telegram Stars that must be paid by users for each direct message sent to the channel. Does not apply to users who have been exempted by administrators. Defaults to 0.
@@ -13811,7 +13741,7 @@ class DirectMessagesTopic(JsonDeserializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#directmessagestopic
 
-    :param topic_id: Unique identifier of the topic
+    :param topic_id: Unique identifier of the topic. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a 64-bit integer or double-precision float type are safe for storing this identifier.
     :type topic_id: :obj:`int`
 
     :param user: Optional. Information about the user that created the topic. Currently, it is always present
@@ -13839,10 +13769,10 @@ class SuggestedPostPrice(JsonSerializable, JsonDeserializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#suggestedpostprice
 
-    :param currency: Currency in which the post will be paid. Currently, must be one of “XTR” for Telegram Stars or “TON” for toncoins
+    :param currency: Currency in which the post will be paid. Currently, must be one of “XTR” for Telegram Stars or “TON” for TON grams.
     :type currency: :obj:`str`
 
-    :param amount: The amount of the currency that will be paid for the post in the smallest units of the currency, i.e. Telegram Stars or nanotoncoins. Currently, price in Telegram Stars must be between 5 and 100000, and price in nanotoncoins must be between 10000000 and 10000000000000.
+    :param amount: The amount of the currency that will be paid for the post in the smallest units of the currency, i.e. Telegram Stars or nanograms. Currently, price in Telegram Stars must be between 5 and 100000, and price in nanograms must be between 10000000 and 10000000000000.
     :type amount: :obj:`int`
 
     :return: Instance of the class
@@ -13993,6 +13923,12 @@ class GiftBackground(JsonDeserializable):
         self.edge_color: int = edge_color
         self.text_color: int = text_color
 
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        return cls(**obj)
+
 class SuggestedPostApprovalFailed(JsonDeserializable):
     """
     Describes a service message about the failed approval of a suggested post.
@@ -14059,10 +13995,10 @@ class SuggestedPostPaid(JsonDeserializable):
     :param suggested_post_message: Optional. Message containing the suggested post. Note that the Message object in this field will not contain the reply_to_message field even if it itself is a reply.
     :type suggested_post_message: :class:`Message`
 
-    :param currency: Currency in which the payment was made. Currently, one of “XTR” for Telegram Stars or “TON” for toncoins
+    :param currency: Currency in which the payment was made. Currently, one of “XTR” for Telegram Stars or “TON” for TON grams.
     :type currency: :obj:`str`
 
-    :param amount: Optional. The amount of the currency that was received by the channel in nanotoncoins; for payments in toncoins only
+    :param amount: Optional. The amount of the currency that was received by the channel in nanograms; for payments in TON grams only
     :type amount: :obj:`int`
 
     :param star_amount: Optional. The amount of Telegram Stars that was received by the channel; for payments in Telegram Stars only
@@ -14157,7 +14093,7 @@ class ChatOwnerLeft(JsonDeserializable):
 
     Telegram documentation: https://core.telegram.org/bots/api#chatownerleft
 
-    :param new_owner: Optional. The user which will be the new owner of the chat if the previous owner does not return to the chat
+    :param new_owner: Optional. The user who will become the new owner of the chat if the previous owner does not return to the chat
     :type new_owner: :class:`User`
 
     :return: Instance of the class
@@ -14217,14 +14153,15 @@ class VideoQuality(JsonDeserializable):
     :param codec: Codec that was used to encode the video, for example, “h264”, “h265”, or “av01”
     :type codec: :obj:`str`
 
-    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it.
-        But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
     :type file_size: :obj:`int`
 
     :return: Instance of the class
     :rtype: :class:`VideoQuality`
     """
-    def __init__(self, file_id: str, file_unique_id: str, width: int, height: int, codec: str, file_size: Optional[int] = None, **kwargs):
+    def __init__(
+        self, file_id: str, file_unique_id: str, width: int, height: int,
+        codec: str, file_size: Optional[int] = None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.width: int = width
@@ -14286,7 +14223,10 @@ class KeyboardButtonRequestManagedBot(JsonSerializable):
     :return: Instance of the class
     :rtype: :class:`KeyboardButtonRequestManagedBot`
     """
-    def __init__(self, request_id: int, suggested_name: Optional[str] = None, suggested_username: Optional[str] = None, **kwargs):
+    def __init__(
+        self, request_id: int,
+        suggested_name: Optional[str] = None,
+        suggested_username: Optional[str] = None, **kwargs):
         self.request_id: int = request_id
         self.suggested_name: Optional[str] = suggested_name
         self.suggested_username: Optional[str] = suggested_username
@@ -14330,7 +14270,7 @@ class ManagedBotCreated(JsonDeserializable):
 
 class ManagedBotUpdated(JsonDeserializable):
     """
-    This object contains information about the creation or token update of a bot that is managed by the current bot.
+    This object contains information about the creation, token update, or owner update of a bot that is managed by the current bot.
 
     Telegram documentation: https://core.telegram.org/bots/api#managedbotupdated
 
@@ -14402,9 +14342,9 @@ class PollOptionAdded(JsonDeserializable):
     :rtype: :class:`PollOptionAdded`
     """
     def __init__(self, option_persistent_id: str, option_text: str,
-                    poll_message: Optional[Union[InaccessibleMessage, Message]] = None,
+                    poll_message: Optional[MaybeInaccessibleMessage] = None,
                     option_text_entities: Optional[List[MessageEntity]] = None, **kwargs):
-        self.poll_message: Optional[Union[InaccessibleMessage, Message]] = poll_message
+        self.poll_message: Optional[MaybeInaccessibleMessage] = poll_message
         self.option_persistent_id: str = option_persistent_id
         self.option_text: str = option_text
         self.option_text_entities: Optional[List[MessageEntity]] = option_text_entities
@@ -14447,9 +14387,9 @@ class PollOptionDeleted(JsonDeserializable):
     :rtype: :class:`PollOptionDeleted`
     """
     def __init__(self, option_persistent_id: str, option_text: str,
-                    poll_message: Optional[Union[InaccessibleMessage, Message]] = None,
+                    poll_message: Optional[MaybeInaccessibleMessage] = None,
                     option_text_entities: Optional[List[MessageEntity]] = None, **kwargs):
-        self.poll_message: Optional[Union[InaccessibleMessage, Message]] = poll_message
+        self.poll_message: Optional[MaybeInaccessibleMessage] = poll_message
         self.option_persistent_id: str = option_persistent_id
         self.option_text: str = option_text
         self.option_text_entities: Optional[List[MessageEntity]] = option_text_entities
@@ -14494,7 +14434,7 @@ class SentGuestMessage(JsonDeserializable):
 
 class PollMedia(JsonDeserializable):
     """
-    This object describes the media attached to a poll option. At most one of the optional fields can be present in any given object.
+    At most one of the optional fields can be present in any given object.
 
     Telegram documentation: https://core.telegram.org/bots/api#pollmedia
 
@@ -14532,10 +14472,16 @@ class PollMedia(JsonDeserializable):
     :rtype: :class:`PollMedia`
 
     """
-    def __init__(self, animation: Optional[Animation] = None, audio: Optional[Audio] = None, document: Optional[Document] = None,
-                    live_photo: Optional[LivePhoto] = None, location: Optional[Location] = None, photo: Optional[List[PhotoSize]] = None,
-                    sticker: Optional[Sticker] = None, venue: Optional[Venue] = None, video: Optional[Video] = None, link: Optional[Link] = None,
-                    **kwargs):
+    def __init__(
+        self, animation: Optional[Animation] = None,
+        audio: Optional[Audio] = None,
+        document: Optional[Document] = None,
+        live_photo: Optional[LivePhoto] = None,
+        location: Optional[Location] = None,
+        photo: Optional[List[PhotoSize]] = None,
+        sticker: Optional[Sticker] = None, venue: Optional[Venue] = None,
+        video: Optional[Video] = None, link: Optional[Link] = None,
+        **kwargs):
         self.animation: Optional[Animation] = animation
         self.audio: Optional[Audio] = audio
         self.document: Optional[Document] = document
@@ -14576,9 +14522,12 @@ class PollMedia(JsonDeserializable):
 
 class InputMediaLink(InputMedia):
     """
-    This object represents an HTTP link to be sent.
+    Represents an HTTP link to be sent.
 
     Telegram documentation: https://core.telegram.org/bots/api#inputmedialink
+
+    :param type: Type of the media, must be link
+    :type type: :obj:`str`
 
     :param url: HTTP URL of the link
     :type url: :obj:`str`
@@ -14601,6 +14550,10 @@ class InputMediaLink(InputMedia):
 
 
 # why not..
+MaybeInaccessibleMessage = Union[InaccessibleMessage, Message]
+
+InputMessageContent = Union[InputTextMessageContent, InputLocationMessageContent, InputVenueMessageContent, InputContactMessageContent, InputInvoiceMessageContent, InputRichMessageContent]
+
 InputPollMedia = Union[InputMediaAnimation, InputMediaAudio, InputMediaDocument, InputMediaLivePhoto, InputMediaLocation, InputMediaPhoto, InputMediaVenue, InputMediaVideo]
 
 InputPollOptionMedia = Union[InputMediaAnimation, InputMediaLivePhoto, InputMediaLocation, InputMediaPhoto, InputMediaSticker, InputMediaVenue, InputMediaVideo, InputMediaLink]
@@ -14639,8 +14592,12 @@ class LivePhoto(JsonDeserializable):
     :return: Instance of the class
     :rtype: :class:`LivePhoto`
     """
-    def __init__(self, file_id: str, file_unique_id: str, width: int, height: int, duration: int, photo: Optional[List[PhotoSize]] = None,
-                    mime_type: Optional[str] = None, file_size: Optional[int] = None, **kwargs):
+    def __init__(
+        self, file_id: str, file_unique_id: str, width: int, height: int,
+        duration: int,
+        photo: Optional[List[PhotoSize]] = None,
+        mime_type: Optional[str] = None, file_size: Optional[int] = None,
+        **kwargs):
         self.photo: Optional[List[PhotoSize]] = photo
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
@@ -14687,7 +14644,8 @@ class BotAccessSettings(JsonDeserializable):
         return cls(**obj)
 
 
-class RichText(JsonDeserializable, Dictionaryable):
+# noinspection shadowing-builtins
+class RichText(JsonDeserializable, Dictionaryable, ABC):
     """
     This object represents a rich formatted text. Currently, it can be either a String for plain text,
     an Array of :class:`RichText`, or any of the following types:
@@ -14730,8 +14688,17 @@ class RichText(JsonDeserializable, Dictionaryable):
         if json_string is None: return None
         if isinstance(json_string, str):
             # "...can be either a String for plain text..."
-            return json_string
-        if isinstance(json_string, list):
+            if (json_string.startswith('{') and json_string.endswith('}')) or (json_string.startswith('[') and json_string.endswith(']')):
+                try:
+                    # Check if string is valid json. If so, assume it's json, not plain string
+                    json.loads(json_string)
+                    # If it's valid json, continue to json processing below
+                except (ValueError, TypeError, json.JSONDecodeError):
+                    # If it's not valid json, return the string as is
+                    return json_string
+            else:
+                return json_string
+        elif isinstance(json_string, list):
             # "...an Array of :class:`RichText`..."
             return [RichText.de_json(item) for item in json_string]
         # "...or any of the following types..."
@@ -14787,6 +14754,8 @@ class RichText(JsonDeserializable, Dictionaryable):
             return RichTextReference.de_json(obj)
         elif type == 'reference_link':
             return RichTextReferenceLink.de_json(obj)
+        elif type == 'button':
+            return RichTextButton.de_json(obj)
         return None
 
     def to_dict(self):
@@ -15777,7 +15746,8 @@ class RichBlockTableCell(JsonDeserializable, Dictionaryable):
             data['rowspan'] = self.rowspan
         return data
 
-    
+
+# noinspection shadowing-builtins
 class RichBlockListItem(JsonDeserializable):
     """
     This object represents an item of a list.
@@ -15821,7 +15791,8 @@ class RichBlockListItem(JsonDeserializable):
         return cls(**obj)
 
 
-class RichBlock(JsonDeserializable):
+# noinspection shadowing-builtins
+class RichBlock(JsonDeserializable, ABC):
     """
     This object represents a block in a rich formatted message. Currently, it can be any of the following types:
 
@@ -15846,6 +15817,9 @@ class RichBlock(JsonDeserializable):
     - :class:`RichBlockVideo`
     - :class:`RichBlockVoiceNote`
     - :class:`RichBlockThinking`
+    - :class:`RichBlockButtons`
+    - :class:`RichBlockExpandableBlockQuotation`
+    - :class:`RichBlockDocument`
 
     Telegram documentation: https://core.telegram.org/bots/api#richblock
 
@@ -15902,6 +15876,12 @@ class RichBlock(JsonDeserializable):
             return RichBlockVoiceNote.de_json(obj)
         elif type == 'thinking':
             return RichBlockThinking.de_json(obj)
+        elif type == 'buttons':
+            return RichBlockButtons.de_json(obj)
+        elif type == 'expandable_blockquote':
+            return RichBlockExpandableBlockQuotation.de_json(obj)
+        elif type == 'document':
+            return RichBlockDocument.de_json(obj)
         return None
     
     
@@ -16000,8 +15980,7 @@ class RichBlockFooter(RichBlock):
 
     Telegram documentation: https://core.telegram.org/bots/api#richblockfooter
 
-    :param type: Type of the block, always “footer”
-
+    :param type: Type of the block, always “footer” 
     :param text: Text of the block
     :type text: :class:`RichText`
 
@@ -16269,17 +16248,21 @@ class RichBlockTable(RichBlock):
     :param is_striped: Optional. True, if the table is striped
     :type is_striped: :obj:`bool`
 
+    :param is_compact: Optional. True, if table cells have smaller indents
+    :type is_compact: :obj:`bool`
+
     :param caption: Optional. Caption of the table
     :type caption: :class:`RichText`
 
     :return: Instance of the class
     :rtype: :class:`RichBlockTable`
     """
-    def __init__(self, cells: List[List[RichBlockTableCell]], is_bordered: Optional[bool] = None, is_striped: Optional[bool] = None, caption: Optional[RichText] = None, **kwargs):
+    def __init__(self, cells: List[List[RichBlockTableCell]], is_bordered: Optional[bool] = None, is_striped: Optional[bool] = None, is_compact: Optional[bool] = None, caption: Optional[RichText] = None, **kwargs):
         super().__init__(type='table', **kwargs)
         self.cells: List[List[RichBlockTableCell]] = cells
         self.is_bordered: Optional[bool] = is_bordered
         self.is_striped: Optional[bool] = is_striped
+        self.is_compact: Optional[bool] = is_compact
         self.caption: Optional[RichText] = caption
 
     @classmethod
@@ -16555,8 +16538,7 @@ class RichBlockThinking(RichBlock):
     :param type: Type of the block, always “thinking”
     :type type: :obj:`str`
 
-    :param text: Text of the block. See https://t.me/addemoji/AIActions for examples of custom emoji,
-        which are recommended for usage in the block.
+    :param text: Text of the block. See https://t.me/addemoji/AIActions for examples of custom emoji, which are recommended for usage in the block.
     :type text: :class:`RichText`
 
     :return: Instance of the class
@@ -16608,23 +16590,19 @@ class InputRichMessage(Dictionaryable):
     :param blocks: Optional. Content of the rich message to send described as a list of blocks
     :type blocks: :obj:`list` of :class:`InputRichBlock`
 
-    :param html: Optional. Content of the rich message to send described using HTML formatting.
-        See rich message formatting options for more details.
+    :param html: Optional. Content of the rich message to send described using HTML formatting. See rich message formatting options for more details.
     :type html: :obj:`str`
 
-    :param markdown: Optional. Content of the rich message to send described using Markdown formatting.
-    See rich message formatting options for more details.
+    :param markdown: Optional. Content of the rich message to send described using Markdown formatting. See rich message formatting options for more details.
     :type markdown: :obj:`str`
 
-    :param media: Optional. List of media that are specified in the markdown or html fields
-        using tg://photo?id=, tg://video?id=, and tg://audio?id= links
+    :param media: Optional. List of media that are specified in the markdown or html fields using tg://photo?id=, tg://video?id=, and tg://audio?id= links
     :type media: :obj:`list` of :class:`InputRichMessageMedia`
 
     :param is_rtl: Optional. Pass True if the rich message must be shown right-to-left
     :type is_rtl: :obj:`bool`
 
-    :param skip_entity_detection: Optional. Pass True to skip automatic detection of entities
-        (e.g., URLs, email addresses, username mentions, hashtags, cashtags, bot commands, or phone numbers) in the text
+    :param skip_entity_detection: Optional. Pass True to skip automatic detection of entities (e.g., URLs, email addresses, username mentions, hashtags, cashtags, bot commands, or phone numbers) in the text
     :type skip_entity_detection: :obj:`bool`
 
     :return: Instance of the class
@@ -16661,7 +16639,7 @@ class InputRichMessage(Dictionaryable):
 
 class Link(JsonDeserializable):
     """
-    This object represents an HTTP link.
+    Represents an HTTP link.
 
     Telegram documentation: https://core.telegram.org/bots/api#link
 
@@ -16690,9 +16668,7 @@ class InputMediaVoiceNote(InputMedia):
     :param type: Type of the media, must be voice_note
     :type type: :obj:`str`
 
-    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended),
-        pass an HTTP URL for Telegram to get a file from the Internet, or pass "attach://<file_attach_name>"
-        to upload a new one using multipart/form-data under <file_attach_name> name. More information on Sending Files »
+    :param media: File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended), pass an HTTP URL for Telegram to get a file from the Internet, or pass "attach://<file_attach_name>" to upload a new one using multipart/form-data under <file_attach_name> name.
     :type media: :obj:`str`
 
     :param caption: Optional. Caption of the voice message to be sent, 0-1024 characters after entities parsing
@@ -16710,9 +16686,13 @@ class InputMediaVoiceNote(InputMedia):
     :return: Instance of the class
     :rtype: :class:`InputMediaVoiceNote`
     """
-    def __init__(self, media: str, caption: Optional[str] = None, parse_mode: Optional[str] = None, caption_entities: Optional[List[MessageEntity]] = None,
-                    duration: Optional[int] = None, **kwargs):
-        super().__init__(type='voice_note', media=media, caption=caption, parse_mode=parse_mode, caption_entities=caption_entities)
+    def __init__(
+        self, media: str, caption: Optional[str] = None, parse_mode: Optional[str] = None,
+        caption_entities: Optional[List[MessageEntity]] = None,
+        duration: Optional[int] = None, **kwargs):
+        super().__init__(
+            type='voice_note', media=media, caption=caption,
+            parse_mode=parse_mode, caption_entities=caption_entities)
         self.duration: Optional[int] = duration
 
     def to_dict(self) -> dict:
@@ -16722,14 +16702,14 @@ class InputMediaVoiceNote(InputMedia):
         return data
 
 
+# noinspection shadowing-builtins
 class InputRichMessageMedia(Dictionaryable, JsonSerializable):
     """
     This object represents a media element embedded in an outgoing rich message.
 
     Telegram documentation: https://core.telegram.org/bots/api#inputrichmessagemedia
 
-    :param id: Unique identifier of the media used in a tg://photo?id=, tg://video?id=, or tg://audio?id= link.
-        1-64 characters, only A-Z, a-z, 0-9, _ and - are allowed.
+    :param id: Unique identifier of the media used in a tg://photo?id=, tg://video?id=, or tg://audio?id= link. 1-64 characters, only A-Z, a-z, 0-9, _ and - are allowed.
     :type id: :obj:`str`
 
     :param media: The media to be sent. Everything except the media itself and its properties is ignored.
@@ -16753,6 +16733,7 @@ class InputRichMessageMedia(Dictionaryable, JsonSerializable):
         return json.dumps(self.to_dict())
 
 
+# noinspection shadowing-builtins
 class InputRichBlockListItem(Dictionaryable, JsonSerializable):
     """
     An item of a list to be sent.
@@ -16771,8 +16752,7 @@ class InputRichBlockListItem(Dictionaryable, JsonSerializable):
     :param value: Optional. For ordered lists, the numeric value of the item label
     :type value: :obj:`int`
 
-    :param type: Optional. For ordered lists, the type of the item label; must be one of “a” for lowercase letters, “A” for uppercase letters, 
-        “i” for lowercase Roman numerals, “I” for uppercase Roman numerals, or “1” for decimal numbers
+    :param type: Optional. For ordered lists, the type of the item label; must be one of “a” for lowercase letters, “A” for uppercase letters, “i” for lowercase Roman numerals, “I” for uppercase Roman numerals, or “1” for decimal numbers
     :type type: :obj:`str`
 
     :return: Instance of the class
@@ -16804,6 +16784,7 @@ class InputRichBlockListItem(Dictionaryable, JsonSerializable):
         return json.dumps(self.to_dict())
 
 
+# noinspection shadowing-builtins
 class InputRichBlock(Dictionaryable, JsonSerializable):
     """
     This object represents a block in a rich formatted message to be sent.
@@ -16829,6 +16810,9 @@ class InputRichBlock(Dictionaryable, JsonSerializable):
     - InputRichBlockVideo
     - InputRichBlockVoiceNote
     - InputRichBlockThinking
+    - InputRichBlockButtons
+    - InputRichBlockExpandableBlockQuotation
+    - InputRichBlockDocument
 
     Telegram documentation: https://core.telegram.org/bots/api#inputrichblock
 
@@ -17192,6 +17176,9 @@ class InputRichBlockTable(InputRichBlock):
     :param is_striped: Optional. Pass True if the table is striped
     :type is_striped: :obj:`bool`
 
+    :param is_compact: Optional. Pass True if table cells must have smaller indents
+    :type is_compact: :obj:`bool`
+
     :param caption: Optional. Caption of the table
     :type caption: :class:`RichText`
 
@@ -17203,6 +17190,7 @@ class InputRichBlockTable(InputRichBlock):
         cells: List[List[RichBlockTableCell]],
         is_bordered: Optional[bool] = None,
         is_striped: Optional[bool] = None,
+        is_compact: Optional[bool] = None,
         caption: Optional[RichText] = None,
         **kwargs
     ):
@@ -17210,6 +17198,7 @@ class InputRichBlockTable(InputRichBlock):
         self.cells: List[List[RichBlockTableCell]] = cells
         self.is_bordered: Optional[bool] = is_bordered
         self.is_striped: Optional[bool] = is_striped
+        self.is_compact: Optional[bool] = is_compact
         self.caption: Optional[RichText] = caption
 
     def to_dict(self) -> dict:
@@ -17219,6 +17208,8 @@ class InputRichBlockTable(InputRichBlock):
             data['is_bordered'] = self.is_bordered
         if self.is_striped is not None:
             data['is_striped'] = self.is_striped
+        if self.is_compact is not None:
+            data['is_compact'] = self.is_compact
         if self.caption is not None:
             data['caption'] = RichText.richtext_to_dict(self.caption)
         return data
@@ -17500,15 +17491,429 @@ class InputRichBlockThinking(InputRichBlock):
         return data
     
 
+class DisabledButton(Dictionaryable, JsonSerializable, JsonDeserializable):
+    """
+    This object represents a disabled button which does nothing. Currently holds no information.
+
+    Telegram documentation: https://core.telegram.org/bots/api#disabledbutton
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.DisabledButton`
+    """
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        return cls()
+
+    def to_dict(self):
+        return {}
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+
+class EphemeralMessageParameters(Dictionaryable, JsonSerializable):
+    """
+    Describes the parameters of an ephemeral message.
+
+    Telegram documentation: https://core.telegram.org/bots/api#ephemeralmessageparameters
+
+    :param receiver_user_id: Identifier of the user who will receive the message. It is not guaranteed that the user will receive the message, especially if they are offline. See here for more details.
+    :type receiver_user_id: :obj:`int`
+
+    :param callback_query_id: Optional. Identifier of the callback query which triggered the message, if any
+    :type callback_query_id: :obj:`str`
+
+    :param replace_callback_query_message: Optional. Pass True if the ephemeral message must be shown in place of the original message. Must be False for callback queries from ephemeral messages, which must be edited using regular editEphemeralMessage… methods.
+    :type replace_callback_query_message: :obj:`bool`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.EphemeralMessageParameters`
+    """
+    def __init__(self, receiver_user_id: int, callback_query_id: Optional[str] = None,
+                 replace_callback_query_message: Optional[bool] = None):
+        self.receiver_user_id: int = receiver_user_id
+        self.callback_query_id: Optional[str] = callback_query_id
+        self.replace_callback_query_message: Optional[bool] = replace_callback_query_message
+
+    def to_dict(self):
+        data = {'receiver_user_id': self.receiver_user_id}
+        if self.callback_query_id is not None:
+            data['callback_query_id'] = self.callback_query_id
+        if self.replace_callback_query_message is not None:
+            data['replace_callback_query_message'] = self.replace_callback_query_message
+        return data
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+
+class MessageGenerationStopped(JsonDeserializable):
+    """
+    This object describes an update about a user stopping message generation.
+
+    Telegram documentation: https://core.telegram.org/bots/api#messagegenerationstopped
+
+    :param chat: Chat in which the message is generated
+    :type chat: :class:`telebot.types.Chat`
+
+    :param draft_id: Unique identifier of the message draft which was stopped
+    :type draft_id: :obj:`int`
+
+    :param message_thread_id: Optional. Unique identifier of the message thread in which the message is generated
+    :type message_thread_id: :obj:`int`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.MessageGenerationStopped`
+    """
+    def __init__(self, chat: Chat, draft_id: int, message_thread_id: Optional[int] = None):
+        self.chat: Chat = chat
+        self.draft_id: int = draft_id
+        self.message_thread_id: Optional[int] = message_thread_id
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['chat'] = Chat.de_json(obj['chat'])
+        return cls(**obj)
+
+
+class RichMessageButton(Dictionaryable, JsonSerializable, JsonDeserializable):
+    """
+    This object represents a button in a RichMessage. Exactly one of the fields other than text and style must be used to specify the type of the button.
+
+    Telegram documentation: https://core.telegram.org/bots/api#richmessagebutton
+
+    :param text: Text of the button. May contain only plain text, RichTextCustomEmoji and RichTextDateTime entities.
+    :type text: :class:`telebot.types.RichText`
+
+    :param style: Optional. Style of the button. Must be one of “danger”, “success”, “primary”, or “link” (the button is shown as a regular link without borders). Apps may use theme-specific colors for the button background and text based on the style. The style “link” is allowed only for callback buttons.
+    :type style: :obj:`str`
+
+    :param url: Optional. HTTP or tg:// URL to be opened when the button is pressed. Links tg://user?id=<user_id> can be used to mention a user by their identifier without using a username, if this is allowed by their privacy settings.
+    :type url: :obj:`str`
+
+    :param callback_data: Optional. Data to be sent in a callback query to the bot when the button is pressed, 1-64 bytes
+    :type callback_data: :obj:`str`
+
+    :param web_app: Optional. Description of the Web App that will be launched when the user presses the button. The Web App will be able to send an arbitrary message on behalf of the user using the method answerWebAppQuery. Available only in private chats between a user and the bot. Not supported for messages sent on behalf of a business account.
+    :type web_app: :class:`telebot.types.WebAppInfo`
+
+    :param login_url: Optional. An HTTPS URL used to automatically authorize the user. Can be used as a replacement for the Telegram Login Widget. Not supported for ephemeral messages.
+    :type login_url: :class:`telebot.types.LoginUrl`
+
+    :param switch_inline_query: Optional. If set, pressing the button will prompt the user to select one of their chats, open that chat and insert the bot's username and the specified inline query in the input field. May be empty, in which case just the bot's username will be inserted. Not supported for messages sent in channel direct messages chats and on behalf of a business account.
+    :type switch_inline_query: :obj:`str`
+
+    :param switch_inline_query_current_chat: Optional. If set, pressing the button will insert the bot's username and the specified inline query in the current chat's input field. May be empty, in which case only the bot's username will be inserted. Not supported in channels and for messages sent in channel direct messages chats and on behalf of a business account.
+    :type switch_inline_query_current_chat: :obj:`str`
+
+    :param switch_inline_query_chosen_chat: Optional. If set, pressing the button will prompt the user to select one of their chats of the specified type, open that chat and insert the bot's username and the specified inline query in the input field. Not supported for messages sent in channel direct messages chats and on behalf of a business account.
+    :type switch_inline_query_chosen_chat: :class:`telebot.types.SwitchInlineQueryChosenChat`
+
+    :param copy_text: Optional. A button that copies the specified text to the clipboard
+    :type copy_text: :class:`telebot.types.CopyTextButton`
+
+    :param disabled: Optional. If set, then the button is disabled and does nothing
+    :type disabled: :class:`telebot.types.DisabledButton`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.RichMessageButton`
+    """
+    def __init__(self, text: RichText, style: Optional[str] = None, url: Optional[str] = None,
+                 callback_data: Optional[str] = None, web_app: Optional[WebAppInfo] = None,
+                 login_url: Optional[LoginUrl] = None, switch_inline_query: Optional[str] = None,
+                 switch_inline_query_current_chat: Optional[str] = None,
+                 switch_inline_query_chosen_chat: Optional[SwitchInlineQueryChosenChat] = None,
+                 copy_text: Optional[CopyTextButton] = None, disabled: Optional[DisabledButton] = None,
+                 **kwargs):
+        self.text: RichText = text
+        self.style: Optional[str] = style
+        self.url: Optional[str] = url
+        self.callback_data: Optional[str] = callback_data
+        self.web_app: Optional[WebAppInfo] = web_app
+        self.login_url: Optional[LoginUrl] = login_url
+        self.switch_inline_query: Optional[str] = switch_inline_query
+        self.switch_inline_query_current_chat: Optional[str] = switch_inline_query_current_chat
+        self.switch_inline_query_chosen_chat: Optional[SwitchInlineQueryChosenChat] = switch_inline_query_chosen_chat
+        self.copy_text: Optional[CopyTextButton] = copy_text
+        self.disabled: Optional[DisabledButton] = disabled
+
+    def to_dict(self):
+        data = {'text': RichText.richtext_to_dict(self.text)}
+        if self.style is not None:
+            data['style'] = self.style
+        if self.url is not None:
+            data['url'] = self.url
+        if self.callback_data is not None:
+            data['callback_data'] = self.callback_data
+        if self.web_app is not None:
+            data['web_app'] = self.web_app.to_dict()
+        if self.login_url is not None:
+            data['login_url'] = self.login_url.to_dict()
+        if self.switch_inline_query is not None:
+            data['switch_inline_query'] = self.switch_inline_query
+        if self.switch_inline_query_current_chat is not None:
+            data['switch_inline_query_current_chat'] = self.switch_inline_query_current_chat
+        if self.switch_inline_query_chosen_chat is not None:
+            data['switch_inline_query_chosen_chat'] = self.switch_inline_query_chosen_chat.to_dict()
+        if self.copy_text is not None:
+            data['copy_text'] = self.copy_text.to_dict()
+        if self.disabled is not None:
+            data['disabled'] = self.disabled.to_dict()
+        return data
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['text'] = RichText.de_json(obj['text'])
+        if 'web_app' in obj:
+            obj['web_app'] = WebAppInfo.de_json(obj['web_app'])
+        if 'login_url' in obj:
+            obj['login_url'] = LoginUrl.de_json(obj['login_url'])
+        if 'switch_inline_query_chosen_chat' in obj:
+            obj['switch_inline_query_chosen_chat'] = SwitchInlineQueryChosenChat.de_json(obj['switch_inline_query_chosen_chat'])
+        if 'copy_text' in obj:
+            obj['copy_text'] = CopyTextButton.de_json(obj['copy_text'])
+        if 'disabled' in obj:
+            obj['disabled'] = DisabledButton.de_json(obj['disabled'])
+        return cls(**obj)
+
+
+class RichTextButton(RichText):
+    """
+    A button.
+
+    Telegram documentation: https://core.telegram.org/bots/api#richtextbutton
+
+    :param type: Type of the rich text, always “button”
+    :type type: :obj:`str`
+
+    :param button: The button
+    :type button: :class:`telebot.types.RichMessageButton`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.RichTextButton`
+    """
+    def __init__(self, button: RichMessageButton, **kwargs):
+        super().__init__(type='button', **kwargs)
+        self.button: RichMessageButton = button
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['button'] = self.button.to_dict()
+        return data
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['button'] = RichMessageButton.de_json(obj['button'])
+        return cls(**obj)
+
+
+class RichBlockButtons(RichBlock):
+    """
+    A block containing a list of buttons that are shown in one row, corresponding to the custom HTML tag <tg-button-row>.
+
+    Telegram documentation: https://core.telegram.org/bots/api#richblockbuttons
+
+    :param type: Type of the block, always “buttons”
+    :type type: :obj:`str`
+
+    :param buttons: The buttons
+    :type buttons: :obj:`list` of :class:`telebot.types.RichMessageButton`
+
+    :param align: Optional. Horizontal alignment of the buttons. Currently, must be one of “left”, “center”, or “right”.
+    :type align: :obj:`str`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.RichBlockButtons`
+    """
+    def __init__(self, buttons: List[RichMessageButton], align: Optional[str] = None, **kwargs):
+        super().__init__(type='buttons', **kwargs)
+        self.buttons: List[RichMessageButton] = buttons
+        self.align: Optional[str] = align
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['buttons'] = [RichMessageButton.de_json(button) for button in obj['buttons']]
+        return cls(**obj)
+
+
+class InputRichBlockButtons(InputRichBlock):
+    """
+    A block containing a list of buttons that are shown in one row, corresponding to the custom HTML tag <tg-button-row>.
+
+    Telegram documentation: https://core.telegram.org/bots/api#inputrichblockbuttons
+
+    :param type: Type of the block, always “buttons”
+    :type type: :obj:`str`
+
+    :param buttons: List of 1-8 buttons to send
+    :type buttons: :obj:`list` of :class:`telebot.types.RichMessageButton`
+
+    :param align: Optional. Horizontal alignment of the buttons. Currently, must be one of “left”, “center”, or “right”.
+    :type align: :obj:`str`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.InputRichBlockButtons`
+    """
+    def __init__(self, buttons: List[RichMessageButton], align: Optional[str] = None, **kwargs):
+        super().__init__(type='buttons', **kwargs)
+        self.buttons: List[RichMessageButton] = buttons
+        self.align: Optional[str] = align
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['buttons'] = [button.to_dict() for button in self.buttons]
+        if self.align is not None:
+            data['align'] = self.align
+        return data
+
+
+class RichBlockExpandableBlockQuotation(RichBlock):
+    """
+    A block quotation, corresponding to the HTML tag <blockquote> with custom attribute "expandable".
+
+    Telegram documentation: https://core.telegram.org/bots/api#richblockexpandableblockquotation
+
+    :param type: Type of the block, always “expandable_blockquote”
+    :type type: :obj:`str`
+
+    :param text: Content of the block
+    :type text: :class:`telebot.types.RichText`
+
+    :param credit: Optional. Credit of the block
+    :type credit: :class:`telebot.types.RichText`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.RichBlockExpandableBlockQuotation`
+    """
+    def __init__(self, text: RichText, credit: Optional[RichText] = None, **kwargs):
+        super().__init__(type='expandable_blockquote', **kwargs)
+        self.text: RichText = text
+        self.credit: Optional[RichText] = credit
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None:
+            return None
+        obj = cls.check_json(json_string)
+        obj['text'] = RichText.de_json(obj['text'])
+        obj['credit'] = RichText.de_json(obj['credit']) if obj.get('credit') else None
+        return cls(**obj)
+
+
+class InputRichBlockExpandableBlockQuotation(InputRichBlock):
+    """
+    A block quotation, corresponding to the HTML tag <blockquote> with custom attribute "expandable".
+
+    Telegram documentation: https://core.telegram.org/bots/api#inputrichblockexpandableblockquotation
+
+    :param type: Type of the block, always “expandable_blockquote”
+    :type type: :obj:`str`
+
+    :param text: Content of the block
+    :type text: :class:`telebot.types.RichText`
+
+    :param credit: Optional. Credit of the block
+    :type credit: :class:`telebot.types.RichText`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.InputRichBlockExpandableBlockQuotation`
+    """
+    def __init__(self, text: RichText, credit: Optional[RichText] = None, **kwargs):
+        super().__init__(type='expandable_blockquote', **kwargs)
+        self.text: RichText = text
+        self.credit: Optional[RichText] = credit
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['text'] = RichText.richtext_to_dict(self.text)
+        if self.credit is not None:
+            data['credit'] = RichText.richtext_to_dict(self.credit)
+        return data
+
+
+class RichBlockDocument(RichBlock):
+    """
+    A block with a general file, corresponding to the custom HTML tag <tg-document>.
+
+    Telegram documentation: https://core.telegram.org/bots/api#richblockdocument
+
+    :param type: Type of the block, always “document”
+    :type type: :obj:`str`
+
+    :param document: The document
+    :type document: :class:`telebot.types.Document`
+
+    :param caption: Optional. Caption of the block
+    :type caption: :class:`telebot.types.RichBlockCaption`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.RichBlockDocument`
+    """
+    def __init__(self, document: Document, caption: Optional[RichBlockCaption] = None, **kwargs):
+        super().__init__(type='document', **kwargs)
+        self.document: Document = document
+        self.caption: Optional[RichBlockCaption] = caption
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['document'] = Document.de_json(obj['document'])
+        obj['caption'] = RichBlockCaption.de_json(obj['caption']) if obj.get('caption') else None
+        return cls(**obj)
+
+
+class InputRichBlockDocument(InputRichBlock):
+    """
+    A block with a general file, corresponding to the custom HTML tag <tg-document>.
+
+    Telegram documentation: https://core.telegram.org/bots/api#inputrichblockdocument
+
+    :param type: Type of the block, always “document”
+    :type type: :obj:`str`
+
+    :param document: The document. Caption is ignored.
+    :type document: :class:`telebot.types.InputMediaDocument`
+
+    :param caption: Optional. Caption of the block
+    :type caption: :class:`telebot.types.RichBlockCaption`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.InputRichBlockDocument`
+    """
+    def __init__(self, document: InputMediaDocument, caption: Optional[RichBlockCaption] = None, **kwargs):
+        super().__init__(type='document', **kwargs)
+        self.document: InputMediaDocument = document
+        self.caption: Optional[RichBlockCaption] = caption
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['document'] = self.document.to_dict()
+        if self.caption is not None:
+            data['caption'] = self.caption.to_dict()
+        return data
+
+
+# noinspection shadowing-builtins
 class Community(JsonDeserializable):
     """
     Represents a community (a group of chats).
 
     Telegram documentation: https://core.telegram.org/bots/api#community
 
-    :param id: Unique identifier for this community. This number may have more than 32 significant bits and some programming
-    languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit
-    integer or double-precision float type are safe for storing this identifier.
+    :param id: Unique identifier for this community. This number may have more than 32 significant bits and some programming languages may have difficulty/silent defects in interpreting it. But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this identifier.
     :type id: :obj:`int`
 
     :param name: Name of the community
@@ -17570,6 +17975,29 @@ class CommunityChatRemoved(JsonDeserializable):
         return cls(**obj)
     
 
+class CommunityChatJoined(JsonDeserializable):
+    """
+    Describes a service message about a chat being joined by a user from a community.
+
+    Telegram documentation: https://core.telegram.org/bots/api#communitychatjoined
+
+    :param community: The community from which the chat was joined
+    :type community: :class:`telebot.types.Community`
+
+    :return: Instance of the class
+    :rtype: :class:`telebot.types.CommunityChatJoined`
+    """
+    def __init__(self, community: Community, **kwargs):
+        self.community: Community = community
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['community'] = Community.de_json(obj.get('community'))
+        return cls(**obj)
+
+
 class BotSubscriptionUpdated(JsonDeserializable):
     """
     This object contains information about changes to a user payment subscription toward the current bot.
@@ -17582,8 +18010,7 @@ class BotSubscriptionUpdated(JsonDeserializable):
     :param invoice_payload: Bot-specified invoice payload
     :type invoice_payload: :obj:`str`
 
-    :param state: The new state of the subscription. Currently, it can be one of “canceled” if the user canceled the subscription,
-        “active” if the user re-enabled a previously canceled subscription, or “failed” if payment for the subscription failed.
+    :param state: The new state of the subscription. Currently, it can be one of “canceled” if the user canceled the subscription, “active” if the user re-enabled a previously canceled subscription, or “failed” if payment for the subscription failed.
     :type state: :obj:`str`
 
     :return: Instance of the class

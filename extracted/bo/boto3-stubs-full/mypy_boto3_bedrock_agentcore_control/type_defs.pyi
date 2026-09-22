@@ -65,6 +65,7 @@ from .literals import (
     GatewayStatusType,
     HarnessBedrockApiFormatType,
     HarnessEndpointStatusType,
+    HarnessHookFailureModeType,
     HarnessManagedMemoryStrategyTypeType,
     HarnessOpenAiApiFormatType,
     HarnessStatusType,
@@ -506,6 +507,8 @@ __all__ = (
     "GithubOauth2ProviderConfigOutputTypeDef",
     "GoogleOauth2ProviderConfigInputTypeDef",
     "GoogleOauth2ProviderConfigOutputTypeDef",
+    "HarnessAfterInvocationHookTypeDef",
+    "HarnessAfterToolCallHookTypeDef",
     "HarnessAgentCoreBrowserConfigTypeDef",
     "HarnessAgentCoreCodeInterpreterConfigTypeDef",
     "HarnessAgentCoreGatewayConfigOutputTypeDef",
@@ -519,6 +522,8 @@ __all__ = (
     "HarnessAgentCoreRuntimeEnvironmentTypeDef",
     "HarnessBedrockModelConfigOutputTypeDef",
     "HarnessBedrockModelConfigTypeDef",
+    "HarnessBeforeInvocationHookTypeDef",
+    "HarnessBeforeToolCallHookTypeDef",
     "HarnessEndpointTypeDef",
     "HarnessEnvironmentArtifactTypeDef",
     "HarnessEnvironmentProviderRequestTypeDef",
@@ -528,6 +533,11 @@ __all__ = (
     "HarnessGatewayOutboundAuthUnionTypeDef",
     "HarnessGeminiModelConfigOutputTypeDef",
     "HarnessGeminiModelConfigTypeDef",
+    "HarnessHookEventBridgeTargetTypeDef",
+    "HarnessHookLambdaTargetTypeDef",
+    "HarnessHookSnsTargetTypeDef",
+    "HarnessHookTargetTypeDef",
+    "HarnessHookTypeDef",
     "HarnessInlineFunctionConfigOutputTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
     "HarnessInlineFunctionConfigUnionTypeDef",
@@ -1971,6 +1981,17 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     topK: NotRequired[int]
     additionalParams: NotRequired[Mapping[str, Any]]
 
+class HarnessHookEventBridgeTargetTypeDef(TypedDict):
+    arn: str
+
+class HarnessHookLambdaTargetTypeDef(TypedDict):
+    arn: str
+    timeoutSeconds: NotRequired[int]
+    failureMode: NotRequired[HarnessHookFailureModeType]
+
+class HarnessHookSnsTargetTypeDef(TypedDict):
+    arn: str
+
 class HarnessInlineFunctionConfigOutputTypeDef(TypedDict):
     description: str
     inputSchema: dict[str, Any]
@@ -2012,6 +2033,7 @@ class HarnessManagedMemoryConfigurationTypeDef(TypedDict):
 class HarnessOpenAiModelConfigOutputTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
+    apiBase: NotRequired[str]
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
@@ -2021,6 +2043,7 @@ class HarnessOpenAiModelConfigOutputTypeDef(TypedDict):
 class HarnessOpenAiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
+    apiBase: NotRequired[str]
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
@@ -3840,6 +3863,14 @@ class HarnessAgentCoreMemoryConfigurationTypeDef(TypedDict):
     messagesCount: NotRequired[int]
     retrievalConfig: NotRequired[Mapping[str, HarnessAgentCoreMemoryRetrievalConfigTypeDef]]
 
+HarnessHookTargetTypeDef = TypedDict(
+    "HarnessHookTargetTypeDef",
+    {
+        "lambda": NotRequired[HarnessHookLambdaTargetTypeDef],
+        "sns": NotRequired[HarnessHookSnsTargetTypeDef],
+        "eventBridge": NotRequired[HarnessHookEventBridgeTargetTypeDef],
+    },
+)
 HarnessInlineFunctionConfigUnionTypeDef = Union[
     HarnessInlineFunctionConfigTypeDef, HarnessInlineFunctionConfigOutputTypeDef
 ]
@@ -4680,6 +4711,23 @@ class HarnessMemoryConfigurationOutputTypeDef(TypedDict):
 HarnessAgentCoreMemoryConfigurationUnionTypeDef = Union[
     HarnessAgentCoreMemoryConfigurationTypeDef, HarnessAgentCoreMemoryConfigurationOutputTypeDef
 ]
+
+class HarnessAfterInvocationHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+class HarnessAfterToolCallHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+class HarnessBeforeInvocationHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+class HarnessBeforeToolCallHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
 HarnessModelConfigurationUnionTypeDef = Union[
     HarnessModelConfigurationTypeDef, HarnessModelConfigurationOutputTypeDef
 ]
@@ -5204,6 +5252,12 @@ class HarnessMemoryConfigurationTypeDef(TypedDict):
     agentCoreMemoryConfiguration: NotRequired[HarnessAgentCoreMemoryConfigurationUnionTypeDef]
     managedMemoryConfiguration: NotRequired[HarnessManagedMemoryConfigurationUnionTypeDef]
     disabled: NotRequired[Mapping[str, Any]]
+
+class HarnessHookTypeDef(TypedDict):
+    beforeInvocation: NotRequired[HarnessBeforeInvocationHookTypeDef]
+    afterInvocation: NotRequired[HarnessAfterInvocationHookTypeDef]
+    beforeToolCall: NotRequired[HarnessBeforeToolCallHookTypeDef]
+    afterToolCall: NotRequired[HarnessAfterToolCallHookTypeDef]
 
 HarnessSkillUnionTypeDef = Union[HarnessSkillTypeDef, HarnessSkillOutputTypeDef]
 
@@ -5790,6 +5844,7 @@ class HarnessTypeDef(TypedDict):
     environmentVariables: NotRequired[dict[str, str]]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationOutputTypeDef]
     memory: NotRequired[HarnessMemoryConfigurationOutputTypeDef]
+    hooks: NotRequired[list[HarnessHookTypeDef]]
     maxIterations: NotRequired[int]
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]
@@ -6381,6 +6436,7 @@ class CreateHarnessRequestTypeDef(TypedDict):
     allowedTools: NotRequired[Sequence[str]]
     memory: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
     truncation: NotRequired[HarnessTruncationConfigurationTypeDef]
+    hooks: NotRequired[Sequence[HarnessHookTypeDef]]
     maxIterations: NotRequired[int]
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]
@@ -6435,6 +6491,7 @@ class UpdateHarnessRequestTypeDef(TypedDict):
     allowedTools: NotRequired[Sequence[str]]
     memory: NotRequired[UpdatedHarnessMemoryConfigurationTypeDef]
     truncation: NotRequired[HarnessTruncationConfigurationTypeDef]
+    hooks: NotRequired[Sequence[HarnessHookTypeDef]]
     maxIterations: NotRequired[int]
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]

@@ -32,20 +32,18 @@ pkgconf_variable_t *
 pkgconf_variable_new(const char *key)
 {
 	pkgconf_variable_t *v;
+	size_t keylen;
 
 	if (key == NULL)
 		return NULL;
 
-	v = calloc(1, sizeof(*v));
+	keylen = strlen(key);
+	v = calloc(1, sizeof(*v) + keylen + 1);
 	if (v == NULL)
 		return NULL;
 
-	v->key = strdup(key);
-	if (v->key == NULL)
-	{
-		free(v);
-		return NULL;
-	}
+	v->key = (char *)(v + 1);
+	memcpy(v->key, key, keylen + 1);
 
 	return v;
 }
@@ -57,7 +55,6 @@ pkgconf_variable_free(pkgconf_variable_t *v)
 		return;
 
 	pkgconf_buffer_finalize(&v->bcbuf);
-	free(v->key);
 	free(v);
 }
 
@@ -179,7 +176,8 @@ pkgconf_variable_eval_name(pkgconf_client_t *client,
 	v = pkgconf_bytecode_eval_lookup_var(&ctx, varname, strlen(varname));
 	(void) pkgconf_variable_eval(client, vars, v, &varbuf, &saw_sysroot);
 
-	if (!saw_sysroot && pkgconf_path_is_plausible(&varbuf))
+	if (!(client->flags & PKGCONF_PKG_PKGF_FDO_SYSROOT_RULES) &&
+		!saw_sysroot && pkgconf_path_is_plausible(&varbuf))
 	{
 		/* if sysroot is set, and value does not already begin with sysroot */
 		if (!pkgconf_buffer_has_prefix(&varbuf, sysroot_dir))

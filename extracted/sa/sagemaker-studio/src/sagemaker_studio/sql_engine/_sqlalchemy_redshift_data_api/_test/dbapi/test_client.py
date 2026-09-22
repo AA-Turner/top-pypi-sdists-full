@@ -5,12 +5,18 @@ Tests the RedshiftDataAPIClient class with mocked boto3 client for various
 authentication scenarios and error conditions.
 """
 
+import os
 from unittest.mock import Mock, patch
 
 import pytest
 from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
-from ...dbapi.client import RedshiftDataAPIClient, create_client
+from ...dbapi.client import (
+    REDSHIFT_DATA_ENDPOINT_URL_ENV_VAR,
+    REDSHIFT_EXPRESS_WORKGROUP_NAME,
+    RedshiftDataAPIClient,
+    create_client,
+)
 from ...dbapi.connection_params import ConnectionParams
 from ...dbapi.exceptions import ClusterNotFoundError, InterfaceError, OperationalError
 
@@ -109,6 +115,78 @@ class TestRedshiftDataAPIClient:
             mock_session_class.assert_called_once_with(profile_name="my-profile")
 
             assert client.client == mock_client
+
+    def test_client_created_with_endpoint_url_from_env_var(self):
+        """When the endpoint env var is set, its value is passed to session.client()."""
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            region="us-west-2",
+        )
+
+        with patch("boto3.Session") as mock_session_class, patch.dict(
+            os.environ,
+            {REDSHIFT_DATA_ENDPOINT_URL_ENV_VAR: "https://redshift-data.custom.example.com"},
+        ):
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            RedshiftDataAPIClient(connection_params)
+
+            mock_session.client.assert_called_once_with(
+                "redshift-data",
+                region_name="us-west-2",
+                endpoint_url="https://redshift-data.custom.example.com",
+            )
+
+    def test_client_created_without_endpoint_url_when_env_var_unset(self):
+        """When the endpoint env var is unset, session.client() is called without it."""
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            region="us-east-1",
+        )
+
+        with patch("boto3.Session") as mock_session_class, patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(REDSHIFT_DATA_ENDPOINT_URL_ENV_VAR, None)
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            RedshiftDataAPIClient(connection_params)
+
+            # No endpoint_url kwarg — byte-identical to the pre-change default path.
+            mock_session.client.assert_called_once_with("redshift-data", region_name="us-east-1")
+            _, called_kwargs = mock_session.client.call_args
+            assert "endpoint_url" not in called_kwargs
+
+    def test_client_created_without_endpoint_url_when_env_var_empty(self):
+        """An empty endpoint env var is treated as unset (no endpoint_url kwarg)."""
+        connection_params = ConnectionParams(
+            cluster_identifier="test-cluster",
+            database_name="test_db",
+            region="us-east-1",
+        )
+
+        with patch("boto3.Session") as mock_session_class, patch.dict(
+            os.environ, {REDSHIFT_DATA_ENDPOINT_URL_ENV_VAR: ""}
+        ):
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+            mock_client.list_databases.return_value = {"Databases": ["test_db"]}
+
+            RedshiftDataAPIClient(connection_params)
+
+            mock_session.client.assert_called_once_with("redshift-data", region_name="us-east-1")
+            _, called_kwargs = mock_session.client.call_args
+            assert "endpoint_url" not in called_kwargs
 
     def test_successful_initialization_with_default_credentials(self):
         """Test successful client initialization with default credential chain."""
@@ -340,6 +418,29 @@ class TestRedshiftDataAPIClient:
             # Verify validation call uses workgroup and includes DbUser when provided
             mock_client.list_databases.assert_called_once_with(
                 Database="test_db", DbUser="test_user", WorkgroupName="test-workgroup"
+            )
+
+    def test_validation_sends_empty_database_for_express_workgroup(self):
+        """Express rejects a real database on the validation probe, so it is sent empty."""
+        connection_params = ConnectionParams(
+            database_name="dev",
+            db_user="test_user",
+            region="us-east-1",
+            workgroup_name=REDSHIFT_EXPRESS_WORKGROUP_NAME,
+        )
+
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = Mock()
+            mock_client = Mock()
+            mock_session_class.return_value = mock_session
+            mock_session.client.return_value = mock_client
+
+            mock_client.list_databases.return_value = {"Databases": ["dev"]}
+
+            RedshiftDataAPIClient(connection_params)
+
+            mock_client.list_databases.assert_called_once_with(
+                Database="", DbUser="test_user", WorkgroupName=REDSHIFT_EXPRESS_WORKGROUP_NAME
             )
 
     def test_initialization_provisioned_without_db_user(self):

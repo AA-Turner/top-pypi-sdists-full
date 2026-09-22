@@ -42,6 +42,21 @@ fn format_ocr_reasons_by_page(reasons: &[pdf_inspector::PageOcrReasons]) -> Stri
         .join(",")
 }
 
+fn format_cmap_gaps(gaps: &[pdf_inspector::FontCMapGaps]) -> String {
+    gaps.iter()
+        .map(|gap| {
+            format!(
+                r#"{{"font":"{}","codes":{},"interpolated":{},"unmapped":{}}}"#,
+                json_escape(&gap.font),
+                gap.codes,
+                gap.interpolated,
+                gap.unmapped
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 fn json_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 16);
     for ch in s.chars() {
@@ -62,25 +77,79 @@ fn json_escape(s: &str) -> String {
     out
 }
 
+struct DetectArgs {
+    pdf_path: String,
+    json_output: bool,
+    analyze: bool,
+}
+
+fn print_usage(argv0: &str) {
+    eprintln!("Usage: {argv0} <pdf_file> [--json] [--analyze]");
+    eprintln!("       {argv0} --json <pdf_file>");
+    eprintln!();
+    eprintln!("Options may appear before or after the PDF path.");
+    eprintln!();
+    eprintln!("Options:");
+    eprintln!("  --json       Output result as JSON");
+    eprintln!("  --analyze    Also run layout analysis (tables, columns)");
+}
+
+/// The PDF path is the first argument that is not an option. Options may
+/// precede it (`detect-pdf --json file.pdf`); `--` ends option parsing so a
+/// path that itself starts with `-` can be passed.
+fn parse_detect_args(args: &[String]) -> Result<DetectArgs, ()> {
+    let mut json_output = false;
+    let mut analyze = false;
+    let mut pdf_path = None;
+    let mut positional = false;
+    for arg in args.iter().skip(1) {
+        if positional {
+            if pdf_path.is_some() {
+                return Err(());
+            }
+            pdf_path = Some(arg.clone());
+            continue;
+        }
+        match arg.as_str() {
+            "--" => positional = true,
+            "--json" => json_output = true,
+            "--analyze" => analyze = true,
+            "--help" | "-h" => return Err(()),
+            // Unknown flags are ignored, matching the previous CLI, but they
+            // are not treated as the PDF path.
+            _other if _other.starts_with('-') && _other != "-" => {}
+            other => {
+                if pdf_path.is_some() {
+                    return Err(());
+                }
+                pdf_path = Some(other.to_string());
+            }
+        }
+    }
+    Ok(DetectArgs {
+        pdf_path: pdf_path.ok_or(())?,
+        json_output,
+        analyze,
+    })
+}
+
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     env_logger::init();
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        eprintln!("Usage: {} <pdf_file>", args[0]);
-        eprintln!("       {} <pdf_file> --json", args[0]);
-        eprintln!("       {} <pdf_file> --analyze", args[0]);
-        eprintln!();
-        eprintln!("Options:");
-        eprintln!("  --json       Output result as JSON");
-        eprintln!("  --analyze    Also run layout analysis (tables, columns)");
-        process::exit(1);
-    }
-
-    let pdf_path = &args[1];
-    let json_output = args.iter().any(|a| a == "--json");
-    let analyze = args.iter().any(|a| a == "--analyze");
+    let DetectArgs {
+        pdf_path,
+        json_output,
+        analyze,
+    } = match parse_detect_args(&args) {
+        Ok(parsed) => parsed,
+        Err(()) => {
+            print_usage(&args[0]);
+            process::exit(1);
+        }
+    };
+    let pdf_path = pdf_path.as_str();
 
     let start = Instant::now();
 
@@ -150,8 +219,9 @@ fn run_analyze(pdf_path: &str, json_output: bool, start: Instant) {
                     .map(|p| p.to_string())
                     .collect();
                 let ocr_reasons = format_ocr_reasons_by_page(&result.ocr_reasons_by_page);
+                let cmap_gaps = format_cmap_gaps(&result.cmap_gaps);
                 println!(
-                    r#"{{"pdf_type":"{}","page_count":{},"pages_needing_ocr":[{}],"ocr_reasons_by_page":[{}],"is_complex":{},"pages_with_tables":[{}],"pages_with_columns":[{}],"detection_time_ms":{}}}"#,
+                    r#"{{"pdf_type":"{}","page_count":{},"pages_needing_ocr":[{}],"ocr_reasons_by_page":[{}],"is_complex":{},"pages_with_tables":[{}],"pages_with_columns":[{}],"cmap_gaps":[{}],"detection_time_ms":{}}}"#,
                     pdf_type_str(&result.pdf_type),
                     result.page_count,
                     ocr_pages.join(","),
@@ -159,6 +229,7 @@ fn run_analyze(pdf_path: &str, json_output: bool, start: Instant) {
                     result.layout.is_complex,
                     table_pages.join(","),
                     col_pages.join(","),
+                    cmap_gaps,
                     elapsed.as_millis()
                 );
             } else {
@@ -307,5 +378,48 @@ fn run_detect_only(pdf_path: &str, json_output: bool, start: Instant) {
             print_error(&e, pdf_path, json_output);
             process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_detect_args;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        std::iter::once("detect-pdf".to_string())
+            .chain(list.iter().map(|s| s.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn json_flag_may_precede_the_pdf_path() {
+        let parsed = parse_detect_args(&args(&["--json", "document.pdf"])).unwrap();
+        assert_eq!(parsed.pdf_path, "document.pdf");
+        assert!(parsed.json_output);
+        assert!(!parsed.analyze);
+
+        let parsed =
+            parse_detect_args(&args(&["--analyze", "--json", "/tmp/document.pdf"])).unwrap();
+        assert_eq!(parsed.pdf_path, "/tmp/document.pdf");
+        assert!(parsed.json_output);
+        assert!(parsed.analyze);
+
+        let parsed = parse_detect_args(&args(&["document.pdf", "--json"])).unwrap();
+        assert_eq!(parsed.pdf_path, "document.pdf");
+        assert!(parsed.json_output);
+    }
+
+    #[test]
+    fn missing_path_prints_usage() {
+        assert!(parse_detect_args(&args(&["--json"])).is_err());
+        assert!(parse_detect_args(&args(&[])).is_err());
+        assert!(parse_detect_args(&args(&["--help"])).is_err());
+    }
+
+    #[test]
+    fn unknown_flag_is_not_the_pdf_path() {
+        let parsed = parse_detect_args(&args(&["--not-a-flag", "document.pdf"])).unwrap();
+        assert_eq!(parsed.pdf_path, "document.pdf");
+        assert!(!parsed.json_output);
     }
 }

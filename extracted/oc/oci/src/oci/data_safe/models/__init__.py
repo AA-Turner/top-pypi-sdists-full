@@ -72,6 +72,7 @@ from .change_attribute_set_compartment_details import ChangeAttributeSetCompartm
 from .change_audit_archive_retrieval_compartment_details import ChangeAuditArchiveRetrievalCompartmentDetails
 from .change_audit_policy_compartment_details import ChangeAuditPolicyCompartmentDetails
 from .change_audit_profile_compartment_details import ChangeAuditProfileCompartmentDetails
+from .change_crypto_assessment_compartment_details import ChangeCryptoAssessmentCompartmentDetails
 from .change_data_safe_private_endpoint_compartment_details import ChangeDataSafePrivateEndpointCompartmentDetails
 from .change_database_security_config_compartment_details import ChangeDatabaseSecurityConfigCompartmentDetails
 from .change_discovery_job_compartment_details import ChangeDiscoveryJobCompartmentDetails
@@ -154,6 +155,37 @@ from .create_target_database_group_details import CreateTargetDatabaseGroupDetai
 from .create_unified_audit_policy_details import CreateUnifiedAuditPolicyDetails
 from .create_user_assessment_details import CreateUserAssessmentDetails
 from .credentials import Credentials
+from .crypto_assessment import CryptoAssessment
+from .crypto_assessment_backup_set_collection import CryptoAssessmentBackupSetCollection
+from .crypto_assessment_backup_set_summary import CryptoAssessmentBackupSetSummary
+from .crypto_assessment_cbom_item_collection import CryptoAssessmentCbomItemCollection
+from .crypto_assessment_cbom_item_summary import CryptoAssessmentCbomItemSummary
+from .crypto_assessment_certificate_collection import CryptoAssessmentCertificateCollection
+from .crypto_assessment_certificate_summary import CryptoAssessmentCertificateSummary
+from .crypto_assessment_collection import CryptoAssessmentCollection
+from .crypto_assessment_finding_analytics_collection import CryptoAssessmentFindingAnalyticsCollection
+from .crypto_assessment_finding_analytics_summary import CryptoAssessmentFindingAnalyticsSummary
+from .crypto_assessment_finding_category_summary import CryptoAssessmentFindingCategorySummary
+from .crypto_assessment_finding_collection import CryptoAssessmentFindingCollection
+from .crypto_assessment_finding_summary import CryptoAssessmentFindingSummary
+from .crypto_assessment_finding_summary_metrics import CryptoAssessmentFindingSummaryMetrics
+from .crypto_assessment_finding_target_collection import CryptoAssessmentFindingTargetCollection
+from .crypto_assessment_finding_target_summary import CryptoAssessmentFindingTargetSummary
+from .crypto_assessment_key_collection import CryptoAssessmentKeyCollection
+from .crypto_assessment_key_summary import CryptoAssessmentKeySummary
+from .crypto_assessment_sqlnet_parameters import CryptoAssessmentSqlnetParameters
+from .crypto_assessment_summary import CryptoAssessmentSummary
+from .crypto_assessment_tde_object_collection import CryptoAssessmentTdeObjectCollection
+from .crypto_assessment_tde_object_summary import CryptoAssessmentTdeObjectSummary
+from .crypto_assessment_wallet_collection import CryptoAssessmentWalletCollection
+from .crypto_assessment_wallet_summary import CryptoAssessmentWalletSummary
+from .crypto_nne_posture import CryptoNnePosture
+from .crypto_posture import CryptoPosture
+from .crypto_sqlnet_parameter import CryptoSqlnetParameter
+from .crypto_sqlnet_parameter_source import CryptoSqlnetParameterSource
+from .crypto_sqlnet_parameter_value import CryptoSqlnetParameterValue
+from .crypto_tde_posture import CryptoTdePosture
+from .crypto_tls_posture import CryptoTlsPosture
 from .data_safe_configuration import DataSafeConfiguration
 from .data_safe_private_endpoint import DataSafePrivateEndpoint
 from .data_safe_private_endpoint_summary import DataSafePrivateEndpointSummary
@@ -184,6 +216,7 @@ from .discovery_job_result import DiscoveryJobResult
 from .discovery_job_result_collection import DiscoveryJobResultCollection
 from .discovery_job_result_summary import DiscoveryJobResultSummary
 from .discovery_job_summary import DiscoveryJobSummary
+from .download_crypto_assessment_report_details import DownloadCryptoAssessmentReportDetails
 from .download_discovery_report_details import DownloadDiscoveryReportDetails
 from .download_masking_log_details import DownloadMaskingLogDetails
 from .download_masking_policy_details import DownloadMaskingPolicyDetails
@@ -212,6 +245,7 @@ from .format_entry import FormatEntry
 from .format_summary import FormatSummary
 from .formats_for_data_type import FormatsForDataType
 from .formats_for_sensitive_type import FormatsForSensitiveType
+from .generate_crypto_assessment_report_details import GenerateCryptoAssessmentReportDetails
 from .generate_discovery_report_for_download_details import GenerateDiscoveryReportForDownloadDetails
 from .generate_health_report_details import GenerateHealthReportDetails
 from .generate_masking_policy_for_download_details import GenerateMaskingPolicyForDownloadDetails
@@ -323,6 +357,7 @@ from .role_condition import RoleCondition
 from .role_grant_path_collection import RoleGrantPathCollection
 from .role_grant_path_summary import RoleGrantPathSummary
 from .role_summary import RoleSummary
+from .run_crypto_assessment_details import RunCryptoAssessmentDetails
 from .run_security_assessment_details import RunSecurityAssessmentDetails
 from .run_user_assessment_details import RunUserAssessmentDetails
 from .sql_expression_format_entry import SQLExpressionFormatEntry
@@ -467,6 +502,7 @@ from .update_audit_trail_details import UpdateAuditTrailDetails
 from .update_column_source_details import UpdateColumnSourceDetails
 from .update_column_source_sdm_details import UpdateColumnSourceSdmDetails
 from .update_column_source_target_details import UpdateColumnSourceTargetDetails
+from .update_crypto_assessment_details import UpdateCryptoAssessmentDetails
 from .update_data_safe_private_endpoint_details import UpdateDataSafePrivateEndpointDetails
 from .update_database_security_config_details import UpdateDatabaseSecurityConfigDetails
 from .update_finding_details import UpdateFindingDetails
@@ -583,6 +619,7 @@ data_safe_type_mapping = {
     "ChangeAuditArchiveRetrievalCompartmentDetails": ChangeAuditArchiveRetrievalCompartmentDetails,
     "ChangeAuditPolicyCompartmentDetails": ChangeAuditPolicyCompartmentDetails,
     "ChangeAuditProfileCompartmentDetails": ChangeAuditProfileCompartmentDetails,
+    "ChangeCryptoAssessmentCompartmentDetails": ChangeCryptoAssessmentCompartmentDetails,
     "ChangeDataSafePrivateEndpointCompartmentDetails": ChangeDataSafePrivateEndpointCompartmentDetails,
     "ChangeDatabaseSecurityConfigCompartmentDetails": ChangeDatabaseSecurityConfigCompartmentDetails,
     "ChangeDiscoveryJobCompartmentDetails": ChangeDiscoveryJobCompartmentDetails,
@@ -665,6 +702,37 @@ data_safe_type_mapping = {
     "CreateUnifiedAuditPolicyDetails": CreateUnifiedAuditPolicyDetails,
     "CreateUserAssessmentDetails": CreateUserAssessmentDetails,
     "Credentials": Credentials,
+    "CryptoAssessment": CryptoAssessment,
+    "CryptoAssessmentBackupSetCollection": CryptoAssessmentBackupSetCollection,
+    "CryptoAssessmentBackupSetSummary": CryptoAssessmentBackupSetSummary,
+    "CryptoAssessmentCbomItemCollection": CryptoAssessmentCbomItemCollection,
+    "CryptoAssessmentCbomItemSummary": CryptoAssessmentCbomItemSummary,
+    "CryptoAssessmentCertificateCollection": CryptoAssessmentCertificateCollection,
+    "CryptoAssessmentCertificateSummary": CryptoAssessmentCertificateSummary,
+    "CryptoAssessmentCollection": CryptoAssessmentCollection,
+    "CryptoAssessmentFindingAnalyticsCollection": CryptoAssessmentFindingAnalyticsCollection,
+    "CryptoAssessmentFindingAnalyticsSummary": CryptoAssessmentFindingAnalyticsSummary,
+    "CryptoAssessmentFindingCategorySummary": CryptoAssessmentFindingCategorySummary,
+    "CryptoAssessmentFindingCollection": CryptoAssessmentFindingCollection,
+    "CryptoAssessmentFindingSummary": CryptoAssessmentFindingSummary,
+    "CryptoAssessmentFindingSummaryMetrics": CryptoAssessmentFindingSummaryMetrics,
+    "CryptoAssessmentFindingTargetCollection": CryptoAssessmentFindingTargetCollection,
+    "CryptoAssessmentFindingTargetSummary": CryptoAssessmentFindingTargetSummary,
+    "CryptoAssessmentKeyCollection": CryptoAssessmentKeyCollection,
+    "CryptoAssessmentKeySummary": CryptoAssessmentKeySummary,
+    "CryptoAssessmentSqlnetParameters": CryptoAssessmentSqlnetParameters,
+    "CryptoAssessmentSummary": CryptoAssessmentSummary,
+    "CryptoAssessmentTdeObjectCollection": CryptoAssessmentTdeObjectCollection,
+    "CryptoAssessmentTdeObjectSummary": CryptoAssessmentTdeObjectSummary,
+    "CryptoAssessmentWalletCollection": CryptoAssessmentWalletCollection,
+    "CryptoAssessmentWalletSummary": CryptoAssessmentWalletSummary,
+    "CryptoNnePosture": CryptoNnePosture,
+    "CryptoPosture": CryptoPosture,
+    "CryptoSqlnetParameter": CryptoSqlnetParameter,
+    "CryptoSqlnetParameterSource": CryptoSqlnetParameterSource,
+    "CryptoSqlnetParameterValue": CryptoSqlnetParameterValue,
+    "CryptoTdePosture": CryptoTdePosture,
+    "CryptoTlsPosture": CryptoTlsPosture,
     "DataSafeConfiguration": DataSafeConfiguration,
     "DataSafePrivateEndpoint": DataSafePrivateEndpoint,
     "DataSafePrivateEndpointSummary": DataSafePrivateEndpointSummary,
@@ -695,6 +763,7 @@ data_safe_type_mapping = {
     "DiscoveryJobResultCollection": DiscoveryJobResultCollection,
     "DiscoveryJobResultSummary": DiscoveryJobResultSummary,
     "DiscoveryJobSummary": DiscoveryJobSummary,
+    "DownloadCryptoAssessmentReportDetails": DownloadCryptoAssessmentReportDetails,
     "DownloadDiscoveryReportDetails": DownloadDiscoveryReportDetails,
     "DownloadMaskingLogDetails": DownloadMaskingLogDetails,
     "DownloadMaskingPolicyDetails": DownloadMaskingPolicyDetails,
@@ -723,6 +792,7 @@ data_safe_type_mapping = {
     "FormatSummary": FormatSummary,
     "FormatsForDataType": FormatsForDataType,
     "FormatsForSensitiveType": FormatsForSensitiveType,
+    "GenerateCryptoAssessmentReportDetails": GenerateCryptoAssessmentReportDetails,
     "GenerateDiscoveryReportForDownloadDetails": GenerateDiscoveryReportForDownloadDetails,
     "GenerateHealthReportDetails": GenerateHealthReportDetails,
     "GenerateMaskingPolicyForDownloadDetails": GenerateMaskingPolicyForDownloadDetails,
@@ -834,6 +904,7 @@ data_safe_type_mapping = {
     "RoleGrantPathCollection": RoleGrantPathCollection,
     "RoleGrantPathSummary": RoleGrantPathSummary,
     "RoleSummary": RoleSummary,
+    "RunCryptoAssessmentDetails": RunCryptoAssessmentDetails,
     "RunSecurityAssessmentDetails": RunSecurityAssessmentDetails,
     "RunUserAssessmentDetails": RunUserAssessmentDetails,
     "SQLExpressionFormatEntry": SQLExpressionFormatEntry,
@@ -978,6 +1049,7 @@ data_safe_type_mapping = {
     "UpdateColumnSourceDetails": UpdateColumnSourceDetails,
     "UpdateColumnSourceSdmDetails": UpdateColumnSourceSdmDetails,
     "UpdateColumnSourceTargetDetails": UpdateColumnSourceTargetDetails,
+    "UpdateCryptoAssessmentDetails": UpdateCryptoAssessmentDetails,
     "UpdateDataSafePrivateEndpointDetails": UpdateDataSafePrivateEndpointDetails,
     "UpdateDatabaseSecurityConfigDetails": UpdateDatabaseSecurityConfigDetails,
     "UpdateFindingDetails": UpdateFindingDetails,

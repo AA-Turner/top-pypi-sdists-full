@@ -6,6 +6,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.update_app_raw_source_json_body import UpdateAppRawSourceJsonBody
+from ...models.update_app_raw_source_response_200 import UpdateAppRawSourceResponse200
 from ...types import Response
 
 
@@ -29,14 +30,22 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Any]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[UpdateAppRawSourceResponse200]:
+    if response.status_code == HTTPStatus.OK:
+        response_200 = UpdateAppRawSourceResponse200.from_dict(response.json())
+
+        return response_200
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[UpdateAppRawSourceResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -51,7 +60,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: UpdateAppRawSourceJsonBody,
-) -> Response[Any]:
+) -> Response[UpdateAppRawSourceResponse200]:
     """update a raw app from its sources, compiling them on a worker (which runs the app's own dependencies
     to do so)
 
@@ -65,7 +74,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        Response[UpdateAppRawSourceResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -81,13 +90,13 @@ def sync_detailed(
     return _build_response(client=client, response=response)
 
 
-async def asyncio_detailed(
+def sync(
     workspace: str,
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: UpdateAppRawSourceJsonBody,
-) -> Response[Any]:
+) -> Optional[UpdateAppRawSourceResponse200]:
     """update a raw app from its sources, compiling them on a worker (which runs the app's own dependencies
     to do so)
 
@@ -101,7 +110,38 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        UpdateAppRawSourceResponse200
+    """
+
+    return sync_detailed(
+        workspace=workspace,
+        path=path,
+        client=client,
+        json_body=json_body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    workspace: str,
+    path: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    json_body: UpdateAppRawSourceJsonBody,
+) -> Response[UpdateAppRawSourceResponse200]:
+    """update a raw app from its sources, compiling them on a worker (which runs the app's own dependencies
+    to do so)
+
+    Args:
+        workspace (str):
+        path (str):
+        json_body (UpdateAppRawSourceJsonBody):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[UpdateAppRawSourceResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -113,3 +153,36 @@ async def asyncio_detailed(
     response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    workspace: str,
+    path: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    json_body: UpdateAppRawSourceJsonBody,
+) -> Optional[UpdateAppRawSourceResponse200]:
+    """update a raw app from its sources, compiling them on a worker (which runs the app's own dependencies
+    to do so)
+
+    Args:
+        workspace (str):
+        path (str):
+        json_body (UpdateAppRawSourceJsonBody):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        UpdateAppRawSourceResponse200
+    """
+
+    return (
+        await asyncio_detailed(
+            workspace=workspace,
+            path=path,
+            client=client,
+            json_body=json_body,
+        )
+    ).parsed

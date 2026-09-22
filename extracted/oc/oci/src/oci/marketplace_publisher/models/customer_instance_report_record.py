@@ -76,13 +76,13 @@ class CustomerInstanceReportRecord(object):
             The value to assign to the oci_tenancy property of this CustomerInstanceReportRecord.
         :type oci_tenancy: str
 
-        :param tenant_admin_name:
-            The value to assign to the tenant_admin_name property of this CustomerInstanceReportRecord.
-        :type tenant_admin_name: str
+        :param tenant_admin_domain:
+            The value to assign to the tenant_admin_domain property of this CustomerInstanceReportRecord.
+        :type tenant_admin_domain: str
 
-        :param tenant_admin_email:
-            The value to assign to the tenant_admin_email property of this CustomerInstanceReportRecord.
-        :type tenant_admin_email: str
+        :param legacy_listing_id:
+            The value to assign to the legacy_listing_id property of this CustomerInstanceReportRecord.
+        :type legacy_listing_id: str
 
         :param freeform_tags:
             The value to assign to the freeform_tags property of this CustomerInstanceReportRecord.
@@ -112,8 +112,8 @@ class CustomerInstanceReportRecord(object):
             'realm': 'str',
             'shape': 'str',
             'oci_tenancy': 'str',
-            'tenant_admin_name': 'str',
-            'tenant_admin_email': 'str',
+            'tenant_admin_domain': 'str',
+            'legacy_listing_id': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'system_tags': 'dict(str, dict(str, object))'
@@ -133,8 +133,8 @@ class CustomerInstanceReportRecord(object):
             'realm': 'realm',
             'shape': 'shape',
             'oci_tenancy': 'ociTenancy',
-            'tenant_admin_name': 'tenantAdminName',
-            'tenant_admin_email': 'tenantAdminEmail',
+            'tenant_admin_domain': 'tenantAdminDomain',
+            'legacy_listing_id': 'legacyListingId',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'system_tags': 'systemTags'
@@ -153,8 +153,8 @@ class CustomerInstanceReportRecord(object):
         self._realm = None
         self._shape = None
         self._oci_tenancy = None
-        self._tenant_admin_name = None
-        self._tenant_admin_email = None
+        self._tenant_admin_domain = None
+        self._legacy_listing_id = None
         self._freeform_tags = None
         self._defined_tags = None
         self._system_tags = None
@@ -512,52 +512,52 @@ class CustomerInstanceReportRecord(object):
         self._oci_tenancy = oci_tenancy
 
     @property
-    def tenant_admin_name(self):
+    def tenant_admin_domain(self):
         """
-        Gets the tenant_admin_name of this CustomerInstanceReportRecord.
-        The name of the tenant adminstrator
+        Gets the tenant_admin_domain of this CustomerInstanceReportRecord.
+        The domain of the tenant administrator email address
 
 
-        :return: The tenant_admin_name of this CustomerInstanceReportRecord.
+        :return: The tenant_admin_domain of this CustomerInstanceReportRecord.
         :rtype: str
         """
-        return self._tenant_admin_name
+        return self._tenant_admin_domain
 
-    @tenant_admin_name.setter
-    def tenant_admin_name(self, tenant_admin_name):
+    @tenant_admin_domain.setter
+    def tenant_admin_domain(self, tenant_admin_domain):
         """
-        Sets the tenant_admin_name of this CustomerInstanceReportRecord.
-        The name of the tenant adminstrator
+        Sets the tenant_admin_domain of this CustomerInstanceReportRecord.
+        The domain of the tenant administrator email address
 
 
-        :param tenant_admin_name: The tenant_admin_name of this CustomerInstanceReportRecord.
+        :param tenant_admin_domain: The tenant_admin_domain of this CustomerInstanceReportRecord.
         :type: str
         """
-        self._tenant_admin_name = tenant_admin_name
+        self._tenant_admin_domain = tenant_admin_domain
 
     @property
-    def tenant_admin_email(self):
+    def legacy_listing_id(self):
         """
-        Gets the tenant_admin_email of this CustomerInstanceReportRecord.
-        The email of the tenant adminstrator
+        Gets the legacy_listing_id of this CustomerInstanceReportRecord.
+        The legacy listing id of the listing
 
 
-        :return: The tenant_admin_email of this CustomerInstanceReportRecord.
+        :return: The legacy_listing_id of this CustomerInstanceReportRecord.
         :rtype: str
         """
-        return self._tenant_admin_email
+        return self._legacy_listing_id
 
-    @tenant_admin_email.setter
-    def tenant_admin_email(self, tenant_admin_email):
+    @legacy_listing_id.setter
+    def legacy_listing_id(self, legacy_listing_id):
         """
-        Sets the tenant_admin_email of this CustomerInstanceReportRecord.
-        The email of the tenant adminstrator
+        Sets the legacy_listing_id of this CustomerInstanceReportRecord.
+        The legacy listing id of the listing
 
 
-        :param tenant_admin_email: The tenant_admin_email of this CustomerInstanceReportRecord.
+        :param legacy_listing_id: The legacy_listing_id of this CustomerInstanceReportRecord.
         :type: str
         """
-        self._tenant_admin_email = tenant_admin_email
+        self._legacy_listing_id = legacy_listing_id
 
     @property
     def freeform_tags(self):

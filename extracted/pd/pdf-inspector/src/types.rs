@@ -12,6 +12,92 @@ use crate::text_utils::should_join_items;
 /// and whether fonts with unresolvable gid-encoded glyphs were encountered.
 pub(crate) type PageExtraction = (Vec<TextItem>, Vec<PdfRect>, Vec<PdfLine>);
 
+/// Per font (its `/BaseFont` name, or its resource name without one), how
+/// the codes shown through the font's CMap fared: the codes shown, the ones
+/// read from the mapped codes around them and the ones left unmapped.
+/// Ordered by name so documents report their fonts the same way.
+pub(crate) type CMapCoverageByFont =
+    std::collections::BTreeMap<String, crate::tounicode::CidDecodeStats>;
+
+/// The CMap coverage of one run of text of one font, with the geometry of
+/// the item a content stream walker attached it to — the item the run
+/// made, or the page's next item for a run that made none — once the
+/// page's frame was settled, so a run the page box leaves out takes its
+/// codes with it.
+/// The name a font's coverage is counted under — its `/BaseFont` name, or
+/// its resource name without one — shared by every run of the font on the
+/// page rather than copied for each.
+pub(crate) type FontLabel = std::rc::Rc<str>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct RunCoverage {
+    /// The run's `(x, y, width)` in the items' frame; `None` for the
+    /// coverage of show operators that no item followed on the page (a
+    /// trailing run of blank codes, of codes that read as nothing), which
+    /// has no place to be judged by and is counted wherever it lies.
+    pub(crate) position: Option<(f32, f32, f32)>,
+    /// The font's `/BaseFont` name, or its resource name without one.
+    pub(crate) font: FontLabel,
+    pub(crate) stats: crate::tounicode::CidDecodeStats,
+}
+
+/// The coverage waiting to be attached to an item: the decodes of the
+/// show operators since the last attachment, summed per font in the order
+/// the fonts were used, so a blank run of one font waiting beside the next
+/// run of another keeps its own name.
+pub(crate) type PendingCoverage = Vec<(FontLabel, crate::tounicode::CidDecodeStats)>;
+
+/// Per item of a content stream walker, parallel to its items like their
+/// clips: the coverage of the decodes that produced the item. The coverage
+/// waiting when a show operator appends items goes to the first of them,
+/// nothing to the rest (one TJ array can split into several).
+pub(crate) type ItemCoverage = Vec<PendingCoverage>;
+
+/// Attach the coverage the show operators since the last attachment
+/// recorded — `take` hands it over and leaves none behind — to the first of
+/// the items they appended, bringing `item_coverage` up to `items_len`
+/// entries. An operator that appended no item — a run of blank codes, of
+/// codes that read as nothing — leaves its coverage waiting for the next
+/// item appended on the page, so that its codes count where that item is;
+/// the page walker keeps what is still waiting at the end of the page as a
+/// run without a position.
+pub(crate) fn attach_run_coverage(
+    item_coverage: &mut ItemCoverage,
+    items_len: usize,
+    take: impl FnOnce() -> PendingCoverage,
+) {
+    if items_len > item_coverage.len() {
+        item_coverage.push(take());
+        item_coverage.resize(items_len, Vec::new());
+    }
+}
+
+#[cfg(test)]
+mod run_coverage_tests {
+    use super::{attach_run_coverage, FontLabel, ItemCoverage, PendingCoverage};
+    use crate::tounicode::CidDecodeStats;
+
+    #[test]
+    fn coverage_of_an_operator_without_an_item_waits_for_the_next_item() {
+        let stats = |codes: u32| CidDecodeStats {
+            codes,
+            interpolated: 0,
+            unmapped: 0,
+        };
+        let label: FontLabel = FontLabel::from("F");
+        let mut pending: PendingCoverage = vec![(label.clone(), stats(1))];
+        let mut coverage = ItemCoverage::new();
+        // No item appended: the coverage is not taken.
+        attach_run_coverage(&mut coverage, 0, || std::mem::take(&mut pending));
+        assert!(coverage.is_empty());
+        assert_eq!(pending.len(), 1);
+        // Two items appended by the next operator: the first gets it.
+        attach_run_coverage(&mut coverage, 2, || std::mem::take(&mut pending));
+        assert_eq!(coverage, vec![vec![(label, stats(1))], vec![]]);
+        assert!(pending.is_empty());
+    }
+}
+
 // ── Font types (crate-internal) ──────────────────────────────────────
 
 /// Font encoding map: maps byte codes to Unicode characters
@@ -35,7 +121,13 @@ pub(crate) enum BaseEncoding {
 /// Explicit glyph encodings and narrowly verified repairs for a stale CMap.
 pub(crate) struct FontEncoding {
     pub(crate) differences: FontEncodingMap,
-    pub(crate) identity_overrides: FontEncodingMap,
+    /// Codes whose entry in a stale ToUnicode CMap describes the slot's
+    /// original occupant rather than the glyph the font's `/Differences`
+    /// put there, and what that glyph reads as by its name: a character,
+    /// the letters of a ligature, or nothing (an empty string) for a glyph
+    /// whose name spells no character (see
+    /// `fonts::stale_identity_cmap_overrides`).
+    pub(crate) identity_overrides: HashMap<u8, String>,
     /// Codes whose embedded glyph has no outline but a positive advance:
     /// painted, they leave a gap and nothing else, so they read as spaces
     /// whatever the font's ToUnicode claims (see `blank_glyph_codes`).
@@ -43,6 +135,12 @@ pub(crate) struct FontEncoding {
     /// The encoding the codes read through where `differences` say nothing
     /// (see [`BaseEncoding`]); `None` leaves them to the standard decode.
     pub(crate) base: Option<BaseEncoding>,
+    /// The predefined encoding the font declares by name (`/Encoding
+    /// /WinAnsiEncoding`, written in place or as an indirect name object),
+    /// which names the glyph of each code — read for a code whose ToUnicode
+    /// entry is a control destination, where the standard decode reads the
+    /// rest as before.
+    pub(crate) named: Option<BaseEncoding>,
     /// Every code the `/Differences` array names, mapped or not: a code
     /// named there is that glyph, whatever the base encoding puts at it.
     pub(crate) named_codes: std::collections::HashSet<u8>,

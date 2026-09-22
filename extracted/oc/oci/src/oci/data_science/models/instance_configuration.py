@@ -54,26 +54,33 @@ class InstanceConfiguration(object):
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type network_access_type: str
 
+        :param capacity_reservation_ids:
+            The value to assign to the capacity_reservation_ids property of this InstanceConfiguration.
+        :type capacity_reservation_ids: list[str]
+
         """
         self.swagger_types = {
             'instance_shape_name': 'str',
             'model_deployment_instance_shape_config_details': 'ModelDeploymentInstanceShapeConfigDetails',
             'subnet_id': 'str',
             'private_endpoint_id': 'str',
-            'network_access_type': 'str'
+            'network_access_type': 'str',
+            'capacity_reservation_ids': 'list[str]'
         }
         self.attribute_map = {
             'instance_shape_name': 'instanceShapeName',
             'model_deployment_instance_shape_config_details': 'modelDeploymentInstanceShapeConfigDetails',
             'subnet_id': 'subnetId',
             'private_endpoint_id': 'privateEndpointId',
-            'network_access_type': 'networkAccessType'
+            'network_access_type': 'networkAccessType',
+            'capacity_reservation_ids': 'capacityReservationIds'
         }
         self._instance_shape_name = None
         self._model_deployment_instance_shape_config_details = None
         self._subnet_id = None
         self._private_endpoint_id = None
         self._network_access_type = None
+        self._capacity_reservation_ids = None
 
     @property
     def instance_shape_name(self):
@@ -202,6 +209,34 @@ class InstanceConfiguration(object):
         if not value_allowed_none_or_none_sentinel(network_access_type, allowed_values):
             network_access_type = 'UNKNOWN_ENUM_VALUE'
         self._network_access_type = network_access_type
+
+    @property
+    def capacity_reservation_ids(self):
+        """
+        Gets the capacity_reservation_ids of this InstanceConfiguration.
+        This specifies the list of `OCID`__ of the customer-managed capacity reservation to be used for launching model deployment instances.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_ids of this InstanceConfiguration.
+        :rtype: list[str]
+        """
+        return self._capacity_reservation_ids
+
+    @capacity_reservation_ids.setter
+    def capacity_reservation_ids(self, capacity_reservation_ids):
+        """
+        Sets the capacity_reservation_ids of this InstanceConfiguration.
+        This specifies the list of `OCID`__ of the customer-managed capacity reservation to be used for launching model deployment instances.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_ids: The capacity_reservation_ids of this InstanceConfiguration.
+        :type: list[str]
+        """
+        self._capacity_reservation_ids = capacity_reservation_ids
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -1185,3 +1185,61 @@ class TestPredictorPanel(unittest.TestCase):
         consts = {c.value for w in writes for c in ast.walk(w)
                   if isinstance(c, ast.Constant) and isinstance(c.value, str)}
         self.assertIn("predictors.csv", consts)
+
+
+class TestForecastOffsetPinning(unittest.TestCase):
+    """`forecast_offset` pins the init the forecast is issued from.
+
+    The free-running path takes the FIRST offset that builds features, which
+    is the freshest init — not necessarily the most skilful one. Pinning
+    exists so the map at the best hindcast offset can be compared against
+    the issued one.
+    """
+
+    def test_rejects_offsets_outside_the_s2s_horizon(self):
+        from geocif.experiments.s2s_africa import MAX_OFFSET, run
+
+        for bad in (0, -1, MAX_OFFSET + 1):
+            with self.assertRaises(ValueError) as cm:
+                run(forecast_offset=bad)
+            self.assertIn("forecast_offset", str(cm.exception))
+
+    def test_pinned_offset_replaces_the_freshest_init_search(self):
+        import ast
+        import inspect
+        import textwrap
+
+        from geocif.experiments import s2s_africa as mod
+
+        src = textwrap.dedent(inspect.getsource(mod.run))
+        tree = ast.parse(src)
+        # The candidate list must be conditional on forecast_offset, not a
+        # bare range: a stray range(1, MAX_OFFSET + 1) would silently ignore
+        # the pin and issue the forecast from the freshest init anyway.
+        assigns = [n for n in ast.walk(tree)
+                   if isinstance(n, ast.Assign)
+                   and any(isinstance(t, ast.Name) and t.id == "cand_offsets"
+                           for t in n.targets)]
+        self.assertEqual(len(assigns), 1, "cand_offsets assigned once")
+        self.assertIsInstance(assigns[0].value, ast.IfExp)
+        names = {n.id for n in ast.walk(assigns[0].value)
+                 if isinstance(n, ast.Name)}
+        self.assertIn("forecast_offset", names)
+
+    def test_pinned_run_gets_its_own_output_directory(self):
+        import ast
+        import inspect
+        import textwrap
+
+        from geocif.experiments import s2s_africa as mod
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(mod.run)))
+        # A pinned run differs from the free-running one only in the
+        # forecast; identical paths would overwrite maps that look alike.
+        suffixed = [n for n in ast.walk(tree)
+                    if isinstance(n, ast.AugAssign)
+                    and isinstance(n.target, ast.Name)
+                    and n.target.id == "suffix"]
+        joined = " ".join(ast.dump(n) for n in suffixed)
+        self.assertIn("off", joined)
+        self.assertIn("forecast_offset", joined)

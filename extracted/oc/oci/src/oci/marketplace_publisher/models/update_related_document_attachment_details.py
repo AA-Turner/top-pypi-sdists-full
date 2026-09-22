@@ -45,6 +45,10 @@ class UpdateRelatedDocumentAttachmentDetails(UpdateListingRevisionAttachmentDeta
             The value to assign to the document_category property of this UpdateRelatedDocumentAttachmentDetails.
         :type document_category: str
 
+        :param source_url:
+            The value to assign to the source_url property of this UpdateRelatedDocumentAttachmentDetails.
+        :type source_url: str
+
         """
         self.swagger_types = {
             'display_name': 'str',
@@ -52,7 +56,8 @@ class UpdateRelatedDocumentAttachmentDetails(UpdateListingRevisionAttachmentDeta
             'attachment_type': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
-            'document_category': 'str'
+            'document_category': 'str',
+            'source_url': 'str'
         }
         self.attribute_map = {
             'display_name': 'displayName',
@@ -60,7 +65,8 @@ class UpdateRelatedDocumentAttachmentDetails(UpdateListingRevisionAttachmentDeta
             'attachment_type': 'attachmentType',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
-            'document_category': 'documentCategory'
+            'document_category': 'documentCategory',
+            'source_url': 'sourceUrl'
         }
         self._display_name = None
         self._description = None
@@ -68,6 +74,7 @@ class UpdateRelatedDocumentAttachmentDetails(UpdateListingRevisionAttachmentDeta
         self._freeform_tags = None
         self._defined_tags = None
         self._document_category = None
+        self._source_url = None
         self._attachment_type = 'RELATED_DOCUMENT'
 
     @property
@@ -93,6 +100,30 @@ class UpdateRelatedDocumentAttachmentDetails(UpdateListingRevisionAttachmentDeta
         :type: str
         """
         self._document_category = document_category
+
+    @property
+    def source_url(self):
+        """
+        Gets the source_url of this UpdateRelatedDocumentAttachmentDetails.
+        The document URL of the listing revision attachment.
+
+
+        :return: The source_url of this UpdateRelatedDocumentAttachmentDetails.
+        :rtype: str
+        """
+        return self._source_url
+
+    @source_url.setter
+    def source_url(self, source_url):
+        """
+        Sets the source_url of this UpdateRelatedDocumentAttachmentDetails.
+        The document URL of the listing revision attachment.
+
+
+        :param source_url: The source_url of this UpdateRelatedDocumentAttachmentDetails.
+        :type: str
+        """
+        self._source_url = source_url
 
     def __repr__(self):
         return formatted_flat_dict(self)

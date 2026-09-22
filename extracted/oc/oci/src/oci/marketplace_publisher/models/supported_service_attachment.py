@@ -67,6 +67,12 @@ class SupportedServiceAttachment(ListingRevisionAttachment):
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type attachment_type: str
 
+        :param source_type:
+            The value to assign to the source_type property of this SupportedServiceAttachment.
+            Allowed values for this property are: "EXTERNAL", "INTERNAL", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type source_type: str
+
         :param lifecycle_state:
             The value to assign to the lifecycle_state property of this SupportedServiceAttachment.
             Allowed values for this property are: "ACTIVE", "INACTIVE", "DELETED", 'UNKNOWN_ENUM_VALUE'.
@@ -123,6 +129,7 @@ class SupportedServiceAttachment(ListingRevisionAttachment):
             'display_name': 'str',
             'description': 'str',
             'attachment_type': 'str',
+            'source_type': 'str',
             'lifecycle_state': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
@@ -142,6 +149,7 @@ class SupportedServiceAttachment(ListingRevisionAttachment):
             'display_name': 'displayName',
             'description': 'description',
             'attachment_type': 'attachmentType',
+            'source_type': 'sourceType',
             'lifecycle_state': 'lifecycleState',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
@@ -160,6 +168,7 @@ class SupportedServiceAttachment(ListingRevisionAttachment):
         self._display_name = None
         self._description = None
         self._attachment_type = None
+        self._source_type = None
         self._lifecycle_state = None
         self._time_created = None
         self._time_updated = None

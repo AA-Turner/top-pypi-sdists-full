@@ -20,6 +20,7 @@ from pathlib import Path
 from .. import __version__, cliparse
 from ..core import (
     agents,
+    ai,
     bootstrap,
     builtin,
     catalog,
@@ -43,6 +44,9 @@ from ..core import (
     store,
     typedvalue,
     util,
+)
+from ..core import (
+    compact as compactplan,
 )
 from ..core import output as out
 from ..errors import BoostError
@@ -284,34 +288,6 @@ def cmd_clean(argv) -> int:
     return 0
 
 
-def _freight_bytes(tap_path: Path, keep_dirs: list[str]) -> int:
-    """Bytes that would leave `tap_path`'s working tree when the cone applies.
-
-    Mirrors what `gitutil.SPARSE_PATTERNS` keeps rather than approximating it,
-    so the dry run does not promise back the provenance files or the assets of
-    an already-installed skill — both of which survive and neither of which is
-    freed.
-    """
-    kept = tuple("%s/" % d.strip("/") for d in keep_dirs)
-    total = 0
-    for f in tap_path.rglob("*"):
-        if not f.is_file():
-            continue
-        # Relative to the tap, never absolute: every clone lives *under*
-        # ~/.boost, so testing the absolute parts for ".boost" excluded every
-        # file in every tap and reported that nothing could be freed.
-        rel = f.relative_to(tap_path)
-        if ".git" in rel.parts or ".boost" in rel.parts:
-            continue
-        if (f.suffix.lower() in (".md", ".mdc")
-                or f.name in catalog.RULE_FILENAMES):
-            continue
-        if kept and rel.as_posix().startswith(kept):
-            continue
-        total += f.stat().st_size
-    return total
-
-
 # `boost doctor`'s wording for the same condition (quality.py), so the two
 # commands describe one missing clone in one sentence.
 _NOT_CLONED = "not cloned — run `boost update`"
@@ -365,20 +341,49 @@ def cmd_compact(argv) -> int:
                 keep.setdefault(entry.get("tap", ""), []).append(entry["source_dir"])
 
     freed = 0
+    removed = 0                 # bytes deleted before any re-download (reclone)
     changed = 0
     broken = 0                  # cloned taps this run failed on
     for tap in taps:
         before = util.dir_size(tap.path)
         if args.dry_run:
-            loose = _freight_bytes(tap.path, keep.get(tap.name, []))
-            if loose:
+            try:
+                plan = compactplan.plan(tap.path, keep.get(tap.name, []),
+                                        reclone=args.reclone)
+            except BoostError as e:
+                # A clone git cannot read fails the real run at `narrow` one
+                # step later, so the preview reports it the same way rather
+                # than answering "nothing to free" for a tap it never read.
+                broken += 1
+                rows.append({"tap": tap.name, "error": str(e)})
+                out.warn("could not predict %s: %s" % (tap.name, e),
+                         stream=sys.stderr if args.json else None)
+                continue
+            # `--reclone` does real work on every tap — it refreshes the clone
+            # and can move it back onto its pin — and the live run counts each
+            # one as changed for exactly that reason. A preview that went
+            # silent for a tap with no freight would under-report the run it
+            # is previewing.
+            if plan.removes or args.reclone:
                 changed += 1
-                freed += loose
-                rows.append({"tap": tap.name, "bytes": loose,
-                             "before": before, "after": before - loose})
-                if not args.json:
+                freed += plan.net or 0
+                removed += plan.removes
+                rows.append({"tap": tap.name, "bytes": plan.freight,
+                             "git_bytes": plan.git_bytes,
+                             "reclone": plan.reclone, "before": before,
+                             # None, not a number: see compactplan.Plan.net —
+                             # the re-download's size is the remote's answer.
+                             "after": None if plan.reclone
+                                      else before - plan.freight})
+                if not args.json and plan.reclone:
+                    out.info("would re-clone %s — removes %s of freight and "
+                             "%s of git objects, then re-downloads a blobless "
+                             "clone (final size set by the remote)"
+                             % (tap.name, util.human_size(plan.freight),
+                                util.human_size(plan.git_bytes)), wrap=True)
+                elif not args.json:
                     out.info("would free %s from %s"
-                             % (util.human_size(loose), tap.name))
+                             % (util.human_size(plan.freight), tap.name))
             continue
         try:
             if args.reclone:
@@ -444,10 +449,17 @@ def cmd_compact(argv) -> int:
     if args.dry_run:
         if args.json:
             print(json.dumps({"taps": rows, "count": changed, "bytes": freed,
+                              "removes": removed, "reclone": args.reclone,
                               "dry_run": True, "ok": not failed}, indent=2))
             return rc
-        out.dim("  %d tap(s) · %s would be freed"
-                % (changed, util.human_size(freed)))
+        if args.reclone:
+            # Deliberately not "would be freed": under `--reclone` that number
+            # is `removed` minus a re-download boost has not made yet.
+            out.dim("  %d tap(s) would be re-cloned · %s removed first"
+                    % (changed, util.human_size(removed)))
+        else:
+            out.dim("  %d tap(s) · %s would be freed"
+                    % (changed, util.human_size(freed)))
         return rc
     journal.log("compact", "%d taps" % changed, freed=util.human_size(freed))
     if args.json:
@@ -551,6 +563,8 @@ def cmd_create(argv) -> int:
         out.ok("%s %s → %s" % ("replaced" if owner else "installed", name, _tilde(res.dest)))
         if res.linked:
             out.info("linked: " + ", ".join(agents.display_name(a) for a in res.linked))
+        from .pkg import _warn_unwritable
+        _warn_unwritable(res)
     else:
         out.dim("  next: edit it, then `boost import %s`" % _tilde(target))
     return 0
@@ -755,7 +769,7 @@ def cmd_policy(argv) -> int:
         out.dim("  not checked: %s" % note)
     if violations:
         out.table([(label, v) for _n, _k, label, v in violations],
-                  headers=("ITEM", "VIOLATION"))
+                  headers=("ITEM", "VIOLATION"), whole=("ITEM",))  # `uninstall`
         print()
         out.err("%d policy violation(s) across %d installed item(s)"
                 % (len(violations), total),
@@ -769,6 +783,11 @@ def cmd_policy(argv) -> int:
 
 _WORKFLOW_REL = ".github/workflows/boost-skill-inventory.yml"
 _TELEMETRY_REL = ".boost/telemetry.json"
+# Named once: `--dry-run --pr` rehearses the branch the real run creates,
+# and a preview naming a different branch is the defect it exists to fix.
+_PR_BRANCH = "boost/onboard-skill-tracker"
+# Lines of each file the preview shows before saying how many it hid.
+_PREVIEW_LINES = 24
 
 _WORKFLOW_YML = """\
 # generated by `boost onboard` — publishes this repo's AI-skill inventory
@@ -797,6 +816,19 @@ jobs:
 """
 
 
+def _onboard_unchanged(dest: Path, content: str) -> bool:
+    """True when `dest` already holds exactly `content`; the run skips it.
+
+    Shared with the dry run so the preview and the write agree on which files
+    the run leaves alone. An unreadable file counts as different, and the
+    real run asks before it overwrites one.
+    """
+    try:
+        return dest.read_text(encoding="utf-8") == content
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def _write_onboard_file(dest: Path, content: str, force: bool) -> bool:
     """Write one generated onboard file; confirm first if it already exists.
 
@@ -813,11 +845,7 @@ def _write_onboard_file(dest: Path, content: str, force: bool) -> bool:
         dest.write_text(content, encoding="utf-8")
         out.ok("created %s" % _tilde(dest))
         return True
-    try:
-        unchanged = dest.read_text(encoding="utf-8") == content
-    except (OSError, UnicodeDecodeError):
-        unchanged = False   # unreadable: treat as different and ask
-    if unchanged:
+    if _onboard_unchanged(dest, content):
         # Re-running onboard regenerates the workflow byte-for-byte. Prompting
         # to overwrite a file with its own contents is noise, not safety.
         out.info("unchanged %s" % _tilde(dest))
@@ -882,17 +910,12 @@ def cmd_onboard(argv) -> int:
                       json.dumps(lockfile.portable(lockfile.read()),
                                 indent=2, sort_keys=True) + "\n"))
 
-    if args.dry_run:
-        for rel, content in files:
-            dest = repo / rel
-            out.heading("would %s %s"
-                        % ("overwrite" if dest.exists() else "write",
-                           _tilde(dest)))
-            for line in content.splitlines()[:24]:
-                out.dim("    " + line)
-        return 0
-
-    if args.pr:  # check preconditions FIRST so we never leave the repo mid-state
+    # Preconditions FIRST so a real run never leaves the repo mid-state — and
+    # *before* the dry-run return, because all three are read-only and a
+    # preview that skips them is the one shape of dry run that is worse than
+    # none: `--dry-run --pr` outside a git repository exited 0 with no plan and
+    # no failure, so the flag the user was rehearsing was never rehearsed.
+    if args.pr:
         if not gitutil.is_repo(repo):
             raise BoostError("%s is not a git repository" % _tilde(repo),
                             hint="--pr needs a git checkout with a GitHub remote")
@@ -902,6 +925,34 @@ def cmd_onboard(argv) -> int:
         if not shutil.which("gh"):
             raise BoostError("the `gh` CLI is required for --pr",
                             hint="brew install gh, or rerun without --pr")
+
+    if args.dry_run:
+        changes = 0
+        for rel, content in files:
+            dest = repo / rel
+            if dest.exists() and _onboard_unchanged(dest, content):
+                out.info("unchanged %s" % _tilde(dest))
+                continue
+            changes += 1
+            out.heading("would %s %s"
+                        % ("overwrite" if dest.exists() else "write",
+                           _tilde(dest)))
+            shown, hidden = util.head_lines(content, _PREVIEW_LINES)
+            for line in shown:
+                out.dim("    " + line)
+            if hidden:
+                # Say the preview was cut, and by how much. Without this the
+                # lock preview stopped mid-object and read as a malformed file
+                # rather than a shortened view of a well-formed one.
+                out.dim("    … %d more line%s"
+                        % (hidden, "" if hidden == 1 else "s"))
+        if not changes:
+            # The real run's answer on this state, and it opens no PR.
+            out.info("nothing to do — %s already onboarded" % _tilde(repo))
+        elif args.pr:
+            out.info("would commit them on %s and run `gh pr create --fill`"
+                     % _PR_BRANCH)
+        return 0
 
     written = [rel for rel, content in files
                if _write_onboard_file(repo / rel, content,
@@ -915,7 +966,7 @@ def cmd_onboard(argv) -> int:
     journal.log("onboard", _tilde(repo), pr=args.pr or None)
 
     if args.pr:
-        branch = "boost/onboard-skill-tracker"
+        branch = _PR_BRANCH
         gitutil.run(["-C", str(repo), "checkout", "-b", branch])
         gitutil.run(["-C", str(repo), "add", *written])
         gitutil.run(["-C", str(repo), "commit", "-m",
@@ -1331,12 +1382,18 @@ REGISTRY = mcp.Registry()
 def _ranking_note(ranker: str) -> str:
     """One line naming the ranking that actually produced this order.
 
-    `boost_search`'s own description promises an LLM rerank and quotes what it
-    buys — the right skill first 95% of the time against 79% without. When no
-    AI is configured that rerank degrades to the retrieval order, and the reply
-    was byte-for-byte the shape of a reranked one: same ten lines, same
-    confidence, 79%. An agent acts on the top result because the description
-    told it to.
+    `boost_search`'s description once promised an LLM rerank on every machine
+    and quoted what it buys — the right skill first 95% of the time against 79%
+    without. When no AI is configured that rerank degrades to the retrieval
+    order, and the reply was byte-for-byte the shape of a reranked one: same
+    ten lines, same confidence, 79%. An agent acts on the top result because
+    the description told it to.
+
+    The description is now priced per machine (`mcp.search_cost`), so on a
+    keyless one it already says the rerank is off. This line still matters on
+    both: it is the per-call truth, and it covers a rerank that was available
+    at connect time and failed on this call. So it names what did not run
+    without claiming the description promised it.
 
     `rag.rerank` already computes the only thing that distinguishes the two
     cases, and its own comment says so — "the label is the only signal about
@@ -1344,10 +1401,9 @@ def _ranking_note(ranker: str) -> str:
     """
     if ranker == rag.LLM_RANKER:
         return "\n(ranked by %s)" % ranker
-    return ("\n(ranked by %s — the LLM rerank named in this tool's description "
-            "did NOT run, so this is a shortlist to read rather than a verdict "
-            "to act on. Configure ANTHROPIC_API_KEY or the `claude` CLI to "
-            "enable it.)" % ranker)
+    return ("\n(ranked by %s — the LLM rerank did NOT run, so this is a "
+            "shortlist to read rather than a verdict to act on. Configure "
+            "ANTHROPIC_API_KEY or the `claude` CLI to enable it.)" % ranker)
 
 
 # The label for the pre-RAG fallback below. `_ranking_note` needs a name for
@@ -1487,8 +1543,9 @@ def _tool_read(args: dict):
     is worth adopting had one sentence written by whoever published it, and its
     only route to the actual steps was to install into the user's real
     ``~/.agents/skills`` and read it off disk. That inverts the surface's own
-    pitch — ``boost_search`` spends 10-15 s of rerank so the top result is worth
-    acting on, and then nothing let the agent look at it.
+    pitch — where AI is configured ``boost_search`` spends 10-15 s of rerank so
+    the top result is worth acting on, and then nothing let the agent look at
+    it.
 
     The body is also the only thing separating a written skill from a generated
     stub, and the catalogue holds both: two ranked hits share the description
@@ -1538,6 +1595,15 @@ def _tool_install(args: dict):
     lines.append("quality score: %d/100" % res.score)
     if res.conflicts:
         lines.append("conflicts (left in place): %s" % ", ".join(res.conflicts))
+    if res.unwritable:
+        lines.append("not %s, directory not writable: %s — ask the user to "
+                     "`chmod u+w` it, then `boost sync`"
+                     % ("linked" if res.kind == "skill" else "written",
+                        ", ".join(res.unwritable)))
+    for adir, block in res.blocked:
+        lines.append("not %s: %s — ask the user to %s, then `boost sync`"
+                     % ("linked" if res.kind == "skill" else "written",
+                        *store.link_refusal(adir, block)))
     # The same prompt-injection and secret scan `boost install` runs. This path
     # needs it more, not less: nobody is watching a terminal here, and the skill
     # was chosen and installed by an agent acting on its own. The install still
@@ -1591,7 +1657,16 @@ def _tool_doctor(args: dict):
     # Additive, deliberately: an untapped machine can ALSO have a broken
     # materialization, and folding the two into one branch would hide the
     # issue count behind the setup note.
-    if not taps:
+    # With config.json unreadable the tap list reads as DEFAULTS' empty one,
+    # and the note below would send the agent to re-tap the defaults over the
+    # user's real list — the fix CLI `boost doctor` now names instead.
+    cfg_err = config.check()
+    if cfg_err:
+        total += 1
+        lines.append("%s — boost is running on defaults, so the user's taps are "
+                     "not listed; ask the user to repair the file or re-add "
+                     "their taps (run `boost doctor` for details)" % cfg_err)
+    elif not taps:
         # Same command, same order, as mcp.no_results: an agent that calls
         # both tools in one session must not see the recommendation flipped
         # and read it as two different fixes. `boost tap --defaults` leads
@@ -1603,7 +1678,7 @@ def _tool_doctor(args: dict):
     if total == 0:
         if taps:
             lines.append("healthy — no issues found")
-    elif mat_issues:
+    elif mat_issues or cfg_err:
         lines.append("%d issue(s) — run `boost doctor` for details" % total)
     else:
         lines.append("%d issue(s) — run `boost sync` to fix" % issues)
@@ -1643,8 +1718,7 @@ def _tool_discover_github(args: dict):
 # declarations are the only boost text reliably in context at the moment an
 # agent chooses a tool, so each one repeats the trigger, the cost and the
 # miss protocol rather than deferring to the server instructions.
-REGISTRY.register(
-    "boost_search",
+_SEARCH_PITCH = (
     "Someone has probably solved this already — one call tells you. Searches "
     "every skill, rule and workflow in every registry you have tapped and "
     "returns ranked matches, one per line: name, a [rule] or [workflow] kind "
@@ -1676,15 +1750,40 @@ REGISTRY.register(
     "apart. Read-only where it counts: it "
     "installs nothing and touches nothing you are working on, though the first "
     "search builds a local index under ~/.boost. A hit commits you to nothing "
-    "either: take what fits, discard the rest, the task stays yours. It costs "
-    "10-15 seconds — an LLM reranks every match, which is what makes the top "
-    "result worth acting on rather than skimming. Worth budgeting for, not a "
-    "surprise — and only a novel search pays it: repeating an identical "
-    "search skips the LLM and answers from a local cache. "
+    "either: take what fits, discard the rest, the task stays yours. "
+)
+_SEARCH_MISS = (
     "Coming back empty is a real answer too, not a "
     "wasted turn: it means build it yourself, now knowing nothing already "
     "covers it — and on a machine with nothing tapped yet it says so and names "
-    "the one command that fixes it, rather than reporting a miss.",
+    "the one command that fixes it, rather than reporting a miss. "
+    # The bound, verbatim from the server instructions: six of their seven
+    # load-bearing elements were already duplicated into this description and
+    # the seventh — the one that says when not to call — was in none of the
+    # seven. On a Gemini-family host the description is the only boost text
+    # reliably in context, so what shipped there was every persuasive element
+    # and none of the restraint.
+    + mcp.SKIP_IT
+)
+
+
+def _search_description(ai_available: bool) -> str:
+    """boost_search's description, priced for the machine the host connected to.
+
+    The cost clause is ``mcp.search_cost``, the same one the server
+    instructions carry, so the two surfaces cannot disagree about the price.
+    Registered as a callable so ``tools/list`` renders it when a host connects
+    (``mcp.Registry.specs``), not when this module is imported.
+    """
+    return "%s%s %s" % (_SEARCH_PITCH, mcp.search_cost(ai_available),
+                        _SEARCH_MISS)
+
+
+REGISTRY.register(
+    "boost_search",
+    # A lambda rather than the function itself so `ai.available` is looked up
+    # on each call — the predicate `rag.rerank` branches on.
+    lambda: _search_description(ai.available()),
     {"type": "object",
      "properties": {"query": {"type": "string",
                               "description": "what you are trying to do, in "
@@ -1704,7 +1803,7 @@ REGISTRY.register(
     "kind nothing here could have loaded. boost_search is what reads the "
     "registries themselves. "
     # The cost clause names its own mechanism. Gemini CLI never delivers
-    # server `instructions` in interactive mode, so INSTRUCTIONS' "boost_list
+    # server `instructions` in interactive mode, so their "boost_list
     # is free, call it whenever" is absent on that host and this declaration
     # is the only place left to say it. "Instant" alone is a claim about the
     # clock that an agent has to take on trust; "a local file read rather
@@ -1757,8 +1856,8 @@ REGISTRY.register(
     "holds unfilled templates and stubs that echo their own name back, and "
     "those rank and render exactly like a procedure someone debugged. The body "
     "is the only thing that tells them apart. Read-only and offline — it "
-    "installs nothing, changes nothing, and unlike boost_search costs no "
-    "rerank, so it is fast. Long items are truncated at a stated character "
+    "installs nothing, changes nothing, and never reranks, so it is fast. "
+    "Long items are truncated at a stated character "
     "count and the reply says so and names the command that returns the rest; "
     "a body that arrives whole is whole.",
     {"type": "object",
@@ -1824,10 +1923,9 @@ REGISTRY.register(
                    "description": "max repositories to return (default 20)"}}},
     _tool_discover_github)
 
-# Back-compat shims: the JSON-RPC server and tests reference these names.
-_MCP_TOOLS = REGISTRY.specs()
-
-
+# Back-compat shim: the functional tests reference this name. The `_MCP_TOOLS`
+# snapshot that sat beside it is gone — taken at import, it froze boost_search's
+# machine-dependent description under whatever state held then.
 def _mcp_tool(tool: str, args: dict):
     """Run one MCP tool -> (text, is_error). (None, _) for unknown tools.
 
@@ -1968,13 +2066,26 @@ def _offer_boost_first(hosts: list[str]) -> None:
     try:
         builtin.ensure_tap()
         catalog.rebuild_tap(registry.get(builtin.BUILTIN_TAP))
-        store.install(catalog.resolve_one(builtin.BUILTIN_RULES[0]),
-                     only_agents=[a for a in scoped_agents if a])
+        res = store.install(catalog.resolve_one(builtin.BUILTIN_RULES[0]),
+                            only_agents=[a for a in scoped_agents if a])
     except (BoostError, OSError) as exc:
         out.warn("could not install %s: %s" % (builtin.BUILTIN_RULES[0], exc))
         return
-    out.ok("installed %s — remove it with `boost uninstall %s`"
-           % (builtin.BUILTIN_RULES[0], builtin.BUILTIN_RULES[0]))
+    from .pkg import _warn_unwritable
+    if not res.linked:
+        # Every file it was offered for refused the write. The lock records
+        # the refusal so `boost sync` can finish it, but "installed" would be
+        # a success nothing on disk backs.
+        # The reversal is named here too: the docstring promises it on every
+        # branch, and this is the one where it went missing.
+        out.warn("%s was not written anywhere yet — `boost sync` finishes it "
+                 "once the files allow it, or `boost uninstall %s` drops it"
+                 % (builtin.BUILTIN_RULES[0], builtin.BUILTIN_RULES[0]),
+                 wrap=True)
+    else:
+        out.ok("installed %s — remove it with `boost uninstall %s`"
+               % (builtin.BUILTIN_RULES[0], builtin.BUILTIN_RULES[0]))
+    _warn_unwritable(res)
 
 
 def cmd_mcp(argv) -> int:

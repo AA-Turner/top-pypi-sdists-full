@@ -125,16 +125,16 @@ class DataSafeClient(object):
         self.retry_strategy = kwargs.get('retry_strategy')
         self.circuit_breaker_callback = kwargs.get('circuit_breaker_callback')
 
-    def activate_target_database(self, activate_target_database_details, target_database_id, **kwargs):
+    def activate_target_database(self, target_database_id, **kwargs):
         """
         Reactivates a previously deactivated Data Safe target database.
 
 
-        :param oci.data_safe.models.ActivateTargetDatabaseDetails activate_target_database_details: (required)
-            The details used to reactivate a target database in Data Safe.
-
         :param str target_database_id: (required)
             The OCID of the Data Safe target database.
+
+        :param oci.data_safe.models.ActivateTargetDatabaseDetails activate_target_database_details: (optional)
+            The details used to reactivate a target database in Data Safe.
 
         :param str opc_retry_token: (optional)
             A token that uniquely identifies a request so it can be retried in case of a timeout or
@@ -186,6 +186,7 @@ class DataSafeClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
+            "activate_target_database_details",
             "opc_retry_token",
             "if_match",
             "opc_request_id"
@@ -232,7 +233,7 @@ class DataSafeClient(object):
                 method=method,
                 path_params=path_params,
                 header_params=header_params,
-                body=activate_target_database_details,
+                body=kwargs.get('activate_target_database_details'),
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -244,7 +245,7 @@ class DataSafeClient(object):
                 method=method,
                 path_params=path_params,
                 header_params=header_params,
-                body=activate_target_database_details,
+                body=kwargs.get('activate_target_database_details'),
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -2420,6 +2421,133 @@ class DataSafeClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 body=change_audit_profile_compartment_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def change_crypto_assessment_compartment(self, crypto_assessment_id, change_crypto_assessment_compartment_details, **kwargs):
+        """
+        Moves the specified saved crypto assessment into a different compartment.
+        Only `SAVED` crypto assessments are supported.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.ChangeCryptoAssessmentCompartmentDetails change_crypto_assessment_compartment_details: (required)
+            The details used to change the compartment of a crypto assessment.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the if-match parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param str opc_retry_token: (optional)
+            A token that uniquely identifies a request so it can be retried in case of a timeout or
+            server error without risk of executing that same action again. Retry tokens expire after 24
+            hours, but can be invalidated before then due to conflicting operations. For example, if a resource
+            has been deleted and purged from the system, then a retry of the original creation request might be rejected.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/change_crypto_assessment_compartment.py.html>`__ to see an example of how to use change_crypto_assessment_compartment API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/actions/changeCompartment"
+        method = "POST"
+        operation_name = "change_crypto_assessment_compartment"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ChangeCryptoAssessmentCompartment"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id",
+            "if_match",
+            "opc_retry_token"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"change_crypto_assessment_compartment got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing),
+            "if-match": kwargs.get("if_match", missing),
+            "opc-retry-token": kwargs.get("opc_retry_token", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=change_crypto_assessment_compartment_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=change_crypto_assessment_compartment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -10267,6 +10395,119 @@ class DataSafeClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
+    def delete_crypto_assessment(self, crypto_assessment_id, **kwargs):
+        """
+        Deletes the specified saved crypto assessment.
+        Only assessments of type `SAVED` can be deleted. Attempts to delete a `LATEST` assessment return `400 InvalidParameter`.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the if-match parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/delete_crypto_assessment.py.html>`__ to see an example of how to use delete_crypto_assessment API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}"
+        method = "DELETE"
+        operation_name = "delete_crypto_assessment"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/DeleteCryptoAssessment"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "if_match",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"delete_crypto_assessment got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "if-match": kwargs.get("if_match", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
     def delete_data_safe_private_endpoint(self, data_safe_private_endpoint_id, **kwargs):
         """
         Deletes the specified Data Safe private endpoint.
@@ -14010,6 +14251,135 @@ class DataSafeClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
+    def download_crypto_assessment_report(self, crypto_assessment_id, download_crypto_assessment_report_details, **kwargs):
+        """
+        Downloads the report of the specified crypto assessment. To download the crypto assessment report, it needs to be generated first.
+        Please use GenerateCryptoAssessmentReport to generate a downloadable report in the preferred format (PDF, XLS).
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.DownloadCryptoAssessmentReportDetails download_crypto_assessment_report_details: (required)
+            Details of the report.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the if-match parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param str opc_retry_token: (optional)
+            A token that uniquely identifies a request so it can be retried in case of a timeout or
+            server error without risk of executing that same action again. Retry tokens expire after 24
+            hours, but can be invalidated before then due to conflicting operations. For example, if a resource
+            has been deleted and purged from the system, then a retry of the original creation request might be rejected.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type stream
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/download_crypto_assessment_report.py.html>`__ to see an example of how to use download_crypto_assessment_report API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/actions/downloadReport"
+        method = "POST"
+        operation_name = "download_crypto_assessment_report"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/DownloadCryptoAssessmentReport"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "if_match",
+            "opc_retry_token",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"download_crypto_assessment_report got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "if-match": kwargs.get("if_match", missing),
+            "opc-retry-token": kwargs.get("opc_retry_token", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=download_crypto_assessment_report_details,
+                response_type="stream",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=download_crypto_assessment_report_details,
+                response_type="stream",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
     def download_discovery_report(self, sensitive_data_model_id, download_discovery_report_details, **kwargs):
         """
         Downloads an already-generated discovery report. Note that the GenerateDiscoveryReportForDownload operation is a
@@ -15156,6 +15526,133 @@ class DataSafeClient(object):
                 query_params=query_params,
                 header_params=header_params,
                 body=enable_data_safe_configuration_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def generate_crypto_assessment_report(self, crypto_assessment_id, generate_crypto_assessment_report_details, **kwargs):
+        """
+        Generates the report of the specified crypto assessment.
+        Supported output formats are PDF and XLS.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.GenerateCryptoAssessmentReportDetails generate_crypto_assessment_report_details: (required)
+            Details of the report.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the if-match parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param str opc_retry_token: (optional)
+            A token that uniquely identifies a request so it can be retried in case of a timeout or
+            server error without risk of executing that same action again. Retry tokens expire after 24
+            hours, but can be invalidated before then due to conflicting operations. For example, if a resource
+            has been deleted and purged from the system, then a retry of the original creation request might be rejected.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/generate_crypto_assessment_report.py.html>`__ to see an example of how to use generate_crypto_assessment_report API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/actions/generateReport"
+        method = "POST"
+        operation_name = "generate_crypto_assessment_report"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/GenerateCryptoAssessmentReport"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "if_match",
+            "opc_retry_token",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"generate_crypto_assessment_report got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "if-match": kwargs.get("if_match", missing),
+            "opc-retry-token": kwargs.get("opc_retry_token", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=generate_crypto_assessment_report_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=generate_crypto_assessment_report_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -17484,6 +17981,255 @@ class DataSafeClient(object):
                 query_params=query_params,
                 header_params=header_params,
                 response_type="CompatibleFormatsForSensitiveTypes",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def get_crypto_assessment(self, crypto_assessment_id, **kwargs):
+        """
+        Gets the details of the specified crypto assessment.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessment`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/get_crypto_assessment.py.html>`__ to see an example of how to use get_crypto_assessment API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}"
+        method = "GET"
+        operation_name = "get_crypto_assessment"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/GetCryptoAssessment"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"get_crypto_assessment got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                response_type="CryptoAssessment",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                response_type="CryptoAssessment",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def get_crypto_assessment_sqlnet_parameters(self, crypto_assessment_id, **kwargs):
+        """
+        Gets SQLNET.ORA parameter values and quantum-readiness evaluation for the specified crypto assessment.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param str parameter: (optional)
+            A filter to return only the SQLNET parameter with the specified name.
+
+        :param str quantum_readiness: (optional)
+            Filters SQLNET parameters by quantum-readiness category.
+
+            Allowed values are: "RESISTANT", "NOT_RESISTANT", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentSqlnetParameters`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/get_crypto_assessment_sqlnet_parameters.py.html>`__ to see an example of how to use get_crypto_assessment_sqlnet_parameters API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/sqlnetParameters"
+        method = "GET"
+        operation_name = "get_crypto_assessment_sqlnet_parameters"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/GetCryptoAssessmentSqlnetParameters"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "parameter",
+            "quantum_readiness",
+            "limit",
+            "page",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"get_crypto_assessment_sqlnet_parameters got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        if 'quantum_readiness' in kwargs:
+            quantum_readiness_allowed_values = ["RESISTANT", "NOT_RESISTANT", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"]
+            if kwargs['quantum_readiness'] not in quantum_readiness_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `quantum_readiness`, must be one of { quantum_readiness_allowed_values }"
+                )
+
+        query_params = {
+            "parameter": kwargs.get("parameter", missing),
+            "quantumReadiness": kwargs.get("quantum_readiness", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentSqlnetParameters",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentSqlnetParameters",
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -22493,8 +23239,8 @@ class DataSafeClient(object):
             (Numeric and boolean values should not be quoted.)
 
             **Example:** |
-            query=(timeCreated ge \"2021-06-04T01:00:26.000Z\") and (targetNames eq \"target_1\")
-            query=(featureDetails.userName eq \"user\") and (targetNames eq \"target_1\")
+            (timeCreated ge \"2021-06-04T01:00:26.000Z\") and (targetNames eq \"target_1\")
+            (featureDetails.userName eq \"user\") and (targetNames eq \"target_1\")
             Supported fields:
             severity
             status
@@ -23092,8 +23838,8 @@ class DataSafeClient(object):
             (Numeric and boolean values should not be quoted.)
 
             **Example:** |
-            query=(timeCreated ge \"2021-06-04T01:00:26.000Z\") and (targetNames eq \"target_1\")
-            query=(featureDetails.userName eq \"user\") and (targetNames eq \"target_1\")
+            (timeCreated ge \"2021-06-04T01:00:26.000Z\") and (targetNames eq \"target_1\")
+            (featureDetails.userName eq \"user\") and (targetNames eq \"target_1\")
             Supported fields:
             severity
             status
@@ -26366,6 +27112,2054 @@ class DataSafeClient(object):
                 query_params=query_params,
                 header_params=header_params,
                 response_type="list[ColumnSummary]",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_backup_sets(self, compartment_id, **kwargs):
+        """
+        Gets backup set summaries across targets in a compartment. Use assessmentId to narrow results to one crypto assessment.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str assessment_id: (optional)
+            A filter to return only resources associated with the specified crypto assessment OCID.
+
+        :param str assessment_type: (optional)
+            A filter to return targets from assessments of the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str target_id: (optional)
+            A filter to return only inventory rows associated with the specified target OCID.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param str backup_set_key: (optional)
+            Filters backup set summary rows to an exact matching backupSetKey.
+
+        :param bool is_encrypted: (optional)
+            Filters backup set summary rows by whether the backup set is encrypted.
+
+        :param str sort_by: (optional)
+            The field used to sort backup set results.
+
+            Allowed values are: "setStamp", "backupSetKey", "sizeInGBs", "timeCreated"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentBackupSetCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_backup_sets.py.html>`__ to see an example of how to use list_crypto_assessment_backup_sets API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/cryptoAssessments/backupSets"
+        method = "GET"
+        operation_name = "list_crypto_assessment_backup_sets"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentBackupSets"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "assessment_id",
+            "assessment_type",
+            "target_id",
+            "target_ids",
+            "backup_set_key",
+            "is_encrypted",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_backup_sets got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'assessment_type' in kwargs:
+            assessment_type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['assessment_type'] not in assessment_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `assessment_type`, must be one of { assessment_type_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["setStamp", "backupSetKey", "sizeInGBs", "timeCreated"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "assessmentId": kwargs.get("assessment_id", missing),
+            "assessmentType": kwargs.get("assessment_type", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "backupSetKey": kwargs.get("backup_set_key", missing),
+            "isEncrypted": kwargs.get("is_encrypted", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentBackupSetCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentBackupSetCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_cbom_items(self, crypto_assessment_id, **kwargs):
+        """
+        Lists the CBOM items for the specified crypto assessment.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentCbomItemCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_cbom_items.py.html>`__ to see an example of how to use list_crypto_assessment_cbom_items API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/cbomItems"
+        method = "GET"
+        operation_name = "list_crypto_assessment_cbom_items"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentCbomItems"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_cbom_items got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentCbomItemCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentCbomItemCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_certificates(self, compartment_id, **kwargs):
+        """
+        Lists certificates discovered across targets in a compartment, including target, wallet location, issuer, subject, validity window, expiry bucket, public key type, and status so expiring or weak certificates can be identified and prioritized.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str assessment_id: (optional)
+            A filter to return only resources associated with the specified crypto assessment OCID.
+
+        :param str assessment_type: (optional)
+            A filter to return targets from assessments of the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str target_id: (optional)
+            A filter to return only inventory rows associated with the specified target OCID.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param list[CryptoAssessmentCertificateSummaryCertificateType] certificate_type: (optional)
+            A filter to return only certificates of any of the specified types.
+
+        :param list[CryptoAssessmentCertificateSummaryStatus] status: (optional)
+            A filter to return only certificates with any of the specified statuses.
+
+        :param list[str] public_key_type: (optional)
+            A filter to return only certificates with any of the specified public key types. Stored values are normalized forms such as RSA2048, RSA4096, or EC256.
+
+        :param list[str] signature_algorithm: (optional)
+            A filter to return only certificates whose signature algorithm contains any of the specified values. For example, use SHA1 to match SHA1-based certificate signatures.
+
+        :param str expiry_bucket: (optional)
+            A filter to return only certificates in the specified expiry bucket. Supported values are 0_15, 15_30, 30_60, 60_90, and 90_PLUS.
+
+        :param int days_to_expiry: (optional)
+            A filter to return certificates whose validTill timestamp is on or before the current time plus the specified number of days. Negative values are allowed and filter certificates that expired on or before that many days ago.
+
+        :param str sort_by: (optional)
+            The field used to sort certificate results.
+
+            Allowed values are: "timeValidUntil", "subject"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentCertificateCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_certificates.py.html>`__ to see an example of how to use list_crypto_assessment_certificates API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/cryptoAssessments/certificates"
+        method = "GET"
+        operation_name = "list_crypto_assessment_certificates"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentCertificates"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "assessment_id",
+            "assessment_type",
+            "target_id",
+            "target_ids",
+            "certificate_type",
+            "status",
+            "public_key_type",
+            "signature_algorithm",
+            "expiry_bucket",
+            "days_to_expiry",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_certificates got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'assessment_type' in kwargs:
+            assessment_type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['assessment_type'] not in assessment_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `assessment_type`, must be one of { assessment_type_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["timeValidUntil", "subject"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "assessmentId": kwargs.get("assessment_id", missing),
+            "assessmentType": kwargs.get("assessment_type", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "certificateType": self.base_client.generate_collection_format_param(kwargs.get("certificate_type", missing), 'multi'),
+            "status": self.base_client.generate_collection_format_param(kwargs.get("status", missing), 'multi'),
+            "publicKeyType": self.base_client.generate_collection_format_param(kwargs.get("public_key_type", missing), 'multi'),
+            "signatureAlgorithm": self.base_client.generate_collection_format_param(kwargs.get("signature_algorithm", missing), 'multi'),
+            "expiryBucket": kwargs.get("expiry_bucket", missing),
+            "daysToExpiry": kwargs.get("days_to_expiry", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentCertificateCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentCertificateCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_finding_analytics(self, compartment_id, **kwargs):
+        """
+        Lists findings in a compartment with the number of affected targets.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str category: (optional)
+            A filter to return only findings in the specified category key.
+
+            Allowed values are: "NETWORK_ENCRYPTION", "DATA_ENCRYPTION", "CERTIFICATES_AND_KEY_MANAGEMENT", "BACKUP_AND_EXPORT_ENCRYPTION", "POST_QUANTUM_READINESS", "NOT_SUPPORTED"
+
+        :param list[str] finding_key: (optional)
+            A filter to return only findings with any of the specified finding keys.
+
+        :param bool is_quantum_readiness_check: (optional)
+            A filter to return only findings that are or are not part of quantum-readiness checks.
+
+        :param str sort_by: (optional)
+            The field used to sort finding analytics results.
+
+            Allowed values are: "targetCount", "priority"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentFindingAnalyticsCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_finding_analytics.py.html>`__ to see an example of how to use list_crypto_assessment_finding_analytics API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/cryptoAssessments/findingAnalytics"
+        method = "GET"
+        operation_name = "list_crypto_assessment_finding_analytics"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentFindingAnalytics"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "category",
+            "finding_key",
+            "is_quantum_readiness_check",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_finding_analytics got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'category' in kwargs:
+            category_allowed_values = ["NETWORK_ENCRYPTION", "DATA_ENCRYPTION", "CERTIFICATES_AND_KEY_MANAGEMENT", "BACKUP_AND_EXPORT_ENCRYPTION", "POST_QUANTUM_READINESS", "NOT_SUPPORTED"]
+            if kwargs['category'] not in category_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `category`, must be one of { category_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["targetCount", "priority"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "category": kwargs.get("category", missing),
+            "findingKey": self.base_client.generate_collection_format_param(kwargs.get("finding_key", missing), 'multi'),
+            "isQuantumReadinessCheck": kwargs.get("is_quantum_readiness_check", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentFindingAnalyticsCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentFindingAnalyticsCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_finding_targets(self, compartment_id, finding_key, **kwargs):
+        """
+        For a selected finding, lists targets where it occurs in assessments.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param oci.data_safe.models.list[str] finding_key: (required)
+            The finding keys for which target occurrences are listed.
+
+        :param str assessment_type: (optional)
+            A filter to return targets from assessments of the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str target_id: (optional)
+            Filters results to targets with an exact matching target OCID.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param str status: (optional)
+            A filter to return only finding target rows with the specified status.
+
+            Allowed values are: "PASS", "FAIL", "ERROR", "EVALUATE", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"
+
+        :param bool is_quantum_readiness_check: (optional)
+            A filter to return only findings that are or are not part of quantum-readiness checks.
+
+        :param str sort_by: (optional)
+            The field used to sort finding target results.
+
+            Allowed values are: "targetId", "databaseVersion"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentFindingTargetCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_finding_targets.py.html>`__ to see an example of how to use list_crypto_assessment_finding_targets API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId', 'findingKey']
+        resource_path = "/cryptoAssessments/findingTargets"
+        method = "GET"
+        operation_name = "list_crypto_assessment_finding_targets"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentFindingTargets"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "assessment_type",
+            "target_id",
+            "target_ids",
+            "status",
+            "is_quantum_readiness_check",
+            "sort_by",
+            "sort_order",
+            "compartment_id_in_subtree",
+            "access_level",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_finding_targets got unknown kwargs: {extra_kwargs!r}")
+
+        if 'assessment_type' in kwargs:
+            assessment_type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['assessment_type'] not in assessment_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `assessment_type`, must be one of { assessment_type_allowed_values }"
+                )
+
+        if 'status' in kwargs:
+            status_allowed_values = ["PASS", "FAIL", "ERROR", "EVALUATE", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"]
+            if kwargs['status'] not in status_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `status`, must be one of { status_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["targetId", "databaseVersion"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "findingKey": self.base_client.generate_collection_format_param(finding_key, 'multi'),
+            "assessmentType": kwargs.get("assessment_type", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "status": kwargs.get("status", missing),
+            "isQuantumReadinessCheck": kwargs.get("is_quantum_readiness_check", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentFindingTargetCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentFindingTargetCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_findings(self, crypto_assessment_id, **kwargs):
+        """
+        Lists crypto deviation findings for the specified crypto assessment.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param str finding_key: (optional)
+            A filter to return only findings with the specified finding key.
+
+        :param str title: (optional)
+            A filter to return only findings with the specified title.
+
+        :param str category: (optional)
+            A filter to return only findings in the specified category key.
+
+            Allowed values are: "NETWORK_ENCRYPTION", "DATA_ENCRYPTION", "CERTIFICATES_AND_KEY_MANAGEMENT", "BACKUP_AND_EXPORT_ENCRYPTION", "POST_QUANTUM_READINESS", "NOT_SUPPORTED"
+
+        :param str status: (optional)
+            A filter to return only findings with the specified status.
+
+            Allowed values are: "PASS", "FAIL", "ERROR", "EVALUATE", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"
+
+        :param bool is_quantum_readiness_check: (optional)
+            A filter to return only findings that are or are not part of quantum-readiness checks.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentFindingCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_findings.py.html>`__ to see an example of how to use list_crypto_assessment_findings API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/findings"
+        method = "GET"
+        operation_name = "list_crypto_assessment_findings"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentFindings"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "finding_key",
+            "title",
+            "category",
+            "status",
+            "is_quantum_readiness_check",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_findings got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        if 'category' in kwargs:
+            category_allowed_values = ["NETWORK_ENCRYPTION", "DATA_ENCRYPTION", "CERTIFICATES_AND_KEY_MANAGEMENT", "BACKUP_AND_EXPORT_ENCRYPTION", "POST_QUANTUM_READINESS", "NOT_SUPPORTED"]
+            if kwargs['category'] not in category_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `category`, must be one of { category_allowed_values }"
+                )
+
+        if 'status' in kwargs:
+            status_allowed_values = ["PASS", "FAIL", "ERROR", "EVALUATE", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"]
+            if kwargs['status'] not in status_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `status`, must be one of { status_allowed_values }"
+                )
+
+        query_params = {
+            "findingKey": kwargs.get("finding_key", missing),
+            "title": kwargs.get("title", missing),
+            "category": kwargs.get("category", missing),
+            "status": kwargs.get("status", missing),
+            "isQuantumReadinessCheck": kwargs.get("is_quantum_readiness_check", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentFindingCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentFindingCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_keys(self, compartment_id, **kwargs):
+        """
+        Gets a paginated list of cryptographic keys across targets in a compartment. Use assessmentId to narrow results to one crypto assessment.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str assessment_id: (optional)
+            A filter to return only resources associated with the specified crypto assessment OCID.
+
+        :param str assessment_type: (optional)
+            A filter to return targets from assessments of the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str target_id: (optional)
+            A filter to return only inventory rows associated with the specified target OCID.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param str feature: (optional)
+            A filter to return only records for the specified feature.
+
+            Allowed values are: "TDE", "TLS", "NNE"
+
+        :param str key_id: (optional)
+            Filters key results to rows with an exact matching keyId.
+
+        :param str key_type: (optional)
+            Filters key results to rows with the specified key type.
+
+            Allowed values are: "MASTER_KEY", "ENCRYPTION_KEY"
+
+        :param list[str] key_manager_type: (optional)
+            Filters key results to rows whose primary or secondary keystore type matches any of the specified key manager types.
+
+            Allowed values are: "FILE", "OKV", "HSM", "NOT_CONFIGURED", "NOT_APPLICABLE", "NOT_AVAILABLE", "UNKNOWN", "NOT_SUPPORTED"
+
+        :param str sort_by: (optional)
+            The field used to sort key results.
+
+            Allowed values are: "timeCreated"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentKeyCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_keys.py.html>`__ to see an example of how to use list_crypto_assessment_keys API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/cryptoAssessments/keys"
+        method = "GET"
+        operation_name = "list_crypto_assessment_keys"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentKeys"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "assessment_id",
+            "assessment_type",
+            "target_id",
+            "target_ids",
+            "feature",
+            "key_id",
+            "key_type",
+            "key_manager_type",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_keys got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'assessment_type' in kwargs:
+            assessment_type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['assessment_type'] not in assessment_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `assessment_type`, must be one of { assessment_type_allowed_values }"
+                )
+
+        if 'feature' in kwargs:
+            feature_allowed_values = ["TDE", "TLS", "NNE"]
+            if kwargs['feature'] not in feature_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `feature`, must be one of { feature_allowed_values }"
+                )
+
+        if 'key_type' in kwargs:
+            key_type_allowed_values = ["MASTER_KEY", "ENCRYPTION_KEY"]
+            if kwargs['key_type'] not in key_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `key_type`, must be one of { key_type_allowed_values }"
+                )
+
+        if 'key_manager_type' in kwargs:
+            key_manager_type_allowed_values = ["FILE", "OKV", "HSM", "NOT_CONFIGURED", "NOT_APPLICABLE", "NOT_AVAILABLE", "UNKNOWN", "NOT_SUPPORTED"]
+            for key_manager_type_item in kwargs['key_manager_type']:
+                if key_manager_type_item not in key_manager_type_allowed_values:
+                    raise ValueError(
+                        f"Invalid value for `key_manager_type`, must be one of { key_manager_type_allowed_values }"
+                    )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["timeCreated"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "assessmentId": kwargs.get("assessment_id", missing),
+            "assessmentType": kwargs.get("assessment_type", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "feature": kwargs.get("feature", missing),
+            "keyId": kwargs.get("key_id", missing),
+            "keyType": kwargs.get("key_type", missing),
+            "keyManagerType": self.base_client.generate_collection_format_param(kwargs.get("key_manager_type", missing), 'multi'),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentKeyCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentKeyCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_tde_objects(self, compartment_id, object_type, **kwargs):
+        """
+        Lists TDE object encryption summaries across targets in a compartment. Use assessmentId to narrow results to one crypto assessment, and objectType to return either tablespace-level or column-level TDE observations.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param str object_type: (required)
+            A required filter to return only TDE objects of the specified type.
+
+            Allowed values are: "TABLESPACE", "COLUMN"
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str assessment_id: (optional)
+            A filter to return only resources associated with the specified crypto assessment OCID.
+
+        :param str assessment_type: (optional)
+            A filter to return targets from assessments of the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str target_id: (optional)
+            A filter to return only inventory rows associated with the specified target OCID.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param str quantum_readiness: (optional)
+            Filters TDE object summary rows by quantum-readiness category.
+
+            Allowed values are: "RESISTANT", "NOT_RESISTANT", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"
+
+        :param list[str] encryption_observed: (optional)
+            Filters TDE object summary rows by any of the specified observed encryption algorithms.
+
+        :param str encryption_status: (optional)
+            Filters TDE object summary rows by derived encryption status. NOT_SUPPORTED maps to rows where encryptionObserved is NOT_SUPPORTED, UNENCRYPTED maps to rows where encryptionObserved is null or NONE, and ENCRYPTED maps to rows where the observed encryption algorithm is any other value.
+
+            Allowed values are: "ENCRYPTED", "UNENCRYPTED", "NOT_SUPPORTED"
+
+        :param str sort_by: (optional)
+            The field used to sort TDE object summary results.
+
+            Allowed values are: "tablespaceName", "columnName", "quantumReadiness"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentTdeObjectCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_tde_objects.py.html>`__ to see an example of how to use list_crypto_assessment_tde_objects API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId', 'objectType']
+        resource_path = "/cryptoAssessments/tdeObjects"
+        method = "GET"
+        operation_name = "list_crypto_assessment_tde_objects"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentTdeObjects"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "assessment_id",
+            "assessment_type",
+            "target_id",
+            "target_ids",
+            "quantum_readiness",
+            "encryption_observed",
+            "encryption_status",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_tde_objects got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'assessment_type' in kwargs:
+            assessment_type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['assessment_type'] not in assessment_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `assessment_type`, must be one of { assessment_type_allowed_values }"
+                )
+
+        object_type_allowed_values = ["TABLESPACE", "COLUMN"]
+        if object_type not in object_type_allowed_values:
+            raise ValueError(
+                f"Invalid value for `object_type`, must be one of { object_type_allowed_values }"
+            )
+
+        if 'quantum_readiness' in kwargs:
+            quantum_readiness_allowed_values = ["RESISTANT", "NOT_RESISTANT", "NOT_AVAILABLE", "NOT_APPLICABLE", "NOT_SUPPORTED"]
+            if kwargs['quantum_readiness'] not in quantum_readiness_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `quantum_readiness`, must be one of { quantum_readiness_allowed_values }"
+                )
+
+        if 'encryption_status' in kwargs:
+            encryption_status_allowed_values = ["ENCRYPTED", "UNENCRYPTED", "NOT_SUPPORTED"]
+            if kwargs['encryption_status'] not in encryption_status_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `encryption_status`, must be one of { encryption_status_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["tablespaceName", "columnName", "quantumReadiness"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "assessmentId": kwargs.get("assessment_id", missing),
+            "assessmentType": kwargs.get("assessment_type", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "objectType": object_type,
+            "quantumReadiness": kwargs.get("quantum_readiness", missing),
+            "encryptionObserved": self.base_client.generate_collection_format_param(kwargs.get("encryption_observed", missing), 'multi'),
+            "encryptionStatus": kwargs.get("encryption_status", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentTdeObjectCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentTdeObjectCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessment_wallets(self, compartment_id, **kwargs):
+        """
+        Gets wallet details across targets in a compartment. Use assessmentId to narrow results to one crypto assessment.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str assessment_id: (optional)
+            A filter to return only resources associated with the specified crypto assessment OCID.
+
+        :param str assessment_type: (optional)
+            A filter to return targets from assessments of the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str target_id: (optional)
+            A filter to return only inventory rows associated with the specified target OCID.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param str feature: (optional)
+            A filter to return only wallets for the specified feature.
+
+            Allowed values are: "TDE", "TLS", "NNE", "ZDLRA"
+
+        :param list[str] wallet_encryption_algorithm: (optional)
+            A filter to return only wallets whose encryption algorithm exactly matches any of the specified values, case-insensitively.
+
+        :param str sort_by: (optional)
+            The field used to sort wallet results.
+
+            Allowed values are: "feature", "timeCreated"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentWalletCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessment_wallets.py.html>`__ to see an example of how to use list_crypto_assessment_wallets API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/cryptoAssessments/wallets"
+        method = "GET"
+        operation_name = "list_crypto_assessment_wallets"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessmentWallets"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "assessment_id",
+            "assessment_type",
+            "target_id",
+            "target_ids",
+            "feature",
+            "wallet_encryption_algorithm",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessment_wallets got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'assessment_type' in kwargs:
+            assessment_type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['assessment_type'] not in assessment_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `assessment_type`, must be one of { assessment_type_allowed_values }"
+                )
+
+        if 'feature' in kwargs:
+            feature_allowed_values = ["TDE", "TLS", "NNE", "ZDLRA"]
+            if kwargs['feature'] not in feature_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `feature`, must be one of { feature_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["feature", "timeCreated"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "assessmentId": kwargs.get("assessment_id", missing),
+            "assessmentType": kwargs.get("assessment_type", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "feature": kwargs.get("feature", missing),
+            "walletEncryptionAlgorithm": self.base_client.generate_collection_format_param(kwargs.get("wallet_encryption_algorithm", missing), 'multi'),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentWalletCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentWalletCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_crypto_assessments(self, compartment_id, **kwargs):
+        """
+        Gets a list of crypto assessments with filtering and pagination support.
+
+
+        :param str compartment_id: (required)
+            A filter to return only resources that match the specified compartment OCID.
+
+        :param bool compartment_id_in_subtree: (optional)
+            Default is false.
+            When set to true, the hierarchy of compartments is traversed and all compartments and subcompartments in the tenancy are returned. Depends on the 'accessLevel' setting.
+
+        :param str access_level: (optional)
+            Valid values are RESTRICTED and ACCESSIBLE. Default is RESTRICTED.
+            Setting this to ACCESSIBLE returns only those compartments for which the
+            user has INSPECT permissions directly or indirectly (permissions can be on a
+            resource in a subcompartment). When set to RESTRICTED permissions are checked and no partial results are displayed.
+
+            Allowed values are: "RESTRICTED", "ACCESSIBLE"
+
+        :param str display_name: (optional)
+            A filter to return only resources that match the specified display name.
+
+        :param str type: (optional)
+            A filter to return only crypto assessments that match the specified type.
+
+            Allowed values are: "LATEST", "SAVED"
+
+        :param str assessment_id: (optional)
+            A filter to return only resources associated with the specified crypto assessment OCID.
+
+        :param str target_id: (optional)
+            A filter to return only crypto assessments associated with the specified target OCID. When provided, targetType must also be specified.
+
+        :param list[str] target_ids: (optional)
+            A filter to return only resources associated with any of the specified target OCIDs.
+
+        :param str target_database_group_id: (optional)
+            A filter to return the target database group that matches the specified OCID.
+
+        :param str target_type: (optional)
+            A filter to return crypto assessments belonging to the specified target type. `ListCryptoAssessments` returns assessment rows; use `targetDatabaseGroupId` to list the underlying target database assessments for a group.
+
+            Allowed values are: "TARGET_DATABASE", "TARGET_DATABASE_GROUP"
+
+        :param list[str] posture_category: (optional)
+            A filter to return only crypto assessments that match any of the specified posture categories.
+
+            Allowed values are: "QUANTUM_RESISTANT", "QUANTUM_CAPABLE", "UPGRADE_RECOMMENDED"
+
+        :param bool is_assessment_scheduled: (optional)
+            A filter to return only crypto assessments whose scheduled execution state matches the specified value.
+
+        :param str lifecycle_state: (optional)
+            A filter to return only resources that match the specified lifecycle state.
+
+            Allowed values are: "CREATING", "ACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED"
+
+        :param str sort_by: (optional)
+            The field used to sort crypto assessments. You can specify only one sort order (sortOrder).
+
+            Allowed values are: "issueCount", "timeCreated", "timeUpdated"
+
+        :param str sort_order: (optional)
+            The sort order to use, either ascending (ASC) or descending (DESC).
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param int limit: (optional)
+            For list pagination. The maximum number of items to return per page in a paginated \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param str page: (optional)
+            For list pagination. The page token representing the page at which to start retrieving results. It is usually retrieved from a previous \"List\" call. For details about how pagination works, see `List Pagination`__.
+
+            __ https://docs.oracle.com/en-us/iaas/Content/API/Concepts/usingapi.htm#nine
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.data_safe.models.CryptoAssessmentCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/list_crypto_assessments.py.html>`__ to see an example of how to use list_crypto_assessments API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/cryptoAssessments"
+        method = "GET"
+        operation_name = "list_crypto_assessments"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/ListCryptoAssessments"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "compartment_id_in_subtree",
+            "access_level",
+            "display_name",
+            "type",
+            "assessment_id",
+            "target_id",
+            "target_ids",
+            "target_database_group_id",
+            "target_type",
+            "posture_category",
+            "is_assessment_scheduled",
+            "lifecycle_state",
+            "sort_by",
+            "sort_order",
+            "opc_request_id",
+            "limit",
+            "page"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_crypto_assessments got unknown kwargs: {extra_kwargs!r}")
+
+        if 'access_level' in kwargs:
+            access_level_allowed_values = ["RESTRICTED", "ACCESSIBLE"]
+            if kwargs['access_level'] not in access_level_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `access_level`, must be one of { access_level_allowed_values }"
+                )
+
+        if 'type' in kwargs:
+            type_allowed_values = ["LATEST", "SAVED"]
+            if kwargs['type'] not in type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `type`, must be one of { type_allowed_values }"
+                )
+
+        if 'target_type' in kwargs:
+            target_type_allowed_values = ["TARGET_DATABASE", "TARGET_DATABASE_GROUP"]
+            if kwargs['target_type'] not in target_type_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `target_type`, must be one of { target_type_allowed_values }"
+                )
+
+        if 'posture_category' in kwargs:
+            posture_category_allowed_values = ["QUANTUM_RESISTANT", "QUANTUM_CAPABLE", "UPGRADE_RECOMMENDED"]
+            for posture_category_item in kwargs['posture_category']:
+                if posture_category_item not in posture_category_allowed_values:
+                    raise ValueError(
+                        f"Invalid value for `posture_category`, must be one of { posture_category_allowed_values }"
+                    )
+
+        if 'lifecycle_state' in kwargs:
+            lifecycle_state_allowed_values = ["CREATING", "ACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED"]
+            if kwargs['lifecycle_state'] not in lifecycle_state_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `lifecycle_state`, must be one of { lifecycle_state_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["issueCount", "timeCreated", "timeUpdated"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "compartmentIdInSubtree": kwargs.get("compartment_id_in_subtree", missing),
+            "accessLevel": kwargs.get("access_level", missing),
+            "displayName": kwargs.get("display_name", missing),
+            "type": kwargs.get("type", missing),
+            "assessmentId": kwargs.get("assessment_id", missing),
+            "targetId": kwargs.get("target_id", missing),
+            "targetIds": self.base_client.generate_collection_format_param(kwargs.get("target_ids", missing), 'multi'),
+            "targetDatabaseGroupId": kwargs.get("target_database_group_id", missing),
+            "targetType": kwargs.get("target_type", missing),
+            "postureCategory": self.base_client.generate_collection_format_param(kwargs.get("posture_category", missing), 'multi'),
+            "isAssessmentScheduled": kwargs.get("is_assessment_scheduled", missing),
+            "lifecycleState": kwargs.get("lifecycle_state", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CryptoAssessmentCollection",
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -32676,7 +35470,7 @@ class DataSafeClient(object):
         :param str data_source: (optional)
             Specifies the name of a resource that provides data for the report. For example  alerts, events.
 
-            Allowed values are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"
+            Allowed values are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"
 
         :param str lifecycle_state: (optional)
             An optional filter to return only resources that match the specified lifecycle state.
@@ -32686,7 +35480,7 @@ class DataSafeClient(object):
         :param str category: (optional)
             An optional filter to return only resources that match the specified category.
 
-            Allowed values are: "CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING"
+            Allowed values are: "CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "CRYPTO_ASSESSMENT"
 
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
@@ -32762,7 +35556,7 @@ class DataSafeClient(object):
                 )
 
         if 'data_source' in kwargs:
-            data_source_allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
+            data_source_allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
             if kwargs['data_source'] not in data_source_allowed_values:
                 raise ValueError(
                     f"Invalid value for `data_source`, must be one of { data_source_allowed_values }"
@@ -32776,7 +35570,7 @@ class DataSafeClient(object):
                 )
 
         if 'category' in kwargs:
-            category_allowed_values = ["CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING"]
+            category_allowed_values = ["CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "CRYPTO_ASSESSMENT"]
             if kwargs['category'] not in category_allowed_values:
                 raise ValueError(
                     f"Invalid value for `category`, must be one of { category_allowed_values }"
@@ -32925,7 +35719,7 @@ class DataSafeClient(object):
         :param str data_source: (optional)
             Specifies the name of a resource that provides data for the report. For example  alerts, events.
 
-            Allowed values are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"
+            Allowed values are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"
 
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
@@ -33025,7 +35819,7 @@ class DataSafeClient(object):
                 )
 
         if 'data_source' in kwargs:
-            data_source_allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
+            data_source_allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
             if kwargs['data_source'] not in data_source_allowed_values:
                 raise ValueError(
                     f"Invalid value for `data_source`, must be one of { data_source_allowed_values }"
@@ -44405,6 +47199,134 @@ class DataSafeClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
+    def refresh_crypto_assessment(self, crypto_assessment_id, run_crypto_assessment_details, **kwargs):
+        """
+        Runs a crypto assessment, refreshes the latest assessment, and saves it for future reference.
+        This operation runs with a cryptoAssessmentId of type LATEST.
+        Before you start, first call the ListCryptoAssessments operation with filter \"type = latest\" to get the crypto assessment ID for the target's latest assessment.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.RunCryptoAssessmentDetails run_crypto_assessment_details: (required)
+            The details required to create an on-demand saved crypto assessment.
+
+        :param str opc_retry_token: (optional)
+            A token that uniquely identifies a request so it can be retried in case of a timeout or
+            server error without risk of executing that same action again. Retry tokens expire after 24
+            hours, but can be invalidated before then due to conflicting operations. For example, if a resource
+            has been deleted and purged from the system, then a retry of the original creation request might be rejected.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the if-match parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/refresh_crypto_assessment.py.html>`__ to see an example of how to use refresh_crypto_assessment API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}/actions/refresh"
+        method = "POST"
+        operation_name = "refresh_crypto_assessment"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/RefreshCryptoAssessment"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_retry_token",
+            "opc_request_id",
+            "if_match"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"refresh_crypto_assessment got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-retry-token": kwargs.get("opc_retry_token", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing),
+            "if-match": kwargs.get("if_match", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=run_crypto_assessment_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=run_crypto_assessment_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
     def refresh_database_security_configuration(self, database_security_config_id, **kwargs):
         """
         Refreshes the specified database security configuration.
@@ -47915,6 +50837,123 @@ class DataSafeClient(object):
                 path_params=path_params,
                 header_params=header_params,
                 body=update_audit_trail_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def update_crypto_assessment(self, crypto_assessment_id, update_crypto_assessment_details, **kwargs):
+        """
+        Updates one or more attributes of the specified crypto assessment.
+
+
+        :param str crypto_assessment_id: (required)
+            The OCID of the crypto assessment.
+
+        :param oci.data_safe.models.UpdateCryptoAssessmentDetails update_crypto_assessment_details: (required)
+            The information to be updated.
+
+        :param str opc_request_id: (optional)
+            Unique identifier for the request.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the if-match parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/datasafe/update_crypto_assessment.py.html>`__ to see an example of how to use update_crypto_assessment API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['cryptoAssessmentId']
+        resource_path = "/cryptoAssessments/{cryptoAssessmentId}"
+        method = "PUT"
+        operation_name = "update_crypto_assessment"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/data-safe/20181201/CryptoAssessment/UpdateCryptoAssessment"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id",
+            "if_match"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"update_crypto_assessment got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "cryptoAssessmentId": crypto_assessment_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing),
+            "if-match": kwargs.get("if_match", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=update_crypto_assessment_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                body=update_crypto_assessment_details,
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,

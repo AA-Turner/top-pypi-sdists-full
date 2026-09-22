@@ -161,11 +161,11 @@ class MarkdownWrapper(Div):
     def create(
         cls,
         *children,
-        use_math: bool | Var[bool] | bool = True,
-        use_gfm: bool | Var[bool] | bool = True,
-        use_unwrap_images: bool | Var[bool] | bool = True,
-        use_katex: bool | Var[bool] | bool = True,
-        use_raw: bool | Var[bool] | bool = True,
+        use_math: bool | Var[bool] | bool | None = True,
+        use_gfm: bool | Var[bool] | bool | None = True,
+        use_unwrap_images: bool | Var[bool] | bool | None = True,
+        use_katex: bool | Var[bool] | bool | None = True,
+        use_raw: bool | Var[bool] | bool | None = True,
         access_key: Var[str] | str | None = None,
         auto_capitalize: Literal[
             "characters", "none", "off", "on", "sentences", "words"
@@ -436,11 +436,11 @@ class MarkdownNamespace(ComponentNamespace):
     @staticmethod
     def __call__(
         *children,
-        use_math: bool | Var[bool] | bool = True,
-        use_gfm: bool | Var[bool] | bool = True,
-        use_unwrap_images: bool | Var[bool] | bool = True,
-        use_katex: bool | Var[bool] | bool = True,
-        use_raw: bool | Var[bool] | bool = True,
+        use_math: bool | Var[bool] | bool | None = True,
+        use_gfm: bool | Var[bool] | bool | None = True,
+        use_unwrap_images: bool | Var[bool] | bool | None = True,
+        use_katex: bool | Var[bool] | bool | None = True,
+        use_raw: bool | Var[bool] | bool | None = True,
         access_key: Var[str] | str | None = None,
         auto_capitalize: Literal[
             "characters", "none", "off", "on", "sentences", "words"

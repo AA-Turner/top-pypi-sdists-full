@@ -1,5 +1,9 @@
 import asyncio
+import base64
+import binascii
 import datetime
+import hashlib
+import hmac
 import logging
 import os
 import plistlib
@@ -21,13 +25,14 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.hazmat.primitives.serialization.pkcs7 import PKCS7Options, PKCS7SignatureBuilder
 from packaging.version import Version
 from typing_extensions import Self
 
 from pymobiledevice3 import irecv_devices, usbmux
-from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_mobdev2
+from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, ServiceInstance, browse_mobdev2
 from pymobiledevice3.ca import generate_pairing_cert_chain
 from pymobiledevice3.common import get_home_folder
 from pymobiledevice3.exceptions import (
@@ -65,6 +70,7 @@ from pymobiledevice3.pair_records import (
     create_pairing_records_cache_folder,
     generate_host_id,
     get_preferred_pair_record,
+    get_usbmux_pairing_record,
 )
 from pymobiledevice3.service_connection import ServiceConnection
 from pymobiledevice3.usbmux import PlistMuxConnection
@@ -1567,40 +1573,126 @@ async def create_using_remote(
         raise
 
 
+def compute_mobdev2_auth_tag(host_id: str, service_identifier: str) -> bytes:
+    """The ``authTag`` a device publishes in its mobdev2 advert for the host paired under ``host_id``.
+
+    ``HMAC-SHA256(HKDF-SHA512(HostID), identifier)`` truncated to 8 bytes -- what MobileDevice's
+    ``AMDIsTXTRecordForUDID`` checks. The device publishes one tag per paired host (``authTag``,
+    ``authTag#1``, ...), all over the advert's opaque ``identifier``.
+    """
+    key = HKDF(algorithm=hashes.SHA512(), length=32, salt=None, info=b"").derive(host_id.encode())
+    return hmac.new(key, service_identifier.encode(), hashlib.sha256).digest()[:8]
+
+
+def _mobdev2_pair_record_candidates(
+    answer: ServiceInstance, pair_records: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The pair records worth offering to the device behind a mobdev2 advert.
+
+    The advert says which hosts the device is paired with, not which device it is (a host pairs every
+    device under one HostID), so this rules out devices that are not ours without contacting them. An
+    advert without tags (older iOS) rules nothing out.
+    """
+    service_identifier = answer.properties.get("identifier")
+    auth_tags: set[bytes] = set()
+    for key, value in answer.properties.items():
+        if key == "authTag" or key.startswith("authTag#"):
+            with suppress(binascii.Error, ValueError):
+                auth_tags.add(base64.b64decode(value))
+    if not service_identifier or not auth_tags:
+        return pair_records
+    return [
+        pair_record
+        for pair_record in pair_records
+        if "HostID" in pair_record and compute_mobdev2_auth_tag(pair_record["HostID"], service_identifier) in auth_tags
+    ]
+
+
+async def _create_mobdev2_lockdown(hostname: str, pair_records: list[dict[str, Any]]) -> Optional[TcpLockdownClient]:
+    """Connect to a mobdev2 device, paired through whichever of ``pair_records`` it accepts (else unpaired)."""
+    lockdown = None
+    for pair_record in pair_records or [None]:
+        if lockdown is not None:
+            await lockdown.close()
+        try:
+            lockdown = await create_using_tcp(hostname=hostname, autopair=False, pair_record=pair_record)
+        except Exception:
+            return None
+        if lockdown.paired:
+            break
+    return lockdown
+
+
+async def _known_lockdown_pair_records(udid: Optional[str], folder: Optional[Path]) -> list[dict[str, Any]]:
+    """The lockdown pair records a mobdev2 device can be recognized and paired by.
+
+    An explicit ``folder`` is the only source. Otherwise records come from wherever this host keeps them:
+    our own folder, the system lockdown folder when it is readable (it is root-only on macOS), and
+    usbmuxd -- asked for ``udid``, or for every device it currently lists, since it cannot enumerate its
+    records.
+    """
+    folders = [folder] if folder is not None else [get_home_folder(), OSUTIL.pair_record_path]
+    records: list[dict[str, Any]] = []
+    for file in (file for candidate in folders for file in _glob_pair_record_files(candidate)):
+        if file.name.startswith("remote_") or (udid is not None and file.stem != udid):
+            # skip RemotePairing records
+            continue
+        with suppress(OSError, plistlib.InvalidFileException):
+            record = plistlib.loads(file.read_bytes())
+            if "HostID" in record:
+                records.append(record)
+    if udid is not None:
+        if not records:
+            record = await get_preferred_pair_record(udid, folders[0])
+            if record is not None:
+                records.append(record)
+    elif folder is None:
+        with suppress(MuxException, OSError):
+            for device in await usbmux.list_devices():
+                record = await get_usbmux_pairing_record(device.serial)
+                if record is not None and record not in records:
+                    records.append(record)
+    return records
+
+
+def _glob_pair_record_files(folder: Path) -> list[Path]:
+    with suppress(OSError):
+        return sorted(folder.glob("*.plist"))
+    return []
+
+
 async def get_mobdev2_lockdowns(
     udid: Optional[str] = None,
     pair_records: Optional[Path] = None,
     only_paired: bool = False,
     timeout: float = DEFAULT_BONJOUR_TIMEOUT,
 ) -> AsyncIterable[tuple[str, TcpLockdownClient]]:
-    records: dict[str, Any] = {}
-    if pair_records is None:
-        pair_records = get_home_folder()
-    for file in pair_records.glob("*.plist"):
-        if file.name.startswith("remote_"):
-            # skip RemotePairing records
-            continue
-        record_udid = file.parts[-1].strip(".plist")
-        if udid is not None and record_udid != udid:
-            continue
-        record = plistlib.loads(file.read_bytes())
-        records[record["WiFiMACAddress"]] = record
+    records = await _known_lockdown_pair_records(udid, pair_records)
+    if udid is not None and not records:
+        # Nothing the requested device would accept: don't sit through a browse.
+        return
+    records_by_mac = {record["WiFiMACAddress"]: record for record in records if "WiFiMACAddress" in record}
 
     for answer in await browse_mobdev2(timeout=timeout):
         if "@" not in answer.instance:
             continue
         wifi_mac_address = answer.instance.split("@", 1)[0]
-        record = records.get(wifi_mac_address)
-
-        if only_paired and record is None:
+        # A device using a private Wi-Fi address advertises that randomized MAC rather than the
+        # WiFiMACAddress of its pair record, so a device we cannot name is offered the records of the
+        # hosts it says it is paired with; it accepts only its own.
+        record = records_by_mac.get(wifi_mac_address)
+        candidates = _mobdev2_pair_record_candidates(answer, [record] if record is not None else records)
+        if not candidates and (only_paired or udid is not None):
+            # Not paired with any of our hosts: not a device the caller asked for.
             continue
 
         for address in answer.addresses:
-            try:
-                lockdown = await create_using_tcp(hostname=address.full_ip, autopair=False, pair_record=record)
-            except Exception:
+            lockdown = await _create_mobdev2_lockdown(address.full_ip, candidates)
+            if lockdown is None:
                 continue
-            if only_paired and not lockdown.paired:
-                await lockdown.service.close()
+            if (only_paired and not lockdown.paired) or (udid is not None and lockdown.udid != udid):
+                await lockdown.close()
                 continue
             yield address.full_ip, lockdown
+            # One client per device: its other addresses lead to the same place.
+            break

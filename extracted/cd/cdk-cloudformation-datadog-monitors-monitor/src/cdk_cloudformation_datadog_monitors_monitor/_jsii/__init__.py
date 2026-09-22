@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdk-cloudformation/datadog-monitors-monitor",
-    "4.11.1-alpha.7",
+    "4.12.0-alpha.7",
     __name__[0:-6],
-    "datadog-monitors-monitor@4.11.1-alpha.7.jsii.tgz",
+    "datadog-monitors-monitor@4.12.0-alpha.7.jsii.tgz",
 )
 
 __all__ = [

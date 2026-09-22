@@ -152,6 +152,10 @@ class DisbursementReportRecord(object):
             The value to assign to the partner_id property of this DisbursementReportRecord.
         :type partner_id: str
 
+        :param publisher_service_listing_id:
+            The value to assign to the publisher_service_listing_id property of this DisbursementReportRecord.
+        :type publisher_service_listing_id: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this DisbursementReportRecord.
         :type freeform_tags: dict(str, str)
@@ -199,6 +203,7 @@ class DisbursementReportRecord(object):
             'disbursement_amount_usd': 'str',
             'partner_name': 'str',
             'partner_id': 'str',
+            'publisher_service_listing_id': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'system_tags': 'dict(str, dict(str, object))'
@@ -237,6 +242,7 @@ class DisbursementReportRecord(object):
             'disbursement_amount_usd': 'disbursementAmountUsd',
             'partner_name': 'partnerName',
             'partner_id': 'partnerId',
+            'publisher_service_listing_id': 'publisherServiceListingId',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'system_tags': 'systemTags'
@@ -274,6 +280,7 @@ class DisbursementReportRecord(object):
         self._disbursement_amount_usd = None
         self._partner_name = None
         self._partner_id = None
+        self._publisher_service_listing_id = None
         self._freeform_tags = None
         self._defined_tags = None
         self._system_tags = None
@@ -1069,6 +1076,30 @@ class DisbursementReportRecord(object):
         :type: str
         """
         self._partner_id = partner_id
+
+    @property
+    def publisher_service_listing_id(self):
+        """
+        Gets the publisher_service_listing_id of this DisbursementReportRecord.
+        The listing ocid of the listing
+
+
+        :return: The publisher_service_listing_id of this DisbursementReportRecord.
+        :rtype: str
+        """
+        return self._publisher_service_listing_id
+
+    @publisher_service_listing_id.setter
+    def publisher_service_listing_id(self, publisher_service_listing_id):
+        """
+        Sets the publisher_service_listing_id of this DisbursementReportRecord.
+        The listing ocid of the listing
+
+
+        :param publisher_service_listing_id: The publisher_service_listing_id of this DisbursementReportRecord.
+        :type: str
+        """
+        self._publisher_service_listing_id = publisher_service_listing_id
 
     @property
     def freeform_tags(self):

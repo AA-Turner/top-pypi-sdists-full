@@ -308,6 +308,38 @@ class TestInfo:
         assert "[installed]" in r.out
         assert "[fixture-tap]" in r.out
 
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="git checks symlinks out as plain files on "
+                               "Windows by default")
+    def test_size_is_what_an_install_copies_when_the_tap_ships_links(
+            self, boost, sandbox, tmp_path):
+        # A tap that ships SKILL.md as a link to shared prose: install copies
+        # the target's bytes, so info must count them before the install too.
+        # (It said 0B once dir_size stopped following links for compact.)
+        repo = tmp_path / "linked"
+        (repo / "shared").mkdir(parents=True)
+        body = "---\nname: bee\ndescription: a linked skill\n---\n\n" + "b" * 3000
+        (repo / "shared" / "b.md").write_text(body, encoding="utf-8")
+        (repo / "skills" / "b").mkdir(parents=True)
+        (repo / "skills" / "b" / "SKILL.md").symlink_to("../../shared/b.md")
+        # A linked directory, and a name install skips.
+        (repo / "shared" / "docs").mkdir()
+        (repo / "shared" / "docs" / "y.md").write_text("y" * 800,
+                                                      encoding="utf-8")
+        (repo / "skills" / "b" / "docs").symlink_to("../../shared/docs")
+        (repo / "skills" / "b" / "__pycache__").mkdir()
+        (repo / "skills" / "b" / "__pycache__" / "x.pyc").write_bytes(b"c" * 900)
+        for cmd in (["init", "-q", "-b", "main"], ["add", "-A"],
+                    ["-c", "user.email=t@example.test", "-c", "user.name=T",
+                     "-c", "commit.gpgsign=false", "commit", "-qm", "init"]):
+            subprocess.run(["git", "-C", str(repo), *cmd], check=True)
+        boost("tap", str(repo))
+        before = json.loads(boost("info", "bee", "--json").out)
+        boost("install", "bee")
+        after = json.loads(boost("info", "bee", "--json").out)
+        assert before["size"] == after["size"] == len(body.encode("utf-8")) + 800
+        assert before["files"] == after["files"] == 2
+
     def test_info_reports_sidelined_by(self, boost, tapped):
         boost("install", "brainstorming", "jira-integration", "--no-deps")
         boost("focus", "brainstorming")
@@ -853,6 +885,58 @@ class TestExplain:
         assert "Key rules:" not in r.out
 
 
+# The outline used to print every heading in the file: 521 lines for one
+# catalog entry, while the "Key rules:" list beside it stopped at 12. The cap
+# is spelled out here rather than read from `info`, so the boundary is a
+# stated fact the code has to meet, not whatever the code happens to say.
+_OUTLINE_CAP = 25
+
+
+def _explain_outline(boost, monkeypatch, n):
+    """Run the no-AI explain over a skill with ``n`` headings.
+
+    Returns the outline block (the lines after "Outline:" up to the next
+    blank line, stripped) and the whole stdout.
+    """
+    body = "".join("%s Section %03d\n\nBody.\n\n" % ("#" if i == 1 else "##", i)
+                   for i in range(1, n + 1))
+    text = ("---\nname: many-headings\ndescription: Many headings.\n---\n\n"
+            + body + "- Always keep the rules list below the outline.\n")
+    monkeypatch.setattr(info, "_resolve_text",
+                        lambda name: (text, "skill", None, None))
+    r = boost("explain", "many-headings")
+    lines = r.out.split("\n")
+    start = [ln.strip() for ln in lines].index("Outline:") + 1
+    end = lines.index("", start)
+    return [ln.strip() for ln in lines[start:end]], r.out
+
+
+class TestExplainOutlineCap:
+    @pytest.mark.parametrize("n", [1, _OUTLINE_CAP - 1, _OUTLINE_CAP])
+    def test_at_or_under_the_cap_prints_every_heading_and_no_marker(
+            self, boost, monkeypatch, n):
+        outline, stdout = _explain_outline(boost, monkeypatch, n)
+        assert outline == ["Section %03d" % i for i in range(1, n + 1)]
+        assert "more headings" not in stdout
+
+    def test_one_over_the_cap_keeps_the_first_cap_and_counts_one_more(
+            self, boost, monkeypatch):
+        outline, _ = _explain_outline(boost, monkeypatch, _OUTLINE_CAP + 1)
+        assert outline == (["Section %03d" % i
+                            for i in range(1, _OUTLINE_CAP + 1)]
+                           + ["… and 1 more heading"])          # singular
+
+    def test_the_marker_counts_every_dropped_heading(self, boost, monkeypatch):
+        outline, stdout = _explain_outline(boost, monkeypatch, 60)
+        assert len(outline) == _OUTLINE_CAP + 1
+        assert outline[-2] == "Section 025"
+        assert outline[-1] == "… and 35 more headings"
+        assert "Section 026" not in stdout
+        # The sibling section still follows the capped outline.
+        assert "Key rules:" in stdout
+        assert "• Always keep the rules list below the outline." in stdout
+
+
 # ── log ──────────────────────────────────────────────────────────────────
 
 class TestLog:
@@ -920,6 +1004,35 @@ class TestHome:
     def test_unknown_rc1(self, boost, tapped):
         r = boost("home", "nope", expect=1)
         assert "no skill named 'nope' in any tap" in r.err
+
+    @staticmethod
+    def _github_url(tap_name):
+        cfg = json.loads(paths.config_path().read_text(encoding="utf-8"))
+        for tap in cfg["taps"]:
+            if tap["name"] == tap_name:
+                tap["url"] = "https://github.com/x/y"
+        paths.config_path().write_text(json.dumps(cfg), encoding="utf-8")
+
+    def test_a_rule_links_its_file_not_its_directory(self, boost,
+                                                     sibling_rules_tap):
+        # rules/ci-cd is shared with a sibling rule. Linking the folder
+        # opened a directory of other rules.
+        self._github_url("sibling-tap")
+        r = boost("home", "dotnet-build", "--print")
+        assert ("https://github.com/x/y/blob/HEAD/rules/ci-cd/dotnet-build.mdc"
+                in r.out)
+        boost("install", "dotnet-build")
+        r = boost("home", "dotnet-build", "--print")
+        assert ("https://github.com/x/y/blob/HEAD/rules/ci-cd/dotnet-build.mdc"
+                in r.out)
+
+    def test_an_installed_workflow_links_the_copy_installed(
+            self, boost, sibling_rules_tap):
+        self._github_url("sibling-tap")
+        boost("install", "csharp-reviewer", "--path", "plugins/a/agents")
+        r = boost("home", "csharp-reviewer", "--print")
+        assert ("https://github.com/x/y/blob/HEAD/plugins/a/agents/"
+                "csharp-reviewer.md" in r.out)
 
 
 # ── deps ─────────────────────────────────────────────────────────────────
@@ -1265,6 +1378,22 @@ class TestMaterializedKinds:
         data = json.loads(boost("info", "dep-mgmt", "--json").out)
         assert data["kind"] == "rule"
 
+    def test_info_and_deps_on_a_not_installed_rule_leave_the_cone_alone(
+            self, boost, fixture_tap_src, tmp_path):
+        # docs/roadmap/items/info-deps-materialize-a-dir-they-then-reject.md:
+        # both commands used to `sparse-checkout add /rules/*` for a directory
+        # `source_dir_for` then rejected — a git write from a read-only command.
+        from boost_cli.core import registry
+        tap = _git_rule_tap(fixture_tap_src, tmp_path / "rule-tap")
+        boost("tap", str(tap))
+        cone = registry.get("rule-tap").path / ".git" / "info" / "sparse-checkout"
+        before = cone.read_bytes()
+
+        boost("info", "dep-mgmt")
+        boost("deps", "dep-mgmt")
+
+        assert cone.read_bytes() == before
+
     def test_explain_installed_rule_keeps_description_and_a_real_outline(
             self, boost, fixture_tap_src, tmp_path):
         # After install, `explain` used to lose the description entirely
@@ -1280,3 +1409,52 @@ class TestMaterializedKinds:
         outline = r.out.split("Outline:", 1)[1]
         assert "dep-mgmt" not in outline
         assert "Pin transitive versions" in outline
+
+
+class TestInfoVersionRelation:
+    """`info` compares the lock's version to the catalog's as versions.
+
+    It used string inequality, so any difference, in either direction or in
+    spelling only, read as "update available".
+    """
+
+    def _set_lock_version(self, version):
+        lock_path = paths.lockfile_path()
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        lock["skills"]["brainstorming"]["version"] = version
+        lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    def test_older_install_says_update_available(self, boost, installed):
+        self._set_lock_version("1.3.0")
+        r = boost("info", "brainstorming")
+        assert "[update available]" in r.out
+        assert re.search(r"latest\s+1\.4\.0\s+\(update available\)", r.out)
+        assert "older than installed" not in r.out
+
+    def test_newer_install_is_ahead_not_an_update(self, boost, installed):
+        self._set_lock_version("1.4.1")
+        r = boost("info", "brainstorming")
+        assert "update available" not in r.out
+        assert "[ahead of tap]" in r.out
+        assert re.search(r"latest\s+1\.4\.0\s+\(older than installed\)",
+                         r.out)
+
+    def test_ahead_row_fits_a_60_column_pane(self, boost, installed,
+                                             monkeypatch):
+        # kv does not wrap by default, and the first wording of this row ran
+        # it to 71 columns: "(older — the installed copy is ahead of the tap)".
+        # Only this row is held to the pane: the others are not this test's.
+        self._set_lock_version("1.4.1")
+        monkeypatch.setenv("COLUMNS", "60")
+        r = boost("info", "brainstorming")
+        row = [ln for ln in r.out.split("\n")
+               if re.match(r"\s+latest\s", ln)]
+        assert len(row) == 1, r.out
+        assert len(row[0]) <= 60, row[0]
+
+    def test_same_version_spelled_differently_is_neither(self, boost, installed):
+        self._set_lock_version("1.4")
+        r = boost("info", "brainstorming")
+        assert "update available" not in r.out
+        assert "ahead" not in r.out
+        assert not re.search(r"^\s+latest\s", r.out, re.M)

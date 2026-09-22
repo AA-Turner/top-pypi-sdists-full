@@ -16,7 +16,6 @@ from typing import (
     Text,
     Type,
     Union,
-    cast,
 )
 from collections import namedtuple
 import types
@@ -432,6 +431,12 @@ class ActionExecutor:
         self.domain: Optional[Dict[Text, Any]] = None
         self.domain_digest: Optional[Text] = None
 
+    def __getstate__(self) -> Dict[Text, Any]:
+        """Drop unpicklable module objects so Sanic can spawn workers."""
+        state = self.__dict__.copy()
+        state["_modules"] = {}
+        return state
+
     def register_action(self, action: Union[Type[Action], Action]) -> None:
         """Register an action with the executor.
 
@@ -440,7 +445,6 @@ class ActionExecutor:
             `Action` subclass class or an actual `Action` subclass.
         """
         if inspect.isclass(action):
-            action = cast(Type[Action], action)
             if action.__module__.startswith("rasa."):
                 logger.warning(f"Skipping built in Action {action}.")
                 return

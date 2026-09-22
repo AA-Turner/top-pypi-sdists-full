@@ -12,12 +12,26 @@ import requests
 from requests.exceptions import HTTPError, ConnectionError, Timeout
 from requests.adapters import HTTPAdapter
 
+
+def _get_multipart_header_formatter(urllib3_fields):
+    """Return urllib3's active multipart-header formatter and its name."""
+    try:
+        return (
+            urllib3_fields.format_multipart_header_param,
+            'format_multipart_header_param',
+        )
+    except AttributeError:
+        return urllib3_fields.format_header_param, 'format_header_param'
+
+
 try:
     # noinspection PyUnresolvedReferences
     from requests.packages.urllib3 import fields
-    format_header_param = fields.format_header_param
-except ImportError:
+    format_header_param, format_header_param_name = _get_multipart_header_formatter(fields)
+except (ImportError, AttributeError):
+    fields = None
     format_header_param = None
+    format_header_param_name = None
 import telebot
 from telebot import types
 from telebot import util
@@ -39,7 +53,7 @@ SESSION_TIME_TO_LIVE = 600  # In seconds. None - live forever, 0 - one-time
 
 RETRY_ON_ERROR = False
 RETRY_TIMEOUT = 2
-MAX_RETRIES = 15
+MAX_RETRIES = 3
 RETRY_ENGINE = 1
 
 CUSTOM_SERIALIZER = None
@@ -100,7 +114,7 @@ def _make_request(token, method_name, method='get', params=None, files=None):
 
     
     if files and format_header_param:
-        fields.format_header_param = _no_encode(format_header_param)
+        setattr(fields, format_header_param_name, _no_encode(format_header_param))
     if params:
         if 'timeout' in params:
             read_timeout = params.pop('timeout')
@@ -249,7 +263,7 @@ def send_message(
         message_thread_id=None, reply_parameters=None, link_preview_options=None,
         business_connection_id=None, message_effect_id=None, allow_paid_broadcast=None,
         direct_messages_topic_id=None, suggested_post_parameters=None,
-        receiver_user_id=None, callback_query_id=None):
+        ephemeral_message_parameters=None):
     method_url = r'sendMessage'
     payload = {'chat_id': str(chat_id), 'text': text}
     if link_preview_options is not None:
@@ -280,10 +294,8 @@ def send_message(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, method='post')
 
 
@@ -292,7 +304,7 @@ def send_rich_message(
         disable_notification=None, protect_content=None, message_effect_id=None,
         reply_parameters=None, reply_markup=None, business_connection_id=None,
         direct_messages_topic_id=None, suggested_post_parameters=None, allow_paid_broadcast=None,
-        message_thread_id=None):
+        message_thread_id=None, ephemeral_message_parameters=None):
     method_url = r'sendRichMessage'
     payload = {'chat_id': chat_id, 'rich_message': rich_message.to_json()}
     if disable_notification is not None:
@@ -315,13 +327,19 @@ def send_rich_message(
         payload['allow_paid_broadcast'] = allow_paid_broadcast
     if message_thread_id is not None:
         payload['message_thread_id'] = message_thread_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, method='post') 
 
-def send_rich_message_draft(token, chat_id, draft_id, rich_message, message_thread_id=None):
+def send_rich_message_draft(token, chat_id, draft_id, rich_message, message_thread_id=None, can_stop=None, keep_on_stop=None):
     method_url = r'sendRichMessageDraft'
     payload = {'chat_id': str(chat_id), 'draft_id': draft_id, 'rich_message': rich_message.to_json()}
     if message_thread_id is not None:
         payload['message_thread_id'] = message_thread_id
+    if can_stop is not None:
+        payload['can_stop'] = can_stop
+    if keep_on_stop is not None:
+        payload['keep_on_stop'] = keep_on_stop
     return _make_request(token, method_url, params=payload, method='post')
 
 
@@ -622,7 +640,7 @@ def send_photo(
         caption_entities=None, protect_content=None,
         message_thread_id=None, has_spoiler=None, reply_parameters=None, business_connection_id=None,
         message_effect_id=None, show_caption_above_media=None, allow_paid_broadcast=None,
-        direct_messages_topic_id=None, suggested_post_parameters=None,receiver_user_id=None, callback_query_id=None):
+        direct_messages_topic_id=None, suggested_post_parameters=None,ephemeral_message_parameters=None):
     method_url = r'sendPhoto'
     payload = {'chat_id': chat_id}
     files = None
@@ -664,10 +682,8 @@ def send_photo(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files, method='post')
     
 def send_live_photo(
@@ -675,7 +691,7 @@ def send_live_photo(
         message_thread_id=None, business_connection_id=None, caption=None, parse_mode=None, caption_entities=None,
         show_caption_above_media=None, has_spoiler=None, disable_notification=None, protect_content=None,
         reply_parameters=None, reply_markup=None, message_effect_id=None, allow_paid_broadcast=None,
-        direct_messages_topic_id=None, suggested_post_parameters=None):
+        direct_messages_topic_id=None, suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendLivePhoto'
     files = {}
     payload = {'chat_id': chat_id}
@@ -719,6 +735,8 @@ def send_live_photo(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files or None, method='post')
     
 def send_paid_media(
@@ -802,7 +820,7 @@ def send_location(
         proximity_alert_radius=None, protect_content=None,
         message_thread_id=None, reply_parameters=None, business_connection_id=None,
         message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None,
-        suggested_post_parameters=None, receiver_user_id=None, callback_query_id=None):
+        suggested_post_parameters=None, ephemeral_message_parameters=None):
     method_url = r'sendLocation'
     payload = {'chat_id': chat_id, 'latitude': latitude, 'longitude': longitude}
     if live_period:
@@ -835,10 +853,8 @@ def send_location(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload)
 
 
@@ -896,7 +912,7 @@ def send_venue(
         reply_markup=None, timeout=None, google_place_id=None,
         google_place_type=None, protect_content=None, message_thread_id=None, reply_parameters=None, business_connection_id=None,
         message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-        receiver_user_id=None, callback_query_id=None):
+        ephemeral_message_parameters=None):
     method_url = r'sendVenue'
     payload = {'chat_id': chat_id, 'latitude': latitude, 'longitude': longitude, 'title': title, 'address': address}
     if foursquare_id:
@@ -929,10 +945,8 @@ def send_venue(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload)
 
 
@@ -941,7 +955,7 @@ def send_contact(
         disable_notification=None, reply_markup=None, timeout=None,
         protect_content=None, message_thread_id=None, reply_parameters=None, business_connection_id=None,
         message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-        receiver_user_id=None, callback_query_id=None):
+        ephemeral_message_parameters=None):
     method_url = r'sendContact'
     payload = {'chat_id': chat_id, 'phone_number': phone_number, 'first_name': first_name}
     if last_name:
@@ -970,17 +984,15 @@ def send_contact(
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
 
     return _make_request(token, method_url, params=payload)
 
 
 def send_message_draft(
         token, chat_id, draft_id, text,
-        message_thread_id=None, parse_mode=None, entities=None):
+        message_thread_id=None, parse_mode=None, entities=None, can_stop=None, keep_on_stop=None):
     method_url = r'sendMessageDraft'
     payload = {'chat_id': chat_id, 'draft_id': draft_id, 'text': text}
     if message_thread_id is not None:
@@ -989,6 +1001,10 @@ def send_message_draft(
         payload['parse_mode'] = parse_mode
     if entities:
         payload['entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(entities))
+    if can_stop is not None:
+        payload['can_stop'] = can_stop
+    if keep_on_stop is not None:
+        payload['keep_on_stop'] = keep_on_stop
     return _make_request(token, method_url, params=payload)
 
 
@@ -1010,7 +1026,7 @@ def send_video(token, chat_id, data, duration=None, caption=None, reply_markup=N
                message_thread_id=None, has_spoiler=None, reply_parameters=None, business_connection_id=None,
                message_effect_id=None, show_caption_above_media=None, allow_paid_broadcast=None,
                cover=None, start_timestamp=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-               receiver_user_id=None, callback_query_id=None):
+               ephemeral_message_parameters=None):
     method_url = r'sendVideo'
     payload = {'chat_id': chat_id}
     files = None
@@ -1052,10 +1068,8 @@ def send_video(token, chat_id, data, duration=None, caption=None, reply_markup=N
         payload['message_thread_id'] = message_thread_id
     if has_spoiler is not None:
         payload['has_spoiler'] = has_spoiler
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     if reply_parameters is not None:
         payload['reply_parameters'] = reply_parameters.to_json()
     if business_connection_id:
@@ -1090,7 +1104,7 @@ def send_animation(
         protect_content=None, width=None, height=None, message_thread_id=None, reply_parameters=None,
         has_spoiler=None, business_connection_id=None, message_effect_id=None, show_caption_above_media=None,
         allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-        receiver_user_id=None, callback_query_id=None):
+        ephemeral_message_parameters=None):
     method_url = r'sendAnimation'
     payload = {'chat_id': chat_id}
     files = None
@@ -1142,10 +1156,8 @@ def send_animation(
         payload['allow_paid_broadcast'] = allow_paid_broadcast
     if direct_messages_topic_id is not None:
         payload['direct_messages_topic_id'] = direct_messages_topic_id
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files, method='post')
@@ -1155,7 +1167,7 @@ def send_voice(token, chat_id, voice, caption=None, duration=None, reply_markup=
                parse_mode=None, disable_notification=None, timeout=None, caption_entities=None,
                  protect_content=None, message_thread_id=None, reply_parameters=None, business_connection_id=None,
                  message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-                 receiver_user_id=None, callback_query_id=None):
+                 ephemeral_message_parameters=None):
     method_url = r'sendVoice'
     payload = {'chat_id': chat_id}
     files = None
@@ -1193,10 +1205,8 @@ def send_voice(token, chat_id, voice, caption=None, duration=None, reply_markup=
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files, method='post')
 
 
@@ -1204,7 +1214,7 @@ def send_video_note(token, chat_id, data, duration=None, length=None, reply_mark
                     disable_notification=None, timeout=None, thumbnail=None, protect_content=None,
                     message_thread_id=None, reply_parameters=None,business_connection_id=None, message_effect_id=None,
                     allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-                    receiver_user_id=None, callback_query_id=None):
+                    ephemeral_message_parameters=None):
     method_url = r'sendVideoNote'
     payload = {'chat_id': chat_id}
     files = None
@@ -1248,10 +1258,8 @@ def send_video_note(token, chat_id, data, duration=None, length=None, reply_mark
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files, method='post')
 
 
@@ -1259,7 +1267,7 @@ def send_audio(token, chat_id, audio, caption=None, duration=None, performer=Non
                reply_markup=None, parse_mode=None, disable_notification=None, timeout=None, thumbnail=None,
                caption_entities=None, protect_content=None, message_thread_id=None, reply_parameters=None, business_connection_id=None,
                message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-               receiver_user_id=None, callback_query_id=None):
+               ephemeral_message_parameters=None):
     method_url = r'sendAudio'
     payload = {'chat_id': chat_id}
     files = None
@@ -1309,10 +1317,8 @@ def send_audio(token, chat_id, audio, caption=None, duration=None, performer=Non
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files, method='post')
 
 
@@ -1321,7 +1327,7 @@ def send_data(token, chat_id, data, data_type, reply_markup=None, parse_mode=Non
               disable_content_type_detection=None, visible_file_name=None,
               protect_content = None, message_thread_id=None, emoji=None, reply_parameters=None, business_connection_id=None,
               message_effect_id=None, allow_paid_broadcast=None, direct_messages_topic_id=None, suggested_post_parameters=None,
-              receiver_user_id=None, callback_query_id=None):
+              ephemeral_message_parameters=None):
     method_url = get_method_by_type(data_type)
     payload = {'chat_id': chat_id}
     files = None
@@ -1372,10 +1378,8 @@ def send_data(token, chat_id, data, data_type, reply_markup=None, parse_mode=Non
         payload['direct_messages_topic_id'] = direct_messages_topic_id
     if suggested_post_parameters is not None:
         payload['suggested_post_parameters'] = suggested_post_parameters.to_json()
-    if receiver_user_id is not None:
-        payload['receiver_user_id'] = receiver_user_id
-    if callback_query_id is not None:
-        payload['callback_query_id'] = callback_query_id
+    if ephemeral_message_parameters is not None:
+        payload['ephemeral_message_parameters'] = ephemeral_message_parameters.to_json()
     return _make_request(token, method_url, params=payload, files=files, method='post')
 
 
@@ -1431,7 +1435,7 @@ def promote_chat_member(
         can_restrict_members=None, can_pin_messages=None, can_promote_members=None,
         is_anonymous=None, can_manage_chat=None, can_manage_video_chats=None,
         can_manage_topics=None, can_post_stories=None, can_edit_stories=None,
-        can_delete_stories=None, can_manage_direct_messages=None, can_manage_tags=None):
+        can_delete_stories=None, can_send_welcome_messages=None, can_manage_direct_messages=None, can_manage_tags=None):
     method_url = 'promoteChatMember'
     payload = {'chat_id': chat_id, 'user_id': user_id}
     if can_change_info is not None:
@@ -1464,6 +1468,8 @@ def promote_chat_member(
         payload['can_edit_stories'] = can_edit_stories
     if can_delete_stories is not None:
         payload['can_delete_stories'] = can_delete_stories
+    if can_send_welcome_messages is not None:
+        payload['can_send_welcome_messages'] = can_send_welcome_messages
     if can_manage_direct_messages is not None:
         payload['can_manage_direct_messages'] = can_manage_direct_messages
     if can_manage_tags is not None:
@@ -2667,13 +2673,13 @@ def delete_sticker_from_set(token, sticker):
     return _make_request(token, method_url, params=payload, method='post')
 
 
-def answer_web_app_query(token, web_app_query_id, result: types.InlineQueryResultBase):
+def answer_web_app_query(token, web_app_query_id, result: types.InlineQueryResult):
     method_url = 'answerWebAppQuery'
     payload = {'web_app_query_id': web_app_query_id, 'result': result.to_json()}
     return _make_request(token, method_url, params=payload, method='post')
 
 
-def save_prepared_inline_message(token, user_id, result: types.InlineQueryResultBase, allow_user_chats=None,
+def save_prepared_inline_message(token, user_id, result: types.InlineQueryResult, allow_user_chats=None,
                                     allow_bot_chats=None, allow_group_chats=None, allow_channel_chats=None):
         method_url = 'savePreparedInlineMessage'
         payload = {'user_id': user_id, 'result': result.to_json()}
@@ -2885,19 +2891,22 @@ def stop_poll(token, chat_id, message_id, reply_markup=None, business_connection
         payload['business_connection_id'] = business_connection_id
     return _make_request(token, method_url, params=payload)
     
-def edit_ephemeral_message_text(token, chat_id, receiver_user_id, ephemeral_message_id, text, parse_mode=None,
-                                entities=None, link_preview_options=None, reply_markup=None):
+def edit_ephemeral_message_text(token, chat_id, receiver_user_id, ephemeral_message_id, text=None, parse_mode=None,
+                                entities=None, rich_message=None, link_preview_options=None, reply_markup=None):
     method_url = r'editEphemeralMessageText'
     payload = {
         'chat_id': chat_id,
         'receiver_user_id': receiver_user_id,
-        'ephemeral_message_id': ephemeral_message_id,
-        'text': text
+        'ephemeral_message_id': ephemeral_message_id
     }
+    if text is not None:
+        payload['text'] = text
     if parse_mode:
         payload['parse_mode'] = parse_mode
     if entities:
         payload['entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(entities))
+    if rich_message is not None:
+        payload['rich_message'] = rich_message.to_json()
     if link_preview_options:
         payload['link_preview_options'] = link_preview_options.to_json()
     if reply_markup:
@@ -2918,7 +2927,7 @@ def edit_ephemeral_message_media(token, chat_id, receiver_user_id, ephemeral_mes
     return _make_request(token, method_url, params=payload, files=files)
 
 def edit_ephemeral_message_caption(token, chat_id, receiver_user_id, ephemeral_message_id, caption=None,
-                                   parse_mode=None, caption_entities=None, reply_markup=None):
+                                   parse_mode=None, caption_entities=None, show_caption_above_media=None, reply_markup=None):
     method_url = r'editEphemeralMessageCaption'
     payload = {
         'chat_id': chat_id,
@@ -2931,6 +2940,8 @@ def edit_ephemeral_message_caption(token, chat_id, receiver_user_id, ephemeral_m
         payload['parse_mode'] = parse_mode
     if caption_entities:
         payload['caption_entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(caption_entities))
+    if show_caption_above_media is not None:
+        payload['show_caption_above_media'] = show_caption_above_media
     if reply_markup:
         payload['reply_markup'] = _convert_markup(reply_markup)
     return _make_request(token, method_url, params=payload)
@@ -3076,22 +3087,21 @@ def convert_input_media(media):
     return None, None
 
 
+# noinspection protected-member
 def convert_input_media_array(array):
     media = []
     files = {}
     for input_media in array:
         if isinstance(input_media, types.InputMedia) or isinstance(input_media, types.InputPaidMedia):
             media_dict = input_media.to_dict()
-            key = "x" # stub
-            if media_dict['media'].startswith('attach://'):
-                key = media_dict['media'].replace('attach://', '')
-                files[key] = input_media.media
-            if 'thumbnail' in media_dict:
-                thumbnail = media_dict['thumbnail']
-                if isinstance(thumbnail, types.InputFile):
-                    thumbnail_key = 'thumbnail_' + key  
-                    files[thumbnail_key] = thumbnail    
-                    media_dict['thumbnail'] = 'attach://' + thumbnail_key   
+            if ('media' in media_dict) and media_dict['media'].startswith('attach://'):
+                files[input_media._media_name] = input_media.media
+            if ('thumbnail' in media_dict) and media_dict['thumbnail'].startswith('attach://'):
+                files[input_media._thumbnail_name] = input_media.thumbnail
+            if ('cover' in media_dict) and media_dict['cover'].startswith('attach://'):
+                files[input_media._cover_name] = input_media.cover
+            if ('photo' in media_dict) and media_dict['photo'].startswith('attach://'):
+                files[input_media._photo_name] = input_media.photo
             media.append(media_dict)
     return json.dumps(media), files
 

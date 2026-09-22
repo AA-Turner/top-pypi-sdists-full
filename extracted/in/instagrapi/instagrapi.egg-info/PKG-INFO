@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 3.0.11
+Version: 3.0.12
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -29,7 +29,7 @@ Requires-Dist: pydantic<2.14,>=2.12.5; sys_platform != "android"
 Requires-Dist: Pillow<13,>=12.2.0
 Requires-Dist: pycryptodomex<4,>=3.23.0
 Provides-Extra: curl
-Requires-Dist: curl-adapter>=1.2.1; extra == "curl"
+Requires-Dist: curl-adapter>=1.2.3; extra == "curl"
 Provides-Extra: video
 Requires-Dist: decorator<6.0,>=4.0.2; extra == "video"
 Requires-Dist: imageio<3.0,>=2.5; extra == "video"

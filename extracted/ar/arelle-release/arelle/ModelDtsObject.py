@@ -418,6 +418,7 @@ class ModelConcept(ModelNamableTerm, ModelParticle):
         if not self.isGlobalDeclaration:
             self.addToParticles()
         self._baseXsdAttrType: dict[str, str] = {}
+        self._instanceOfTypeCache: dict[QName, bool] = {}
 
     @property
     def abstract(self) -> str:
@@ -547,6 +548,15 @@ class ModelConcept(ModelNamableTerm, ModelParticle):
 
     def instanceOfType(self, typeqname: QName | Collection[QName]) -> bool:
         """(bool) -- True if element is declared by, or derived from type of given qname or collection of qnames"""
+        if isinstance(typeqname, Collection):
+            return any(self.instanceOfType(qn) for qn in typeqname)
+        try:
+            return self._instanceOfTypeCache[typeqname]
+        except KeyError:
+            result = self._instanceOfTypeCache[typeqname] = self._instanceOfTypeUncached(typeqname)
+            return result
+
+    def _instanceOfTypeUncached(self, typeqname: QName | Collection[QName]) -> bool:
         if isinstance(typeqname, Collection): # union
             if self.typeQname in typeqname:
                 return True
@@ -968,12 +978,23 @@ class ModelConcept(ModelNamableTerm, ModelParticle):
         else:
             _labelProperty = ("label", _labelDefault)
 
-        _refT = tuple((self.modelXbrl.roleTypeDefinition(_ref.role, _lang), " ",  # type: ignore[union-attr]
-                       tuple((_refPart.localName, _refPart.stringValue.strip())
-                             for _refPart in _ref.iterchildren()))  # type: ignore[union-attr]
-                      for _refRel in sorted(self.modelXbrl.relationshipSet(XbrlConst.conceptReference).fromModelObject(self),
-                                            key=lambda r:r.toModelObject.roleRefPartSortKey())  # type: ignore[union-attr]
-                      for _ref in (_refRel.toModelObject,))
+        _refT = tuple(
+            (
+                self.modelXbrl.roleTypeDefinition(_ref.role or XbrlConst.standardReference, _lang),  # type: ignore[union-attr]
+                " ",
+                tuple(
+                    (_refPart.localName, _refPart.stringValue.strip())
+                    for _refPart in _ref.iterchildren()  # type: ignore[union-attr]
+                ),
+            )
+            for _refRel in sorted(
+                self.modelXbrl.relationshipSet(
+                    XbrlConst.conceptReference
+                ).fromModelObject(self),
+                key=lambda r: r.toModelObject.roleRefPartSortKey(),  # type: ignore[union-attr]
+            )
+            for _ref in (_refRel.toModelObject,)
+        )
         _refsStrung = " ".join(_refPart.stringValue.strip()
                                for _refRel in self.modelXbrl.relationshipSet(XbrlConst.conceptReference).fromModelObject(self)
                                for _refPart in _refRel.toModelObject.iterchildren())  # type: ignore[union-attr]
@@ -1078,9 +1099,10 @@ class ModelAttribute(ModelNamableTerm):
             if typeqname is None:   # anyType is default type
                 return "anyType"
             if typeqname.namespaceURI == XbrlConst.xsd:
-                return typeqname.localName
-            type = self.type
-            self._baseXsdType = type.baseXsdType if type is not None else None
+                self._baseXsdType = typeqname.localName
+            else:
+                type = self.type
+                self._baseXsdType = type.baseXsdType if type is not None else None
             return self._baseXsdType
 
     @property
@@ -1753,7 +1775,7 @@ class ModelLink(ModelObject, LinkRelationships):
     def init(self, modelDocument: ModelDocument) -> None:
         super(ModelLink, self).init(modelDocument)
         self.labeledResources = defaultdict(list)
-        self.role = self.get("{http://www.w3.org/1999/xlink}role")  # type: ignore[assignment]
+        self.role = self.get("{http://www.w3.org/1999/xlink}role")
         self.initRelationships()
 
 class ModelResource(ModelObject, ModelResourceBase):

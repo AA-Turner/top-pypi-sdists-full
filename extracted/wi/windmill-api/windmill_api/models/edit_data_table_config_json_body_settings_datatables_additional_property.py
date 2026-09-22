@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.edit_data_table_config_json_body_settings_datatables_additional_property_forked_from import (
         EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyForkedFrom,
     )
+    from ..models.edit_data_table_config_json_body_settings_datatables_additional_property_governed_by import (
+        EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyGovernedBy,
+    )
     from ..models.edit_data_table_config_json_body_settings_datatables_additional_property_reference import (
         EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyReference,
     )
@@ -29,6 +32,8 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
         reference (Union[Unset, EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyReference]): The
             workspace and data table that govern this one. Server-owned: written by fork creation, and carried across a
             settings save whatever the request says.
+        governed_by (Union[Unset, EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyGovernedBy]): On a
+            clone, the data table it was copied from, whose roles it takes. Server-owned like `reference`.
         migrations_enabled (Union[Unset, bool]): Whether the SQL migrations feature is opted in for this data table
         forked_from (Union[Unset, EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyForkedFrom]): Fork
             origin info with schema snapshot
@@ -36,6 +41,7 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
 
     database: Union[Unset, "EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyDatabase"] = UNSET
     reference: Union[Unset, "EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyReference"] = UNSET
+    governed_by: Union[Unset, "EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyGovernedBy"] = UNSET
     migrations_enabled: Union[Unset, bool] = UNSET
     forked_from: Union[Unset, "EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyForkedFrom"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -49,6 +55,10 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
         if not isinstance(self.reference, Unset):
             reference = self.reference.to_dict()
 
+        governed_by: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.governed_by, Unset):
+            governed_by = self.governed_by.to_dict()
+
         migrations_enabled = self.migrations_enabled
         forked_from: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.forked_from, Unset):
@@ -61,6 +71,8 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
             field_dict["database"] = database
         if reference is not UNSET:
             field_dict["reference"] = reference
+        if governed_by is not UNSET:
+            field_dict["governed_by"] = governed_by
         if migrations_enabled is not UNSET:
             field_dict["migrations_enabled"] = migrations_enabled
         if forked_from is not UNSET:
@@ -75,6 +87,9 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
         )
         from ..models.edit_data_table_config_json_body_settings_datatables_additional_property_forked_from import (
             EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyForkedFrom,
+        )
+        from ..models.edit_data_table_config_json_body_settings_datatables_additional_property_governed_by import (
+            EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyGovernedBy,
         )
         from ..models.edit_data_table_config_json_body_settings_datatables_additional_property_reference import (
             EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyReference,
@@ -95,6 +110,15 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
         else:
             reference = EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyReference.from_dict(_reference)
 
+        _governed_by = d.pop("governed_by", UNSET)
+        governed_by: Union[Unset, EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyGovernedBy]
+        if isinstance(_governed_by, Unset):
+            governed_by = UNSET
+        else:
+            governed_by = EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyGovernedBy.from_dict(
+                _governed_by
+            )
+
         migrations_enabled = d.pop("migrations_enabled", UNSET)
 
         _forked_from = d.pop("forked_from", UNSET)
@@ -109,6 +133,7 @@ class EditDataTableConfigJsonBodySettingsDatatablesAdditionalProperty:
         edit_data_table_config_json_body_settings_datatables_additional_property = cls(
             database=database,
             reference=reference,
+            governed_by=governed_by,
             migrations_enabled=migrations_enabled,
             forked_from=forked_from,
         )

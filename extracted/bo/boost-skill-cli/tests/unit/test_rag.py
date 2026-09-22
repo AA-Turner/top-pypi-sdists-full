@@ -20,7 +20,8 @@ from unittest import mock
 import pytest
 
 from boost_cli.core import dense as dense_mod
-from boost_cli.core import rag, registry
+from boost_cli.core import paths, rag, registry
+from boost_cli.errors import BoostError
 
 # ------------------------------------------------------------- tokenize
 
@@ -514,6 +515,101 @@ class TestStale:
         rag.build(entries=entries, force=True)
         assert rag.ready() is True
         assert rag.stale() is False
+
+
+class TestAnIndexBoostCannotSave:
+    """`boost reindex` in a cache dir it cannot write was exit 70 with a
+    PermissionError crash report, where every sibling command degrades
+    (cache-writers-that-still-crash-on-a-read-only-cache). Building the index
+    is the whole job there, so it is an error, but one that names the
+    directory and the remedy doctor and heal print."""
+
+    @staticmethod
+    def _refuse(monkeypatch, exc):
+        refuse = mock.Mock(side_effect=exc)
+        monkeypatch.setattr(rag.tempfile, "mkstemp", refuse)
+        return refuse
+
+    def test_an_unwritable_cache_dir_is_an_error_naming_it(self, corpus,
+                                                            monkeypatch):
+        _root, entries = corpus
+        cache = paths.cache_dir()
+        self._refuse(monkeypatch, PermissionError(
+            13, "Permission denied", str(cache / ".rag_postings.sqlite.x.tmp")))
+        with pytest.raises(BoostError) as ei:
+            rag.build(entries=entries, force=True)
+        where = paths.tilde(cache)
+        assert ei.value.message == ("could not save the search index in %s "
+                                    "(Permission denied)" % where)
+        assert ei.value.hint == "run `chmod u+w %s`" \
+            % where
+        assert isinstance(ei.value.__cause__, PermissionError)
+
+    def test_search_still_degrades_rather_than_raising(self, corpus,
+                                                       monkeypatch):
+        # ensure() is what search calls. The build must really reach _save
+        # and be refused there, so what ensure() swallows is the BoostError
+        # reindex prints: search then answers "no index" and falls back to
+        # frontmatter at exit 0 instead of exiting 1 on a cold cache.
+        _root, entries = corpus
+        monkeypatch.setattr(registry, "list_taps", lambda: ["a-tap"])
+        monkeypatch.setattr(rag.catalog, "all_entries", lambda: entries)
+        build, raised = rag.build, []
+
+        def spy(*a, **k):
+            try:
+                return build(*a, **k)
+            except Exception as e:
+                raised.append(e)
+                raise
+
+        monkeypatch.setattr(rag, "build", spy)
+        refuse = self._refuse(monkeypatch,
+                              PermissionError(13, "Permission denied"))
+        assert rag.ensure() is False
+        assert refuse.called                  # the build got as far as _save
+        assert [type(e) for e in raised] == [BoostError]
+        assert rag.ready() is False
+
+    def test_a_full_disk_is_not_told_to_chmod(self, corpus, monkeypatch):
+        _root, entries = corpus
+        cache = paths.cache_dir()
+        self._refuse(monkeypatch, OSError(
+            28, "No space left on device", str(cache / ".x.tmp")))
+        with pytest.raises(BoostError) as ei:
+            rag.build(entries=entries, force=True)
+        assert ei.value.message == ("could not save the search index in %s "
+                                    "(No space left on device)"
+                                    % paths.tilde(cache))
+        assert ei.value.hint is None
+
+    def test_a_cache_dir_it_cannot_create_names_the_parent(self, corpus,
+                                                            monkeypatch):
+        # ~/.boost read-only and no cache dir yet: the directory to fix is
+        # the one mkdir was refused in, not one that does not exist.
+        _root, entries = corpus
+        cache = paths.cache_dir()
+
+        def refuse():
+            raise PermissionError(13, "Permission denied", str(cache))
+        monkeypatch.setattr(rag.paths, "ensure_dirs", refuse)
+        with pytest.raises(BoostError) as ei:
+            rag.build(entries=entries, force=True)
+        assert ei.value.hint == "run `chmod u+w %s`" \
+            % paths.tilde(cache.parent)
+
+    def test_an_error_with_no_path_names_the_cache_dir(self, corpus,
+                                                        monkeypatch):
+        # No filename and no errno: the cache dir is still the place to look,
+        # and the error's own text stands in for a strerror it does not have.
+        _root, entries = corpus
+        self._refuse(monkeypatch, OSError("disk went away"))
+        with pytest.raises(BoostError) as ei:
+            rag.build(entries=entries, force=True)
+        assert ei.value.message == ("could not save the search index in %s "
+                                    "(disk went away)"
+                                    % paths.tilde(paths.cache_dir()))
+        assert ei.value.hint is None
 
 
 class TestBuildAndRetrieve:
@@ -1030,6 +1126,17 @@ class TestTapCommitsStates:
         monkeypatch.setattr(rag.gitutil, "head_commit", lambda p: "")
         assert rag._tap_commits() == {"a__b": ""}
 
+    def test_a_cache_that_is_not_utf8_falls_back_to_head(self, monkeypatch,
+                                                         tmp_path):
+        # A failed decode is a ValueError, not an OSError: it used to escape
+        # and take `boost search` down with it.
+        tap = _FakeTap("a/b", is_cloned=True)
+        tap.cache_file = tmp_path / "a__b.json"
+        tap.cache_file.write_bytes(b"\xff\xfe")
+        monkeypatch.setattr(rag.registry, "list_taps", lambda: [tap])
+        monkeypatch.setattr(rag.gitutil, "head_commit", lambda p: "HEAD")
+        assert rag._tap_commits() == {"a__b": "HEAD"}
+
 
 class TestReadBodyHardening:
     def test_missing_name_key_uses_empty_default(self, tmp_path):
@@ -1138,8 +1245,11 @@ class TestMakeDocs:
         docs = rag._make_docs(
             [_entry("code-reviewer", desc="reviews diffs")], {})
         tf = docs[0]["tf"]
-        assert "reviewer" in tf, "the de-hyphenated name must be searchable"
+        assert "reviewer" in tf, "the name must be searchable"
         assert "diffs" in tf, "the description must be searchable"
+        # Membership only. `tokenize` splits hyphens itself, so this passes
+        # with the de-hyphenated copy deleted — TestSurfaceFieldWeighting
+        # below is what actually guards `surface`.
 
     def test_empty_chunk_is_skipped_not_break(self, monkeypatch):
         body = ("the " * 220) + "\n\n" + ("widget " * 130)
@@ -1150,6 +1260,66 @@ class TestMakeDocs:
         # its one document, carrying the terms from the rest of the body.
         assert len(docs) == 1
         assert "widget" in docs[0]["tf"]
+
+
+class TestSurfaceFieldWeighting:
+    """`surface` is a field weighting, not hyphen handling.
+
+    Its docstring used to say the de-hyphenated copy of the name was there
+    because `tokenize` does not split hyphens. It does split them, and
+    `read_body` prepends name + description to every body anyway — so the copy
+    changes no token list, it changes token *counts*. Deleting it moves no
+    `eval` floor — recall@10 and hit@1 are identical either way — while it
+    silently reorders the raw top 10 for 20 of the 141 golden +
+    golden-natural queries. So the guard has to be the arithmetic: these
+    assertions are exact multiplicities and exact strings for that reason,
+    because a ">= 1" or an ``in`` is satisfied by the ablated function.
+    """
+
+    def test_surface_names_the_entry_twice_then_describes_it_once(self):
+        e = _entry("alpha-beta_gamma", desc="delta epsilon")
+        assert rag.surface(e) == "alpha-beta_gamma alpha beta gamma delta epsilon"
+
+    def test_a_missing_description_contributes_an_empty_field(self):
+        # `or ""` rather than a default, so a null description is a field too.
+        assert rag.surface({"name": "x-y"}) == "x-y x y "
+
+    def test_an_entry_with_neither_field_is_three_empty_fields(self):
+        assert rag.surface({}) == "  "
+
+    def test_the_name_counts_3x_and_the_description_2x_in_the_document(
+            self, tmp_path):
+        # End to end through the real `read_body_full`, not a faked body: the
+        # 3x is `surface`'s two copies plus the header `read_body_full`
+        # prepends, so faking the body would pin only half the composition.
+        root = tmp_path / "repo"
+        (root / "alpha-beta_gamma").mkdir(parents=True)
+        (root / "alpha-beta_gamma" / "SKILL.md").write_text(
+            "---\nname: alpha-beta_gamma\n---\n\nzeta\n", encoding="utf-8")
+        e = _entry("alpha-beta_gamma",
+                   skill_md="alpha-beta_gamma/SKILL.md", desc="delta epsilon")
+        docs = rag._make_docs([e], {"acme/skills": root})
+        assert docs[0]["tf"] == {"alpha": 3, "beta": 3, "gamma": 3,
+                                 "delta": 2, "epsilon": 2, "zeta": 1}
+
+    def test_an_unhyphenated_name_is_weighted_the_same_3x(self, tmp_path):
+        # The copy is a pure duplication for every entry, not a rescue for
+        # hyphenated ones: `solo` is counted three times as well.
+        root = tmp_path / "repo"
+        (root / "solo").mkdir(parents=True)
+        (root / "solo" / "SKILL.md").write_text(
+            "---\nname: solo\n---\n\nzeta\n", encoding="utf-8")
+        e = _entry("solo", skill_md="solo/SKILL.md")
+        docs = rag._make_docs([e], {"acme/skills": root})
+        assert docs[0]["tf"] == {"solo": 3, "zeta": 1}
+
+    def test_de_hyphenating_a_name_never_changes_its_token_list(self):
+        # Measured over the 20-tap eval corpus (10,731 entries): 0 differ.
+        # Includes the alias rows, where both spellings fold to one token.
+        for name in ("code-reviewer", "alpha_beta", "objective-c", "c++",
+                     "solo", "a-b-c-d"):
+            assert rag.tokenize(name) == rag.tokenize(
+                name.replace("-", " ").replace("_", " ")), name
 
 
 class TestPassage:

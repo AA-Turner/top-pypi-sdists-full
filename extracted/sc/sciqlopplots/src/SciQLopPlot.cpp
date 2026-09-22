@@ -19,6 +19,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "SciQLopPlots/ColorScaleController.hpp"
 #include "SciQLopPlots/SciQLopPlot.hpp"
 #include "SciQLopPlots/Profiling.hpp"
 #include "SciQLopPlots/SciQLopTheme.hpp"
@@ -576,26 +577,35 @@ void SciQLopPlot::_register_plottable_wrapper(SciQLopPlottableInterface* plottab
     emit this->plotables_list_changed();
 }
 
-void _impl::SciQLopPlot::_ensure_colorscale_is_visible(SciQLopColorMap* cmap)
+void _impl::SciQLopPlot::show_color_scale()
+{
+    if (m_color_scale->visible())
+        return;
+    m_color_scale->setVisible(true);
+    plotLayout()->addElement(0, 1, m_color_scale);
+    applyTheme();
+}
+
+void _impl::SciQLopPlot::hide_color_scale()
 {
     if (!m_color_scale->visible())
-    {
-        m_color_scale->setVisible(true);
-        plotLayout()->addElement(0, 1, m_color_scale);
-        cmap->colorMap()->setColorScale(m_color_scale);
-        applyTheme();
-    }
+        return;
+    m_color_scale->setVisible(false);
+    plotLayout()->take(m_color_scale);
+    plotLayout()->simplify();
+    replot(QCustomPlot::rpQueuedReplot);
+}
+
+void _impl::SciQLopPlot::_ensure_colorscale_is_visible(SciQLopColorMap* cmap)
+{
+    show_color_scale();
+    cmap->colorMap()->setColorScale(m_color_scale);
 }
 
 void _impl::SciQLopPlot::_ensure_colorscale_is_visible(SciQLopHistogram2D* hist)
 {
-    if (!m_color_scale->visible())
-    {
-        m_color_scale->setVisible(true);
-        plotLayout()->addElement(0, 1, m_color_scale);
-        hist->histogram()->setColorScale(m_color_scale);
-        applyTheme();
-    }
+    show_color_scale();
+    hist->histogram()->setColorScale(m_color_scale);
 }
 
 QCPAbstractPlottable* SciQLopPlot::plottable(const QString& name) const
@@ -715,6 +725,20 @@ void SciQLopPlot::_apply_component_labels(SciQLopGraphInterface* plottable,
 SciQLopPlot::SciQLopPlot(QWidget* parent) : SciQLopPlotInterface(parent)
 {
     m_impl = new _impl::SciQLopPlot(this);
+    m_curve_scale = new ColorScaleController(
+        this,
+        [this]
+        {
+            std::vector<ColorScaleController::Source> sources;
+            for (auto* p : m_impl->sqp_plottables())
+                if (auto* curve = dynamic_cast<SciQLopCurve*>(p))
+                    sources.push_back(
+                        { [curve] { return curve->visible() && curve->has_color_values(); },
+                          [curve](bool log) { return curve->color_range(log); },
+                          [curve](QCPColorScale* scale) { curve->set_color_scale(scale); } });
+            return sources;
+        },
+        this);
 
     this->m_time_axis = new SciQLopPlotDummyAxis(this);
     connect(this->m_time_axis, &SciQLopPlotDummyAxis::range_changed, this,
@@ -761,6 +785,7 @@ SciQLopPlot::SciQLopPlot(QWidget* parent) : SciQLopPlotInterface(parent)
 
 SciQLopPlot::~SciQLopPlot()
 {
+    m_curve_scale->quiesce();
     while (plottables().size() > 0)
     {
         delete plottable(0);
@@ -1305,4 +1330,39 @@ void SciQLopPlot::export_paint(QPainter* painter, const QRect& target,
     else
         painter->drawPixmap(0, 0, qcp->toPixmap(target.width(), target.height()));
     painter->restore();
+}
+
+bool SciQLopPlot::curve_color_scale_enabled() const noexcept
+{
+    return m_curve_scale->enabled();
+}
+
+void SciQLopPlot::set_curve_color_scale_enabled(bool enabled)
+{
+    m_curve_scale->set_enabled(enabled);
+}
+
+bool SciQLopPlot::z_auto_range() const noexcept
+{
+    return m_curve_scale->auto_range();
+}
+
+void SciQLopPlot::set_z_auto_range(bool enabled)
+{
+    m_curve_scale->set_auto_range(enabled);
+}
+
+void SciQLopPlot::set_z_gradient(::ColorGradient gradient)
+{
+    m_curve_scale->set_gradient(gradient);
+}
+
+void SciQLopPlot::request_z_gradient(::ColorGradient gradient)
+{
+    m_curve_scale->request_gradient(gradient);
+}
+
+void SciQLopPlot::update_curve_color_scale()
+{
+    m_curve_scale->update();
 }

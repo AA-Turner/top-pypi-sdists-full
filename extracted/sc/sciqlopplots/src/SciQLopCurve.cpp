@@ -25,6 +25,7 @@
 #include "SciQLopPlots/Plotables/Resamplers/SciQLopCurveResampler.hpp"
 #include "SciQLopPlots/Python/DtypeDispatch.hpp"
 #include "SciQLopPlots/Python/Validation.hpp"
+#include "SciQLopPlots/SciQLopPlot.hpp"
 #include "SciQLopPlots/qcp_enums.hpp"
 #include <algorithm>
 #include <cmath>
@@ -107,6 +108,11 @@ SciQLopCurve::SciQLopCurve(QCustomPlot* parent, SciQLopPlotAxis* keyAxis,
 
 SciQLopCurve::~SciQLopCurve()
 {
+    // Still listed among the plot's plottables here, so let it look again once we are gone.
+    auto* impl = qobject_cast<_impl::SciQLopPlot*>(parent());
+    if (auto* plot = impl ? qobject_cast<SciQLopPlot*>(impl->parent()) : nullptr)
+        QMetaObject::invokeMethod(plot, [plot] { plot->update_curve_color_scale(); },
+                                  Qt::QueuedConnection);
     clear_curves();
     clear_resampler();
 }
@@ -304,6 +310,68 @@ void SciQLopCurve::set_time_color_gradient(const QColor& start, const QColor& en
             tc->set_gradient_colors(start, end);
 }
 
+void SciQLopCurve::set_color_gradient(::ColorGradient gradient)
+{
+    const QCPColorGradient qcp_gradient { to_qcp(gradient) };
+    for (auto comp : m_components)
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
+            tc->set_color_gradient(qcp_gradient);
+    _notify_plot(gradient);
+    Q_EMIT this->replot();
+}
+
+void SciQLopCurve::set_visible(bool visible) noexcept
+{
+    SQPQCPAbstractPlottableWrapper::set_visible(visible);
+    _notify_plot();
+}
+
+void SciQLopCurve::_notify_plot(std::optional<::ColorGradient> gradient)
+{
+    auto* impl = qobject_cast<_impl::SciQLopPlot*>(parent());
+    auto* plot = impl ? qobject_cast<SciQLopPlot*>(impl->parent()) : nullptr;
+    if (!plot)
+        return;
+    plot->update_curve_color_scale();
+    if (gradient)
+        plot->request_z_gradient(*gradient);
+}
+
+void SciQLopCurve::set_color_scale(QCPColorScale* scale)
+{
+    for (auto comp : m_components)
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
+            tc->set_color_scale(scale);
+}
+
+bool SciQLopCurve::has_color_values() const
+{
+    if (!m_components.isEmpty())
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(m_components.first()->plottable()))
+            return tc->has_color_values();
+    return false;
+}
+
+std::optional<std::pair<double, double>> SciQLopCurve::color_range(bool log) const
+{
+    if (!m_components.isEmpty())
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(m_components.first()->plottable()))
+            return tc->color_range(log);
+    return std::nullopt;
+}
+
+void SciQLopCurve::set_line_width(qreal width)
+{
+    for (auto comp : m_components)
+        comp->set_line_width(width);
+    Q_EMIT this->replot();
+}
+
+qreal SciQLopCurve::line_width() const
+{
+    return m_components.isEmpty() ? 1.0 : m_components.first()->line_width();
+}
+
 void SciQLopCurve::set_color_data(SciQLopPyBuffer values, ::ColorGradient gradient)
 {
     QVector<double> colors;
@@ -334,6 +402,7 @@ void SciQLopCurve::set_color_data(SciQLopPyBuffer values, ::ColorGradient gradie
 
     set_color_values(colors);
     set_time_color_enabled(!colors.isEmpty());
+    _notify_plot(colors.isEmpty() ? std::nullopt : std::optional { gradient });
     Q_EMIT this->replot();
 }
 

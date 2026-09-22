@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edfio
-Version: 0.4.16
+Version: 0.4.17
 Summary: Read and write EDF/EDF+C/BDF/BDF+C files.
 Project-URL: repository, https://github.com/the-siesta-group/edfio
 Project-URL: documentation, https://edfio.readthedocs.io
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.9
 Requires-Dist: numpy>=1.22.0
 Requires-Dist: typing-extensions>=4.0.0; python_version < '3.11'

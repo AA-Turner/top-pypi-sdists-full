@@ -41,18 +41,26 @@ UNIT_PATTERN = regex.compile(
     "(^((\x07)|([(]\x07([*]\x07)+[)]))([/]((\x07)|([(]\x07([*]\x07)+[)])))?$)"
 )
 
+SPECIAL_VALUE_PREFIX = "#"
+EMPTY_SPECIAL_VALUE = "#empty"
+NIL_SPECIAL_VALUE = "#nil"
+NONE_SPECIAL_VALUE = "#none"
+
 XBRLCE_INVALID_IDENTIFIER = "xbrlce:invalidIdentifier"
+XBRLCE_UNKNOWN_SPECIAL_VALUE = "xbrlce:unknownSpecialValue"
+
+XSD_YEAR = r"-?(?:[1-9][0-9]{3,}|0[0-9]{3})"
+XSD_TZ = r"(?:Z|[+-](?:(?:0[0-9]|1[0-3]):[0-5][0-9]|14:00))"
 
 _YEAR = r"(?!0000)[0-9]{4}"
 _DATE = rf"{_YEAR}-[0-9]{{2}}-[0-9]{{2}}"
 _TIME = r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]"
-_XSD_TZ = r"(?:Z|[+-][0-2][0-9]:?[0-5][0-9])"
 # OIM periods require canonical UTC (Z), so +00:00/-00:00 are rejected.
 _PER_TZ = r"(?:Z|[+-](?!00:?00)[0-2][0-9]:?[0-5][0-9])"
 _PER_DATETIME = rf"{_DATE}T{_TIME}(?:{_PER_TZ})?"
 _SUFFIX = r"@(?P<suffix>start|end)"
 
-XSD_TZ_PATTERN = regex.compile(rf"(?:{_XSD_TZ})$")
+XSD_TZ_PATTERN = regex.compile(rf"{XSD_TZ}$")
 PER_TZ_PATTERN = regex.compile(rf"(?:{_PER_TZ})$")
 PER_ISO_PATTERN = regex.compile(rf"(?P<start>{_PER_DATETIME})(?:/(?P<end>{_PER_DATETIME}))?$")
 PER_INCLUSIVE_DATES_PATTERN = regex.compile(rf"(?P<start>{_DATE})\.\.(?P<end>{_DATE})$")

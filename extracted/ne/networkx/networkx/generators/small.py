@@ -24,6 +24,7 @@ __all__ = [
     "pappus_graph",
     "petersen_graph",
     "sedgewick_maze_graph",
+    "shrikhande_graph",
     "tetrahedral_graph",
     "truncated_cube_graph",
     "truncated_tetrahedron_graph",
@@ -33,7 +34,6 @@ __all__ = [
 from functools import wraps
 
 import networkx as nx
-from networkx.exception import NetworkXError
 from networkx.generators.classic import (
     complete_graph,
     cycle_graph,
@@ -57,7 +57,7 @@ def _raise_on_directed(func):
         if create_using is not None:
             G = nx.empty_graph(create_using=create_using)
             if G.is_directed():
-                raise NetworkXError("Directed Graph not supported in create_using")
+                raise nx.NetworkXError("Directed Graph not supported in create_using")
         return func(*args, **kwargs)
 
     return wrapper
@@ -121,7 +121,7 @@ def LCF_graph(n, shift_list, repeats, create_using=None):
     # start with the n-cycle
     G = cycle_graph(n, create_using)
     if G.is_directed():
-        raise NetworkXError("Directed Graph not supported")
+        raise nx.NetworkXError("Directed Graph not supported")
     G.name = "LCF_graph"
     nodes = sorted(G)
 
@@ -824,13 +824,13 @@ def generalized_petersen_graph(n, k, *, create_using=None):
     .. [2] https://en.wikipedia.org/wiki/Generalized_Petersen_graph
     """
     if n <= 2:
-        raise NetworkXError(f"n >= 3 required. Got {n=}")
+        raise nx.NetworkXError(f"n >= 3 required. Got {n=}")
     if k < 1 or k > n / 2:
-        raise NetworkXError(f" Got {n=} {k=}. Need 1 <= k <= n/2")
+        raise nx.NetworkXError(f" Got {n=} {k=}. Need 1 <= k <= n/2")
 
     G = nx.cycle_graph(range(n), create_using=create_using)  # u-nodes
     if G.is_directed():
-        raise NetworkXError("Directed Graph not supported in create_using")
+        raise nx.NetworkXError("Directed Graph not supported in create_using")
     for i in range(n):
         G.add_edge(i, n + i)  # add v-nodes and u to v edges
         G.add_edge(n + i, n + (i + k) % n)  # edge from v_i to v_(i+k)%n
@@ -869,6 +869,57 @@ def sedgewick_maze_graph(create_using=None):
     G.add_edges_from([[3, 4], [3, 5]])
     G.add_edges_from([[4, 5], [4, 7], [4, 6]])
     G.name = "Sedgewick Maze"
+    return G
+
+
+@_raise_on_directed
+@nx._dispatchable(graphs=None, returns_graph=True)
+def shrikhande_graph(create_using=None):
+    r"""Returns the Shrikhane Graph.
+
+    The Shrikhande graph is a 4-by-4, 2-D grid with wraparound connections
+    going in all north and east directions (and south and west -- it is undirected).
+    No connections go northwest or southeast.
+
+    The Shrikhande graph has 16 nodes and 48 edges.
+    This graph can be constructed as a Cayley graph [1]_.
+    The node set is $\mathbb{Z}_4 \times \mathbb{Z}_4$.
+    Two vertices are adjacent if and only if the difference is in
+    $\{\pm(1, 0), \pm(0, 1), \pm(1, 1)\}$.
+    The Shrikhande graph is also known as a troidal graph [2]_.
+
+    Parameters
+    ----------
+    create_using : NetworkX graph constructor, optional (default=nx.Graph)
+       Graph type to create. If graph instance, then cleared before populated.
+
+    Returns
+    -------
+    G : networkx Graph
+        Shrikhande Graph
+
+    References
+    ----------
+    .. [1] https://en.wikipedia.org/wiki/Shrikhande_graph
+    .. [2] https://mathworld.wolfram.com/ShrikhandeGraph.html
+    """
+    # basic 2d 4x4 periodic grid but only connect to the East, North and NE.
+    # Missing edges are SE and NW. The others get filled in by wraparound.
+    #    |/|/|/|/
+    #    O-O-O-O-
+    #    |/|/|/|/        Circle is a node.
+    #    O-O-O-O-        Wrap is shown
+    #    |/|/|/|/        using lines heading
+    #    O-O-O-O-        to the right and up.
+    #    |/|/|/|/
+    #    O-O-O-O-
+    rows = cols = range(4)
+    plus_one = [1, 2, 3, 0]
+    G = nx.empty_graph(0, create_using=create_using)
+    G.name = "Shrikhande Graph"
+    G.add_edges_from(((x, y), (plus_one[x], y)) for x in rows for y in cols)
+    G.add_edges_from(((x, y), (x, plus_one[y])) for x in rows for y in cols)
+    G.add_edges_from(((x, y), (plus_one[x], plus_one[y])) for x in rows for y in cols)
     return G
 
 

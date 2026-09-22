@@ -107,4 +107,8 @@ def test_an_unloaded_catalog_answers_none_rather_than_raising():
     manager._model_ids = frozenset()
     manager._model_names = {}
     manager._aliases = {}
+    # Naming has its own map (cold walk 17, defect C) and an unloaded catalog
+    # has nothing in it either. `AiCatalogManager` is a singleton, so a test
+    # that asserts the empty state clears every map it reads.
+    manager._display_names = {}
     assert manager.model_display_name("claude-opus-5") is None

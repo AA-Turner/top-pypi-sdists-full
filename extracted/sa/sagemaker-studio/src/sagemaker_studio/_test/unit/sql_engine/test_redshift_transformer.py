@@ -131,3 +131,39 @@ class TestRedshiftTransformerGetExecutionMetadata(unittest.TestCase):
         cursor.get_execution_metadata.return_value = None
         result = RedshiftTransformer.get_execution_metadata(cursor)
         self.assertIsNone(result)
+
+
+class TestRedshiftTransformerToSqlalchemyConfig(unittest.TestCase):
+    def test_provisioned_connection_string(self):
+        config = RedshiftTransformer.to_sqlalchemy_config(
+            {"database_name": "mydb", "region": "us-east-1", "cluster_identifier": "my-cluster"}
+        )
+        self.assertEqual(
+            config["connection_string"], "redshift_data_api://my-cluster/mydb?region=us-east-1"
+        )
+
+    def test_serverless_connection_string(self):
+        config = RedshiftTransformer.to_sqlalchemy_config(
+            {"database_name": "mydb", "region": "us-east-1", "workgroup_name": "wg"}
+        )
+        self.assertEqual(
+            config["connection_string"],
+            "redshift_data_api:///mydb?region=us-east-1&workgroup_name=wg",
+        )
+
+    def test_express_uses_the_serverless_connection_string(self):
+        # Express carries the reserved express-default workgroup and a database, so it needs no
+        # special casing -- it resolves through the ordinary serverless path.
+        config = RedshiftTransformer.to_sqlalchemy_config(
+            {"database_name": "dev", "region": "us-east-1", "workgroup_name": "express-default"}
+        )
+        self.assertEqual(
+            config["connection_string"],
+            "redshift_data_api:///dev?region=us-east-1&workgroup_name=express-default",
+        )
+
+    def test_missing_database_name_raises(self):
+        with self.assertRaises(ValueError):
+            RedshiftTransformer.to_sqlalchemy_config(
+                {"region": "us-east-1", "cluster_identifier": "my-cluster"}
+            )

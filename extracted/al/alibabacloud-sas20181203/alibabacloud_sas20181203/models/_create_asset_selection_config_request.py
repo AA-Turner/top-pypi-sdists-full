@@ -23,9 +23,9 @@ class CreateAssetSelectionConfigRequest(DaraModel):
         # 
         # This parameter is required.
         self.business_type = business_type
-        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Use a different token for each request. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        # Specifies whether to perform only a dry run, without performing the actual request. Valid values: true: performs only a dry run without performing the actual operation. false: performs the actual request. Default value: false.
         self.dry_run = dry_run
         # The operating system of the target asset. Valid values:
         # 
@@ -39,12 +39,12 @@ class CreateAssetSelectionConfigRequest(DaraModel):
         # >- **AGENTLESS_VUL_WHITE_LIST_[ID]**: the value is **all**.
         # >- **FILE_PROTECT_RULE_SWITCH_TYPE_[ID]**: the value is **linux**.
         self.platform = platform
-        # The target asset type. Valid values:
+        # The Asset Type of the target. Valid values:
         # 
         # - **all_instance**: all servers.
-        # - **instance**: select by server.
-        # - **group**: select by group.
-        # - **vpc**: select by VPC.
+        # - **instance**: selected by server.
+        # - **group**: selected by group.
+        # - **vpc**: selected by VPC.
         # 
         # This parameter is required.
         self.target_type = target_type

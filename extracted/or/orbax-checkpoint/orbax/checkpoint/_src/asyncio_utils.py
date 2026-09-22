@@ -27,11 +27,14 @@ except ImportError:
   uvloop = None
 
 try:
-  import nest_asyncio  # pylint: disable=g-import-not-at-top # pytype: disable=import-error
+  import nest_asyncio  # pylint: disable=g-import-not-at-top # pyrefly: ignore[missing-import]
 except ImportError:
   nest_asyncio = None
 
 _T = TypeVar('_T')
+
+# Marks "this attribute did not exist", which `None` cannot express.
+_UNSET = object()
 
 
 async def cancellable(
@@ -71,8 +74,41 @@ async def cancellable(
 
 def _run_event_loop(loop: asyncio.AbstractEventLoop) -> None:
   """Runs the event loop until stop() is called."""
-  loop.run_forever()
-  loop.close()
+  try:
+    loop.run_forever()
+  except BaseException as e:  # pylint: disable=broad-exception-caught
+    logging.info('Background event loop ended: %r', e)
+  finally:
+    try:
+      loop.close()
+    except Exception:  # pylint: disable=broad-exception-caught
+      pass
+
+
+def _run_sync_via_new_loop(coro: Coroutine[Any, Any, _T]) -> _T:
+  """Runs a coroutine in a fresh event loop without asyncio.run().
+
+  Args:
+    coro: The coroutine object to run.
+
+  Returns:
+    The result of the coroutine.
+
+  asyncio.run() tears down the event loop via _cancel_all_tasks(), which
+  iterates asyncio's global WeakSet of tasks. This WeakSet is not thread-safe:
+  concurrent asyncio.run() calls from multiple threads can race on iteration
+  vs. mutation, raising "RuntimeError: Set changed size during iteration".
+
+  Using run_until_complete() + close() achieves the same functional result
+  without the dangerous teardown.
+  """
+  loop = asyncio.new_event_loop()
+  try:
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
+  finally:
+    asyncio.set_event_loop(None)
+    loop.close()
 
 
 def run_sync(coro: Coroutine[Any, Any, _T]) -> _T:
@@ -85,19 +121,33 @@ def run_sync(coro: Coroutine[Any, Any, _T]) -> _T:
 
   async def _coro_with_registration():
     current_thread = threading.current_thread()
+    # `loop` and `main_task` are plain attributes on a shared thread object,
+    # not names Orbax owns. anyio's worker threads keep their own `loop` there
+    # and read it back after the callable returns, so deleting ours would
+    # destroy theirs: the worker then dies before resolving its future and the
+    # awaiting coroutine hangs forever. Put back whatever was there before.
+    previous = {
+        name: getattr(current_thread, name, _UNSET)
+        for name in ('loop', 'main_task')
+    }
     current_thread.loop = asyncio.get_running_loop()  # pyrefly: ignore[missing-attribute]
     current_thread.main_task = asyncio.current_task()  # pyrefly: ignore[missing-attribute]
     try:
       return await coro
     finally:
-      if hasattr(current_thread, 'loop'):
-        delattr(current_thread, 'loop')
-      if hasattr(current_thread, 'main_task'):
-        delattr(current_thread, 'main_task')
+      for name, value in previous.items():
+        if value is _UNSET:
+          try:
+            delattr(current_thread, name)
+          except AttributeError:
+            pass
+        else:
+          setattr(current_thread, name, value)
 
   if loop is None:
-    # No event loop is running, so we can safely use asyncio.run.
-    return asyncio.run(_coro_with_registration())
+    # No event loop is running. Use a fresh loop without asyncio.run() to
+    # avoid thread-unsafe teardown in _cancel_all_tasks().
+    return _run_sync_via_new_loop(_coro_with_registration())
   else:
     # An event loop is already running.
     if uvloop is None:
@@ -107,7 +157,7 @@ def run_sync(coro: Coroutine[Any, Any, _T]) -> _T:
             ' with an existing event loop.'
         )
       nest_asyncio.apply()
-      return asyncio.run(_coro_with_registration())
+      return _run_sync_via_new_loop(_coro_with_registration())
     else:
       event_loop = uvloop.new_event_loop()
       thread = threading.Thread(
@@ -149,11 +199,19 @@ class AsyncRunner:
     self._is_closed = False
 
   def _run_loop(self) -> None:
+    """Runs the event loop in the background thread."""
     asyncio.set_event_loop(self._loop)
     # Signal that the loop has successfully started
     self._loop.call_soon_threadsafe(self._loop_running.set)
-    self._loop.run_forever()
-    self._loop.close()
+    try:
+      self._loop.run_forever()
+    except BaseException as e:  # pylint: disable=broad-exception-caught
+      logging.info('AsyncRunner background loop ended: %r', e)
+    finally:
+      try:
+        self._loop.close()
+      except Exception:  # pylint: disable=broad-exception-caught
+        pass
 
   def run_coroutine(self, coro: Coroutine[Any, Any, _T]) -> futures.Future[_T]:
     """Schedules a coroutine to run in the background thread's event loop.

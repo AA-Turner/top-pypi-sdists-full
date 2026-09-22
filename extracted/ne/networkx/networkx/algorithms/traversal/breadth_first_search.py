@@ -266,6 +266,19 @@ def bfs_tree(G, source, reverse=False, depth_limit=None, sort_neighbors=None):
 def bfs_predecessors(G, source, depth_limit=None, sort_neighbors=None):
     """Returns an iterator of predecessors in breadth-first-search from source.
 
+    .. deprecated:: 3.7
+
+       bfs_predecessors is deprecated and will be removed in NetworkX 3.9.
+       Use ``(t, s) for (s, t) in nx.bfs_edges(G, source, depth_limit, sort_neighbors)``
+       instead.
+
+    Each yielded ``(node, predecessor)`` tuple describes a node and
+    the node from which it is discovered in the breadth-first-search.
+
+    The term "predecessor" here is not the directed graph term "predecessor".
+    We are not doing BFS in reverse direction. We are just reporting the
+    preceding node for each node in a BFS.
+
     Parameters
     ----------
     G : NetworkX graph
@@ -322,6 +335,17 @@ def bfs_predecessors(G, source, depth_limit=None, sort_neighbors=None):
     bfs_edges
     edge_bfs
     """
+    import warnings
+
+    warnings.warn(
+        (
+            "\n\nbfs_predecessors is deprecated and will be removed in NetworkX 3.9\n"
+            "Use ``(t, s) for (s, t) in bfs_edges`` instead"
+        ),
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+
     for s, t in bfs_edges(
         G, source, depth_limit=depth_limit, sort_neighbors=sort_neighbors
     ):
@@ -350,9 +374,9 @@ def bfs_successors(G, source, depth_limit=None, sort_neighbors=None):
     Returns
     -------
     succ: iterator
-       (node, successors) iterator where `successors` is the non-empty list of
-       successors of `node` in a breadth first search from `source`.
-       To appear in the iterator, `node` must have successors.
+       (node, successors) iterator where `successors` is the list of
+       successors of `node` in a breadth-first search from `source`.
+       Nodes with no successors are included with an empty successor list.
 
     Examples
     --------

@@ -16,6 +16,7 @@ T = TypeVar("T", bound="AaSequenceCreate")
 class AaSequenceCreate:
     """  """
 
+    _name: Union[Unset, str] = UNSET
     _entity_registry_id: Union[Unset, str] = UNSET
     _folder_id: Union[Unset, str] = UNSET
     _naming_strategy: Union[Unset, NamingStrategy] = UNSET
@@ -26,11 +27,11 @@ class AaSequenceCreate:
     _author_ids: Union[Unset, List[str]] = UNSET
     _custom_fields: Union[Unset, CustomFields] = UNSET
     _fields: Union[Unset, Fields] = UNSET
-    _name: Union[Unset, str] = UNSET
     _schema_id: Union[Unset, str] = UNSET
 
     def __repr__(self):
         fields = []
+        fields.append("name={}".format(repr(self._name)))
         fields.append("entity_registry_id={}".format(repr(self._entity_registry_id)))
         fields.append("folder_id={}".format(repr(self._folder_id)))
         fields.append("naming_strategy={}".format(repr(self._naming_strategy)))
@@ -41,11 +42,11 @@ class AaSequenceCreate:
         fields.append("author_ids={}".format(repr(self._author_ids)))
         fields.append("custom_fields={}".format(repr(self._custom_fields)))
         fields.append("fields={}".format(repr(self._fields)))
-        fields.append("name={}".format(repr(self._name)))
         fields.append("schema_id={}".format(repr(self._schema_id)))
         return "AaSequenceCreate({})".format(", ".join(fields))
 
     def to_dict(self) -> Dict[str, Any]:
+        name = self._name
         entity_registry_id = self._entity_registry_id
         folder_id = self._folder_id
         naming_strategy: Union[Unset, int] = UNSET
@@ -78,11 +79,12 @@ class AaSequenceCreate:
         if not isinstance(self._fields, Unset):
             fields = self._fields.to_dict()
 
-        name = self._name
         schema_id = self._schema_id
 
         field_dict: Dict[str, Any] = {}
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
+        if name is not UNSET:
+            field_dict["name"] = name
         if entity_registry_id is not UNSET:
             field_dict["entityRegistryId"] = entity_registry_id
         if folder_id is not UNSET:
@@ -103,8 +105,6 @@ class AaSequenceCreate:
             field_dict["customFields"] = custom_fields
         if fields is not UNSET:
             field_dict["fields"] = fields
-        if name is not UNSET:
-            field_dict["name"] = name
         if schema_id is not UNSET:
             field_dict["schemaId"] = schema_id
 
@@ -113,6 +113,17 @@ class AaSequenceCreate:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any], strict: bool = False) -> T:
         d = src_dict.copy()
+
+        def get_name() -> Union[Unset, str]:
+            name = d.pop("name")
+            return name
+
+        try:
+            name = get_name()
+        except KeyError:
+            if strict:
+                raise
+            name = cast(Union[Unset, str], UNSET)
 
         def get_entity_registry_id() -> Union[Unset, str]:
             entity_registry_id = d.pop("entityRegistryId")
@@ -249,17 +260,6 @@ class AaSequenceCreate:
                 raise
             fields = cast(Union[Unset, Fields], UNSET)
 
-        def get_name() -> Union[Unset, str]:
-            name = d.pop("name")
-            return name
-
-        try:
-            name = get_name()
-        except KeyError:
-            if strict:
-                raise
-            name = cast(Union[Unset, str], UNSET)
-
         def get_schema_id() -> Union[Unset, str]:
             schema_id = d.pop("schemaId")
             return schema_id
@@ -272,6 +272,7 @@ class AaSequenceCreate:
             schema_id = cast(Union[Unset, str], UNSET)
 
         aa_sequence_create = cls(
+            name=name,
             entity_registry_id=entity_registry_id,
             folder_id=folder_id,
             naming_strategy=naming_strategy,
@@ -282,11 +283,25 @@ class AaSequenceCreate:
             author_ids=author_ids,
             custom_fields=custom_fields,
             fields=fields,
-            name=name,
             schema_id=schema_id,
         )
 
         return aa_sequence_create
+
+    @property
+    def name(self) -> str:
+        """Name of the AA sequence. Cannot be an empty string."""
+        if isinstance(self._name, Unset):
+            raise NotPresentError(self, "name")
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @name.deleter
+    def name(self) -> None:
+        self._name = UNSET
 
     @property
     def entity_registry_id(self) -> str:
@@ -447,21 +462,6 @@ class AaSequenceCreate:
     @fields.deleter
     def fields(self) -> None:
         self._fields = UNSET
-
-    @property
-    def name(self) -> str:
-        """Name of the AA sequence."""
-        if isinstance(self._name, Unset):
-            raise NotPresentError(self, "name")
-        return self._name
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._name = value
-
-    @name.deleter
-    def name(self) -> None:
-        self._name = UNSET
 
     @property
     def schema_id(self) -> str:

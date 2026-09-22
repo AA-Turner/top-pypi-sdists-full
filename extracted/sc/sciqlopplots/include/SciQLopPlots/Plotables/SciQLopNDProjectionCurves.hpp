@@ -40,16 +40,51 @@ class SciQLopNDProjectionCurves : public SciQLopGraphInterface
     Q_OBJECT
     QList<SciQLopCurve*> m_curves;
 
+    void _update_color_scale();
+    void _set_scale_gradient(::ColorGradient gradient);
+
 
 public:
     explicit SciQLopNDProjectionCurves(SciQLopPlotInterface* parent, QList<SciQLopPlot*>& plots, const QStringList& labels, QVariantMap metaData={});
-    virtual ~SciQLopNDProjectionCurves() override = default;
+    virtual ~SciQLopNDProjectionCurves() override;
 
     Q_SLOT virtual void set_data(const QList<SciQLopPyBuffer>& data) override;
     virtual void set_selected(bool selected) noexcept override;
     virtual  bool selected() const noexcept override;
 
     virtual void set_colors(const QList<QColor>& colors) override;
+
+    virtual void set_visible(bool visible) noexcept override;
+    virtual bool visible() const noexcept override;
+
+    //! One component per pane, in pane order.
+    virtual QList<SciQLopGraphComponentInterface*> components() const noexcept override;
+    virtual SciQLopGraphComponentInterface* component(int index) const noexcept override;
+    virtual SciQLopGraphComponentInterface* component(const QString& name) const noexcept override;
+    virtual QList<QColor> colors() const noexcept override;
+
+    /*!
+     * \brief set_color_data Tint every pane's curve with \a values through \a gradient.
+     * \param values One value per data point (the panes share the same points). An
+     *        empty buffer turns the colouring off.
+     * \param gradient Applied to the plot's shared scale, so it replaces an earlier
+     *        set_z_gradient() choice, the default included. The `3n` data layout has no
+     *        such argument and keeps whatever the plot already uses.
+     * \throws std::invalid_argument if \a values does not match the data length.
+     */
+    Q_SLOT virtual void set_color_data(SciQLopPyBuffer values,
+                                       ::ColorGradient gradient = ::ColorGradient::Jet) override;
+    //! Preset gradient for the scalar colouring, e.g. of the `3n` data layout.
+    void set_color_gradient(::ColorGradient gradient);
+
+    void set_line_width(qreal width);
+    qreal line_width() const;
+#ifndef BINDINGS_H
+    //! Called by the plot: every pane's curve follows the plot's one shared scale.
+    void attach_color_scale(QCPColorScale* scale);
+    bool has_color_values() const;
+    std::optional<std::pair<double, double>> color_range(bool log) const;
+#endif
 
     void set_time_color_enabled(bool enabled);
     bool time_color_enabled() const;

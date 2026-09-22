@@ -32,6 +32,10 @@ class ReportDefinition(object):
     CATEGORY_SECURITY_ASSESSMENT = "SECURITY_ASSESSMENT"
 
     #: A constant which can be used with the category property of a ReportDefinition.
+    #: This constant has a value of "CRYPTO_ASSESSMENT"
+    CATEGORY_CRYPTO_ASSESSMENT = "CRYPTO_ASSESSMENT"
+
+    #: A constant which can be used with the category property of a ReportDefinition.
     #: This constant has a value of "FIREWALL_VIOLATIONS"
     CATEGORY_FIREWALL_VIOLATIONS = "FIREWALL_VIOLATIONS"
 
@@ -50,6 +54,10 @@ class ReportDefinition(object):
     #: A constant which can be used with the data_source property of a ReportDefinition.
     #: This constant has a value of "SECURITY_ASSESSMENT"
     DATA_SOURCE_SECURITY_ASSESSMENT = "SECURITY_ASSESSMENT"
+
+    #: A constant which can be used with the data_source property of a ReportDefinition.
+    #: This constant has a value of "CRYPTO_ASSESSMENT"
+    DATA_SOURCE_CRYPTO_ASSESSMENT = "CRYPTO_ASSESSMENT"
 
     #: A constant which can be used with the data_source property of a ReportDefinition.
     #: This constant has a value of "VIOLATIONS"
@@ -114,7 +122,7 @@ class ReportDefinition(object):
 
         :param category:
             The value to assign to the category property of this ReportDefinition.
-            Allowed values for this property are: "CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "SECURITY_ASSESSMENT", "FIREWALL_VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "FIREWALL_VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type category: str
 
@@ -124,7 +132,7 @@ class ReportDefinition(object):
 
         :param data_source:
             The value to assign to the data_source property of this ReportDefinition.
-            Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type data_source: str
 
@@ -395,7 +403,7 @@ class ReportDefinition(object):
         Gets the category of this ReportDefinition.
         Specifies the name of the category that this report belongs to.
 
-        Allowed values for this property are: "CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "SECURITY_ASSESSMENT", "FIREWALL_VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "FIREWALL_VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -414,7 +422,7 @@ class ReportDefinition(object):
         :param category: The category of this ReportDefinition.
         :type: str
         """
-        allowed_values = ["CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "SECURITY_ASSESSMENT", "FIREWALL_VIOLATIONS", "ALLOWED_SQL"]
+        allowed_values = ["CUSTOM_REPORTS", "SUMMARY", "ACTIVITY_AUDITING", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "FIREWALL_VIOLATIONS", "ALLOWED_SQL"]
         if not value_allowed_none_or_none_sentinel(category, allowed_values):
             category = 'UNKNOWN_ENUM_VALUE'
         self._category = category
@@ -449,7 +457,7 @@ class ReportDefinition(object):
         Gets the data_source of this ReportDefinition.
         Specifies the name of a resource that provides data for the report. For example alerts, events.
 
-        Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -468,7 +476,7 @@ class ReportDefinition(object):
         :param data_source: The data_source of this ReportDefinition.
         :type: str
         """
-        allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
+        allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
         if not value_allowed_none_or_none_sentinel(data_source, allowed_values):
             data_source = 'UNKNOWN_ENUM_VALUE'
         self._data_source = data_source

@@ -61,6 +61,10 @@ class GetHttpTriggerResponse200:
             script or flow
         retry (Union[Unset, GetHttpTriggerResponse200Retry]): Retry configuration for failed module executions
         draft_saved_at (Union[Unset, datetime.datetime]):
+        draft_base (Union[Unset, str]): The deployed version the draft forked from, as text whatever the
+            kind (script hash, flow version id, app version id). Compare to the
+            deployed head to tell a draft that is behind. Absent when there is
+            no draft or it was never forked from a deploy.
         no_deployed (Union[Unset, bool]):
         draft (Union[Unset, GetHttpTriggerResponse200Draft]):
         other_drafts_users (Union[Unset, List['GetHttpTriggerResponse200OtherDraftsUsersItem']]): Other workspace users
@@ -89,6 +93,7 @@ class GetHttpTriggerResponse200:
     error_handler_args: Union[Unset, "GetHttpTriggerResponse200ErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GetHttpTriggerResponse200Retry"] = UNSET
     draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    draft_base: Union[Unset, str] = UNSET
     no_deployed: Union[Unset, bool] = UNSET
     draft: Union[Unset, "GetHttpTriggerResponse200Draft"] = UNSET
     other_drafts_users: Union[Unset, List["GetHttpTriggerResponse200OtherDraftsUsersItem"]] = UNSET
@@ -134,6 +139,7 @@ class GetHttpTriggerResponse200:
         if not isinstance(self.draft_saved_at, Unset):
             draft_saved_at = self.draft_saved_at.isoformat()
 
+        draft_base = self.draft_base
         no_deployed = self.no_deployed
         draft: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.draft, Unset):
@@ -180,6 +186,8 @@ class GetHttpTriggerResponse200:
             field_dict["retry"] = retry
         if draft_saved_at is not UNSET:
             field_dict["draft_saved_at"] = draft_saved_at
+        if draft_base is not UNSET:
+            field_dict["draft_base"] = draft_base
         if no_deployed is not UNSET:
             field_dict["no_deployed"] = no_deployed
         if draft is not UNSET:
@@ -260,6 +268,8 @@ class GetHttpTriggerResponse200:
         else:
             draft_saved_at = isoparse(_draft_saved_at)
 
+        draft_base = d.pop("draft_base", UNSET)
+
         no_deployed = d.pop("no_deployed", UNSET)
 
         _draft = d.pop("draft", UNSET)
@@ -297,6 +307,7 @@ class GetHttpTriggerResponse200:
             error_handler_args=error_handler_args,
             retry=retry,
             draft_saved_at=draft_saved_at,
+            draft_base=draft_base,
             no_deployed=no_deployed,
             draft=draft,
             other_drafts_users=other_drafts_users,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.6.18.post1
+Version: 0.7.0
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0
@@ -8,15 +8,16 @@ Project-URL: Homepage, https://github.com/flashinfer-ai/flashinfer
 Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: apache-tvm-ffi!=0.1.8,!=0.1.8.post0,<0.2,>=0.1.6
+Requires-Dist: apache-tvm-ffi<0.2,>=0.1.11
 Requires-Dist: click
 Requires-Dist: cuda-python>=12.0
 Requires-Dist: cuda-tile>=1.4.0
 Requires-Dist: einops
-Requires-Dist: nccl4py>=0.3.1
+Requires-Dist: nccl-extensions>=0.1.0
+Requires-Dist: nccl4py>=0.4.1
 Requires-Dist: ninja
 Requires-Dist: numpy
-Requires-Dist: nvidia-cudnn-frontend>=1.25.0
+Requires-Dist: nvidia-cudnn-frontend>=1.29.0
 Requires-Dist: nvidia-cutlass-dsl>=4.6.2a0
 Requires-Dist: nvidia-ml-py
 Requires-Dist: packaging>=24.2
@@ -25,9 +26,9 @@ Requires-Dist: tabulate
 Requires-Dist: torch
 Requires-Dist: tqdm
 Provides-Extra: cu12
-Requires-Dist: nvidia-cutlass-dsl>=4.6.2a0; extra == "cu12"
+Requires-Dist: nvidia-cutlass-dsl>=4.7.0a0; extra == "cu12"
 Provides-Extra: cu13
-Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.6.2a0; extra == "cu13"
+Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.7.0a0; extra == "cu13"
 Provides-Extra: nvep
 Dynamic: license-file
 
@@ -129,7 +130,7 @@ pip install flashinfer-python
 
 - **flashinfer-python**: Core package that compiles/downloads kernels on first use
 - **flashinfer-cubin**: Pre-compiled kernel binaries for all supported GPU architectures
-- **flashinfer-jit-cache**: Pre-built kernel cache for specific CUDA versions
+- **flashinfer-jit-cache**: CUDA-specific shim that installs architecture-specific pre-built kernel providers
 
 **For faster initialization and offline usage**, install the optional packages to have most kernels pre-compiled:
 
@@ -190,17 +191,24 @@ Build optional packages:
 
 ```bash
 # flashinfer-cubin
-cd flashinfer-cubin
-python -m build --no-isolation --wheel
-python -m pip install dist/*.whl
+python -m build --no-isolation --wheel flashinfer-cubin
+python -m pip install flashinfer-cubin/dist/*.whl
 ```
 
+Build one JIT-cache provider for the target GPU, then build a shim that depends
+on that provider. The example below builds an SM90a provider; both wheels must
+use the same version settings.
+
 ```bash
-# flashinfer-jit-cache (customize for your target GPUs)
-export FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.9 9.0a 10.0a 10.3a 10.7a 11.0a 12.0f"
-cd flashinfer-jit-cache
-python -m build --no-isolation --wheel
-python -m pip install dist/*.whl
+export FLASHINFER_JIT_CACHE_PROVIDER_ARCH=9.0a
+python -m build --no-isolation --wheel flashinfer-jit-cache-provider
+
+export FLASHINFER_JIT_CACHE_PROVIDER_ARCHS="9.0a"
+python -m build --no-isolation --wheel flashinfer-jit-cache
+
+python -m pip install \
+  flashinfer-jit-cache-provider/dist/*.whl \
+  flashinfer-jit-cache/dist/*.whl
 ```
 
 For more details, see the [Install from Source documentation](https://docs.flashinfer.ai/installation.html#install-from-source).

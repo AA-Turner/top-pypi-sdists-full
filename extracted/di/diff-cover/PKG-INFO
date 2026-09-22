@@ -1,14 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: diff_cover
-Version: 10.5.1
+Version: 10.6.0
 Summary: Run coverage and linting reports on diffs
-License: Apache-2.0
+Project-URL: Homepage, https://github.com/Bachmann1234/diff-cover
+Project-URL: Repository, https://github.com/Bachmann1234/diff-cover
 Author: See Contributors
-Requires-Python: >=3.10
+License-Expression: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -20,14 +22,13 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.10
+Requires-Dist: chardet>=3.0.0
+Requires-Dist: jinja2>=2.7.1
+Requires-Dist: pluggy<2,>=0.13.1
+Requires-Dist: pygments<3,>=2.19.1
 Provides-Extra: toml
-Requires-Dist: Jinja2 (>=2.7.1)
-Requires-Dist: Pygments (>=2.19.1,<3.0.0)
-Requires-Dist: chardet (>=3.0.0)
-Requires-Dist: pluggy (>=0.13.1,<2)
-Requires-Dist: tomli (>=1.2.1) ; extra == "toml"
-Project-URL: Homepage, https://github.com/Bachmann1234/diff-cover
-Project-URL: Repository, https://github.com/Bachmann1234/diff-cover
+Requires-Dist: tomli>=1.2.1; extra == 'toml'
 Description-Content-Type: text/x-rst
 
 diff-cover |pypi-version| |conda-version| |build-status|
@@ -96,8 +97,11 @@ To install the development version:
 
     git clone https://github.com/Bachmann1234/diff-cover.git
     cd diff-cover
-    poetry install
-    poetry shell
+    uv sync
+
+This creates a ``.venv`` with the project installed. Run commands through it with
+``uv run``, for example ``uv run diff-cover --help``, or activate it the usual way
+with ``source .venv/bin/activate``.
 
 
 Getting Started
@@ -508,17 +512,21 @@ Support for a New Quality Checker".
 Setting Up For Development
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This project is managed with `poetry` this can be installed with `pip`
-poetry manages a python virtual environment and organizes dependencies. It also
-packages this project.
+This project is managed with `uv <https://docs.astral.sh/uv/>`_. uv provisions the
+Python toolchain and a project virtual environment, resolves and locks dependencies,
+and packages this project. Install it by following the
+`uv installation guide <https://docs.astral.sh/uv/getting-started/installation/>`_.
 
 .. code:: bash
 
-    pip install poetry
+    uv sync
+
+This creates ``.venv`` with all runtime and development dependencies. Run project
+commands through ``uv run``, for example the full verification suite:
 
 .. code:: bash
 
-    poetry install
+    uv run ./verify.sh
 
 I would also suggest running this command after. This will make it so git blame ignores the commit
 that formatted the entire codebase.
@@ -649,4 +657,3 @@ Originally created with the support of `edX
 .. |build-status| image:: https://github.com/bachmann1234/diff_cover/actions/workflows/verify.yaml/badge.svg?branch=main
     :target: https://github.com/Bachmann1234/diff_cover/actions/workflows/verify.yaml
     :alt: Build Status
-

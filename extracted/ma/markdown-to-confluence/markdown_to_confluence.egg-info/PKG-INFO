@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.6.3
+Version: 0.6.4
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -23,13 +23,13 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cattrs>=26.1
+Requires-Dist: cattrs>=26.2
 Requires-Dist: lxml>=6.1
 Requires-Dist: markdown>=3.10
 Requires-Dist: orjson>=3.12
-Requires-Dist: pymdown-extensions>=11.0
-Requires-Dist: pyyaml>=6.0
 Requires-Dist: pathspec>=1.1
+Requires-Dist: pymdown-extensions>=12.0
+Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.34
 Requires-Dist: truststore>=0.10
 Requires-Dist: typing-extensions>=4.16; python_version < "3.11"
@@ -184,15 +184,18 @@ We recommend the following scopes for scoped API tokens:
 * `read:comment:confluence` (only required for checking comments)
 * `read:content:confluence`
 * `read:content-details:confluence`
+* `read:folder:confluence` (only required if your content hierarchy has folders)
 * `read:label:confluence`
 * `read:page:confluence`
 * `read:space:confluence`
 * `write:attachment:confluence`
 * `write:content:confluence`
+* `write:folder:confluence` (only required for directories with no index page)
 * `write:label:confluence`
 * `write:page:confluence`
 * `delete:attachment:confluence`
 * `delete:content:confluence`
+* `delete:folder:confluence` (only required for directories with no index page)
 * `delete:page:confluence`
 
 If a Confluence username is set, the tool uses HTTP *Basic* authentication to pass the username and the API key to Confluence REST API endpoints. If no username is provided, the tool authenticates with HTTP *Bearer*, and passes the API key as the bearer token.
@@ -850,6 +853,8 @@ options:
                         Behavior for inline comments when page is updated. (default: remove)
   --skip-update         Skip saving Confluence page ID in Markdown files.
   --keep-update         Inject published Confluence page ID in Markdown files. (default)
+  --keep-state          Keep the Confluence content state (rough draft, in progress, ready for review, verified, etc.) when updating a page.
+  --skip-state          Clear the Confluence content state when updating a page. (default)
   --heading-anchors     Place an anchor at each section heading with GitHub-style same-page identifiers.
   --no-heading-anchors  Omit the extra anchor from section headings. (May break manually placed same-page references.) (default)
   --force-valid-url     Raise an error when relative URLs point to an invalid location. (default)
@@ -866,6 +871,8 @@ options:
   --no-render-plantuml  Upload PlantUML diagram sources as Confluence page attachments. (Marketplace app required to display.)
   --render-latex        Render LaTeX formulas as image files. (Matplotlib required to convert.) (default)
   --no-render-latex     Inline LaTeX formulas in Confluence page. (Marketplace app required to display.)
+  --render-other        Render other supported diagrams as image files. (Installed utilities required to convert.) (default)
+  --no-render-other     Upload other diagram sources as Confluence page attachments. (Marketplace app required to display.)
   --diagram-output-format {png,svg}
                         Format for rendering Mermaid and draw.io diagrams. (default: png)
   --webui-links         Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)
@@ -930,6 +937,7 @@ options = ProcessorOptions(
     overwrite=bool(),
     comments='keep' or 'remove' or 'check-open',
     skip_update=bool(),
+    keep_state=bool(),
     converter=ConverterOptions(
         heading_anchors=bool(),
         force_valid_url=bool(),
@@ -939,6 +947,7 @@ options = ProcessorOptions(
         render_mermaid=bool(),
         render_plantuml=bool(),
         render_latex=bool(),
+        render_other=bool(),
         diagram_output_format='png' or 'svg',
         webui_links=bool(),
         task_lists=bool(),

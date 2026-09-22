@@ -219,7 +219,7 @@ def query_daily_adjust_factor(date=None):
         return data
 
     msg_header = receive_data[0:cons.MESSAGE_HEADER_LENGTH]
-    msg_body = receive_data[cons.MESSAGE_HEADER_LENGTH:-1]
+    msg_body = receive_data[cons.MESSAGE_HEADER_LENGTH:len(receive_data)]
     header_arr = msg_header.split(cons.MESSAGE_SPLIT)
     body_arr = msg_body.split(cons.MESSAGE_SPLIT)
     data.msg_body_length = header_arr[2]

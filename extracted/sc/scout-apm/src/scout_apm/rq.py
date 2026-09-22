@@ -28,7 +28,6 @@ def ensure_scout_installed():
 
 class WorkerMixin(object):
     def __init__(self, *args, **kwargs):
-        global installed
         ensure_scout_installed()
         if installed:
             ensure_job_instrumented()
@@ -57,16 +56,30 @@ def ensure_job_instrumented():
     job_instrumented = True
     Job.perform = wrap_perform(Job.perform)
 
+    try:
+        import pickle
+
+        from rq.serializers import DefaultSerializer
+
+        if getattr(DefaultSerializer, "dumps", None) is pickle.dumps:
+            logger.warning(
+                "RQ is using the default pickle serializer, which is vulnerable to "
+                "Remote Code Execution (RCE) via Redis (CWE-502). Consider switching "
+                "to a safer serializer like rq.serializers.JSONSerializer. "
+                "See https://github.com/rq/rq/issues/2389 for details."
+            )
+    except Exception:
+        pass
+
 
 @wrapt.decorator
 def wrap_perform(wrapped, instance, args, kwargs):
-    global installed
     if not installed:
         return wrapped(*args, **kwargs)
 
     tracked_request = TrackedRequest.instance()
     tracked_request.is_real_request = True
-    tracked_request.tag("task_id", instance.get_id())
+    tracked_request.tag("task_id", instance.id)
     tracked_request.tag("queue", instance.origin)
     # rq strips tzinfo from enqueued_at during serde in at least some cases
     # internally everything uses UTC naive datetimes, so we operate on that

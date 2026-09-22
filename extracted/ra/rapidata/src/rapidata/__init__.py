@@ -1,4 +1,4 @@
-__version__ = "3.25.1"
+__version__ = "3.25.2"
 
 from .rapidata_client import (
     RapidataClient,
@@ -14,6 +14,9 @@ from .rapidata_client import (
     JobProgress,
     RapidataSignal,
     RapidataSignalManager,
+    RapidataFlow,
+    RapidataRankingFlow,
+    RapidataClassifyFlow,
     FlowItemResult,
     ClassifyFlowItemResult,
     ClassifyDatapointResult,

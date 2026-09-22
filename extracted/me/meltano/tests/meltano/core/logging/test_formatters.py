@@ -36,7 +36,7 @@ def exc_info() -> OptExcInfo:
 
 
 @pytest.fixture
-def deep_exc_info() -> OptExcInfo:
+def deep_exc_info() -> OptExcInfo | None:
     """Create a deeper call stack for testing max_frames."""
 
     def level_5():
@@ -74,8 +74,24 @@ class TestLogFormatters:
         monkeypatch.delenv("FORCE_COLOR", raising=False)
 
     @pytest.fixture
+    def isolated_logger(self):
+        """A stdlib logger whose level is restored after the test.
+
+        Some formatters consult the logger level (e.g. ``filter_by_level``), so
+        the plain formatter tests need to set it. Stdlib loggers are global
+        singletons, so the level is restored afterwards to avoid leaking state
+        into other tests that share the ``test`` logger name.
+        """
+        logger = logging.getLogger("test")  # noqa: TID251
+        original_level = logger.level
+        try:
+            yield logger
+        finally:
+            logger.setLevel(original_level)
+
+    @pytest.fixture
     def record(self):
-        return logging.LogRecord(
+        rec = logging.LogRecord(
             name="test",
             level=logging.INFO,
             pathname="/path/to/my_module.py",
@@ -85,6 +101,9 @@ class TestLogFormatters:
             exc_info=None,
             func="my_func",
         )
+        rec.__dict__["extra_int"] = 1
+        rec.__dict__["extra_str"] = "foo"
+        return rec
 
     @pytest.fixture
     def record_with_exception(self, exc_info: ExcInfo, tmp_path: Path):
@@ -160,16 +179,22 @@ class TestLogFormatters:
         output = formatter.format(record)
         assert "foo=bar" not in output
         assert "baz=qux" not in output
+        assert "extra_int=1" not in output
+        assert "extra_str=foo" not in output
 
-        formatter = formatters.console_log_formatter(include_keys=["foo"])
+        formatter = formatters.console_log_formatter(include_keys=["foo", "extra_int"])
         output = formatter.format(record)
         assert "foo=bar" in output
         assert "baz=qux" not in output
+        assert "extra_int=1" in output
+        assert "extra_str=foo" not in output
 
         formatter = formatters.console_log_formatter(all_keys=True)
         output = formatter.format(record)
         assert "foo=bar" in output
         assert "baz=qux" in output
+        assert "extra_int=1" in output
+        assert "extra_str=foo" in output
 
     def test_key_value_formatter(self, record):
         formatter = formatters.key_value_formatter()
@@ -183,6 +208,13 @@ class TestLogFormatters:
         assert "lineno=1" in output
         assert "func_name='my_func'" in output
         assert f"process={os.getpid()}" in output
+
+    def test_json_formatter_extra(self, record) -> None:
+        formatter = formatters.json_formatter()
+        output = formatter.format(record)
+        message_dict = json.loads(output)
+        assert message_dict["extra_int"] == 1
+        assert message_dict["extra_str"] == "foo"
 
     def test_json_formatter_callsite_parameters(self, record):
         formatter = formatters.json_formatter(callsite_parameters=True)
@@ -280,16 +312,114 @@ class TestLogFormatters:
         message_dict = json.loads(output)
         assert "locals" not in message_dict["exception"][0]["frames"][0]
 
-    def test_plain_formatter(self, record) -> None:
+    def test_google_cloud_logging_formatter_severity_and_message(self, record) -> None:
+        formatter = formatters.json_formatter(preset="google-cloud-logging")
+        message_dict = json.loads(formatter.format(record))
+
+        # GCL special fields are present...
+        assert message_dict["severity"] == "INFO"
+        assert message_dict["message"] == "test"
+        assert "timestamp" in message_dict
+
+        # ...and the structlog-native keys they replace are gone.
+        assert "level" not in message_dict
+        assert "event" not in message_dict
+
+    def test_google_cloud_logging_formatter_severity_levels(self) -> None:
+        formatter = formatters.json_formatter(preset="google-cloud-logging")
+        for level, severity in (
+            (logging.DEBUG, "DEBUG"),
+            (logging.INFO, "INFO"),
+            (logging.WARNING, "WARNING"),
+            (logging.ERROR, "ERROR"),
+            (logging.CRITICAL, "CRITICAL"),
+        ):
+            record = logging.LogRecord(
+                name="test",
+                level=level,
+                pathname="/path/to/my_module.py",
+                lineno=1,
+                msg="test",
+                args=None,
+                exc_info=None,
+            )
+            message_dict = json.loads(formatter.format(record))
+            assert message_dict["severity"] == severity
+            assert "level" not in message_dict
+
+    def test_google_cloud_logging_formatter_source_location(self, record) -> None:
+        # Without callsite parameters there is no source location.
+        formatter = formatters.json_formatter(preset="google-cloud-logging")
+        message_dict = json.loads(formatter.format(record))
+        assert "logging.googleapis.com/sourceLocation" not in message_dict
+
+        # With callsite parameters the source location is populated.
+        formatter = formatters.json_formatter(
+            preset="google-cloud-logging",
+            callsite_parameters=True,
+        )
+        message_dict = json.loads(formatter.format(record))
+        assert isinstance(message_dict.get("process"), int)
+
+        source_location = message_dict["logging.googleapis.com/sourceLocation"]
+        assert source_location["file"] == "/path/to/my_module.py"
+        assert source_location["line"] == "1"
+        assert source_location["function"] == "my_func"
+
+    def test_google_cloud_logging_formatter_exception(
+        self,
+        record_with_exception,
+    ) -> None:
+        formatter = formatters.json_formatter(preset="google-cloud-logging")
+        message_dict = json.loads(formatter.format(record_with_exception))
+
+        assert message_dict["severity"] == "ERROR"
+        assert message_dict["message"] == "test"
+
+        exception_list = message_dict["exception"]
+        assert isinstance(exception_list, list)
+        assert exception_list[0]["exc_type"] == "ValueError"
+        assert exception_list[0]["exc_value"] == "Not a real error"
+
+        formatter = formatters.json_formatter(
+            preset="google-cloud-logging",
+            dict_tracebacks=False,
+        )
+        message_dict = json.loads(formatter.format(record_with_exception))
+        assert "exception" not in message_dict
+
+    def test_google_cloud_logging_formatter_locals(
+        self,
+        record_with_exception,
+    ) -> None:
+        formatter = formatters.json_formatter(
+            preset="google-cloud-logging",
+            show_locals=True,
+        )
+        message_dict = json.loads(formatter.format(record_with_exception))
+        assert "locals" in message_dict["exception"][0]["frames"][0]
+
+        formatter = formatters.json_formatter(
+            preset="google-cloud-logging",
+            show_locals=False,
+        )
+        message_dict = json.loads(formatter.format(record_with_exception))
+        assert "locals" not in message_dict["exception"][0]["frames"][0]
+
+    def test_json_formatter_unknown_preset(self) -> None:
+        with pytest.raises(ValueError, match="Unknown json_formatter preset"):
+            formatters.json_formatter(preset="not-a-real-preset")
+
+    def test_plain_formatter(self, record, isolated_logger) -> None:
         formatter = formatters.plain_formatter(fmt="%(levelname)s %(name)s")
-        formatter.logger = logging.getLogger("test")  # noqa: TID251
+        formatter.logger = isolated_logger
         formatter.logger.setLevel(logging.INFO)
         output = formatter.format(record)
         assert output == "INFO test"
 
-    def test_plain_formatter_drop_event(self, record) -> None:
+    def test_plain_formatter_drop_event(self, record, isolated_logger) -> None:
         formatter = formatters.plain_formatter(fmt="%(levelname)s %(name)s")
-        formatter.logger = logging.getLogger("test")  # noqa: TID251
+        formatter.logger = isolated_logger
         formatter.logger.setLevel(logging.WARNING)
 
         with pytest.raises(structlog.exceptions.DropEvent):

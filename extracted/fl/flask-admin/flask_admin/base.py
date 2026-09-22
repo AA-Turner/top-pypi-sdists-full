@@ -9,6 +9,7 @@ from flask import Flask
 from flask import g
 from flask import render_template
 from flask import url_for
+from flask.typing import ResponseReturnValue
 from flask.views import MethodView
 from flask.views import View
 from markupsafe import Markup
@@ -21,11 +22,11 @@ from flask_admin._types import T_VIEW
 # For compatibility reasons import MenuLink
 from flask_admin.blueprints import _BlueprintWithHostSupport as Blueprint
 from flask_admin.consts import ADMIN_ROUTES_HOST_VARIABLE
-from flask_admin.menu import BaseMenu  # noqa: F401
-from flask_admin.menu import MenuCategory  # noqa: F401
-from flask_admin.menu import MenuLink  # noqa: F401
-from flask_admin.menu import MenuView  # noqa: F401
-from flask_admin.menu import SubMenuCategory  # noqa: F401
+from flask_admin.menu import BaseMenu
+from flask_admin.menu import MenuCategory
+from flask_admin.menu import MenuLink
+from flask_admin.menu import MenuView
+from flask_admin.menu import SubMenuCategory
 from flask_admin.theme import Bootstrap4Theme
 from flask_admin.theme import Theme
 
@@ -405,7 +406,7 @@ class BaseView(BaseViewClass, metaclass=AdminViewMeta):
         """
         return True
 
-    def _handle_view(self, name: str, **kwargs: dict[str, t.Any]) -> t.Any:
+    def _handle_view(self, name: str, **kwargs: t.Any) -> ResponseReturnValue | None:
         """
         This method will be executed before calling any view method.
 
@@ -420,6 +421,7 @@ class BaseView(BaseViewClass, metaclass=AdminViewMeta):
         # abort(403)
         if not self.is_accessible():
             return self.inaccessible_callback(name, **kwargs) or abort(403)
+        return None
 
     def _run_view(
         self, fn: t.Callable[..., t.Any], *args: t.Any, **kwargs: t.Any
@@ -440,7 +442,9 @@ class BaseView(BaseViewClass, metaclass=AdminViewMeta):
         except TypeError:
             return fn(cls=self, **kwargs)
 
-    def inaccessible_callback(self, name: t.Any, **kwargs: t.Any) -> t.Any:
+    def inaccessible_callback(
+        self, name: t.Any, **kwargs: t.Any
+    ) -> ResponseReturnValue:
         """
         Handle the response to inaccessible views.
 
@@ -544,7 +548,7 @@ class Admin:
         name: str | None = None,
         url: str | None = None,
         subdomain: str | None = None,
-        index_view: AdminIndexView | None = None,
+        index_view: BaseView | None = None,
         translations_path: str | None = None,
         endpoint: str | None = None,
         static_url_path: str | None = None,
@@ -663,7 +667,7 @@ class Admin:
 
     def _set_admin_index_view(
         self,
-        index_view: AdminIndexView | None = None,
+        index_view: BaseView | None = None,
         endpoint: str | None = None,
         url: str | None = None,
     ) -> None:
@@ -679,7 +683,7 @@ class Admin:
              `Admin` class with a single Flask application, you have to set a unique
              endpoint name for each instance.
         """
-        self.index_view: AdminIndexView = (  # type: ignore[no-redef]
+        self.index_view: BaseView = (  # type: ignore[no-redef]
             index_view or AdminIndexView(endpoint=endpoint, url=url)
         )
         self.endpoint = endpoint or self.index_view.endpoint
@@ -852,7 +856,7 @@ class Admin:
     def init_app(
         self,
         app: Flask,
-        index_view: AdminIndexView | None = None,
+        index_view: BaseView | None = None,
         endpoint: str | None = None,
         url: str | None = None,
     ) -> None:

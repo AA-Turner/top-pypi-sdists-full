@@ -2,7 +2,9 @@
 See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
+
 import decimal
+import sys
 from collections.abc import Generator
 from typing import TYPE_CHECKING, Any, cast
 from lxml import etree
@@ -117,16 +119,16 @@ class ModelObject(etree.ElementBase, ModelObjectBase):
     xValue: TypeXValue
     xValueError: Exception | None
     xValid: int
-    xlinkLabel: str
+    xlinkLabel: str | None
     tag: str
     targetModelXbrl: ModelXbrl
-    typeQname: QName
-    balance: str
-    periodType: str
-    xmlLang: str
-    footnoteID: str
-    role: str
-    type: ModelType
+    typeQname: QName | None
+    balance: str | None
+    periodType: str | None
+    xmlLang: str | None
+    footnoteID: str | None
+    role: str | None
+    type: ModelType | None
     isAbstract: bool
     isQualifiedForm: bool
     isNumeric: bool
@@ -173,12 +175,9 @@ class ModelObject(etree.ElementBase, ModelObjectBase):
         return emptySet
 
     def setNamespaceLocalName(self) -> None:
-        tag = self.tag
-        ns, sep, self._localName = tag.rpartition("}")
-        if sep:
-            self._namespaceURI: str | None = ns[1:]
-        else:
-            self._namespaceURI = None
+        ns, sep, localName = self.tag.rpartition("}")
+        self._localName = sys.intern(localName)
+        self._namespaceURI = sys.intern(ns[1:]) if sep else None
 
     def getStripped(self, attrName: str) -> str | None:
         attrValue = self.get(attrName)

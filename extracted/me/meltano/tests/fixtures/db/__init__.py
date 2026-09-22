@@ -12,9 +12,14 @@ from sqlalchemy.orm import close_all_sessions, sessionmaker
 from sqlalchemy.pool import NullPool
 
 if t.TYPE_CHECKING:
-    from collections.abc import Generator
+    import sys
 
     from meltano.core.project import Project
+
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -55,7 +60,10 @@ def vacuum_db(engine_sessionmaker):
 @pytest.fixture(scope="class")
 def engine_sessionmaker(engine_uri):
     engine = create_engine(engine_uri, poolclass=NullPool, future=True)
-    return (engine, sessionmaker(bind=engine, future=True))
+    try:
+        yield (engine, sessionmaker(bind=engine, future=True))
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture

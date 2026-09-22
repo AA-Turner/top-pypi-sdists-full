@@ -22386,14 +22386,23 @@ class MetricUpstreamsClass(_Aspect):
     """Data-flow lineage from a metric to the datasets and columns it reads.
     Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom`.
     
-    For semantic-model-backed metrics, populate `datasetUpstreams` with the
-    Semantic Model Dataset (logical dataset) URNs the metric reads from, and
-    optionally `fieldUpstreams` with the corresponding `schemaField` URNs.
-    The canonical chain is Metric → Logical Dataset → Physical Dataset 
-    (via each logical dataset's `upstreamLineage`).
+    Point `datasetUpstreams` and `fieldUpstreams` at the metric's direct
+    upstreams. For a semantic-model-backed metric those are Semantic Model
+    Dataset URNs and their schemaFields. For a standalone metric they are
+    physical dataset and schemaField URNs. Do not copy the Semantic Model
+    Dataset-to-physical column mapping here; that lives on the Semantic Model
+    Dataset's `upstreamLineage.fineGrainedLineages`.
     
-    Standalone metrics with no semantic model may also populate this aspect
-    with physical dataset / schemaField URNs directly."""
+    If `fieldUpstreams` is non-empty, every destination's SchemaFieldUrn parent
+    must also appear in `datasetUpstreams`. Dataset-only writes (absent or empty
+    `fieldUpstreams`) are valid. Column writes without those parents are not.
+    MetricUpstreamsValidator enforces this.
+    
+    LineageRegistry.getSchemaFieldRelationships lists Consumes incoming from metric
+    so a schema-field downstream walk finds the metric.
+    
+    Always write `fieldUpstreams`. Use an empty array when there are no columns
+    so the next ingest replaces stale column edges, as with `datasetUpstreams`."""
 
 
     ASPECT_NAME = 'metricUpstreams'
@@ -22426,9 +22435,14 @@ class MetricUpstreamsClass(_Aspect):
     
     @property
     def fieldUpstreams(self) -> Union[None, List["EdgeClass"]]:
-        """Specific schema fields (columns) this metric reads (column-level lineage).
-    May be populated even when datasetUpstreams is absent, and vice versa --
-    ingestion sources vary in what granularity they can extract."""
+        """Schema fields this metric reads (column-level lineage).
+    The parent dataset is SchemaFieldUrn.parent. There is no per-entry
+    transform; the SQL lives on metricInfo.expression.
+    `isLineage` is omitted so these edges do not appear in entity-level
+    upstream expansion.
+    
+    Write an empty array to clear stale column edges. Every entry's parent
+    dataset must also appear in datasetUpstreams."""
         return self._inner_dict.get('fieldUpstreams')  # type: ignore
     
     @fieldUpstreams.setter
@@ -26432,7 +26446,7 @@ class DataHubPolicyInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'dataHubPolicyInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.policy.DataHubPolicyInfo")
 
     def __init__(self,
@@ -26727,12 +26741,14 @@ class PolicyMatchCriterionClass(DictWrapper):
     def __init__(self,
         field: str,
         values: List[str],
+        structuredPropertyValues: Union[None, List["StructuredPropertyCriterionValueClass"]]=None,
         condition: Optional[Union[str, "PolicyMatchConditionClass"]]=None,
     ):
         super().__init__()
         
         self.field = field
         self.values = values
+        self.structuredPropertyValues = structuredPropertyValues
         if condition is None:
             # default: 'EQUALS'
             self.condition = self.RECORD_SCHEMA.fields_dict["condition"].default
@@ -26742,12 +26758,14 @@ class PolicyMatchCriterionClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.field = str()
         self.values = list()
+        self.structuredPropertyValues = self.RECORD_SCHEMA.fields_dict["structuredPropertyValues"].default
         self.condition = self.RECORD_SCHEMA.fields_dict["condition"].default
     
     
     @property
     def field(self) -> str:
-        """The name of the field that the criterion refers to"""
+        """The name of the field that the criterion refers to.
+    Examples: TYPE, TAG, DOMAIN, STRUCTURED_PROPERTY"""
         return self._inner_dict.get('field')  # type: ignore
     
     @field.setter
@@ -26757,12 +26775,25 @@ class PolicyMatchCriterionClass(DictWrapper):
     
     @property
     def values(self) -> List[str]:
-        """Values. Matches criterion if any one of the values matches condition (OR-relationship)"""
+        """Values for traditional fields (TYPE, TAG, DOMAIN, etc).
+    Matches criterion if any one of the values matches condition (OR-relationship).
+    Use empty array [] when using structuredPropertyValues instead."""
         return self._inner_dict.get('values')  # type: ignore
     
     @values.setter
     def values(self, value: List[str]) -> None:
         self._inner_dict['values'] = value
+    
+    
+    @property
+    def structuredPropertyValues(self) -> Union[None, List["StructuredPropertyCriterionValueClass"]]:
+        """Values for structured property matching.
+    Used when field is STRUCTURED_PROPERTY."""
+        return self._inner_dict.get('structuredPropertyValues')  # type: ignore
+    
+    @structuredPropertyValues.setter
+    def structuredPropertyValues(self, value: Union[None, List["StructuredPropertyCriterionValueClass"]]) -> None:
+        self._inner_dict['structuredPropertyValues'] = value
     
     
     @property
@@ -26798,6 +26829,46 @@ class PolicyMatchFilterClass(DictWrapper):
     @criteria.setter
     def criteria(self, value: List["PolicyMatchCriterionClass"]) -> None:
         self._inner_dict['criteria'] = value
+    
+    
+class StructuredPropertyCriterionValueClass(DictWrapper):
+    """Represents a criterion value for structured property matching in policies.
+    Contains a structured property URN and values to match against."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.policy.StructuredPropertyCriterionValue")
+    def __init__(self,
+        propertyUrn: str,
+        values: List[str],
+    ):
+        super().__init__()
+        
+        self.propertyUrn = propertyUrn
+        self.values = values
+    
+    def _restore_defaults(self) -> None:
+        self.propertyUrn = str()
+        self.values = list()
+    
+    
+    @property
+    def propertyUrn(self) -> str:
+        """The URN of the structured property to match against"""
+        return self._inner_dict.get('propertyUrn')  # type: ignore
+    
+    @propertyUrn.setter
+    def propertyUrn(self, value: str) -> None:
+        self._inner_dict['propertyUrn'] = value
+    
+    
+    @property
+    def values(self) -> List[str]:
+        """Values to match for this structured property.
+    Within a criterion, matching follows OR logic: asset matches if ANY value in this list matches."""
+        return self._inner_dict.get('values')  # type: ignore
+    
+    @values.setter
+    def values(self, value: List[str]) -> None:
+        self._inner_dict['values'] = value
     
     
 class PostContentClass(DictWrapper):
@@ -33319,6 +33390,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.policy.PolicyMatchCondition': PolicyMatchConditionClass,
     'com.linkedin.pegasus2avro.policy.PolicyMatchCriterion': PolicyMatchCriterionClass,
     'com.linkedin.pegasus2avro.policy.PolicyMatchFilter': PolicyMatchFilterClass,
+    'com.linkedin.pegasus2avro.policy.StructuredPropertyCriterionValue': StructuredPropertyCriterionValueClass,
     'com.linkedin.pegasus2avro.post.PostContent': PostContentClass,
     'com.linkedin.pegasus2avro.post.PostContentType': PostContentTypeClass,
     'com.linkedin.pegasus2avro.post.PostInfo': PostInfoClass,
@@ -33929,6 +34001,7 @@ __SCHEMA_TYPES = {
     'PolicyMatchCondition': PolicyMatchConditionClass,
     'PolicyMatchCriterion': PolicyMatchCriterionClass,
     'PolicyMatchFilter': PolicyMatchFilterClass,
+    'StructuredPropertyCriterionValue': StructuredPropertyCriterionValueClass,
     'PostContent': PostContentClass,
     'PostContentType': PostContentTypeClass,
     'PostInfo': PostInfoClass,

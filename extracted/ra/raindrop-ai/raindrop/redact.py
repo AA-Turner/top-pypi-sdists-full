@@ -1,17 +1,24 @@
 import re
 import json
 import os
-from typing import Dict, Any
+import threading
+from typing import Any, Dict, FrozenSet, Optional
 
 
 class PIIRedactor:
-    """PII redactor that uses regex patterns to identify and replace PII."""
+    """PII redactor that uses regex patterns to identify and replace PII.
+
+    Instances are immutable after initialization and safe to share across threads.
+    """
     
     def __init__(self):
         # Load well-known names
         well_known_names_path = os.path.join(os.path.dirname(__file__), 'well-known-names.json')
         with open(well_known_names_path, 'r') as f:
             self.well_known_names = json.load(f)
+        self._well_known_names_set: FrozenSet[str] = frozenset(
+            n.lower() for n in self.well_known_names
+        )
         
         # Build regex patterns
         self._build_patterns()
@@ -68,9 +75,8 @@ class PIIRedactor:
             re.MULTILINE
         )
         
-        # Well-known names pattern
-        names_pattern_str = r'\b(' + '|'.join(re.escape(name) for name in self.well_known_names) + r')\b'
-        self.well_known_names_pattern = re.compile(names_pattern_str, re.IGNORECASE)
+        # Well-known names are looked up after matching individual word tokens.
+        self._word_pattern = re.compile(r"\w+")
         
         # Credentials pattern (API keys, tokens, etc.)
         self.credentials_pattern = re.compile(
@@ -85,7 +91,7 @@ class PIIRedactor:
             return text
         
         # First, redact well-known names
-        text = self.well_known_names_pattern.sub('<REDACTED_NAME>', text)
+        text = self._word_pattern.sub(self._redact_well_known_name, text)
         
         # Find names after greetings
         greeting_matches = list(self.greeting_pattern.finditer(text))
@@ -131,6 +137,14 @@ class PIIRedactor:
         text = '\n'.join(lines)
         
         return text
+
+    def _redact_well_known_name(self, match: "re.Match[str]") -> str:
+        word = match.group(0)
+        return (
+            '<REDACTED_NAME>'
+            if word.lower() in self._well_known_names_set
+            else word
+        )
     
 
     def redact(self, text: str) -> str:
@@ -170,6 +184,19 @@ class PIIRedactor:
         return text
 
 
+_redactor: Optional[PIIRedactor] = None
+_redactor_lock = threading.Lock()
+
+
+def get_redactor() -> PIIRedactor:
+    global _redactor
+    if _redactor is None:
+        with _redactor_lock:
+            if _redactor is None:
+                _redactor = PIIRedactor()
+    return _redactor
+
+
 def perform_pii_redaction(event_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Redact PII from event data, specifically targeting ai_data input and output fields.
@@ -180,7 +207,7 @@ def perform_pii_redaction(event_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         The event data with PII redacted
     """
-    redactor = PIIRedactor()
+    redactor = get_redactor()
     
     # Create a copy to avoid modifying the original
     event_copy = event_data.copy()

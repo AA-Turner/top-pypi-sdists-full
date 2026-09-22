@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.25.1"
+  version: "1.33.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -555,6 +555,11 @@ tags:
       numbers, export STOP opt-outs, and complete the US carrier registration (10DLC or
       toll-free) required before US traffic delivers.
       Private beta: returns 404 unless your account is enrolled.
+  - name: iMessage
+    description: |
+      Two-way iMessage on provider-provisioned senders. Order or register a sender
+      on a profile, then send and receive through the inbox conversation endpoints
+      ('platform: imessage').
 components:
   securitySchemes:
     bearerAuth:
@@ -1196,6 +1201,53 @@ components:
         lastSentAt: { type: [string, "null"], format: date-time }
         createdAt: { type: string, format: date-time }
         resend: { type: boolean, description: 'Present on create responses: true when an active verification was resent instead of created.' }
+    ImessageSenderLifecycle:
+      type: object
+      description: 'A provisioned iMessage sender order and its lifecycle. Activation is asynchronous: poll GET /v1/imessage/senders/{senderId} or subscribe to account.connected.'
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [phone, email] }
+        region: { type: [string, "null"], enum: [US, GB, null] }
+        handle: { type: [string, "null"], description: The sender handle once activation assigns it }
+        optInLink: { type: [string, "null"], description: 'imessage:// deep link that opens Messages on this sender with a prefilled text. Share it so contacts message you first (Apple only lets a sender reach contacts who wrote to it first); null until the handle is assigned.' }
+        status: { type: string, enum: [ordering, activating, active, suspended, canceled, failed] }
+        priceCents: { type: integer, description: Monthly price billed while the sender is active }
+        provider: { type: string }
+        profileId: { type: string }
+        displayName: { type: [string, "null"] }
+        failureReason: { type: [string, "null"] }
+        accountId: { type: [string, "null"], description: The messaging account created at activation }
+        createdAt: { type: string, format: date-time }
+    ImessageAudienceContact:
+      type: object
+      properties:
+        conversationId: { type: string }
+        accountId: { type: string }
+        contact: { type: string, description: 'The contact handle (E.164 phone or email)' }
+        name: { type: [string, "null"] }
+        subscribed: { type: boolean }
+        lastMessage: { type: [string, "null"] }
+        lastMessageAt: { type: [string, "null"], format: date-time }
+        firstSeenAt: { type: [string, "null"], format: date-time }
+        optIn:
+          type: [object, "null"]
+          description: Present when the thread was opened through a tracked opt-in link
+          properties:
+            at: { type: string, format: date-time }
+            parameters: { type: object, additionalProperties: true }
+    ImessageSender:
+      type: object
+      description: An iMessage sender registered as an account on a profile.
+      properties:
+        id: { type: string, description: "Account id (use it with the inbox endpoints' accountId)" }
+        platform: { type: string, enum: [imessage] }
+        sender: { type: string, description: 'The sender handle (E.164 phone or email)' }
+        optInLink: { type: [string, "null"], description: 'imessage:// deep link that opens Messages on this sender with a prefilled text. Share it so contacts message you first (Apple only lets a sender reach contacts who wrote to it first).' }
+        displayName: { type: string }
+        profileId: { type: [string, "null"] }
+        provider: { type: string, description: 'Delivery provider backing this sender (e.g. loopmessage)' }
+        senderVerified: { type: boolean, description: Whether the provider confirmed the sender as active at registration time }
+        isActive: { type: boolean }
     RfPrediction:
       type: object
       description: A Meta Reach & Frequency prediction. Money values in whole units of the ad account currency.
@@ -4044,7 +4096,7 @@ components:
         id: { type: string, description: "The platform's conversation id, equal to `conversation.platformConversationId` on inbox webhooks (whose `conversation.id` is Zernio's internal id). Both are accepted by the conversation endpoints." }
         platform:
           type: string
-          enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, sms, slack, tiktok]
+          enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, sms, slack, tiktok, imessage]
         platformConversationId: { type: string, description: 'Same value as `id`.' }
         participantId: { type: string, description: "Contact's platform identifier (IGSID, PSID, wa_id, etc.)" }
         participantName: { type: string }
@@ -4233,7 +4285,7 @@ components:
               description: Internal conversation ID
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp, sms, twitter, bluesky, reddit, slack, tiktok]
+              enum: [instagram, facebook, telegram, whatsapp, sms, twitter, bluesky, reddit, slack, tiktok, imessage]
             platformMessageId:
               type: string
               description: Platform's message ID
@@ -4711,7 +4763,7 @@ components:
               description: Internal conversation ID
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, slack, tiktok]
+              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, slack, tiktok, imessage]
               description: 'Every platform whose outgoing messages Zernio observes. sms is absent on purpose: its carrier receipts update delivery status and never raise message.sent.'
             platformMessageId:
               type: string
@@ -8089,8 +8141,9 @@ components:
               type: [integer, "null"]
               description: |
                 Monthly X spend cap set by the account owner, or null if no cap.
-                When current X spend hits this cap, analytics and inbox sync are
-                auto-paused for X accounts. Publishing is never blocked by this cap.
+                When current X spend hits this cap, all billable X API activity is
+                paused until the billing period resets or the cap is raised, including
+                publishing, analytics and inbox sync, and likes, reposts and follows.
     XApiPricing:
       type: object
       description: |
@@ -8205,6 +8258,11 @@ components:
           additionalProperties: { type: number }
           example: { follower: 0.1, nonFollower: 0.9, newViewer: 0.99, returnViewer: 0.01 }
           description: 'TikTok accounts connected through the TikTok for Business app only: two viewer splits as fractions 0 to 1 (T+24-48h). Each pair sums to 1 when present, `follower` + `nonFollower` and `newViewer` + `returnViewer`; TikTok can report one pair without the other. Empty object when TikTok reports nothing, and for other platforms. Views-weighted across accounts like impressionSources.'
+        audienceCountries:
+          type: object
+          additionalProperties: { type: number }
+          example: { US: 0.62, GB: 0.11, CA: 0.07, DE: 0.05, other: 0.15 }
+          description: 'TikTok accounts connected through the TikTok for Business app only: share of views by viewer country as fractions 0 to 1, keyed by upper-case ISO-3166 alpha-2 code (T+24-48h, only for posts active in the last 7 days). At most 20 country keys plus `other`: the catch-all bucket TikTok sends, any country below 0.001 and anything past the twentieth all sum into `other`, so the values still add up to 1. Empty object when TikTok reports nothing, and for other platforms. Views-weighted across accounts like impressionSources.'
         reposts: { type: integer, example: 0, description: 'Instagram accounts connected with Facebook Login only: reposts of the media by other users, minus deleted reposts, on feed posts, reels and stories. Meta does not expose this metric for accounts connected with Instagram Login, so those always report 0. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
         engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. The engagementRate on the LinkedIn account endpoints is a different formula.' }
@@ -8408,7 +8466,7 @@ components:
         metrics:
           type: object
           description: 'Metrics a platform does not report are 0, not absent.'
-          required: [impressions, reach, likes, comments, shares, saves, sends, clicks, views, follows, igReelsAvgWatchTime, igReelsVideoViewTotalTime, reposts, reelsSkipRate, completionRate, profileViews, websiteClicks, impressionSources, audienceTypes]
+          required: [impressions, reach, likes, comments, shares, saves, sends, clicks, views, follows, igReelsAvgWatchTime, igReelsVideoViewTotalTime, reposts, reelsSkipRate, completionRate, profileViews, websiteClicks, impressionSources, audienceTypes, audienceCountries]
           properties:
             impressions: { type: integer }
             reach: { type: integer }
@@ -8429,6 +8487,7 @@ components:
             websiteClicks: { type: integer, description: 'TikTok business lane: website-link clicks attributed to the post (also inside clicks)' }
             impressionSources: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: share of views by surface (forYou, follow, search, personalProfile, sound, directMessage, other), fractions 0 to 1. Empty object elsewhere.' }
             audienceTypes: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: follower / nonFollower and newViewer / returnViewer shares, fractions 0 to 1. Empty object elsewhere.' }
+            audienceCountries: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: viewer-country shares keyed by ISO-3166 alpha-2, fractions 0 to 1, top 20 with the tail in `other`. Empty object elsewhere.' }
     AnalyticsDeltaResponse:
       type: object
       required: [data, nextCursor, hasMore]
@@ -8984,6 +9043,22 @@ components:
                       date: { type: string, format: date }
             breakdowns:
               type: object
+              description: |
+                Requested demographic breakdowns, keyed by dimension. Fetched live from the
+                platform per request and never stored, so these rows can carry fields the
+                stored `summary` and `daily` series do not.
+
+                LinkedIn rows carry `value` (the pivot URN), `name` (resolved label where
+                LinkedIn provides one), the usual spend/impressions/clicks/ctr/cpc/cpm/engagement
+                figures, plus two reach fields:
+
+                - `reach`: the segment's `approximateMemberReach`.
+                - `audiencePenetration`: LinkedIn's own ratio of members reached to the size of
+                  the targeted audience, passed through verbatim.
+
+                LinkedIn withholds both below its audience privacy threshold, in which case the
+                keys are ABSENT rather than 0. `audiencePenetration` is available here only: it
+                is not part of the stored metrics series.
               additionalProperties:
                 type: array
                 items: { type: object }
@@ -9017,6 +9092,22 @@ components:
                       date: { type: string, format: date }
             breakdowns:
               type: object
+              description: |
+                Requested demographic breakdowns, keyed by dimension. Fetched live from the
+                platform per request and never stored, so these rows can carry fields the
+                stored `summary` and `daily` series do not.
+
+                LinkedIn rows carry `value` (the pivot URN), `name` (resolved label where
+                LinkedIn provides one), the usual spend/impressions/clicks/ctr/cpc/cpm/engagement
+                figures, plus two reach fields:
+
+                - `reach`: the segment's `approximateMemberReach`.
+                - `audiencePenetration`: LinkedIn's own ratio of members reached to the size of
+                  the targeted audience, passed through verbatim.
+
+                LinkedIn withholds both below its audience privacy threshold, in which case the
+                keys are ABSENT rather than 0. `audiencePenetration` is available here only: it
+                is not part of the stored metrics series.
               additionalProperties:
                 type: array
                 items: { type: object }
@@ -9027,7 +9118,7 @@ components:
         impressions: { type: integer }
         reach:
           type: integer
-          description: "Unique people reached in the requested date range. Meta (facebook/instagram) and TikTok: the platform's own de-duplicated reach for the exact range, fetched live and cached up to ~1 hour (may lag recent delivery; on a transient platform error the value temporarily falls back to a sum of per-day reach, which overcounts people reached on multiple days or by multiple child ads). Because it is de-duplicated, reach is NOT additive on these platforms: neither daily values nor child nodes sum to the range total. Google, LinkedIn, X, Pinterest and OpenAI report 0 (reach not synced). Frequency (impressions / reach) is only meaningful for Meta and TikTok."
+          description: "Unique people reached in the requested date range. Meta (facebook/instagram) and TikTok: the platform's own de-duplicated reach for the exact range, fetched live and cached up to ~1 hour (may lag recent delivery; on a transient platform error the value temporarily falls back to a sum of per-day reach, which overcounts people reached on multiple days or by multiple child ads). Because it is de-duplicated, reach is NOT additive on these platforms: neither daily values nor child nodes sum to the range total. LinkedIn: the campaign's `approximateMemberReach`, de-duplicated by LinkedIn per day and then summed over the range here, so it overcounts members reached on more than one day; LinkedIn withholds it below its audience privacy threshold, where it reads 0. Google, X, Pinterest and OpenAI report 0 (reach not synced). Frequency (impressions / reach) is only meaningful for Meta and TikTok."
         clicks: { type: integer }
         ctr: { type: number, description: Click-through rate (%) }
         cpc: { type: number, description: Cost per click }
@@ -9046,7 +9137,7 @@ components:
           type: object
           additionalProperties:
             type: integer
-          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...), covering both engagement and conversion events. TikTok: pixel conversions (purchase, add_to_cart, initiate_checkout, view_content, complete_payment, lead) plus the paid-engagement family (follow, post_reaction for paid likes, comment, share). Follow is how FOLLOWERS-goal campaigns report their result. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen). Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
+          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...), covering both engagement and conversion events. TikTok: pixel conversions (purchase, add_to_cart, initiate_checkout, view_content, complete_payment, lead) plus the paid-engagement family (follow, post_reaction for paid likes, comment, share). Follow is how FOLLOWERS-goal campaigns report their result. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen) plus `video_view`, which carries LinkedIn's `videoViews` under the same key every other platform uses, so it feeds `engagementBreakdown.videoViews` too; it is an engagement, NOT a conversion, and is excluded from `conversions`. Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
           example:
             link_click: 160
             post_engagement: 300
@@ -9156,7 +9247,7 @@ components:
         shares: { type: integer, description: "Shares of the ad's post. Meta reports these under the action type literally named `post`; TikTok under `share`." }
         saves: { type: integer, description: "Saves of the ad's post (`onsite_conversion.post_save`)." }
         pageLikes: { type: integer, description: "New Page likes attributed to the ad (`like`)." }
-        videoViews: { type: integer, description: "3-second video views (`video_view`). For completion-based counts use `videoThruplayWatchedActions`." }
+        videoViews: { type: integer, description: "Video views, from the `video_view` action. Meta counts a 3-second view; LinkedIn's own `videoViews` threshold (2 continuous seconds, or 25% of the video) lands under the same key, so compare across platforms with care. For completion-based counts use `videoThruplayWatchedActions`." }
         linkClicks: { type: integer, description: "Attributed link clicks (`link_click`). This is the attribution-window count, which differs from the in-session count in the sibling `inlineLinkClicks` field." }
     AdDailyMetrics:
       description: |
@@ -10006,6 +10097,9 @@ components:
           properties:
             amount: { type: number }
             type: { type: string, enum: [daily, lifetime] }
+            daily: { type: number, description: "LinkedIn only. The parent campaign's `dailyBudget`. LinkedIn allows a daily AND a lifetime budget on the same campaign, which `amount`/`type` cannot express (daily wins there); read `daily` and `lifetime` to see both." }
+            lifetime: { type: number, description: "LinkedIn only. The parent campaign's `totalBudget`, readable even when a daily budget is also set." }
+            pacing: { type: string, description: "LinkedIn only. The campaign's `pacingStrategy`: how fast LinkedIn may spend the budget. Typically LINEAR or ACCELERATED; the list is open." }
         metrics:
           anyOf:
             - $ref: '#/components/schemas/AdMetrics'
@@ -10018,7 +10112,17 @@ components:
         adSetName: { type: string }
         platformObjective:
           type: [string, "null"]
-          description: "Raw Meta campaign objective (e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC). Only present for Meta ads."
+          description: |
+            The platform's own campaign objective, verbatim, alongside the normalized `goal` it maps to.
+            The mapping is many-to-one, so `goal` alone cannot be mapped back to it.
+
+            - Meta: campaign `objective` (e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC).
+            - LinkedIn: campaign `objectiveType` (e.g. WEBSITE_VISIT, LEAD_GENERATION, BRAND_AWARENESS,
+              VIDEO_VIEW, ENGAGEMENT, JOB_APPLICANT, WEBSITE_CONVERSION). The list is open, so treat an
+              unrecognized value as valid rather than an error.
+            - TikTok and Pinterest: their raw objective_type.
+
+            Null on platforms that report none, and on LinkedIn ads not yet re-synced.
           example: OUTCOME_SALES
         optimizationGoal:
           type: [string, "null"]
@@ -10180,6 +10284,7 @@ components:
               items: { type: string }
               description: All media URLs for this ad (carousel images, multiple assets). Populated for Meta (carousel child_attachments), Google Ads (responsive display marketing_images), and LinkedIn (multi-image posts).
             isServing: { type: [boolean, "null"], description: "LinkedIn only. Whether LinkedIn is currently serving this specific creative. Complements the ad-level `servingStatuses`, which describes the parent campaign." }
+            adFormat: { type: [string, "null"], description: "LinkedIn only. The LinkedIn ad format, in LinkedIn's own vocabulary: STANDARD_UPDATE, SINGLE_VIDEO, CAROUSEL, NATIVE_DOCUMENT, EVENT, TEXT_AD, SPOTLIGHT, FOLLOW_COMPANY, JOBS, SPONSORED_INMAILS and others. On an ad Zernio created this is the format it was created as; on an ad synced from Campaign Manager it is the parent campaign's raw `format`, which is what LinkedIn actually enforces on its creatives. The list is open, so treat an unrecognized value as valid. Absent on LinkedIn ads not yet re-synced, and on every other platform." }
             servingHoldReasons:
               type: array
               items: { type: string }
@@ -10235,12 +10340,18 @@ components:
           properties:
             amount: { type: number }
             type: { type: string, enum: [daily, lifetime] }
+            daily: { type: number, description: "LinkedIn only. The campaign's `dailyBudget`. LinkedIn allows a daily AND a lifetime budget on the same campaign, which `amount`/`type` cannot express (daily wins there); read `daily` and `lifetime` to see both." }
+            lifetime: { type: number, description: "LinkedIn only. The campaign's `totalBudget`, readable even when a daily budget is also set." }
+            pacing: { type: string, description: "LinkedIn only. The campaign's `pacingStrategy`: how fast LinkedIn may spend the budget. Typically LINEAR or ACCELERATED; the list is open." }
         adSetBudget:
           type: [object, "null"]
           description: Ad-set-level budget (ABO). Null for CBO campaigns where the budget is set on the campaign.
           properties:
             amount: { type: number }
             type: { type: string, enum: [daily, lifetime] }
+            daily: { type: number, description: "LinkedIn only. See `budget.daily`." }
+            lifetime: { type: number, description: "LinkedIn only. See `budget.lifetime`." }
+            pacing: { type: string, description: "LinkedIn only. See `budget.pacing`." }
         metrics: { $ref: '#/components/schemas/AdMetrics' }
         optimizationGoal: { type: [string, "null"], description: "What the delivery system optimizes for. Meta ad set optimization goal (e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION), or on LinkedIn the campaign's effective optimizationTargetType (NONE means manual bidding). See the `optimizationGoal` field on `Ad` for the full value spaces." }
         bidStrategy:
@@ -13125,6 +13236,7 @@ paths:
                           websiteClicks: 0
                           impressionSources: {}
                           audienceTypes: {}
+                          audienceCountries: {}
                     nextCursor: "v1.WyIyMDI2LTA5LTAxIDE3OjEyOjA0IiwiNjVmMWMwYTllMmI1YWYwMDEyYWIzNGNkIl0"
                     hasMore: true
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -13373,19 +13485,23 @@ paths:
         defaults to last 30 days. Requires the Analytics add-on and the user.info.stats
         scope on the account (412 if missing).
 
-        Scope intentionally narrow. TikTok's public API exposes only the four counter
-        metrics below. The deep metrics that live in TikTok Studio are NOT available on any
-        public TikTok API, even for Business accounts:
-          - profile_views
+        Scope intentionally narrow: this ACCOUNT-level endpoint exposes only the four
+        counter metrics below. These account-level figures are not on any public TikTok
+        API, for any account type:
           - account-level impressions / reach
           - follower inflow / outflow breakdown
-          - video watch time, average watch time, full-watched rate
-          - impression_sources (FYP / Following / Hashtag / Search / Personal profile)
+          - account-level watch time and audience demographics
 
-        TikTok's Research API doesn't expose those fields either, and is restricted to
-        non-commercial academic use per TikTok's eligibility policy. There is no public
-        API workaround. Post-level metrics (views, likes, comments, shares per video) are
-        available via /v1/analytics?postId=... from TikTok's /v2/video/query/.
+        TikTok's Research API doesn't expose them either, and is restricted to
+        non-commercial academic use per TikTok's eligibility policy.
+
+        PER-VIDEO is a different story on the Business lane. An account connected through
+        the TikTok for Business app reports profile views, website clicks, follows,
+        full-watched rate, watch time, impression sources, viewer types and viewer
+        countries per video on GET /v1/analytics?postId=..., roughly 24-48h after
+        publishing and only for posts active in the last 7 days. Accounts on the original
+        TikTok integration get the basic counters there (views, likes, comments, shares)
+        and zeros for the rest; they must reconnect through the Business app.
       parameters:
         - name: accountId
           in: query
@@ -14921,6 +15037,7 @@ paths:
                         websiteClicks: { type: integer, description: "TikTok business lane: website-link clicks attributed to the post on this date (also inside clicks); 0 elsewhere" }
                         impressionSources: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: share of views by surface on this date (forYou, follow, search, personalProfile, sound, directMessage, other), fractions 0 to 1; empty object elsewhere" }
                         audienceTypes: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: follower / nonFollower and newViewer / returnViewer shares on this date, fractions 0 to 1; empty object elsewhere" }
+                        audienceCountries: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: viewer-country shares on this date keyed by ISO-3166 alpha-2, fractions 0 to 1, top 20 with the tail in `other`; empty object elsewhere" }
               examples:
                 single_platform:
                   summary: Single-platform post timeline
@@ -14944,6 +15061,7 @@ paths:
                         websiteClicks: 0
                         impressionSources: {}
                         audienceTypes: {}
+                        audienceCountries: {}
                       - date: "2025-01-16"
                         platform: "instagram"
                         platformPostId: "17902345678901234"
@@ -14961,6 +15079,7 @@ paths:
                         websiteClicks: 0
                         impressionSources: {}
                         audienceTypes: {}
+                        audienceCountries: {}
                 multi_platform:
                   summary: One row per platform and day; the TikTok row comes from an account connected through the TikTok for Business app
                   value:
@@ -14983,6 +15102,7 @@ paths:
                         websiteClicks: 0
                         impressionSources: {}
                         audienceTypes: {}
+                        audienceCountries: {}
                       - date: "2025-01-16"
                         platform: "tiktok"
                         platformPostId: "7685731010461371662"
@@ -15000,6 +15120,7 @@ paths:
                         websiteClicks: 6
                         impressionSources: { forYou: 0.84, follow: 0.05, search: 0.06, personalProfile: 0.03, sound: 0.01, directMessage: 0, other: 0.01 }
                         audienceTypes: { follower: 0.1, nonFollower: 0.9, newViewer: 0.99, returnViewer: 0.01 }
+                        audienceCountries: { US: 0.62, GB: 0.11, CA: 0.07, DE: 0.05, other: 0.15 }
         '400':
           description: Missing required postId parameter
           content:
@@ -29456,7 +29577,7 @@ paths:
           description: Filter by profile ID
         - name: platform
           in: query
-          schema: { type: string, enum: [facebook, instagram, twitter, bluesky, reddit, telegram, whatsapp] }
+          schema: { type: string, enum: [facebook, instagram, twitter, bluesky, reddit, telegram, whatsapp, imessage] }
           description: Filter by platform
         - name: status
           in: query
@@ -29512,6 +29633,9 @@ paths:
                           type: string
                           enum: [app, ai_agent, other]
                           description: 'WhatsApp only, present once Meta Business Agent has touched the thread. ai_agent: the agent answers and new inbound arrive flagged metadata.standby; app: you hold control; other: another partner app does. Change it with POST /v1/inbox/conversations/{conversationId}/thread-control.'
+                        isGroup:
+                          type: boolean
+                          description: 'iMessage only, true for a group thread. Manage it through the /v1/imessage/groups/{conversationId} endpoints.'
                         url:
                           type: [string, "null"]
                           description: Direct link to open the conversation on the platform (if available)
@@ -30042,7 +30166,7 @@ paths:
           description: Filter by profile ID
         - name: platform
           in: query
-          schema: { type: string, enum: [facebook, instagram, telegram, whatsapp, sms, slack] }
+          schema: { type: string, enum: [facebook, instagram, telegram, whatsapp, sms, slack, imessage] }
           description: Filter by platform (searchable platforms only)
         - name: accountId
           in: query
@@ -30656,10 +30780,11 @@ paths:
                   type: boolean
                   default: true
                   description: >-
-                    WhatsApp only. Set false to send the message without a link-preview
-                    thumbnail for the first URL in the text. Defaults to true, which is how
-                    every WhatsApp text has been sent to date. Ignored on other platforms.
-                    Accepted on the JSON body only, not on multipart requests.
+                    WhatsApp and iMessage. Set false to send the message without a link-preview
+                    thumbnail (WhatsApp: the first URL; iMessage: every link renders as plain
+                    text). Defaults to true, which is how every WhatsApp text has been sent
+                    to date. Ignored on other platforms. Accepted on the JSON body only, not
+                    on multipart requests.
                 attachmentType:
                   type: string
                   enum: [image, video, audio, file]
@@ -30675,6 +30800,21 @@ paths:
                     UI instead of a basic audio attachment. The audio file MUST be `.ogg`
                     encoded with the OPUS codec (mono) per Meta's voice-message contract;
                     other formats are rejected by WhatsApp. Ignored for non-audio attachments.
+                subject:
+                  type: string
+                  maxLength: 1000
+                  description: 'iMessage only (JSON body only). Bold title line rendered above the message text. Rejected with 400 on other platforms; ignored on voice-message sends.'
+                effect:
+                  type: string
+                  enum: [slam, loud, gentle, invisibleInk, echo, spotlight, balloons, confetti, love, lasers, fireworks, shootingStar, celebration]
+                  description: 'iMessage only (JSON body only). Apple screen/bubble animation played when the message arrives. Rejected with 400 on other platforms.'
+                contactCard:
+                  type: boolean
+                  description: 'iMessage only (JSON body only). When `true`, attaches the sender''s contact card (vCard) so the recipient can save the sender. Counts as message content on its own, so `message` becomes optional.'
+                channel:
+                  type: string
+                  enum: [imessage, sms, rcs, whatsapp]
+                  description: 'iMessage only (JSON body only). Overrides the delivery channel for this one send; the provider otherwise picks it automatically. The sender must carry the matching add-on (SMS, RCS or WhatsApp), or the send fails. Not a default to set on every request. Rejected with 400 on other platforms.'
                 quickReplies:
                   type: array
                   maxItems: 13
@@ -31083,7 +31223,7 @@ paths:
                   description: 'Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID (delivered as message.platformMessageId on webhooks, and as `id` on each entry of the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Instagram and Facebook Messenger do not support send-side quote replies: the message is sent without a quote and the successful response includes a warnings entry with code ignored_field and param replyTo. Other platforms without send-side reply support ignore this field.'
                 location:
                   type: object
-                  description: WhatsApp-only. Send a location pin.
+                  description: 'WhatsApp and iMessage. Send a location pin (on iMessage it renders as a native map bubble).'
                   required: [latitude, longitude]
                   properties:
                     latitude: { type: number, description: Latitude in decimal degrees. }
@@ -31343,8 +31483,10 @@ paths:
       operationId: editInboxMessage
       summary: Edit message
       description: |
-        Edit the text and/or reply markup of a previously sent Telegram message.
-        Only supported for Telegram. Returns 400 for other platforms.
+        Edit a previously sent message. Platform support:
+        - Telegram: text and/or reply markup, any time
+        - 'iMessage: text only, within 15 minutes of sending (Apple''s limit; 409 `edit_window_expired` after that). Group messages included. The stored message keeps its edit history.'
+        - All others: returns 400
       tags: [Messages]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -31357,7 +31499,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: The Telegram message ID to edit
+          description: 'The platform message ID to edit (iMessage also accepts the Zernio message id)'
       requestBody:
         required: true
         content:
@@ -31411,6 +31553,7 @@ paths:
         - X: Full delete (own DM events only)
         - Bluesky: Delete for self only (recipient still sees it)
         - Reddit: Delete from sender's view only
+        - 'iMessage: Unsend (the bubble disappears for the recipient) within 2 minutes of sending (Apple''s limit; 409 `unsend_window_expired` after that). Own outbound messages only.'
         - Facebook, Instagram, WhatsApp: Not supported (returns 400)
       tags: [Messages]
       security: [{ bearerAuth: [] }]
@@ -31458,6 +31601,7 @@ paths:
         - Instagram: Shows "typing..." to the recipient (works for both Instagram Login and Facebook Login accounts). The recipient must be signed in to Instagram to see it.
         - Telegram: Shows "Bot is typing..." for 5 seconds
         - WhatsApp: Shows "typing..." for up to 25 seconds. Requires a recent inbound message in the conversation (Meta references the inbound message id) and also marks that message as read as a side-effect.
+        - iMessage: Shows a typing bubble for ~15 seconds (1:1 conversations only; requires a recent two-way exchange)
         - All others: Returns 200 but no-op (platform doesn't support it)
 
         Typing indicators are best-effort. The endpoint always returns 200 even if the platform call fails; `success` reports whether a typing indicator was actually sent to the platform (`false` on unsupported platforms or when the platform call failed).
@@ -31568,6 +31712,9 @@ paths:
         EXCEPT on coexistence accounts (where the WhatsApp Business app on the
         customer's phone owns read state and we never override it).
 
+        For iMessage, this also marks the conversation read with the contact
+        (1:1 conversations only). Best-effort.
+
         This is the explicit, human-driven counterpart to `GET .../messages`,
         which is side-effect-free and does NOT mark anything read. Call this when
         a user actually views the conversation.
@@ -31617,6 +31764,7 @@ paths:
         - WhatsApp: Supports any standard emoji (one reaction per message per sender)
         - Instagram and Facebook Messenger: Any standard emoji, subject to Meta's 24h messaging window
         - Slack: The emoji must have a Slack name (e.g. `:thumbsup:`); unnamed characters return 400
+        - 'iMessage: The six Apple tapbacks (❤️ 👍 👎 😂 ‼️ ❓) render natively; any other emoji is sent as a custom emoji tapback (iOS 18+ recipients)'
         - All others: Returns 400 (not supported)
       tags: [Messages]
       security: [{ bearerAuth: [] }]
@@ -31669,6 +31817,7 @@ paths:
         - WhatsApp: Send empty emoji to remove
         - Instagram and Facebook Messenger: Sends Meta's `unreact` action; the emoji does not need to be repeated
         - Slack: Removes the reaction we previously sent on that message
+        - 'iMessage: Retracts your existing tapback or emoji reaction on the message (400 when you have none)'
         - All others: Returns 400 (not supported)
       tags: [Messages]
       security: [{ bearerAuth: [] }]
@@ -35561,6 +35710,590 @@ paths:
         '429': { description: Outbound call limit reached (per rolling hour). }
         '502': { description: Carrier-side originate failed }
 
+  /v1/imessage/senders:
+    get:
+      operationId: listImessageSenders
+      summary: List iMessage senders
+      description: Lists the iMessage senders registered across your accessible profiles.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Registered iMessage senders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  senders:
+                    type: array
+                    items: { $ref: '#/components/schemas/ImessageSender' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: registerImessageSender
+      summary: Register an iMessage sender
+      description: |
+        Registers a provider-provisioned iMessage sender (a phone number or an
+        email handle) that YOU already own on a profile, creating an
+        `imessage` account that sends and receives through the inbox
+        conversation endpoints. To have Zernio order a new sender for you, use
+        POST /v1/imessage/senders/order instead. Registration attaches the
+        monthly sender fee (billed while active) and requires a payment method
+        (402 without one). One sender per profile: re-registering the SAME
+        handle refreshes it; a different handle returns 409 until the existing
+        sender is canceled.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileId, sender]
+              properties:
+                profileId: { type: string, description: Profile to attach the sender to }
+                sender: { type: string, description: 'The provider-provisioned sender handle: a phone number in international format (e.g. +18305551234) or an email address' }
+                displayName: { type: string, maxLength: 100 }
+                provider: { type: string, enum: [loopmessage], description: Delivery provider. Defaults to the platform default. }
+      responses:
+        '200':
+          description: Sender registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  account: { $ref: '#/components/schemas/ImessageSender' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: 'A valid payment method is required (code: payment_method_required)' }
+        '404': { description: Profile not found or access denied }
+        '409': { description: 'Sender already registered to another profile (code: imessage_sender_conflict), or billing setup is incomplete and support must finish it (code: billing_setup_incomplete)' }
+
+  /v1/imessage/senders/order:
+    get:
+      operationId: listImessageSenderOrders
+      summary: List iMessage sender orders
+      description: 'Every sender lifecycle doc your team owns (ordered or registered), across statuses. Canceled senders are omitted unless `includeCanceled=true`.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: includeCanceled, in: query, required: false, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: Sender lifecycle docs, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  senders:
+                    type: array
+                    items: { $ref: '#/components/schemas/ImessageSenderLifecycle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: orderImessageSender
+      summary: Order a new iMessage sender
+      description: |
+        Orders a NEW dedicated iMessage sender from the delivery provider
+        (compare with POST /v1/imessage/senders, which registers a sender you
+        already own). Activation is asynchronous (minutes to a few hours):
+        the response is 202 with the lifecycle object; poll
+        GET /v1/imessage/senders/{senderId} or subscribe to the
+        account.connected webhook. Billing starts at activation (monthly per
+        sender, no proration). Requires usage-based billing and a valid
+        payment method. Pass purchaseIntentId to make retries idempotent —
+        the provider-side order is never retried automatically. Ordered phone
+        senders include SMS/RCS fallback with call forwarding and the ability
+        to message contacts who have not written first (sending intervals
+        still apply).
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileId, kind]
+              properties:
+                profileId: { type: string }
+                kind: { type: string, enum: [phone, email] }
+                region: { type: string, enum: [US, GB], description: 'Required for phone senders. Without availableNumberId the number is carrier-assigned in this region and revealed once the sender activates.' }
+                availableNumberId: { type: string, description: 'A number from GET /v1/imessage/senders/available-numbers. It is assigned and activated on order instead of waiting for provisioning. Phone senders only.' }
+                zipCode: { type: string, pattern: '^[0-9]{5}$', description: 'US phone senders only. Preferred area for a carrier-assigned number (ignored with availableNumberId).' }
+                emailName: { type: string, description: 'Local part for email senders (required for kind: email)' }
+                emailDomain: { type: string, description: 'Domain for email senders (required for kind: email)' }
+                displayName: { type: string, maxLength: 100 }
+                purchaseIntentId: { type: string, maxLength: 100, description: Idempotency key for safe retries }
+                contact:
+                  type: object
+                  description: 'Contact card (vCard) attached to the sender, shown when recipients save it. Required before sending with contactCard.'
+                  required: [firstName]
+                  properties:
+                    firstName: { type: string, maxLength: 64 }
+                    lastName: { type: string, maxLength: 64 }
+                    photoUrl: { type: string, format: uri }
+      responses:
+        '202':
+          description: Order accepted; activation continues asynchronously
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  sender: { $ref: '#/components/schemas/ImessageSenderLifecycle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: 'A valid payment method is required (code: payment_method_required)' }
+        '403': { description: 'Sender limit reached (code: imessage_sender_limit)' }
+        '404': { description: Profile not found or access denied }
+        '409': { description: 'This profile already has a live iMessage sender (code: imessage_sender_conflict), or billing setup is incomplete and support must finish it (code: billing_setup_incomplete)' }
+        '422': { description: 'Workspace is not on usage-based billing (code: usage_billing_required)' }
+        '502': { description: 'The provider rejected the order; nothing was charged' }
+
+  /v1/imessage/senders/{senderId}:
+    get:
+      operationId: getImessageSender
+      summary: Get iMessage sender status
+      description: 'Lifecycle status of an ordered or registered sender (poll while an order activates), plus the provider''s live platform health for it.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: senderId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Sender lifecycle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  sender: { $ref: '#/components/schemas/ImessageSenderLifecycle' }
+                  health:
+                    type: [object, "null"]
+                    description: 'Provider platform health for this sender; null when the provider cannot report it.'
+                    properties:
+                      imessage: { type: string, enum: [active, degradation, outage] }
+                      whatsapp: { type: string, enum: [active, degradation, outage] }
+                  imessageLink: { type: [string, "null"], description: 'Provider-hosted opt-in page for this sender (opens Messages on any Apple device); null until the sender is active or when the provider cannot report it.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Sender not found }
+    patch:
+      operationId: updateImessageSender
+      summary: Update an iMessage sender
+      description: 'Display name (inbox and API responses) and the contact card (vCard) recipients see when they save the sender. The contact card is what a contactCard send shares.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: senderId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string, maxLength: 100 }
+                contact:
+                  type: object
+                  required: [firstName]
+                  properties:
+                    firstName: { type: string, maxLength: 64 }
+                    lastName: { type: string, maxLength: 64 }
+                    photoUrl: { type: string, format: uri, description: Square image }
+      responses:
+        '200':
+          description: Sender updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  sender: { $ref: '#/components/schemas/ImessageSenderLifecycle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Sender not found }
+    delete:
+      operationId: cancelImessageSender
+      summary: Cancel an iMessage sender
+      description: |
+        Cancels the sender at the provider and deactivates its messaging
+        account. Billing stops with the current month (no proration or
+        refunds, matching phone numbers).
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: senderId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Sender canceled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  sender: { $ref: '#/components/schemas/ImessageSenderLifecycle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Sender not found }
+
+  /v1/imessage/audience:
+    get:
+      operationId: listImessageAudience
+      summary: List iMessage audience
+      description: 'Contacts who have messaged your iMessage senders (1:1 threads), with subscription state and, for threads opened through a tracked opt-in link, the parameters that brought them in. Newest activity first.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: accountId, in: query, required: false, schema: { type: string }, description: Limit to one sender account }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [subscribed, unsubscribed] } }
+        - { name: search, in: query, required: false, schema: { type: string, maxLength: 120 }, description: 'Matches the contact handle or name' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: skip, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: Audience page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contacts:
+                    type: array
+                    items: { $ref: '#/components/schemas/ImessageAudienceContact' }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  skip: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/imessage/audience/subscription:
+    post:
+      operationId: setImessageSubscription
+      summary: Subscribe or opt out an iMessage contact
+      description: 'Opted-out contacts are refused at send time (409 recipient_opted_out) until re-subscribed. Their inbound messages still arrive. Scoped to your account: it does not change the contact''s state with other businesses.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, conversationId, subscribed]
+              properties:
+                accountId: { type: string }
+                conversationId: { type: string }
+                subscribed: { type: boolean }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  conversationId: { type: string }
+                  subscribed: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account or conversation not found }
+
+  /v1/imessage/senders/{senderId}/opt-in-links:
+    post:
+      operationId: createImessageOptInLink
+      summary: Create a tracked iMessage opt-in link
+      description: |
+        Generates a per-campaign link that opens Messages on this sender with
+        `body` prefilled. iMessage is send-first: a sender can only message a
+        contact who has written to it (a send to anyone else fails with
+        `recipient_must_message_first`), and the contact's tap-and-send is
+        what opens that door.
+
+        Each link carries a unique code in place of the `[opt-in-code]`
+        placeholder; when the contact sends it, the resulting `message.received`
+        webhook (and the stored inbox message's `metadata`) has
+        `optIn: true` and your `parameters` under `optInParameters`, so you can
+        attribute the conversation to the campaign or lead that produced it.
+
+        For an untracked link, use the sender's `optInLink` instead.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: senderId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, maxLength: 500, description: 'Prefilled message text. Must contain the literal `[opt-in-code]` placeholder, e.g. "Hi! My code is [opt-in-code]".' }
+                parameters:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: 'Custom key/values (e.g. leadId, campaign) echoed back on the opt-in message.'
+                optInCode: { type: string, minLength: 3, maxLength: 8, description: 'Your own code in place of the generated one (3-8 characters, no spaces or `#`, `!`, `-`). An unredeemed link lives 24 hours; re-issuing with the same code replaces it, and the earlier URL stops matching.' }
+      responses:
+        '200':
+          description: Opt-in link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  link:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      imessage: { type: string, description: 'imessage:// deep link' }
+                      sms: { type: [string, "null"], description: 'sms: deep link for non-Apple devices' }
+                      whatsapp: { type: [string, "null"] }
+                      url: { type: string, description: Hosted landing URL that picks the right scheme for the device }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Sender not found }
+        '409': { description: The sender is not active yet }
+
+  /v1/imessage/senders/available-numbers:
+    get:
+      operationId: listImessageAvailableNumbers
+      summary: List instantly available iMessage numbers
+      description: |
+        Phone numbers the provider has already registered and can assign on the
+        spot. Order one by passing its `id` as `availableNumberId` to
+        POST /v1/imessage/senders/order: the sender activates immediately
+        instead of after the usual provisioning wait. Reserve it first with
+        POST /v1/imessage/senders/available-numbers/{numberId}/reserve while the
+        buyer decides. The list is a snapshot; a number can be taken between
+        listing and ordering.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: region, in: query, required: false, schema: { type: string, enum: [US, GB] } }
+      responses:
+        '200':
+          description: Available numbers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  numbers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: Pass as availableNumberId when ordering }
+                        phone: { type: string, description: E.164 }
+                        region: { type: string }
+                        location: { type: string, description: 'Area the provider reports for the number (e.g. a US state), when known' }
+                  region: { type: [string, "null"] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502': { description: 'The provider could not list numbers; ordering without availableNumberId still works' }
+
+  /v1/imessage/senders/available-numbers/{numberId}/reserve:
+    post:
+      operationId: reserveImessageAvailableNumber
+      summary: Reserve an available iMessage number
+      description: 'Holds the number for 3 minutes so nobody else can order it while the buyer decides. Place the order (POST /v1/imessage/senders/order with availableNumberId) before the hold expires. No request body.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: numberId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Number reserved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  numberId: { type: string }
+                  expiresInSeconds: { type: integer, example: 180 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: 'The number could not be reserved (already taken)' }
+
+  /v1/imessage/groups:
+    post:
+      operationId: createImessageGroup
+      summary: Start an iMessage group chat
+      description: |
+        Creates a group chat from one of your senders and sends its first
+        message. The provider processes it asynchronously: the response carries
+        the request id, and the thread appears in the inbox (with its group
+        conversation id) on the first webhook. Starting a group counts as
+        messaging new contacts, so the sender needs the provider's
+        init-conversations add-on and the same sending intervals apply; without
+        it the request fails with 409 `recipient_must_message_first`. WhatsApp
+        groups need a `name`.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, contacts, text]
+              properties:
+                accountId: { type: string, description: The iMessage account (sender) that opens the group }
+                contacts: { type: array, minItems: 2, maxItems: 32, items: { type: string }, description: 'Participant handles (E.164 phones or iMessage emails)' }
+                text: { type: string, maxLength: 10000, description: The first message }
+                name: { type: string, maxLength: 32, description: 'Group name (required for WhatsApp groups)' }
+                channel: { type: string, enum: [imessage, sms, rcs, whatsapp], default: imessage }
+      responses:
+        '202':
+          description: Group creation accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  requestId: { type: string, description: 'The provider''s request id (not the group id)' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '409': { description: 'The sender cannot start conversations (code: recipient_must_message_first)' }
+
+  /v1/imessage/groups/{conversationId}:
+    get:
+      operationId: getImessageGroup
+      summary: Get an iMessage group
+      description: 'The group''s name, participants and channel as the provider currently sees them. The conversation must be a group thread of the given account.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: string }, description: 'The inbox conversation id (or the provider group id)' }
+        - { name: accountId, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  conversationId: { type: string }
+                  group:
+                    type: object
+                    properties:
+                      id: { type: string, description: Provider group id }
+                      name: { type: [string, "null"] }
+                      participants: { type: array, items: { type: string } }
+                      channel: { type: [string, "null"] }
+                      createdAt: { type: [string, "null"], format: date-time }
+        '400': { description: 'Bad request, or the conversation is not a group thread' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account or conversation not found }
+    patch:
+      operationId: updateImessageGroup
+      summary: Rename an iMessage group or change its photo
+      description: 'One change per call: either `name` or `photoUrl` (an empty `photoUrl` removes the photo). Applied asynchronously by the provider; a rename is mirrored on the inbox conversation right away.'
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string }
+                name: { type: string, maxLength: 32 }
+                photoUrl: { type: string, description: 'Public HTTPS image URL; empty string removes the photo' }
+      responses:
+        '200':
+          description: Change accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  conversationId: { type: string }
+        '400': { description: 'Bad request, or the conversation is not a group thread' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account or conversation not found }
+
+  /v1/imessage/groups/{conversationId}/participants:
+    post:
+      operationId: addImessageGroupParticipant
+      summary: Add a participant to an iMessage group
+      description: Applied asynchronously by the provider; the participant list on the next group webhook reflects it.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, contact]
+              properties:
+                accountId: { type: string }
+                contact: { type: string, description: 'E.164 phone or iMessage email' }
+      responses:
+        '200':
+          description: Change accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  conversationId: { type: string }
+                  contact: { type: string }
+        '400': { description: 'Bad request, or the conversation is not a group thread' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account or conversation not found }
+    delete:
+      operationId: removeImessageGroupParticipant
+      summary: Remove a participant from an iMessage group
+      description: Applied asynchronously by the provider.
+      tags: [iMessage]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: string } }
+        - { name: accountId, in: query, required: true, schema: { type: string } }
+        - { name: contact, in: query, required: true, schema: { type: string }, description: 'E.164 phone or iMessage email' }
+      responses:
+        '200':
+          description: Change accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  conversationId: { type: string }
+                  contact: { type: string }
+        '400': { description: 'Bad request, or the conversation is not a group thread' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account or conversation not found }
+
   /v1/sms/messages:
     post:
       x-resource-group: "messages"
@@ -37515,6 +38248,17 @@ paths:
                         profileId: { type: [string, "null"] }
                         connectedAt: { type: [string, "null"], format: date-time }
                         callingEnabled: { type: boolean, description: 'Whether WhatsApp Business Calling is enabled on this number.' }
+                  imessage:
+                    type: array
+                    description: |
+                      iMessage phone senders (see /v1/imessage/senders/order). Hosted
+                      by the iMessage provider, not on your Telnyx numbers: SMS and
+                      Calls can never be enabled on them, and they bill as iMessage
+                      senders. `handle` is null until the carrier assigns the number
+                      at activation. Included only on the default and `status=active`
+                      views.
+                    items:
+                      $ref: '#/components/schemas/ImessageSenderLifecycle'
                   sandbox:
                     type: [object, "null"]
                     description: |
@@ -38106,6 +38850,17 @@ paths:
                         profileId: { type: [string, "null"] }
                         connectedAt: { type: [string, "null"], format: date-time }
                         callingEnabled: { type: boolean, description: 'Whether WhatsApp Business Calling is enabled on this number.' }
+                  imessage:
+                    type: array
+                    description: |
+                      iMessage phone senders (see /v1/imessage/senders/order). Hosted
+                      by the iMessage provider, not on your Telnyx numbers: SMS and
+                      Calls can never be enabled on them, and they bill as iMessage
+                      senders. `handle` is null until the carrier assigns the number
+                      at activation. Included only on the default and `status=active`
+                      views.
+                    items:
+                      $ref: '#/components/schemas/ImessageSenderLifecycle'
                   sandbox:
                     type: [object, "null"]
                     description: |
@@ -42627,7 +43382,7 @@ paths:
               properties:
                 profileId: { type: string }
                 accountId: { type: string }
-                platform: { type: string, enum: [instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack] }
+                platform: { type: string, enum: [instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage] }
                 name: { type: string }
                 description: { type: string }
                 message:
@@ -46109,7 +46864,34 @@ paths:
                         accountId: { type: [string, "null"] }
                         profileId: { type: string }
                         currency: { type: [string, "null"] }
-                        budget: { type: [object, "null"] }
+                        budget:
+                          type: [object, "null"]
+                          properties:
+                            amount: { type: number }
+                            type: { type: string, enum: [daily, lifetime] }
+                            daily: { type: number, description: "LinkedIn only. The campaign's `dailyBudget`. LinkedIn allows a daily AND a lifetime budget on the same campaign, which `amount`/`type` cannot express (daily wins there); read `daily` and `lifetime` to see both." }
+                            lifetime: { type: number, description: "LinkedIn only. The campaign's `totalBudget`, readable even when a daily budget is also set." }
+                            pacing: { type: string, description: "LinkedIn only. The campaign's `pacingStrategy`: how fast LinkedIn may spend the budget. Typically LINEAR or ACCELERATED; the list is open." }
+                        schedule:
+                          type: [object, "null"]
+                          description: "The ad set's own flight dates, as synced from the platform. On LinkedIn this is the campaign's `runSchedule`. Null when the platform reports none."
+                          properties:
+                            startDate: { type: string, format: date-time }
+                            endDate: { type: string, format: date-time, description: "Absent when the ad set runs until it is stopped." }
+                        targeting:
+                          type: [object, "null"]
+                          description: |
+                            The audience this ad set delivers to, as the platform reports it. LinkedIn only
+                            today; null for every other platform and for LinkedIn ad sets not yet re-synced.
+
+                            `include` and `exclude` are the campaign's `targetingCriteria` verbatim, so they
+                            can be read, edited and sent back without reconstructing them from our normalized
+                            targeting spec. Exclusions were previously not readable at all.
+                          properties:
+                            include: { type: object, description: "LinkedIn `targetingCriteria.include`, verbatim (an `and` of `or` facet clauses)." }
+                            exclude: { type: object, description: "LinkedIn `targetingCriteria.exclude`, verbatim. Absent when the campaign excludes nothing." }
+                            audienceExpansionEnabled: { type: boolean, description: "LinkedIn audience expansion: whether LinkedIn may also serve to members similar to the criteria." }
+                            offsiteDeliveryEnabled: { type: boolean, description: "Whether the campaign may deliver on the LinkedIn Audience Network, off LinkedIn itself." }
                         isExternal: { type: [boolean, "null"] }
                         platformCreatedAt: { type: [string, "null"], format: date-time }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -49336,6 +50118,70 @@ paths:
 
         '501': { description: "Only supported on Meta Ads and Facebook accounts." }
 
+  /v1/ads/instagram-posts:
+    get:
+      operationId: listAdsInstagramPosts
+      summary: List Instagram posts to boost
+      description: "Lists the media of the Instagram account this Meta connection can reach, so an existing Instagram post can be boosted without connecting the Instagram account separately. Each `posts[].id` is the existing-post id to send as `platformPostId` when creating the ad; Meta turns it into `source_instagram_media_id` on the creative. Identity resolution reuses the same resolver as `/v1/ads/instagram-accounts`. `igUserId` is always checked against the identities the connection can reach and is never trusted as sent. When no identity is reachable the endpoint fails instead of returning an empty list, and the two causes stay apart: `403 reconnect_required` means the connection predates Instagram access (Meta then omits `instagram_business_account` from the Page read rather than erroring, so it looks identical to having no data) and the account must be reconnected granting Instagram access, while `422 instagram_business_account_unresolved` means the Page genuinely has no Instagram professional account linked."
+      tags: ["Ad Accounts"]
+      x-resource-group: "ads"
+      x-platforms: ["meta"]
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio Meta Ads, Facebook or Instagram SocialAccount ID." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string, pattern: '^act_[0-9]+$' }, description: "Meta ad account ID including the act_ prefix. Narrows identity resolution to the Instagram accounts reachable from this ad account." }
+        - { name: igUserId, in: query, required: false, schema: { type: string }, description: "Instagram identity to list. Must be one this connection can reach, otherwise the request is rejected with a 400." }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Number of posts to return per page." }
+        - { name: after, in: query, required: false, schema: { type: string }, description: "Opaque Meta cursor from a previous response's paging.after." }
+      responses:
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '200':
+          description: "Instagram posts available to boost."
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [igUserId, username, posts, paging]
+                properties:
+                  igUserId: { type: string, description: "Instagram identity the posts belong to." }
+                  username: { type: string, description: "Instagram username; empty when Meta does not expose it." }
+                  posts:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, mediaType, timestamp]
+                      properties:
+                        id: { type: string, description: "Instagram media ID. Pass this as the existing-post id when creating an ad." }
+                        caption: { type: string, description: "Caption, when the media has one." }
+                        mediaType: { type: string, description: "Meta media_type, e.g. IMAGE, VIDEO or CAROUSEL_ALBUM." }
+                        mediaUrl: { type: string, description: "Media URL. Meta omits it for some media types." }
+                        thumbnailUrl: { type: string, description: "Thumbnail URL. Present for VIDEO, where mediaUrl may be absent." }
+                        permalink: { type: string, description: "Public Instagram permalink." }
+                        timestamp: { type: string, description: "Publish time as Meta reports it." }
+                  paging:
+                    type: object
+                    required: [after]
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page, or null when this is the last one." }
+              example:
+                igUserId: "17841400000000000"
+                username: "example"
+                posts:
+                  - id: "18050809559368305"
+                    caption: "Launch day"
+                    mediaType: VIDEO
+                    thumbnailUrl: "https://scontent.cdninstagram.com/thumb.jpg"
+                    permalink: "https://www.instagram.com/reel/ABCdef/"
+                    timestamp: "2026-09-18T09:00:00+0000"
+                paging: { after: "QVFIUl..." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "The connection predates Instagram access (code reconnect_required) and must be reconnected, or the Meta asset is not accessible." }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '422': { description: "The Facebook Page has no linked Instagram professional account (code instagram_business_account_unresolved), or the connection has no Page selected and no adAccountId was passed (code linked_account_required)." }
+        '501': { description: "Only supported on Meta Ads, Facebook and Instagram accounts." }
+
   /v1/ads/advertisable-applications:
     get:
       operationId: listAdvertisableApplications
@@ -52040,6 +52886,19 @@ paths:
                         timezoneName: { type: string, description: "IANA timezone of the ad account (Meta only). Drives daily-budget reset and Insights day boundaries." }
                         timezoneOffsetHoursUtc: { type: number, description: "Signed UTC offset in hours, reflecting current DST (Meta only)." }
                         minimumDailyBudget: { type: number, description: "Meta only. Minimum daily budget for the account, in the account currency's major units. This is the impressions-billed minimum; other billing events have higher minimums. Absent when the connected token cannot read it." }
+                        fundingSource: { type: string, description: "Meta only. Meta's `funding_source` ID for the ad account, forwarded unchanged. ABSENT when this connection's token cannot see billing on the account, which is not the same as the account having no payment method: never read the missing key as `no payment method configured`." }
+                        fundingSourceDetails:
+                          type: object
+                          description: |
+                            Meta only. Meta's `funding_source_details` object, forwarded unchanged.
+                            ABSENT under exactly the same condition as `fundingSource`: this
+                            connection's token cannot see billing on the ad account. It is never
+                            sent as null or as an empty object, so treat the missing key as
+                            'unknown', never as 'no payment method configured'.
+                          properties:
+                            id: { type: string, description: "Meta's ID for the funding instrument. Matches `fundingSource`." }
+                            displayString: { type: string, description: "Meta's own human-readable label for the funding instrument, e.g. 'Available Balance (EUR)' or a masked card. Meta composes this string; do not parse it." }
+                            type: { type: integer, description: "Meta's raw numeric funding-source type, forwarded unchanged. Meta publishes no mapping from these numbers to payment-method kinds, so none is documented here and none should be inferred." }
                         selectable: { type: boolean, description: "Meta and X only. Whether the account can create/run ads now. Absent (treat as true) on other platforms." }
                         unusableReason: { type: [string, "null"], description: "Meta and X only. Human-readable reason when selectable is false; null when selectable." }
                   cachedAt: { type: [string, "null"], format: date-time, description: "Google only. When this list was fetched from Google. Null when it was never served from cache, or on other platforms." }
@@ -53176,6 +54035,15 @@ paths:
                     ad set's `start_time`. When omitted the ad starts delivering immediately. For lifetime
                     budgets Meta also requires `endDate`. (Same `schedule.startDate` semantics already
                     available on `POST /v1/ads/boost`.)
+                pageId:
+                  type: string
+                  description: |
+                    Meta only. The Facebook Page the ad runs as (`object_story_spec.page_id`). Defaults to
+                    the Page bound to the connection. Pass another Page ID to run the ad as that Page: any
+                    Page granted to the connection is accepted (for a business-login connection, every Page
+                    granted in Meta's dialog; list them with GET /v1/ads/instagram-accounts). The Instagram
+                    identity is re-resolved for that Page unless `instagramAccountId` is set. A Page the
+                    connection cannot see is a 400 on `pageId` naming the granted Pages.
                 instagramAccountId:
                   type: string
                   description: |
@@ -54816,6 +55684,7 @@ paths:
                   lower: { type: [integer, "null"], description: "Lower bound of the estimated reachable audience. Present only when available." }
                   upper: { type: [integer, "null"], description: "Upper bound of the estimated reachable audience. Present only when available." }
                   daily: { type: [integer, "null"], description: "Optional estimated daily reach/results at the given budget, when the platform returns it." }
+                  active: { type: [integer, "null"], description: "LinkedIn only. LinkedIn's `audienceCounts.active`, verbatim: the active subset of the same audience `lower`/`upper` carry as its `total`. Absent when LinkedIn does not report it; `0` is a real answer, not a missing one." }
                   currency: { type: [string, "null"], description: "Currency of any monetary fields in the estimate, when applicable." }
                   estimateReady: { type: [boolean, "null"], description: "Meta only. False when Meta is still computing the estimate (the audience is too new); retry shortly." }
         '400':

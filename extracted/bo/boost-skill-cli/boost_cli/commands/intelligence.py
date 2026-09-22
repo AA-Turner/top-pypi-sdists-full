@@ -164,6 +164,8 @@ def _install_generated(name: str, text: str, yes: bool = False) -> None:
     out.ok("%s %s → %s" % ("replaced" if owner else "installed", name, _tilde(res.dest)))
     if res.linked:
         out.info(out.role("linked into: %s" % ", ".join(res.linked), "muted"))
+    from .pkg import _warn_unwritable
+    _warn_unwritable(res)
 
 
 def _write_generated(dest: Path, text: str, yes: bool = False) -> bool:
@@ -753,9 +755,11 @@ def cmd_evolve(argv: list[str]) -> int:
         description="Iteratively improve a skill from feedback")
     ap.add_argument("name", metavar="NAME")
     ap.add_argument("--feedback", required=True, metavar="TEXT",
-                    help="what should change, in plain English")
+                    help="what should change, in plain English; `-` reads "
+                         "it from stdin, `@FILE` from a file")
     ap.add_argument("--apply", action="store_true",
-                    help="write the revision to the installed skill")
+                    help="write the revision to the installed skill and pin "
+                         "it, so `boost update` keeps it")
     args = ap.parse_args(argv)
 
     entry = lockfile.get_skill(args.name)
@@ -774,15 +778,19 @@ def cmd_evolve(argv: list[str]) -> int:
     if not skill_md.exists():
         raise BoostError("%s has no SKILL.md in the store" % args.name,
                         hint="repair with `boost sync`")
+    # Resolved before either path runs: an empty value used to reach both,
+    # and the heuristic turned it into an empty "## Feedback" heading plus a
+    # version bump — which `--apply` then wrote to the store and the lock.
+    feedback = util.read_text_arg(args.feedback, "--feedback")
     old = skill_md.read_text(encoding="utf-8", errors="replace")
     old_meta, _ = frontmatter.parse(old)
     old_ver = str(old_meta.get("version") or "0.0.0")
 
     out.heading("evolving %s  %s" % (args.name, out.role("(v%s)" % old_ver, "muted")))
-    new = _evolve_ai(old, old_ver, args.feedback) if ai.available() else None
+    new = _evolve_ai(old, old_ver, feedback) if ai.available() else None
     if new is None:
         _note_fallback()
-        new = _evolve_append(old, old_ver, args.feedback)
+        new = _evolve_append(old, old_ver, feedback)
     _print_diff(old, new)
     new_meta, _ = frontmatter.parse(new)
     new_ver = str(new_meta.get("version") or old_ver)
@@ -794,9 +802,19 @@ def cmd_evolve(argv: list[str]) -> int:
     entry["sha256"] = util.sha256_dir(store.skill_store_dir(args.name))
     entry["updated_at"] = util.now_iso()
     entry["version"] = new_ver
+    # Pinned, because this revision exists nowhere but the store: once the
+    # tap moves, `boost update` sees a source whose bytes differ from the
+    # lock's and reinstalls over it with a plain "refreshed" line.
+    was_pinned = bool(entry.get("pinned"))
+    entry["pinned"] = True
     lockfile.set_skill(args.name, entry)
     journal.log("evolve", args.name, version=new_ver)
     out.ok("evolved %s → v%s" % (args.name, new_ver))
+    if not was_pinned:
+        journal.log("pin", args.name)   # as `boost pin` records it
+        out.info("pinned it so `boost update` keeps this revision; "
+                 "`boost unpin %s` lets the tap replace it" % args.name,
+                 wrap=True)
     return 0
 
 
@@ -996,7 +1014,8 @@ def _context_status(state: dict, as_json: bool) -> int:
     rows = [(r.get("pattern", "?"), ", ".join(r.get("skills", [])),
              "*" if branch and fnmatch.fnmatch(branch, r.get("pattern", "")) else "")
             for r in rules]
-    out.table(rows, headers=("PATTERN", "SKILLS", "MATCH"))
+    out.table(rows, headers=("PATTERN", "SKILLS", "MATCH"),
+              whole=("PATTERN",))  # `context unmap <pattern>`
     return 0
 
 
@@ -1200,7 +1219,8 @@ def cmd_impact(argv: list[str]) -> int:
         print(json.dumps({"note": note, "git": git.has_git, "skills": data}))
         return 0
     out.heading("impact" + ((" of %s" % args.name) if args.name else ""))
-    out.table(rows, headers=("SKILL", "INSTALLED", "COMMITS SINCE", "EVENTS"))
+    out.table(rows, headers=("SKILL", "INSTALLED", "COMMITS SINCE", "EVENTS"),
+              whole=("SKILL",))  # `boost impact <name>`
     if args.name and in_repo and data[0]["files_touched"] is not None:
         out.kv("files touched", data[0]["files_touched"])
     if args.name:
@@ -1294,8 +1314,10 @@ def cmd_chat(argv: list[str]) -> int:
     ap.add_argument("question", nargs="*", metavar="QUESTION",
                     help="ask once and exit; omit for an interactive session")
     ap.add_argument("-k", "--limit", type=util.positive_int, default=chat_engine.TOP_K,
-                    metavar="N", help="candidate skills to consider (default %d)"
-                                      % chat_engine.TOP_K)
+                    metavar="N",
+                    help="candidate skills per search (default %d); a follow-up "
+                         "that points back also keeps the previous list"
+                         % chat_engine.TOP_K)
     ap.add_argument("--no-sources", action="store_true",
                     help="hide the citation block under each answer")
     ap.add_argument("--json", action="store_true", dest="as_json",
@@ -1336,26 +1358,33 @@ def _chat_session(args) -> int:
     assistant, and a long transcript encourages answering from the conversation
     rather than from what retrieval actually returned.
     """
-    if not ai.available():
+    have_ai = ai.available()
+    if not have_ai:
         # Worth saying up front rather than letting every answer look terse for
         # an unexplained reason.
         note = ("no AI configured — answers are the grounded matches "
                 "themselves (%s)" % ai.fallback_note())
         for line in out.wrap(note, max(out.term_width() - 2, 20)):
             out.info(out.role(line, "muted"))
-    out.info(out.role("ask about skills; blank line or Ctrl-D to exit", "muted"))
+    # With stdin piped nobody is typing, so the prompt and the typing hint are
+    # only chrome in the answers a script captures — the same rule
+    # output.confirm applies. A terminal is unchanged.
+    typing = sys.stdin.isatty()
+    if typing:
+        out.info(out.role("ask about skills; blank line or Ctrl-D to exit", "muted"))
     history: list[chat_engine.Turn] = []
     while True:
         try:
-            question = input("\n> ").strip()
+            question = input("\n> " if typing else "").strip()
         except (EOFError, KeyboardInterrupt):
-            out.info("")
+            if typing:
+                out.info("")    # end the prompt line the EOF left open
             return 0
         if not question:
             return 0
         reply = chat_engine.answer(question, history=history, k=args.limit)
         out.info("")
         _print_reply(reply, not args.no_sources)
-        history.append(chat_engine.Turn(question, reply.text))
-        for follow in chat_engine.suggest_followups(reply.skills)[:2]:
+        history.append(chat_engine.Turn(question, reply.text, reply.skills))
+        for follow in chat_engine.suggest_followups(reply.skills, with_ai=have_ai)[:2]:
             out.info(out.role("  try: %s" % follow, "muted"))

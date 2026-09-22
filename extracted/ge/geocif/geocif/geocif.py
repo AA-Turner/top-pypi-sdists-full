@@ -619,6 +619,22 @@ class Geocif:
             if self.parser.has_option("ML", _opt):
                 self.causilo_params[_opt.replace("causilo_", "")] = _cast("ML", _opt)
 
+        # Optional LimiX-2 (model='limix') overrides; limix_<x> -> <x>.
+        # limix_root / model_path / inference_config / cache_dir point at the
+        # side env's checkout and checkpoint (see ml/limix.py); absent keys
+        # keep the wrapper's defaults. seed is NOT harvested — it is geocif's
+        # fold seed, set in the trainer.
+        self.limix_params: dict = {}
+        for _opt, _cast in (
+            ("limix_limix_root", self.parser.get),
+            ("limix_model_path", self.parser.get),
+            ("limix_inference_config", self.parser.get),
+            ("limix_device", self.parser.get),
+            ("limix_cache_dir", self.parser.get),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.limix_params[_opt.replace("limix_", "")] = _cast("ML", _opt)
+
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
         self.target_bins = {}
@@ -7230,6 +7246,7 @@ class ModelTrainer:
             mitra_params=getattr(self.obj, "mitra_params", None),
             tabpfn_params=getattr(self.obj, "tabpfn_params", None),
             causilo_params=getattr(self.obj, "causilo_params", None),
+            limix_params=getattr(self.obj, "limix_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):

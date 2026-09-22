@@ -973,10 +973,13 @@ def checkElements(val: ValidateXbrl, modelDocument: ModelDocument, parent: _Elem
                                 _("Inline XBRL footnote %(footnoteID)s is missing an xml:lang attribute"),
                                 modelObject=elt, footnoteID=id)
                     if elt.namespaceURI == XbrlConst.ixbrl:
-                        if elt.footnoteID not in val.ixdsFootnotesById:
-                            val.ixdsFootnotesById[elt.footnoteID] = []
-                        val.ixdsFootnotesById[elt.footnoteID].append(elt)
-                        val.ixdsFootnotes[elt.footnoteID] = elt
+                        # a missing footnoteID is reported by schema validation of the document
+                        footnoteID = elt.footnoteID
+                        if footnoteID is not None:
+                            if footnoteID not in val.ixdsFootnotesById:
+                                val.ixdsFootnotesById[footnoteID] = []
+                            val.ixdsFootnotesById[footnoteID].append(elt)
+                            val.ixdsFootnotes[footnoteID] = elt
                     else:
                         checkIxContinuationChain(val, elt)
                     if not elt.xmlLang:
@@ -1056,7 +1059,7 @@ def checkElements(val: ValidateXbrl, modelDocument: ModelDocument, parent: _Elem
                 elif elt.localName == "nonNumeric":
                     checkIxContinuationChain(val, elt)
                 elif elt.localName == "references":
-                    val.ixdsReferences[elt.get("target")].append(elt)  # type: ignore[index]
+                    val.ixdsReferences[elt.get("target")].append(elt)
                 elif elt.localName == "relationship":
                     val.ixdsRelationships.append(elt)
                 elif elt.localName == "tuple":

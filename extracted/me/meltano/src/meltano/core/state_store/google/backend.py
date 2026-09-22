@@ -3,19 +3,28 @@
 from __future__ import annotations
 
 import json
+import sys
 import typing as t
 import warnings
 from functools import cached_property
 
-import google
 import google.api_core.exceptions
 import google.cloud.storage
 import structlog.stdlib
 
 from meltano.core.state_store.filesystem import CloudStateStoreManager
 
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
 if t.TYPE_CHECKING:
-    from collections.abc import Generator
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
+
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -81,6 +90,7 @@ class GCSStateStoreManager(CloudStateStoreManager):
         self.application_credentials_json = application_credentials_json
 
     @staticmethod
+    @override
     def is_file_not_found_error(err: Exception) -> bool:
         """Check if err is equivalent to file not being found.
 
@@ -95,12 +105,9 @@ class GCSStateStoreManager(CloudStateStoreManager):
         )
 
     @cached_property
+    @override
     def client(self) -> google.cloud.storage.Client:
-        """Get an authenticated google.cloud.storage.Client.
-
-        Returns:
-            A google.cloud.storage.Client.
-        """
+        """Authenticated google.cloud.storage.Client."""
         if self.application_credentials_json:
             # Parse JSON string and create client from service account info
             try:
@@ -123,6 +130,7 @@ class GCSStateStoreManager(CloudStateStoreManager):
         return google.cloud.storage.Client()
 
     @property
+    @override
     def extra_transport_params(self) -> dict[str, t.Any]:
         """Extra transport params for ``smart_open.open``."""
         return {
@@ -131,6 +139,7 @@ class GCSStateStoreManager(CloudStateStoreManager):
             },
         }
 
+    @override
     def delete_file(self, file_path: str) -> None:
         """Delete the file/blob at the given path.
 
@@ -150,7 +159,8 @@ class GCSStateStoreManager(CloudStateStoreManager):
             else:
                 raise e  # noqa: TRY201
 
-    def list_all_files(self, *, with_prefix: bool = True) -> Generator[str, None, None]:
+    @override
+    def list_all_files(self, *, with_prefix: bool = True) -> Generator[str]:
         """List all files in the backend.
 
         Args:
@@ -166,6 +176,7 @@ class GCSStateStoreManager(CloudStateStoreManager):
         ):
             yield blob.name
 
+    @override
     def copy_file(self, src: str, dst: str) -> None:
         """Copy a file from one location to another.
 

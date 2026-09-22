@@ -53,6 +53,7 @@ class TestAdhocExecuteRequest(unittest.TestCase):
                         output_alias = '', )
                     ],
                 inputs = { },
+                filters = { },
                 budget_limits = mixpeek.models.budget_limits.BudgetLimits(
                     max_credits = 0.0, 
                     max_time_ms = 0.0, ),

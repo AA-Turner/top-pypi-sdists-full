@@ -123,6 +123,48 @@ def local_available() -> bool:
     return _backend() is not None
 
 
+def local_failure() -> dict | None:
+    """The last failed fetch or load of the local model, or None.
+
+    Importable means the runtime is there, not that the model is: the weights
+    are fetched on first use, and a store built elsewhere can sit on a machine
+    that cannot fetch them. Read from ``core.localembed`` directly rather than
+    through the backend seam, because the record is a module variable and a
+    small file — it needs no ONNX runtime.
+    """
+    from . import localembed
+    return localembed.last_failure()
+
+
+def local_failure_text(rec: dict) -> str:
+    """A failure record as a clause: what went wrong with the local model.
+
+    One wording for the two surfaces that print it (`boost doctor`, `boost
+    reindex --dense`), so they cannot describe the same record two ways.
+    """
+    what = ("would not load" if rec.get("stage") == "load"
+            else "could not be downloaded")
+    err = rec.get("error")
+    return "the local model %s%s" % (what, " (%s)" % err if err else "")
+
+
+def retry_local() -> bool | None:
+    """Retry a recorded local-model failure now. None when there is none.
+
+    For ``boost reindex --dense``, the remedy ``dense.fix_hint`` names: a user
+    who ran it is asking for the attempt the back-off in ``core.localembed``
+    withholds from searches. One text goes through the real path, so True
+    means a query can be embedded, not merely that the files exist. Nothing is
+    loaded when no failure is recorded — the next embedding loads on demand,
+    as it always has.
+    """
+    if provider() != "local" or local_failure() is None:
+        return None
+    from . import localembed
+    localembed.forget_failure()
+    return _embed_local(["boost"]) is not None
+
+
 def provider() -> str | None:
     """The active provider, preferring a configured key, or None when nothing works.
 
@@ -176,8 +218,12 @@ def fallback_note() -> str:
     """
     if not enabled():
         return "dense search is off (BOOST_NO_EMBED) — using the BM25 engine"
-    return ("dense search needs the `[rag]` extra — `pip install "
-            "boost-skill-cli[rag]`; using the BM25 full-content engine")
+    # `dense` imports this module, so it is asked here rather than at the top.
+    # Its answer is the one doctor and search print; this line used to spell
+    # the command unquoted, which zsh rejects with "no matches found".
+    from . import dense
+    return ("dense search needs the `[rag]` extra — `%s`; using the BM25 "
+            "full-content engine" % dense.install_extra())
 
 
 def embed(texts: list[str], input_type: str | None = None,

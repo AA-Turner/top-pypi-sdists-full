@@ -188,6 +188,12 @@ class TestLayout:
         pos = nx.circular_layout(self.Gi)
         npos = nx.forceatlas2_layout(self.Gi, pos=pos)
 
+    def test_smoke_initial_pos_nonarray_forceatlas2(self):
+        # See gh-8451
+        pos = nx.circular_layout(self.Gi)
+        pos = {key: tuple(value) for key, value in pos.items()}
+        npos = nx.forceatlas2_layout(self.Gi, pos=pos)
+
     def test_smoke_initial_pos_fruchterman_reingold(self):
         pos = nx.circular_layout(self.Gi)
         npos = nx.fruchterman_reingold_layout(self.Gi, pos=pos)
@@ -195,6 +201,24 @@ class TestLayout:
     def test_smoke_initial_pos_arf(self):
         pos = nx.circular_layout(self.Gi)
         npos = nx.arf_layout(self.Gi, pos=pos)
+
+    @pytest.mark.parametrize("method", ("force", "energy"))
+    @pytest.mark.parametrize(
+        "layout_fn", (nx.spring_layout, nx.fruchterman_reingold_layout)
+    )
+    def test_zero_iterations_fruchterman_reingold(self, method, layout_fn):
+        pos = nx.circular_layout(self.Gi)
+        npos = layout_fn(self.Gi, pos=pos, method=method, iterations=0, scale=None)
+        assert pos.keys() == npos.keys()
+        for node, p in npos.items():
+            assert np.allclose(pos[node], p)
+
+    def test_zero_iterations_arf(self):
+        pos = nx.circular_layout(self.Gi)
+        npos = nx.arf_layout(self.Gi, pos=pos, max_iter=0)
+        assert pos.keys() == npos.keys()
+        for node, p in npos.items():
+            assert np.allclose(pos[node], p)
 
     def test_fixed_node_fruchterman_reingold(self):
         # Dense version (numpy based)
@@ -206,6 +230,10 @@ class TestLayout:
         npos = nx.spring_layout(self.bigG, pos=pos, fixed=[(0, 0)])
         for axis in range(2):
             assert pos[(0, 0)][axis] == pytest.approx(npos[(0, 0)][axis], abs=1e-7)
+        # Empty fixed list - see gh-8446
+        pos = nx.circular_layout(self.Gi)
+        npos = nx.spring_layout(self.Gi, pos=pos, fixed=[])
+        assert len(npos) == len(pos)
 
     def test_center_parameter(self):
         G = nx.path_graph(1)
@@ -602,6 +630,26 @@ def test_layouts_negative_dim(layout):
     )
     with pytest.raises(ValueError, match=valid_err_msgs):
         layout(G, dim=-1)
+
+
+@pytest.mark.parametrize(
+    "layout",
+    [
+        nx.random_layout,
+        nx.circular_layout,
+        nx.kamada_kawai_layout,
+        nx.spring_layout,
+        nx.spectral_layout,
+    ],
+)
+@pytest.mark.parametrize("dim", [3, 4, 5])
+def test_dim_parameter(layout, dim):
+    """Test layouts that support unrestricted dim kwarg."""
+    G = nx.path_graph(4)
+    pos = layout(G, dim=dim)
+    assert len(pos) == len(G)
+    for coords in pos.values():
+        assert len(coords) == dim
 
 
 @pytest.mark.parametrize(

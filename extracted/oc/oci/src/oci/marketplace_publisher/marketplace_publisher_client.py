@@ -1334,7 +1334,7 @@ class MarketplacePublisherClient(object):
 
         You must also specify a *name* for the listing and cannot be updated later.
 
-        You must also specify a *packageType* for the listing. Allowed values are CONTAINER_IMAGE and HELM_CHART
+        You must also specify a *packageType* for the listing. Allowed values are CONTAINER_IMAGE, HELM_CHART, COMPUTE_IMAGE, TERRAFORM_STACK and SAAS
 
         After you send your request, the new object's `lifecycleState` will be CREATING.
         Before using the object, first make sure its `lifecycleState` has changed to ACTIVE.
@@ -1860,6 +1860,111 @@ class MarketplacePublisherClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
+    def create_publisher(self, create_publisher_details, **kwargs):
+        """
+        Creates a new publisher
+
+
+        :param oci.marketplace_publisher.models.CreatePublisherDetails create_publisher_details: (required)
+            The publisher information to be created.
+
+        :param str opc_retry_token: (optional)
+            A token that uniquely identifies a request so it can be retried in case of a timeout or
+            server error without risk of executing that same action again. Retry tokens expire after 24
+            hours, but can be invalidated before then due to conflicting operations. For example, if a resource
+            has been deleted and purged from the system, then a retry of the original creation request
+            might be rejected.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.marketplace_publisher.models.Publisher`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/create_publisher.py.html>`__ to see an example of how to use create_publisher API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = []
+        resource_path = "/publishers"
+        method = "POST"
+        operation_name = "create_publisher"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/Publisher/CreatePublisher"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_retry_token",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"create_publisher got unknown kwargs: {extra_kwargs!r}")
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-retry-token": kwargs.get("opc_retry_token", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                header_params=header_params,
+                body=create_publisher_details,
+                response_type="Publisher",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                header_params=header_params,
+                body=create_publisher_details,
+                response_type="Publisher",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
     def create_term(self, create_term_details, **kwargs):
         """
         Creates a new Term.
@@ -2205,6 +2310,118 @@ class MarketplacePublisherClient(object):
         if retry_strategy:
             if not isinstance(retry_strategy, retry.NoneRetryStrategy):
                 self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def delete_customer_instance_report_export(self, customer_instance_report_export_id, **kwargs):
+        """
+        Deletes a generated Customer Instance Report export.
+
+
+        :param str customer_instance_report_export_id: (required)
+            Customer Instance Report export identifier.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the `if-match` parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/delete_customer_instance_report_export.py.html>`__ to see an example of how to use delete_customer_instance_report_export API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['customerInstanceReportExportId']
+        resource_path = "/customerInstanceReportExports/{customerInstanceReportExportId}"
+        method = "DELETE"
+        operation_name = "delete_customer_instance_report_export"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/CustomerInstanceReportExport/DeleteCustomerInstanceReportExport"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "if_match",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"delete_customer_instance_report_export got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "customerInstanceReportExportId": customer_instance_report_export_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "if-match": kwargs.get("if_match", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
                 self.base_client.add_opc_client_retries_header(header_params)
                 retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
             return retry_strategy.make_retrying_call(
@@ -3014,6 +3231,109 @@ class MarketplacePublisherClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
+    def generate_customer_instance_report_export(self, generate_customer_instance_report_export_details, **kwargs):
+        """
+        Generates a new asynchronous Customer Instance Report export for the selected filters.
+
+
+        :param oci.marketplace_publisher.models.GenerateCustomerInstanceReportExportDetails generate_customer_instance_report_export_details: (required)
+            Details for the Customer Instance Report export.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param str opc_retry_token: (optional)
+            A token that uniquely identifies a request so it can be retried in case of a timeout or
+            server error without risk of executing that same action again. Retry tokens expire after 24
+            hours, but can be invalidated before then due to conflicting operations. For example, if a resource
+            has been deleted and purged from the system, then a retry of the original creation request
+            might be rejected.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/generate_customer_instance_report_export.py.html>`__ to see an example of how to use generate_customer_instance_report_export API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = []
+        resource_path = "/customerInstanceReportExports/actions/generate"
+        method = "POST"
+        operation_name = "generate_customer_instance_report_export"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/CustomerInstanceReportExport/GenerateCustomerInstanceReportExport"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id",
+            "opc_retry_token"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"generate_customer_instance_report_export got unknown kwargs: {extra_kwargs!r}")
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing),
+            "opc-retry-token": kwargs.get("opc_retry_token", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_retry_token_if_needed(header_params)
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                header_params=header_params,
+                body=generate_customer_instance_report_export_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                header_params=header_params,
+                body=generate_customer_instance_report_export_details,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
     def get_artifact(self, artifact_id, **kwargs):
         """
         Gets the specified artifact's information.
@@ -3228,6 +3548,214 @@ class MarketplacePublisherClient(object):
                 query_params=query_params,
                 header_params=header_params,
                 response_type="Category",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def get_customer_instance_report_export(self, customer_instance_report_export_id, **kwargs):
+        """
+        Gets details for a specific Customer Instance Report export.
+
+
+        :param str customer_instance_report_export_id: (required)
+            Customer Instance Report export identifier.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.marketplace_publisher.models.CustomerInstanceReportExport`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/get_customer_instance_report_export.py.html>`__ to see an example of how to use get_customer_instance_report_export API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['customerInstanceReportExportId']
+        resource_path = "/customerInstanceReportExports/{customerInstanceReportExportId}"
+        method = "GET"
+        operation_name = "get_customer_instance_report_export"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/CustomerInstanceReportExport/GetCustomerInstanceReportExport"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"get_customer_instance_report_export got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "customerInstanceReportExportId": customer_instance_report_export_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                response_type="CustomerInstanceReportExport",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                response_type="CustomerInstanceReportExport",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def get_customer_instance_report_export_content(self, customer_instance_report_export_id, **kwargs):
+        """
+        Downloads the generated Customer Instance Report CSV for the specified export.
+
+
+        :param str customer_instance_report_export_id: (required)
+            Customer Instance Report export identifier.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type None
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/get_customer_instance_report_export_content.py.html>`__ to see an example of how to use get_customer_instance_report_export_content API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['customerInstanceReportExportId']
+        resource_path = "/customerInstanceReportExports/{customerInstanceReportExportId}/content"
+        method = "GET"
+        operation_name = "get_customer_instance_report_export_content"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/CustomerInstanceReportExport/GetCustomerInstanceReportExportContent"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"get_customer_instance_report_export_content got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "customerInstanceReportExportId": customer_instance_report_export_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,
@@ -5485,18 +6013,13 @@ class MarketplacePublisherClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
-    def list_customer_instance_report_records(self, compartment_id, date_range, **kwargs):
+    def list_customer_instance_report_exports(self, compartment_id, **kwargs):
         """
-        List customer instance report records
+        Lists existing Customer Instance Report exports for the caller.
 
 
         :param str compartment_id: (required)
             The ID of the compartment in which to list resources.
-
-        :param str date_range: (required)
-            The date range of the report
-
-            Allowed values are: "THIS_WEEK", "LAST_WEEK", "THIS_MONTH", "LAST_MONTH", "LAST_THREE_MONTHS"
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -5513,12 +6036,262 @@ class MarketplacePublisherClient(object):
             Allowed values are: "ASC", "DESC"
 
         :param str sort_by: (optional)
-            The field to sort by. Only one sort order may be provided. Default order for timeCreated is descending. Default order for displayName is ascending.
+            The field to sort by. Only one sort order may be provided. Default order for timeCreated is descending. Default order for fileName is ascending.
 
-            Allowed values are: "timeCreated", "displayName"
+            Allowed values are: "timeCreated", "fileName"
 
         :param str name: (optional)
             A filter to return only resources that match the entire name given.
+
+        :param str listing_id: (optional)
+            Listing OCID to query resource against.
+
+        :param str status: (optional)
+            A filter to return only report records that match the instance status.
+
+            Allowed values are: "PROVISIONING", "RUNNING", "STOPPED", "TERMINATING", "TERMINATED", "DISABLED", "STARTING", "STOPPING", "SNAPSHOTTING"
+
+        :param str shape: (optional)
+            A filter to return only report records that match the instance shape.
+
+        :param str region: (optional)
+            A filter to return only report records that match the instance region.
+
+        :param str realm: (optional)
+            A filter to return only report records that match the instance realm.
+
+        :param str tenant_admin_domain: (optional)
+            A filter to return only report records that match the tenant administrator domain.
+
+        :param str package_version: (optional)
+            A filter to return only report records that match the package version.
+
+        :param str instance_ocid: (optional)
+            A filter to return only report records that match the instance OCID.
+
+        :param datetime time_instance_creation_from_date: (optional)
+            The inclusive earliest instance creation time, in RFC 3339 format.
+
+        :param datetime time_instance_creation_to_date: (optional)
+            The inclusive latest instance creation time, in RFC 3339 format.
+
+        :param datetime time_instance_termination_from_date: (optional)
+            The inclusive earliest instance termination time, in RFC 3339 format.
+
+        :param datetime time_instance_termination_to_date: (optional)
+            The inclusive latest instance termination time, in RFC 3339 format.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.marketplace_publisher.models.CustomerInstanceReportExportCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/list_customer_instance_report_exports.py.html>`__ to see an example of how to use list_customer_instance_report_exports API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['compartmentId']
+        resource_path = "/customerInstanceReportExports"
+        method = "GET"
+        operation_name = "list_customer_instance_report_exports"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/CustomerInstanceReportExportCollection/ListCustomerInstanceReportExports"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "opc_request_id",
+            "limit",
+            "page",
+            "sort_order",
+            "sort_by",
+            "name",
+            "listing_id",
+            "status",
+            "shape",
+            "region",
+            "realm",
+            "tenant_admin_domain",
+            "package_version",
+            "instance_ocid",
+            "time_instance_creation_from_date",
+            "time_instance_creation_to_date",
+            "time_instance_termination_from_date",
+            "time_instance_termination_to_date"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_customer_instance_report_exports got unknown kwargs: {extra_kwargs!r}")
+
+        if 'sort_order' in kwargs:
+            sort_order_allowed_values = ["ASC", "DESC"]
+            if kwargs['sort_order'] not in sort_order_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_order`, must be one of { sort_order_allowed_values }"
+                )
+
+        if 'sort_by' in kwargs:
+            sort_by_allowed_values = ["timeCreated", "fileName"]
+            if kwargs['sort_by'] not in sort_by_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
+                )
+
+        if 'status' in kwargs:
+            status_allowed_values = ["PROVISIONING", "RUNNING", "STOPPED", "TERMINATING", "TERMINATED", "DISABLED", "STARTING", "STOPPING", "SNAPSHOTTING"]
+            if kwargs['status'] not in status_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `status`, must be one of { status_allowed_values }"
+                )
+
+        query_params = {
+            "compartmentId": compartment_id,
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing),
+            "sortOrder": kwargs.get("sort_order", missing),
+            "sortBy": kwargs.get("sort_by", missing),
+            "name": kwargs.get("name", missing),
+            "listingId": kwargs.get("listing_id", missing),
+            "status": kwargs.get("status", missing),
+            "shape": kwargs.get("shape", missing),
+            "region": kwargs.get("region", missing),
+            "realm": kwargs.get("realm", missing),
+            "tenantAdminDomain": kwargs.get("tenant_admin_domain", missing),
+            "packageVersion": kwargs.get("package_version", missing),
+            "instanceOcid": kwargs.get("instance_ocid", missing),
+            "timeInstanceCreationFromDate": kwargs.get("time_instance_creation_from_date", missing),
+            "timeInstanceCreationToDate": kwargs.get("time_instance_creation_to_date", missing),
+            "timeInstanceTerminationFromDate": kwargs.get("time_instance_termination_from_date", missing),
+            "timeInstanceTerminationToDate": kwargs.get("time_instance_termination_to_date", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CustomerInstanceReportExportCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="CustomerInstanceReportExportCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def list_customer_instance_report_records(self, compartment_id, **kwargs):
+        """
+        List customer instance report records
+
+
+        :param str compartment_id: (required)
+            The ID of the compartment in which to list resources.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param int limit: (optional)
+            The maximum number of items to return.
+
+        :param str page: (optional)
+            A token representing the position at which to start retrieving results. This must come from the `opc-next-page` header field of a previous response.
+
+        :param str sort_order: (optional)
+            The sort order to use, either 'ASC' or 'DESC'.
+
+            Allowed values are: "ASC", "DESC"
+
+        :param str sort_by: (optional)
+            The field to sort by. Only one sort order may be provided. Default order for instance_id is ascending.
+
+            Allowed values are: "INSTANCE_ID"
+
+        :param str name: (optional)
+            A filter to return only resources that match the entire name given.
+
+        :param str listing_id: (optional)
+            Listing OCID to query resource against.
+
+        :param str status: (optional)
+            A filter to return only report records that match the instance status.
+
+            Allowed values are: "PROVISIONING", "RUNNING", "STOPPED", "TERMINATING", "TERMINATED", "DISABLED", "STARTING", "STOPPING", "SNAPSHOTTING"
+
+        :param str shape: (optional)
+            A filter to return only report records that match the instance shape.
+
+        :param str region: (optional)
+            A filter to return only report records that match the instance region.
+
+        :param str realm: (optional)
+            A filter to return only report records that match the instance realm.
+
+        :param str tenant_admin_domain: (optional)
+            A filter to return only report records that match the tenant administrator domain.
+
+        :param str package_version: (optional)
+            A filter to return only report records that match the package version.
+
+        :param str instance_ocid: (optional)
+            A filter to return only report records that match the instance OCID.
+
+        :param datetime time_instance_creation_from_date: (optional)
+            The inclusive earliest instance creation time, in RFC 3339 format.
+
+        :param datetime time_instance_creation_to_date: (optional)
+            The inclusive latest instance creation time, in RFC 3339 format.
+
+        :param datetime time_instance_termination_from_date: (optional)
+            The inclusive earliest instance termination time, in RFC 3339 format.
+
+        :param datetime time_instance_termination_to_date: (optional)
+            The inclusive latest instance termination time, in RFC 3339 format.
 
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
@@ -5543,7 +6316,7 @@ class MarketplacePublisherClient(object):
         Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/list_customer_instance_report_records.py.html>`__ to see an example of how to use list_customer_instance_report_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
-        required_arguments = ['compartmentId', 'dateRange']
+        required_arguments = ['compartmentId']
         resource_path = "/customerInstanceReportRecords"
         method = "GET"
         operation_name = "list_customer_instance_report_records"
@@ -5559,18 +6332,24 @@ class MarketplacePublisherClient(object):
             "page",
             "sort_order",
             "sort_by",
-            "name"
+            "name",
+            "listing_id",
+            "status",
+            "shape",
+            "region",
+            "realm",
+            "tenant_admin_domain",
+            "package_version",
+            "instance_ocid",
+            "time_instance_creation_from_date",
+            "time_instance_creation_to_date",
+            "time_instance_termination_from_date",
+            "time_instance_termination_to_date"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
         if extra_kwargs:
             raise ValueError(
                 f"list_customer_instance_report_records got unknown kwargs: {extra_kwargs!r}")
-
-        date_range_allowed_values = ["THIS_WEEK", "LAST_WEEK", "THIS_MONTH", "LAST_MONTH", "LAST_THREE_MONTHS"]
-        if date_range not in date_range_allowed_values:
-            raise ValueError(
-                f"Invalid value for `date_range`, must be one of { date_range_allowed_values }"
-            )
 
         if 'sort_order' in kwargs:
             sort_order_allowed_values = ["ASC", "DESC"]
@@ -5580,20 +6359,38 @@ class MarketplacePublisherClient(object):
                 )
 
         if 'sort_by' in kwargs:
-            sort_by_allowed_values = ["timeCreated", "displayName"]
+            sort_by_allowed_values = ["INSTANCE_ID"]
             if kwargs['sort_by'] not in sort_by_allowed_values:
                 raise ValueError(
                     f"Invalid value for `sort_by`, must be one of { sort_by_allowed_values }"
                 )
 
+        if 'status' in kwargs:
+            status_allowed_values = ["PROVISIONING", "RUNNING", "STOPPED", "TERMINATING", "TERMINATED", "DISABLED", "STARTING", "STOPPING", "SNAPSHOTTING"]
+            if kwargs['status'] not in status_allowed_values:
+                raise ValueError(
+                    f"Invalid value for `status`, must be one of { status_allowed_values }"
+                )
+
         query_params = {
             "compartmentId": compartment_id,
-            "dateRange": date_range,
             "limit": kwargs.get("limit", missing),
             "page": kwargs.get("page", missing),
             "sortOrder": kwargs.get("sort_order", missing),
             "sortBy": kwargs.get("sort_by", missing),
-            "name": kwargs.get("name", missing)
+            "name": kwargs.get("name", missing),
+            "listingId": kwargs.get("listing_id", missing),
+            "status": kwargs.get("status", missing),
+            "shape": kwargs.get("shape", missing),
+            "region": kwargs.get("region", missing),
+            "realm": kwargs.get("realm", missing),
+            "tenantAdminDomain": kwargs.get("tenant_admin_domain", missing),
+            "packageVersion": kwargs.get("package_version", missing),
+            "instanceOcid": kwargs.get("instance_ocid", missing),
+            "timeInstanceCreationFromDate": kwargs.get("time_instance_creation_from_date", missing),
+            "timeInstanceCreationToDate": kwargs.get("time_instance_creation_to_date", missing),
+            "timeInstanceTerminationFromDate": kwargs.get("time_instance_termination_from_date", missing),
+            "timeInstanceTerminationToDate": kwargs.get("time_instance_termination_to_date", missing)
         }
         query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
@@ -5651,7 +6448,7 @@ class MarketplacePublisherClient(object):
         :param str date_range: (required)
             The date range of the report
 
-            Allowed values are: "LAST_MONTH", "LAST_THREE_MONTHS"
+            Allowed values are: "LAST_MONTH", "LAST_THREE_MONTHS", "LAST_SIX_MONTHS", "LAST_TWELVE_MONTHS", "LAST_EIGHTEEN_MONTHS", "ALL_TIME"
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -5721,7 +6518,7 @@ class MarketplacePublisherClient(object):
             raise ValueError(
                 f"list_disbursement_report_records got unknown kwargs: {extra_kwargs!r}")
 
-        date_range_allowed_values = ["LAST_MONTH", "LAST_THREE_MONTHS"]
+        date_range_allowed_values = ["LAST_MONTH", "LAST_THREE_MONTHS", "LAST_SIX_MONTHS", "LAST_TWELVE_MONTHS", "LAST_EIGHTEEN_MONTHS", "ALL_TIME"]
         if date_range not in date_range_allowed_values:
             raise ValueError(
                 f"Invalid value for `date_range`, must be one of { date_range_allowed_values }"
@@ -6410,7 +7207,6 @@ class MarketplacePublisherClient(object):
     def list_listing_revisions(self, listing_id, **kwargs):
         """
         Lists the list of listing revisions for a specific listing ID, compartment ID or listing revision status.
-
         You can specify your compartment's OCID as the value for the compartment ID.
         For information about OCIDs, see Resource Identifiers (Content/General/Concepts/identifiers.htm).
 
@@ -9746,6 +10542,164 @@ class MarketplacePublisherClient(object):
                 header_params=header_params,
                 body=update_listing_revision_attachment_content,
                 response_type="ListingRevisionAttachment",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
+    def update_listing_revision_banner_content(self, listing_revision_id, banner_name, update_listing_revision_banner_content, **kwargs):
+        """
+        Updates the Listing Revision
+
+
+        :param str listing_revision_id: (required)
+            listing revision
+
+        :param str banner_name: (required)
+            banner name
+
+        :param stream update_listing_revision_banner_content: (required)
+            The listing revision icon to be updated.
+
+        :param str if_match: (optional)
+            For optimistic concurrency control. In the PUT or DELETE call
+            for a resource, set the `if-match` parameter to the value of the
+            etag from a previous GET or POST response for that resource.
+            The resource will be updated or deleted only if the etag you
+            provide matches the resource's current etag value.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :param int buffer_limit: (optional)
+            A buffer limit for the stream to be buffered. buffer_limit is used to set the buffer size capacity. Streams will be read until the size of the buffer reaches the buffer_limit.
+            If the stream size is greater than the buffer_limit, a BufferError exception will be thrown.
+
+            The buffer_limit parameter is used when the stream object does not have a `seek`, `tell`, or `fileno` property for the Python Request library to calculate out the content length.
+            If buffer_limit is not passed, then the buffer_limit will be defaulted to 100MB.
+            Large streams can cause the process to freeze, consider passing in content-length for large streams instead.
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.marketplace_publisher.models.ListingRevision`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.oracle.com/en-us/iaas/tools/python-sdk-examples/latest/marketplacepublisher/update_listing_revision_banner_content.py.html>`__ to see an example of how to use update_listing_revision_banner_content API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['listingRevisionId', 'bannerName']
+        resource_path = "/listingRevisions/{listingRevisionId}/banner/content"
+        method = "PUT"
+        operation_name = "update_listing_revision_banner_content"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/publisher/20241201/ListingRevision/UpdateListingRevisionBannerContent"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "buffer_limit",
+            "if_match",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"update_listing_revision_banner_content got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "listingRevisionId": listing_revision_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        query_params = {
+            "bannerName": banner_name
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "if-match": kwargs.get("if_match", missing),
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        # If the body parameter is optional we need to assign it to a variable so additional type checking can be performed.
+        try:
+            update_listing_revision_banner_content
+        except NameError:
+            update_listing_revision_banner_content = kwargs.get("update_listing_revision_banner_content", missing)
+
+        if update_listing_revision_banner_content is not missing and update_listing_revision_banner_content is not None:
+            if (not isinstance(update_listing_revision_banner_content, (six.binary_type, six.string_types)) and
+                    not hasattr(update_listing_revision_banner_content, "read")):
+                raise TypeError('The body must be a string, bytes, or provide a read() method.')
+
+            if hasattr(update_listing_revision_banner_content, 'fileno') and hasattr(update_listing_revision_banner_content, 'name') and update_listing_revision_banner_content.name != '<stdin>':
+                if requests.utils.super_len(update_listing_revision_banner_content) == 0:
+                    header_params['Content-Length'] = '0'
+
+            # If content length is not given and stream object have no 'fileno' and is not a string or bytes, try to calculate content length
+            elif 'Content-Length' not in header_params and not is_content_length_calculable_by_req_util(update_listing_revision_banner_content):
+                calculated_obj = back_up_body_calculate_stream_content_length(update_listing_revision_banner_content, kwargs.get("buffer_limit"))
+                header_params['Content-Length'] = calculated_obj["content_length"]
+                update_listing_revision_banner_content = calculated_obj["byte_content"]
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                body=update_listing_revision_banner_content,
+                response_type="ListingRevision",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                body=update_listing_revision_banner_content,
+                response_type="ListingRevision",
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
                 operation_name=operation_name,

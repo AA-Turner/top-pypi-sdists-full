@@ -12,6 +12,7 @@ from .api_key_collection import ApiKeyCollection
 from .api_key_item import ApiKeyItem
 from .api_key_summary import ApiKeySummary
 from .artifact import Artifact
+from .availability import Availability
 from .change_api_key_compartment_details import ChangeApiKeyCompartmentDetails
 from .change_dedicated_ai_cluster_compartment_details import ChangeDedicatedAiClusterCompartmentDetails
 from .change_endpoint_compartment_details import ChangeEndpointCompartmentDetails
@@ -21,6 +22,7 @@ from .change_hosted_application_compartment_details import ChangeHostedApplicati
 from .change_hosted_application_storage_compartment_details import ChangeHostedApplicationStorageCompartmentDetails
 from .change_imported_model_compartment_details import ChangeImportedModelCompartmentDetails
 from .change_model_compartment_details import ChangeModelCompartmentDetails
+from .change_routing_profile_compartment_details import ChangeRoutingProfileCompartmentDetails
 from .change_semantic_store_compartment_details import ChangeSemanticStoreCompartmentDetails
 from .chat_model_metrics import ChatModelMetrics
 from .condenser_config import CondenserConfig
@@ -42,6 +44,7 @@ from .create_hosted_application_storage_details import CreateHostedApplicationSt
 from .create_hosted_deployment_details import CreateHostedDeploymentDetails
 from .create_imported_model_details import CreateImportedModelDetails
 from .create_model_details import CreateModelDetails
+from .create_routing_profile_details import CreateRoutingProfileDetails
 from .create_schemas_database_tools_connection_details import CreateSchemasDatabaseToolsConnectionDetails
 from .create_schemas_details import CreateSchemasDetails
 from .create_semantic_store_details import CreateSemanticStoreDetails
@@ -102,7 +105,11 @@ from .model import Model
 from .model_collection import ModelCollection
 from .model_config import ModelConfig
 from .model_data_source import ModelDataSource
+from .model_discovery import ModelDiscovery
+from .model_discovery_collection import ModelDiscoveryCollection
 from .model_metrics import ModelMetrics
+from .model_modality_support import ModelModalitySupport
+from .model_routing_policy import ModelRoutingPolicy
 from .model_summary import ModelSummary
 from .networking_config import NetworkingConfig
 from .object_storage_config import ObjectStorageConfig
@@ -110,13 +117,19 @@ from .object_storage_dataset import ObjectStorageDataset
 from .object_storage_object import ObjectStorageObject
 from .oci_object_storage_configuration import OciObjectStorageConfiguration
 from .outbound_networking_config import OutboundNetworkingConfig
+from .parameter import Parameter
 from .pii_detection_config import PiiDetectionConfig
+from .previous_routing_profile_state import PreviousRoutingProfileState
 from .prompt_injection_config import PromptInjectionConfig
 from .refresh_schedule_details import RefreshScheduleDetails
 from .refresh_schedule_interval_details import RefreshScheduleIntervalDetails
 from .refresh_schedule_none_details import RefreshScheduleNoneDetails
 from .refresh_schedule_on_create_details import RefreshScheduleOnCreateDetails
+from .region_routing_policy import RegionRoutingPolicy
 from .renew_api_key_details import RenewApiKeyDetails
+from .routing_profile import RoutingProfile
+from .routing_profile_collection import RoutingProfileCollection
+from .routing_profile_summary import RoutingProfileSummary
 from .scaling_config import ScalingConfig
 from .schedule_config import ScheduleConfig
 from .schedule_cron_config import ScheduleCronConfig
@@ -147,6 +160,7 @@ from .update_hosted_application_iam_details import UpdateHostedApplicationIamDet
 from .update_hosted_deployment_details import UpdateHostedDeploymentDetails
 from .update_imported_model_details import UpdateImportedModelDetails
 from .update_model_details import UpdateModelDetails
+from .update_routing_profile_details import UpdateRoutingProfileDetails
 from .update_semantic_store_details import UpdateSemanticStoreDetails
 from .update_vector_store_connector_details import UpdateVectorStoreConnectorDetails
 from .vanilla_training_config import VanillaTrainingConfig
@@ -176,6 +190,7 @@ generative_ai_type_mapping = {
     "ApiKeyItem": ApiKeyItem,
     "ApiKeySummary": ApiKeySummary,
     "Artifact": Artifact,
+    "Availability": Availability,
     "ChangeApiKeyCompartmentDetails": ChangeApiKeyCompartmentDetails,
     "ChangeDedicatedAiClusterCompartmentDetails": ChangeDedicatedAiClusterCompartmentDetails,
     "ChangeEndpointCompartmentDetails": ChangeEndpointCompartmentDetails,
@@ -185,6 +200,7 @@ generative_ai_type_mapping = {
     "ChangeHostedApplicationStorageCompartmentDetails": ChangeHostedApplicationStorageCompartmentDetails,
     "ChangeImportedModelCompartmentDetails": ChangeImportedModelCompartmentDetails,
     "ChangeModelCompartmentDetails": ChangeModelCompartmentDetails,
+    "ChangeRoutingProfileCompartmentDetails": ChangeRoutingProfileCompartmentDetails,
     "ChangeSemanticStoreCompartmentDetails": ChangeSemanticStoreCompartmentDetails,
     "ChatModelMetrics": ChatModelMetrics,
     "CondenserConfig": CondenserConfig,
@@ -206,6 +222,7 @@ generative_ai_type_mapping = {
     "CreateHostedDeploymentDetails": CreateHostedDeploymentDetails,
     "CreateImportedModelDetails": CreateImportedModelDetails,
     "CreateModelDetails": CreateModelDetails,
+    "CreateRoutingProfileDetails": CreateRoutingProfileDetails,
     "CreateSchemasDatabaseToolsConnectionDetails": CreateSchemasDatabaseToolsConnectionDetails,
     "CreateSchemasDetails": CreateSchemasDetails,
     "CreateSemanticStoreDetails": CreateSemanticStoreDetails,
@@ -266,7 +283,11 @@ generative_ai_type_mapping = {
     "ModelCollection": ModelCollection,
     "ModelConfig": ModelConfig,
     "ModelDataSource": ModelDataSource,
+    "ModelDiscovery": ModelDiscovery,
+    "ModelDiscoveryCollection": ModelDiscoveryCollection,
     "ModelMetrics": ModelMetrics,
+    "ModelModalitySupport": ModelModalitySupport,
+    "ModelRoutingPolicy": ModelRoutingPolicy,
     "ModelSummary": ModelSummary,
     "NetworkingConfig": NetworkingConfig,
     "ObjectStorageConfig": ObjectStorageConfig,
@@ -274,13 +295,19 @@ generative_ai_type_mapping = {
     "ObjectStorageObject": ObjectStorageObject,
     "OciObjectStorageConfiguration": OciObjectStorageConfiguration,
     "OutboundNetworkingConfig": OutboundNetworkingConfig,
+    "Parameter": Parameter,
     "PiiDetectionConfig": PiiDetectionConfig,
+    "PreviousRoutingProfileState": PreviousRoutingProfileState,
     "PromptInjectionConfig": PromptInjectionConfig,
     "RefreshScheduleDetails": RefreshScheduleDetails,
     "RefreshScheduleIntervalDetails": RefreshScheduleIntervalDetails,
     "RefreshScheduleNoneDetails": RefreshScheduleNoneDetails,
     "RefreshScheduleOnCreateDetails": RefreshScheduleOnCreateDetails,
+    "RegionRoutingPolicy": RegionRoutingPolicy,
     "RenewApiKeyDetails": RenewApiKeyDetails,
+    "RoutingProfile": RoutingProfile,
+    "RoutingProfileCollection": RoutingProfileCollection,
+    "RoutingProfileSummary": RoutingProfileSummary,
     "ScalingConfig": ScalingConfig,
     "ScheduleConfig": ScheduleConfig,
     "ScheduleCronConfig": ScheduleCronConfig,
@@ -311,6 +338,7 @@ generative_ai_type_mapping = {
     "UpdateHostedDeploymentDetails": UpdateHostedDeploymentDetails,
     "UpdateImportedModelDetails": UpdateImportedModelDetails,
     "UpdateModelDetails": UpdateModelDetails,
+    "UpdateRoutingProfileDetails": UpdateRoutingProfileDetails,
     "UpdateSemanticStoreDetails": UpdateSemanticStoreDetails,
     "UpdateVectorStoreConnectorDetails": UpdateVectorStoreConnectorDetails,
     "VanillaTrainingConfig": VanillaTrainingConfig,

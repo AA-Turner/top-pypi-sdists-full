@@ -8,6 +8,7 @@ import sys
 from copy import deepcopy
 from typing import Any
 
+from ..errors import BoostError
 from . import jsonstate, output, paths, typedvalue, util
 
 DEFAULTS = {
@@ -119,6 +120,38 @@ DEFAULT_TAPS = [
 ]
 
 
+# The one sentence that names where setup lives, and the command it names is
+# `quickstart` rather than `tap --defaults` on purpose: the two setup paths are
+# not equivalent. `quickstart` pins each registry to the commit its published
+# vectors describe and can import those vectors; `tap --defaults` does neither.
+# README leads with quickstart while ~15 source sites route to tap --defaults
+# and none of the newcomer-plausible surfaces (search, doctor, taps, browse,
+# list) named quickstart at all.
+FIRST_RUN_HINT = ("new here? `boost quickstart` taps the starter registries "
+                  "and indexes them for search")
+
+
+def first_run() -> bool:
+    """True when config.json names no registry, so nothing is searchable yet.
+
+    Lives here rather than beside `registry.list_taps` because `boost --help`
+    asks it, and help already loads this module for its log level: answering
+    through `registry` pulled gitutil, lockfile, policy and subprocess onto the
+    help path for a question this file can answer alone.
+
+    A config.json that exists but cannot be used is **not** a first run.
+    `get` folds it into DEFAULTS, where the tap list is empty, but the file
+    being there means boost was set up here and its clones may still be on
+    disk — unknown state, and "new here?" would be a guess dressed as a fact.
+    Read through `_read_file`, not `_read_raw`, which would print the
+    corrupt-file warning a second time on the same screen.
+    """
+    data, err = _read_file()
+    if err is not None:
+        return False
+    return not (data or {}).get("taps")
+
+
 # Path to the bundled curated registry catalog (skills + rules + workflows).
 REGISTRY_CATALOG = paths.package_root() / "data" / "registries.json"
 
@@ -210,9 +243,31 @@ def _warn_corrupt(err: str) -> None:
         stream=sys.stderr)
 
 
-def _read() -> dict:
+def _read_file() -> tuple[dict | None, str | None]:
+    """config.json's own contents, or why boost cannot use them.
+
+    `jsonstate.read_object` plus the one shape rule this file needs: `taps`,
+    when present, is a list. `boost tap` appends to it and `list_taps` reads
+    anything else as no taps, so `"taps": "x"` crashed the one, emptied the
+    other, and — being truthy — told `first_run` the machine was configured,
+    while doctor called it "ready to set up". Refusing it here, the one read
+    every surface shares, makes it the same broken file as invalid JSON
+    everywhere: doctor and heal report it, `get` reads DEFAULTS with one
+    warning, `first_run` is False, and the next `save` moves it aside.
+
+    Never prints: `_read` and `_read_raw` warn, `check` and `first_run`
+    must not.
+    """
     p = paths.config_path()
-    user, err = jsonstate.read_object(p)
+    data, err = jsonstate.read_object(p)
+    if data and not isinstance(data.get("taps", []), list):
+        return None, '%s: expected "taps" to be a list, found %s' % (
+            p, type(data["taps"]).__name__)
+    return data, err
+
+
+def _read() -> dict:
+    user, err = _read_file()
     if err:
         _warn_corrupt(err)
     if user is None:
@@ -228,8 +283,7 @@ def _read_raw() -> dict:
     special-case the file not existing. Corruption is warned about, not
     silenced: see :func:`_warn_corrupt`.
     """
-    p = paths.config_path()
-    data, err = jsonstate.read_object(p)
+    data, err = _read_file()
     if err:
         _warn_corrupt(err)
     return data if data is not None else {}
@@ -247,6 +301,29 @@ def _cached() -> dict:
     return cache
 
 
+def check() -> str | None:
+    """Why config.json cannot be read, or None when it reads or is absent.
+
+    `load()` degrades a corrupt file to DEFAULTS with one stderr warning, which
+    is right for an ordinary command and wrong for `doctor`: with the tap list
+    gone, every check passed and the verdict read "ready to set up" on a
+    machine with clones on disk, while `heal` found "nothing to heal". This
+    reports the raw state instead, as `lockfile.check()` does for the lock.
+    """
+    return _read_file()[1]
+
+
+def unlisted_clones() -> list[str]:
+    """Tap clone directories under `repos/`, by name.
+
+    With config.json unreadable no tap is listed, so these are what `doctor`
+    can still see of the user's registries.
+    """
+    root = paths.repos_dir()
+    return sorted(d.name for d in root.iterdir() if d.is_dir()) \
+        if root.is_dir() else []
+
+
 def load() -> dict:
     """Return a deep copy of the merged config, safe for callers to mutate."""
     # A defensive copy so callers can mutate the result (set_value/unset do)
@@ -257,19 +334,33 @@ def load() -> dict:
 def save(cfg: dict) -> None:
     """Atomically write `cfg` to `~/.boost/config.json`, creating dirs first.
 
-    A config.json that exists but fails to parse is quarantined to
-    `config.json.corrupt` first, so this never overwrites bytes the read path
-    already warned about with a fresh file built from an in-memory view that
-    silently dropped them — see `jsonstate.quarantine`.
+    A config.json that exists but cannot be used (see `_read_file`) is
+    quarantined to `config.json.corrupt` first, so this never overwrites bytes
+    the read path already warned about with a fresh file built from an
+    in-memory view that silently dropped them — see `jsonstate.quarantine`.
+
+    A directory that refuses the write is a :class:`BoostError` naming it.
+    This used ``ensure_dirs``, so a cache dir a read-only ``~/.boost`` would
+    not create failed `boost untap` at exit 70 before its config was even
+    tried, and the config write itself would have failed the same way.
     """
-    paths.ensure_dirs()
+    paths.create_dirs(paths.boost_dirs())
     p = paths.config_path()
-    if jsonstate.is_corrupt(p):
-        dest = jsonstate.quarantine(p)
-        output.warn("%s was corrupt and has been moved to %s before writing "
-                     "the new config" % (p, dest), stream=sys.stderr)
-    util.atomic_write_text(
-        p, json.dumps(cfg, indent=2, sort_keys=False) + "\n")
+    try:
+        if _read_file()[1] is not None:
+            dest = jsonstate.quarantine(p)
+            output.warn("%s was corrupt and has been moved to %s before "
+                        "writing the new config" % (p, dest), stream=sys.stderr)
+        util.atomic_write_text(
+            p, json.dumps(cfg, indent=2, sort_keys=False) + "\n")
+    except OSError as e:
+        block = paths.refuses_writes(p.parent)
+        raise BoostError(
+            "could not save %s (%s)%s"
+            % (paths.tilde(p), e.strerror or e,
+               ": " + paths.not_writable(p.parent, block) if block else ""),
+            hint="%s, then re-run" % paths.write_remedy(block)
+            if block else None) from e
 
 
 def get(dotted: str, default=None):

@@ -70,6 +70,7 @@ __all__ = (
     "GatewayStatusType",
     "HarnessBedrockApiFormatType",
     "HarnessEndpointStatusType",
+    "HarnessHookFailureModeType",
     "HarnessManagedMemoryStrategyTypeType",
     "HarnessOpenAiApiFormatType",
     "HarnessStatusType",
@@ -296,6 +297,7 @@ HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "re
 HarnessEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
+HarnessHookFailureModeType = Literal["allow", "deny"]
 HarnessManagedMemoryStrategyTypeType = Literal[
     "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
 ]

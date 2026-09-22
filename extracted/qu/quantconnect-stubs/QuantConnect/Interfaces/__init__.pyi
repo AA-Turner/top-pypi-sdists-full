@@ -236,6 +236,12 @@ class DataProviderNewDataRequestEventArgs(System.EventArgs):
 class IDataMonitor(System.IDisposable, metaclass=abc.ABCMeta):
     """Monitors data requests and reports on missing data"""
 
+    @property
+    @abc.abstractmethod
+    def report(self) -> QuantConnect.DataMonitorReport:
+        """The final report generated on exit, null until then or if no data request was monitored"""
+        ...
+
     def exit(self) -> None:
         """Terminates the data monitor generating a final report"""
         ...

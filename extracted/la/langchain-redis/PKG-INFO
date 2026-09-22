@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-redis
-Version: 0.2.5
+Version: 0.2.6
 Summary: An integration package connecting Redis and LangChain for AI working memory
 Home-page: https://github.com/langchain-ai/langchain-redis
 License: MIT
@@ -14,12 +14,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Provides-Extra: langcache
 Requires-Dist: anyio (>=4.9.0,<5.0.0)
-Requires-Dist: certifi (>=2025.4.26,<2026.0.0)
-Requires-Dist: hf-xet (<1.2.1)
+Requires-Dist: certifi (>=2025.4.26,<2027.0.0)
+Requires-Dist: hf-xet (<1.5.3)
 Requires-Dist: httpcore (>=1.0.9,<2.0.0)
 Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
 Requires-Dist: langcache (>=0.11.0) ; extra == "langcache"
-Requires-Dist: langchain-core (>=1.0.7)
+Requires-Dist: langchain-core (>=1.6.4)
 Requires-Dist: python-ulid (>=3.0.0)
 Requires-Dist: redisvl (>=0.12.0,<1.0.0)
 Requires-Dist: typing-extensions (>=4.13.2,<5.0.0)
@@ -162,6 +162,8 @@ docs = vector_store.similarity_search(query, k=2)
 docs_and_scores = vector_store.similarity_search_with_score(query, k=2)
 
 # Similarity search with filtering
+from redisvl.query.filter import Tag
+
 filter_expr = Tag("category") == "science"
 filtered_docs = vector_store.similarity_search(query, k=2, filter=filter_expr)
 
@@ -186,6 +188,7 @@ The `RedisCache`, `RedisSemanticCache`, and `LangCacheSemanticCache` classes pro
 from langchain_redis import RedisCache, RedisSemanticCache, LangCacheSemanticCache
 from langchain_core.language_models import LLM
 from langchain_core.embeddings import Embeddings
+from langchain_core.outputs import Generation
 
 # Standard cache
 cache = RedisCache(redis_url="redis://localhost:6379", ttl=3600)

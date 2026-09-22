@@ -546,8 +546,19 @@ class TestPanelFitsTerminal:
 
     def _rows(self, monkeypatch, cols, lines, **kw):
         monkeypatch.setenv("NO_COLOR", "1")
-        monkeypatch.setattr(output, "term_width", lambda: cols)
+        monkeypatch.setattr(output, "pane_width", lambda stream=None: cols)
         return output.panel(lines, **kw).split("\n")
+
+    def test_a_pipe_has_no_pane_so_nothing_is_clipped(self, monkeypatch):
+        # term_width() answers 80 in a pipe; fitting to that clipped
+        # `boost count | cat`'s summary and dropped its tail.
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setattr(output, "pane_width", lambda stream=None: None)
+        monkeypatch.setattr(output, "term_width", lambda: 40)
+        rows = output.panel("q" * 110, title="t" * 90).split("\n")
+        assert rows[1] == "│ " + "q" * 110 + " │"
+        assert "t" * 90 in rows[0]
+        assert len({output.visible_len(r) for r in rows}) == 1
 
     def test_untouched_when_it_already_fits(self, monkeypatch):
         rows = self._rows(monkeypatch, 40, "x" * 36)
@@ -574,6 +585,13 @@ class TestPanelFitsTerminal:
         rows = self._rows(monkeypatch, 24, "a" * 50, title="t" * 40)
         assert all(output.visible_len(r) <= 24 for r in rows)
         assert len({output.visible_len(r) for r in rows}) == 1
+
+    def test_a_clipped_title_keeps_exactly_the_room_beside_the_rule(self,
+                                                                     monkeypatch):
+        # 24 columns: 20 of content room, and a titled rule spends one space
+        # each side, so the title gets 18 — 17 characters plus the ellipsis.
+        rows = self._rows(monkeypatch, 24, "a" * 50, title="t" * 40)
+        assert rows[0].startswith("╭─ " + "t" * 17 + "… ")
 
     def test_a_narrow_pane_still_yields_a_box(self, monkeypatch):
         rows = self._rows(monkeypatch, 8, "content that is far too long")
@@ -714,6 +732,73 @@ class TestMeter:
         assert output.meter(0.6, 5) == "▰▰▰▱▱"
 
 
+class TestRelevanceFractions:
+    """One screen of scores -> one screen of meter fractions.
+
+    The boundaries are the contract: the best row fills the bar, the weakest
+    holds exactly ``METER_FLOOR``, and the rest are linear in between. Every
+    value below is exact, because a drifted endpoint re-draws every search
+    row while still looking like a meter.
+    """
+
+    def test_spreads_a_page_the_top_score_alone_flattens(self):
+        # The measured defect: 15 BM25 hits within 2.1% of the top all render
+        # ▰▰▰▰ under score/top, because round(frac * 4) needs a 12.5% gap.
+        scores = [1.0 - 0.0015 * i for i in range(15)]
+        old = [output.meter(s / scores[0]) for s in scores]
+        assert set(old) == {"▰▰▰▰"}
+        new = [output.meter(f) for f in output.relevance_fractions(scores)]
+        assert new[0] == "▰▰▰▰"
+        assert new[-1] == "▰▱▱▱"
+        assert len(set(new)) == 4
+
+    def test_is_linear_between_the_floor_and_full(self):
+        assert output.relevance_fractions([4, 3, 2, 1]) == [1.0, 0.75, 0.5, 0.25]
+
+    def test_weakest_row_sits_exactly_on_the_floor(self):
+        assert output.METER_FLOOR == 0.25
+        last = output.relevance_fractions([9.0, 1.0])[-1]
+        assert last == output.METER_FLOOR
+        # One lit cell, not an empty bar: a row the ranker chose to show never
+        # reads as "no match".
+        assert output.meter(last) == "▰▱▱▱"
+        assert output.meter_hue(last) == "pink"
+
+    def test_best_row_fills_the_bar_and_takes_the_top_hue(self):
+        first = output.relevance_fractions([9.0, 1.0])[0]
+        assert first == 1.0
+        assert output.meter(first) == "▰▰▰▰"
+        assert output.meter_hue(first) == "cyan"
+
+    def test_keeps_the_caller_order_rather_than_sorting(self):
+        # Ranked order is the caller's; the row at index 1 is the best here.
+        assert output.relevance_fractions([2, 4, 1]) == [0.5, 1.0, 0.25]
+
+    def test_one_row_fills_the_bar(self):
+        assert output.relevance_fractions([7.0]) == [1.0]
+
+    def test_all_ties_fill_rather_than_inventing_a_loser(self):
+        assert output.relevance_fractions([3, 3, 3]) == [1.0, 1.0, 1.0]
+
+    def test_all_zero_scores_fill_rather_than_empty(self):
+        # score/top read this as 0 and drew ▱▱▱▱ on every row.
+        assert output.relevance_fractions([0.0, 0.0]) == [1.0, 1.0]
+
+    def test_empty_page_has_no_fractions(self):
+        assert output.relevance_fractions([]) == []
+
+    def test_negative_scores_still_span_the_bar(self):
+        # RRF and heuristic scores are not promised to be positive; the span
+        # is what matters, not the sign.
+        assert output.relevance_fractions([-1.0, -3.0]) == [1.0, 0.25]
+
+    def test_every_fraction_is_a_legal_meter_input(self):
+        for page in ([5, 4, 3, 2, 1], [1.0], [2, 2], [], [-4, 9, 0]):
+            for f in output.relevance_fractions(page):
+                assert 0.0 <= f <= 1.0
+                assert output.meter_hue(f) in output.TOKENS
+
+
 class TestHelpers:
     @pytest.fixture(autouse=True)
     def plain(self, monkeypatch):
@@ -761,6 +846,174 @@ class TestHelpers:
         cap = capsys.readouterr()
         assert cap.out == ""
         assert cap.err == "  ! routed\n  hint\n"
+
+
+class _TtyBuffer(io.StringIO):
+    """A writable stream that reports itself as a terminal."""
+
+    def isatty(self):
+        return True
+
+
+class TestWarnColourFollowsItsStream:
+    """A warning routed to stderr is coloured by what stderr is, not stdout.
+
+    `boost bundle dump > Boostfile` sends its notice to a terminal while
+    stdout is a file; `2>log` sends it to a file while stdout is a terminal
+    (docs/roadmap/items/audit-bundle-findings.md). Asking stdout printed the
+    first plain and wrote escape codes into the second.
+    """
+
+    def test_a_terminal_stderr_is_coloured_while_stdout_is_a_file(
+            self, monkeypatch):
+        monkeypatch.setattr(sys, "stdout", io.StringIO())
+        err = _TtyBuffer()
+        output.warn("notice", stream=err)
+        text = err.getvalue()
+        # both the marker and the message are painted
+        assert text.count(output.RESET) == 2
+        assert output.visible_len(text.rstrip("\n")) == len("  ! notice")
+        assert sys.stdout.getvalue() == ""
+
+    def test_a_redirected_stderr_stays_plain_while_stdout_is_a_terminal(
+            self, monkeypatch):
+        monkeypatch.setattr(sys, "stdout", _TtyBuffer())
+        err = io.StringIO()
+        output.warn("notice", stream=err)
+        assert err.getvalue() == "  ! notice\n"
+
+    def test_wrapped_continuations_follow_the_stream_too(self, monkeypatch):
+        monkeypatch.setattr(sys, "stdout", _TtyBuffer())
+        monkeypatch.setattr(output, "term_width", lambda default=80: 20)
+        err = io.StringIO()
+        output.warn("one two three four five six seven", stream=err, wrap=True)
+        assert "\x1b[" not in err.getvalue()
+        assert len(err.getvalue().splitlines()) > 1
+
+    def test_the_default_stream_is_still_stdout_and_judged_by_it(
+            self, monkeypatch):
+        tty = _TtyBuffer()
+        monkeypatch.setattr(sys, "stdout", tty)
+        output.warn("notice")
+        assert tty.getvalue().count(output.RESET) == 2
+        plain = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", plain)
+        output.warn("notice")
+        assert plain.getvalue() == "  ! notice\n"
+
+
+class _Terminal:
+    """One merged capture behind two streams, the way `2>&1 | cat` sees them.
+
+    stdout into a pipe is block-buffered, so what boost prints there is held
+    until something flushes it; stderr is written straight through. ``log``
+    is the order the reader of the merged pipe gets.
+    """
+
+    def __init__(self, flush_error=None):
+        self.log: list[str] = []
+        self.held: list[str] = []
+        self.flushes = 0
+        self._flush_error = flush_error
+        term = self
+
+        class _Out:
+            def write(self, text):
+                term.held.append(text)
+                return len(text)
+
+            def flush(self):
+                term.flushes += 1
+                if term._flush_error is not None:
+                    raise term._flush_error
+                term.log.append("".join(term.held))
+                term.held.clear()
+
+            def isatty(self):
+                return False
+
+        class _Err:
+            def write(self, text):
+                term.log.append(text)
+                return len(text)
+
+            def flush(self):
+                pass
+
+            def isatty(self):
+                return False
+
+        self.out, self.err = _Out(), _Err()
+
+    def text(self) -> str:
+        return "".join(self.log)
+
+    def install(self, monkeypatch) -> _Terminal:
+        """Become sys.stdout/sys.stderr. Call from the test body: pytest's own
+        capture re-binds both streams when the call phase starts, so a patch
+        made in a fixture is gone before the test runs."""
+        monkeypatch.setattr(sys, "stdout", self.out)
+        monkeypatch.setattr(sys, "stderr", self.err)
+        return self
+
+
+class TestStderrWaitsForStdout:
+    """An error written to stderr must not overtake the stdout it refers to."""
+
+    @pytest.fixture(autouse=True)
+    def plain(self, monkeypatch):
+        monkeypatch.setenv("NO_COLOR", "1")
+
+    def test_err_lands_after_the_table_it_follows(self, monkeypatch):
+        term = _Terminal().install(monkeypatch)
+        output.heading("2 skills in ./many")
+        output.table([("alpha", "v0.1.0"), ("beta", "v0.1.0")])
+        output.err("multiple skills found", hint="add `--name NAME`")
+        text = term.text()
+        assert text.index("beta") < text.index("Error: multiple skills found")
+        assert text.endswith("  hint: add `--name NAME`\n")
+
+    @pytest.mark.parametrize("emit", [
+        lambda: output.warn("notice", stream=sys.stderr),
+        lambda: output.info("notice", stream=sys.stderr),
+        lambda: output.info("notice", stream=sys.stderr, wrap=True),
+        lambda: output.heading("notice", stream=sys.stderr),
+        lambda: output.table([("notice", "x")], stream=sys.stderr),
+    ])
+    def test_every_stderr_emitter_flushes_stdout_first(self, monkeypatch, emit):
+        term = _Terminal().install(monkeypatch)
+        output.info("report line")
+        emit()
+        text = term.text()
+        assert text.index("report line") < text.index("notice")
+
+    def test_a_stdout_write_leaves_stdout_buffered(self, monkeypatch):
+        # The flush is for crossing streams; a line to stdout itself has no
+        # other stream to be ordered against, so it keeps its buffering.
+        term = _Terminal().install(monkeypatch)
+        output.warn("to stdout")
+        output.info("to stdout")
+        output.heading("to stdout")
+        output.table([("to", "stdout")])
+        assert term.flushes == 0
+        assert term.log == []
+
+    def test_err_still_prints_when_stdout_cannot_be_flushed(self, monkeypatch):
+        # A reader that closed the pipe (`boost import … | head -0`) makes the
+        # flush raise; that must not cost the user the error message itself.
+        t = _Terminal(flush_error=BrokenPipeError()).install(monkeypatch)
+        output.err("boom")
+        assert t.text() == "Error: boom\n"
+
+    def test_err_still_prints_when_stdout_was_closed_at_launch(self, monkeypatch):
+        # `boost … >&-` starts Python with fd 1 closed, and Python then sets
+        # sys.stdout to None: there is no stdout to flush, and asking it to
+        # raised AttributeError before the error line was written.
+        t = _Terminal().install(monkeypatch)
+        monkeypatch.setattr(sys, "stdout", None)
+        output.err("boom", hint="try again")
+        output.warn("notice", stream=sys.stderr)
+        assert t.text() == "Error: boom\n  hint: try again\n  ! notice\n"
 
 
 class TestPlain:
@@ -875,16 +1128,23 @@ class TestTableColor:
 
     def test_separator_width_counts_in_fit_budget(self, capsys, monkeypatch):
         import re
-        # 3 columns of visible width 4 + two 3-wide separators = 18 > 17,
-        # so exactly one text column must shrink; with the old 2-wide gutter
-        # (total 16) nothing would shrink. Proves sep=3 reaches _fit_widths.
+        # 3 columns of visible width 4 + two 3-wide separators = 18 > 17, so
+        # the row does not fit and — none of the columns being wide enough to
+        # give a cell away above the readable floor — the last one goes. With
+        # the 2-wide gutter (total 16) all three stay. Proves sep=3 reaches
+        # the fit budget.
         monkeypatch.setenv("CLICOLOR_FORCE", "1")
         monkeypatch.setenv("COLUMNS", "17")
         output.table([("aaaa", "bbbb", "cccc")])
         vis = re.sub(r"\x1b\[[0-9;]*m", "",
                      capsys.readouterr().out.splitlines()[0])
         assert len(vis.rstrip()) <= 17
-        assert "…" in vis                            # a cell was clipped
+        assert "cccc" not in vis                     # a column was dropped
+        assert "aaaa" in vis and "bbbb" in vis
+        monkeypatch.delenv("CLICOLOR_FORCE")
+        monkeypatch.setenv("NO_COLOR", "1")
+        output.table([("aaaa", "bbbb", "cccc")])
+        assert capsys.readouterr().out == "aaaa  bbbb  cccc\n"
 
 
 class TestTable:
@@ -1447,13 +1707,52 @@ class TestSearchLayout:
     KINDS = ("skill", "workflow", "rule")
     TAPS = ("anthropics/skills", "obra/superpowers", "sdi/agent-rules")
 
+    def test_the_drop_order_boundaries_are_exact(self):
+        # Backfilled while touching search_layout: every threshold below had
+        # a surviving off-by-one mutant. A 32-cell name, `[skill]`, a 20-cell
+        # tap: at 98 columns the description gets exactly the 24 cells that
+        # keep the tap; one column less and the tap goes.
+        names, kinds, taps = ["n" * 32], ["skill"], ["t" * 20]
+        lay = output.search_layout(98, names, kinds, taps)
+        assert (lay.tap_w, lay.desc_w) == (20, 24)
+        assert output.search_layout(99, names, kinds, taps).desc_w == 25
+        assert output.search_layout(97, names, kinds, taps).tap_w == 0
+        # The name cap steps 32 -> 24 -> 16 -> 12 as the pane narrows.
+        assert output.search_layout(40, names, kinds, taps).name_w == 16
+        assert output.search_layout(34, names, kinds, taps).name_w == 12
+
+    def test_no_pane_plans_nothing_to_fit(self):
+        # A pipe (pane_width() is None): the caps and drops exist to fit a
+        # pane, and there is none. The tap and name are grep/info targets.
+        tap = "sickn33/antigravity-awesome-skills"          # 34 cells
+        name = "n" * 40
+        lay = output.search_layout(None, [name, "x"], ["workflow", "skill"],
+                                   [tap, "a/b"])
+        assert (lay.name_w, lay.kind_w, lay.tap_w) == (40, 10, 34)
+        assert lay.desc_w >= 10 ** 6
+        row = output.format_search_row(name, "d" * 500, "skill", tap, 1.0,
+                                       curated=False, installed=False, lay=lay)
+        assert tap in row and name in row and "d" * 500 in row
+        assert "…" not in row
+
+    def test_no_pane_with_nothing_shown_keeps_the_empty_columns_empty(self):
+        lay = output.search_layout(None, [], [], [])
+        assert (lay.name_w, lay.kind_w, lay.tap_w) == (1, 0, 0)
+
     def test_name_column_fits_the_widest_shown_name(self):
         lay = output.search_layout(100, self.NAMES, self.KINDS, self.TAPS)
         assert lay.name_w == len("commit-messages")
 
-    def test_name_column_caps_at_32(self):
+    def test_name_column_is_whole_when_the_description_keeps_24(self):
+        # 120 cols, a 60-cell name: 120 - 2 - 7 - 62 - 9 - 5 = 35 cells of
+        # prose remain, so the copy target is shown whole, not clipped to 32.
         lay = output.search_layout(120, ["x" * 60], ["skill"], ["a/b"])
-        assert lay.name_w == 32
+        assert (lay.name_w, lay.tap_w, lay.desc_w) == (60, 3, 35)
+
+    def test_name_column_caps_at_32_when_whole_would_starve_the_description(self):
+        # 100 cols: whole, the 60-cell name would leave 15 cells of prose.
+        lay = output.search_layout(100, ["x" * 60], ["skill"], ["a/b"])
+        assert (lay.name_w, lay.desc_w) == (32, 43)
 
     def test_kind_column_fits_the_widest_kind_shown(self):
         lay = output.search_layout(100, self.NAMES, self.KINDS, self.TAPS)
@@ -1505,9 +1804,79 @@ class TestSearchLayout:
         assert output.search_layout(100, [], [], []).tap_w == 0
 
     def test_column_caps_are_exact(self):
-        # kind caps at [workflow]'s 10 even for a stranger kind; tap at 20.
+        # kind caps at [workflow]'s 10 even for a stranger kind; a tap that
+        # cannot be shown whole caps at 20.
         assert output.search_layout(100, ["a"], ["extra-long"], []).kind_w == 10
-        assert output.search_layout(120, ["a"], ["skill"], ["x" * 25]).tap_w == 20
+        assert output.search_layout(100, ["a"], ["skill"], ["x" * 60]).tap_w == 20
+
+    def test_a_tap_over_20_is_whole_on_a_wide_pane(self):
+        # The card's case: `boost info 'sickn33/antigravity…:doc-coauthoring'`
+        # fails, so the qualifier has to be on screen whole to be copied.
+        tap = "sickn33/antigravity-awesome-skills"          # 34 cells
+        for cols in (120, 200, 300, 500):
+            lay = output.search_layout(cols, ["doc-coauthoring"], ["skill"],
+                                       [tap, "anthropics/skills"])
+            assert lay.tap_w == 34, cols
+            row = output.format_search_row(
+                "doc-coauthoring", "d" * 600, "skill", tap, 1.0,
+                curated=False, installed=False, lay=lay)
+            assert tap in row and "sickn33/antigravity…" not in row
+
+    def test_whole_or_capped_boundaries_are_exact(self):
+        # A 54-cell name, `[skill]`, a 47-cell tap. Both whole from the first
+        # pane that leaves the description 24 cells: 2 + 7 + 56 + 9 + 49 + 24
+        # = 147. One column less the tap falls to its cap, not to 46 — a
+        # clipped identifier is clipped at its cap, never in between.
+        names, kinds, taps = ["n" * 54], ["skill"], ["t" * 47]
+        at = output.search_layout(147, names, kinds, taps)
+        assert (at.name_w, at.tap_w, at.desc_w) == (54, 47, 24)
+        below = output.search_layout(146, names, kinds, taps)
+        assert (below.name_w, below.tap_w, below.desc_w) == (54, 20, 50)
+        # The name stays whole down to 2 + 7 + 56 + 9 + 22 + 24 = 120 ...
+        assert output.search_layout(120, names, kinds, taps).name_w == 54
+        # ... and one column less, both identifiers are at their caps.
+        low = output.search_layout(119, names, kinds, taps)
+        assert (low.name_w, low.tap_w, low.desc_w) == (32, 20, 45)
+
+    def test_a_whole_tap_is_kept_when_only_the_name_must_cap(self):
+        # An 80-cell name cannot be whole at 120 columns with any tap, but a
+        # 34-cell tap can: 120 - 2 - 7 - 34 - 9 - 36 = 32 cells of prose.
+        lay = output.search_layout(120, ["n" * 80], ["skill"], ["t" * 34])
+        assert (lay.name_w, lay.tap_w, lay.desc_w) == (32, 34, 32)
+
+    def test_a_dropped_tap_gives_its_room_back_to_the_name(self):
+        # 90 cols, a 40-cell name, a 20-cell tap: the tap goes (it would
+        # leave 16 cells of prose even at the name's cap), and without it the
+        # name is whole with 30 cells to spare.
+        lay = output.search_layout(90, ["n" * 40], ["skill"], ["t" * 20])
+        assert (lay.name_w, lay.tap_w, lay.desc_w) == (40, 0, 30)
+
+    def test_a_name_too_long_to_show_whole_falls_back_to_its_cap(self):
+        # The last step: a 50-cell name will not fit whole even with the tap
+        # gone, so it is capped at 32 and the room goes to the description.
+        lay = output.search_layout(90, ["n" * 50], ["skill"], ["t" * 20])
+        assert (lay.name_w, lay.tap_w, lay.desc_w) == (32, 0, 38)
+
+    def test_capped_content_plans_exactly_as_before(self):
+        # Names within 32 cells and taps within 20: every step of the
+        # whole-or-capped rule is the same plan, so these tuples are the ones
+        # the capped layout produced before the identifiers could grow.
+        expected = {
+            40: (15, 0, 0, 14), 48: (15, 10, 0, 10), 60: (15, 10, 0, 22),
+            80: (15, 10, 0, 42), 84: (15, 10, 17, 27), 98: (15, 10, 17, 41),
+            120: (15, 10, 17, 63), 200: (15, 10, 17, 143),
+            300: (15, 10, 17, 243),
+        }
+        for cols, plan in expected.items():
+            lay = output.search_layout(cols, self.NAMES, self.KINDS, self.TAPS)
+            assert (lay.name_w, lay.kind_w, lay.tap_w, lay.desc_w) == plan, cols
+
+    def test_an_identifier_is_whole_or_at_a_cap_never_between(self):
+        name, tap = "n" * 70, "t" * 50
+        for cols in range(40, 321):
+            lay = output.search_layout(cols, [name], ["workflow"], [tap])
+            assert lay.name_w in (70, 32, 24, 16, 12), cols
+            assert lay.tap_w in (50, 20, 0), cols
 
     def test_desc_gets_every_remaining_cell_when_kind_drops(self):
         # Below 48 columns the kind column costs exactly nothing: at 44 cols
@@ -1543,7 +1912,7 @@ class TestSearchLayout:
             ("commit-messages", "skill", "fixture-tap", "short"),
             ("a", "rule", "", ""),
         ]
-        for cols in range(40, 121):
+        for cols in range(40, 321):
             names = [n for n, _k, _t, _d in extremes]
             kinds = [k for _n, k, _t, _d in extremes]
             taps = [t for _n, _k, t, _d in extremes]

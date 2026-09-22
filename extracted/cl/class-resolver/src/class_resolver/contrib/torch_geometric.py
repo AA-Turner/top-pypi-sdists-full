@@ -1,10 +1,12 @@
-"""
-PyTorch Geometric is an extension to PyTorch for geometric learning on graphs,
-point clouds, meshes, and other non-standard objects.
-The ``class-resolver`` provides several class resolvers and function resolvers
-to make it possible to more easily parametrize models and training loops.
-"""  # noqa: D205
+"""A contrib module for PyTorch Geometric.
 
+PyTorch Geometric is an extension to PyTorch for geometric learning on graphs, point
+clouds, meshes, and other non-standard objects. The ``class-resolver`` provides several
+class resolvers and function resolvers to make it possible to more easily parametrize
+models and training loops.
+"""
+
+from torch_geometric.nn import GlobalAttention
 from torch_geometric.nn.aggr import Aggregation, MeanAggregation
 from torch_geometric.nn.conv import MessagePassing, SimpleConv
 
@@ -23,13 +25,18 @@ message_passing_resolver = ClassResolver.from_subclasses(
 )
 """A resolver for message passing layers.
 
-.. seealso:: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#convolutional-layers
+.. seealso::
+
+    https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#convolutional-layers
 """
 
 aggregation_resolver = ClassResolver.from_subclasses(
     base=Aggregation,
     default=MeanAggregation,
     location="class_resolver.contrib.torch_geometric.aggregation_resolver",
+    skip={
+        GlobalAttention,  # deprecated
+    },
 )
 """A resolver for aggregation layers.
 
@@ -65,5 +72,7 @@ Some example usage (based on the torch-geometric docs):
 
     output = mean_aggr(x, index)  #  Output shape: [100, 64]
 
-.. seealso:: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#aggregation-operators
+.. seealso::
+
+    https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#aggregation-operators
 """

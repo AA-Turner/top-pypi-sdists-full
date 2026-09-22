@@ -45,6 +45,21 @@ Ops:
   • search(name="", type="", path="", offset=0, limit=100)
         Find files by name, resource type, or path substring. At least one
         filter must be set. Paginated.
+  • move(path, new_path), rename(path, new_name)
+        Move a resource group with .uid/.import sidecars and preserve proven
+        UID references. Destination parent must exist. Literal-path owners,
+        project settings, open scene tabs, links and incomplete discovery are
+        refused before mutation; dependency rewriting is unsupported.
+  • remove(path, force=False, permanent=False)
+        Default: OS trash. Known references block unless force=True; force
+        never overrides incomplete discovery or protected paths. Permanent
+        deletion supports files only. Directory deletion uses trash.
+
+move/rename/remove contract:
+  Mutations require a direct call, not batch_execute. Directory results set
+  scan_required: call scan afterward. All mutations are non-undoable. Errors
+  report outcome unchanged/rolled_back/partial and actual affected paths.
+  Never blindly retry a partial result.
 """
 
 
@@ -59,6 +74,9 @@ def register_filesystem_tools(mcp: FastMCP) -> None:
             "reimport": filesystem_handlers.filesystem_reimport,
             "scan": filesystem_handlers.filesystem_scan,
             "search": filesystem_handlers.filesystem_search,
+            "move": filesystem_handlers.filesystem_move,
+            "rename": filesystem_handlers.filesystem_rename,
+            "remove": filesystem_handlers.filesystem_remove,
         },
         read_resource_forms={
             ## File reads/searches are per-call queries with arbitrary path

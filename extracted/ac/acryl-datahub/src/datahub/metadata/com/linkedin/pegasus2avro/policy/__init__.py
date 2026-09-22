@@ -14,6 +14,7 @@ from .....schema_classes import DataHubRoleInfoClass
 from .....schema_classes import PolicyMatchConditionClass
 from .....schema_classes import PolicyMatchCriterionClass
 from .....schema_classes import PolicyMatchFilterClass
+from .....schema_classes import StructuredPropertyCriterionValueClass
 
 
 DataHubActorFilter = DataHubActorFilterClass
@@ -23,5 +24,6 @@ DataHubRoleInfo = DataHubRoleInfoClass
 PolicyMatchCondition = PolicyMatchConditionClass
 PolicyMatchCriterion = PolicyMatchCriterionClass
 PolicyMatchFilter = PolicyMatchFilterClass
+StructuredPropertyCriterionValue = StructuredPropertyCriterionValueClass
 
 # fmt: on

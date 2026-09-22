@@ -3,5 +3,16 @@
 import typing
 
 BillingCreditGrantReason = typing.Union[
-    typing.Literal["adjustment", "billing_credit_auto_topup", "free", "plan", "purchased", "rollover"], typing.Any
+    typing.Literal[
+        "adjustment",
+        "billing_credit_auto_topup",
+        "free",
+        "plan",
+        "postpaid_forgiven",
+        "postpaid_overdraft",
+        "postpaid_settlement",
+        "purchased",
+        "rollover",
+    ],
+    typing.Any,
 ]

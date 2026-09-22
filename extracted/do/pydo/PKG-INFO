@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydo
-Version: 0.40.0
+Version: 0.41.0
 Summary: The official client for interacting with the DigitalOcean API
 Home-page: https://github.com/digitalocean/pydo
 License: Apache-2.0
@@ -16,7 +16,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: agents-openai
 Provides-Extra: aio
+Requires-Dist: PyYAML (>=5.4) ; extra == "agents-openai"
 Requires-Dist: aiohttp (>=3.0) ; extra == "aio"
 Requires-Dist: azure-core (>=1.24.0)
 Requires-Dist: azure-identity (>=1.5.0)

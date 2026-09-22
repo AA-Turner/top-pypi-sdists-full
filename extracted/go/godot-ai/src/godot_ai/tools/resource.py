@@ -27,6 +27,10 @@ Ops:
         subclasses. At least one filter required. Paginated.
   • load(path)
         Inspect a .tres / .res — returns type and editor-visible properties.
+  • inspect(node_path, property, depth=2)
+        Read a live native resource graph without loading or modifying files.
+        Depth 0..3; shared references, omission reasons, fixed traversal and
+        64 KiB encoded-result limits. Scripted/dynamic properties excluded.
   • assign(path, property, resource_path)
         Load and assign a resource to a node property. Undoable.
   • get_info(type)
@@ -56,19 +60,37 @@ Ops:
         "capsule" for 2D) or the matching Godot class name ("BoxShape3D",
         "RectangleShape2D", etc.).
   • physics_shape_generate(paths, shape_type="box", body_type="static",
-                           scene_file="")
-        Generate a StaticBody3D or Area3D sibling (named <Mesh>Collider) with
-        a CollisionShape3D for every MeshInstance3D path. Shapes are fitted in
+                           reparent_mesh=False, scene_file="", overwrite=False)
+        Generate a physics body sibling (named <Mesh>Collider) with a
+        CollisionShape3D for every MeshInstance3D path. Shapes are fitted in
         body-local space; a mesh that already has a collider sibling, a
         duplicate path, or a scene-root mesh is refused before anything is
-        written. shape_type: box | sphere | capsule | cylinder (or the class
-        name); a sphere/capsule/cylinder under a non-uniformly scaled parent
-        is refused. body_type: static | area. scene_file pins the request to
-        that edited scene. Up to 1024 paths are processed in bounded work
-        across editor frames; inside batch_execute at most 16. The bulk
-        write is one undo action.
+        written. shape_type: auto | box | sphere | capsule | cylinder | convex |
+        trimesh (or the class name for explicit shapes). Opt-in auto selects matching
+        primitives for BoxMesh, SphereMesh, CapsuleMesh and CylinderMesh, with
+        box bounds for every other mesh. The default remains box. Auto uses
+        bounding fits (including tapered cylinders), not exact mesh geometry.
+        convex/trimesh derive the shape from the
+        mesh's own triangles, with the mesh scale baked into the shape, and are
+        limited to 2048 triangles and 6144 vertices per mesh, with bounded mesh types
+        (the hull build runs synchronously
+        inside one editor-frame item); trimesh needs a static or area body, and
+        a non-uniformly scaled parent chain refuses every type except box.
+        body_type: static | area | rigid | character. rigid/character always
+        wrap the mesh under the generated body (a detached dynamic body would
+        fall away from the stationary visual); reparent_mesh=True does the same
+        for static/area while preserving the mesh's world transform, and the
+        reported mesh_path is then the post-move path.
+        overwrite=True refreshes only a marked generated collider's shape and
+        collision transform, preserving body/collision identity and user settings.
+        Requested body type and wrapping must match; unmarked legacy bodies or
+        broken provenance links are refused. Mixed fresh/refresh batches prepare
+        all resources before one undo action; stale edits refuse the batch.
+        scene_file pins the request to that edited scene. Up to 1024 paths are
+        processed in bounded work across editor frames; inside batch_execute
+        at most 16. The bulk write is one undo action.
         Returns: {created: [{mesh_path, body_path, shape_path, shape_type,
-                  body_type}], undoable: true}.
+                  body_type, operation: "create"|"refresh"}], undoable: true}.
   • gradient_texture_create(stops, width=256, height=1, fill="linear",
                               path="", property="", resource_path="",
                               overwrite=False)
@@ -90,6 +112,7 @@ def register_resource_tools(mcp: FastMCP) -> None:
         ops={
             "search": resource_handlers.resource_search,
             "load": resource_handlers.resource_load,
+            "inspect": resource_handlers.resource_inspect,
             "assign": resource_handlers.resource_assign,
             "get_info": resource_handlers.resource_get_info,
             "create": resource_handlers.resource_create,
@@ -105,6 +128,7 @@ def register_resource_tools(mcp: FastMCP) -> None:
             ## resource fits the URI shape.
             "search": None,
             "load": None,
+            "inspect": None,
             "get_info": None,
         },
     )

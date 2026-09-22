@@ -8,6 +8,8 @@ from chalk.ml.utils import ModelClass, ModelEncoding, ModelRunCriterion, ModelTy
 
 __all__ = (
     "CHALK_HANDLER_ARTIFACT_PATH",
+    "Experiment",  # pyright: ignore[reportUnsupportedDunderAll]
+    "ExperimentRun",  # pyright: ignore[reportUnsupportedDunderAll]
     "FileInfo",
     "HFSourceConfig",
     "LocalSourceConfig",
@@ -30,4 +32,8 @@ def __getattr__(name: str):
         from chalk.ml.chalk_train import last_checkpoint_path
 
         return last_checkpoint_path
+    if name in ("Experiment", "ExperimentRun"):
+        from chalk.ml.chalk_train import Experiment, ExperimentRun
+
+        return {"Experiment": Experiment, "ExperimentRun": ExperimentRun}[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

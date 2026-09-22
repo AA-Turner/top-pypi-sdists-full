@@ -3,6 +3,11 @@
 """Functional tests for `boost hooks` (in-process CLI)."""
 from __future__ import annotations
 
+import re
+
+import pytest
+
+from boost_cli.commands import bmad
 from boost_cli.core import claude_settings as cs
 
 
@@ -119,6 +124,26 @@ class TestHooksErrors:
                   "-s", "global", expect=1)
         assert "needs --name" in r.err
 
+    def test_list_fits_the_pane_with_a_long_name_and_command(
+            self, boost, sandbox, monkeypatch):
+        # `command` is the one protected column. Protecting `name` as well
+        # left a remainder nothing could drop: name + command alone outgrew an
+        # 80-column pane and the row printed past it, the very overflow the
+        # fitter exists to prevent. These are the names `boost bmad
+        # autopilot` installs.
+        cmd = ("boost check --strict --json | jq -r '.issues[] | .msg'"
+               " | head -20 | sort")          # 72 cells: name + command > 80
+        boost("hooks", "add", "SessionStart", "-s", "global", "-n", "bmad",
+              "-c", "boost bmad orient --quiet --and-then-report-status-to-the-user",
+              "-m", "startup|resume|clear")
+        boost("hooks", "add", "PreToolUse", "-s", "global", "-n", "bmad-route",
+              "-c", cmd, "-m", "Bash")
+        monkeypatch.setenv("COLUMNS", "80")
+        r = boost("hooks", "list")
+        lines = [ln for ln in r.out.splitlines() if ln.strip()]
+        assert lines and max(len(ln) for ln in lines) <= 80, r.out
+        assert cmd in r.out   # protected: whole, never clipped
+
     def test_list_empty(self, boost, sandbox):
         r = boost("hooks", "list")
         assert "no boost-managed hooks" in r.out
@@ -133,3 +158,82 @@ class TestHooksErrors:
         r = boost("hooks", "add", "SessionStart", "-c", "x", "-n", "y",
                   "-s", "global", "--timeout", "0", expect=2)
         assert "must be >= 1" in r.err
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+# 72 cells: wider than every pane below 72, so the protected command is the
+# whole row there and the sweep reaches the width where it is all that is left.
+_LONG_CMD = ("boost check --strict --json | jq -r '.issues[] | .msg'"
+             " | head -20 | sort")
+
+
+def _add_autopilot_hooks(boost, long_command=False):
+    """The two hooks `boost bmad on` installs, by its own names and matcher,
+    and optionally a third whose command outgrows a narrow pane."""
+    boost("hooks", "add", "SessionStart", "-s", "global", "-n", bmad.HOOK_NAME,
+          "-c", "boost bmad orient --scope global || true",
+          "-m", bmad.HOOK_MATCHER)
+    boost("hooks", "add", "UserPromptSubmit", "-s", "global",
+          "-n", bmad.ROUTE_HOOK_NAME,
+          "-c", "boost bmad route --scope global || true")
+    if long_command:
+        boost("hooks", "add", "PreToolUse", "-s", "global", "-n", "lint-gate",
+              "-c", _LONG_CMD, "-m", "Bash")
+
+
+def _header(printed: str) -> list[str]:
+    return _ANSI.sub("", printed).splitlines()[0].replace("│", " ").split()
+
+
+def _widest(printed: str) -> int:
+    return max(len(line) for line in _ANSI.sub("", printed).splitlines())
+
+
+class TestListColumnOrder:
+    """`name` is what `boost hooks remove -n` takes, and `out.table` drops
+    columns right to left. With `name` fourth, a narrow pane dropped it second
+    — after `matcher` — while `host`, the same word on every row, survived:
+    COLUMNS=65 printed `host scope event command` for the autopilot's hooks.
+    """
+
+    def test_name_is_the_first_column(self, boost, sandbox, monkeypatch):
+        # No COLUMNS and no TTY: nothing is fitted, every column prints.
+        monkeypatch.delenv("COLUMNS", raising=False)
+        _add_autopilot_hooks(boost)
+        r = boost("hooks", "list")
+        assert _header(r.out) == ["name", "host", "scope", "event", "matcher",
+                                  "command"]
+        assert r.out.splitlines()[1].startswith(bmad.HOOK_NAME + " ")
+
+    def test_the_measured_pane_keeps_the_name(self, boost, sandbox,
+                                              monkeypatch):
+        monkeypatch.setenv("COLUMNS", "65")
+        _add_autopilot_hooks(boost)
+        r = boost("hooks", "list")
+        header = _header(r.out)
+        assert header[0] == "name" and header[-1] == "command", r.out
+        assert _widest(r.out) <= 65, r.out
+
+    @pytest.mark.parametrize("color", [False, True], ids=["piped", "colour"])
+    def test_name_outlasts_every_other_droppable_column(
+            self, boost, sandbox, monkeypatch, color):
+        # `command` is protected (`keep=`), so below its own 72 cells it is
+        # the whole row and overflows by design. Everywhere else the row fits,
+        # and whenever anything besides `command` survives, `name` does.
+        monkeypatch.setenv("BOOST_COLOR", "always" if color else "never")
+        _add_autopilot_hooks(boost, long_command=True)
+        name_and_command_only = []
+        for cols in range(40, 101):
+            monkeypatch.setenv("COLUMNS", str(cols))
+            r = boost("hooks", "list")
+            header = _header(r.out)
+            assert _LONG_CMD in r.out, (cols, r.out)
+            if header == ["command"]:
+                continue
+            assert header[0] == "name", (cols, r.out)
+            assert _widest(r.out) <= cols, (cols, r.out)
+            if header == ["name", "command"]:
+                name_and_command_only.append(cols)
+        # The band where one column fits beside the command is the one that
+        # printed `host` alone before.
+        assert name_and_command_only, "name never survived alone"

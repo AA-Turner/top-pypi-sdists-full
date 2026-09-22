@@ -60,6 +60,8 @@ from godot_ai.resources.project import register_project_resources
 from godot_ai.resources.scenes import register_scene_resources
 from godot_ai.resources.scripts import register_script_resources
 from godot_ai.resources.sessions import register_session_resources
+from godot_ai.resources.shaders import register_shader_resources
+from godot_ai.resources.visual_shaders import register_visual_shader_resources
 from godot_ai.runtime_info import disarm_startup_report, report_startup_failure
 from godot_ai.services.custom_tool_service import CustomToolService
 from godot_ai.services.promoted_tools import PromotedToolRegistrar
@@ -89,6 +91,7 @@ from godot_ai.tools.game import register_game_tools
 from godot_ai.tools.gridmap import register_gridmap_tools
 from godot_ai.tools.input_map import register_input_map_tools
 from godot_ai.tools.material import register_material_tools
+from godot_ai.tools.navigation import register_navigation_tools
 from godot_ai.tools.node import register_node_tools
 from godot_ai.tools.particle import register_particle_tools
 from godot_ai.tools.project import register_project_tools
@@ -244,7 +247,10 @@ _ROLLUP_BLOCKS: tuple[tuple[str | None, str], ...] = (
     (
         "material",
         "  material_manage  create, set_param, set_shader_param, get, list, assign,\n"
-        "                   apply_to_node, apply_preset\n",
+        "                   apply_to_node, apply_preset, shader_create, shader_get,\n"
+        "                   shader_validate, shader_patch, visual_shader_create_graph,\n"
+        "                   visual_shader_get, visual_shader_node_catalog,\n"
+        "                   visual_shader_edit\n",
     ),
     (
         "audio",
@@ -274,7 +280,10 @@ _ROLLUP_BLOCKS: tuple[tuple[str | None, str], ...] = (
         "                   input_state\n",
     ),
     ("autoload", "  autoload_manage  list, add, remove\n"),
-    ("filesystem", "  filesystem_manage read_text, write_text, reimport, scan, search\n"),
+    (
+        "filesystem",
+        "  filesystem_manage read_text, write_text, reimport, scan, search, move, rename, remove\n",
+    ),
     (
         "theme",
         "  theme_manage     create, set_color, set_constant, set_font_size,\n"
@@ -283,7 +292,7 @@ _ROLLUP_BLOCKS: tuple[tuple[str | None, str], ...] = (
     ("ui", "  ui_manage        set_anchor_preset, set_text, build_layout, draw_recipe\n"),
     (
         "resource",
-        "  resource_manage  search, load, assign, get_info, create,\n"
+        "  resource_manage  search, load, inspect, assign, get_info, create,\n"
         "                   curve_set_points, environment_create,\n"
         "                   physics_shape_autofit, physics_shape_generate,\n"
         "                   gradient_texture_create,\n"
@@ -303,6 +312,10 @@ _ROLLUP_BLOCKS: tuple[tuple[str | None, str], ...] = (
         "  gridmap_manage   gridmap_set_item, gridmap_fill, gridmap_clear,\n"
         "                   gridmap_get_used_cells, gridmap_list_library_items\n",
     ),
+    (
+        "navigation",
+        "  navigation_manage bake, path_get\n",
+    ),
     ("csg", "  csg_manage       csg_create, csg_set_operation\n"),
     ("custom", "  custom_manage    list, invoke\n"),
 )
@@ -316,9 +329,10 @@ _INSTRUCTIONS_FOOTER = (
     "  godot://logs/recent, godot://scene/current, godot://scene/hierarchy,\n"
     "  godot://node/{path}/properties|children|groups,\n"
     "  godot://class/{class_name},\n"
-    "  godot://script/{path}, godot://project/info, godot://project/settings,\n"
-    "  godot://materials, godot://input_map, godot://performance,\n"
-    "  godot://test/results, godot://custom-tools\n\n"
+    "  godot://script/{path}, godot://shader/{path}, godot://project/info,\n"
+    "  godot://project/settings, godot://materials, godot://input_map,\n"
+    "  godot://performance, godot://test/results, godot://custom-tools,\n"
+    "  godot://visual_shader/{path}\n\n"
     "Code-mode adapters keep server and member names separate: "
     "call('godot-ai', 'editor_state', {}) and "
     "readResource('godot-ai', 'godot://scene/current'). Never prefix the "
@@ -890,6 +904,8 @@ def create_server(
         register_tileset_tools(mcp)
     if "gridmap" not in exclude:
         register_gridmap_tools(mcp)
+    if "navigation" not in exclude:
+        register_navigation_tools(mcp)
     if "csg" not in exclude:
         register_csg_tools(mcp)
     if "custom" not in exclude:
@@ -901,6 +917,8 @@ def create_server(
     register_project_resources(mcp)
     register_node_resources(mcp)
     register_script_resources(mcp)
+    register_visual_shader_resources(mcp)
+    register_shader_resources(mcp)
     register_library_resources(mcp)
     register_class_resources(mcp)
     register_custom_tools_resources(mcp)

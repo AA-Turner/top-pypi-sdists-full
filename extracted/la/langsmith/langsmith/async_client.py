@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 from langsmith import client as ls_client
 from langsmith import schemas as ls_schemas
 from langsmith import utils as ls_utils
-from langsmith._internal import _profiles
+from langsmith._internal import _agent_addressing, _profiles
 from langsmith._internal._backend_version import _check_backend_version
 from langsmith._internal._hub import (
     HUB,
@@ -212,6 +212,7 @@ class AsyncClient:
                 - `False`: Disable caching (equivalent to `disable_prompt_cache=True`)
                 - `AsyncCache(...)`/`AsyncPromptCache(...)`: Use a custom cache instance
         """
+        _agent_addressing.warn_on_env()
         self._retry_config = retry_config or {"max_retries": 3}
         self._custom_headers = headers or {}
         env_api_url = ls_client._get_langsmith_env_var_uncached("ENDPOINT")
@@ -611,16 +612,49 @@ class AsyncClient:
         revision_id: Optional[ls_client.ID_TYPE] = None,
         **kwargs: Any,
     ) -> None:
-        """Create a run."""
+        """Create a run.
+
+        !!! warning "Experimental"
+            `agent_id` / `agent_environment` address the run to an agent
+            instead of a project. Agent addressing is in beta and enabled per
+            workspace; a workspace without it rejects the run, so the trace is
+            lost rather than falling back to a project. Both may change
+            without notice.
+        """
+        # Only `project_name`, this method's own parameter, counts as a caller
+        # naming a project; `session_name` and `session_id` arrive in `kwargs`
+        # as part of an already-resolved run body.
+        _agent_addressing.reject_conflicting(
+            project=project_name,
+            agent_id=kwargs.get("agent_id"),
+            agent_environment=kwargs.get("agent_environment"),
+        )
+        if (
+            kwargs.get("session_name") is not None
+            or kwargs.get("session_id") is not None
+        ):
+            # Already addressed by an incoming run body; leave it alone.
+            session_name = project_name
+        else:
+            (
+                session_name,
+                kwargs["agent_id"],
+                kwargs["agent_environment"],
+            ) = _agent_addressing.resolve(
+                project_name,
+                kwargs.get("agent_id"),
+                kwargs.get("agent_environment"),
+            )
         run_create = {
             "name": name,
             "id": kwargs.get("id") or uuid.uuid4(),
             "inputs": inputs,
             "run_type": run_type,
-            "session_name": project_name or ls_utils.get_tracer_project(),
+            "session_name": session_name,
             "revision_id": revision_id,
             **kwargs,
         }
+        _agent_addressing.apply_to_payload(run_create)
         await self._arequest_with_retries(
             "POST", "/runs", content=ls_client._dumps_json(run_create)
         )
@@ -630,8 +664,22 @@ class AsyncClient:
         run_id: ls_client.ID_TYPE,
         **kwargs: Any,
     ) -> None:
-        """Update a run."""
+        """Update a run.
+
+        Args:
+            run_id: The run to update.
+            **kwargs: The fields to update, and `agent_id` / `agent_environment`.
+
+                !!! warning "Experimental"
+                    `agent_id` / `agent_environment` are in beta. They address
+                    the patch to an agent, and must match the post they belong
+                    to: an update that names neither is resolved by run id, as
+                    every update was before. Agent addressing is enabled per
+                    workspace; a workspace without it rejects the runs. Both
+                    may change without notice.
+        """
         data = {**kwargs, "id": ls_client._as_uuid(run_id)}
+        _agent_addressing.apply_to_payload(data, update=True)
         await self._arequest_with_retries(
             "PATCH",
             f"/runs/{ls_client._as_uuid(run_id)}",
@@ -641,7 +689,7 @@ class AsyncClient:
     @_deprecated(
         "read_run() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.retrieve() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs"
         "#runs-retrieve for the migration guide."
     )
     async def read_run(
@@ -689,7 +737,7 @@ class AsyncClient:
     @_deprecated(
         "list_runs() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.query() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-query-runs"
         "#runs-query for the migration guide."
     )
     async def list_runs(
@@ -865,7 +913,7 @@ class AsyncClient:
     @_deprecated(
         "share_run() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.share.create() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     async def share_run(
@@ -914,7 +962,7 @@ class AsyncClient:
     @_deprecated(
         "read_run_shared_link() is deprecated and will be removed after Jan 31, 2027. "
         'Use client.runs.retrieve(selects=["SHARE_URL"]) instead. '
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     async def read_run_shared_link(self, run_id: ls_client.ID_TYPE) -> Optional[str]:
@@ -1135,9 +1183,18 @@ class AsyncClient:
         start_time: Optional[datetime.datetime] = None,
         comment: Optional[str] = None,
         extend_trace_retention: bool = True,
+        agent_id: Optional[str] = None,
+        agent_environment: Optional[str] = None,
         **kwargs: Any,
     ) -> ls_schemas.Feedback:
         """Create feedback for a run.
+
+        !!! warning "Experimental"
+            `agent_id` / `agent_environment` are in beta. Agent addressing is
+            enabled per workspace; a workspace without it rejects the feedback,
+            so it is lost rather than falling back to a project. The agent must
+            already exist -- unlike run ingestion, a feedback part never creates
+            one. Both may change without notice.
 
         Args:
             run_id: The ID of the run to provide feedback for. At least one of
@@ -1169,6 +1226,14 @@ class AsyncClient:
             comment: A comment about this feedback.
             extend_trace_retention: If false, create the feedback without
                 extending the trace's retention tier.
+            agent_id: The agent to attach this feedback to, instead of a
+                project. Pass whatever the run being described was traced to.
+                Cannot be combined with `session_id` / `project_id`, and is
+                never read from `LANGSMITH_AGENT_ID`: feedback follows its run,
+                not the ambient environment. The agent must already exist;
+                unlike run ingestion, a feedback part never creates one.
+            agent_environment: Narrows `agent_id`, and requires it. Defaults
+                server-side to `production` when omitted.
             **kwargs: Additional deprecated keyword arguments.
 
         Returns:
@@ -1184,7 +1249,9 @@ class AsyncClient:
             raise ValueError(
                 "project_id cannot be provided if run_id or trace_id is provided"
             )
-        if run_id is not None and session_id is None:
+        if run_id is not None and session_id is None and agent_id is None:
+            # An agent pair locates the project directly, so it satisfies the
+            # same requirement this gate exists for.
             ls_client._check_feedback_session_id(await self.info())
         if kwargs:
             warnings.warn(
@@ -1239,6 +1306,8 @@ class AsyncClient:
             modified_at=datetime.datetime.now(datetime.timezone.utc),
             feedback_config=feedback_config,
             session_id=session_id_,
+            agent_id=agent_id,
+            agent_environment=agent_environment,
             start_time=start_time,
             comparative_experiment_id=ls_client._ensure_uuid(
                 comparative_experiment_id, accept_null=True

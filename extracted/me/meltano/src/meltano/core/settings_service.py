@@ -7,14 +7,12 @@ import os
 import sys
 import typing as t
 import warnings
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-
-import structlog
 
 from meltano.core.setting_definition import SettingKind
 from meltano.core.settings_store import SettingValueStore
-from meltano.core.utils import EnvVarMissingBehavior, flatten
+from meltano.core.utils import EnvVarMissingBehavior, flatten, split_path
 from meltano.core.utils import expand_env_vars as do_expand_env_vars
 
 if sys.version_info >= (3, 11):
@@ -24,14 +22,22 @@ else:
     from backports.strenum import StrEnum
     from typing_extensions import Self
 
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
 if t.TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Iterable
 
     from meltano.core.project import Project
     from meltano.core.setting_definition import EnvVar, SettingDefinition
     from meltano.core.settings_store import SettingsStoreManager
 
-logger = structlog.stdlib.get_logger(__name__)
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
 
 
 # sentinel value to use to prevent leaking sensitive data
@@ -50,11 +56,7 @@ class FeatureFlags(StrEnum):
 
     @property
     def setting_name(self) -> str:
-        """Return the setting name for this feature flag.
-
-        Returns:
-            The setting name for this feature flag.
-        """
+        """Setting name for this feature flag."""
         return f"{FEATURE_FLAG_PREFIX}.{self.value}"
 
 
@@ -70,6 +72,7 @@ class FeatureNotAllowedException(Exception):
         super().__init__(feature)
         self.feature = feature
 
+    @override
     def __str__(self) -> str:
         """Represent the error as a string.
 
@@ -79,10 +82,9 @@ class FeatureNotAllowedException(Exception):
         return f"{self.feature} not enabled."
 
 
-class SettingsService(metaclass=ABCMeta):
+class SettingsService(ABC):
     """Abstract base class for managing settings."""
 
-    LOGGING = False
     supports_environments = True
 
     def __init__(
@@ -90,7 +92,7 @@ class SettingsService(metaclass=ABCMeta):
         project: Project,
         *,
         show_hidden: bool = True,
-        env_override: dict[str, t.Any] | None = None,
+        env_override: dict[str, str] | None = None,
         config_override: dict | None = None,
     ):
         """Create a new settings service instance.
@@ -103,65 +105,49 @@ class SettingsService(metaclass=ABCMeta):
         """
         self.project = project
         self.show_hidden = show_hidden
-        self.env_override: dict[str, t.Any] = env_override or {}
+        self.env_override: dict[str, str] = env_override or {}
         self.config_override = config_override or {}
         self._setting_defs: list[SettingDefinition] | None = None
 
     @property
     @abstractmethod
     def label(self) -> str:
-        """Return label.
-
-        Returns:
-            Label for the settings service.
-        """
+        """Label for the settings service."""
 
     @property
     @abstractmethod
     def docs_url(self) -> str:
-        """Return docs URL.
-
-        Returns:
-            URL for Meltano doc site.
-        """
+        """Docs URL."""
 
     @property
     @abstractmethod
     def project_settings_service(self) -> SettingsService:
-        """Get a project settings service.
-
-        Returns:
-            A ProjectSettingsService
-        """
+        """Project settings service."""
 
     @property
     def env_prefixes(self) -> list[str]:
-        """Return prefixes for setting environment variables.
-
-        Returns:
-            prefixes for settings environment variables
-        """
+        """Prefixes for setting environment variables."""
         return ["meltano"]
 
     @property
     @abstractmethod
     def db_namespace(self) -> str:
-        """Return namespace for setting value records in system database."""
+        """Namespace for setting value records in system database."""
 
     @property
     @abstractmethod
     def setting_definitions(self) -> list[SettingDefinition]:
-        """Return definitions of supported settings."""
+        """Definitions of supported settings."""
 
     @property
     def inherited_settings_service(self) -> Self | None:
-        """Return settings service to inherit configuration from."""
+        """Settings service to inherit configuration from."""
         return None
 
     @property
     @abstractmethod
     def meltano_yml_config(self) -> dict:
-        """Return current configuration in `meltano.yml`."""
+        """Current configuration in `meltano.yml`."""
 
     @abstractmethod
     def update_meltano_yml_config(self, config: dict) -> None:
@@ -190,12 +176,8 @@ class SettingsService(metaclass=ABCMeta):
         return flatten(self.meltano_yml_config, "dot")
 
     @property
-    def env(self) -> dict[str, t.Any]:
-        """Return the environment as a dict.
-
-        Returns:
-            the environment as a dict.
-        """
+    def env(self) -> dict[str, str]:
+        """Environment as a dict."""
         return {**os.environ, **self.env_override}
 
     def config_with_metadata(
@@ -336,8 +318,6 @@ class SettingsService(metaclass=ABCMeta):
         if setting_def:
             name = setting_def.name
 
-        self.log(f"Getting setting '{name}'")
-
         metadata: dict[str, t.Any] = {
             "name": name,
             "source": source,
@@ -365,9 +345,9 @@ class SettingsService(metaclass=ABCMeta):
             f"{FEATURE_FLAG_PREFIX}.{FeatureFlags.STRICT_ENV_VAR_MODE}",
             cast_value=True,
         )
-        if expand_env_vars and metadata.get("expandable", False):
+        if expand_env_vars and metadata.get("expandable"):
             metadata["expandable"] = False
-            expanded_value = do_expand_env_vars(  # type: ignore[type-var]
+            expanded_value = do_expand_env_vars(
                 value,
                 env=expandable_env,
                 if_missing=EnvVarMissingBehavior(int(strict_env_var_mode)),  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
@@ -414,7 +394,7 @@ class SettingsService(metaclass=ABCMeta):
 
             # Only cast if the setting is not expandable,
             # since we can't cast e.g. $PORT to an integer
-            if not metadata.get("expandable", False):
+            if not metadata.get("expandable"):
                 cast_value = setting_def.cast_value(value)
                 if cast_value != value:
                     metadata["uncast_value"] = value
@@ -425,8 +405,6 @@ class SettingsService(metaclass=ABCMeta):
             if redacted and value and setting_def.is_redacted:
                 metadata["redacted"] = True
                 value = redacted_value
-
-        self.log(f"Got setting {name!r} with metadata: {metadata}")
 
         if setting_def is None and metadata["source"] is SettingValueStore.DEFAULT:
             warnings.warn(
@@ -490,8 +468,6 @@ class SettingsService(metaclass=ABCMeta):
         Returns:
             the new value and metadata for the setting
         """
-        self.log(f"Setting setting '{path}'")
-
         if isinstance(path, str):
             path = [path]
 
@@ -499,7 +475,9 @@ class SettingsService(metaclass=ABCMeta):
 
         setting_def = self.find_setting(name)
         if setting_def is None:
-            root_name, _, _ = name.partition(".")
+            # Only an unescaped dot starts a nested path, so `s3\.endpoint_url`
+            # is its own root rather than a setting nested under `s3\`.
+            root_name = split_path(name, maxsplit=1, unescape=False)[0]
             if root_name == name or self.find_setting(root_name) is None:
                 warnings.warn(
                     f"Unknown setting {name!r}",
@@ -533,7 +511,6 @@ class SettingsService(metaclass=ABCMeta):
             ),
         )
 
-        self.log(f"Set setting {name!r} with metadata: {metadata}")
         return value, metadata
 
     def set(self, *args: t.Any, **kwargs: t.Any) -> t.Any:  # noqa: ANN401
@@ -566,24 +543,19 @@ class SettingsService(metaclass=ABCMeta):
         Returns:
             the metadata for the setting
         """
-        self.log(f"Unsetting setting '{path}'")
-
         if isinstance(path, str):
             path = [path]
 
         name = ".".join(path)
         setting_def = self.find_setting(name)
 
-        metadata = {
+        return {
             "name": name,
             "path": path,
             "store": store,
             "setting": setting_def,
             **store.manager(self, **kwargs).unset(name, path, setting_def=setting_def),
         }
-
-        self.log(f"Unset setting {name!r} with metadata: {metadata}")
-        return metadata
 
     def reset(
         self,
@@ -600,9 +572,7 @@ class SettingsService(metaclass=ABCMeta):
         Returns:
             the metadata for the setting
         """
-        metadata = {"store": store, **store.manager(self, **kwargs).reset()}
-        self.log(f"Reset settings with metadata: {metadata}")
-        return metadata
+        return {"store": store, **store.manager(self, **kwargs).reset()}
 
     def definitions(self, *, extras: bool | None = None) -> Iterable[SettingDefinition]:
         """Return setting definitions along with extras.
@@ -682,22 +652,13 @@ class SettingsService(metaclass=ABCMeta):
         """
         return self.setting_env_vars(setting_def)[0].key
 
-    def log(self, message: str) -> None:
-        """Log the given message.
-
-        Args:
-            message: the message to log
-        """
-        if self.LOGGING:
-            logger.debug(message)
-
     @contextmanager
     def feature_flag(
         self,
         feature: str,
         *,
         raise_error: bool = True,
-    ) -> Generator[bool, None, None]:
+    ) -> Generator[bool]:
         """Gate code paths based on feature flags.
 
         Args:

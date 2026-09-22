@@ -27,6 +27,7 @@ from ..core import (
     catalog,
     claude_settings,
     complete,
+    config,
     frontmatter,
     gitutil,
     imperative,
@@ -410,21 +411,63 @@ def cmd_doctor(argv):
         rep.ok("git", "git on PATH")
     else:
         bad("git", "git not found on PATH — install git")
-    paths.ensure_dirs()  # create silently; never a failure
+    # Create silently; one a refused mkdir leaves missing is named below.
+    refused = paths.create_dirs(paths.boost_dirs())
 
+    # A corrupt config.json reads as DEFAULTS, so the tap list below comes
+    # back empty and the verdict used to be "ready to set up", exit 0, on a
+    # machine whose clones were all still on disk. Say what was lost instead.
+    cfg_err = config.check()
+    if cfg_err:
+        clones = config.unlisted_clones()
+        bad("config", "%s — boost is running on defaults, so %s. Repair the "
+            "file, or re-add your taps; the next write moves the bad file "
+            "to config.json.corrupt" % (cfg_err, (
+                "the %d tap clone%s on disk %s not listed" % (
+                    len(clones), _s(len(clones)),
+                    "is" if len(clones) == 1 else "are"))
+                if clones else "no taps or settings are read"), wrap=True)
+
+    # A cache dir boost cannot write leaves every command rescanning its taps
+    # and warning that it could not keep the result (catalog.rebuild_tap), so
+    # "cloned & cached" below would be the one line on the screen claiming
+    # otherwise. A missing one under a directory that refuses the mkdir is the
+    # same problem, fixed in that directory rather than the one never made.
+    cache_dir = paths.cache_dir()
+    cache_block = paths.refuses_writes(cache_dir)
+    # A file or dangling link at the cache path is moved, not chmodded: heal
+    # says so, and the two must not prescribe different fixes.
+    cache_moved = cache_block is not None and paths.in_the_way(cache_block)
     taps = registry.list_taps()
     tap_ok = 0
     for tap in taps:
         if not tap.is_cloned:
             bad("tap", "tap %s not cloned — run `boost update`" % tap.name)
         elif not tap.cache_file.exists():
-            bad("tap", "tap %s has no catalog cache — run `boost update %s`"
-                % (tap.name, tap.name))
+            bad("tap", "tap %s has no catalog cache — run `boost update %s`%s"
+                % (tap.name, tap.name, " once %s is %s"
+                   % (_tilde(cache_block), "moved aside" if cache_moved
+                      else "writable") if cache_block else ""), wrap=True)
         else:
             tap_ok += 1
+    if taps and cache_block:
+        bad("cache", "%s — every command rescans its taps and cannot keep the "
+            "result; %s"
+            % (paths.not_writable(cache_dir, cache_block),
+               paths.write_remedy(cache_block) if cache_moved
+               else "make %s writable" % _tilde(cache_block)),
+            wrap=True)
+    # With no taps the cache line above is silent, but heal still names a
+    # cache dir it cannot create, so doctor must too.
+    for d in refused:
+        if d != cache_dir or not taps:
+            bad("dirs", paths.not_writable(d, paths.refuses_writes(d) or d),
+                wrap=True)
     if taps and tap_ok == len(taps):
-        rep.ok("taps", "%d tap%s cloned & cached" % (len(taps), _s(len(taps))))
-    elif not taps:
+        rep.ok("taps", "%d tap%s cloned%s" % (len(taps), _s(len(taps)),
+                                              "" if cache_block
+                                              else " & cached"))
+    elif not taps and not cfg_err:
         # `boost tap --defaults` leads, and it is the same command in the same
         # order that `boost search`'s error, `mcp.no_results` and the MCP
         # `boost_doctor` tool all name. A user who hits two of these surfaces
@@ -468,7 +511,9 @@ def cmd_doctor(argv):
     for name, entry in sorted(skills.items()):
         sdir = store.skill_store_dir(name)
         if not sdir.is_dir():
-            bad("skill", "skill %s missing from store — run `boost heal`" % name)
+            fix = ("boost reinstall %s" % name if store.is_url_import(entry)
+                   else "boost heal")
+            bad("skill", "skill %s missing from store — run `%s`" % (name, fix))
             skill_issues += 1
             continue
         if entry.get("quarantined"):
@@ -568,9 +613,29 @@ def cmd_doctor(argv):
     quarantined_rules = len(all_rules) - len(rules)
     quarantined_workflows = len(all_workflows) - len(workflows)
     mat_issues = 0
+    for kind, section in (("rule", rules), ("workflow", workflows)):
+        for name, entry in sorted(section.items()):
+            for m in entry.get("materializations") or []:
+                if m.get("unwritable"):
+                    # Refused at install, so `boost reinstall` would be refused
+                    # too until the dir allows it; the agent-dir line below
+                    # names the `chmod`, or the move when a file or a dangling
+                    # link is in the way. Any file there predates the refusal.
+                    block = paths.refuses_writes(Path(m.get("path", "")).parent)
+                    if block is not None and paths.in_the_way(block):
+                        why = ("%s is in the way — `boost sync` writes it once "
+                               "it is moved" % _tilde(block))
+                    else:
+                        why = ("its dir was not writable — `boost sync` writes "
+                               "it once it is")
+                    bad(kind, "%s %s was not written for %s: %s"
+                        % (kind, name, m.get("agent", "?"), why), wrap=True)
+                    mat_issues += 1
     for name, entry in sorted(rules.items()):
         for m in entry.get("materializations") or []:
             p = Path(m.get("path", ""))
+            if m.get("unwritable"):
+                continue
             if m.get("mode") == "claude":
                 try:
                     present = p.exists() and ("boost:rule:%s start" % name) in \
@@ -585,7 +650,7 @@ def cmd_doctor(argv):
                 mat_issues += 1
     for name, entry in sorted(workflows.items()):
         for m in entry.get("materializations") or []:
-            if not Path(m.get("path", "")).is_file():
+            if not m.get("unwritable") and not Path(m.get("path", "")).is_file():
                 bad("workflow", "workflow %s missing its %s file — run `boost reinstall %s`"
                     % (name, m.get("agent", "?"), name))
                 mat_issues += 1
@@ -660,9 +725,23 @@ def cmd_doctor(argv):
             % (dup.name, agents.display_name(dup.agent), _tilde(dup.path),
                _tilde(dup.target)), wrap=True)
 
-    for adir in enabled.values():
-        if adir.is_dir() and not os.access(str(adir), os.W_OK):
-            bad("agent-dir", "agent dir %s is not writable" % _tilde(adir))
+    # Every dir boost writes into: the linking agents' skills dirs, and the
+    # rules/ and commands/ dirs rules and workflows materialize into. Not a
+    # native-store agent's skills dir (Gemini's): boost never writes it, and
+    # `boost sync` could not act on it.
+    skills_dirs = set(agents.linking_agents().values())
+    for adir, block in store.blocked_agent_dirs():
+        # A file or a dangling link where the dir belongs. Heal names it,
+        # install skips the agent, and doctor said nothing and exited 0.
+        bad("agent-dir", "%s — %s, then `boost sync` %s what it missed"
+            % (paths.not_writable(adir, block), paths.write_remedy(block),
+               "relinks" if adir in skills_dirs else "writes"), wrap=True)
+    for adir in store.unwritable_agent_dirs():
+        # A next action, like the log line below it: without one this was
+        # the only issue doctor names that nothing can act on.
+        bad("agent-dir", "agent dir %s is not writable — `chmod u+w %s`, "
+            "then `boost sync` writes what it missed"
+            % (_tilde(adir), _tilde(adir)), wrap=True)
 
     rotation = journal.rotation_healthy()
     if not rotation:
@@ -792,10 +871,42 @@ def _report_search_engine(rep) -> None:
             detail += ", live key is %s" % st["provider"]
         elif st["reason"] == "empty":
             detail += " but holds no vectors"
+        elif st["reason"] == "model-unavailable":
+            # The store is fine; the query embedder is what failed. Say which
+            # half and when, because a record from an hour ago on another
+            # network reads differently from one made by the last search.
+            from ..core import embed
+            fail = st.get("model_failure") or {}
+            detail += ", but %s" % embed.local_failure_text(fail)
+            if isinstance(fail.get("at"), (int, float)):
+                detail += ", last tried %s" % util.rel_time(
+                    datetime.fromtimestamp(fail["at"], UTC)
+                    .strftime("%Y-%m-%dT%H:%M:%SZ"))
         rep.issue("search-engine",
                   "semantic search silently off — %d-chunk vector store %s; "
                   "searches are using BM25 — %s" % (st["chunks"], detail, fix),
                   hint=fix, wrap=True)
+        return
+
+    if st["reason"] == "disabled":
+        # A deliberate opt-out, not a fault, so it stays a note and doctor
+        # stays green: BOOST_NO_EMBED is documented as the hard kill switch,
+        # and the CI job that sets it is the one caller that most needs a
+        # zero exit code. Say the vectors are still there, because the user
+        # who turned it off is the user deciding whether to turn it back on.
+        held = ""
+        if st["store_exists"] and st["chunks"]:
+            # "still on disk", not "intact": the switch shadows every rung
+            # below it, so a store that is *also* stale (version/model/dim
+            # changed) reaches this line too, and unsetting the switch would
+            # turn it red rather than green. Say what is measured — the
+            # vectors were not discarded — and let the next status say more.
+            held = (" — the %d-chunk vector store is still on disk"
+                    % st["chunks"])
+        rep.note("search-engine",
+                 "semantic search off by BOOST_NO_EMBED — using the "
+                 "full-content BM25 engine%s (%s)" % (held, fix),
+                 hint=fix, wrap=True)
         return
 
     rep.note("search-engine",
@@ -925,7 +1036,7 @@ def cmd_drift(argv):
                 else "%s (%s)" % (r["name"], r["kind"]),
                 out.role(r["status"], _DRIFT_ROLE[r["status"]]),
                 out.role(r["hint"], "muted")) for r in rows],
-              headers=("NAME", "STATUS", "HINT"))
+              headers=("NAME", "STATUS", "HINT"), whole=("NAME",))
     counts: dict = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -980,7 +1091,8 @@ def cmd_test(argv):
     if not rows:
         out.info("no skills installed")
         return 0
-    out.table(rows, headers=("SKILL", "RESULT", "FAILED CHECKS"))
+    out.table(rows, headers=("SKILL", "RESULT", "FAILED CHECKS"),
+              whole=("SKILL",))
     out.info("%d passed, %d failed" % (len(rows) - failed_count, failed_count))
     return 1 if failed_count else 0
 
@@ -1035,7 +1147,8 @@ def cmd_decay(argv):
     out.table([(r["name"], out.role(r["relevance"], rel_role[r["relevance"]]),
                 util.rel_time(r["last_activity"]) if r["last_activity"] else "never",
                 verdicts[r["verdict"]]) for r in rows],
-              headers=("SKILL", "RELEVANCE", "LAST ACTIVITY", "VERDICT"))
+              headers=("SKILL", "RELEVANCE", "LAST ACTIVITY", "VERDICT"),
+              whole=("SKILL",))  # `boost uninstall <name>`
     n_decay = sum(1 for r in rows if r["verdict"] == "decay")
     n_review = sum(1 for r in rows if r["verdict"] == "review")
     out.info("%d decay candidate%s · %d to review · %d ok"
@@ -1059,20 +1172,30 @@ def cmd_heal(argv):
     dry = args.dry_run
     actions: list[str] = []
 
-    # linking_agents, matching agents.ensure_agent_dirs below: a native-store
-    # agent's skills dir is never written to, so it is not a missing directory.
-    wanted = [paths.boost_home(), paths.repos_dir(), paths.cache_dir(), paths.logs_dir(), paths.state_dir(), paths.snapshots_dir(), paths.lock_history_dir(), paths.profiles_dir(), paths.store_dir(), *list(agents.linking_agents().values())]
+    # linking_agents, not enabled_agents: a native-store agent's skills dir is
+    # never written to, so it is not a missing directory.
+    wanted = [*paths.boost_dirs(), *agents.linking_agents().values()]
     missing = [d for d in wanted if not d.is_dir()]
-    if missing:
+    # A missing dir whose parent refuses the mkdir is not one heal can create,
+    # so the preview does not promise it: it used to say "would create" and
+    # exit 0 for a run that crashed at exit 70. Both name it below instead.
+    blocked = {d: b for d in missing if (b := paths.refuses_writes(d))}
+    creatable = [d for d in missing if d not in blocked]
+    if creatable:
         if dry:
-            out.info("would create %d missing director%s"
-                     % (len(missing), "y" if len(missing) == 1 else "ies"))
+            # Named, like every other repair heal previews: a bare count was
+            # the one line that never said which paths get written — on a
+            # fresh HOME, `~/.agents/skills` and each agent's skills dir.
+            for d in creatable:
+                out.info("would create directory %s" % _tilde(d))
         else:
-            paths.ensure_dirs()
-            agents.ensure_agent_dirs()
-            out.ok("created %d missing director%s"
-                   % (len(missing), "y" if len(missing) == 1 else "ies"))
-        actions.append("mkdir %d" % len(missing))
+            for d in paths.create_dirs(creatable):
+                blocked[d] = paths.refuses_writes(d) or d
+            made = len(creatable) - sum(d in blocked for d in creatable)
+            if made:
+                out.ok("created %d missing director%s"
+                       % (made, "y" if made == 1 else "ies"))
+        actions.append("mkdir %d" % len(creatable))
 
     ours, theirs = _broken_links()
     for link in ours:
@@ -1104,12 +1227,13 @@ def cmd_heal(argv):
                 continue
             out.info("would remove stale link %s" % _tilde(p))
             actions.append("stale %s" % p)
-        for name in plan["missing_store"]:
-            out.info("would restore %s from its tap (or drop it from the lock)" % name)
-            actions.append("restore %s" % name)
-        for name in plan["unrecorded_store"]:
-            out.info("would re-record %s, which the lock file has lost" % name)
-            actions.append("re-record %s" % name)
+        # The branch `sync_apply` will take, worded by the same planner it
+        # uses: this said "would restore X from its tap (or drop it from the
+        # lock)" where the live run reinstalls, and previewed no rule or
+        # workflow repair at all.
+        for msg in store.sync_preview(plan):
+            out.info(msg.replace(str(paths.home()), "~"))
+            actions.append(msg)
     else:
         for msg in store.sync_apply(plan):
             out.ok(msg.replace(str(paths.home()), "~"))
@@ -1139,18 +1263,27 @@ def cmd_heal(argv):
             out.warn("%s is no longer a symlink into the store — left alone"
                      % _tilde(dup.path))
 
+    # A dir that refuses writes, or a missing one whose parent refuses the
+    # mkdir. A missing one heal CAN create is not stuck: the real run creates
+    # it above, so a preview that called it unwritable would exit 1 where the
+    # run it previews exits 0.
+    cache_dir = paths.cache_dir()
+    cache_stuck = paths.refuses_writes(cache_dir) is not None
     for tap in registry.list_taps():
         if not tap.is_cloned:
             out.warn("tap %s not cloned — skipped (run `boost update`)" % tap.name)
             continue
         had_cache = tap.cache_file.exists()
         if dry:
-            if not had_cache:
+            if not had_cache and not cache_stuck:
                 out.info("would rebuild catalog cache for %s" % tap.name)
                 actions.append("cache %s" % tap.name)
         else:
             catalog.rebuild_tap(tap)
-            if not had_cache:
+            # rebuild_tap survives a cache it cannot write and warns; claiming
+            # the rebuild under that warning would certify a file that is
+            # still missing, and every later run would claim it again.
+            if not had_cache and tap.cache_file.exists():
                 out.ok("rebuilt catalog cache for %s" % tap.name)
                 actions.append("cache %s" % tap.name)
 
@@ -1164,15 +1297,50 @@ def cmd_heal(argv):
             out.ok("journal rotation scheduled (next write rotates)")
         actions.append("rotate")
 
-    if not actions:
+    # Not repairable from here — the tap list is the user's, not derivable —
+    # and never covered by an all-clear: with it unreadable, every check
+    # above ran against DEFAULTS.
+    cfg_err = config.check()
+    if cfg_err:
+        out.warn("%s — heal cannot repair it: boost is running on defaults "
+                 "until the file is fixed or your taps are re-added"
+                 % cfg_err, wrap=True)
+    # Permissions are the user's to change, not heal's; but a dir heal saw and
+    # cannot fix must not sit under an all-clear.
+    stuck = store.unwritable_agent_dirs()
+    for adir in stuck:
+        out.warn("agent dir %s is not writable — heal does not change "
+                 "permissions; run `chmod u+w %s`, then `boost sync`"
+                 % (_tilde(adir), _tilde(adir)), wrap=True)
+    # The same rule for the cache dir doctor flags, and for any directory a
+    # refused mkdir left missing: heal cannot make the parent writable, so it
+    # must not answer "nothing to heal" beneath the problem. The preview and
+    # the run print the same line, naming the directory that refuses.
+    # setdefault: a missing cache dir is already in `blocked`, named once.
+    if registry.list_taps() and cache_stuck:
+        blocked.setdefault(cache_dir,
+                           paths.refuses_writes(cache_dir) or cache_dir)
+    # A file or a dangling link where a recorded rule's or workflow's dir
+    # belongs. A block already named for a skills dir is named once.
+    for d, block in store.blocked_agent_dirs():
+        if block not in blocked.values():
+            blocked.setdefault(d, block)
+    for d, block in blocked.items():
+        stuck.append(d)
+        out.warn("%s — heal does not %s; %s"
+                 % (paths.not_writable(d, block),
+                    "move files" if paths.in_the_way(block)
+                    else "change permissions",
+                    paths.write_remedy(block)), wrap=True)
+    if not actions and not stuck and not cfg_err:
         # A duplicate this run declined to prune is something `heal` saw, can
         # fix, and deliberately left. A bare "nothing to heal" printed under
         # the line offering the flag contradicts it.
         out.ok("nothing to heal automatically"
                if declined_duplicates else "nothing to heal")
-    elif not dry:
+    if actions and not dry:
         journal.log("heal", "%d actions" % len(actions))
-    return 0
+    return 1 if cfg_err or stuck else 0
 
 
 def cmd_conflict(argv):
@@ -1284,20 +1452,16 @@ def cmd_conflict(argv):
 def cmd_changelog(argv):
     ap = cliparse.parser(
         prog="boost changelog",
-        description="Show a skill's upstream change history")
+        description="Show an item's upstream change history")
     ap.add_argument("name", metavar="NAME")
     ap.add_argument("-n", type=util.positive_int, default=20, metavar="N",
                     help="number of entries (default 20)")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args(argv)
 
-    _, bare = catalog.split_name(args.name)
-    entry = lockfile.get_skill(args.name)
-    if entry:
-        tap_name, rel = entry.get("tap", ""), entry.get("source_dir", ".")
-    else:
-        e = catalog.resolve_one(args.name)
-        tap_name, rel = e["tap"], e["rel_dir"]
+    # Lock first, all three kinds. A rule or workflow is logged over its own
+    # file, not the directory it shares with its siblings.
+    bare, _kind, tap_name, rel = store.upstream_source(args.name)
     if tap_name == "local":
         if args.json:
             print(json.dumps({"name": bare, "tap": None, "commits": []},
@@ -1323,7 +1487,11 @@ def cmd_changelog(argv):
         out.info(line)
     if not lines:
         out.warn("no history found for %s in %s" % (rel, tap.name))
-    if len(lines) < 3:
+    # Fewer entries than -n asked for means git ran out of history. On a
+    # shallow clone that end may be the cut, not the first commit, however
+    # far the clone was deepened. A short log alone proves nothing: a
+    # local-path tap is complete, and there `fetch --unshallow` fails.
+    if len(lines) < args.n and gitutil.is_shallow(tap.path):
         note = ("(shallow clone: run `git -C %s fetch --unshallow` "
                 "for full history)" % _tilde(tap.path))
         for line in out.wrap(note, max(out.term_width() - 2, 20)):
@@ -1573,7 +1741,10 @@ def cmd_trust(argv) -> int:
         # like a numeric column.
         out.table([(k["name"], k.get("fingerprint", "?")) for k in keys],
                   headers=("NAME", "FINGERPRINT"), keep=("FINGERPRINT",),
-                  text=("FINGERPRINT",))
+                  text=("FINGERPRINT",),
+                  # NAME is what `trust remove` takes; beside a kept
+                  # fingerprint it is dropped rather than clipped.
+                  whole=("NAME",))
     else:
         out.dim("  none — add one with `boost trust add <name> <key>`")
     print()
@@ -1599,4 +1770,4 @@ def _print_provenance(results) -> None:
                      note))
     # The detail cell is the only explanation an invalid status ever gets.
     out.table(rows, headers=("TAP", "PROVENANCE", "KEY / DETAIL"),
-              keep=("KEY / DETAIL",))
+              keep=("KEY / DETAIL",), whole=("TAP",))

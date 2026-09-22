@@ -12,6 +12,7 @@ import time_machine
 from meltano.core.logging.utils import (
     LEVELS,
     LogFormat,
+    SafeStreamHandler,
     capture_subprocess_output,
     default_config,
     parse_log_level,
@@ -49,30 +50,69 @@ async def test_capture_subprocess_output() -> None:
 
 
 @pytest.mark.parametrize(
-    ("log_format", "expected"),
+    ("log_format", "force_color", "no_color", "isatty", "expected"),
     (
         pytest.param(
             LogFormat.colored,
+            False,
+            False,
+            True,
             "\x1b[2m2021-01-01T00:00:00Z\x1b[0m [\x1b[32minfo     \x1b[0m] \x1b[36mmeltano     \x1b[0m \x1b[1mtest                          \x1b[0m",  # noqa: E501
             id="colored",
         ),
         pytest.param(
+            LogFormat.colored,
+            False,
+            False,
+            False,
+            "2021-01-01T00:00:00Z [info     ] meltano      test",
+            id="colored-non-tty",
+        ),
+        pytest.param(
+            LogFormat.colored,
+            True,
+            False,
+            False,
+            "\x1b[2m2021-01-01T00:00:00Z\x1b[0m [\x1b[32minfo     \x1b[0m] \x1b[36mmeltano     \x1b[0m \x1b[1mtest                          \x1b[0m",  # noqa: E501
+            id="colored-non-tty-force-color",
+        ),
+        pytest.param(
+            LogFormat.colored,
+            True,
+            True,
+            False,
+            "2021-01-01T00:00:00Z [info     ] meltano      test",
+            id="colored-non-tty-force-and-no-color",
+        ),
+        pytest.param(
             LogFormat.uncolored,
+            False,
+            False,
+            True,
             "2021-01-01T00:00:00Z [info     ] meltano      test",
             id="uncolored",
         ),
         pytest.param(
             LogFormat.json,
+            False,
+            False,
+            True,
             '{"event": "test", "level": "info", "timestamp": "2021-01-01T00:00:00Z"}',
             id="json",
         ),
         pytest.param(
             LogFormat.key_value,
+            False,
+            False,
+            True,
             "timestamp='2021-01-01T00:00:00Z' level='info' event='test' logger=None",
             id="key_value",
         ),
         pytest.param(
             LogFormat.plain,
+            False,
+            False,
+            True,
             "test",
             id="plain",
         ),
@@ -80,9 +120,16 @@ async def test_capture_subprocess_output() -> None:
 )
 def test_default_logging_config_format(
     log_format: LogFormat,
+    force_color: bool,  # noqa: FBT001
+    no_color: bool,  # noqa: FBT001
+    isatty: bool,  # noqa: FBT001
     expected: str,
     monkeypatch: pytest.MonkeyPatch,
 ):
+    monkeypatch.setenv("FORCE_COLOR", "1" if force_color else "")
+    monkeypatch.setenv("NO_COLOR", "1" if no_color else "")
+    monkeypatch.setattr("sys.stderr.isatty", lambda: isatty)
+
     config = default_config("info", log_format=log_format)
     assert log_format in config["formatters"]
     assert config["handlers"]["console"]["formatter"] == log_format
@@ -197,3 +244,105 @@ def test_disabled_log_level():
     # When disabled, the numeric value should be used
     assert config["handlers"]["console"]["level"] == logging.CRITICAL + 1
     assert config["loggers"][""]["level"] == logging.CRITICAL + 1
+
+
+class TestSafeStreamHandler:
+    def test_normal_operation(self):
+        from io import StringIO
+
+        output = StringIO()
+        handler = SafeStreamHandler(output)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        record = logging.LogRecord(
+            "",
+            logging.INFO,
+            "",
+            0,
+            "Normal ASCII message",
+            (),
+            None,
+        )
+        handler.emit(record)
+        assert output.getvalue() == "Normal ASCII message\n"
+
+    def test_unicode_encode_error_falls_back_to_backslashreplace(self):
+        from unittest.mock import Mock
+
+        mock_stream = Mock()
+        mock_stream.encoding = "ascii"
+        mock_stream.write.side_effect = [
+            UnicodeEncodeError("ascii", "test 中文", 5, 6, "ordinal not in range(128)"),
+            None,
+        ]
+        handler = SafeStreamHandler(mock_stream)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        record = logging.LogRecord(
+            "",
+            logging.INFO,
+            "",
+            0,
+            "Message with unicode: 中文",
+            (),
+            None,
+        )
+
+        handler.emit(record)
+
+        assert mock_stream.write.call_count == 2
+        second_write = mock_stream.write.call_args_list[1][0][0]
+        assert "\\u4e2d\\u6587" in second_write
+
+    @pytest.mark.parametrize("encoding", (None, "missing"))
+    def test_missing_or_none_encoding_defaults_to_utf8(self, encoding):
+        from unittest.mock import Mock
+
+        mock_stream = Mock()
+        if encoding == "missing":
+            del mock_stream.encoding
+        else:
+            mock_stream.encoding = None
+        mock_stream.write.side_effect = [
+            UnicodeEncodeError("ascii", "test 中文", 5, 6, "ordinal not in range(128)"),
+            None,
+        ]
+        handler = SafeStreamHandler(mock_stream)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        record = logging.LogRecord(
+            "",
+            logging.INFO,
+            "",
+            0,
+            "Message with unicode: 中文",
+            (),
+            None,
+        )
+
+        handler.emit(record)
+
+        assert mock_stream.write.call_count == 2
+
+    def test_fallback_failure_calls_handle_error(self):
+        from unittest.mock import Mock
+
+        mock_stream = Mock()
+        mock_stream.encoding = "ascii"
+        mock_stream.write.side_effect = [
+            UnicodeEncodeError("ascii", "test 中文", 5, 6, "ordinal not in range(128)"),
+            OSError("disk full"),
+        ]
+        handler = SafeStreamHandler(mock_stream)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler.handleError = Mock()
+        record = logging.LogRecord(
+            "",
+            logging.INFO,
+            "",
+            0,
+            "Message with unicode: 中文",
+            (),
+            None,
+        )
+
+        handler.emit(record)
+
+        handler.handleError.assert_called_once_with(record)

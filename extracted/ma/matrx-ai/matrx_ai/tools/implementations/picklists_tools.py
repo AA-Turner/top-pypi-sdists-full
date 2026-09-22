@@ -63,7 +63,15 @@ async def userlist_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
 
     try:
-        creator = PicklistCreator(ctx.user_id)
+        if not ctx.organization_id:
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type="validation",
+                    message="This request has no organization. Pick one before creating a list.",
+                ),
+            )
+        creator = PicklistCreator(ctx.user_id, organization_id=ctx.organization_id)
         result = await asyncio.to_thread(
             lambda: creator.create_list_with_items(
                 items=items, list_name=list_name, description=description
@@ -120,7 +128,15 @@ async def userlist_create_simple(args: dict[str, Any], ctx: ToolContext) -> Tool
             )
 
     try:
-        creator = PicklistCreator(ctx.user_id)
+        if not ctx.organization_id:
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type="validation",
+                    message="This request has no organization. Pick one before creating a list.",
+                ),
+            )
+        creator = PicklistCreator(ctx.user_id, organization_id=ctx.organization_id)
         result = await asyncio.to_thread(
             lambda: creator.create_simple_list(
                 labels=labels,

@@ -15,23 +15,71 @@ import structlog
 import yaml
 
 from meltano.core.logging.formatters import (
+    console_log_formatter,
     get_default_foreign_pre_chain,
-    rich_exception_formatter_factory,
+    json_formatter,
+    key_value_formatter,
+    plain_formatter,
 )
-from meltano.core.utils import get_no_color_flag
-
-from .renderers import MeltanoConsoleRenderer
-
-logger = structlog.getLogger(__name__)
+from meltano.core.utils import get_boolean_env_var, get_no_color_flag
 
 if sys.version_info >= (3, 11):
     from enum import StrEnum
 else:
     from backports.strenum import StrEnum
 
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
+logger = structlog.getLogger(__name__)
+
 
 if t.TYPE_CHECKING:
     from meltano.core.project import Project
+
+
+class SafeStreamHandler(logging.StreamHandler):
+    """A StreamHandler that gracefully handles non-encodable characters.
+
+    On Windows, the default console encoding (e.g. cp1252) may not support
+    all Unicode characters, causing UnicodeEncodeError when logging plugin
+    output containing non-ASCII text. This handler falls back to
+    'backslashreplace' error handling — unencodable characters are escaped
+    rather than raising an error and dropping the log entry.
+
+    This handler is not used by default. See the Meltano logging guide for
+    instructions on opting in via a custom ``logging.yaml`` config.
+    """
+
+    @override
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a record, falling back to backslashreplace on encode errors."""
+        stream = self.stream
+        try:
+            msg = self.format(record)
+            stream.write(msg + self.terminator)
+            self.flush()
+        except UnicodeEncodeError:
+            # Re-encode the message with backslashreplace to avoid data loss
+            # while still producing readable output.
+            try:
+                encoding = getattr(stream, "encoding", "utf-8") or "utf-8"
+                stream.write(
+                    self.format(record)
+                    .encode(encoding, errors="backslashreplace")
+                    .decode(encoding, errors="replace")
+                    + self.terminator
+                )
+                self.flush()
+            except Exception:  # noqa: BLE001
+                self.handleError(record)
+        except RecursionError:  # pragma: no cover
+            raise
+        except Exception:  # noqa: BLE001  # pragma: no cover
+            self.handleError(record)
+
 
 LEVELS: dict[str, int] = {
     "debug": logging.DEBUG,
@@ -71,7 +119,7 @@ def parse_log_level(log_level: str) -> int:
     return LEVELS.get(log_level, LEVELS[DEFAULT_LEVEL])
 
 
-def read_config(config_file: os.PathLike[str] | None = None) -> dict | None:
+def read_config(config_file: Path | None = None) -> dict | None:
     """Read a logging config yaml from disk.
 
     Args:
@@ -81,7 +129,7 @@ def read_config(config_file: os.PathLike[str] | None = None) -> dict | None:
         dict: parsed yaml config
     """
     if config_file and os.path.exists(config_file):  # noqa: PTH110
-        with open(config_file) as cf:  # noqa: PTH123
+        with config_file.open() as cf:
             return yaml.safe_load(cf.read())
     else:
         return None
@@ -105,76 +153,37 @@ def default_config(
     numeric_level = parse_log_level(log_level.lower())
     log_level = log_level.upper()
     max_frames = _FRAMES_DEBUG if log_level == "DEBUG" else _FRAMES_DEFAULT
-    foreign_pre_chain = get_default_foreign_pre_chain()
+    formatter_config: dict[str, t.Any]
 
     match log_format:
         case LogFormat.colored:
-            no_color = get_no_color_flag()
-
-            if no_color:
-                formatter = rich_exception_formatter_factory(
-                    no_color=True,
-                    max_frames=max_frames,
-                )
-            else:
-                formatter = rich_exception_formatter_factory(
-                    color_system="truecolor",
-                    max_frames=max_frames,
-                )
-            formatter_config = {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processor": MeltanoConsoleRenderer(
-                    colors=not no_color,
-                    exception_formatter=formatter,
+            # Pre-build now so terminal detection runs before any stream capture
+            # (e.g. Click's CliRunner replaces sys.stdout with StringIO on entry,
+            # causing structlog's get_default_column_styles to see a non-tty and
+            # return plain styles even when colors=True).
+            colored_formatter = console_log_formatter(
+                colors=(
+                    (sys.stderr.isatty() or get_boolean_env_var("FORCE_COLOR"))
+                    and not get_no_color_flag()
                 ),
-                "foreign_pre_chain": foreign_pre_chain,
-            }
-
-        case LogFormat.json:
-            formatter_config = {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processors": [
-                    structlog.processors.dict_tracebacks,
-                    structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                    structlog.processors.JSONRenderer(),
-                ],
-                "foreign_pre_chain": foreign_pre_chain,
-            }
-        case LogFormat.key_value:
-            formatter_config = {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processor": structlog.processors.KeyValueRenderer(
-                    key_order=["timestamp", "level", "event", "logger"],
-                ),
-                "foreign_pre_chain": foreign_pre_chain,
-            }
+                max_frames=max_frames,
+            )
+            formatter_config = {"()": lambda: colored_formatter}
         case LogFormat.uncolored:
             formatter_config = {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processor": MeltanoConsoleRenderer(
-                    colors=False,
-                    exception_formatter=rich_exception_formatter_factory(
-                        no_color=True,
-                        max_frames=max_frames,
-                    ),
-                ),
-                "foreign_pre_chain": foreign_pre_chain,
+                "()": console_log_formatter,
+                "colors": False,
+                "max_frames": max_frames,
+            }
+        case LogFormat.json:
+            formatter_config = {"()": json_formatter}
+        case LogFormat.key_value:
+            formatter_config = {
+                "()": key_value_formatter,
+                "key_order": ["timestamp", "level", "event", "logger"],
             }
         case LogFormat.plain:
-            formatter_config = {
-                "()": structlog.stdlib.ProcessorFormatter,
-                "processors": [
-                    structlog.stdlib.filter_by_level,
-                    structlog.stdlib.add_logger_name,
-                    structlog.stdlib.add_log_level,
-                    structlog.stdlib.PositionalArgumentsFormatter(),
-                    structlog.processors.StackInfoRenderer(),
-                    structlog.processors.format_exc_info,
-                    structlog.processors.UnicodeDecoder(),
-                    lambda _logger, _name, event_dict: event_dict["event"],
-                ],
-                "foreign_pre_chain": foreign_pre_chain,
-            }
+            formatter_config = {"()": plain_formatter}
         case _:  # pragma: no cover
             t.assert_never(log_format)
 
@@ -225,7 +234,7 @@ def default_config(
 def setup_logging(
     project: Project | None = None,
     log_level: str = DEFAULT_LEVEL,
-    log_config: os.PathLike[str] | None = None,
+    log_config: os.PathLike[str] | str | None = None,
     log_format: LogFormat = LogFormat.colored,
 ) -> None:
     """Configure logging for a meltano project.

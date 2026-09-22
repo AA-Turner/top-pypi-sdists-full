@@ -4,15 +4,21 @@
 import json
 import os
 
+import torch
 from compressed_tensors import __version__ as ct_version
 from compressed_tensors.base import COMPRESSION_VERSION_NAME, QUANTIZATION_CONFIG_NAME
 from compressed_tensors.entrypoints.convert import Converter
+from compressed_tensors.quantization import (
+    DEFAULT_QUANTIZATION_METHOD,
+    QuantizationConfig,
+)
 from compressed_tensors.utils.safetensors_load import (
     InverseWeightMap,
     find_config_path,
     load_tensors_from_inverse_weight_map,
 )
 from loguru import logger
+from pydantic import ValidationError
 from safetensors.torch import save_file
 
 
@@ -25,42 +31,67 @@ __all__ = [
 
 def write_checkpoint_quantization_config(
     save_directory: str | os.PathLike,
-    converter: Converter,
+    converters: list[Converter],
 ):
     """
     Write the quantization config produced by `converter` into the model config
     file (config.json or params.json) in save_directory. This is called after
     the convert checkpoint pathway completes to record which quantization was
-    applied. The quantization_config section is replaced entirely with the new
-    config.
+    applied. An existing compressed-tensors quantization config is passed to the
+    first converter, allowing subsequent conversions to preserve or extend it.
+    The quantization_config section is then replaced with the final config.
 
     :param save_directory: directory containing the model config file
-    :param converter: Converter instance whose create_config() produces the
-        updated quantization config
+    :param converters: list of converters applied in order; each
+        converter's update_config() output feeds the next
     """
-    quant_config_data = None
-    if (quant_config := converter.create_config()) is not None:
-        quant_config_data = quant_config.model_dump()
-        quant_config_data[COMPRESSION_VERSION_NAME] = ct_version
-
     config_file_path = find_config_path(save_directory)
+    config_data = None
+    config = None
     if config_file_path is not None:
         with open(config_file_path, "r") as file:
             config_data = json.load(file)
 
+        existing_config_data = config_data.get(QUANTIZATION_CONFIG_NAME)
+        if existing_config_data is not None:
+            logger.warning(
+                f"Found an existing quantization config in {config_file_path}. "
+                "It will be passed to the converters and may be preserved, "
+                "extended, or overwritten by this conversion."
+            )
+        if isinstance(existing_config_data, dict):
+            existing_config_data = dict(existing_config_data)
+            existing_config_data.pop(COMPRESSION_VERSION_NAME, None)
+            try:
+                existing_config = QuantizationConfig.model_validate(
+                    existing_config_data
+                )
+            except ValidationError:
+                pass
+            else:
+                if existing_config.quant_method == DEFAULT_QUANTIZATION_METHOD:
+                    config = existing_config
+
+    for converter in converters:
+        config = converter.update_config(config)
+
+    quant_config_data = None
+    if config is not None:
+        quant_config_data = config.model_dump()
+        quant_config_data[COMPRESSION_VERSION_NAME] = ct_version
+
+    if config_file_path is not None:
         if quant_config_data is None:
             # if no new quant config, make sure checkpoint quant config is empty
             if QUANTIZATION_CONFIG_NAME in config_data:
                 del config_data[QUANTIZATION_CONFIG_NAME]
-            # some checkpoints have quant config nested inside text_config
-            elif (
-                "text_config" in config_data
-                and QUANTIZATION_CONFIG_NAME in config_data["text_config"]
-            ):
-                del config_data["text_config"][QUANTIZATION_CONFIG_NAME]
         else:
             # if new quant config, overwrite checkpoint quant config
             config_data[QUANTIZATION_CONFIG_NAME] = quant_config_data
+
+        # let converters update non-quantization model config fields
+        for converter in converters:
+            config_data = converter.update_model_config(config_data)
 
         with open(config_file_path, "w") as file:
             json.dump(config_data, file, indent=2, sort_keys=True)
@@ -74,7 +105,7 @@ def write_checkpoint_quantization_config(
 
 def validate_file(
     inverse_weight_map: InverseWeightMap,
-    converter: Converter,
+    converters: list[Converter],
 ):
     """
     Validate that each quantizable tensor in a safetensors file can be quantized.
@@ -84,18 +115,19 @@ def validate_file(
         build_inverse_weight_map() in the job-building phase.
         Example: {"/path/shard0.safetensors": ["q_proj.weight"],
                   "/path/shard1.safetensors": ["k_proj.weight", "v_proj.weight"]}
-    :param converter: converter we wish to apply to the checkpoint,
-        e.g. conversion of some layers from some format to compressed-tensors
+    :param converters: list of converters to apply in order. Each
+        converter's validate output is fed to the next.
     """
-    tensors = load_tensors_from_inverse_weight_map(inverse_weight_map)
-
-    converter.validate(tensors)
+    tensors = load_tensors_from_inverse_weight_map(inverse_weight_map, device="meta")
+    for converter in converters:
+        tensors = converter.validate(tensors)
 
 
 def convert_file(
     inverse_weight_map: InverseWeightMap,
     save_path: str | os.PathLike,
-    converter: Converter,
+    converters: list[Converter],
+    device: str | torch.device = torch.device("cpu"),
 ) -> tuple[int, dict[str, str]]:
     """
     Convert tensors in a given safetensors file
@@ -106,14 +138,15 @@ def convert_file(
         Example: {"/path/shard0.safetensors": ["q_proj.weight"],
                   "/path/shard1.safetensors": ["k_proj.weight", "v_proj.weight"]}
     :param save_path: save path of file with quantized weights
-    :param converter: converter we wish to apply to the checkpoint,
-        e.g. conversion of some layers from some format to compressed-tensors
+    :param converters: list of converters to apply in order. Each
+        converter's process output is fed to the next.
+    :param device: device on which tensors are loaded and converted
     :returns: tuple of (total_size, weight_map), respectively the total size in bytes
         of the saved file and dictionary of weight name -> save path
     """
-    tensors = load_tensors_from_inverse_weight_map(inverse_weight_map)
-
-    tensors = converter.process(tensors)
+    tensors = load_tensors_from_inverse_weight_map(inverse_weight_map, device=device)
+    for converter in converters:
+        tensors = converter.process(tensors)
 
     save_file(tensors, save_path)
     total_size = sum(tensor.nbytes for tensor in tensors.values())

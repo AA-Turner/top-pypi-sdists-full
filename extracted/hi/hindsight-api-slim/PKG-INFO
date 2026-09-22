@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hindsight-api-slim
-Version: 0.10.0
+Version: 0.10.1
 Summary: Hindsight: Agent Memory That Learns
 License-Expression: MIT
 License-File: LICENSE
@@ -63,8 +63,8 @@ Provides-Extra: all
 Requires-Dist: einops>=0.8.2; extra == 'all'
 Requires-Dist: flashrank>=0.2.0; extra == 'all'
 Requires-Dist: huggingface-hub>=0.20.0; extra == 'all'
-Requires-Dist: mlx-lm>=0.31.1; (sys_platform != 'win32') and extra == 'all'
-Requires-Dist: mlx>=0.31.0; (sys_platform != 'win32') and extra == 'all'
+Requires-Dist: mlx-lm>=0.31.1; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
+Requires-Dist: mlx>=0.31.0; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
 Requires-Dist: numpy>=1.26.0; extra == 'all'
 Requires-Dist: onnxruntime>=1.17.0; extra == 'all'
 Requires-Dist: pg0-embedded>=0.15.0; extra == 'all'
@@ -81,8 +81,8 @@ Requires-Dist: llama-cpp-python[server]>=0.3.0; extra == 'local-llm'
 Provides-Extra: local-ml
 Requires-Dist: einops>=0.8.2; extra == 'local-ml'
 Requires-Dist: flashrank>=0.2.0; extra == 'local-ml'
-Requires-Dist: mlx-lm>=0.31.1; (sys_platform != 'win32') and extra == 'local-ml'
-Requires-Dist: mlx>=0.31.0; (sys_platform != 'win32') and extra == 'local-ml'
+Requires-Dist: mlx-lm>=0.31.1; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'local-ml'
+Requires-Dist: mlx>=0.31.0; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'local-ml'
 Requires-Dist: safetensors>=0.6.2; extra == 'local-ml'
 Requires-Dist: sentence-transformers>=5.0.0; extra == 'local-ml'
 Requires-Dist: tokenizers<=0.23.0,>=0.22.0; extra == 'local-ml'

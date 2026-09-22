@@ -14,7 +14,6 @@ import agate
 from dbt.adapters.base import BaseRelation
 from dbt.adapters.sql import SQLAdapter
 from sqlglot import exp, parse_one
-from sqlglot.dialects.dialect import Dialect
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 from sqlglot.optimizer.qualify_columns import quote_identifiers
 
@@ -107,6 +106,10 @@ class BaseAdapterExtension(abc.ABC):
 
     @property
     def dialect(self) -> str:
+        """The sqlglot dialect for the warehouse.
+
+        May be overridden to carry sqlglot dialect settings.
+        """
         return self.adapter.type()
 
     @property
@@ -759,6 +762,9 @@ class BaseAdapterExtension(abc.ABC):
             **self.adapter.Relation.get_default_quote_policy().to_dict(omit_none=True),
             **self.adapter.config.quoting,
             **node.config.get("quoting", {}),
+            **getattr(
+                node, "quoting_dict", {}
+            ),  # Source nodes store their quoting settings as a property, not under node.config
         }
 
         database = override_database or node.database or self.default_catalog
@@ -964,9 +970,7 @@ class BaseAdapterExtension(abc.ABC):
         table = exp.table_(name, db=schema, catalog=catalog, quoted=True)
         return self._sql(table)
 
-    def _to_fqn(
-        self, table: str | exp.Table, normalization_dialect: t.Optional[str | Dialect] = None
-    ) -> exp.Table:
+    def _to_fqn(self, table: str | exp.Table) -> exp.Table:
         if isinstance(table, str):
             table = exp.to_table(table, dialect=self.dialect)
 
@@ -1004,9 +1008,7 @@ class BaseAdapterExtension(abc.ABC):
                     db=table_schema,
                     catalog=table_catalog,
                 ),
-                dialect=normalization_dialect
-                if normalization_dialect is not None
-                else self.dialect,
+                dialect=self.dialect,
             ),
             dialect=self.dialect,
         )

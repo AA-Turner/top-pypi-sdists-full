@@ -40,6 +40,7 @@ class TestStorageConnectionModel(unittest.TestCase):
                 internal_id = '',
                 provider_type = 'google_drive',
                 provider_config = None,
+                write_enabled = True,
                 name = '0',
                 description = '',
                 status = 'PENDING',

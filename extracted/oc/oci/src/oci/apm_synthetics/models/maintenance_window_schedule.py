@@ -15,10 +15,32 @@ class MaintenanceWindowSchedule(object):
     Details required to schedule maintenance window.
     """
 
+    #: A constant which can be used with the schedule_type property of a MaintenanceWindowSchedule.
+    #: This constant has a value of "ONE_TIME"
+    SCHEDULE_TYPE_ONE_TIME = "ONE_TIME"
+
+    #: A constant which can be used with the schedule_type property of a MaintenanceWindowSchedule.
+    #: This constant has a value of "RECURRING"
+    SCHEDULE_TYPE_RECURRING = "RECURRING"
+
+    #: A constant which can be used with the recurrence_type property of a MaintenanceWindowSchedule.
+    #: This constant has a value of "WEEKLY"
+    RECURRENCE_TYPE_WEEKLY = "WEEKLY"
+
+    #: A constant which can be used with the recurrence_type property of a MaintenanceWindowSchedule.
+    #: This constant has a value of "MONTHLY"
+    RECURRENCE_TYPE_MONTHLY = "MONTHLY"
+
     def __init__(self, **kwargs):
         """
         Initializes a new MaintenanceWindowSchedule object with values from keyword arguments.
         The following keyword arguments are supported (corresponding to the getters/setters of this class):
+
+        :param schedule_type:
+            The value to assign to the schedule_type property of this MaintenanceWindowSchedule.
+            Allowed values for this property are: "ONE_TIME", "RECURRING", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type schedule_type: str
 
         :param time_started:
             The value to assign to the time_started property of this MaintenanceWindowSchedule.
@@ -28,17 +50,59 @@ class MaintenanceWindowSchedule(object):
             The value to assign to the time_ended property of this MaintenanceWindowSchedule.
         :type time_ended: datetime
 
+        :param recurrence_type:
+            The value to assign to the recurrence_type property of this MaintenanceWindowSchedule.
+            Allowed values for this property are: "WEEKLY", "MONTHLY", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type recurrence_type: str
+
         """
         self.swagger_types = {
+            'schedule_type': 'str',
             'time_started': 'datetime',
-            'time_ended': 'datetime'
+            'time_ended': 'datetime',
+            'recurrence_type': 'str'
         }
         self.attribute_map = {
+            'schedule_type': 'scheduleType',
             'time_started': 'timeStarted',
-            'time_ended': 'timeEnded'
+            'time_ended': 'timeEnded',
+            'recurrence_type': 'recurrenceType'
         }
+        self._schedule_type = None
         self._time_started = None
         self._time_ended = None
+        self._recurrence_type = None
+
+    @property
+    def schedule_type(self):
+        """
+        Gets the schedule_type of this MaintenanceWindowSchedule.
+        Type of maintenance window schedule. If not provided, a schedule with timeStarted and timeEnded is treated as ONE_TIME.
+
+        Allowed values for this property are: "ONE_TIME", "RECURRING", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+
+
+        :return: The schedule_type of this MaintenanceWindowSchedule.
+        :rtype: str
+        """
+        return self._schedule_type
+
+    @schedule_type.setter
+    def schedule_type(self, schedule_type):
+        """
+        Sets the schedule_type of this MaintenanceWindowSchedule.
+        Type of maintenance window schedule. If not provided, a schedule with timeStarted and timeEnded is treated as ONE_TIME.
+
+
+        :param schedule_type: The schedule_type of this MaintenanceWindowSchedule.
+        :type: str
+        """
+        allowed_values = ["ONE_TIME", "RECURRING"]
+        if not value_allowed_none_or_none_sentinel(schedule_type, allowed_values):
+            schedule_type = 'UNKNOWN_ENUM_VALUE'
+        self._schedule_type = schedule_type
 
     @property
     def time_started(self):
@@ -99,6 +163,36 @@ class MaintenanceWindowSchedule(object):
         :type: datetime
         """
         self._time_ended = time_ended
+
+    @property
+    def recurrence_type(self):
+        """
+        Gets the recurrence_type of this MaintenanceWindowSchedule.
+        Type of recurrence for a recurring maintenance window.
+
+        Allowed values for this property are: "WEEKLY", "MONTHLY", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+
+
+        :return: The recurrence_type of this MaintenanceWindowSchedule.
+        :rtype: str
+        """
+        return self._recurrence_type
+
+    @recurrence_type.setter
+    def recurrence_type(self, recurrence_type):
+        """
+        Sets the recurrence_type of this MaintenanceWindowSchedule.
+        Type of recurrence for a recurring maintenance window.
+
+
+        :param recurrence_type: The recurrence_type of this MaintenanceWindowSchedule.
+        :type: str
+        """
+        allowed_values = ["WEEKLY", "MONTHLY"]
+        if not value_allowed_none_or_none_sentinel(recurrence_type, allowed_values):
+            recurrence_type = 'UNKNOWN_ENUM_VALUE'
+        self._recurrence_type = recurrence_type
 
     def __repr__(self):
         return formatted_flat_dict(self)

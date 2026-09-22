@@ -68,7 +68,7 @@ class DnsConfiguration(object):
     def override_dns_ip(self):
         """
         Gets the override_dns_ip of this DnsConfiguration.
-        Attribute to override the DNS IP value. This value will be honored only if isOverrideDns is set to true.
+        Attribute to override the DNS IP value. This value is required only if isOverrideDns is set to true.
 
 
         :return: The override_dns_ip of this DnsConfiguration.
@@ -80,7 +80,7 @@ class DnsConfiguration(object):
     def override_dns_ip(self, override_dns_ip):
         """
         Sets the override_dns_ip of this DnsConfiguration.
-        Attribute to override the DNS IP value. This value will be honored only if isOverrideDns is set to true.
+        Attribute to override the DNS IP value. This value is required only if isOverrideDns is set to true.
 
 
         :param override_dns_ip: The override_dns_ip of this DnsConfiguration.

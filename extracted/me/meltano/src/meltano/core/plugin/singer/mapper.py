@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import typing as t
 
 import anyio
@@ -12,6 +13,11 @@ from meltano.core.setting_definition import SettingDefinition, SettingKind, json
 from meltano.core.utils import expand_env_vars
 
 from . import PluginType, SingerPlugin
+
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
 if t.TYPE_CHECKING:
     from pathlib import Path
@@ -29,6 +35,7 @@ class SingerMapper(SingerPlugin):
     __plugin_type__ = PluginType.MAPPERS
 
     EXTRA_SETTINGS: t.ClassVar[list[SettingDefinition]] = [
+        *SingerPlugin.EXTRA_SETTINGS,
         SettingDefinition(
             name="_mappings",
             kind=SettingKind.ARRAY,
@@ -43,24 +50,27 @@ class SingerMapper(SingerPlugin):
         ),
     ]
 
+    @override
     def exec_args(self, plugin_invoker: PluginInvoker) -> list[str | Path]:
         """Return the arguments to be passed to the plugin's executable."""
         return ["--config", plugin_invoker.files["config"]]
 
     @property
+    @override
     def config_files(self) -> dict[str, str]:
-        """Return the configuration files required by the plugin."""
+        """Configuration files required by the plugin."""
         return {
             "config": f"mapper.{self.instance_uuid}.config.json",
             "singer_sdk_logging": "mapper.singer_sdk_logging.json",
             "pipelinewise_singer_logging": "mapper.pipelinewise_logging.conf",
         }
 
+    @override
     @hook("before_configure")
     async def before_configure(
         self,
         invoker: PluginInvoker,
-        session: Session,  # noqa: ARG002
+        session: Session,
     ) -> None:
         """Create configuration file."""
         config_path = invoker.files["config"]

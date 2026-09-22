@@ -1,5 +1,4 @@
 import sys
-import warnings
 from typing import Any
 
 from pydantic import ValidationError
@@ -70,12 +69,26 @@ class UnexpectedContentFormatException(SCIMResponseException):
         super().__init__(message, *args, **kwargs)
 
 
+class InvalidServiceDescriptionException(SCIMResponseException):
+    """Exception raised when a server describes a service that cannot be composed.
+
+    This exception is raised when a :class:`~scim2_models.ScimProviderError` has been
+    caught while building the :class:`~scim2_models.ScimProvider` describing the server.
+    The original :class:`~scim2_models.ScimProviderError` is available with
+    :attr:`~BaseException.__cause__`.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        message = kwargs.pop("message", "Invalid service description")
+        super().__init__(message, *args, **kwargs)
+
+
 class ResponsePayloadValidationException(SCIMResponseException):
     """Exception raised when the server returned a payload that cannot be validated.
 
-    This exception is raised when a :class:`pydantic.ValidationError` has been caught
+    This exception is raised when a :class:`ValidationError <pydantic_core.ValidationError>` has been caught
     while validating the server response payload.
-    The original :class:`~pydantic.ValidationError` is available with
+    The original :class:`ValidationError <pydantic_core.ValidationError>` is available with
     :attr:`~BaseException.__cause__`.
 
     .. code-block:: python
@@ -118,7 +131,7 @@ def request_validation_exception(
 ) -> SCIMException:
     """Build the exception matching an invalid request payload.
 
-    The original :class:`~pydantic.ValidationError` is available with
+    The original :class:`ValidationError <pydantic_core.ValidationError>` is available with
     :attr:`~BaseException.__cause__`, and describes every invalid attribute.
     """
     errors = Error.from_validation_errors(exc)
@@ -126,33 +139,3 @@ def request_validation_exception(
     if sys.version_info >= (3, 11):  # pragma: no cover
         scim_exc.add_note(str(exc))
     return scim_exc
-
-
-_DEPRECATED_ALIASES: dict[str, type[SCIMClientException]] = {
-    "SCIMClientError": SCIMClientException,
-    "SCIMResponseError": SCIMResponseException,
-    "RequestNetworkError": RequestNetworkException,
-    "UnexpectedStatusCode": UnexpectedStatusCodeException,
-    "UnexpectedContentType": UnexpectedContentTypeException,
-    "UnexpectedContentFormat": UnexpectedContentFormatException,
-    "ResponsePayloadValidationError": ResponsePayloadValidationException,
-}
-
-
-def deprecated_alias(name: str) -> type[SCIMClientException]:
-    """Return the exception a deprecated name points at, and warn about the rename."""
-    replacement = _DEPRECATED_ALIASES[name]
-    warnings.warn(
-        f"{name} is deprecated, use {replacement.__name__} instead. "
-        "It will be removed in version 0.9.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    return replacement
-
-
-def __getattr__(name: str) -> type[SCIMClientException]:
-    if name not in _DEPRECATED_ALIASES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-    return deprecated_alias(name)

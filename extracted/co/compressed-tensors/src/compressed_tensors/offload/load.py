@@ -10,6 +10,7 @@ import psutil
 import torch
 from compressed_tensors.distributed import is_distributed, is_source_process
 from compressed_tensors.offload.convert import from_accelerate
+from compressed_tensors.offload.utils import as_single_threaded
 from compressed_tensors.utils import patch_attr
 from loguru import logger
 from transformers import AutoModelForCausalLM, PreTrainedModel
@@ -53,10 +54,6 @@ def load_offloaded_model(
         # Rank 0 does loading, other ranks init on meta device
         if not is_source_process():
             kwargs["device_map"] = "meta"
-            # Workaround: transformers v5 tie_weights() calls torch.equal() on
-            # meta tensors which is unsupported. Since rank 0 broadcasts the real
-            # weights, we can safely skip tying on non-rank workers.
-            kwargs.setdefault("tie_word_embeddings", False)
 
         # Intercept `auto_offload`: same as "auto", but only cpu/disk are visible
         elif kwargs["device_map"] == "auto_offload":
@@ -88,7 +85,8 @@ def load_offloaded_model(
             logger.warning("Loading with `offload_buffers=False` is not supported")
         kwargs["offload_buffers"] = True
 
-        model = original_from_pretrained(*args, **kwargs)
+        with as_single_threaded():
+            model = original_from_pretrained(*args, **kwargs)
         from_accelerate(model)  # rank 0 shares weights with ranks via offload/broadcast
 
         return model
@@ -183,7 +181,10 @@ def _estimate_tensor_count(
     }
     meta_kwargs.setdefault("tie_word_embeddings", False)
     try:
-        meta_model = original_from_pretrained(*args, device_map="meta", **meta_kwargs)
+        with as_single_threaded():
+            meta_model = original_from_pretrained(
+                *args, device_map="meta", **meta_kwargs
+            )
     except Exception:
         logger.warning("Meta device preload failed, skipping capacity estimate.")
         return 0, 0

@@ -7,7 +7,12 @@ name = "agentic-devtools"
 dynamic = ["version"]
 description = "Agentic devtools integrate Jira, DevOps & more"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+]
 license = "MIT"
 authors = [
     { name = "ayaiayorg" }
@@ -33,7 +38,6 @@ dependencies = [
     "tiktoken>=0.7.0,<1",
     "typing-extensions>=4.0",
     "atlassian-python-api>=4.0,<5",
-    "tomli>=1.1.0; python_version < '3.11'",
     "cryptography>=42.0.0",
 ]
 
@@ -296,7 +300,7 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -333,7 +337,7 @@ directory = "htmlcov"
 output = "coverage.xml"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_unused_configs = true
 disallow_untyped_defs = false
 

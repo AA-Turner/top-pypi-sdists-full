@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import json.decoder
 import re
+import sys
 import typing as t
 from datetime import datetime as dt
 from datetime import timezone as tz
@@ -21,6 +22,11 @@ from meltano.core.block.block_parser import BlockParser
 from meltano.core.db import project_engine
 from meltano.core.job import Payload
 from meltano.core.state_service import InvalidJobStateError, StateService
+
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
 if t.TYPE_CHECKING:
     from meltano.core.project import Project
@@ -42,6 +48,7 @@ class MutuallyExclusiveOptionsError(Exception):
         super().__init__(*options)
         self.options = options
 
+    @override
     def __str__(self) -> str:
         """Represent the error as a string."""
         return f"Must provide exactly one of: {','.join(self.options)}"
@@ -392,6 +399,41 @@ def edit_state(ctx: click.Context, project: Project, state_id: str) -> None:
         state_id,
         dt.now(tz=tz.utc).strftime("%Y-%m-%d %H:%M:%S%z"),
     )
+
+
+@meltano_state.command(cls=InstrumentedCmd, name="export")
+@click.pass_context
+def export_state_cmd(ctx: click.Context) -> None:
+    """Export all state to JSON on stdout.
+
+    Output is a JSON object mapping each state_id to its completed and partial state,
+    suitable for piping into 'meltano state import'.
+    """
+    state_service: StateService = ctx.obj[STATE_SERVICE_KEY]
+    states = state_service.export_state()
+    click.echo(json.dumps(states, separators=(",", ":")))
+
+
+@meltano_state.command(cls=InstrumentedCmd, name="import")
+@click.argument("input-file", type=click.File("r"), default="-")
+@click.pass_context
+def state_import_cmd(ctx: click.Context, input_file: t.IO[str]) -> None:
+    """Import state from a JSON file (or stdin when no file is given).
+
+    Reads the format produced by 'meltano state export' and overwrites any existing
+    state for each state ID present in the input.
+    """
+    state_service: StateService = ctx.obj[STATE_SERVICE_KEY]
+    try:
+        data = json.load(input_file)
+    except json.JSONDecodeError as e:
+        msg = f"Invalid JSON: {e}"
+        raise click.ClickException(msg) from e
+    if not isinstance(data, dict):
+        msg = f"expected a JSON object, got {type(data).__name__}"
+        raise click.BadParameter(msg, param_hint="'INPUT_FILE'")
+    count = state_service.import_state(data)
+    logger.info("Successfully imported %d state(s).", count)
 
 
 @meltano_state.command(cls=InstrumentedCmd, name="clear")

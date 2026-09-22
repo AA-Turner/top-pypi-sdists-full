@@ -46,6 +46,7 @@ bool isArchCompatible(int smVersion, gemm::trtllm::gen::CudaArch cubinArch) {
     case CudaArch::Sm100a:
       return smVersion == 100;
     case CudaArch::Sm100f:
+      // Low-latency heuristic kernels are named `_sm100f` and also run on sm107.
       return smVersion == 100 || smVersion == 103 || smVersion == 107;
     case CudaArch::Sm103a:
       return smVersion == 103;
@@ -180,10 +181,6 @@ class TrtllmLowLatencyGemmRunner {
         "No valid low latency TRTLLM-GEN GEMM kernel was found for the given data types.");
   }
 
-  // Tactic ids are indices into the cubin manifest, which spans several
-  // architectures. A tactic that never came from getValidTactics() (a config
-  // file saved on other hardware, an explicit FFI argument) would otherwise
-  // reach cuModuleLoadData and fault instead of erroring.
   void checkPassingConfigIndex(int64_t tactic) const {
     auto it = std::find(mPassingConfigIndices.begin(), mPassingConfigIndices.end(), tactic);
     TVM_FFI_ICHECK(it != mPassingConfigIndices.end())

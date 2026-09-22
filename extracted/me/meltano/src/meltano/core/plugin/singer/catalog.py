@@ -352,7 +352,8 @@ class SelectionType(StrEnum):
         """
         return self not in {SelectionType.EXCLUDED, SelectionType.UNSUPPORTED}
 
-    def __add__(self, other: object) -> SelectionType:  # ty:ignore[invalid-method-override]
+    @override
+    def __add__(self, other: object) -> SelectionType:
         """Combine two selection types.
 
         Args:
@@ -757,7 +758,7 @@ class ListSelectedExecutor(CatalogExecutor):
 
     @property
     def selected_properties(self) -> dict[str, set[str]]:
-        """Get selected streams and properties."""
+        """Selected streams and properties."""
         # we don't want to mutate the visitor result
         properties = self.properties.copy()
 
@@ -792,8 +793,7 @@ class ListSelectedExecutor(CatalogExecutor):
         if metadata.get(INCLUSION_KEY) == SelectionType.UNSUPPORTED:
             return SelectionType.UNSUPPORTED
         if metadata.get(SELECTED_KEY) is True or (
-            metadata.get(SELECTED_KEY) is None
-            and metadata.get(SELECTED_BY_DEFAULT_KEY, False)
+            metadata.get(SELECTED_KEY) is None and metadata.get(SELECTED_BY_DEFAULT_KEY)
         ):
             return SelectionType.SELECTED
         return SelectionType.EXCLUDED

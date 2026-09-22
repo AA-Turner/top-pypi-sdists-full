@@ -151,13 +151,13 @@ def batched_serialization_requests(
     if handler not in grouped:
       grouped[handler] = BatchRequest(handler, [], [], [], [])
     request = grouped[handler]
-    grouped[handler] = dataclasses.replace(
-        request,
-        keys=request.keys + [tuple_key],
-        values=request.values + [value],
-        infos=request.infos + [info],
-        args=request.args + [arg],
-    )
+    # `BatchRequest` is mutable, so the entry is appended in place: rebuilding
+    # it per leaf copies all four lists and makes this loop quadratic in the
+    # number of tensors, which dominates for a tree with many small leaves.
+    request.keys.append(tuple_key)
+    request.values.append(value)
+    request.infos.append(info)
+    request.args.append(arg)
 
   jax.tree_util.tree_map_with_path(
       _group_value,
@@ -746,11 +746,11 @@ class BasePyTreeCheckpointHandler(
         )
     ]
     jax.monitoring.record_event_duration_secs(
-        '/jax/orbax/write/async/tree_mapping_duration_secs',
+        '/jax/orbax/write/blocking_tree_map_duration_secs',
         batch_requests_ready_time - start_time,
     )
     jax.monitoring.record_event_duration_secs(
-        '/jax/orbax/write/async/d2h_duration_secs',
+        '/jax/orbax/write/blocking_d2h_duration_secs',
         total_serialization_initiated_time - batch_requests_ready_time,
     )
     async_save_end_time = time.time()
@@ -781,7 +781,7 @@ class BasePyTreeCheckpointHandler(
     """
 
     async def async_save(*args, **kwargs):
-      commit_futures = await self.async_save(*args, **kwargs)  # pytype: disable=bad-return-type
+      commit_futures = await self.async_save(*args, **kwargs)  # pyrefly: ignore[bad-return-type]
       # Futures are already running, so sequential waiting is equivalent to
       # concurrent waiting.
       if commit_futures:  # May be None.
@@ -1210,7 +1210,7 @@ class BasePyTreeCheckpointHandler(
           time.time() - metadata_write_start_time,
       )
       jax.monitoring.record_event_duration_secs(
-          '/jax/orbax/write/async/metadata_write_duration_secs',
+          '/jax/orbax/write/background_meta_write_secs',
           time.time() - metadata_write_start_time,
       )
 
@@ -1382,7 +1382,7 @@ class BasePyTreeCheckpointHandler(
           time.time() - merge_start_time,
       )
       jax.monitoring.record_event_duration_secs(
-          '/jax/orbax/write/async/ocdbt_merge_duration_secs',
+          '/jax/orbax/write/background_ocdbt_merge_secs',
           time.time() - merge_start_time,
       )
 

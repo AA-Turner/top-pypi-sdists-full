@@ -20,7 +20,9 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/SciQLopNDProjectionPlot.hpp"
+#include "SciQLopPlots/ColorScaleController.hpp"
 #include "SciQLopPlots/Plotables/SciQLopNDProjectionCurves.hpp"
+#include "SciQLopPlots/Plotables/SciQLopTimeColoredCurve.hpp"
 #include <QHBoxLayout>
 
 void SciQLopNDProjectionPlot::set_theme(SciQLopTheme* theme)
@@ -73,6 +75,8 @@ SciQLopNDProjectionPlot::SciQLopNDProjectionPlot(std::size_t projection_count, Q
     {
         m_plots[0]->x_axis()->couple_range_with(m_plots.last()->y_axis());
     }
+    if (!m_plots.isEmpty())
+        _setup_color_scale();
     m_time_axis = new SciQLopPlotDummyAxis(this);
     connect(m_time_axis, &SciQLopPlotAxis::range_changed, this,
             &SciQLopPlot::time_axis_range_changed);
@@ -249,8 +253,7 @@ void SciQLopNDProjectionPlot::set_time_color_enabled(bool enabled) noexcept
 
 void SciQLopNDProjectionPlot::set_time_color_gradient(const QColor& start, const QColor& end) noexcept
 {
-    m_time_color_start = start;
-    m_time_color_end = end;
+    set_z_gradient_colors(start, end);
     for (auto* p : plottables())
         if (auto* proj = qobject_cast<SciQLopNDProjectionCurves*>(p))
             proj->set_time_color_gradient(start, end);
@@ -286,6 +289,7 @@ void SciQLopNDProjectionPlot::set_time_marker(double t)
         return;
     }
 
+    const bool changed = m_time_marker_key != t;
     m_time_marker_key = t;
     _ensure_marker_layer();
 
@@ -316,17 +320,22 @@ void SciQLopNDProjectionPlot::set_time_marker(double t)
 
     for (auto* plot : m_plots)
         plot->qcp_plot()->layer("markers")->replot();
+
+    if (changed)
+        Q_EMIT time_marker_changed(t);
 }
 
 void SciQLopNDProjectionPlot::clear_time_marker()
 {
+    const bool was_set = !std::isnan(m_time_marker_key);
     m_time_marker_key = std::numeric_limits<double>::quiet_NaN();
     for (auto* marker : m_time_markers)
         marker->setVisible(false);
-    if (m_time_markers.isEmpty())
-        return;
-    for (auto* plot : m_plots)
-        plot->qcp_plot()->layer("markers")->replot();
+    if (!m_time_markers.isEmpty())
+        for (auto* plot : m_plots)
+            plot->qcp_plot()->layer("markers")->replot();
+    if (was_set)
+        Q_EMIT time_marker_changed(m_time_marker_key);
 }
 
 SciQLopPlottableInterface* SciQLopNDProjectionPlot::plottable(int index)
@@ -360,4 +369,62 @@ QList<SciQLopPlottableInterface*> SciQLopNDProjectionPlot::plottables() const no
         }
     }
     return plottables;
+}
+
+void SciQLopNDProjectionPlot::_setup_color_scale()
+{
+    for (auto* pane : m_plots)
+        pane->set_curve_color_scale_enabled(false);
+    m_scale = new ColorScaleController(
+        m_plots.last(),
+        [this]
+        {
+            std::vector<ColorScaleController::Source> sources;
+            for (auto* p : plottables())
+                if (auto* graph = qobject_cast<SciQLopNDProjectionCurves*>(p))
+                    sources.push_back(
+                        { [graph] { return graph->visible() && graph->has_color_values(); },
+                          [graph](bool log) { return graph->color_range(log); },
+                          [graph](QCPColorScale* scale) { graph->attach_color_scale(scale); } });
+            return sources;
+        },
+        this);
+    connect(m_plots.last(), &SciQLopPlotInterface::z_axis_range_changed, this,
+            &SciQLopPlotInterface::z_axis_range_changed);
+}
+
+void SciQLopNDProjectionPlot::set_shared_legend(bool shared)
+{
+    m_shared_legend = shared;
+    for (int i = 1; i < m_plots.size(); ++i)
+        m_plots[i]->legend()->set_visible(!shared);
+}
+
+void SciQLopNDProjectionPlot::set_z_gradient_colors(const QColor& start, const QColor& end)
+{
+    if (m_scale)
+        m_scale->set_gradient_colors(start, end);
+}
+
+void SciQLopNDProjectionPlot::set_z_gradient(::ColorGradient gradient)
+{
+    if (m_scale)
+        m_scale->set_gradient(gradient);
+}
+
+bool SciQLopNDProjectionPlot::z_auto_range() const noexcept
+{
+    return m_scale && m_scale->auto_range();
+}
+
+void SciQLopNDProjectionPlot::set_z_auto_range(bool enabled)
+{
+    if (m_scale)
+        m_scale->set_auto_range(enabled);
+}
+
+void SciQLopNDProjectionPlot::update_color_scale()
+{
+    if (m_scale)
+        m_scale->update();
 }

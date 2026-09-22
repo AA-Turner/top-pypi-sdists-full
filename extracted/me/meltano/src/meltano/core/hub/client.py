@@ -2,30 +2,145 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+import sys
 import typing as t
+from contextlib import suppress
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import click
+import platformdirs
 import requests
 import requests.exceptions
 from requests.adapters import HTTPAdapter
 from structlog.stdlib import get_logger
 from urllib3 import Retry
 
+from meltano.core.cloud.config import CLOUD_API_ROOT
+from meltano.core.error import MeltanoError
 from meltano.core.hub.schema import IndexedPlugin, VariantRef
 from meltano.core.plugin import PluginDefinition, PluginRef, PluginType, Variant
 from meltano.core.plugin.error import PluginNotFoundError
 from meltano.core.plugin.factory import base_plugin_factory
 from meltano.core.plugin_repository import PluginRepository
+from meltano.core.settings_store import SettingValueStore
+
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
 if t.TYPE_CHECKING:
+    from pathlib import Path
+
+    from meltano.core.cloud.credentials import Credentials
     from meltano.core.plugin import BasePlugin
     from meltano.core.project import Project
 
 logger = get_logger(__name__)
 
+# How long an index of a plugin type is reused before it is fetched again.
+INDEX_CACHE_DURATION = timedelta(hours=1)
 
-class HubPluginTypeNotFoundError(Exception):
+
+def index_cache_dir() -> Path:
+    """Get the directory that caches an index of a plugin type."""
+    return platformdirs.user_cache_path("meltano") / "hub"
+
+
+def _index_cache_path(url: str) -> Path:
+    """Get the file that caches the index at a URL.
+
+    Args:
+        url: The index URL, which a project can point elsewhere.
+
+    Returns:
+        The path of the cache file.
+    """
+    return index_cache_dir() / f"{hashlib.sha256(url.encode()).hexdigest()}.json"
+
+
+def _read_index_cache(path: Path) -> dict[str, t.Any] | None:
+    """Read an index that was cached, if it is still fresh.
+
+    Args:
+        path: The path of the cache file.
+
+    Returns:
+        The index, or `None` if it was never cached or has expired.
+    """
+    if not path.exists():
+        return None
+
+    written = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    if datetime.now(tz=timezone.utc) - written > INDEX_CACHE_DURATION:
+        return None
+
+    return json.loads(path.read_text())
+
+
+def _write_index_cache(path: Path, index: dict[str, t.Any]) -> None:
+    """Cache an index.
+
+    The file is renamed into place, so that a run which is interrupted part way
+    through writing it leaves no half-written file for the next one to read.
+
+    Args:
+        path: The path of the cache file.
+        index: The index to cache.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(f".{os.getpid()}.partial")
+    partial.write_text(json.dumps(index))
+    os.replace(partial, path)  # noqa: PTH105
+
+
+def _rejection_detail(response: requests.Response) -> str | None:
+    """Read the Hub's own explanation out of a rejected response.
+
+    Letting the Hub supply the wording means it can be changed server side,
+    without waiting for users to upgrade Meltano.
+
+    Args:
+        response: The rejected response.
+
+    Returns:
+        The explanation, or `None` if the Hub sent no JSON message.
+    """
+    try:
+        message = response.json()["message"]
+    except (ValueError, KeyError):
+        return None
+
+    # The error renders the reason with a full stop after it, so drop the
+    # Hub's own, rather than requiring it to know how Meltano punctuates.
+    return message.strip().removesuffix(".") or None
+
+
+def _connection_cause(error: requests.exceptions.ConnectionError) -> str | None:
+    """Pull the underlying cause out of a `requests` connection error.
+
+    The error's own string form repeats the URL and buries the cause under two
+    layers of pool machinery, so read the error that urllib3 chained instead.
+
+    Args:
+        error: The connection error.
+
+    Returns:
+        The cause, or `None` if urllib3 did not record one.
+    """
+    reason = getattr(error.args[0] if error.args else None, "reason", None)
+    if reason is None:
+        return None
+
+    # A TLS failure carries its own message rather than chaining an OSError.
+    return str(reason.__cause__ or reason)
+
+
+class HubPluginTypeNotFoundError(MeltanoError):
     """Raised when a Hub plugin type is not found."""
 
     def __init__(self, plugin_type: PluginType):
@@ -35,33 +150,43 @@ class HubPluginTypeNotFoundError(Exception):
             plugin_type: The type of the plugin.
         """
         self.plugin_type = plugin_type
-
-    def __str__(self) -> str:
-        """Return a string representation of the error.
-
-        Returns:
-            The string representation of the error.
-        """
-        return (
+        super().__init__(
             f"{self.plugin_type.descriptor.capitalize()} is not supported in "
             f"Meltano Hub. Available plugin types: {PluginType.plurals()}"
         )
 
 
-class HubConnectionError(Exception):
+class HubConnectionError(MeltanoError):
     """Raised when a Hub connection error occurs."""
 
-    def __init__(self, reason: str):
+    def __init__(self, reason: str | None = None):
         """Create a new HubConnectionError.
 
         Args:
             reason: The reason for the error.
         """
-        message = f"Could not connect to Meltano Hub. {reason}"
-        super().__init__(message)
+        super().__init__(reason or "Could not connect to Meltano Hub")
 
 
-class HubPluginVariantNotFoundError(Exception):
+class HubAuthenticationRequiredError(MeltanoError):
+    """Raised when Meltano Hub rejects a request as unauthenticated."""
+
+    # Always set, unlike the base class, so a caller can add to it.
+    instruction: str
+
+    def __init__(self, detail: str | None = None):
+        """Create a new HubAuthenticationRequiredError.
+
+        Args:
+            detail: The Hub's own explanation, when it gave one.
+        """
+        super().__init__(
+            detail or "Meltano Hub requires authentication",
+            "Run 'meltano cloud auth login' to log in or register for Meltano Cloud",
+        )
+
+
+class HubPluginVariantNotFoundError(MeltanoError):
     """Raised when a Hub plugin variant is not found."""
 
     def __init__(
@@ -80,14 +205,7 @@ class HubPluginVariantNotFoundError(Exception):
         self.plugin_type = plugin_type
         self.plugin = plugin
         self.variant_name = variant_name
-
-    def __str__(self) -> str:
-        """Return a string representation of the error.
-
-        Returns:
-            The string representation of the error.
-        """
-        return (
+        super().__init__(
             f"{self.plugin_type.descriptor.capitalize()} '{self.plugin.name}' "
             f"variant '{self.variant_name}' is not known to Meltano. "
             f"Variants: {self.plugin.variant_labels}"
@@ -118,8 +236,21 @@ class MeltanoHubService(PluginRepository):
 
             self.session.headers["X-Project-ID"] = project_id
 
+        self.session.headers.pop("Authorization", None)
+        self.cloud_authenticated = False
         if self.hub_url_auth:
             self.session.headers.update({"Authorization": self.hub_url_auth})
+        elif credentials := self._cloud_credentials():
+            self.session.headers.update(credentials.auth_header)
+            self.cloud_authenticated = True
+
+        if not self.cloud_authenticated and not self.has_configured_hub:
+            logger.info(
+                "Meltano Cloud offers an alternate Hub of first-party "
+                "supported plugins that are actively maintained and tested. "
+                "Log in or sign up to get access by running 'meltano cloud "
+                "auth login'.",
+            )
 
         adapter = HTTPAdapter(
             max_retries=Retry(
@@ -139,25 +270,52 @@ class MeltanoHubService(PluginRepository):
         self.session.mount("https://", adapter)
 
     @property
-    def hub_api_url(self) -> str:
-        """Return the URL of the Hub API.
+    def has_configured_hub(self) -> bool:
+        """Whether the project points Meltano at a Hub of its own."""
+        if self.project.settings.get("hub_api_root") or self.hub_url_auth:
+            return True
 
-        Returns:
-            The URL of the Hub API.
-        """
-        hub_api_root = self.project.settings.get("hub_api_root")
-        hub_url = self.project.settings.get("hub_url")
-
-        return hub_api_root or f"{hub_url}/meltano/api/v1"
+        _, source = self.project.settings.get_with_source("hub_url")
+        return source is not SettingValueStore.DEFAULT
 
     @property
-    def hub_url_auth(self) -> str:
-        """Return the `hub_url_auth` setting.
+    def hub_api_url(self) -> str:
+        """The URL of the Hub API."""
+        if hub_api_root := self.project.settings.get("hub_api_root"):
+            return hub_api_root
+
+        # A logged in user reads the index that Meltano Cloud serves, which
+        # lists the plugins that Meltano supports, maintains and tests. A
+        # project that points 'hub_url' at a Hub of its own keeps that one.
+        if self.cloud_authenticated and not self.has_configured_hub:
+            return CLOUD_API_ROOT
+
+        hub_url = self.project.settings.get("hub_url")
+        return f"{hub_url}/meltano/api/v1"
+
+    @property
+    def hub_url_auth(self) -> str | None:
+        """The `hub_url_auth` setting."""
+        return self.project.settings.get("hub_url_auth")
+
+    @staticmethod
+    def _cloud_credentials() -> Credentials | None:
+        """Get the stored Meltano Cloud session, renewing it if it has expired.
 
         Returns:
-            The `hub_url_auth` setting.
+            The credentials, or `None` if the user is not logged in.
         """
-        return self.project.settings.get("hub_url_auth")
+        # Imported here so that fetching a plugin definition does not pay for
+        # the login flow's HTTP server and browser launcher.
+        from meltano.core.cloud.auth import CloudAuthService
+        from meltano.core.user_config import UserConfigReadError
+
+        # A user configuration file that cannot be read must not stop a plugin
+        # being added, so treat it as being logged out.
+        with suppress(UserConfigReadError):
+            return CloudAuthService().get_credentials()
+
+        return None
 
     def plugin_type_endpoint(self, plugin_type: PluginType) -> str:
         """Return the list endpoint for the given plugin type.
@@ -204,7 +362,7 @@ class MeltanoHubService(PluginRepository):
         """
         request = requests.Request(method, url)
         if click_context := click.get_current_context(silent=True):
-            request.headers["X-Meltano-Command"] = click_context.command_path
+            request.headers["X-Meltano-Command"] = click_context.command_path  # type: ignore[index] # ty:ignore[invalid-assignment]
 
         return self.session.prepare_request(request)
 
@@ -219,10 +377,12 @@ class MeltanoHubService(PluginRepository):
 
         Raises:
             HubConnectionError: If the Hub API could not be reached.
+            HubAuthenticationRequiredError: If the Hub API rejected the request
+                because the user is not logged in to Meltano Cloud.
         """
         prep = self._build_request("GET", url)
         settings = self.session.merge_environment_settings(
-            prep.url,
+            prep.url,  # type: ignore[arg-type] # ty:ignore[invalid-argument-type]
             {},
             None,
             None,
@@ -230,10 +390,21 @@ class MeltanoHubService(PluginRepository):
         )
 
         try:
-            return self.session.send(prep, **settings)
+            response = self.session.send(prep, **settings)
         except requests.exceptions.ConnectionError as connection_err:
-            raise HubConnectionError("Could not reach Meltano Hub.") from connection_err  # noqa: EM101, TRY003
+            reason = f"Could not connect to Meltano Hub at {url}"
+            if cause := _connection_cause(connection_err):
+                reason = f"{reason}: {cause}"
+            raise HubConnectionError(reason) from connection_err
 
+        # A project that sets 'hub_url_auth' manages its own credentials, so
+        # report the status instead of the Cloud login.
+        if response.status_code == HTTPStatus.UNAUTHORIZED and not self.hub_url_auth:
+            raise HubAuthenticationRequiredError(_rejection_detail(response))
+
+        return response
+
+    @override
     def find_definition(
         self,
         plugin_type: PluginType,
@@ -280,15 +451,12 @@ class MeltanoHubService(PluginRepository):
         logger.info("Fetching plugin definition from Meltano Hub", url=url)
         response = self._get(url)
 
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as http_err:
-            logger.exception(
-                "Can not retrieve plugin",
-                status_code=http_err.response.status_code,
-                error=http_err,
+        if response.status_code >= HTTPStatus.BAD_REQUEST:
+            reason = (
+                f"{response.reason or 'Unknown reason'} ({response.status_code}): "
+                "can not retrieve plugin"
             )
-            raise HubConnectionError(str(http_err)) from http_err
+            raise HubConnectionError(reason)
 
         return PluginDefinition(
             **response.json(),
@@ -296,6 +464,7 @@ class MeltanoHubService(PluginRepository):
             is_default_variant=variant_name == plugin.default_variant,
         )
 
+    @override
     def find_base_plugin(
         self,
         plugin_type: PluginType,
@@ -323,11 +492,18 @@ class MeltanoHubService(PluginRepository):
     def get_plugins_of_type(
         self,
         plugin_type: PluginType,
+        *,
+        refresh: bool = True,
     ) -> dict[str, IndexedPlugin]:
         """Get all plugins of a given type.
 
         Args:
             plugin_type: The plugin type.
+            refresh: Whether to fetch the index rather than reuse one cached
+                in the last `INDEX_CACHE_DURATION`. Fetching is the default,
+                because a caller that resolves a plugin must see one added to
+                the Hub moments ago. Either way the index that is fetched is
+                cached, for a caller that does opt out.
 
         Returns:
             The plugin definitions.
@@ -340,21 +516,27 @@ class MeltanoHubService(PluginRepository):
             return {}
 
         url = self.plugin_type_endpoint(plugin_type)
-        response = self._get(url)
+        cache_path = _index_cache_path(url)
+        plugins: dict[str, dict[str, t.Any]] | None = (
+            None if refresh else _read_index_cache(cache_path)
+        )
 
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as err:
-            logger.exception(
-                "Can not retrieve plugin type",
-                status_code=err.response.status_code,
-                error=err,
-            )
-            if err.response.status_code < HTTPStatus.TOO_MANY_REQUESTS:
-                raise HubPluginTypeNotFoundError(plugin_type) from err
-            raise HubConnectionError(err.response.reason) from err
+        if plugins is None:
+            response = self._get(url)
 
-        plugins: dict[str, dict[str, t.Any]] = response.json()
+            if response.status_code == HTTPStatus.NOT_FOUND:
+                raise HubPluginTypeNotFoundError(plugin_type)
+
+            if response.status_code >= HTTPStatus.BAD_REQUEST:
+                reason = (
+                    f"{response.reason or 'Unknown reason'} ({response.status_code}): "
+                    f"can not retrieve plugins of type '{plugin_type.singular}'"
+                )
+                raise HubConnectionError(reason)
+
+            plugins = response.json()
+            _write_index_cache(cache_path, plugins)
+
         return {
             name: IndexedPlugin(
                 name,

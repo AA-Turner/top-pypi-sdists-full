@@ -358,6 +358,29 @@ class AnthropicTranslator(BaseTranslator):
         ``output_config.format`` and the model falls back to prompt instructions.
         """
         if not isinstance(response_format, dict):
+            # LOUD, never silent. `UnifiedConfig.response_format` is typed as a
+            # dict and every translator reads it as one, but the dataclass does
+            # not validate on assignment — so a caller that sets the Pydantic
+            # model lands here, and returning None quietly meant the schema was
+            # simply not enforced while the run looked normal. That is exactly
+            # how the decision overlay's binding vanished on 2026-09-20.
+            vcprint(
+                data={
+                    "provider": "anthropic",
+                    "response_format_type": type(response_format).__name__,
+                },
+                title="RESPONSE FORMAT DROPPED",
+                pretty=True,
+                verbose=False,
+                color="red",
+            )
+            vcprint(
+                "🚨 CAPABILITY LEAK [anthropic]: response_format is a "
+                f"{type(response_format).__name__}, not a dict, so NO structured "
+                "output was requested and the model answered free-form. Normalize "
+                "it at the call site (UnifiedConfig._normalize_response_format).",
+                color="red",
+            )
             return None
 
         fmt_type = response_format.get("type")

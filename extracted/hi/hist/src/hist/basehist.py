@@ -160,6 +160,14 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         # Support raw Quick Construct being accidentally passed in
         args = tuple(ax for ax in process_mistaken_quick_construct(args))
 
+        # Remove when boost-histogram 1.8.2+ is required; it does this itself
+        if (
+            len(args) == 1
+            and not isinstance(args[0], bh.Histogram)
+            and hasattr(args[0], "_to_uhi_")
+        ):
+            args = (args[0]._to_uhi_(),)  # type: ignore[union-attr]
+
         if isinstance(storage, str):
             storage_str = storage.title()
             if storage_str == "Atomicint64":
@@ -197,8 +205,11 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         if data is not None:
             self[...] = data
 
-        self.name = name  # pylint: disable=assigning-non-slot
-        self.label = label  # pylint: disable=assigning-non-slot
+        # Keep name/label copied from an input histogram unless overridden
+        if name is not None or "name" not in self.__dict__:
+            self.name = name  # pylint: disable=assigning-non-slot
+        if label is not None or "label" not in self.__dict__:
+            self.label = label  # pylint: disable=assigning-non-slot
 
     def _generate_axes_(self) -> NamedAxesTuple:
         """
@@ -797,6 +808,41 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             h.name = name
 
         return hist.stack.Stack(*stack_histograms)
+
+    def expand_cats(self, *, name: Callable[..., str] | None = None) -> dict[str, Self]:
+        """
+        Expand all categorical axes into a dict of histograms.
+
+        One histogram is produced for every combination of categories. The
+        ``name`` callable receives the category values, one per categorical
+        axis, and returns the key; the default joins them with ``_``.
+        """
+        cat_axes = [
+            i
+            for i, ax in enumerate(self.axes)
+            if isinstance(ax, (bh.axis.IntCategory, bh.axis.StrCategory))
+        ]
+        if not cat_axes:
+            msg = "Cannot expand a histogram without categorical axes"
+            raise ValueError(msg)
+
+        if name is None:
+
+            def name(*cats: int | str) -> str:
+                return "_".join(str(c) for c in cats)
+
+        result: dict[str, Self] = {}
+        for cats in itertools.product(*(self.axes[i] for i in cat_axes)):
+            key = name(*cats)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                index: dict[int | str, Any] = {
+                    i: bh.loc(c) for i, c in zip(cat_axes, cats, strict=True)
+                }
+                h: Self = self[index]  # type: ignore[assignment]
+            h.name = key
+            result[key] = h
+        return result
 
     @typing.overload
     def integrate(

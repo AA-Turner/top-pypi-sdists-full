@@ -34,6 +34,10 @@ class MultiNodeJobInfrastructureConfigurationDetails(JobInfrastructureConfigurat
             The value to assign to the block_storage_size_in_gbs property of this MultiNodeJobInfrastructureConfigurationDetails.
         :type block_storage_size_in_gbs: int
 
+        :param capacity_reservation_ids:
+            The value to assign to the capacity_reservation_ids property of this MultiNodeJobInfrastructureConfigurationDetails.
+        :type capacity_reservation_ids: list[str]
+
         :param job_shape_config_details:
             The value to assign to the job_shape_config_details property of this MultiNodeJobInfrastructureConfigurationDetails.
         :type job_shape_config_details: oci.data_science.models.JobShapeConfigDetails
@@ -43,17 +47,20 @@ class MultiNodeJobInfrastructureConfigurationDetails(JobInfrastructureConfigurat
             'job_infrastructure_type': 'str',
             'shape_name': 'str',
             'block_storage_size_in_gbs': 'int',
+            'capacity_reservation_ids': 'list[str]',
             'job_shape_config_details': 'JobShapeConfigDetails'
         }
         self.attribute_map = {
             'job_infrastructure_type': 'jobInfrastructureType',
             'shape_name': 'shapeName',
             'block_storage_size_in_gbs': 'blockStorageSizeInGBs',
+            'capacity_reservation_ids': 'capacityReservationIds',
             'job_shape_config_details': 'jobShapeConfigDetails'
         }
         self._job_infrastructure_type = None
         self._shape_name = None
         self._block_storage_size_in_gbs = None
+        self._capacity_reservation_ids = None
         self._job_shape_config_details = None
         self._job_infrastructure_type = 'MULTI_NODE'
 
@@ -104,6 +111,34 @@ class MultiNodeJobInfrastructureConfigurationDetails(JobInfrastructureConfigurat
         :type: int
         """
         self._block_storage_size_in_gbs = block_storage_size_in_gbs
+
+    @property
+    def capacity_reservation_ids(self):
+        """
+        Gets the capacity_reservation_ids of this MultiNodeJobInfrastructureConfigurationDetails.
+        This specifies the list of `OCID`__ of the customer-managed compute capacity reservation to be used for launching jobs.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_ids of this MultiNodeJobInfrastructureConfigurationDetails.
+        :rtype: list[str]
+        """
+        return self._capacity_reservation_ids
+
+    @capacity_reservation_ids.setter
+    def capacity_reservation_ids(self, capacity_reservation_ids):
+        """
+        Sets the capacity_reservation_ids of this MultiNodeJobInfrastructureConfigurationDetails.
+        This specifies the list of `OCID`__ of the customer-managed compute capacity reservation to be used for launching jobs.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_ids: The capacity_reservation_ids of this MultiNodeJobInfrastructureConfigurationDetails.
+        :type: list[str]
+        """
+        self._capacity_reservation_ids = capacity_reservation_ids
 
     @property
     def job_shape_config_details(self):

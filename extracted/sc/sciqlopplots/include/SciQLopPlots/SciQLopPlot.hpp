@@ -116,6 +116,12 @@ public:
 
     inline QCPColorScale* color_scale() const noexcept { return m_color_scale; }
 
+    //! Puts the colour scale in the layout without a colormap. Idempotent.
+    void show_color_scale();
+    //! Takes a scale shown by show_color_scale() back out of the layout. Do not use it
+    //! on a plot with a colormap, which needs the scale.
+    void hide_color_scale();
+
     void minimize_margins();
 
     inline int calculateAutoMargin(QCP::MarginSide side)
@@ -237,6 +243,8 @@ protected:
  * \brief The SciQLopPlot class
  *
  */
+class ColorScaleController;
+
 class SciQLopPlot : public SciQLopPlotInterface, public SciQLopExportable
 {
     Q_OBJECT
@@ -245,6 +253,7 @@ class SciQLopPlot : public SciQLopPlotInterface, public SciQLopExportable
 protected:
     SciQLopPlotDummyAxis* m_time_axis = nullptr;
     _impl::SciQLopPlot* m_impl = nullptr;
+    ColorScaleController* m_curve_scale = nullptr;
     SciQLopOverlay* m_overlay = nullptr;
     QPointer<SciQLopTheme> m_theme;
     QList<QColor> m_color_palette = {
@@ -415,6 +424,29 @@ public:
     inline bool has_colormap() { return m_impl->has_colormap(); }
 
     inline QCPColorScale* color_scale() const noexcept { return m_impl->color_scale(); }
+
+    inline void show_color_scale() { m_impl->show_color_scale(); }
+
+    /*!
+     * \brief Curves coloured by a scalar share this plot's colour scale (shown while
+     *        one is coloured, range following the data, log and gradient settable).
+     *        Off, each curve colours itself over its own range with no scale. A
+     *        colormap on the plot keeps the scale to itself either way.
+     */
+    bool curve_color_scale_enabled() const noexcept;
+    void set_curve_color_scale_enabled(bool enabled);
+    //! While on (the default) the scale range follows the coloured curves; setting the
+    //! range through z_axis() switches it off.
+    bool z_auto_range() const noexcept;
+    void set_z_auto_range(bool enabled);
+    void set_z_gradient(::ColorGradient gradient);
+#ifndef BINDINGS_H
+    //! For the curves only: called when their colour scalar changes or they go away.
+    void update_curve_color_scale();
+    //! A curve's own gradient: kept away from a colormap's scale, unlike set_z_gradient().
+    void request_z_gradient(::ColorGradient gradient);
+#endif
+    inline void hide_color_scale() { m_impl->hide_color_scale(); }
 
     inline int calculateAutoMargin(QCP::MarginSide side)
     {

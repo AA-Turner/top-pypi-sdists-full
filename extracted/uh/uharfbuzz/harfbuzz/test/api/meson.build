@@ -64,6 +64,7 @@ tests = [
   'test-subset-gvar.c',
   'test-subset-hvar.c',
   'test-subset-vvar.c',
+  'test-subset-varc.c',
   'test-subset-sbix.c',
   'test-subset-gpos.c',
   'test-subset-colr.c',
@@ -93,6 +94,10 @@ if conf.get('HAVE_DIRECTWRITE', 0) == 1
   tests += [
     'test-directwrite.cc',
   ]
+endif
+
+if conf.get('HAVE_CAIRO', 0) == 1
+  tests += 'test-cairo.c'
 endif
 
 if conf.get('HAVE_PTHREAD', 0) == 1

@@ -11,7 +11,7 @@ import argparse
 from datetime import datetime
 from epik8s_tools import __version__
 import subprocess  # For running Docker commands
-from .epik8s_common import dump_exec, run_jnjrender,app_dir,run_remote,apply_ioc_defaults
+from .epik8s_common import dump_exec, run_jnjrender,app_dir,run_remote,apply_ioc_defaults,iocs_to_list
 
 # Default git repositories for ibek-templates and ibek-support
 DEFAULT_IBEK_TEMPLATES_URL = "https://github.com/infn-epics/ibek-templates.git"
@@ -791,7 +791,7 @@ def main_run():
         epics_config = yamlconf.get('epicsConfiguration', {})
         iocs=epics_config.get('iocs', []) ## epik8s yaml full configuratio
     elif 'iocs' in yamlconf:
-        iocs=yamlconf.get('iocs', []) ## provided iocs list
+        iocs=iocs_to_list(yamlconf.get('iocs')) ## provided iocs (map or list)
     else:
         iocs=[yamlconf] ## ioc configuration alone
 

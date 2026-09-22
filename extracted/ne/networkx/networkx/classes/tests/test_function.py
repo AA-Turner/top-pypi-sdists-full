@@ -32,6 +32,7 @@ class TestFunction:
         assert info_dict["Number of edges"] == 5
         assert info_dict["Average degree (min, max)"] == "2.00 (0, 4)"
         assert info_dict["Number of connected components"] == 2
+        assert info_dict["Density"] == 0.5
 
     def test_nodes(self):
         assert nodes_equal(self.G.nodes(), list(nx.nodes(self.G)))
@@ -659,11 +660,11 @@ def test_get_edge_attributes():
 
         default_val = vals
         G.add_edge(4, 5)
-        deafult_attrs = nx.get_edge_attributes(G, attr, default=default_val)
-        assert len(deafult_attrs) == 3
+        default_attrs = nx.get_edge_attributes(G, attr, default=default_val)
+        assert len(default_attrs) == 3
 
         for edge in G.edges:
-            assert deafult_attrs[edge] == vals
+            assert default_attrs[edge] == vals
 
 
 @pytest.mark.parametrize(
@@ -822,6 +823,24 @@ def test_remove_edge_attributes(graph_type):
     nx.remove_edge_attributes(G, other_attr, third_attr, ebunch=[(0, 1)])
     assert other_attr not in G[0][1] and third_attr not in G[0][1]
     assert other_attr in G[1][2] and third_attr in G[1][2]
+
+
+@pytest.mark.parametrize(
+    "remove_fn", (nx.remove_node_attributes, nx.remove_edge_attributes)
+)
+def test_remove_attributes_clears_cache(remove_fn):
+    #  `remove_{node,edge}_attributes` mutate the graph, so, like their
+    # `set_*` siblings, they must clear ``G.__networkx_cache__``
+    G = nx.path_graph(3)
+    G.add_node(0, color="blue")
+    nx.set_edge_attributes(G, {(u, v): u + v for u, v in G.edges()}, name="weight")
+    G.__networkx_cache__["backends"] = {"some_backend": {"key": "cached-conversion"}}
+
+    remove_fn(G)  # No attr specified. Nothing to do, so don't clear cache
+    assert G.__networkx_cache__ != {}
+
+    remove_fn(G, "weight" if remove_fn is nx.remove_edge_attributes else "color")
+    assert G.__networkx_cache__ == {}
 
 
 @pytest.mark.parametrize("graph_type", (nx.MultiGraph, nx.MultiDiGraph))

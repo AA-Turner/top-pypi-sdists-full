@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+import sys
 import typing as t
 from functools import cached_property
 
 from azure.storage.blob import BlobServiceClient
 
 from meltano.core.error import MeltanoError
-from meltano.core.state_store.filesystem import (
-    CloudStateStoreManager,
-)
+from meltano.core.state_store.filesystem import CloudStateStoreManager
+
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
+if t.TYPE_CHECKING:
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
 
 
 class AZStorageStateStoreManager(CloudStateStoreManager):
@@ -50,6 +60,7 @@ class AZStorageStateStoreManager(CloudStateStoreManager):
         self.prefix = prefix or self.parsed.path
 
     @staticmethod
+    @override
     def is_file_not_found_error(err: Exception) -> bool:
         """Check if err is equivalent to file not being found.
 
@@ -67,11 +78,9 @@ class AZStorageStateStoreManager(CloudStateStoreManager):
         )
 
     @cached_property
+    @override
     def client(self) -> BlobServiceClient:
-        """Get an authenticated azure.storage.blob.BlobServiceClient.
-
-        Returns:
-            An authenticated azure.storage.blob.BlobServiceClient
+        """Authenticated azure.storage.blob.BlobServiceClient.
 
         Raises:
             MeltanoError: If connection string is not provided.
@@ -94,6 +103,7 @@ class AZStorageStateStoreManager(CloudStateStoreManager):
             "Read https://learn.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string for more information.",  # noqa: E501
         )
 
+    @override
     def delete_file(self, file_path: str) -> None:
         """Delete the file/blob at the given path.
 
@@ -113,11 +123,8 @@ class AZStorageStateStoreManager(CloudStateStoreManager):
             if not self.is_file_not_found_error(e):
                 raise e  # noqa: TRY201
 
-    def list_all_files(
-        self,
-        *,
-        with_prefix: bool = True,
-    ) -> t.Generator[str, None, None]:
+    @override
+    def list_all_files(self, *, with_prefix: bool = True) -> Generator[str]:
         """List all files in the backend.
 
         Args:
@@ -132,6 +139,7 @@ class AZStorageStateStoreManager(CloudStateStoreManager):
         ):
             yield blob.name
 
+    @override
     def copy_file(self, src: str, dst: str) -> None:
         """Copy a file from one location to another.
 

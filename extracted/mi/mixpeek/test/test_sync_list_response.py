@@ -74,6 +74,9 @@ class TestSyncListResponse(unittest.TestCase):
                         create_object_on_confirm = True, 
                         skip_duplicates = True, 
                         skip_batch_submission = True, 
+                        batch_collection_ids = [
+                            ''
+                            ], 
                         reconcile = mixpeek.models.reconcile_settings.ReconcileSettings(
                             on_delete = True, 
                             on_update = True, 
@@ -209,6 +212,9 @@ class TestSyncListResponse(unittest.TestCase):
                         create_object_on_confirm = True, 
                         skip_duplicates = True, 
                         skip_batch_submission = True, 
+                        batch_collection_ids = [
+                            ''
+                            ], 
                         reconcile = mixpeek.models.reconcile_settings.ReconcileSettings(
                             on_delete = True, 
                             on_update = True, 

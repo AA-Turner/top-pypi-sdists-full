@@ -9,6 +9,12 @@ use lopdf::{Document, Object, ObjectId};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+mod content_geometry;
+mod content_mask;
+mod content_resources;
+mod content_scan;
+use content_scan::ContentCounts;
+
 /// PDF type classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PdfType {
@@ -61,8 +67,8 @@ pub struct PdfTypeResult {
     /// Empty for TextBased. All pages for Scanned/ImageBased. Specific pages for Mixed.
     pub pages_needing_ocr: Vec<u32>,
     /// Per-page explanation for `pages_needing_ocr`: 1-indexed page → reason
-    /// codes (`scanned`, `no_text`, `vector_text`, `suspected_garbled_text`).
-    /// Only contains pages that need OCR.
+    /// codes (`scanned`, `no_text`, `vector_text`, `invisible_text_layer`,
+    /// `suspected_garbled_text`). Only contains pages that need OCR.
     pub ocr_reasons_by_page: std::collections::BTreeMap<u32, Vec<String>>,
 }
 
@@ -217,21 +223,33 @@ pub(crate) fn detect_from_document(
     // Cache Phase 1 results to avoid re-analyzing sampled pages in Phase 2
     let mut analysis_cache: HashMap<u32, PageAnalysis> = HashMap::new();
     let mut pages_actually_sampled = 0u32;
+    // Pages read whose form content ran past the scan's byte budget.
+    let mut pages_past_form_budget = 0u32;
 
     for page_num in &sample_indices {
         if let Some(&page_id) = pages.get(page_num) {
             let analysis = analyze_page_content(doc, page_id);
             pages_actually_sampled += 1;
             log::debug!(
-                "page {}: text_ops={} images={} image_count={} template={} unique_chars={} alphanum={} path_ops={} vector_text={} image_area={} identity_h_no_tounicode={} type3_only={} font_changes={} decodable_fonts={}",
-                page_num, analysis.text_operator_count, analysis.has_images,
-                analysis.image_count, analysis.has_template_image,
+                "page {}: text_ops={} executed_text_ops={} hidden_text_ops={} images={} image_count={} template={} covering_image={} form_bytes={} form_bytes_exceeded={} unique_chars={} alphanum={} path_ops={} vector_text={} image_area={} identity_h_no_tounicode={} type3_only={} font_changes={} decodable_fonts={}",
+                page_num, analysis.text_operator_count, analysis.executed_text_operator_count,
+                analysis.invisible_text_operator_count,
+                analysis.has_images, analysis.image_count, analysis.has_template_image,
+                analysis.has_covering_image,
+                analysis.executed_form_bytes, analysis.form_bytes_exceeded,
                 analysis.unique_text_chars, analysis.unique_alphanum_chars,
                 analysis.path_op_count, analysis.has_vector_text,
                 analysis.total_image_area, analysis.has_identity_h_no_tounicode,
                 analysis.has_only_type3_fonts, analysis.font_change_count,
                 analysis.has_decodable_text_fonts
             );
+            if analysis.form_bytes_exceeded {
+                pages_past_form_budget += 1;
+                log::debug!(
+                    "page {}: form content past the scan's byte budget after {} bytes; the rest went unread and the page keeps its classification",
+                    page_num, analysis.executed_form_bytes
+                );
+            }
             let is_image_dominated = analysis.image_count > 10
                 && analysis.image_count > analysis.text_operator_count * 3;
             let effective_min_ops = if analysis.has_images || analysis.image_count > 0 {
@@ -244,6 +262,7 @@ pub(crate) fn detect_from_document(
                 && analysis.unique_text_chars >= 5
                 && !analysis.has_vector_text
                 && !analysis.has_only_type3_fonts
+                && !analysis.has_invisible_text_layer
             {
                 pages_with_text += 1;
             }
@@ -261,8 +280,12 @@ pub(crate) fn detect_from_document(
             // as having real text regardless of raw byte diversity.
             let alphanum_ok = analysis.unique_alphanum_chars < 10
                 && !(analysis.has_decodable_text_fonts && analysis.text_operator_count >= 10);
-            if analysis.has_template_image
-                && (analysis.image_count <= 1 && analysis.text_operator_count < 50 && alphanum_ok)
+            // A page whose text is all invisible under an image covering
+            // the page is a scan however many operators the layer has:
+            // the page shows its raster, and the layer only describes it.
+            if (analysis.has_template_image
+                && (analysis.image_count <= 1 && analysis.text_operator_count < 50 && alphanum_ok))
+                || analysis.has_invisible_text_layer
             {
                 pages_with_template_images += 1;
             }
@@ -277,7 +300,8 @@ pub(crate) fn detect_from_document(
             if allow_early_exit
                 && (analysis.text_operator_count < config.min_text_ops_per_page
                     || is_image_dominated
-                    || analysis.unique_text_chars < 5)
+                    || analysis.unique_text_chars < 5
+                    || analysis.has_invisible_text_layer)
                 && (analysis.has_images || analysis.has_template_image)
             {
                 break;
@@ -411,6 +435,7 @@ pub(crate) fn detect_from_document(
                     && analysis.text_operator_count < config.min_text_ops_per_page.max(10);
                 if (analysis.has_template_image && looks_like_scan)
                     || analysis.has_vector_text
+                    || analysis.has_invisible_text_layer
                     || sparse_text_over_scan
                     || (analysis.text_operator_count < config.min_text_ops_per_page
                         && analysis.has_images)
@@ -456,16 +481,43 @@ pub(crate) fn detect_from_document(
     pages_needing_ocr.dedup();
 
     // Explain each OCR-flagged page. Pages we analyzed get a signal-derived
-    // reason; pages flagged only by whole-document classification (unsampled
-    // pages of a Scanned/ImageBased doc) default to `scanned`.
+    // reason. Pages flagged only by whole-document classification — the
+    // pages a sample left out of a Scanned/ImageBased document — are still
+    // read for the one signal the byte scan alone gives, so a text layer
+    // nobody sees is named wherever it is; the font and path signals come
+    // from the full analysis and stay with the sampled pages, so such a
+    // page otherwise defaults to `scanned`.
     let mut ocr_reasons_by_page: std::collections::BTreeMap<u32, Vec<String>> =
         std::collections::BTreeMap::new();
     for &page_num in &pages_needing_ocr {
         let reasons = match analysis_cache.get(&page_num) {
             Some(analysis) => page_ocr_reasons(analysis),
-            None => vec![crate::OCR_REASON_SCANNED],
+            None => match pages.get(&page_num) {
+                Some(&page_id) => {
+                    let executed = content_scan::page_executed_content(doc, page_id);
+                    if executed.form_bytes_exceeded {
+                        pages_past_form_budget += 1;
+                        log::debug!(
+                            "page {}: form content past the scan's byte budget after {} bytes; the rest went unread and the page keeps its classification",
+                            page_num, executed.form_bytes
+                        );
+                    }
+                    if executed.shows_only_a_hidden_text_layer {
+                        vec![crate::OCR_REASON_INVISIBLE_TEXT_LAYER]
+                    } else {
+                        vec![crate::OCR_REASON_SCANNED]
+                    }
+                }
+                None => vec![crate::OCR_REASON_SCANNED],
+            },
         };
         ocr_reasons_by_page.insert(page_num, reasons.into_iter().map(String::from).collect());
+    }
+    if pages_past_form_budget > 0 {
+        log::debug!(
+            "{} page(s) ran past the scan's byte budget for form content; their evidence is incomplete and their classification unchanged",
+            pages_past_form_budget
+        );
     }
 
     // Try to get title from metadata
@@ -523,9 +575,35 @@ fn distribute_pages(n: u32, total: u32) -> Vec<u32> {
 #[derive(Clone, Default)]
 struct PageAnalysis {
     text_operator_count: u32,
+    /// Text-showing operators the page executes: in its own content and in
+    /// the Form XObjects that content invokes, each once — unlike
+    /// `text_operator_count`, which also counts forms merely bound.
+    executed_text_operator_count: u32,
+    /// Those of `executed_text_operator_count` that left nothing to see:
+    /// run under text render mode 3 (invisible), or under mode 7 (clip
+    /// only) with nothing painted through the clip.
+    invisible_text_operator_count: u32,
     has_images: bool,
     /// Whether page has a large background/template image (>50% coverage)
     has_template_image: bool,
+    /// Whether the images the page's content draws — by `Do`, in its own
+    /// content and in the forms it invokes, each draw clipped to the
+    /// visible page box — cover at least half of the page area, whatever
+    /// their pixel size. Images bound in resources but never drawn do not
+    /// count.
+    has_covering_image: bool,
+    /// Whether every text-showing operator the page executes is invisible
+    /// while images cover the page: a scan carrying a text layer nobody
+    /// sees. What the layer says is not what the page shows, so the page
+    /// is read from its raster.
+    has_invisible_text_layer: bool,
+    /// Bytes of Form XObject and pattern-cell content the page's content
+    /// executed, and whether a form went unread because the page's budget
+    /// of them ran out — the page then keeps the classification it had
+    /// before the executed content was followed, never
+    /// `has_invisible_text_layer`.
+    executed_form_bytes: usize,
+    form_bytes_exceeded: bool,
     /// Total image area in pixels (reserved for future use)
     #[allow(dead_code)]
     total_image_area: u64,
@@ -556,13 +634,21 @@ struct PageAnalysis {
     has_decodable_text_fonts: bool,
 }
 
-/// Explain *why* a page needs OCR, from its content analysis. Priority:
+/// Explain *why* a page needs OCR, from its content analysis. Priority: a
+/// text layer nobody sees under a covering image (`invisible_text_layer`)
+/// comes first — such a page is a scan whatever its fonts are — then
 /// undecodable fonts (`suspected_garbled_text`) and vector-outlined text
-/// (`vector_text`) come first because they persist even when a text layer is
-/// present; otherwise a page with no extractable text is `scanned` when an
-/// image backs it or `no_text` when nothing does.
+/// (`vector_text`), which persist even when a text layer is present;
+/// otherwise a page with no extractable text is `scanned` when an image
+/// backs it or `no_text` when nothing does. `extract_pages_markdown_mem`
+/// puts `invisible_text_layer` first as well; the reasons after it keep
+/// each surface's own order (there, `scanned` can stand beside the font
+/// and path reasons, which here pre-empt it).
 fn page_ocr_reasons(a: &PageAnalysis) -> Vec<&'static str> {
     let mut reasons = Vec::new();
+    if a.has_invisible_text_layer {
+        reasons.push(crate::OCR_REASON_INVISIBLE_TEXT_LAYER);
+    }
     if a.has_identity_h_no_tounicode || a.has_only_type3_fonts {
         reasons.push(crate::OCR_REASON_SUSPECTED_GARBLED_TEXT);
     }
@@ -740,11 +826,7 @@ fn resolve_with_shadowing(
 
 /// Analyze a page's content stream for text operators and images
 fn analyze_page_content(doc: &Document, page_id: ObjectId) -> PageAnalysis {
-    let mut text_ops = 0u32;
-    let mut has_images = false;
-    let mut image_count = 0u32;
-    let mut path_ops = 0u32;
-    let mut font_changes = 0u32;
+    let mut counts = ContentCounts::default();
     let mut all_unique_chars: HashSet<u8> = HashSet::new();
     // Collect font ObjectIds (not names) to avoid cross-scope name collisions.
     // Each content stream resolves its Tf font names against its own resource
@@ -755,47 +837,29 @@ fn analyze_page_content(doc: &Document, page_id: ObjectId) -> PageAnalysis {
     // page-level Resources + Form XObject Resources.
     let mut font_map: HashMap<ObjectId, FontInfo> = HashMap::new();
 
-    // Get content streams for this page — these use the page's resource dict
-    let content_streams = doc.get_page_contents(page_id);
-
     // We need the page's resource dict to resolve font names from page content.
     // get_page_resources returns (Option<&Dictionary>, Vec<ObjectId>) for
     // inline and indirect resource dicts respectively.
     let page_resources = doc.get_page_resources(page_id).ok();
 
-    for content_id in content_streams {
-        if let Ok(Object::Stream(stream)) = doc.get_object(content_id) {
-            let content = match stream.decompressed_content() {
-                Ok(data) => data,
-                Err(_) => stream.content.clone(),
-            };
+    // The page's content streams, read as one and followed through `Do`
+    // (see `content_scan`), with the raw font names they use.
+    let mut page_font_names: HashSet<Vec<u8>> = HashSet::new();
+    let (executed, page_counts) =
+        content_scan::scan_page_content(doc, page_id, &mut all_unique_chars, &mut page_font_names);
+    counts.add(page_counts);
 
-            // Scan for text operators, collecting raw font names
-            let mut page_font_names: HashSet<Vec<u8>> = HashSet::new();
-            let (ops, imgs, paths, fonts) = scan_content_for_text_operators(
-                &content,
-                &mut all_unique_chars,
-                &mut page_font_names,
-            );
-            text_ops += ops;
-            image_count += imgs;
-            path_ops += paths;
-            font_changes += fonts;
-            has_images = has_images || imgs > 0;
-
-            // Resolve font names against the page's resource dictionaries,
-            // respecting PDF resource inheritance shadowing: the most-specific
-            // scope (page's own /Resources) wins over inherited ancestors.
-            if let Some((ref resource_dict, ref resource_ids)) = page_resources {
-                resolve_with_shadowing(
-                    doc,
-                    *resource_dict,
-                    resource_ids,
-                    &page_font_names,
-                    &mut used_font_ids,
-                );
-            }
-        }
+    // Resolve font names against the page's resource dictionaries,
+    // respecting PDF resource inheritance shadowing: the most-specific
+    // scope (page's own /Resources) wins over inherited ancestors.
+    if let Some((ref resource_dict, ref resource_ids)) = page_resources {
+        resolve_with_shadowing(
+            doc,
+            *resource_dict,
+            resource_ids,
+            &page_font_names,
+            &mut used_font_ids,
+        );
     }
 
     // Scan XObject Form contents for text operators, collect their fonts,
@@ -804,46 +868,56 @@ fn analyze_page_content(doc: &Document, page_id: ObjectId) -> PageAnalysis {
         let mut visited = HashSet::new();
         if let Some(resources) = resource_dict {
             collect_fonts_from_resource_dict(doc, resources, &mut font_map);
-            let (ops, imgs, paths, fonts) = scan_xobjects_in_resources(
+            counts.add(scan_xobjects_in_resources(
                 doc,
                 resources,
                 &mut visited,
                 &mut all_unique_chars,
                 &mut used_font_ids,
                 &mut font_map,
-            );
-            text_ops += ops;
-            image_count += imgs;
-            path_ops += paths;
-            font_changes += fonts;
-            has_images = has_images || imgs > 0;
+            ));
         }
         for resource_id in resource_ids {
             if let Ok(resources) = doc.get_dictionary(resource_id) {
                 collect_fonts_from_resource_dict(doc, resources, &mut font_map);
-                let (ops, imgs, paths, fonts) = scan_xobjects_in_resources(
+                counts.add(scan_xobjects_in_resources(
                     doc,
                     resources,
                     &mut visited,
                     &mut all_unique_chars,
                     &mut used_font_ids,
                     &mut font_map,
-                );
-                text_ops += ops;
-                image_count += imgs;
-                path_ops += paths;
-                font_changes += fonts;
-                has_images = has_images || imgs > 0;
+                ));
             }
         }
     }
+    let text_ops = counts.text_ops;
+    let image_count = counts.image_count;
+    let path_ops = counts.path_ops;
+    let font_changes = counts.font_changes;
 
-    // Check for XObject images and calculate coverage
+    // Check for XObject images and calculate coverage. An image the
+    // content drew — an inline image, or one a pattern's cell draws — is
+    // an image of the page too, whatever its resources bind.
     let (found_images, total_image_area, has_template_image) = analyze_page_images(doc, page_id);
+    let has_images = image_count > 0 || found_images || executed.draws_image;
 
-    if found_images {
-        has_images = true;
-    }
+    // The images the page's content drew — in its own streams and in the
+    // forms they invoke, each draw clipped to the page — cover the page
+    // when their boxes on it add up to at least half of it, whatever their
+    // pixel size. Images the resources merely bind, and forms never
+    // invoked, are not content: `has_template_image` judges the pixels of
+    // whatever is bound and has no say here.
+    let has_covering_image = executed.covers_page;
+
+    // A page whose every executed text-showing operator left nothing to
+    // see while images cover it shows the raster alone; the text layer
+    // describes the raster rather than being the page's content.
+    let executed_text_ops = executed.text_ops;
+    let hidden_text_ops = executed.hidden_text_ops;
+    let has_invisible_text_layer = executed.shows_only_a_hidden_text_layer;
+    let executed_form_bytes = executed.form_bytes;
+    let form_bytes_exceeded = executed.form_bytes_exceeded;
 
     let unique_alphanum_chars = all_unique_chars
         .iter()
@@ -893,8 +967,14 @@ fn analyze_page_content(doc: &Document, page_id: ObjectId) -> PageAnalysis {
 
     PageAnalysis {
         text_operator_count: text_ops,
+        executed_text_operator_count: executed_text_ops,
+        invisible_text_operator_count: hidden_text_ops,
         has_images,
         has_template_image,
+        has_covering_image,
+        has_invisible_text_layer,
+        executed_form_bytes,
+        form_bytes_exceeded,
         total_image_area,
         image_count,
         unique_text_chars: all_unique_chars.len() as u32,
@@ -1653,11 +1733,8 @@ fn scan_xobjects_in_resources(
     unique_chars: &mut HashSet<u8>,
     used_font_ids: &mut HashSet<ObjectId>,
     font_map: &mut HashMap<ObjectId, FontInfo>,
-) -> (u32, u32, u32, u32) {
-    let mut text_ops = 0u32;
-    let mut image_count = 0u32;
-    let mut path_ops = 0u32;
-    let mut font_changes = 0u32;
+) -> ContentCounts {
+    let mut counts = ContentCounts::default();
 
     let xobjects = match resources.get(b"XObject").ok() {
         Some(Object::Dictionary(d)) => Some(d.clone()),
@@ -1686,17 +1763,23 @@ fn scan_xobjects_in_resources(
                     let content = stream
                         .decompressed_content()
                         .unwrap_or_else(|_| stream.content.clone());
-                    // Collect raw font names from this XObject's content stream
+                    // Collect raw font names from this XObject's content stream.
+                    // Every form bound is counted here, invoked or not, as
+                    // the text and font tallies always have been; what the
+                    // page executes is followed from its own content, so
+                    // this scan follows no `Do`.
                     let mut xobj_font_names: HashSet<Vec<u8>> = HashSet::new();
-                    let (ops, imgs, paths, fonts) = scan_content_for_text_operators(
+                    let own_resources: Vec<&lopdf::Dictionary> =
+                        content_resources::stream_resources(doc, stream)
+                            .into_iter()
+                            .collect();
+                    counts.add(content_scan::scan_content_stream_alone(
+                        doc,
                         &content,
                         unique_chars,
                         &mut xobj_font_names,
-                    );
-                    text_ops += ops;
-                    image_count += imgs;
-                    path_ops += paths;
-                    font_changes += fonts;
+                        &own_resources,
+                    ));
 
                     // Resolve the Form XObject's /Resources — handle both inline
                     // dicts and indirect references (P2 fix: indirect refs were
@@ -1718,144 +1801,44 @@ fn scan_xobjects_in_resources(
                         // Collect font definitions from this scope
                         collect_fonts_from_resource_dict(doc, res, font_map);
                         // Recurse into nested XObjects
-                        let (ops2, imgs2, paths2, fonts2) = scan_xobjects_in_resources(
+                        counts.add(scan_xobjects_in_resources(
                             doc,
                             res,
                             visited,
                             unique_chars,
                             used_font_ids,
                             font_map,
-                        );
-                        text_ops += ops2;
-                        image_count += imgs2;
-                        path_ops += paths2;
-                        font_changes += fonts2;
+                        ));
                     }
                 }
                 Some(b"Image") => {
-                    image_count += 1;
+                    counts.image_count += 1;
                 }
                 _ => {}
             }
         }
     }
 
-    (text_ops, image_count, path_ops, font_changes)
+    counts
 }
 
-/// Fast scan of content stream bytes for text operators
-///
-/// This is a fast heuristic scan that looks for:
-/// - "Tj" - show text string
-/// - "TJ" - show text with individual glyph positioning
-/// - "'" - move to next line and show text
-/// - "\"" - set word/char spacing, move to next line, show text
-///
-/// Returns (text_op_count, image_count, path_op_count, font_change_count).
-/// Unique non-whitespace text characters are collected into `unique_chars`.
+/// [`content_scan::scan_content_stream_alone`] as the counts alone:
+/// `(text_ops, image_count, path_ops, font_changes)`.
+#[cfg(test)]
 fn scan_content_for_text_operators(
     content: &[u8],
     unique_chars: &mut HashSet<u8>,
     used_font_names: &mut HashSet<Vec<u8>>,
 ) -> (u32, u32, u32, u32) {
-    let mut text_ops = 0u32;
-    let image_count = 0u32;
-    let mut path_ops = 0u32;
-    let mut font_changes = 0u32;
-
-    // Helper: check if position is a word boundary (start of content or preceded by whitespace)
-    let is_word_start = |pos: usize| -> bool { pos == 0 || content[pos - 1].is_ascii_whitespace() };
-    // Helper: check if position is at end or followed by whitespace
-    let is_word_end =
-        |pos: usize| -> bool { pos + 1 >= content.len() || content[pos + 1].is_ascii_whitespace() };
-
-    // Simple state machine to find operators.
-    // Each Tj/TJ/Tf lookback stops at the previous text/font operator so a
-    // malformed `] TJ` (no `[`) cannot rescan the entire prefix — that was
-    // quadratic in the number of operators.
-    // `Tj`/`TJ` are only counted when the preceding token closes a string or
-    // array (')', '>', ']'), so `Tj` inside `(Hello Tj World)` cannot pin the floor.
-    let mut operand_floor = 0usize;
-    let mut i = 0;
-    while i < content.len() {
-        let b = content[i];
-
-        // Look for 'T' followed by 'j', 'J', or 'f'
-        if b == b'T' && i + 1 < content.len() {
-            let next = content[i + 1];
-            if next == b'j' || next == b'J' {
-                // Verify it's an operator (followed by whitespace or newline)
-                if (i + 2 >= content.len()
-                    || content[i + 2].is_ascii_whitespace()
-                    || content[i + 2] == b'\n'
-                    || content[i + 2] == b'\r')
-                    && preceding_operand_closer(content, i, operand_floor)
-                {
-                    text_ops += 1;
-                    collect_text_chars_before(content, i, unique_chars, operand_floor);
-                    operand_floor = i;
-                }
-            } else if next == b'f' {
-                // Tf = set font operator
-                // Some PDFs concatenate Tf with the next operator without
-                // whitespace (e.g. "25 Tf[<01>..." or "25 Tf(<text>..."),
-                // so also accept '[', '(', '<', '/' as valid followers.
-                if i + 2 >= content.len()
-                    || content[i + 2].is_ascii_whitespace()
-                    || content[i + 2] == b'\n'
-                    || content[i + 2] == b'\r'
-                    || content[i + 2] == b'['
-                    || content[i + 2] == b'('
-                    || content[i + 2] == b'<'
-                    || content[i + 2] == b'/'
-                {
-                    if let Some(name) = extract_font_name_before_tf(content, i, operand_floor) {
-                        used_font_names.insert(name);
-                        font_changes += 1;
-                        operand_floor = i;
-                    }
-                }
-            }
-        }
-
-        // Note: We do NOT count 'Do' operators here because Do invokes any
-        // XObject — including Form XObjects that contain text.  Actual image
-        // detection is handled by scan_xobjects_in_resources (checks Subtype)
-        // and analyze_page_images (measures pixel area).
-
-        // Count path construction/painting operators.
-        // Single-byte: m (moveto), l (lineto), c (curveto), h (closepath),
-        //              f (fill), S (stroke), s (close+stroke), B (fill+stroke),
-        //              F (fill, variant)
-        // These are the high-volume operators in vector-outlined text.
-        match b {
-            b'm' | b'l' | b'c' | b'h' | b'f' | b'S' | b's' | b'B' | b'F'
-                if is_word_start(i) && is_word_end(i) =>
-            {
-                path_ops += 1;
-            }
-            // Two-byte: re (rect), f* (fill even-odd)
-            b'r' if i + 1 < content.len()
-                && content[i + 1] == b'e'
-                && is_word_start(i)
-                && (i + 2 >= content.len() || content[i + 2].is_ascii_whitespace()) =>
-            {
-                path_ops += 1;
-            }
-            b'f' if i + 1 < content.len()
-                && content[i + 1] == b'*'
-                && is_word_start(i)
-                && (i + 2 >= content.len() || content[i + 2].is_ascii_whitespace()) =>
-            {
-                path_ops += 1;
-            }
-            _ => {}
-        }
-
-        i += 1;
-    }
-
-    (text_ops, image_count, path_ops, font_changes)
+    let doc = Document::new();
+    let counts =
+        content_scan::scan_content_stream_alone(&doc, content, unique_chars, used_font_names, &[]);
+    (
+        counts.text_ops,
+        counts.image_count,
+        counts.path_ops,
+        counts.font_changes,
+    )
 }
 
 /// True when the token before `op_pos` (skipping whitespace, not crossing
@@ -1865,7 +1848,7 @@ fn preceding_operand_closer(content: &[u8], op_pos: usize, floor: usize) -> bool
     let mut j = op_pos;
     while j > floor {
         j -= 1;
-        if !content[j].is_ascii_whitespace() {
+        if !is_pdf_whitespace(content[j]) {
             return matches!(content[j], b')' | b'>' | b']');
         }
     }
@@ -1878,13 +1861,15 @@ fn preceding_operand_closer(content: &[u8], op_pos: usize, floor: usize) -> bool
 /// We scan backward from the position of 'T' in 'Tf' past the size number and
 /// whitespace to find the `/Name` token.
 ///
-/// Returns the font name bytes (without the leading `/`), e.g. `b"F1"` for `/F1`.
-/// `floor` is the start of the previous text/font operator (or 0); lookback
-/// must not cross it.
+/// Returns the font name bytes (without the leading `/`, its `#xx` escapes
+/// decoded as the resource dictionary's keys are), e.g. `b"F1"` for `/F1`
+/// or `/F#31`. `floor` is the start of the previous text/font operator (or
+/// 0); lookback must not cross it. Whitespace is the file format's, NUL
+/// included.
 fn extract_font_name_before_tf(content: &[u8], tf_pos: usize, floor: usize) -> Option<Vec<u8>> {
     // Scan backward past whitespace before "Tf"
     let mut j = tf_pos;
-    while j > floor && content[j - 1].is_ascii_whitespace() {
+    while j > floor && is_pdf_whitespace(content[j - 1]) {
         j -= 1;
     }
     // Scan backward past the size number (digits, '.', '-')
@@ -1894,15 +1879,14 @@ fn extract_font_name_before_tf(content: &[u8], tf_pos: usize, floor: usize) -> O
         j -= 1;
     }
     // Scan backward past whitespace between font name and size
-    while j > floor && content[j - 1].is_ascii_whitespace() {
+    while j > floor && is_pdf_whitespace(content[j - 1]) {
         j -= 1;
     }
     // Now j should point just after the font name. Scan backward to find '/'.
     let name_end = j;
     while j > floor && content[j - 1] != b'/' {
         // Font names consist of regular characters (not whitespace, not delimiters)
-        if content[j - 1].is_ascii_whitespace() || content[j - 1] == b'(' || content[j - 1] == b')'
-        {
+        if is_pdf_whitespace(content[j - 1]) || content[j - 1] == b'(' || content[j - 1] == b')' {
             return None;
         }
         j -= 1;
@@ -1912,7 +1896,7 @@ fn extract_font_name_before_tf(content: &[u8], tf_pos: usize, floor: usize) -> O
     }
     // j-1 is the '/', font name is content[j..name_end]
     if j < name_end {
-        Some(content[j..name_end].to_vec())
+        Some(content_mask::decode_name_escapes(&content[j..name_end]))
     } else {
         None
     }
@@ -1930,11 +1914,12 @@ fn collect_text_chars_before(
     unique_chars: &mut HashSet<u8>,
     floor: usize,
 ) {
-    // Walk backward past whitespace to find the closing delimiter
+    // Walk backward past whitespace (the file format's, NUL included) to
+    // find the closing delimiter
     let mut j = op_pos;
     while j > floor {
         j -= 1;
-        if !content[j].is_ascii_whitespace() {
+        if !is_pdf_whitespace(content[j]) {
             break;
         }
     }
@@ -2165,8 +2150,9 @@ pub(crate) fn analyze_page_images(doc: &Document, page_id: ObjectId) -> (bool, u
     (has_images, total_area, has_template_image)
 }
 
-/// Computes both `(needs_ocr_for_template_image, has_vector_text)` for a
-/// page from a single shared `analyze_page_content` pass — that call
+/// Computes `template_image_needs_ocr`, `has_vector_text` and
+/// `has_invisible_text_layer` (see [`PageOcrSignals`]) for a page from a
+/// single shared `analyze_page_content` pass — that call
 /// decompresses and scans every content stream (page + XObjects) plus
 /// image coverage, so `extract_pages_markdown_mem` must not invoke it
 /// twice per page (once per signal) the way `detect_from_document` avoids
@@ -2210,7 +2196,7 @@ pub(crate) fn analyze_page_images(doc: &Document, page_id: ObjectId) -> (bool, u
 /// Exposed at crate visibility so `extract_pages_markdown_mem` can apply
 /// the same gates classification needs elsewhere instead of treating the
 /// raw signals alone as sufficient — see #227/#231.
-pub(crate) fn page_ocr_signals(doc: &Document, page_id: ObjectId) -> (bool, bool) {
+pub(crate) fn page_ocr_signals(doc: &Document, page_id: ObjectId) -> PageOcrSignals {
     let analysis = analyze_page_content(doc, page_id);
 
     let needs_ocr_for_template_image = if !analysis.has_template_image {
@@ -2225,7 +2211,25 @@ pub(crate) fn page_ocr_signals(doc: &Document, page_id: ObjectId) -> (bool, bool
         looks_like_scan || insufficient_text
     };
 
-    (needs_ocr_for_template_image, analysis.has_vector_text)
+    PageOcrSignals {
+        template_image_needs_ocr: needs_ocr_for_template_image,
+        has_vector_text: analysis.has_vector_text,
+        has_invisible_text_layer: analysis.has_invisible_text_layer,
+    }
+}
+
+/// The per-page signals [`page_ocr_signals`] shares between classification
+/// and per-page extraction.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PageOcrSignals {
+    /// The page's template image is a scan needing OCR rather than a
+    /// watermark, letterhead or figure under a text page.
+    pub(crate) template_image_needs_ocr: bool,
+    /// The page's text is drawn as vector outlines.
+    pub(crate) has_vector_text: bool,
+    /// Every text-showing operator on the page is invisible while an image
+    /// covers the page.
+    pub(crate) has_invisible_text_layer: bool,
 }
 
 /// Recursively collect image dimensions from XObject resources,
@@ -2405,6 +2409,37 @@ mod tests {
             page_ocr_reasons(&text_with_image),
             vec![crate::OCR_REASON_SCANNED]
         );
+
+        // A text layer nobody sees under a covering image: the specific
+        // reason, not the `scanned` fall-through, and ahead of garbled
+        // fonts and vector text — the page is a scan whatever its fonts.
+        let invisible_layer = PageAnalysis {
+            text_operator_count: 300,
+            executed_text_operator_count: 300,
+            invisible_text_operator_count: 300,
+            unique_text_chars: 40,
+            has_images: true,
+            has_covering_image: true,
+            has_invisible_text_layer: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            page_ocr_reasons(&invisible_layer),
+            vec![crate::OCR_REASON_INVISIBLE_TEXT_LAYER]
+        );
+        let garbled_vector_invisible_layer = PageAnalysis {
+            has_identity_h_no_tounicode: true,
+            has_vector_text: true,
+            ..invisible_layer
+        };
+        assert_eq!(
+            page_ocr_reasons(&garbled_vector_invisible_layer),
+            vec![
+                crate::OCR_REASON_INVISIBLE_TEXT_LAYER,
+                crate::OCR_REASON_SUSPECTED_GARBLED_TEXT,
+                crate::OCR_REASON_VECTOR_TEXT
+            ]
+        );
     }
 
     #[test]
@@ -2471,7 +2506,8 @@ mod tests {
     fn test_scan_content_malformed_tj_lookback_stays_linear() {
         // `] TJ` with no `[` used to walk the entire prefix for every operator
         // (quadratic). 30k repeats is enough that a prefix rescan would dominate
-        // the test runtime; with the floor it is a single linear pass.
+        // the test runtime; with the floor it is a single linear pass. Such an
+        // operator has no string to show, so none of them is counted.
         let n = 30_000usize;
         let mut content = Vec::with_capacity(n * 5);
         for _ in 0..n {
@@ -2480,7 +2516,7 @@ mod tests {
         let mut uchars = HashSet::new();
         let (ops, _, _, _) =
             scan_content_for_text_operators(&content, &mut uchars, &mut HashSet::new());
-        assert_eq!(ops, n as u32);
+        assert_eq!(ops, 0);
         assert!(uchars.is_empty());
     }
 
@@ -3482,7 +3518,7 @@ mod tests {
             analysis.unique_alphanum_chars >= 10,
             "sanity: masthead text is diverse, alphanum_low cannot fire"
         );
-        let (needs_ocr, _) = page_ocr_signals(&doc, page_id);
+        let needs_ocr = page_ocr_signals(&doc, page_id).template_image_needs_ocr;
         assert!(
             needs_ocr,
             "template image + text below the pages_with_text floor is a scan"
@@ -3508,7 +3544,7 @@ mod tests {
             analysis.text_operator_count >= 10,
             "sanity: body text clears the floor"
         );
-        let (needs_ocr, _) = page_ocr_signals(&doc, page_id);
+        let needs_ocr = page_ocr_signals(&doc, page_id).template_image_needs_ocr;
         assert!(
             !needs_ocr,
             "a text page with a background image must stay native"
@@ -4583,7 +4619,7 @@ mod tests {
                 analysis.unique_alphanum_chars
             );
             assert!(!analysis.has_vector_text, "layout {}", layout as u8);
-            assert_eq!(page_ocr_signals(&doc, page_id), (false, false));
+            assert_eq!(page_ocr_signals(&doc, page_id), PageOcrSignals::default());
         }
     }
 

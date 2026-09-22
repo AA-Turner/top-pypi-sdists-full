@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
 
 jobs:
@@ -70,6 +72,12 @@ jobs:
             tox_env: "py313-odoo19"
           - python: "3.14"
             tox_env: "py314-odoo19"
+
+          # Odoo 20
+          - python: "3.13"
+            tox_env: "py313-odoo20"
+          - python: "3.14"
+            tox_env: "py314-odoo20"
 
           # Unit Tests
           - python: "3.8"

@@ -2087,6 +2087,42 @@ class TestPromptStep:
             assert result.status is StepStatus.FAILED, bad
             assert "'timeout' must be a positive number" in (result.error or ""), bad
 
+    def test_try_dispatch_threads_project_root(self):
+        """PromptStep._try_dispatch must pass context.project_root to build_exec_args."""
+        from pathlib import Path
+        from unittest.mock import MagicMock, patch
+
+        from specify_cli.workflows.base import StepContext
+        from specify_cli.workflows.steps.prompt import PromptStep
+
+        step = PromptStep()
+        ctx = StepContext(project_root="/fake/project/root", default_integration="dummy")
+
+        mock_impl = MagicMock()
+        mock_impl.key = "dummy"
+        mock_impl.build_exec_args.return_value = ["dummy", "args"]
+        mock_get_integration = MagicMock(return_value=mock_impl)
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+
+        with patch("specify_cli.integrations.get_integration", mock_get_integration), \
+             patch("specify_cli.workflows.steps.prompt.shutil.which", return_value="/opt/dummy"), \
+             patch("subprocess.run", return_value=mock_result):
+            step.execute(
+                {"id": "p", "type": "prompt", "prompt": "hi", "integration": "dummy"},
+                ctx,
+            )
+
+        mock_impl.build_exec_args.assert_called_once_with(
+            "hi",
+            model=None,
+            output_json=False,
+            project_root=Path("/fake/project/root"),
+        )
+
 
 class TestShellStep:
     """Test the shell step type."""
@@ -7683,6 +7719,40 @@ class TestRunState:
             match="stored run_id 'other-run' does not match requested run_id 'requested-run'",
         ):
             RunState.load("requested-run", project_dir)
+
+    @pytest.mark.parametrize(
+        "bad_current_step_index",
+        ["not-a-number", 1.5, -1, [0], {"index": 0}, True],
+    )
+    def test_load_rejects_invalid_current_step_index(
+        self, project_dir, bad_current_step_index
+    ):
+        """Reject non-integer and negative resume indices at load time.
+
+        ``bool`` is covered explicitly because it subclasses ``int``.
+        """
+        from specify_cli.workflows.engine import RunState
+
+        run_dir = (
+            project_dir / ".specify" / "workflows" / "runs" / "bad-index-run"
+        )
+        run_dir.mkdir(parents=True)
+        (run_dir / "state.json").write_text(
+            json.dumps(
+                {
+                    "run_id": "bad-index-run",
+                    "workflow_id": "test-workflow",
+                    "status": "paused",
+                    "current_step_index": bad_current_step_index,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with pytest.raises(
+            ValueError, match="'current_step_index' must be a non-negative integer"
+        ):
+            RunState.load("bad-index-run", project_dir)
 
     @pytest.mark.parametrize(
         ("installed_workflow_id", "installed_registry_root"),
@@ -17373,6 +17443,40 @@ steps:
         assert result.exit_code != 0
         assert result.exception is None or isinstance(result.exception, SystemExit)
         assert "Invalid run state" in result.output
+
+    def test_resume_rejects_out_of_range_current_step_index(
+        self, project_dir, monkeypatch
+    ):
+        """An out-of-range positive index must fail cleanly, not silently
+        complete the run with no steps executed.
+
+        ``resume()`` slices ``definition.steps[state.current_step_index:]``;
+        for any index >= len(steps) that slice is an empty list, so the run
+        would otherwise finish with status "completed" having executed
+        nothing.
+        """
+        from typer.testing import CliRunner
+        from specify_cli import app
+
+        monkeypatch.chdir(project_dir)
+        runner = CliRunner()
+        run_id = self._install_and_run_gated(runner, app, project_dir)
+        state_path = (
+            project_dir / ".specify" / "workflows" / "runs" / run_id / "state.json"
+        )
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+        data["current_step_index"] = 5
+        state_path.write_text(json.dumps(data), encoding="utf-8")
+
+        result = runner.invoke(app, ["workflow", "resume", run_id])
+
+        assert result.exit_code != 0
+        assert result.exception is None or isinstance(result.exception, SystemExit)
+        assert "Invalid run state" in result.output
+        assert "out of range" in result.output
+
+        reloaded = json.loads(state_path.read_text(encoding="utf-8"))
+        assert reloaded["status"] == "paused"
 
     def test_resume_legacy_run_respects_current_disabled_state(
         self, project_dir, monkeypatch

@@ -35,6 +35,11 @@ from .catalog import (
     select_metadata_rules,
 )
 
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
 if t.TYPE_CHECKING:
     from pathlib import Path
 
@@ -161,6 +166,7 @@ class SingerTap(SingerPlugin):
         ),
     ]
 
+    @override
     def exec_args(self, plugin_invoker):  # noqa: ANN001, ANN201
         """Return the arguments list with the complete runtime paths.
 
@@ -198,8 +204,9 @@ class SingerTap(SingerPlugin):
         return args
 
     @property
+    @override
     def config_files(self):  # noqa: ANN201
-        """Get the configuration files for this tap."""
+        """Configuration files for this tap."""
         return {
             "config": f"tap.{self.instance_uuid}.config.json",
             "catalog": "tap.properties.json",
@@ -210,8 +217,9 @@ class SingerTap(SingerPlugin):
         }
 
     @property
+    @override
     def output_files(self):  # noqa: ANN201
-        """Get the output files for this tap."""
+        """Output files for this tap."""
         return {"output": "tap.out"}
 
     @hook("before_invoke")

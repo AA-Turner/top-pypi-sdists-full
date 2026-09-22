@@ -1470,6 +1470,9 @@ from ._get_aegis_container_plugin_rule_criteria_response import GetAegisContaine
 from ._get_agentless_task_count_request import GetAgentlessTaskCountRequest
 from ._get_agentless_task_count_response_body import GetAgentlessTaskCountResponseBody
 from ._get_agentless_task_count_response import GetAgentlessTaskCountResponse
+from ._get_agentless_task_count_batch_request import GetAgentlessTaskCountBatchRequest
+from ._get_agentless_task_count_batch_response_body import GetAgentlessTaskCountBatchResponseBody
+from ._get_agentless_task_count_batch_response import GetAgentlessTaskCountBatchResponse
 from ._get_agentless_task_used_size_estimate_request import GetAgentlessTaskUsedSizeEstimateRequest
 from ._get_agentless_task_used_size_estimate_response_body import GetAgentlessTaskUsedSizeEstimateResponseBody
 from ._get_agentless_task_used_size_estimate_response import GetAgentlessTaskUsedSizeEstimateResponse
@@ -5420,6 +5423,9 @@ __all__ = [
     GetAgentlessTaskCountRequest,
     GetAgentlessTaskCountResponseBody,
     GetAgentlessTaskCountResponse,
+    GetAgentlessTaskCountBatchRequest,
+    GetAgentlessTaskCountBatchResponseBody,
+    GetAgentlessTaskCountBatchResponse,
     GetAgentlessTaskUsedSizeEstimateRequest,
     GetAgentlessTaskUsedSizeEstimateResponseBody,
     GetAgentlessTaskUsedSizeEstimateResponse,

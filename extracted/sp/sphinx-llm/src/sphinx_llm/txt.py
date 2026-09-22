@@ -10,6 +10,7 @@ of all documents using the sphinx_markdown_builder.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import os
 import posixpath
@@ -19,30 +20,198 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Iterable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
 from importlib.metadata import PackageNotFoundError, metadata
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import docutils.nodes
 from sphinx.application import Sphinx
 from sphinx.errors import ExtensionError
 from sphinx.util import logging
 from sphinx.util.matching import patmatch
+from sphinx.util.osutil import relative_uri
 
+from .extract_prose import extract_prose
 from .markdown_builder import (
     LINK_TARGETS_FILENAME,
     LINK_TOKEN_PREFIX,
+    SUPPRESS_UNKNOWN_NODE_WARNINGS_CONFIG,
     LinkTarget,
     SphinxLlmMarkdownBuilder,
+    validate_suppress_unknown_node_warnings,
 )
 from .summary import DEFAULT_API_KEY_ENV
 from .version import __version__
 
 logger = logging.getLogger(__name__)
 LINK_TOKEN_PATTERN = re.compile(rf"{re.escape(LINK_TOKEN_PREFIX)}[0-9a-f]{{32}}")
+UNKNOWN_NODE_WARNING_PATTERN = re.compile(
+    r"^(?:(?P<source>.+?):(?:(?P<line>[0-9]+):|:)\s+)?WARNING:\s+"
+    r"(?P<message>unknown node type: .+)$"
+)
 SUMMARY_CACHE_VERSION = 1
+SITEMAP_TEXT_TRANSLATION = str.maketrans(
+    {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\\": "&#92;",
+        "[": "&#91;",
+        "]": "&#93;",
+        "`": "&#96;",
+        "*": "&#42;",
+        "_": "&#95;",
+    }
+)
+
+
+def _serialize_sitemap_text(value: str) -> str:
+    """Return one-line text that is safe inside a generated file-list entry."""
+    value = re.sub(r"[^\S\r\n]*(?:\r\n?|\n)+[^\S\r\n]*", " ", value).strip()
+    escaped = []
+    for index, character in enumerate(value):
+        if (
+            character == "_"
+            and index > 0
+            and index + 1 < len(value)
+            and value[index - 1].isalnum()
+            and value[index + 1].isalnum()
+        ):
+            escaped.append(character)
+        else:
+            escaped.append(character.translate(SITEMAP_TEXT_TRANSLATION))
+    return "".join(escaped)
+
+
+def _serialize_sitemap_destination(value: str) -> str:
+    """Quote a generated URI without changing its existing URI structure."""
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", value) or value.startswith("//"):
+        parsed = urlsplit(value)
+        return urlunsplit(
+            (
+                parsed.scheme,
+                quote(parsed.netloc, safe="!$&'*+,-.:;=@[]%"),
+                quote(parsed.path, safe="/%"),
+                quote(parsed.query, safe="!$&'*+,-./:;=?@_~%"),
+                quote(parsed.fragment, safe="!$&'*+,-./:;=?@_~%"),
+            )
+        )
+
+    path_and_query, fragment_separator, fragment = value.partition("#")
+    path, query_separator, query = path_and_query.partition("?")
+    destination = quote(path, safe="/%")
+    if query_separator:
+        destination += "?" + quote(query, safe="!$&'*+,-./:;=?@_~%")
+    if fragment_separator:
+        destination += "#" + quote(fragment, safe="!$&'*+,-./:;=?@_~%")
+    return destination
+
+
+def _serialize_sitemap_entry(
+    label: str, destination: str, description: str | None = None
+) -> str:
+    """Serialize one generated llms.txt file-list entry."""
+    entry = (
+        f"- [{_serialize_sitemap_text(label)}]"
+        f"({_serialize_sitemap_destination(destination)})"
+    )
+    if description is not None:
+        entry += f": {_serialize_sitemap_text(extract_prose(description))}"
+    return entry
+
+
+def _published_html_path(app: Sphinx, docname: str) -> PurePosixPath:
+    """Return a document's canonical HTML output path below the build root."""
+    outdir = Path(app.builder.outdir).resolve()
+    output_path = Path(app.builder.get_outfilename(docname)).resolve()
+    try:
+        relative_path = output_path.relative_to(outdir)
+    except ValueError as exc:
+        raise ExtensionError(
+            f"HTML output path for document {docname!r} escapes the build directory"
+        ) from exc
+    return PurePosixPath(relative_path.as_posix())
+
+
+def _nested_index_paths(app: Sphinx, docnames: Iterable[str]) -> set[PurePosixPath]:
+    """Return all generated indexes implied by published document paths."""
+    indexes = {PurePosixPath("llms.txt")}
+    for docname in docnames:
+        output_directory = _published_html_path(app, docname).parent
+        for directory in (output_directory, *output_directory.parents):
+            if directory == PurePosixPath("."):
+                break
+            indexes.add(directory / "llms.txt")
+    return indexes
+
+
+def _most_specific_index_path(
+    page_output_path: PurePosixPath,
+    index_paths: Iterable[PurePosixPath],
+) -> PurePosixPath:
+    """Select the deepest generated index whose directory contains a page."""
+    if page_output_path.is_absolute() or ".." in page_output_path.parts:
+        raise ExtensionError("HTML output path must be relative to the build directory")
+
+    page_directory = page_output_path.parent
+    candidates = []
+    for index_path in index_paths:
+        if (
+            index_path.is_absolute()
+            or ".." in index_path.parts
+            or index_path.name != "llms.txt"
+        ):
+            raise ExtensionError(
+                "Generated llms.txt index paths must stay within the build directory"
+            )
+        index_directory = index_path.parent
+        if index_directory == PurePosixPath(".") or (
+            index_directory == page_directory
+            or index_directory in page_directory.parents
+        ):
+            candidates.append(index_path)
+
+    return max(
+        candidates, key=lambda path: len(path.parts), default=PurePosixPath("llms.txt")
+    )
+
+
+def _validated_exclude_patterns(app: Sphinx) -> list[str]:
+    """Return validated document patterns excluded from generated indexes."""
+    exclude_patterns = getattr(app.config, "llms_txt_exclude", [])
+    if exclude_patterns is None or isinstance(exclude_patterns, str):
+        raise ExtensionError(
+            "llms_txt_exclude must be an iterable of strings, not None or a string"
+        )
+    if not isinstance(exclude_patterns, Iterable):
+        raise ExtensionError("llms_txt_exclude must be an iterable of strings")
+    patterns = list(exclude_patterns)
+    if not all(isinstance(pattern, str) for pattern in patterns):
+        raise ExtensionError("llms_txt_exclude must be an iterable of strings")
+    return patterns
+
+
+def get_llms_txt_index_path(app: Sphinx, docname: str) -> PurePosixPath:
+    """Return the most-specific generated ``llms.txt`` covering a document.
+
+    The path is POSIX and relative to the HTML build root so discovery metadata
+    can render it relative to the current page. The root index is the fallback.
+    """
+    if not getattr(app.config, "llms_txt_nested_enabled", True):
+        return PurePosixPath("llms.txt")
+
+    exclude_patterns = _validated_exclude_patterns(app)
+    included_docnames = (
+        candidate
+        for candidate in app.env.found_docs
+        if not any(patmatch(candidate, pattern) for pattern in exclude_patterns)
+    )
+    index_paths = _nested_index_paths(app, included_docnames)
+    return _most_specific_index_path(_published_html_path(app, docname), index_paths)
 
 
 @dataclass(frozen=True)
@@ -63,10 +232,88 @@ class SummaryOptions:
 class MarkdownLayout(str, Enum):
     """Published Markdown path layout."""
 
-    FILE_SUFFIX = "file-suffix"
-    URL_SUFFIX = "url-suffix"
+    APPEND = "append"
+    APPEND_NO_SLASH = "append-no-slash"
     REPLACE = "replace"
-    HTML = "html"
+
+
+SUFFIX_MODE_ALIASES = {"both": "auto"}
+SUFFIX_MODES = ("auto", "append", "replace", "file-suffix", "url-suffix")
+SUPPORTED_SUFFIX_MODES = (*SUFFIX_MODES, *SUFFIX_MODE_ALIASES)
+DEPRECATED_SUFFIX_MODES = {
+    "both": "auto",
+    "file-suffix": "append",
+    "url-suffix": "append",
+}
+
+
+def normalize_suffix_mode(suffix_mode: str) -> str:
+    """Return the effective v2 suffix mode for a configured value."""
+    effective_mode = SUFFIX_MODE_ALIASES.get(suffix_mode, suffix_mode)
+    if effective_mode not in SUFFIX_MODES:
+        valid_modes = ", ".join(repr(mode) for mode in SUPPORTED_SUFFIX_MODES)
+        raise ExtensionError(
+            f"Invalid llms_txt_suffix_mode: {suffix_mode!r}. "
+            f"Must be one of: {valid_modes}"
+        )
+    return effective_mode
+
+
+def resolve_markdown_targets(
+    builder_name: str,
+    docname: str,
+    suffix_mode: str,
+    outdir: Path,
+) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
+    """Resolve every published target and the canonical layout for a document."""
+    effective_mode = normalize_suffix_mode(suffix_mode)
+    doc_path = Path(docname)
+
+    if builder_name == "dirhtml":
+        if doc_path == Path("index"):
+            html_target = outdir / "index.html"
+            append_no_slash_target = outdir / "index.md"
+            has_no_slash_url = False
+        elif doc_path.name == "index":
+            html_target = outdir / doc_path.parent / "index.html"
+            append_no_slash_target = (
+                outdir / doc_path.parent.parent / f"{doc_path.parent.name}.md"
+            )
+            has_no_slash_url = True
+        else:
+            html_target = outdir / doc_path / "index.html"
+            append_no_slash_target = outdir / doc_path.parent / f"{doc_path.name}.md"
+            has_no_slash_url = True
+    else:
+        html_target = outdir / doc_path.parent / f"{doc_path.name}.html"
+        append_no_slash_target = Path(f"{html_target}.md")
+        has_no_slash_url = False
+
+    append_target = Path(f"{html_target}.md")
+    replace_target = html_target.with_suffix(".md")
+
+    if effective_mode == "replace":
+        return {MarkdownLayout.REPLACE: replace_target}, MarkdownLayout.REPLACE
+    if effective_mode == "file-suffix":
+        return {MarkdownLayout.APPEND: append_target}, MarkdownLayout.APPEND
+    if effective_mode == "url-suffix":
+        if builder_name != "dirhtml":
+            return {MarkdownLayout.APPEND: append_target}, MarkdownLayout.APPEND
+        return (
+            {MarkdownLayout.APPEND_NO_SLASH: append_no_slash_target},
+            MarkdownLayout.APPEND_NO_SLASH,
+        )
+    targets = {MarkdownLayout.APPEND: append_target}
+    if effective_mode == "append":
+        if has_no_slash_url:
+            targets[MarkdownLayout.APPEND_NO_SLASH] = append_no_slash_target
+        return targets, MarkdownLayout.APPEND
+    if effective_mode == "auto":
+        if has_no_slash_url:
+            targets[MarkdownLayout.APPEND_NO_SLASH] = append_no_slash_target
+        targets[MarkdownLayout.REPLACE] = replace_target
+        return targets, MarkdownLayout.APPEND
+    raise AssertionError(f"Unhandled normalized suffix mode: {effective_mode!r}")
 
 
 class MarkdownGenerator:
@@ -85,10 +332,42 @@ class MarkdownGenerator:
         self.parallel = None
         self._summary_cache: dict[str, dict[str, str]] | None = None
         self._loaded_summary_cache_path: Path | None = None
+        self._generated_llms_full_path: Path | None = None
 
     def setup(self):
         """Set up the extension."""
         self.app.connect("builder-inited", self.build_llms_txt)
+
+    def add_discovery_metadata(
+        self,
+        app: Sphinx,
+        pagename: str,
+        templatename: str,
+        context: dict[str, Any],
+        doctree: docutils.nodes.document | None,
+    ) -> None:
+        """Advertise the canonical Markdown page and its covering llms.txt."""
+        if pagename not in app.env.found_docs:
+            return
+
+        targets, canonical_layout = self._target_paths_for_docname(pagename)
+        page_uri = app.builder.get_target_uri(pagename)
+        markdown_href = html.escape(
+            relative_uri(
+                page_uri,
+                targets[canonical_layout].relative_to(self.outdir).as_posix(),
+            ),
+            quote=True,
+        )
+        llms_txt_path = get_llms_txt_index_path(app, pagename)
+        llms_txt_href = html.escape(
+            relative_uri(page_uri, llms_txt_path.as_posix()), quote=True
+        )
+        context["metatags"] = context.get("metatags", "") + (
+            f'\n<link rel="alternate" type="text/markdown" '
+            f'href="{markdown_href}">'
+            f'\n<link rel="describedby" href="{llms_txt_href}">'
+        )
 
     def build_llms_txt(self, app: Sphinx):
         """Generate markdown files using sphinx_markdown_builder and concatenate them into llms.txt."""
@@ -101,18 +380,15 @@ class MarkdownGenerator:
         self.outdir = Path(app.builder.outdir)
         self.md_build_dir = self.outdir / "_markdown_build"
         self.parallel = getattr(self.app.config, "llms_txt_build_parallel", True)
-        self.suffix_mode = getattr(self.app.config, "llms_txt_suffix_mode", "auto")
-
-        # Backward compatibility: treat "both" as "auto"
-        if self.suffix_mode == "both":
-            self.suffix_mode = "auto"
-
-        # Validate suffix_mode configuration
-        valid_modes = {"file-suffix", "url-suffix", "auto", "replace"}
-        if self.suffix_mode not in valid_modes:
-            raise ExtensionError(
-                f"Invalid llms_txt_suffix_mode: {self.suffix_mode!r}. "
-                f"Must be one of {valid_modes}"
+        configured_suffix_mode = getattr(
+            self.app.config, "llms_txt_suffix_mode", "auto"
+        )
+        self.suffix_mode = normalize_suffix_mode(configured_suffix_mode)
+        if configured_suffix_mode in DEPRECATED_SUFFIX_MODES:
+            logger.info(
+                "llms_txt_suffix_mode=%r is deprecated; use %r instead",
+                configured_suffix_mode,
+                DEPRECATED_SUFFIX_MODES[configured_suffix_mode],
             )
 
         if app.builder and app.builder.name == "markdown":
@@ -123,6 +399,8 @@ class MarkdownGenerator:
                 "llms.txt generation only works with HTML builders (html or dirhtml), skipping..."
             )
             return
+
+        self.app.connect("html-page-context", self.add_discovery_metadata)
 
         # Start the markdown builder subproces in the background
         if self.parallel:
@@ -169,31 +447,84 @@ class MarkdownGenerator:
             self.md_build_process.wait()
             logger.info("Markdown build subprocess finished")
 
-        if self.md_build_process.returncode != 0:
-            logger.error(
-                f"Markdown build subprocess failed with return code {self.md_build_process.returncode},"
-            )
-            with open(self.md_build_logfile.name, encoding="utf-8") as logfile:
-                logger.error(logfile.read())
-            return
-
+        remaining_log, relayed_warning_count = self._relay_unknown_node_warnings()
+        if (
+            relayed_warning_count
+            and self.app.warningiserror
+            and hasattr(logging, "skip_warningiserror")
+        ):
+            # Sphinx 5-7 normally raise on the first warning, even during
+            # build-finished.  The relay defers that fail-fast behavior so all
+            # child diagnostics are emitted and combination can clean up, then
+            # records the warnings-as-errors result explicitly.
+            self.app.statuscode = 1
         try:
+            if self.md_build_process.returncode != 0:
+                logger.error(
+                    f"Markdown build subprocess failed with return code {self.md_build_process.returncode},"
+                )
+                if remaining_log.strip():
+                    logger.error(remaining_log)
+                return
+
             # Copy markdown files to the main output directory
             self.copy_markdown_files()
 
             # Concatenate all markdown files into llms-full.txt
-            if getattr(self.app.config, "llms_txt_full_build", True):
-                self.build_llms_full_txt()
+            self._generated_llms_full_path = None
+            if getattr(self.app.config, "llms_txt_full_build", False):
+                self._generated_llms_full_path = self.build_llms_full_txt()
 
             # Create llms.txt from a custom source or the generated sitemap
-            if getattr(self.app.config, "llms_txt_override_source", ""):
+            custom_sitemap = getattr(self.app.config, "llms_txt_override_source", "")
+            nested_enabled = getattr(self.app.config, "llms_txt_nested_enabled", True)
+            sorted_sitemap_files = self._sorted_sitemap_files(
+                self.generated_markdown_files
+            )
+            if custom_sitemap:
                 self.build_custom_llms_txt()
             else:
-                self.create_sitemap()
+                self.create_sitemap(sorted_sitemap_files)
+            if nested_enabled:
+                self.create_nested_sitemaps(sorted_sitemap_files)
         finally:
             # Clean up temporary build directory
             if self.md_build_dir.exists():
                 shutil.rmtree(self.md_build_dir)
+
+    def _relay_unknown_node_warnings(self) -> tuple[str, int]:
+        """Relay child unknown-node warnings and return all other log output."""
+        with open(
+            self.md_build_logfile.name, encoding="utf-8", errors="replace"
+        ) as logfile:
+            lines = logfile.read().splitlines()
+
+        remaining_lines = []
+        relayed_warning_count = 0
+        skip_warningiserror = getattr(logging, "skip_warningiserror", None)
+        warning_context = (
+            skip_warningiserror()
+            if skip_warningiserror and self.app.warningiserror
+            else nullcontext()
+        )
+        with warning_context:
+            for line in lines:
+                match = UNKNOWN_NODE_WARNING_PATTERN.match(line)
+                if match is None:
+                    remaining_lines.append(line)
+                    continue
+
+                source = match.group("source")
+                line_number = match.group("line")
+                # A tuple is interpreted as ``(docname, line)`` by Sphinx, but
+                # the subprocess reports a source path.  Keep the already-
+                # resolved location as a string so Sphinx does not append the
+                # source suffix.
+                location = f"{source}:{line_number or ''}" if source else None
+                logger.warning(match.group("message"), location=location)
+                relayed_warning_count += 1
+
+        return "\n".join(remaining_lines), relayed_warning_count
 
     def build_markdown_files(
         self, app: Sphinx | None = None, exception: Exception | None = None
@@ -226,6 +557,23 @@ class MarkdownGenerator:
                 str(self.md_build_dir),
             ]
 
+            # Propagate the tags of the primary build so that conditional
+            # content (e.g. ".. only::" directives) renders the same in the
+            # markdown output. This intentionally includes the dynamic tags
+            # derived from the primary builder (e.g. "html", "format_html"):
+            # the markdown output this way stays faithful to the HTML pages it
+            # complements.
+            for tag in self.app.tags:
+                sphinx_build_cmd += ["-t", tag]
+
+            # Preserve command-line configuration overrides from the primary
+            # build. Without forwarding these, the markdown sub-build reloads
+            # conf.py defaults and can behave differently from the HTML build.
+            for name, value in self.app.config.overrides.items():
+                if isinstance(value, bool):
+                    value = "1" if value else "0"
+                sphinx_build_cmd += ["-D", f"{name}={value}"]
+
             # When building sequentially we can reuse the doctree directory from the primary build
             # but in parallel builds these may clobber each other so we need to use a separate one
             if not self.parallel:
@@ -251,136 +599,23 @@ class MarkdownGenerator:
         except Exception as e:
             logger.error(f"Failed to generate markdown files: {e}")
 
-    def _determine_suffix_targets(
-        self, file_suffix_target: Path, url_suffix_target: Path
-    ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        """Determine target file paths based on suffix mode.
-
-        Returns:
-            Tuple of (targets by layout, primary layout)
-        """
-        if self.suffix_mode == "file-suffix":
-            return (
-                {MarkdownLayout.FILE_SUFFIX: file_suffix_target},
-                MarkdownLayout.FILE_SUFFIX,
-            )
-        elif self.suffix_mode == "url-suffix":
-            return (
-                {MarkdownLayout.URL_SUFFIX: url_suffix_target},
-                MarkdownLayout.URL_SUFFIX,
-            )
-        elif self.suffix_mode == "auto":
-            return (
-                {
-                    MarkdownLayout.FILE_SUFFIX: file_suffix_target,
-                    MarkdownLayout.URL_SUFFIX: url_suffix_target,
-                },
-                MarkdownLayout.FILE_SUFFIX,
-            )
-        raise ExtensionError(
-            f"Unhandled suffix mode in _determine_suffix_targets: {self.suffix_mode!r}"
-        )
-
-    def _get_dirhtml_root_index_targets(
-        self, new_name: str
-    ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        """Get targets for root index file in dirhtml builder."""
-        if self.suffix_mode == "replace":
-            replace_target = self.outdir / "index.md"
-            return {MarkdownLayout.REPLACE: replace_target}, MarkdownLayout.REPLACE
-
-        file_suffix_target = self.outdir / new_name  # index.html.md
-        url_suffix_target = self.outdir / "index.md"  # index.md
-        return self._determine_suffix_targets(file_suffix_target, url_suffix_target)
-
-    def _get_dirhtml_nested_index_targets(
-        self, rel_path: Path, new_name: str
-    ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        """Get targets for nested index file in dirhtml builder (e.g., subdir/index.rst)."""
-        if self.suffix_mode == "replace":
-            replace_target = self.outdir / rel_path.parent / "index.md"
-            return {MarkdownLayout.REPLACE: replace_target}, MarkdownLayout.REPLACE
-
-        file_suffix_target = (
-            self.outdir / rel_path.parent / new_name
-        )  # subdir/index.html.md
-        url_suffix_target = self.outdir / f"{rel_path.parent}.md"  # subdir.md
-        return self._determine_suffix_targets(file_suffix_target, url_suffix_target)
-
-    def _get_dirhtml_non_index_targets(
-        self, rel_path: Path
-    ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        """Get targets for non-index file in dirhtml builder."""
-        if self.suffix_mode == "replace":
-            replace_target = self.outdir / rel_path.with_suffix("") / "index.md"
-            return {MarkdownLayout.REPLACE: replace_target}, MarkdownLayout.REPLACE
-
-        file_suffix_target = self.outdir / rel_path.with_suffix("") / "index.html.md"
-        url_suffix_target = self.outdir / rel_path.with_suffix(".md")
-        return self._determine_suffix_targets(file_suffix_target, url_suffix_target)
-
-    def _get_html_targets(
-        self, rel_path: Path, base_name: str, new_name: str
-    ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        """Get targets for html builder."""
-        if self.suffix_mode == "replace":
-            # Replace mode: foo.md (replace .html with .md)
-            replace_target = (
-                self.outdir / rel_path.parent / f"{base_name}.md"
-                if rel_path.parent != Path(".")
-                else self.outdir / f"{base_name}.md"
-            )
-            return {MarkdownLayout.REPLACE: replace_target}, MarkdownLayout.REPLACE
-
-        # Default behavior: foo.html.md
-        target_file = (
-            self.outdir / rel_path.parent / new_name
-            if rel_path.parent != Path(".")
-            else self.outdir / new_name
-        )
-        return {MarkdownLayout.HTML: target_file}, MarkdownLayout.HTML
-
     def _get_target_paths(
         self, md_file: Path
     ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        """Determine target file locations based on builder and file type.
-
-        Returns:
-            Tuple of (targets by layout, primary layout)
-        """
+        """Determine target file locations for a Markdown build output."""
         rel_path = md_file.relative_to(self.md_build_dir)
-        base_name = rel_path.stem
-        new_name = f"{base_name}.html.md"
-
-        if self.app.builder and self.app.builder.name == "dirhtml":
-            # dirhtml builder has special handling for index files
-            if base_name == "index" and rel_path.parent == Path("."):
-                return self._get_dirhtml_root_index_targets(new_name)
-            elif base_name == "index":
-                return self._get_dirhtml_nested_index_targets(rel_path, new_name)
-            else:
-                return self._get_dirhtml_non_index_targets(rel_path)
-        else:
-            # Other builders (html) use simpler path structure
-            return self._get_html_targets(rel_path, base_name, new_name)
+        return self._target_paths_for_docname(rel_path.with_suffix("").as_posix())
 
     def _is_excluded(self, docname: str) -> bool:
         """Check whether a document is excluded from llms.txt and llms-full.txt."""
-        exclude_patterns = getattr(self.app.config, "llms_txt_exclude", [])
-        if exclude_patterns is None or isinstance(exclude_patterns, str):
-            raise ExtensionError(
-                "llms_txt_exclude must be an iterable of strings, not None or a string"
-            )
-        if not isinstance(exclude_patterns, Iterable):
-            raise ExtensionError("llms_txt_exclude must be an iterable of strings")
-        exclude_patterns = list(exclude_patterns)
-        if not all(isinstance(pattern, str) for pattern in exclude_patterns):
-            raise ExtensionError("llms_txt_exclude must be an iterable of strings")
-        return any(patmatch(docname, pattern) for pattern in exclude_patterns)
+        return any(
+            patmatch(docname, pattern)
+            for pattern in _validated_exclude_patterns(self.app)
+        )
 
     def copy_markdown_files(self):
         """Copy markdown files from build directory to output directory."""
-        md_files = list(self.md_build_dir.rglob("*.md"))
+        md_files = sorted(self.md_build_dir.rglob("*.md"))
         self.generated_markdown_files = []
         self._docname_by_output_file = {}
         num_excluded = 0
@@ -390,12 +625,28 @@ class MarkdownGenerator:
             link_targets_path.read_text(encoding="utf-8")
         )
 
+        plans = []
+        target_owners: dict[Path, tuple[str, MarkdownLayout]] = {}
         for md_file in md_files:
             target_files, primary_layout = self._get_target_paths(md_file)
-            primary_target = target_files[primary_layout]
             docname = self._get_docname_from_md_file(md_file)
-            content = md_file.read_text(encoding="utf-8")
             self._markdown_file_by_docname[docname] = md_file
+            plans.append((md_file, docname, target_files, primary_layout))
+            for layout, target_file in target_files.items():
+                owner = target_owners.get(target_file)
+                if owner is not None:
+                    owner_docname, owner_layout = owner
+                    relative_target = target_file.relative_to(self.outdir).as_posix()
+                    raise ExtensionError(
+                        f"Documents {owner_docname!r} ({owner_layout.value}) and "
+                        f"{docname!r} ({layout.value}) resolve to the same published "
+                        f"Markdown path {relative_target!r}"
+                    )
+                target_owners[target_file] = (docname, layout)
+
+        for md_file, docname, target_files, primary_layout in plans:
+            primary_target = target_files[primary_layout]
+            content = md_file.read_text(encoding="utf-8")
 
             # Write the file with links for its published location.
             for layout, target_file in target_files.items():
@@ -430,8 +681,10 @@ class MarkdownGenerator:
     def _target_paths_for_docname(
         self, docname: str
     ) -> tuple[dict[MarkdownLayout, Path], MarkdownLayout]:
-        markdown_file = self.md_build_dir / f"{docname}.md"
-        return self._get_target_paths(markdown_file)
+        builder_name = self.app.builder.name if self.app.builder else "html"
+        return resolve_markdown_targets(
+            builder_name, docname, self.suffix_mode, self.outdir
+        )
 
     def _markdown_http_base(self) -> str:
         return (
@@ -467,13 +720,9 @@ class MarkdownGenerator:
                 target_docname
             )
             selected_layout = target_layout or primary_layout
-            try:
-                target_file = target_files[selected_layout]
-            except KeyError as exc:
-                raise ExtensionError(
-                    f"Document {target_docname!r} does not have the "
-                    f"{selected_layout.value!r} Markdown layout"
-                ) from exc
+            target_file = target_files.get(
+                selected_layout, target_files[primary_layout]
+            )
             relative_target = target_file.relative_to(self.outdir).as_posix()
             http_base = self._markdown_http_base()
             if http_base:
@@ -490,7 +739,7 @@ class MarkdownGenerator:
 
         return LINK_TOKEN_PATTERN.sub(replace_link, content)
 
-    def build_llms_full_txt(self):
+    def build_llms_full_txt(self) -> Path:
         # Concatenate all markdown files into llms-full.txt
         llms_txt_path = self.outdir / "llms-full.txt"
         with open(llms_txt_path, "w", encoding="utf-8") as llms_txt:
@@ -520,6 +769,7 @@ class MarkdownGenerator:
                 llms_txt.write(content)
                 llms_txt.write("\n\n")
         logger.info(f"Concatenated full context into: {llms_txt_path}")
+        return llms_txt_path
 
     def build_custom_llms_txt(self):
         """Write a configured rendered source document to llms.txt."""
@@ -587,76 +837,127 @@ class MarkdownGenerator:
 
         return f"Documentation for {project_title}"
 
-    def create_sitemap(self):
-        """Create a markdown sitemap in llms.txt."""
-        llms_txt_path = self.outdir / "llms.txt"
+    def _sorted_sitemap_files(self, files: Iterable[Path]) -> list[Path]:
+        """Sort a sitemap subset by the global toctree and orphan order."""
+        toctree_order = {
+            docname: index
+            for index, docname in enumerate(self.app.env.collect_relations())
+        }
+        return sorted(
+            files,
+            key=lambda path: (
+                toctree_order.get(
+                    self._docname_by_output_file[path], len(toctree_order)
+                ),
+                self._docname_by_output_file[path],
+            ),
+        )
 
+    def _sitemap_url(self, md_file: Path, llms_txt_path: Path) -> str:
+        """Return a canonical Markdown target URL from one sitemap location."""
+        relative_target = md_file.relative_to(self.outdir).as_posix()
+        http_base = self._markdown_http_base()
+        if http_base:
+            return f"{http_base}/{quote(relative_target, safe='/')}"
+        index_directory = llms_txt_path.parent.relative_to(self.outdir).as_posix()
+        relative_url = posixpath.relpath(relative_target, start=index_directory or ".")
+        return quote(relative_url, safe="/")
+
+    def _top_level_sitemap_url(self, llms_txt_path: Path) -> str:
+        """Return the top-level index URL from a nested sitemap location."""
+        http_base = self._markdown_http_base()
+        if http_base:
+            return f"{http_base}/llms.txt"
+        index_directory = llms_txt_path.parent.relative_to(self.outdir).as_posix()
+        return posixpath.relpath("llms.txt", start=index_directory or ".")
+
+    def _write_sitemap(
+        self,
+        llms_txt_path: Path,
+        files: Iterable[Path],
+        *,
+        subsection: bool = False,
+    ) -> None:
+        """Write the common page listing for one Markdown sitemap."""
+        llms_txt_path.parent.mkdir(parents=True, exist_ok=True)
         with open(llms_txt_path, "w", encoding="utf-8") as sitemap:
-            # Write the title
             project_title = getattr(self.app.config, "project", "Documentation")
             sitemap.write(f"# {project_title}\n\n")
 
-            # Add description
             for line in self.get_project_description().strip().split("\n"):
                 sitemap.write(f"> {line}\n")
             sitemap.write("\n\n")
 
-            # Add project details if available
             if hasattr(self.app.config, "copyright") and self.app.config.copyright:
                 sitemap.write(f"{self.app.config.copyright}\n\n")
 
-            # Write the main content section
-            sitemap.write("## Pages\n\n")
-
-            # Follow the Sphinx toctree, with orphaned documents sorted last.
-            toctree_order = {
-                docname: index
-                for index, docname in enumerate(self.app.env.collect_relations())
-            }
-            sorted_files = sorted(
-                self.generated_markdown_files,
-                key=lambda path: (
-                    toctree_order.get(
-                        self._docname_by_output_file[path], len(toctree_order)
-                    ),
-                    self._docname_by_output_file[path],
-                ),
-            )
-
-            # Read markdown_http_base from raw conf.py values, so it works
-            # even when sphinx_markdown_builder is not listed in extensions
-            # (it is only loaded in the markdown subprocess build).
-            http_base = self._markdown_http_base()
-
-            for md_file in sorted_files:
-                # Extract title from the markdown file
+            pages_heading = "Pages in this subsection" if subsection else "Pages"
+            sitemap.write(f"## {pages_heading}\n\n")
+            for md_file in files:
                 title = self.extract_title_from_markdown(md_file)
-
-                # Create the URL based either on
-                # - the relative path from output directory, or
-                # - markdown_http_base + the relative path
-                rel_path = md_file.relative_to(self.outdir)
-                if http_base:
-                    url = f"{http_base}/{rel_path}"
-                else:
-                    url = str(rel_path)
-
-                # Write the link
+                url = self._sitemap_url(md_file, llms_txt_path)
                 sitemap.write(
-                    f"- [{title}]({url}): {self.get_page_description(md_file)}\n"
+                    _serialize_sitemap_entry(
+                        title, url, self.get_page_description(md_file)
+                    )
+                    + "\n"
+                )
+            if subsection:
+                top_level_url = self._top_level_sitemap_url(llms_txt_path)
+                sitemap.write(
+                    "\n## Optional\n\n"
+                    + _serialize_sitemap_entry(
+                        "Top-level llms.txt",
+                        top_level_url,
+                        "Complete documentation index.",
+                    )
+                    + "\n"
                 )
 
-            # Link to llms-full.txt when it was also generated
-            if getattr(self.app.config, "llms_txt_full_build", True):
-                if http_base:
-                    full_url = f"{http_base}/llms-full.txt"
-                else:
-                    full_url = "llms-full.txt"
+    def create_sitemap(self, files: Iterable[Path] | None = None) -> None:
+        """Create the root Markdown sitemap in ``llms.txt``."""
+        llms_txt_path = self.outdir / "llms.txt"
+        if files is None:
+            files = self._sorted_sitemap_files(self.generated_markdown_files)
+        self._write_sitemap(llms_txt_path, files)
+        # List llms-full.txt only when this build generated the file. Custom root
+        # indexes do not call this method and therefore remain unmodified.
+        if (
+            self._generated_llms_full_path is not None
+            and self._generated_llms_full_path.is_file()
+        ):
+            http_base = self._markdown_http_base()
+            full_url = f"{http_base}/llms-full.txt" if http_base else "llms-full.txt"
+            with open(llms_txt_path, "a", encoding="utf-8") as sitemap:
                 sitemap.write(
-                    f"\n---\n\nFor more comprehensive documentation, see [llms-full.txt]({full_url})\n"
+                    "\n## Optional\n\n"
+                    + _serialize_sitemap_entry(
+                        "llms-full.txt",
+                        full_url,
+                        "Complete documentation in a single file.",
+                    )
+                    + "\n"
                 )
+        logger.info(f"Created llms.txt sitemap: {llms_txt_path}")
 
-            logger.info(f"Created llms.txt sitemap: {llms_txt_path}")
+    def create_nested_sitemaps(self, files: Iterable[Path] | None = None) -> None:
+        """Create scoped indexes below the HTML build root."""
+        if files is None:
+            files = self._sorted_sitemap_files(self.generated_markdown_files)
+        files_by_scope: dict[PurePosixPath, list[Path]] = {}
+        for md_file in files:
+            page_directory = _published_html_path(
+                self.app, self._docname_by_output_file[md_file]
+            ).parent
+            for scope in (page_directory, *page_directory.parents):
+                if scope == PurePosixPath("."):
+                    break
+                files_by_scope.setdefault(scope, []).append(md_file)
+
+        for scope in sorted(files_by_scope, key=lambda path: path.parts):
+            output_path = self.outdir.joinpath(*scope.parts, "llms.txt")
+            self._write_sitemap(output_path, files_by_scope[scope], subsection=True)
+            logger.info(f"Created nested llms.txt sitemap: {output_path}")
 
     def extract_title_from_markdown(self, md_file: Path) -> str:
         """Extract the title from a markdown file."""
@@ -1052,7 +1353,7 @@ class MarkdownGenerator:
         """
         try:
             with open(md_file, encoding="utf-8") as f:
-                content = f.read()
+                content = extract_prose(f.read())
                 lines = content.split("\n")
                 anchor = re.compile(r"^<a\b[^>]*>\s*</a>$", re.IGNORECASE)
 
@@ -1100,9 +1401,19 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value("llms_txt_description", "", "env")
     app.add_config_value("llms_txt_build_parallel", True, "env")
     app.add_config_value("llms_txt_suffix_mode", "auto", "env")
-    app.add_config_value("llms_txt_full_build", True, "env")
+    app.add_config_value("llms_txt_full_build", False, "env")
+    app.add_config_value("llms_txt_nested_enabled", True, "env")
     app.add_config_value("llms_txt_exclude", [], "env")
     app.add_config_value("llms_txt_override_source", "", "env")
+    app.add_config_value(
+        SUPPRESS_UNKNOWN_NODE_WARNINGS_CONFIG,
+        False,
+        "env",
+        types=(bool, list, tuple),
+    )
+    app.connect("config-inited", validate_suppress_unknown_node_warnings)
+    if "markdown_http_base" not in app.config.values:
+        app.add_config_value("markdown_http_base", "", "env")
     generator = MarkdownGenerator(app)
     generator.setup()
 

@@ -223,15 +223,20 @@ class FileOptions(_ActiveContextGuard):
       The implementation of :py:class:`~.v1.path.Path` to use.  Defaults to
       `etils.epath.Path`, but may be overridden to some other subclass of
       :py:class:`~.v1.path.Path`.
+    skip_sync_file_validations:
+      If True, bypasses synchronous filesystem existence and validation checks
+      prior to async saving. Default is False.
   """
 
   path_permission_mode: int | None = None
   path_class: type[path_types.Path] = epath.Path
+  skip_sync_file_validations: bool = False
 
   def v0(self) -> v0_options_lib.FileOptions:
     """Converts this :py:class:`~.v1.options.FileOptions` to a v0 :py:class:`~orbax.checkpoint.options.FileOptions`."""
     return v0_options_lib.FileOptions(
         path_permission_mode=self.path_permission_mode,
+        skip_sync_file_validations=self.skip_sync_file_validations,
     )
 
 
@@ -609,6 +614,9 @@ class MemoryOptions(_ActiveContextGuard):
     serialization_status_callback: A callback object that is called at various
       points during the save process per keypath, allowing for monitoring or
       control over the save process.
+    deepcopy_host_arrays: Whether to deepcopy host arrays before serialization.
+      Defaults to True as a safety measure to guard against concurrent
+      modification, but can be disabled to avoid excess memory consumption.
   """
 
   write_concurrent_bytes: int | None = None
@@ -618,6 +626,7 @@ class MemoryOptions(_ActiveContextGuard):
   serialization_status_callback: (
       serialization_types.SerializationStatusCallback | None
   ) = None
+  deepcopy_host_arrays: bool = True
 
 
 @dataclasses.dataclass(kw_only=True)

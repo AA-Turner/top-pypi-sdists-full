@@ -1,11 +1,14 @@
 Metadata-Version: 2.5
 Name: agentic-devtools
-Version: 0.2.517
+Version: 0.2.518
 Summary: Agentic devtools integrate Jira, DevOps & more
 Author: ayaiayorg
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: >=3.11
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
 Requires-Dist: atlassian-python-api<5,>=4.0
 Requires-Dist: azure-identity>=1.0.0
 Requires-Dist: azure-monitor-query>=1.0.0
@@ -25,7 +28,6 @@ Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.28.0
 Requires-Dist: specify-cli==1.0.1
 Requires-Dist: tiktoken<1,>=0.7.0
-Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Requires-Dist: twine>=5.0.0
 Requires-Dist: typing-extensions>=4.0
 Provides-Extra: browser

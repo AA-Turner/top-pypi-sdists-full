@@ -11,6 +11,7 @@ import signal
 import subprocess
 import threading
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Optional
 from unittest import TestCase as UnitTestTestCase, case as UnitTestCase
@@ -52,6 +53,11 @@ def pytest_addoption(parser):
     parser.addoption("--odoo-skip-at-install",
                      action="store_true",
                      help="If pytest should skip tests marked with at_install.")
+    parser.addoption(
+        "--odoo-db-use-env-vars",
+        action="store_true",
+        help="If HOST, PORT, USER and PASSWORD environment variables should be used.",
+    )
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -84,11 +90,21 @@ def pytest_cmdline_main(config):
 
         # Check the environment variables supported by the Odoo Docker image
         # ref: https://hub.docker.com/_/odoo
-        for arg in ['HOST', 'PORT', 'USER', 'PASSWORD']:
-            if os.environ.get(arg):
-                options.append('--db_%s=%s' % (arg.lower(), os.environ.get(arg)))
+        use_env: str | None = (
+            os.environ.get("PYTEST_DB_USE_ENV_VARS").lowercase()
+            if os.environ.get("PYTEST_DB_USE_ENV_VARS")
+            else None
+        )
+        if config.getoption("--odoo-db-use-env-vars") or use_env == "true":
+            for arg in ["HOST", "PORT", "USER", "PASSWORD"]:
+                if os.environ.get(arg):
+                    options.append("--db_%s=%s" % (arg.lower(), os.environ.get(arg)))
 
-        odoo.tools.config.parse_config(options)
+        parse_config = partial(odoo.tools.config.parse_config, options)
+        if odoo.release.version_info >= (20,):
+            parse_config = partial(parse_config, setup_logging=True)
+
+        parse_config()
 
         if not odoo.tools.config['db_name']:
             # if you fall here, it means you have ODOO_RC or OPENERP_SERVER pointing
@@ -123,7 +139,11 @@ def load_http(request, load_registry):
             from odoo import http
             from odoo.service import server
             server.load_server_wide_modules()
-            server.server = server.ThreadedServer(http.root)
+            if odoo.release.version_info >= (20,):
+                from odoo.http.router import root as http_root
+            else:
+                from odoo.http import root as http_root
+            server.server = server.ThreadedServer(http_root)
             server.server.start(stop=False)
             signal.signal(signal.SIGINT, signal.default_int_handler)
             yield

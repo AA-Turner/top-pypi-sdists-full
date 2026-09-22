@@ -1,9 +1,16 @@
+import typing as t
+
+from bson import ObjectId
+from bson.dbref import DBRef
+from flask import Flask
 from mongoengine import Document
+from mongoengine import FileField
 from mongoengine import StringField
 from mongoengine.connection import get_db
 from wtforms import fields
 from wtforms import form
 
+from flask_admin import Admin
 from flask_admin.contrib.mongoengine import filters
 from flask_admin.contrib.mongoengine import ModelView
 from flask_admin.contrib.mongoengine.ajax import QueryAjaxModelLoader
@@ -35,7 +42,7 @@ class TestView(ModelView):
     )
 
 
-def test_model(app, db, admin):
+def test_model(app: Flask, db: t.Any, admin: Admin) -> None:
     view = TestView(Test, "Test", endpoint="testview")
     admin.add_view(view)
 
@@ -142,7 +149,68 @@ def test_model(app, db, admin):
     assert "test2" in data
 
 
-def test_query_ajax_model_loader_initialization(db):
+def test_query_ajax_model_loader_format_handles_dbref(db: t.Any) -> None:
+    """Regression test for #2917: ``QueryAjaxModelLoader.format`` must not
+    crash with ``AttributeError`` when MongoEngine cannot dereference a
+    ``ReferenceField`` and returns a raw ``DBRef`` instead of a ``Document``.
+    """
+
+    class RefTarget(Document):  # type: ignore[misc]
+        meta = {"collection": "ref_target"}
+        name = StringField()
+
+    loader = QueryAjaxModelLoader("ref", RefTarget, fields=["name"])
+
+    missing_id = ObjectId()
+    dbref = DBRef(collection="ref_target", id=missing_id)
+
+    result = loader.format(dbref)
+
+    assert result is not None
+    value, label = result
+    assert value == str(missing_id)
+    assert "missing" in label
+    assert str(missing_id) in label
+
+
+def test_api_file_view_sets_content_disposition(
+    app: Flask, db: t.Any, admin: Admin
+) -> None:
+    """Regression test for #2916: api_file_view must expose the original
+    GridFS filename via Content-Disposition so browsers don't save the file
+    as ``file`` with no extension.
+    """
+
+    class FileDoc(Document):  # type: ignore[misc]
+        meta = {"collection": "file_doc"}
+        name = StringField()
+        upload = FileField()
+
+    class FileDocView(ModelView):
+        pass
+
+    # Drop existing data
+    raw_db = get_db()
+    for name in raw_db.list_collection_names():
+        raw_db.drop_collection(name)
+
+    admin.add_view(FileDocView(FileDoc, "FileDoc", endpoint="filedocview"))
+
+    doc = FileDoc(name="report")
+    doc.upload.put(b"hello world", filename="report.txt", content_type="text/plain")
+    doc.save()
+
+    client = app.test_client()
+    grid_id = doc.upload.grid_id
+    rv = client.get(f"/admin/filedocview/api/file/?id={grid_id}&coll=fs&db=default")
+
+    assert rv.status_code == 200
+    assert rv.data == b"hello world"
+    assert rv.mimetype == "text/plain"
+    assert "report.txt" in rv.headers.get("Content-Disposition", "")
+
+
+def test_query_ajax_model_loader_initialization(db: t.Any) -> None:
     class TestModel(Document):  # type: ignore[misc]
         meta = {"collection": "test_ajax_loader"}
         name = StringField()

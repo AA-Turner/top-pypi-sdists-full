@@ -53,11 +53,9 @@ build_default_search_path(pkgconf_list_t* dirlist)
 	 * https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamea
 	 */
 	int sizepath = GetModuleFileName(NULL, namebuf, sizeof namebuf - 1);
-	char * winslash;
 	namebuf[sizepath] = '\0';
 
-	while ((winslash = strchr(namebuf, '\\')) != NULL)
-		*winslash = '/';
+	pkgconf_path_normalize_separators(namebuf);
 
 	p = strrchr(namebuf, '/');
 	if (p == NULL)
@@ -69,7 +67,7 @@ build_default_search_path(pkgconf_list_t* dirlist)
 
 	pkgconf_buffer_append_fmt(&pathbuf, "%s/../lib/pkgconfig", namebuf);
 	pkgconf_path_add(pkgconf_buffer_str(&pathbuf), dirlist, true);
-	pkgconf_buffer_reset(&pathbuf);
+	pkgconf_buffer_rewind(&pathbuf);
 
 	pkgconf_buffer_append_fmt(&pathbuf, "%s/../share/pkgconfig", namebuf);
 	pkgconf_path_add(pkgconf_buffer_str(&pathbuf), dirlist, true);

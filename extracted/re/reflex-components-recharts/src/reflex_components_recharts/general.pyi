@@ -14,6 +14,8 @@ from reflex_components_core.core.breakpoints import Breakpoints
 
 from .recharts import Recharts
 
+_USE_CHART_WIDTH_HOOK = "useChartWidth"
+
 class ResponsiveContainer(Recharts, MemoizationLeaf):
     @classmethod
     def create(
@@ -613,6 +615,8 @@ class Cell(Recharts):
         Returns:
             The component.
         """
+
+def use_chart_width() -> Var[int | None]: ...
 
 class SvgElement(Recharts):
     @classmethod

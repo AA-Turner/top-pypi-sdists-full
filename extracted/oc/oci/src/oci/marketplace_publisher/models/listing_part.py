@@ -15,6 +15,14 @@ class ListingPart(object):
     A listing SKUs and meter information attached by marketplace admin.
     """
 
+    #: A constant which can be used with the billing_model property of a ListingPart.
+    #: This constant has a value of "FLAT_RATE"
+    BILLING_MODEL_FLAT_RATE = "FLAT_RATE"
+
+    #: A constant which can be used with the billing_model property of a ListingPart.
+    #: This constant has a value of "USAGE_BASED"
+    BILLING_MODEL_USAGE_BASED = "USAGE_BASED"
+
     #: A constant which can be used with the metric_type property of a ListingPart.
     #: This constant has a value of "OCPU_HOURS"
     METRIC_TYPE_OCPU_HOURS = "OCPU_HOURS"
@@ -27,6 +35,14 @@ class ListingPart(object):
     #: This constant has a value of "CORE_HOURS"
     METRIC_TYPE_CORE_HOURS = "CORE_HOURS"
 
+    #: A constant which can be used with the metric_type property of a ListingPart.
+    #: This constant has a value of "AMOUNT"
+    METRIC_TYPE_AMOUNT = "AMOUNT"
+
+    #: A constant which can be used with the metric_type property of a ListingPart.
+    #: This constant has a value of "EACH"
+    METRIC_TYPE_EACH = "EACH"
+
     def __init__(self, **kwargs):
         """
         Initializes a new ListingPart object with values from keyword arguments.
@@ -36,9 +52,20 @@ class ListingPart(object):
             The value to assign to the sku property of this ListingPart.
         :type sku: str
 
+        :param pricing_plan_key:
+            The value to assign to the pricing_plan_key property of this ListingPart.
+        :type pricing_plan_key: str
+
+        :param billing_model:
+            The value to assign to the billing_model property of this ListingPart.
+            Allowed values for this property are: "FLAT_RATE", "USAGE_BASED", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type billing_model: str
+
         :param metric_type:
             The value to assign to the metric_type property of this ListingPart.
-            Allowed values for this property are: "OCPU_HOURS", "INSTANCE_HOURS", "CORE_HOURS"
+            Allowed values for this property are: "OCPU_HOURS", "INSTANCE_HOURS", "CORE_HOURS", "AMOUNT", "EACH", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type metric_type: str
 
         :param rate_allocation:
@@ -56,6 +83,8 @@ class ListingPart(object):
         """
         self.swagger_types = {
             'sku': 'str',
+            'pricing_plan_key': 'str',
+            'billing_model': 'str',
             'metric_type': 'str',
             'rate_allocation': 'float',
             'has_gov_sku': 'bool',
@@ -63,12 +92,16 @@ class ListingPart(object):
         }
         self.attribute_map = {
             'sku': 'sku',
+            'pricing_plan_key': 'pricingPlanKey',
+            'billing_model': 'billingModel',
             'metric_type': 'metricType',
             'rate_allocation': 'rateAllocation',
             'has_gov_sku': 'hasGovSku',
             'meters': 'meters'
         }
         self._sku = None
+        self._pricing_plan_key = None
+        self._billing_model = None
         self._metric_type = None
         self._rate_allocation = None
         self._has_gov_sku = None
@@ -99,12 +132,67 @@ class ListingPart(object):
         self._sku = sku
 
     @property
+    def pricing_plan_key(self):
+        """
+        Gets the pricing_plan_key of this ListingPart.
+        Unique identifier of the pricing plan.
+
+
+        :return: The pricing_plan_key of this ListingPart.
+        :rtype: str
+        """
+        return self._pricing_plan_key
+
+    @pricing_plan_key.setter
+    def pricing_plan_key(self, pricing_plan_key):
+        """
+        Sets the pricing_plan_key of this ListingPart.
+        Unique identifier of the pricing plan.
+
+
+        :param pricing_plan_key: The pricing_plan_key of this ListingPart.
+        :type: str
+        """
+        self._pricing_plan_key = pricing_plan_key
+
+    @property
+    def billing_model(self):
+        """
+        Gets the billing_model of this ListingPart.
+        The billing model for SaaS paid listing parts.
+
+        Allowed values for this property are: "FLAT_RATE", "USAGE_BASED", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+
+
+        :return: The billing_model of this ListingPart.
+        :rtype: str
+        """
+        return self._billing_model
+
+    @billing_model.setter
+    def billing_model(self, billing_model):
+        """
+        Sets the billing_model of this ListingPart.
+        The billing model for SaaS paid listing parts.
+
+
+        :param billing_model: The billing_model of this ListingPart.
+        :type: str
+        """
+        allowed_values = ["FLAT_RATE", "USAGE_BASED"]
+        if not value_allowed_none_or_none_sentinel(billing_model, allowed_values):
+            billing_model = 'UNKNOWN_ENUM_VALUE'
+        self._billing_model = billing_model
+
+    @property
     def metric_type(self):
         """
         **[Required]** Gets the metric_type of this ListingPart.
         The part's metric.
 
-        Allowed values for this property are: "OCPU_HOURS", "INSTANCE_HOURS", "CORE_HOURS"
+        Allowed values for this property are: "OCPU_HOURS", "INSTANCE_HOURS", "CORE_HOURS", "AMOUNT", "EACH", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
         :return: The metric_type of this ListingPart.
@@ -122,11 +210,9 @@ class ListingPart(object):
         :param metric_type: The metric_type of this ListingPart.
         :type: str
         """
-        allowed_values = ["OCPU_HOURS", "INSTANCE_HOURS", "CORE_HOURS"]
+        allowed_values = ["OCPU_HOURS", "INSTANCE_HOURS", "CORE_HOURS", "AMOUNT", "EACH"]
         if not value_allowed_none_or_none_sentinel(metric_type, allowed_values):
-            raise ValueError(
-                f"Invalid value for `metric_type`, must be None or one of {allowed_values}"
-            )
+            metric_type = 'UNKNOWN_ENUM_VALUE'
         self._metric_type = metric_type
 
     @property

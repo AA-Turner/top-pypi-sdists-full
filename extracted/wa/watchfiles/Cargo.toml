@@ -1,6 +1,6 @@
 [package]
 name = "watchfiles_rust_notify"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2021"
 license = "MIT"
 homepage = "https://github.com/samuelcolvin/watchfiles"
@@ -26,9 +26,10 @@ rust-version = "1.83"
 [dependencies]
 crossbeam-channel = "0.5.15"
 notify = { version = "8.0.0" }
-pyo3 = { version = "0.28.3", features = [
+pyo3 = { version = "0.29.0", features = [
     "extension-module",
     "generate-import-lib",
+    "abi3-py310",
 ] }
 
 [lib]

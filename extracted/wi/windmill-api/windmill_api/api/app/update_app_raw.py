@@ -6,6 +6,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.update_app_raw_multipart_data import UpdateAppRawMultipartData
+from ...models.update_app_raw_response_200 import UpdateAppRawResponse200
 from ...types import Response
 
 
@@ -29,14 +30,22 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Any]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[UpdateAppRawResponse200]:
+    if response.status_code == HTTPStatus.OK:
+        response_200 = UpdateAppRawResponse200.from_dict(response.json())
+
+        return response_200
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[UpdateAppRawResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -51,7 +60,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     multipart_data: UpdateAppRawMultipartData,
-) -> Response[Any]:
+) -> Response[UpdateAppRawResponse200]:
     """update app
 
     Args:
@@ -64,7 +73,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        Response[UpdateAppRawResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -80,13 +89,13 @@ def sync_detailed(
     return _build_response(client=client, response=response)
 
 
-async def asyncio_detailed(
+def sync(
     workspace: str,
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
     multipart_data: UpdateAppRawMultipartData,
-) -> Response[Any]:
+) -> Optional[UpdateAppRawResponse200]:
     """update app
 
     Args:
@@ -99,7 +108,37 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        UpdateAppRawResponse200
+    """
+
+    return sync_detailed(
+        workspace=workspace,
+        path=path,
+        client=client,
+        multipart_data=multipart_data,
+    ).parsed
+
+
+async def asyncio_detailed(
+    workspace: str,
+    path: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    multipart_data: UpdateAppRawMultipartData,
+) -> Response[UpdateAppRawResponse200]:
+    """update app
+
+    Args:
+        workspace (str):
+        path (str):
+        multipart_data (UpdateAppRawMultipartData):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[UpdateAppRawResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -111,3 +150,35 @@ async def asyncio_detailed(
     response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    workspace: str,
+    path: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    multipart_data: UpdateAppRawMultipartData,
+) -> Optional[UpdateAppRawResponse200]:
+    """update app
+
+    Args:
+        workspace (str):
+        path (str):
+        multipart_data (UpdateAppRawMultipartData):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        UpdateAppRawResponse200
+    """
+
+    return (
+        await asyncio_detailed(
+            workspace=workspace,
+            path=path,
+            client=client,
+            multipart_data=multipart_data,
+        )
+    ).parsed

@@ -3755,10 +3755,11 @@ class ChalkGRPCClient:
                 raise e
 
             if isinstance(e, VolumeError):
-                cause = e.__cause__
-                native_code = cause.args[0] if cause and cause.args else ""
-                if native_code in ("failed_precondition", "unavailable"):
-                    chalk_logger.warning(f"Volume upload skipped: volumes not configured ({e})")
+                code = getattr(e, "code", None)
+                if code is None:
+                    cause = e.__cause__
+                    code = cause.args[0] if cause and cause.args else ""
+                if code in ("failed_precondition", "unavailable"):
                     return None
             raise
 

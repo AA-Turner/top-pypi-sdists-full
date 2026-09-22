@@ -17,6 +17,9 @@
 import base64
 from collections.abc import Sequence
 import copy
+import dataclasses
+import enum
+
 import json
 import math
 import os
@@ -35,6 +38,7 @@ from orbax.checkpoint._src.metadata import sharding as sharding_metadata
 from orbax.checkpoint._src.metadata import value as value_metadata
 from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import gcs_utils
+from orbax.checkpoint._src.serialization import ocdbt_process_spec as ocdbt_process_spec_lib
 from orbax.checkpoint._src.serialization import types
 import tensorstore as ts
 
@@ -44,14 +48,16 @@ DType: TypeAlias = arrays_types.DType
 ArrayMetadata: TypeAlias = array_metadata.ArrayMetadata
 ExtMetadata: TypeAlias = array_metadata.ExtMetadata
 
+OcdbtProcessSpec: TypeAlias = ocdbt_process_spec_lib.OcdbtProcessSpec
+
 FILE_DRIVER = 'file'
 DEFAULT_DRIVER = FILE_DRIVER
 
-PROCESS_SUBDIR_PREFIX = 'ocdbt.process_'
-REPLICA_SUBDIR_SUFFIX = 'replica_'
+PROCESS_SUBDIR_PREFIX = ocdbt_process_spec_lib.PROCESS_PREFIX
+REPLICA_SUBDIR_SUFFIX = ocdbt_process_spec_lib.REPLICA_SUFFIX
 
 # OCDBT-specific options.
-_OCDBT_PROCESS_ID_RE = r'[A-Za-z0-9]+'
+
 _DEFAULT_OCDBT_TARGET_DATA_FILE_SIZE = 2**31  # 2 GiB
 _GCS_OCDBT_TARGET_DATA_FILE_SIZE = 400 * 2**20  # 400 MiB
 # By default, OCDBT stores both values (i.e. kvstore values, which are
@@ -63,6 +69,7 @@ _GCS_OCDBT_TARGET_DATA_FILE_SIZE = 400 * 2**20  # 400 MiB
 # 'ocdbt_data/' subdirectory.
 _OCDBT_SPLIT_VALUE_DATA_PREFIX = 'ocdbt_data/'
 _OCDBT_SPLIT_META_DATA_PREFIX = 'ocdbt_meta/'
+_OCDBT_TMP_METADATA_PREFIX = 'ocdbt_tmp_meta/'
 
 ZARR_VER2 = 'zarr'
 ZARR_VER3 = 'zarr3'
@@ -138,6 +145,71 @@ def get_ts_context(
 ### Building KvStore specs.
 
 
+@enum.unique
+class OcdbtWriteMode(enum.Enum):
+  """OCDBT write mode.
+
+  Allows to express whether the target OCDBT KvStore will be written to, so it
+  could be configured with appropriate write options.
+
+  Attributes:
+    WRITE: Used when writing checkpoint data.
+    MERGE: Used for target (parent) KvStore when merging OCDBT metadata from
+      all per-process subdirectories.
+    COMMIT_TEMPORARY: Used when committing metadata accumulated in a temporary
+      metadata directory to its target persistent location.
+  """
+
+  WRITE = 'write'
+  MERGE = 'merge'
+  COMMIT_TEMPORARY = 'commit_temporary'
+
+
+@dataclasses.dataclass(frozen=True)
+class OcdbtKvStoreWriteOptions:
+  """Options specific to OCDBT KvStore in writing modes.
+
+  Attributes:
+    mode: The OCDBT write mode. Required.
+    target_data_file_size: The target data file size for OCDBT KvStore. If not
+      set, a default value will be used, based on the underlying storage type.
+    store_ocdbt_metadata_and_values_separately: Whether to store OCDBT metadata
+      and values separately.
+  """
+
+  mode: OcdbtWriteMode
+  target_data_file_size: int | None = None
+  store_ocdbt_metadata_and_values_separately: bool = False
+
+
+@dataclasses.dataclass(frozen=True)
+class OcdbtTemporaryMetadataContext:
+  """Context for handling OCDBT temporary metadata.
+
+  OCDBT kvstore configuration supports storing per-process OCDBT metadata
+  (manifest file and B-tree and version tree nodes) in a separate, local
+  temporary directory (backed by in-memory file system), which should later be
+  committed to the persistent metadata directory. This allows to achieve atomic
+  OCDBT metadata writes - especially for manifest files - without having to rely
+  on TensorStore transactions.
+
+  Usage (within a single writer process):
+    1) create a temporary directory and provide a OcdbtTemporaryMetadataContext
+       pointing to it to the TensorStore spec construction APIs (ArrayWriteSpec,
+       build_kvstore_tspec with WRITE mode) alongside the main persistent
+       directory
+    2) write all process-local data to TensorStore
+    3) after writing, call `ocdbt_utils.commit_temporary_ocdbt_metadata` to
+       atomically commit the metadata from the temporary directory to the
+       persistent directory
+
+  Attributes:
+    path: The path to the temporary metadata directory. In-memory or local
+      filesystem are recommended for performance.
+  """
+  path: epath.Path
+
+
 def _get_kvstore_for_gcs(ckpt_path: str) -> JsonSpec:
   """Constructs a TensorStore kvstore spec for a GCS path."""
   m = re.fullmatch(_GCS_PATH_RE, ckpt_path, re.DOTALL)
@@ -161,13 +233,263 @@ def _get_kvstore_for_gcs(ckpt_path: str) -> JsonSpec:
   }
 
 
+def _normalize_path(path: str) -> str:
+  """Normalizes a path, removing trailing slashes."""
+  # In GCS case, we need to fix to add back the stripped '/' so that the path
+  # remains valid.
+  return os.path.normpath(path).replace('gs:/', 'gs://')
+
+
+@dataclasses.dataclass(frozen=True)
+class _OcdbtKvSpecParameters:
+  """OCDBT KvStore spec key parameters.
+
+  Attributes:
+    base_driver_spec: The spec of the underlying (base) kvstore driver, pointing
+      to the target storage path (or using kvstack driver to support separate
+      storage of metadata in temporary path and values in the target path)
+    manifest_spec_override: [Optional] The manifest spec override of the
+      KvStore.
+    metadata_prefix_override: [Optional] The metadata prefix override of the
+      KvStore. If set, `btree_node_data_prefix` and
+      `version_tree_node_data_prefix` will be set to this value.
+    value_prefix_override: [Optional] The value prefix override of the KvStore.
+      If set, `value_data_prefix` will be set to this value.
+  """
+  base_driver_spec: JsonSpec
+  manifest_spec_override: JsonSpec | str | None = None
+  metadata_prefix_override: str | None = None
+  value_prefix_override: str | None = None
+
+
+def _override_ocdbt_kvspec_parameters_for_temporary_metadata(
+    temporary_metadata_context: OcdbtTemporaryMetadataContext | None,
+    write_mode: OcdbtWriteMode | None,
+    current_parameters: _OcdbtKvSpecParameters,
+) -> _OcdbtKvSpecParameters:
+  """Returns KvStore spec parameters with overrides for temporary metadata."""
+  if temporary_metadata_context is None:
+    if write_mode == OcdbtWriteMode.COMMIT_TEMPORARY:
+      raise ValueError(
+          'OCDBT commit mode requires temporary metadata context.'
+      )
+    return current_parameters
+
+  if write_mode == OcdbtWriteMode.MERGE:
+    raise ValueError(
+        'OCDBT merge mode does not support temporary metadata context.'
+    )
+
+  manifest_spec = current_parameters.manifest_spec_override
+  metadata_prefix = current_parameters.metadata_prefix_override
+
+  base_tmp_dir_spec = f'{DEFAULT_DRIVER}://{temporary_metadata_context.path}/'
+
+  # Ensure routing of metadata-related files' writes and reads to the temporary
+  # directory. We achieve this by:
+  #  1) using the kvstack driver
+  #  2) when in writing mode, overriding the metadata prefix to match the prefix
+  #     of the layer backed by the temporary directory
+  #  3) overriding the manifest spec to point to the temporary metadata
+  #     directory (unless in COMMIT_TEMPORARY mode)
+  # Notes on COMMIT_TEMPORARY mode (used for copying metadata from temporary
+  # to persistent location):
+  #   1) we don't set manifest or metadata prefix overrides: this ensures that
+  #      the target kvstore is correctly opened as empty initially, and any
+  #      writes of metadata are now routed to the layer backed by the persistent
+  #      directory
+  #   2) kvstack driver's implementation of `experimental_copy_range_to` (used
+  #      by `commit_temporary_ocdbt_metadata` to copy metadata to persistent
+  #      location) is very strict about the base_driver_spec of the source
+  #      and destination kvstores, requiring them to be identical. This defines
+  #      how the base_driver_spec is constructed below, to look the same
+  #      regardless of the mode used (read or commit).
+  if write_mode != OcdbtWriteMode.COMMIT_TEMPORARY:
+    manifest_spec = f'{base_tmp_dir_spec}{_OCDBT_TMP_METADATA_PREFIX}'
+  if write_mode == OcdbtWriteMode.WRITE:
+    metadata_prefix = _OCDBT_TMP_METADATA_PREFIX
+
+  base_driver_spec = {
+      'driver': 'kvstack',
+      'layers': [
+          # Write to the real persistent checkpoint directory by default.
+          {'base': current_parameters.base_driver_spec},
+          # Per-process metadata is stored in the separate local temporary
+          # directory. `prefix` ensures that writes and reads of
+          # metadata-related files are routed to the temporary directory.
+          {
+              'prefix': _OCDBT_TMP_METADATA_PREFIX,
+              'base': base_tmp_dir_spec,
+          },
+      ],
+  }
+
+  return dataclasses.replace(
+      current_parameters,
+      base_driver_spec=base_driver_spec,
+      manifest_spec_override=manifest_spec,
+      metadata_prefix_override=metadata_prefix,
+  )
+
+
+def _build_ocdbt_kvstore_tspec(
+    directory: str,
+    name: str | None = None,
+    *,
+    process_spec: OcdbtProcessSpec | None = None,
+    write_options: OcdbtKvStoreWriteOptions | None = None,
+    temporary_metadata_context: OcdbtTemporaryMetadataContext | None = None,
+) -> JsonSpec:
+  """Constructs a spec for a Tensorstore OCDBT KvStore.
+
+  Args:
+    directory: Base path (key prefix) of the KvStore, used by the underlying
+      file driver.
+    name: Name (filename) of the parameter.
+    process_spec: OCDBT process spec (defines per-process subdirectory
+      name).
+    write_options: Options specific to OCDBT KvStore write modes. Should be
+      provided when the kvstore will be used for writing or merging.
+    temporary_metadata_context: Context for local temporary metadata directory.
+      See `OcdbtTemporaryMetadataContext` for more details.
+
+  Returns:
+    A Tensorstore KvStore spec in dictionary form.
+  """
+  directory = _normalize_path(directory)
+  is_gcs_path = directory.startswith('gs://')
+
+  if not is_gcs_path and not os.path.isabs(directory):
+    raise ValueError(f'Checkpoint path should be absolute. Got {directory}')
+
+  if process_spec is not None:
+    directory = os.path.join(directory, str(process_spec))
+
+  # Base KVStore spec (nested within OCDBT KVStore spec).
+  if is_gcs_path:
+    base_driver_spec = _get_kvstore_for_gcs(directory)
+  else:
+    base_driver_spec = {
+        'driver': DEFAULT_DRIVER,
+        'path': str(directory) + '/',  # explicit slash required for kvstack
+    }
+
+  # For OCDBT on local filesystems (including GCSFuse), we can safely use
+  # non-atomic writes for data files to avoid expensive renames. However,
+  # the manifest file still requires atomic writes to avoid corruption.
+  # We achieve this by splitting the spec into 'base' (for data files) and
+  # 'manifest'.
+  try:
+    resolved_base_spec = ts.KvStore.Spec(base_driver_spec).to_json()
+  except Exception:  # pylint: disable=broad-except
+    logging.warning(
+        'Failed to resolve base spec %r, falling back to default.',
+        base_driver_spec,
+        exc_info=True,
+    )
+    resolved_base_spec = base_driver_spec
+
+  kvspec_params = _OcdbtKvSpecParameters(base_driver_spec=base_driver_spec)
+
+  if (
+      write_options is not None
+      and write_options.store_ocdbt_metadata_and_values_separately
+  ):
+    kvspec_params = dataclasses.replace(
+        kvspec_params,
+        metadata_prefix_override=_OCDBT_SPLIT_META_DATA_PREFIX,
+        value_prefix_override=_OCDBT_SPLIT_VALUE_DATA_PREFIX,
+    )
+
+  if (
+      isinstance(resolved_base_spec, dict)
+      and resolved_base_spec.get('driver') == 'file'
+  ):
+    kvspec_params = dataclasses.replace(
+        kvspec_params,
+        base_driver_spec={
+            **resolved_base_spec,
+            'file_io_locking': {'mode': 'non_atomic'},
+        },
+        manifest_spec_override=resolved_base_spec,
+    )
+
+  write_mode = None if write_options is None else write_options.mode
+  kvspec_params = _override_ocdbt_kvspec_parameters_for_temporary_metadata(
+      temporary_metadata_context=temporary_metadata_context,
+      write_mode=write_mode,
+      current_parameters=kvspec_params,
+  )
+
+  kv_spec = {'driver': 'ocdbt', 'base': kvspec_params.base_driver_spec}
+
+  if kvspec_params.manifest_spec_override is not None:
+    kv_spec['manifest'] = kvspec_params.manifest_spec_override
+  if kvspec_params.metadata_prefix_override is not None:
+    kv_spec['btree_node_data_prefix'] = kvspec_params.metadata_prefix_override
+    kv_spec['version_tree_node_data_prefix'] = (
+        kvspec_params.metadata_prefix_override
+    )
+  if kvspec_params.value_prefix_override is not None:
+    kv_spec['value_data_prefix'] = kvspec_params.value_prefix_override
+
+  if write_options is not None:
+    _add_ocdbt_write_options(
+        kv_spec,
+        target_data_file_size=write_options.target_data_file_size,
+    )
+
+  if name is not None:
+    kv_spec['path'] = name
+
+  kv_spec.update({  # pytype: disable=attribute-error
+      # References the cache specified in ts.Context.
+      'cache_pool': 'cache_pool#ocdbt',
+  })
+
+  if is_remote_storage(kv_spec):
+    kv_spec.update({  # pytype: disable=attribute-error
+        # Enable read coalescing.  This feature merges adjacent read_ops into
+        # one, which could reduce I/O ops by a factor of 10. This is
+        # especially beneficial for unstacked models.
+        'experimental_read_coalescing_threshold_bytes': 1000000,
+        'experimental_read_coalescing_merged_bytes': 500000000000,
+        'experimental_read_coalescing_interval': '1ms',
+    })
+
+  return kv_spec
+
+
+def _build_non_ocdbt_kvstore_tspec(
+    directory: str,
+    name: str | None = None,
+) -> JsonSpec:
+  """Constructs a spec for a Tensorstore KvStore, non-OCDBT."""
+  directory = _normalize_path(directory)
+  is_gcs_path = directory.startswith('gs://')
+
+  if name is None:
+    path = str(directory)
+  else:
+    path = os.path.join(directory, name)
+  if is_gcs_path:
+    kv_spec = _get_kvstore_for_gcs(path)
+  else:
+    kv_spec = {'driver': DEFAULT_DRIVER, 'path': path}
+
+  return kv_spec
+
+
 def build_kvstore_tspec(
     directory: str,
     name: str | None = None,
     *,
     use_ocdbt: bool = True,
-    process_id: int | str | None = None,
-    replica_separate_folder: bool = False,
+    ocdbt_process_spec: OcdbtProcessSpec | None = None,
+    ocdbt_write_options: OcdbtKvStoreWriteOptions | None = None,
+    ocdbt_temporary_metadata_context: (
+        OcdbtTemporaryMetadataContext | None
+    ) = None,
 ) -> JsonSpec:
   """Constructs a spec for a Tensorstore KvStore.
 
@@ -176,122 +498,26 @@ def build_kvstore_tspec(
       file driver.
     name: Name (filename) of the parameter.
     use_ocdbt: Whether to use OCDBT driver.
-    process_id: [only used with OCDBT driver] If provided,
-      `{directory}/ocdbt.process_{process_id}` path is used as the base path. If
-      a string, must conform to [A-Za-z0-9]+ pattern.
-    replica_separate_folder: Whether a replica separated folder is used.
+    ocdbt_process_spec: OCDBT process spec (defines per-process subdirectory
+      name).
+    ocdbt_write_options: Options specific to OCDBT KvStore write modes. Should
+      be provided when the kvstore will be used for writing or merging.
+    ocdbt_temporary_metadata_context: Context for local temporary metadata
+      directory. See `OcdbtTemporaryMetadataContext` for more details.
 
   Returns:
     A Tensorstore KvStore spec in dictionary form.
   """
-  default_driver = DEFAULT_DRIVER
-  # Normalize path to exclude trailing '/'. In GCS path case, we will need to
-  # fix the path prefix to add back the stripped '/'.
-  directory = os.path.normpath(directory).replace('gs:/', 'gs://')
-  is_gcs_path = directory.startswith('gs://')
-
   if use_ocdbt:
-    if not is_gcs_path and not os.path.isabs(directory):
-      raise ValueError(f'Checkpoint path should be absolute. Got {directory}')
-    if process_id is not None:
-      process_id = str(process_id)
-      if re.fullmatch(_OCDBT_PROCESS_ID_RE, process_id) is None:
-        raise ValueError(
-            f'process_id must conform to {_OCDBT_PROCESS_ID_RE} pattern'
-            f', got {process_id}'
-        )
+    return _build_ocdbt_kvstore_tspec(
+        directory=directory,
+        name=name,
+        process_spec=ocdbt_process_spec,
+        write_options=ocdbt_write_options,
+        temporary_metadata_context=ocdbt_temporary_metadata_context,
+    )
 
-      join_paths = [directory, f'{PROCESS_SUBDIR_PREFIX}{process_id}']
-      if replica_separate_folder:
-        # make sure the the sub dictory is ended with '_process_id'
-        join_paths = [
-            directory,
-            f'{PROCESS_SUBDIR_PREFIX}{REPLICA_SUBDIR_SUFFIX}{process_id}',
-        ]
-      directory = os.path.join(*join_paths)
-    # Base KVStore spec (nested within OCDBT KVStore spec).
-    if is_gcs_path:
-      base_driver_spec = _get_kvstore_for_gcs(directory)
-    else:
-      base_driver_spec = {'driver': default_driver, 'path': str(directory)}
-    # For OCDBT on local filesystems (including GCSFuse), we can safely use
-    # non-atomic writes for data files to avoid expensive renames. However,
-    # the manifest file still requires atomic writes to avoid corruption.
-    # We achieve this by splitting the spec into 'base' (for data files) and
-    # 'manifest'.
-    try:
-      resolved_base_spec = ts.KvStore.Spec(base_driver_spec).to_json()
-    except Exception:  # pylint: disable=broad-except
-      logging.warning(
-          'Failed to resolve base spec %r, falling back to default.',
-          base_driver_spec,
-          exc_info=True,
-      )
-      resolved_base_spec = base_driver_spec
-
-    if (
-        isinstance(resolved_base_spec, dict)
-        and resolved_base_spec.get('driver') == 'file'
-    ):
-      kv_spec = {
-          'driver': 'ocdbt',
-          'base': {
-              **resolved_base_spec,
-              'file_io_locking': {'mode': 'non_atomic'},
-          },
-          'manifest': base_driver_spec,
-      }
-    else:
-      kv_spec = {
-          'driver': 'ocdbt',
-          'base': base_driver_spec,
-      }
-
-    if name is not None:
-      kv_spec['path'] = name
-
-    kv_spec.update({  # pytype: disable=attribute-error
-        # References the cache specified in ts.Context.
-        'cache_pool': 'cache_pool#ocdbt',
-    })
-
-    if is_remote_storage(kv_spec):
-      kv_spec.update({  # pytype: disable=attribute-error
-          # Enable read coalescing.  This feature merges adjacent read_ops into
-          # one, which could reduce I/O ops by a factor of 10. This is
-          # especially beneficial for unstacked models.
-          'experimental_read_coalescing_threshold_bytes': 1000000,
-          'experimental_read_coalescing_merged_bytes': 500000000000,
-          'experimental_read_coalescing_interval': '1ms',
-      })
-  else:
-    if name is None:
-      path = directory
-    else:
-      path = os.path.join(directory, name)
-    if is_gcs_path:
-      kv_spec = _get_kvstore_for_gcs(path)
-    else:
-      kv_spec = {'driver': default_driver, 'path': path}
-
-  return kv_spec
-
-
-def build_kvstore_tspec_for_merge(
-    directory: str,
-    subdir: str,
-) -> JsonSpec:
-  """Constructs a spec for a Tensorstore KvStore."""
-
-  tokens = subdir.split('_')
-  process_id = tokens[-1]
-  is_replica_separate_folder = REPLICA_SUBDIR_SUFFIX in subdir
-  return build_kvstore_tspec(
-      directory,
-      use_ocdbt=True,
-      process_id=process_id,
-      replica_separate_folder=is_replica_separate_folder,
-  )
+  return _build_non_ocdbt_kvstore_tspec(directory=directory, name=name)
 
 
 def _get_backend_ocdbt_target_data_file_size(
@@ -317,11 +543,9 @@ def _get_backend_ocdbt_target_data_file_size(
   return _DEFAULT_OCDBT_TARGET_DATA_FILE_SIZE
 
 
-def add_ocdbt_write_options(
+def _add_ocdbt_write_options(
     kvstore_tspec: JsonSpec,
     target_data_file_size: int | None = None,
-    *,
-    store_ocdbt_metadata_and_values_separately: bool = False,
 ) -> None:
   """Adds write-specific options to a TensorStore OCDBT KVStore spec."""
   if target_data_file_size is None:
@@ -335,13 +559,6 @@ def add_ocdbt_write_options(
         f'; got {target_data_file_size}'
     )
   kvstore_tspec['target_data_file_size'] = target_data_file_size
-
-  if store_ocdbt_metadata_and_values_separately:
-    kvstore_tspec['value_data_prefix'] = _OCDBT_SPLIT_VALUE_DATA_PREFIX
-    kvstore_tspec['btree_node_data_prefix'] = _OCDBT_SPLIT_META_DATA_PREFIX
-    kvstore_tspec['version_tree_node_data_prefix'] = (
-        _OCDBT_SPLIT_META_DATA_PREFIX
-    )
 
   kvstore_tspec['config'] = {
       # Store .zarray metadata inline but not large chunks.
@@ -376,56 +593,77 @@ async def open_kv_store(
 ### Building Zarr array metadata.
 
 
-def build_zarr_shard_and_chunk_metadata(
+def _build_zarr2_metadata(
+    global_shape: Shape,
+    chunk_shape: Shape,
+    use_compression: bool,
+) -> JsonSpec:
+  """Constructs Zarr v2 metadata."""
+  # Use default level 1 straight from TensorStore.
+  compressor = {'id': 'zstd', 'level': 1} if use_compression else None
+  return {
+      'shape': global_shape,
+      'chunks': chunk_shape,
+      'compressor': compressor,  # pyrefly: ignore[bad-assignment]
+  }
+
+
+def _build_zarr3_metadata(
+    global_shape: Shape,
+    chunk_shape: Shape,
+    use_compression: bool,
+) -> JsonSpec:
+  """Constructs Zarr v3 metadata."""
+  codecs: list[JsonSpec] = [{
+      'name': 'sharding_indexed',
+      'configuration': {
+          'chunk_shape': chunk_shape,
+          'codecs': [
+              {'name': 'bytes', 'configuration': {'endian': 'little'}},
+          ],
+          'index_codecs': [
+              {'name': 'bytes', 'configuration': {'endian': 'little'}},
+              {'name': 'crc32c'},
+          ],
+          'index_location': 'end',
+      },
+  }]
+  if use_compression:
+    # Use default level 3 straight from TensorStore.
+    codecs[0]['configuration']['codecs'].append(
+        {'name': 'zstd', 'configuration': {'level': 3}}
+    )  # pyrefly: ignore[bad-index]
+
+  return {
+      'shape': global_shape,
+      'chunk_grid': {  # pyrefly: ignore[bad-assignment]
+          'name': 'regular',
+          'configuration': {'chunk_shape': chunk_shape},
+      },
+      'codecs': codecs,  # pyrefly: ignore[bad-assignment]
+  }
+
+
+def _build_zarr_shard_and_chunk_metadata(
     *,
     global_shape: Shape,
     shard_shape: Shape,
     use_compression: bool = True,
     use_zarr3: bool,
     chunk_shape: Shape,
-) -> JsonSpec:
+) -> tuple[JsonSpec, str, int | None]:
   """Constructs Zarr metadata for TensorStore array write spec."""
-  metadata = {'shape': global_shape}
-
-  if not use_zarr3:
-    # Zarr v2.
-    metadata['chunks'] = chunk_shape
-    if use_compression:
-      metadata['compressor'] = {'id': 'zstd'}  # pyrefly: ignore[bad-assignment]
-    else:
-      metadata['compressor'] = None  # pyrefly: ignore[bad-assignment]
+  # TODO: b/354139177 - Consider if using write shape equal to shard shape and
+  # read shape equal to chosen chunk shape would be a better setting.
+  del shard_shape  # Currently unused.
+  if use_zarr3:
+    metadata = _build_zarr3_metadata(global_shape, chunk_shape, use_compression)
+    level = 3 if use_compression else None
   else:
-    # Zarr v3.
-    metadata['chunk_grid'] = {  # pyrefly: ignore[bad-assignment]
-        'name': 'regular',
-        'configuration': {
-            'chunk_shape': chunk_shape,
-        },
-    }
-    # TODO: b/354139177 - Consider if using write shape equal to shard shape and
-    # read shape equal to chosen chunk shape would be a better setting.
-    del shard_shape  # Currently unused.
-    metadata['codecs'] = [  # pyrefly: ignore[bad-assignment]
-        {
-            'name': 'sharding_indexed',
-            'configuration': {
-                'chunk_shape': chunk_shape,
-                'codecs': [
-                    {'name': 'bytes', 'configuration': {'endian': 'little'}},
-                ],
-                'index_codecs': [
-                    {'name': 'bytes', 'configuration': {'endian': 'little'}},
-                    {'name': 'crc32c'},
-                ],
-                'index_location': 'end',
-            },
-        },
-    ]
-    if use_compression:
-      # Remove zstd codec if not using compression.
-      metadata['codecs'][0]['configuration']['codecs'].append({'name': 'zstd'})  # pyrefly: ignore[bad-index]
-
-  return metadata
+    metadata = _build_zarr2_metadata(global_shape, chunk_shape, use_compression)
+    level = 1 if use_compression else None
+  algo = 'zstd' if use_compression else 'none'
+  return metadata, algo, level
 
 
 def calculate_chunk_byte_size(
@@ -520,7 +758,6 @@ class ArrayReadSpec:
         directory,
         name=relative_array_filename,
         use_ocdbt=use_ocdbt,
-        process_id=None,
     )
 
     tspec = {
@@ -569,15 +806,31 @@ class ArrayWriteSpec:
       replica_separate_folder: bool = False,
       ext_metadata: ExtMetadata | None = None,
       store_ocdbt_metadata_and_values_separately: bool = False,
+      ocdbt_temporary_metadata_context: (
+          OcdbtTemporaryMetadataContext | None
+      ) = None,
   ):
     """Builds a TensorStore spec for writing an array."""
     # Construct the underlying KvStore spec.
+    ocdbt_process_spec = None
+    if process_id is not None:
+      ocdbt_process_spec = OcdbtProcessSpec(
+          process_id=str(process_id),
+          use_replica_suffix=replica_separate_folder,
+      )
     kvstore_tspec = build_kvstore_tspec(
         directory,
         name=relative_array_filename,
         use_ocdbt=use_ocdbt,
-        process_id=process_id,
-        replica_separate_folder=replica_separate_folder,
+        ocdbt_process_spec=ocdbt_process_spec,
+        ocdbt_write_options=OcdbtKvStoreWriteOptions(
+            mode=OcdbtWriteMode.WRITE,
+            target_data_file_size=ocdbt_target_data_file_size,
+            store_ocdbt_metadata_and_values_separately=(
+                store_ocdbt_metadata_and_values_separately
+            ),
+        ),
+        ocdbt_temporary_metadata_context=ocdbt_temporary_metadata_context,
     )
     # Construct the top-level array spec.
     tspec = {
@@ -594,13 +847,6 @@ class ArrayWriteSpec:
 
     # Choose target file and chunk byte sizes.
     if use_ocdbt:
-      add_ocdbt_write_options(
-          tspec['kvstore'],
-          ocdbt_target_data_file_size,
-          store_ocdbt_metadata_and_values_separately=(
-              store_ocdbt_metadata_and_values_separately
-          ),
-      )
       chunk_byte_size = calculate_chunk_byte_size(
           write_shape,
           target_storage_dtype,
@@ -626,7 +872,7 @@ class ArrayWriteSpec:
           chunk_shape,
       )
     # Construct Zarr chunk metadata.
-    tspec['metadata'] = build_zarr_shard_and_chunk_metadata(
+    tspec['metadata'], algo, level = _build_zarr_shard_and_chunk_metadata(
         global_shape=global_shape,
         shard_shape=write_shape,
         use_compression=use_compression,
@@ -644,6 +890,8 @@ class ArrayWriteSpec:
         use_ocdbt=use_ocdbt,
         use_zarr3=use_zarr3,
         ext_metadata=ext_metadata,
+        compression_algorithm=algo,
+        compression_level=level,
     )
     # Wrap spec into `cast` driver if needed, and keep it in a separate field.
     self._json_spec = _maybe_add_cast_to_write_spec(
@@ -738,34 +986,16 @@ def _get_json_tspec(
     info: types.ParamInfo,
     use_ocdbt: bool,
     *,
-    process_index: int | str | None = None,
     metadata_key: str | None = None,
     raise_array_data_missing_error: bool = True,
 ) -> dict[str, Any]:
   """Gets Tensorstore spec in JSON format."""
-  if info.name is None or info.parent_dir is None:
-    raise ValueError('Must provide info.name and info.parent_dir.')
-  parent_dir = info.parent_dir
-  assert parent_dir is not None
-  directory = parent_dir.as_posix()
-  kvstore_tspec = build_kvstore_tspec(
-      directory,
-      name=info.name,
+  return build_array_read_spec(
+      info,
       use_ocdbt=use_ocdbt,
-      process_id=process_index,
-  )
-
-  tspec = {
-      'driver': ZARR_VER3 if info.use_zarr3 else ZARR_VER2,
-      'kvstore': kvstore_tspec,
-      'recheck_cached_data': False,
-      'recheck_cached_metadata': False,
-      # Raise error if data is missing.
-      'fill_missing_data_reads': not raise_array_data_missing_error,
-  }
-  if metadata_key is not None:
-    tspec['metadata_key'] = metadata_key
-  return tspec
+      metadata_key=metadata_key,
+      raise_array_data_missing_error=raise_array_data_missing_error,
+  ).json
 
 
 # TODO: b/354139177 - Rename this to `build_array_tspec_read`.
@@ -777,12 +1007,12 @@ def get_json_tspec_read(
     raise_array_data_missing_error: bool = True,
 ) -> dict[str, Any]:
   """Gets Tensorstore spec for reading."""
-  return _get_json_tspec(
+  return build_array_read_spec(
       info,
       use_ocdbt=use_ocdbt,
       metadata_key=metadata_key,
       raise_array_data_missing_error=raise_array_data_missing_error,
-  )
+  ).json
 
 
 # TODO: b/354139177 - Replace usages of this with `build_array_tspec_write`
@@ -798,44 +1028,16 @@ def get_json_tspec_write(
     arg: types.SaveArgs | None = None,
 ) -> dict[str, Any]:
   """Gets Tensorstore spec for writing."""
-  tspec = _get_json_tspec(
+  return build_array_write_spec(
       info,
+      arg=arg,
+      global_shape=global_shape,
+      local_shape=local_shape,
+      dtype=dtype,
       use_ocdbt=use_ocdbt,
       process_index=process_index,
       metadata_key=metadata_key,
-  )
-
-  chunk_byte_size = arg.chunk_byte_size if arg else None
-  if use_ocdbt:
-    ocdbt_target_data_file_size = info.ocdbt_target_data_file_size
-    add_ocdbt_write_options(
-        tspec['kvstore'],
-        ocdbt_target_data_file_size,
-    )
-    chunk_byte_size = calculate_chunk_byte_size(
-        local_shape,
-        dtype,
-        chunk_byte_size=chunk_byte_size,
-        ocdbt_target_data_file_size=ocdbt_target_data_file_size,
-        kvstore_spec=tspec['kvstore'],
-    )
-
-  chunk_shape = subchunking.choose_chunk_shape(
-      global_shape,
-      local_shape,
-      dtype,
-      chunk_byte_size,
-  )
-
-  tspec['metadata'] = build_zarr_shard_and_chunk_metadata(
-      global_shape=global_shape,
-      shard_shape=local_shape,
-      use_compression=info.use_compression,  # pyrefly: ignore[bad-argument-type]
-      use_zarr3=info.use_zarr3,  # pyrefly: ignore[bad-argument-type]
-      chunk_shape=chunk_shape,
-  )
-
-  return tspec
+  ).json
 
 
 def build_array_read_spec(
@@ -953,27 +1155,50 @@ def array_metadata_from_tensorstore(
   )
 
 
-def get_total_bytes_from_tensorstore(
-    metrics: Sequence[dict[str, Any]], direction: types.IoDirection
+def get_tensorstore_raw_bytes(
+    direction: types.IoDirection = types.IoDirection.WRITE,
 ) -> int:
-  """Sums bytes_read or bytes_written from all kvstore drivers in metrics."""
-  total = 0
-  if direction == types.IoDirection.WRITE:
-    suffix = '/bytes_written'
-  elif direction == types.IoDirection.READ:
-    suffix = '/bytes_read'
-  else:
-    raise ValueError(f'Invalid direction: {direction}')
+  """Collects and returns total raw bytes read or written by TensorStore."""
+  suffix = (
+      '/bytes_written'
+      if direction == types.IoDirection.WRITE
+      else '/bytes_read'
+  )
+  # Querying `/tensorstore/kvstore/` returns only a few kvstore driver
+  # metrics (e.g. file, gcs, s3), making metric collection and
+  # extraction fast without scanning all TensorStore metrics.
+  metrics: Sequence[dict[str, Any]] = ts.experimental_collect_matching_metrics(
+      '/tensorstore/kvstore/'
+  )
 
+  # Sum the metric values for the given suffix.
+  total = 0
   for m in metrics:
     if not isinstance(m, dict):
       continue
     name = m.get('name', '')
-    if name.startswith('/tensorstore/kvstore/') and name.endswith(suffix):
+    if name.endswith(suffix):
       for val in m.get('values', []):
         if isinstance(val, dict):
           total += val.get('value', 0)
   return total
+
+
+def resolve_compression_settings(
+    metadatas: Sequence[ArrayMetadata],
+) -> tuple[str, str]:
+  """Extracts (algo, level) across array metadata."""
+  if not metadatas:
+    return ('none', 'None')
+  compression_settings = {
+      (m.compression_algorithm, m.compression_level) for m in metadatas
+  }
+  if len(compression_settings) == 1:
+    algo, level = next(iter(compression_settings))
+    return (str(algo), str(level))
+
+  # this should be rare.
+  return ('mixed', 'mixed')
 
 
 def print_ts_debug_data(key: str | None, infos: Sequence[types.ParamInfo]):

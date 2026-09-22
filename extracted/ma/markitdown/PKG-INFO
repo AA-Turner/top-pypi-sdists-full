@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: markitdown
-Version: 0.1.7
+Version: 0.1.8
 Summary: Utility tool for converting various files to Markdown
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -13,9 +13,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: beautifulsoup4
 Requires-Dist: charset-normalizer
 Requires-Dist: defusedxml
@@ -37,7 +38,7 @@ Requires-Dist: pydub; extra == 'all'
 Requires-Dist: python-pptx; extra == 'all'
 Requires-Dist: speechrecognition; extra == 'all'
 Requires-Dist: xlrd; extra == 'all'
-Requires-Dist: youtube-transcript-api~=1.0.0; extra == 'all'
+Requires-Dist: youtube-transcript-api~=1.2.3; extra == 'all'
 Provides-Extra: audio-transcription
 Requires-Dist: pydub; extra == 'audio-transcription'
 Requires-Dist: speechrecognition; extra == 'audio-transcription'
@@ -64,7 +65,7 @@ Provides-Extra: xlsx
 Requires-Dist: openpyxl; extra == 'xlsx'
 Requires-Dist: pandas; extra == 'xlsx'
 Provides-Extra: youtube-transcription
-Requires-Dist: youtube-transcript-api; extra == 'youtube-transcription'
+Requires-Dist: youtube-transcript-api~=1.2.3; extra == 'youtube-transcription'
 Description-Content-Type: text/markdown
 
 # MarkItDown
@@ -108,7 +109,7 @@ from markitdown import MarkItDown
 
 md = MarkItDown()
 result = md.convert("test.xlsx")
-print(result.text_content)
+print(result.markdown)
 ```
 
 ### More Information

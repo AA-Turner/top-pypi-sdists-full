@@ -1,5 +1,5 @@
 #
-# Copyright 2026 Alibaba Group Holding Ltd.
+# Copyright 2026 The OpenSandbox Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,11 +81,7 @@ class IsolatedFilesystemAdapterSync(FilesystemSync):
         base_url = f"{protocol}://{self.execd_endpoint.endpoint}"
         timeout_seconds = self.connection_config.request_timeout.total_seconds()
         timeout = httpx.Timeout(timeout_seconds)
-        headers = {
-            "User-Agent": self.connection_config.user_agent,
-            **self.connection_config.headers,
-            **self.execd_endpoint.headers,
-        }
+        headers = self.execd_endpoint.build_request_headers(self.connection_config)
 
         self._httpx_client = httpx.Client(
             base_url=base_url,

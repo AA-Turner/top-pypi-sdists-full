@@ -109,7 +109,7 @@ def cmd_search(argv):
                    help="rerank the top hits with Claude")
     p.add_argument("--category", default="",
                    help="only show entries whose category matches (case-insensitive)")
-    p.add_argument("--limit", type=util.positive_int, default=15,
+    p.add_argument("-k", "--limit", type=util.positive_int, default=15,
                    help="max results (default 15)")
     p.add_argument("--collapse-near-duplicates", action="store_true",
                    dest="collapse_dupes",
@@ -233,18 +233,25 @@ def cmd_search(argv):
     installed: set[str] = set()
     with contextlib.suppress(Exception):
         installed = set(store.installed())
-    top = max((s for _e, s in shown), default=0) or 1
+    # The meter reads across the whole shown page, so its fractions are one
+    # screen-wide decision rather than a per-row division — see
+    # out.relevance_fractions for why the top score alone cannot say it.
+    fracs = out.relevance_fractions([s for _e, s in shown])
     # One column plan for the whole screen (name, kind, tap, description with
     # a stated drop order), one assembler per row — both pure and unit-tested
     # in core.output, so this loop only feeds and prints.
-    lay = out.search_layout(out.term_width(),
+    # Against the *pane*: a pipe has none, and planning for `term_width()`'s
+    # assumed 80 dropped the TAP column (it needs 84), so `boost search x |
+    # grep owner/repo` found nothing the same search shows on a wide pane.
+    # No pane (None) plans nothing to fit — see `search_layout`.
+    lay = out.search_layout(out.pane_width(),
                             [e["name"] for e, _ in shown],
                             [str(e.get("kind") or "skill") for e, _ in shown],
                             [str(e.get("tap") or "") for e, _ in shown])
-    for e, sc in shown:
+    for (e, _sc), frac in zip(shown, fracs, strict=True):
         out.info(out.format_search_row(
             e["name"], e.get("description") or "",
-            str(e.get("kind") or "skill"), str(e.get("tap") or ""), sc / top,
+            str(e.get("kind") or "skill"), str(e.get("tap") or ""), frac,
             curated=bool(e.get("curated")),
             installed=e["name"] in installed, lay=lay))
     if hit_cap:
@@ -256,7 +263,12 @@ def cmd_search(argv):
     else:
         footer = ("%d match%s · ranked by %s"
                   % (len(scored), "" if len(scored) == 1 else "es", ranker))
-    out.info(out.role(footer, "muted"))
+    # Chrome, so fitted like the rows `search_layout` just fitted above it —
+    # the same wrap-then-colour as `_hint_semantic_search`. Emitted whole it
+    # measured 55 columns in a 40-column pane (the cap branch), and the
+    # pane-width gate only passed because its fixture returned one match.
+    for line in out.wrap(footer, max(out.term_width() - 2, 20)):
+        out.info(out.role(line, "muted"))
     if use_rag:
         _note_stem_expansions(query)
         _note_dropped_terms(dropped)
@@ -461,7 +473,7 @@ def _fetch_shards(args) -> int:
     why = shards.incompatible(manifest)
     if why:
         raise BoostError("published shards cannot serve this machine — %s" % why,
-                        hint=dense.fix_hint(dense.status().get("reason", "")))
+                        hint=shards.remedy(manifest))
     commits = rag._tap_commits()
     stored = dense.tap_commits()
     by_name = {t.name: commits.get(t.safe_name, "") for t in registry.list_taps()}
@@ -608,12 +620,28 @@ def cmd_reindex(argv):
                      wrap=True)
         else:
             failed = dense_stats.get("failed") or []
+            model_error = dense_stats.get("model_error")
+            if model_error:
+                # Before the per-tap line, and instead of its guess at a
+                # cause: "rate limit, quota" describes an API provider, and
+                # sent a local-model user looking for an account they lack.
+                # A load failure is not a network problem, so it is not told
+                # to find a better network.
+                tail = ("" if model_error.get("stage") == "load" else
+                        "; rerun `boost reindex --dense` on a network that "
+                        "reaches huggingface.co")
+                out.warn("%s — searches use BM25 until it works%s"
+                         % (embed.local_failure_text(model_error), tail),
+                         wrap=True)
             if failed:
-                out.warn("embedding failed for %d tap(s) — %d passages stored. "
+                cause = ("The local model could not be used"
+                         if model_error else
                          "The provider rejected those batches (rate limit, "
-                         "quota, or oversized input); their commits were not "
-                         "recorded, so a rerun retries them."
-                         % (len(failed), dense_stats["chunks"]))
+                         "quota, or oversized input)")
+                out.warn("embedding failed for %d tap(s) — %d passages stored. "
+                         "%s; their commits were not recorded, so a rerun "
+                         "retries them." % (len(failed), dense_stats["chunks"],
+                                            cause))
             elif not dense_stats["chunks"]:
                 # Reporting success with an empty store sent a real user chasing
                 # the wrong cause: a stale run can mark every tap "built", so the
@@ -717,11 +745,21 @@ def _reindex_dense(force, spinner=None):
     # free — they re-encode and re-key what is already on disk — so a user gets
     # the disk back without having to know either word.
     collapsed = dense.deduplicate()
+    # This command is the remedy `dense.fix_hint` names for a local model that
+    # could not be fetched, so it must actually try: searches hold a retry
+    # back for an hour after a failure, and a build whose taps are all reused
+    # embeds nothing and would otherwise never touch the model at all.
+    embed.retry_local()
     stats = dense.build(force=force, on_progress=_embed_progress(spinner))
     if migrated and isinstance(stats, dict):
         stats = stats | {"quantized": migrated["chunks"]}
     if collapsed and isinstance(stats, dict) and collapsed["freed"]:
         stats = stats | {"deduplicated": collapsed["freed"]}
+    # Read after the build, not from the retry: a first build on a machine
+    # that cannot fetch the model has nothing to retry and fails inside it.
+    failure = embed.local_failure() if embed.provider() == "local" else None
+    if failure and isinstance(stats, dict):
+        stats = stats | {"model_error": failure}
     return stats
 
 
@@ -947,7 +985,7 @@ def _discover_live(args, tokens):
                 + (" (%d)" % it["files"] if it.get("files", 1) > 1 else ""),
                 out.plain(it.get("path", "")),
                 out.role(out.plain(it.get("url", "")), "muted")) for it in rows],
-              headers=("repo", "path", "url"))
+              headers=("repo", "path", "url"), whole=("repo",))  # `boost tap`
     # "(N)" counts files in THIS page, not the repo's skills — say so, rather
     # than letting a capped sample read as a total.
     out.info(out.role("%d repo(s) across the top %d code-search hits · live "
@@ -1044,7 +1082,7 @@ def cmd_discover(argv):
                 + (" (%d)" % it["files"] if it.get("files", 1) > 1 else ""),
                 out.plain(it.get("path", "")),
                 out.role(out.plain(it.get("url", "")), "muted")) for it in repo_rows],
-              headers=("repo", "path", "url"))
+              headers=("repo", "path", "url"), whole=("repo",))  # `boost tap`
     # `github_total` is the match count for the query `boost index` was built
     # with, which since that command took a query is not "all of GitHub".
     scope = (" matching %r" % data["query"]) if data.get("query") else ""
@@ -1188,7 +1226,9 @@ def _browse_plain(entries, why: str):
         headers.append("")
         for row, e in zip(rows, unique, strict=True):
             row.append("★" if e.get("curated") else "")
-    out.table([tuple(row) for row in rows], headers=tuple(headers))
+    # name is what the footer's `boost install <name>` takes.
+    out.table([tuple(row) for row in rows], headers=tuple(headers),
+              whole=("name",))
     out.info(out.role(
         "%s · install with `boost install <name>` · narrow with `boost search <query>`"
         % browse.plain_footer(unique), "muted"))
@@ -1441,6 +1481,7 @@ def _browse_tui(curses, entries, install=None):
     loading: set = set()
     installed_names = set(store.installed())
     do_install = install or store.install
+    from .pkg import _skipped_agent_lines  # imported here: pkg is large
     # Collapse rows that say the same thing. A registry renders one skill into
     # .claude/, .cursor/, .gemini/ and a plugin root, so 37% of a real 60,047
     # entry catalogue is a duplicate of another row. Kept as (entry, copies) so
@@ -1511,7 +1552,12 @@ def _browse_tui(curses, entries, install=None):
                 else:
                     installed_names.add(nm)
                     done.append(item)
-                    status[nm] = (browse.OK, _tilde(getattr(res, "dest", "")))
+                    # An agent the install skipped rides on the message: the
+                    # pane is the only report an in-place install gets, and a
+                    # bare path there read as every agent reached.
+                    conflicts, refused = _skipped_agent_lines(res)
+                    status[nm] = (browse.OK, " · ".join(
+                        [_tilde(getattr(res, "dest", "")), *conflicts, *refused]))
 
         t = threading.Thread(target=worker, daemon=True)
         workers.append(t)
@@ -1978,6 +2024,14 @@ def cmd_browse(argv):
                      + ", ".join(agents.display_name(a) for a in res.linked))
         for conflict in res.conflicts:
             out.warn("conflict: %s exists and is not a symlink" % _tilde(conflict))
+        for adir in res.unwritable:
+            out.warn("not %s: %s is not writable — `chmod u+w %s`, then "
+                     "`boost sync`" % ("linked" if res.kind == "skill" else "written",
+                                       _tilde(adir), _tilde(adir)))
+        for adir, block in res.blocked:
+            out.warn("not %s: %s — %s, then `boost sync`"
+                     % ("linked" if res.kind == "skill" else "written",
+                        *store.link_refusal(adir, block)), wrap=True)
     return 0
 
 
@@ -2025,7 +2079,8 @@ def cmd_trending(argv):
         out.table([(e["name"], "v" + e["version"], e.get("kind", "skill"),
                     out.truncate(e["description"], descw))
                    for e in curated],
-                  headers=("name", "version", "kind", "description"))
+                  headers=("name", "version", "kind", "description"),
+                  whole=("name",))  # `boost install <name>`
         return 0
     agg: dict[str, Any] = {}
     for ev in evs:  # most-recent-first, so first ts per subject is the latest
@@ -2050,7 +2105,8 @@ def cmd_trending(argv):
                 by_name.get(name, {}).get("kind", "skill"),
                 out.truncate(by_name.get(name, {}).get("description", ""), descw))
                for name, rec in ranked[:args.limit]],
-              headers=("name", "installs", "last", "kind", "description"))
+              headers=("name", "installs", "last", "kind", "description"),
+              whole=("name",))  # `boost install <name>`
     out.info(out.role("based on local install activity", "muted"))
     return 0
 

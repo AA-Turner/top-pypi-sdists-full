@@ -44,6 +44,8 @@ __all__ = (
     "ExtractionModeType",
     "HarnessBedrockApiFormatType",
     "HarnessConversationRoleType",
+    "HarnessHookDecisionType",
+    "HarnessHookEventTypeType",
     "HarnessOpenAiApiFormatType",
     "HarnessStopReasonType",
     "HarnessToolTypeType",
@@ -142,10 +144,15 @@ ExtractionJobStatusType = Literal["FAILED"]
 ExtractionModeType = Literal["SKIP"]
 HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
 HarnessConversationRoleType = Literal["assistant", "user"]
+HarnessHookDecisionType = Literal["allow", "deny"]
+HarnessHookEventTypeType = Literal[
+    "after_invocation", "after_tool_call", "before_invocation", "before_tool_call"
+]
 HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
 HarnessStopReasonType = Literal[
     "content_filtered",
     "end_turn",
+    "hook_stopped",
     "interrupted",
     "malformed_model_output",
     "malformed_tool_use",

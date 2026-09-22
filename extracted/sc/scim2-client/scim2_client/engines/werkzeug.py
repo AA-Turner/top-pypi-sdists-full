@@ -4,6 +4,8 @@ from typing import TypeVar
 from urllib.parse import urlencode
 
 from scim2_models import AnyResource
+from scim2_models import BulkRequest
+from scim2_models import BulkResponse
 from scim2_models import Context
 from scim2_models import Error
 from scim2_models import ListResponse
@@ -45,8 +47,11 @@ class TestSCIMClient(BaseSyncSCIMClient):
         If :data:`None` a default client is initialized.
     :param scim_prefix: The scim root endpoint in the application.
     :param environ: Additional parameters that will be passed to every request.
-    :param resource_models: A tuple of :class:`~scim2_models.Resource` types expected to be handled by the SCIM client.
-        If a request payload describe a resource that is not in this list, an exception will be raised.
+    :param provider: The :class:`~scim2_models.ScimProvider` describing the server.
+        If a request payload describe a resource it does not know, an exception will be raised.
+        The :class:`~scim2_models.ScimPolicy` it carries rules how much the payloads
+        exchanged with the server may depart from the specification.
+    :param resource_models: Deprecated, pass a :paramref:`provider` instead.
     :param check_request_payload: If :data:`False`,
         :code:`resource` is expected to be a dict that will be passed as-is in the request.
         This value can be overwritten in methods.
@@ -147,12 +152,8 @@ class TestSCIMClient(BaseSyncSCIMClient):
         expected_status_codes: list[int]
         | None = BaseSyncSCIMClient.QUERY_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        search_request: ResponseParameters | dict | None = None,
         **kwargs,
     ) -> Resource | ListResponse[Resource] | Error | dict:
-        query_parameters = self._resolve_query_parameters(
-            query_parameters, search_request
-        )
         req = self._prepare_query_request(
             target=target,
             id=id,
@@ -213,6 +214,40 @@ class TestSCIMClient(BaseSyncSCIMClient):
                 check_response_payload=check_response_payload,
                 raise_scim_errors=raise_scim_errors,
                 scim_ctx=Context.RESOURCE_QUERY_RESPONSE,
+            )
+
+    def bulk(
+        self,
+        bulk_request: BulkRequest | dict | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int]
+        | None = BaseSyncSCIMClient.BULK_RESPONSE_STATUS_CODES,
+        raise_scim_errors: bool | None = None,
+        **kwargs,
+    ) -> BulkResponse | Error | dict:
+        req = self._prepare_bulk_request(
+            bulk_request=bulk_request,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+
+        environ = {**self.environ, **req.request_kwargs}
+        response = self.client.post(
+            self._make_url(req.url), json=req.payload, **environ
+        )
+
+        with handle_response_error(response):
+            return self.check_response(
+                payload=response.json if response.text else None,
+                status_code=response.status_code,
+                headers=response.headers,
+                expected_status_codes=req.expected_status_codes,
+                expected_types=req.expected_types,
+                check_response_payload=check_response_payload,
+                raise_scim_errors=raise_scim_errors,
+                scim_ctx=Context.BULK_RESPONSE,
             )
 
     def delete(

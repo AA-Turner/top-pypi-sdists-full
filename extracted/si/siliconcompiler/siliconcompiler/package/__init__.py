@@ -9,7 +9,6 @@ efficiently and safely in multi-process and multi-threaded environments.
 """
 import contextlib
 import functools
-import hashlib
 import importlib
 import json
 import logging
@@ -28,9 +27,7 @@ import os.path
 from typing import Optional, List, Dict, Tuple, Type, Union, TYPE_CHECKING
 
 from fasteners import InterProcessLock
-from importlib.metadata import distributions, distribution
 from pathlib import Path, PureWindowsPath
-from urllib import parse as url_parse
 
 from siliconcompiler.package.cache import PathCache, DataRootResolutionError, \
     PermanentResolutionError
@@ -39,6 +36,8 @@ from siliconcompiler.utils.paths import cwdirsafe, datarootdir
 from siliconcompiler.utils.multiprocessing import MPManager
 
 if TYPE_CHECKING:
+    from urllib import parse as url_parse
+
     from siliconcompiler.project import Project
     from siliconcompiler.schema_support.pathschema import PathSchema
     from siliconcompiler.schema import BaseSchema
@@ -169,6 +168,10 @@ class Resolver:
 
         Resolver.populate_resolvers()
 
+        # Imported here rather than at module scope: urllib.parse costs ~1.2 ms
+        # (it pulls ipaddress) and only URI-shaped sources reach it.
+        from urllib import parse as url_parse
+
         url = url_parse.urlparse(source)
         settings = MPManager().get_transient_settings()
         resolver = settings.get("resolvers", url.scheme, None)
@@ -286,8 +289,10 @@ class Resolver:
         return self.__reference
 
     @property
-    def urlparse(self) -> url_parse.ParseResult:
+    def urlparse(self) -> "url_parse.ParseResult":
         """The parsed URL of the source after environment variable expansion."""
+        from urllib import parse as url_parse
+
         return url_parse.urlparse(self.__resolve_env(self.source))
 
     @property
@@ -315,6 +320,11 @@ class Resolver:
     def cache_id(self) -> str:
         """A unique ID for this resolver instance, used for caching."""
         if self.__cacheid is None:
+            # Imported here rather than at module scope: hashlib pulls the
+            # _hashlib extension (~1 ms) and only cache-id and digest paths
+            # need it.
+            import hashlib
+
             hash_obj = hashlib.sha1()
             hash_obj.update(self.__source.encode())
             if self.__reference:
@@ -667,7 +677,15 @@ class RemoteResolver(Resolver):
                         self._make_writable(self.cache_path)
                     except OSError as e:
                         self.logger.warning(f"Could not make cache writable before cleanup: {e}")
-                    shutil.rmtree(self.cache_path)
+                    try:
+                        shutil.rmtree(self.cache_path)
+                    except FileNotFoundError:
+                        # git removes a failed clone's directory itself, so a
+                        # missing path is the normal case and must not be logged
+                        # over the failure that brought us here. Anything else
+                        # still reaches the handler below: a cache this could not
+                        # remove is one a later run may wrongly accept.
+                        pass
                 except BaseException as cleane:
                     self.logger.error(f"Exception occurred during cleanup: {cleane} "
                                       f"({cleane.__class__.__name__})")
@@ -858,6 +876,10 @@ class PythonPathResolver(Resolver):
         Returns:
             dict: A dictionary mapping module names to a list of distribution names.
         """
+        # Imported here rather than at module scope: importlib.metadata costs a
+        # couple of ms and only the python-module resolver needs it.
+        from importlib.metadata import distributions
+
         mapping = {}
 
         for dist in distributions():
@@ -897,6 +919,8 @@ class PythonPathResolver(Resolver):
         if module_name not in dist_map:
             return False
         dist_name = dist_map[module_name][0]
+
+        from importlib.metadata import distribution
 
         dist_obj = distribution(dist_name)
         if not dist_obj:

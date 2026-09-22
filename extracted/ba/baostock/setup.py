@@ -89,7 +89,7 @@ return::
 
 setup(
     name='baostock',
-    version='0.9.3',
+    version='0.9.4',
     description=(
         'A tool for obtaining historical data of China stock market'
     ),

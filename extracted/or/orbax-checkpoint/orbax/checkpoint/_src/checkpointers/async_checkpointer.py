@@ -105,7 +105,7 @@ def _background_wait_for_commit_futures(
       commit_duration_secs,
   )
   jax.monitoring.record_event_duration_secs(
-      '/jax/orbax/write/async/tensorstore_duration_secs',
+      '/jax/orbax/write/background_ts_duration_secs',
       commit_duration_secs,
   )
 
@@ -159,6 +159,10 @@ def _background_wait_for_commit_futures(
   thread_duration_secs = time.time() - thread_start_time
   jax.monitoring.record_event_duration_secs(
       '/jax/checkpoint/write/async/thread_duration_sec',
+      thread_duration_secs,
+  )
+  jax.monitoring.record_event_duration_secs(
+      '/jax/orbax/write/background_duration_secs',
       thread_duration_secs,
   )
   logging.info(
@@ -376,7 +380,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
       *,
       async_options: options_lib.AsyncOptions = options_lib.AsyncOptions(),
       multiprocessing_options: options_lib.MultiprocessingOptions = options_lib.MultiprocessingOptions(),
-      file_options: options_lib.FileOptions = options_lib.FileOptions(),
+      file_options: Optional[options_lib.FileOptions] = None,
       atomicity_options: Optional[options_lib.AtomicityOptions] = None,
       checkpoint_metadata_store: Optional[checkpoint.MetadataStore] = None,
       temporary_path_class: Optional[
@@ -408,7 +412,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
         else f'{multiprocessing_options.barrier_sync_key_prefix}'
     )
     self._barrier_sync_key_prefix = barrier_sync_key_prefix
-    self._file_options = file_options
+    self._file_options = file_options or options_lib.FileOptions()
     self._atomicity_options = atomicity_options
     self._metadata_store = (
         checkpoint_metadata_store
@@ -484,7 +488,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
           checkpoint_start_time,
       )
       jax.monitoring.record_event_duration_secs(
-          '/jax/orbax/write/async/finalize_duration_secs',
+          '/jax/orbax/write/background_finalize_secs',
           time.time() - finalize_start_time,
       )
       operation_recorder = event_tracking.OperationRecorder(
@@ -503,6 +507,33 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
 
     return _callback
 
+  async def _prepare_destination_async(
+      self, directory: epath.Path, *, force: bool
+  ) -> None:
+    """Removes existing destination if force=True, or checks for collisions."""
+    skip = self._file_options.skip_sync_file_validations
+
+    # 1. Force overwrite: only the primary host performs cleanup.
+    if force:
+      if not utils.is_primary_host(self._primary_host):
+        return
+      should_remove = skip or await async_path.exists(directory)
+      if should_remove:
+        logging.info(
+            '[process=%s] Specified `force`: removing existing directory.',
+            multihost.process_index(),
+        )
+        await async_path.rmtree(
+            directory,
+            missing_ok=skip,
+        )  # Post-sync handled by create_tmp_directory.
+      return
+
+    # 2. Collision validation: verify destination directory does not exist.
+    if not skip:
+      if await async_path.exists(directory):
+        raise ValueError(f'Destination {directory} already exists.')
+
   async def _save(
       self,
       tmpdir: atomicity_types.TemporaryPath,
@@ -511,18 +542,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
       **kwargs,
   ):
     directory = tmpdir.get_final()
-    if await async_path.exists(directory):
-      if force:
-        if utils.is_primary_host(self._primary_host):
-          logging.info(
-              '[process=%s] Specified `force`: removing existing directory.',
-              multihost.process_index(),
-          )
-          await async_path.rmtree(
-              directory
-          )  # Post-sync handled by create_tmp_directory.
-      else:
-        raise ValueError(f'Destination {directory} already exists.')
+    await self._prepare_destination_async(directory, force=force)
 
     commit_ops = []
     if self._create_directories_asynchronously:
@@ -605,7 +625,13 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
     )
     operation_recorder.record_start(start_time=checkpoint_start_time)
     tmpdir = self.get_temporary_path(directory)
+    wait_prev_start_time = time.perf_counter()
     self.wait_until_finished()
+    wait_prev_duration_secs = time.perf_counter() - wait_prev_start_time
+    jax.monitoring.record_event_duration_secs(
+        '/jax/orbax/write/blocking_wait_prev_duration_secs',
+        wait_prev_duration_secs,
+    )
     self.synchronize_next_awaitable_signal_operation_id()
     on_commit_callback = self._make_on_commit_callback(
         tmpdir, custom_metadata, checkpoint_start_time
@@ -619,8 +645,9 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
         )
     )
     blocking_end_time = time.time()
+    blocking_duration_secs = blocking_end_time - checkpoint_start_time
     operation_recorder.record_blocking_completion(
-        blocking_end_time - checkpoint_start_time,
+        blocking_duration_secs,
         end_time=blocking_end_time,
     )
     self._async_manager.start_async_commit(

@@ -24,8 +24,44 @@ class SaaSPricingPlan(PricingPlan):
     BILLING_FREQUENCY_QUARTERLY = "QUARTERLY"
 
     #: A constant which can be used with the billing_frequency property of a SaaSPricingPlan.
-    #: This constant has a value of "YEARLY"
-    BILLING_FREQUENCY_YEARLY = "YEARLY"
+    #: This constant has a value of "SEMI_ANNUAL"
+    BILLING_FREQUENCY_SEMI_ANNUAL = "SEMI_ANNUAL"
+
+    #: A constant which can be used with the billing_frequency property of a SaaSPricingPlan.
+    #: This constant has a value of "ANNUAL"
+    BILLING_FREQUENCY_ANNUAL = "ANNUAL"
+
+    #: A constant which can be used with the billing_frequency property of a SaaSPricingPlan.
+    #: This constant has a value of "BIENNIAL"
+    BILLING_FREQUENCY_BIENNIAL = "BIENNIAL"
+
+    #: A constant which can be used with the billing_frequency property of a SaaSPricingPlan.
+    #: This constant has a value of "TRIENNIAL"
+    BILLING_FREQUENCY_TRIENNIAL = "TRIENNIAL"
+
+    #: A constant which can be used with the plan_duration property of a SaaSPricingPlan.
+    #: This constant has a value of "MONTHLY"
+    PLAN_DURATION_MONTHLY = "MONTHLY"
+
+    #: A constant which can be used with the plan_duration property of a SaaSPricingPlan.
+    #: This constant has a value of "QUARTERLY"
+    PLAN_DURATION_QUARTERLY = "QUARTERLY"
+
+    #: A constant which can be used with the plan_duration property of a SaaSPricingPlan.
+    #: This constant has a value of "SEMI_ANNUAL"
+    PLAN_DURATION_SEMI_ANNUAL = "SEMI_ANNUAL"
+
+    #: A constant which can be used with the plan_duration property of a SaaSPricingPlan.
+    #: This constant has a value of "ANNUAL"
+    PLAN_DURATION_ANNUAL = "ANNUAL"
+
+    #: A constant which can be used with the plan_duration property of a SaaSPricingPlan.
+    #: This constant has a value of "BIENNIAL"
+    PLAN_DURATION_BIENNIAL = "BIENNIAL"
+
+    #: A constant which can be used with the plan_duration property of a SaaSPricingPlan.
+    #: This constant has a value of "TRIENNIAL"
+    PLAN_DURATION_TRIENNIAL = "TRIENNIAL"
 
     def __init__(self, **kwargs):
         """
@@ -35,13 +71,17 @@ class SaaSPricingPlan(PricingPlan):
 
         :param plan_type:
             The value to assign to the plan_type property of this SaaSPricingPlan.
-            Allowed values for this property are: "METERED", "FIXED", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "METERED", "FIXED", "USAGE_BASED", "HYBRID", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type plan_type: str
 
         :param rates:
             The value to assign to the rates property of this SaaSPricingPlan.
         :type rates: list[oci.marketplace_publisher.models.PricingRate]
+
+        :param pricing_plan_key:
+            The value to assign to the pricing_plan_key property of this SaaSPricingPlan.
+        :type pricing_plan_key: str
 
         :param name:
             The value to assign to the name property of this SaaSPricingPlan.
@@ -53,9 +93,15 @@ class SaaSPricingPlan(PricingPlan):
 
         :param billing_frequency:
             The value to assign to the billing_frequency property of this SaaSPricingPlan.
-            Allowed values for this property are: "MONTHLY", "QUARTERLY", "YEARLY", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "BIENNIAL", "TRIENNIAL", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type billing_frequency: str
+
+        :param plan_duration:
+            The value to assign to the plan_duration property of this SaaSPricingPlan.
+            Allowed values for this property are: "MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "BIENNIAL", "TRIENNIAL", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+        :type plan_duration: str
 
         :param extended_metadata:
             The value to assign to the extended_metadata property of this SaaSPricingPlan.
@@ -65,26 +111,56 @@ class SaaSPricingPlan(PricingPlan):
         self.swagger_types = {
             'plan_type': 'str',
             'rates': 'list[PricingRate]',
+            'pricing_plan_key': 'str',
             'name': 'str',
             'plan_description': 'str',
             'billing_frequency': 'str',
+            'plan_duration': 'str',
             'extended_metadata': 'dict(str, str)'
         }
         self.attribute_map = {
             'plan_type': 'planType',
             'rates': 'rates',
+            'pricing_plan_key': 'pricingPlanKey',
             'name': 'name',
             'plan_description': 'planDescription',
             'billing_frequency': 'billingFrequency',
+            'plan_duration': 'planDuration',
             'extended_metadata': 'extendedMetadata'
         }
         self._plan_type = None
         self._rates = None
+        self._pricing_plan_key = None
         self._name = None
         self._plan_description = None
         self._billing_frequency = None
+        self._plan_duration = None
         self._extended_metadata = None
         self._plan_type = 'FIXED'
+
+    @property
+    def pricing_plan_key(self):
+        """
+        Gets the pricing_plan_key of this SaaSPricingPlan.
+        Unique identifier of the pricing plan.
+
+
+        :return: The pricing_plan_key of this SaaSPricingPlan.
+        :rtype: str
+        """
+        return self._pricing_plan_key
+
+    @pricing_plan_key.setter
+    def pricing_plan_key(self, pricing_plan_key):
+        """
+        Sets the pricing_plan_key of this SaaSPricingPlan.
+        Unique identifier of the pricing plan.
+
+
+        :param pricing_plan_key: The pricing_plan_key of this SaaSPricingPlan.
+        :type: str
+        """
+        self._pricing_plan_key = pricing_plan_key
 
     @property
     def name(self):
@@ -140,7 +216,7 @@ class SaaSPricingPlan(PricingPlan):
         **[Required]** Gets the billing_frequency of this SaaSPricingPlan.
         The plan billing frequency.
 
-        Allowed values for this property are: "MONTHLY", "QUARTERLY", "YEARLY", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "BIENNIAL", "TRIENNIAL", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -159,10 +235,40 @@ class SaaSPricingPlan(PricingPlan):
         :param billing_frequency: The billing_frequency of this SaaSPricingPlan.
         :type: str
         """
-        allowed_values = ["MONTHLY", "QUARTERLY", "YEARLY"]
+        allowed_values = ["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "BIENNIAL", "TRIENNIAL"]
         if not value_allowed_none_or_none_sentinel(billing_frequency, allowed_values):
             billing_frequency = 'UNKNOWN_ENUM_VALUE'
         self._billing_frequency = billing_frequency
+
+    @property
+    def plan_duration(self):
+        """
+        Gets the plan_duration of this SaaSPricingPlan.
+        The plan duration.
+
+        Allowed values for this property are: "MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "BIENNIAL", "TRIENNIAL", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
+
+
+        :return: The plan_duration of this SaaSPricingPlan.
+        :rtype: str
+        """
+        return self._plan_duration
+
+    @plan_duration.setter
+    def plan_duration(self, plan_duration):
+        """
+        Sets the plan_duration of this SaaSPricingPlan.
+        The plan duration.
+
+
+        :param plan_duration: The plan_duration of this SaaSPricingPlan.
+        :type: str
+        """
+        allowed_values = ["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "BIENNIAL", "TRIENNIAL"]
+        if not value_allowed_none_or_none_sentinel(plan_duration, allowed_values):
+            plan_duration = 'UNKNOWN_ENUM_VALUE'
+        self._plan_duration = plan_duration
 
     @property
     def extended_metadata(self):

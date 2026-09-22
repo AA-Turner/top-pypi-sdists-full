@@ -11,13 +11,14 @@ import logging
 from dataclasses import dataclass, fields
 from pathlib import Path
 
+from . import __version__
 from .api_base import ConfluenceSession
-from .api_types import ConfluenceCommentStatus, ConfluenceContentProperty, ConfluenceLabel, ConfluencePage, ConfluenceStatus
+from .api_types import ConfluenceCommentStatus, ConfluenceContentProperty, ConfluenceContentState, ConfluenceLabel, ConfluencePage, ConfluenceStatus
 from .attachment import attachment_name
 from .coalesce import coalesce_json
 from .collection import ConfluenceUserCollection
 from .comment import MergeResult, merge_comments, remove_comments
-from .compatibility import override, path_relative_to
+from .compatibility import LiteralString, override, path_relative_to
 from .converter import ConfluenceDocument, apply_generated_by_template, get_orderless_elements, get_volatile_attributes, get_volatile_elements
 from .csf import ElementType, elements_from_string, elements_to_string
 from .environment import ArgumentError, PageError
@@ -102,9 +103,7 @@ class ParentCatalog:
         if not isinstance(known_parent_id, _MissingType):
             parent_id = known_parent_id
         else:
-            page = self._api.get_page_properties(page_id)
-            parent_id = page.parentId
-            position = page.position
+            parent_id, position = self._api.get_object_parent_position(page_id)
             self._child_to_parent[page_id] = parent_id
             if parent_id is not None and position is not None:
                 children = self._parent_to_children.setdefault(parent_id, {})
@@ -161,15 +160,28 @@ class DocumentHasher:
     Aggregates input that impact the Confluence Storage Format output that is synchronized.
     """
 
+    version: LiteralString
     options: AggregateOptions
     absolute_path: Path
 
-    def __init__(self, options: AggregateOptions, absolute_path: Path) -> None:
+    def __init__(self, version: LiteralString, options: AggregateOptions, absolute_path: Path) -> None:
+        """
+        Initializes a new document hasher instance.
+
+        :param version: Semantic version string of the library that is generating the hash.
+            Used to capture behavior changes across library versions.
+        :param options: User-configured options that impact the Confluence Storage Format output.
+        :param absolute_path: Absolute path to the Markdown source file.
+        """
+
+        self.version = version
         self.options = options
         self.absolute_path = absolute_path
 
     def digest(self) -> str:
         m = hashlib.md5()
+        m.update(self.version.encode("utf-8"))
+        m.update(b"\n")
         m.update(object_to_json_payload(self.options))
         m.update(b"\n")
         m.update(self.absolute_path.read_bytes())
@@ -352,6 +364,7 @@ class SynchronizingProcessor(Processor):
 
         # compute hash to help detect if document content or conversion options have changed
         source_digest = DocumentHasher(
+            __version__,
             AggregateOptions.create(path.relative_to(self.root_dir), self.options.converter, self.options.generated_by),
             path,
         ).digest()
@@ -369,6 +382,11 @@ class SynchronizingProcessor(Processor):
                 LOGGER.debug("Page with ID %s has last synchronized version of %d and hash of %s", page.id, source_tag.page_version, source_tag.source_digest)
             except Exception:
                 pass
+
+        # capture content state since updating the body or content properties clears it
+        content_state: ConfluenceContentState | None = None
+        if self.options.keep_state:
+            content_state = self.api.get_content_state(page.id)
 
         # keep existing Confluence title if cannot infer meaningful title from Markdown source
         if not title:  # empty or `None`
@@ -420,10 +438,16 @@ class SynchronizingProcessor(Processor):
         for attachment in self.api.get_attachments(page_id):
             attachments[attachment.title] = attachment.id
 
+        # attachment names synchronized in this pass; a document may reference the same image
+        # several times, and each reference must see the attachment ID the first one used
+        synchronized: set[str] = set()
+
         # update attachments with relative path
         base_path = path.parent
         for image_data in document.images:
             name = attachment_name(path_relative_to(image_data.path, base_path))
+            if name in synchronized:
+                continue
             self._synchronize_attachment(
                 page_id,
                 attachments.get(name),
@@ -431,10 +455,12 @@ class SynchronizingProcessor(Processor):
                 attachment_path=image_data.path,
                 comment=image_data.description,
             )
-            attachments.pop(name, None)
+            synchronized.add(name)
 
         # update attachments with embedded content
         for name, file_data in document.embedded_files.items():
+            if name in synchronized:
+                continue
             self._synchronize_attachment(
                 page_id,
                 attachments.get(name),
@@ -442,10 +468,12 @@ class SynchronizingProcessor(Processor):
                 raw_data=file_data.data,
                 comment=file_data.description,
             )
-            attachments.pop(name, None)
+            synchronized.add(name)
 
         # delete attachments no longer referenced
-        for attachment_id in attachments.values():
+        for name, attachment_id in attachments.items():
+            if name in synchronized:
+                continue
             self.api.delete_attachment(attachment_id)
 
         # synchronize page if page has any changes
@@ -466,6 +494,10 @@ class SynchronizingProcessor(Processor):
                 [ConfluenceLabel(name=label, prefix="global") for label in document.labels],
             )
 
+        if self.options.keep_state and content_state is not None:
+            # account for version increment triggered by setting content state to ensure next synchronization pass does not detect a change
+            version += 1
+
         # update content properties
         target_tag = ConfluenceMarkdownTag(version, source_digest)
         props = [ConfluenceContentProperty(CONTENT_PROPERTY_TAG, object_to_json(target_tag))]
@@ -476,6 +508,10 @@ class SynchronizingProcessor(Processor):
         else:
             if source_tag is None or source_tag != target_tag:
                 self.api.update_content_properties_for_page(page.id, props, keep_existing=True)
+
+        if self.options.keep_state and content_state is not None:
+            # re-apply content state last to avoid clearing it when updating the body or content properties
+            self.api.set_content_state(page.id, content_state)
 
     def _synchronize_attachment(
         self,

@@ -3,15 +3,18 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import typing as t
 from collections import Counter
 from copy import deepcopy
 from http import HTTPStatus
+from unittest import mock
 
 import pytest
 import requests
 from requests.adapters import BaseAdapter
 
+from meltano.core.hub.client import MeltanoHubService
 from meltano.core.plugin.base import PluginType
 from meltano.core.user_config import _reset_user_config_service
 
@@ -58,6 +61,16 @@ def pytest_runtest_setup(item) -> None:
     # both as SYSTEM and WAREHOUSE.
     if backend_marker and backend_marker.args[0] != PYTEST_BACKEND:
         pytest.skip()
+
+
+def pytest_configure(config: pytest.Config):
+    if sys.version_info < (3, 11):
+        config.addinivalue_line(
+            "filterwarnings",
+            r"ignore:You are using a Python version \(3\.10\.\d+\) which Google will "
+            "stop supporting in new releases of google.api_core once it reaches its "
+            "end of life:FutureWarning",
+        )
 
 
 @pytest.fixture(scope="session")
@@ -179,14 +192,20 @@ class MockAdapter(BaseAdapter):
         cert: t.Any | None = None,  # noqa: ARG002
         proxies: abc.Mapping[str, str] | None = None,  # noqa: ARG002
     ):
+        if "/meltano/api/v1/plugins" not in request.path_url:
+            response = requests.Response()
+            response.request = request
+            response.url = request.url
+            response.status_code = 404
+            response._content = b""
+            return response
         _, endpoint = request.path_url.split("/meltano/api/v1/plugins")
 
         response = requests.Response()
         response.request = request
         response.url = request.url
 
-        response_500 = self.RETURN_500.get(endpoint)
-        if response_500:
+        if response_500 := self.RETURN_500.get(endpoint):
             response.status_code = HTTPStatus.INTERNAL_SERVER_ERROR
             response.reason = "Internal Server Error"
             response._content = json.dumps(response_500).encode()
@@ -203,6 +222,49 @@ class MockAdapter(BaseAdapter):
         response.status_code = HTTPStatus.OK
         response._content = json.dumps(data).encode()
         return response
+
+
+@pytest.fixture(scope="session", autouse=True)
+def hub_index_cache_dir(tmp_path_factory):
+    """Keep the Hub index cache out of the cache directory of whoever runs this.
+
+    The Hub is mocked here, so a test that reaches it would otherwise leave a
+    mock response where a real `meltano hub list` would read it for an hour.
+    The scope is the session, because a fixture that adds a plugin resolves it
+    against the Hub before a narrower fixture could redirect the cache.
+    """
+    path = tmp_path_factory.mktemp("hub-index-cache")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("meltano.core.hub.client.index_cache_dir", lambda: path)
+        yield path
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_cloud_session() -> t.Iterator[None]:
+    """Keep the developer's own Meltano Cloud session out of the test suite.
+
+    `MeltanoHubService` reads the stored Cloud credentials to authenticate Hub
+    requests and to choose the Hub to read. On a machine that is logged in, a
+    test run would otherwise send a real access token, could renew it over the
+    network, and would read a Hub that the test double does not serve.
+
+    The scope is the session, because the `project` fixture builds a
+    `MeltanoHubService` for a whole class, before any function scoped fixture
+    of the first test in it has run.
+
+    This patches directly rather than through `monkeypatch`: an autouse fixture
+    that depends on `monkeypatch` changes teardown order for every test in the
+    suite, which breaks `TestAutoStoreManager::test_set`.
+
+    Yields:
+        None.
+    """
+    with mock.patch.object(
+        MeltanoHubService,
+        "_cloud_credentials",
+        staticmethod(lambda: None),
+    ):
+        yield
 
 
 @pytest.fixture(scope="class")

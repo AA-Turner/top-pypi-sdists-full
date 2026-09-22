@@ -403,6 +403,37 @@ fn is_single_glyph(raw: &[u8], font_info: Option<&FontWidthInfo>) -> bool {
     raw.len() == code_len
 }
 
+/// Most glyphs in a string that shows a dependent sign: the sign, or two
+/// stacked over one letter. A longer string without advance is hidden
+/// text, and reads as the glyphs it shows.
+const MAX_SIGN_GLYPHS: usize = 2;
+
+/// Whether `raw` shows a dependent sign: one or two glyphs (two bytes per
+/// code for CID fonts, and nothing left over), each with an advance the
+/// font's width table gives as zero in so many words. A code the table
+/// does not list — a sparse `/Widths` array, a CID falling back to the
+/// default width — is a glyph whose advance is unknown, not a sign, and a
+/// font without metrics vouches for no sign at all.
+pub(crate) fn is_dependent_sign(raw: &[u8], font_info: Option<&FontWidthInfo>) -> bool {
+    let Some(font_info) = font_info else {
+        return false;
+    };
+    let code_len = if font_info.is_cid { 2 } else { 1 };
+    if !(1..=MAX_SIGN_GLYPHS).contains(&(raw.len() / code_len))
+        || !raw.len().is_multiple_of(code_len)
+    {
+        return false;
+    }
+    raw.chunks_exact(code_len).all(|code| {
+        let code = match code {
+            [high, low] => u16::from_be_bytes([*high, *low]),
+            [only] => *only as u16,
+            _ => return false,
+        };
+        font_info.widths.get(&code) == Some(&0)
+    })
+}
+
 /// Lower median: the middle value, or the lower of the two middle values.
 fn lower_median(sorted: &[f32]) -> f32 {
     sorted[(sorted.len() - 1) / 2]
@@ -413,7 +444,14 @@ fn lower_median(sorted: &[f32]) -> f32 {
 /// spacing as the offset between strings. Judged one at a time against the
 /// word-gap threshold, such offsets make a word of every letter; the caller
 /// judges each offset over the tracking instead, so the letter gaps stay
-/// inside the word and only a gap wider by a word gap ends it.
+/// inside the word and only a gap wider by a word gap ends it. A dependent
+/// sign (see [`is_dependent_sign`]) bracketed by one offset on each side —
+/// its placement over the letter before it and the return (see
+/// [`PenHighWater`]) — is not a letter of the run: the two offsets net
+/// into that junction's one offset. A sign arranged any other way — two
+/// numbers before it, no number on one side, another sign beside it — is
+/// a string of the run like any other, and the rules below judge the
+/// numbers around it as they stand.
 ///
 /// The run's own offsets tell letter gaps from word gaps: the letter gaps
 /// cluster around one value and a word gap stands a space width above the
@@ -448,16 +486,22 @@ pub(crate) fn tj_tracking(
     space_threshold: f32,
     mut decode: impl FnMut(&Object) -> Option<(String, bool)>,
 ) -> Option<f32> {
-    // Junction gaps between consecutive glyph strings, positive when the
-    // offset widens the gap (a negative `TJ` number moves the pen on).
-    let mut gaps: Vec<f32> = Vec::new();
-    let mut strings: Vec<&Object> = Vec::new();
-    let mut pending = 0.0f32;
-    let mut numbers_since_string = 0usize;
+    /// An element of the array as the reader walks it: an offset, or a
+    /// string that shows something.
+    #[derive(Clone, Copy)]
+    enum Element<'a> {
+        Offset(f32),
+        /// A non-empty string, and whether it shows a dependent sign.
+        String {
+            object: &'a Object,
+            raw: &'a [u8],
+            sign: bool,
+        },
+    }
+    let mut elements: Vec<Element<'_>> = Vec::with_capacity(array.len());
     for element in array {
         if let Some(offset) = get_number(element) {
-            pending -= offset;
-            numbers_since_string += 1;
+            elements.push(Element::Offset(offset));
             continue;
         }
         let Some(raw) = get_operand_bytes(element) else {
@@ -466,6 +510,58 @@ pub(crate) fn tj_tracking(
         if raw.is_empty() {
             continue;
         }
+        elements.push(Element::String {
+            object: element,
+            raw,
+            sign: is_dependent_sign(raw, font_info),
+        });
+    }
+    // A dependent sign with exactly one offset before it since the string
+    // before, and exactly one after it before the string after — its
+    // placement and the return — folds into that junction: the two offsets
+    // net into one. Any other arrangement leaves the sign a string of the
+    // run, and its numbers where they are.
+    let is_letters = |element: Option<&Element<'_>>| {
+        matches!(element, None | Some(Element::String { sign: false, .. }))
+    };
+    let mut folded: Vec<Element<'_>> = Vec::with_capacity(elements.len());
+    let mut index = 0;
+    while index < elements.len() {
+        if let Element::String { sign: true, .. } = elements[index] {
+            if let (Some(Element::Offset(_)), Some(Element::Offset(on))) = (
+                index.checked_sub(1).map(|at| &elements[at]),
+                elements.get(index + 1),
+            ) {
+                if is_letters(index.checked_sub(2).map(|at| &elements[at]))
+                    && is_letters(elements.get(index + 2))
+                {
+                    if let Some(Element::Offset(back)) = folded.last_mut() {
+                        *back += on;
+                        index += 2;
+                        continue;
+                    }
+                }
+            }
+        }
+        folded.push(elements[index]);
+        index += 1;
+    }
+
+    // Junction gaps between consecutive glyph strings, positive when the
+    // offset widens the gap (a negative `TJ` number moves the pen on).
+    let mut gaps: Vec<f32> = Vec::new();
+    let mut strings: Vec<&Object> = Vec::new();
+    let mut pending = 0.0f32;
+    let mut numbers_since_string = 0usize;
+    for element in folded {
+        let (object, raw) = match element {
+            Element::Offset(offset) => {
+                pending -= offset;
+                numbers_since_string += 1;
+                continue;
+            }
+            Element::String { object, raw, .. } => (object, raw),
+        };
         if !is_single_glyph(raw, font_info) {
             return None;
         }
@@ -477,7 +573,7 @@ pub(crate) fn tj_tracking(
         }
         pending = 0.0;
         numbers_since_string = 0;
-        strings.push(element);
+        strings.push(object);
     }
     if gaps.len() < 2 || gaps.iter().any(|gap| *gap < 0.0) {
         return None;
@@ -548,6 +644,98 @@ pub(crate) fn tj_gap_thresholds(
             space_threshold * COLUMN_GAP_THRESHOLDS + tracking,
         ),
         None => (space_threshold, space_threshold * COLUMN_GAP_THRESHOLDS),
+    }
+}
+
+/// The pen's high-water mark within one `TJ` array, and the return from a
+/// dependent sign placed behind it.
+///
+/// A font whose dependent signs — vowel signs, subscript letters, accents —
+/// have zero advance leaves each sign's position to the producer, which
+/// shows it with a positive offset (backwards, over the glyph just shown)
+/// and brings the pen back with a negative one before the next glyph:
+/// `[<base> 223 <sign> -221 <base>] TJ`. Judged as pen travel, the return
+/// is a word gap, though the pen only comes back to where it had been and
+/// the two bases touch on the page. So a forward offset is judged for the
+/// part of its travel beyond the farthest the pen has been, and only while
+/// the pen has shown nothing but dependent signs (see
+/// [`is_dependent_sign`]: one or two glyphs the width table gives no
+/// advance) since it fell behind that mark. A producer that positions
+/// logical-order right-to-left text with real backtracks past painted
+/// letters keeps its word gaps as they are; so does every array without
+/// such signs, hidden text of many zero-advance glyphs among them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PenHighWater {
+    /// The farthest the pen has been, in unscaled text-space units from
+    /// the array's origin.
+    mark: f32,
+    /// Whether the pen is behind the mark.
+    behind: bool,
+    /// While behind: whether a dependent sign has been shown since the pen
+    /// fell behind.
+    signs_shown: bool,
+    /// While behind: whether a string that is no dependent sign has been
+    /// shown since the pen fell behind.
+    glyphs_shown: bool,
+}
+
+impl PenHighWater {
+    /// The state at the array's origin, where the pen starts.
+    pub(crate) fn new() -> Self {
+        Self {
+            mark: 0.0,
+            behind: false,
+            signs_shown: false,
+            glyphs_shown: false,
+        }
+    }
+
+    /// The offset to judge against the word-gap and sub-run thresholds for
+    /// a `TJ` number `offset`, in thousandths of the font size, that moves
+    /// the pen from `from` to `to`: the number itself, or — on a return
+    /// from a sign placed behind the mark, at a positive `font_size` — the
+    /// travel beyond the mark as thousandths, zero when there is none.
+    pub(crate) fn judge_offset(&mut self, offset: f32, from: f32, to: f32, font_size: f32) -> f32 {
+        let judged = if font_size > 0.0
+            && to > from
+            && self.behind
+            && self.signs_shown
+            && !self.glyphs_shown
+        {
+            -(to - self.mark).max(0.0) / font_size * 1000.0
+        } else {
+            offset
+        };
+        self.moved(to);
+        judged
+    }
+
+    /// A string was shown, leaving the pen at `to`; `is_sign` says whether
+    /// it is a dependent sign by the font's width table (see
+    /// [`is_dependent_sign`]) — by its glyphs, not by where the pen went,
+    /// which character and word spacing move for a sign as for a letter.
+    pub(crate) fn painted(&mut self, to: f32, is_sign: bool) {
+        if self.behind {
+            if is_sign {
+                self.signs_shown = true;
+            } else {
+                self.glyphs_shown = true;
+            }
+        }
+        self.moved(to);
+    }
+
+    fn moved(&mut self, to: f32) {
+        if to >= self.mark {
+            self.mark = to;
+            self.behind = false;
+            self.signs_shown = false;
+            self.glyphs_shown = false;
+        } else if !self.behind {
+            self.behind = true;
+            self.signs_shown = false;
+            self.glyphs_shown = false;
+        }
     }
 }
 
@@ -1054,5 +1242,193 @@ mod tests {
         assert_eq!(tj_gap_thresholds(120.0, None, false), (120.0, 480.0));
         assert_eq!(tj_gap_thresholds(120.0, Some(250.0), true), (370.0, 370.0));
         assert_eq!(tj_gap_thresholds(120.0, Some(250.0), false), (370.0, 730.0));
+    }
+
+    /// The 600-unit test font with `^` as a zero-advance sign and `~` a
+    /// code its width table leaves out.
+    fn font_with_sign() -> FontWidthInfo {
+        let mut font = font();
+        font.widths.insert(b'^' as u16, 0);
+        font.widths.remove(&(b'~' as u16));
+        font
+    }
+
+    #[test]
+    fn a_dependent_sign_is_one_or_two_glyphs_of_listed_zero_width() {
+        let simple = font_with_sign();
+        assert!(is_dependent_sign(b"^", Some(&simple)));
+        assert!(is_dependent_sign(b"^^", Some(&simple)));
+        // Three stacked signs are hidden text; a letter is a letter.
+        assert!(!is_dependent_sign(b"^^^", Some(&simple)));
+        assert!(!is_dependent_sign(b"A", Some(&simple)));
+        assert!(!is_dependent_sign(b"^A", Some(&simple)));
+        assert!(!is_dependent_sign(b"", Some(&simple)));
+        // A code the width table leaves out has no advance the table
+        // vouches for, whatever the width formula falls back to.
+        assert!(!is_dependent_sign(b"~", Some(&simple)));
+        assert!(!is_dependent_sign(b"^", None));
+
+        // Two-byte codes: a listed zero, the default width, a dangling byte.
+        let mut cid = font();
+        cid.is_cid = true;
+        cid.default_width = 0;
+        cid.widths.clear();
+        cid.widths.insert(2, 0);
+        cid.widths.insert(3, 344);
+        assert!(is_dependent_sign(&[0, 2], Some(&cid)));
+        assert!(is_dependent_sign(&[0, 2, 0, 2], Some(&cid)));
+        assert!(!is_dependent_sign(&[0, 3], Some(&cid)));
+        assert!(!is_dependent_sign(&[0, 9], Some(&cid)));
+        assert!(!is_dependent_sign(&[0, 2, 0], Some(&cid)));
+        assert!(!is_dependent_sign(&[0], Some(&cid)));
+    }
+
+    #[test]
+    fn a_zero_advance_sign_does_not_derail_tracking() {
+        // A sign placed over the `A` with an offset each way — 200 back,
+        // 450 on — is no letter of the run: the two net to the 250 letter
+        // gap around it. The return written as two numbers is still an
+        // offset written as several numbers; with an advance of its own
+        // the same glyph makes the junction a kern, and so does a code the
+        // width table leaves out.
+        let font = font_with_sign();
+        let threshold = word_gap_threshold(Some(&font));
+        let tracking_with_sign = |spec: &str| tj_tracking(&tj(spec), Some(&font), threshold, latin);
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) 200 (^) -450 (L) -250 (L) -250 (E) -250 (Y)"),
+            Some(250.0)
+        );
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) 223 (^) -471 (L) -250 (L) -250 (E) -250 (Y)"),
+            Some(250.0)
+        );
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) 200 (^) -400 -50 (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+        assert_eq!(
+            tracking("(V) -250 (A) 200 (^) -450 (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) 200 (~) -450 (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+    }
+
+    #[test]
+    fn a_sign_folds_only_when_one_offset_brackets_it_on_each_side() {
+        // Two numbers before the sign and none after: the junction before
+        // the sign is an offset written as several numbers, whatever the
+        // sign, and the run is not tracked. Nor is it with two numbers
+        // before the sign and one after.
+        let font = font_with_sign();
+        let threshold = word_gap_threshold(Some(&font));
+        let tracking_with_sign = |spec: &str| tj_tracking(&tj(spec), Some(&font), threshold, latin);
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) -100 -150 (^) (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) 100 100 (^) -100 (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+        // No offset before the sign: the sign is a string of the run as it
+        // always was, the junction after it one offset of -250 like the
+        // others — and the sign's glyph is no letter of a tracked title,
+        // so the run keeps the fixed thresholds as before.
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) (^) -250 (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+        assert_eq!(tracking_with_sign("(V) (^) -5 (A)"), None);
+        // Two signs in a row with numbers between them: neither folds.
+        assert_eq!(
+            tracking_with_sign("(V) -250 (A) 200 (^) 30 (^) -480 (L) -250 (L) -250 (E) -250 (Y)"),
+            None
+        );
+    }
+
+    /// `[<base> 223 <sign> -221 <base>] TJ` at 14 pt with a 958-unit base,
+    /// as the walkers feed it to the pen: the sign's placement, and the
+    /// return that ends 0.002 em short of where the pen had been.
+    #[test]
+    fn a_return_from_a_sign_behind_the_mark_is_no_offset() {
+        let mut pen = PenHighWater::new();
+        pen.painted(13.412, false);
+        assert_eq!(pen.judge_offset(223.0, 13.412, 10.29, 14.0), 223.0);
+        pen.painted(10.29, true);
+        assert_eq!(pen.judge_offset(-221.0, 10.29, 13.384, 14.0), 0.0);
+        // Past the mark again, the next offset is judged as written.
+        pen.painted(18.2, false);
+        assert_eq!(pen.judge_offset(-600.0, 18.2, 26.6, 14.0), -600.0);
+    }
+
+    #[test]
+    fn a_sign_is_a_sign_wherever_the_spacing_leaves_the_pen() {
+        // Under `0.5 Tc` the sign moves the pen by the spacing, as a letter
+        // would; it is a sign by its glyph, and the return that ends
+        // 0.472 pt past the mark is judged by that travel alone.
+        let mut pen = PenHighWater::new();
+        pen.painted(13.912, false);
+        assert_eq!(pen.judge_offset(223.0, 13.912, 10.79, 14.0), 223.0);
+        pen.painted(11.29, true);
+        let judged = pen.judge_offset(-221.0, 11.29, 14.384, 14.0);
+        assert!((judged + 33.7).abs() < 0.1, "{judged}");
+    }
+
+    #[test]
+    fn hidden_text_behind_the_mark_leaves_the_return_as_written() {
+        // Twenty zero-advance glyphs shown behind the mark are hidden text,
+        // not a sign: the return after them is judged as written.
+        let mut pen = PenHighWater::new();
+        pen.painted(4.816, false);
+        assert_eq!(pen.judge_offset(300.0, 4.816, 0.616, 14.0), 300.0);
+        pen.painted(0.616, false);
+        assert_eq!(pen.judge_offset(-300.0, 0.616, 4.816, 14.0), -300.0);
+    }
+
+    #[test]
+    fn a_return_past_the_mark_is_judged_by_its_travel_beyond_it() {
+        // 0.223 em back, 0.821 em on: 0.598 em beyond the mark.
+        let mut pen = PenHighWater::new();
+        pen.painted(13.412, false);
+        pen.judge_offset(223.0, 13.412, 10.29, 14.0);
+        pen.painted(10.29, true);
+        let judged = pen.judge_offset(-821.0, 10.29, 21.784, 14.0);
+        assert!((judged + 598.0).abs() < 0.5, "{judged}");
+    }
+
+    #[test]
+    fn a_backtrack_past_painted_letters_keeps_its_offsets() {
+        // Logical-order right-to-left positioning: four letters, a jump
+        // back past them, four more and a kern — every offset is judged as
+        // written, and a sign shown behind the mark after real letters
+        // changes nothing.
+        let mut pen = PenHighWater::new();
+        pen.painted(28.8, false);
+        assert_eq!(pen.judge_offset(6000.0, 28.8, -43.2, 12.0), 6000.0);
+        pen.painted(-14.4, false);
+        assert_eq!(pen.judge_offset(-300.0, -14.4, -10.8, 12.0), -300.0);
+        pen.painted(-10.8, true);
+        assert_eq!(pen.judge_offset(-300.0, -10.8, -7.2, 12.0), -300.0);
+    }
+
+    #[test]
+    fn offsets_with_no_sign_between_them_are_judged_as_written() {
+        let mut pen = PenHighWater::new();
+        pen.painted(7.2, false);
+        assert_eq!(pen.judge_offset(500.0, 7.2, 1.2, 12.0), 500.0);
+        assert_eq!(pen.judge_offset(-500.0, 1.2, 7.2, 12.0), -500.0);
+    }
+
+    #[test]
+    fn a_negative_font_size_keeps_its_offsets() {
+        // At `-12 Tf` the pen reads backwards; the offsets stand as written.
+        let mut pen = PenHighWater::new();
+        pen.painted(7.2, false);
+        assert_eq!(pen.judge_offset(300.0, 7.2, 10.8, -12.0), 300.0);
+        pen.painted(10.8, true);
+        assert_eq!(pen.judge_offset(-300.0, 10.8, 7.2, -12.0), -300.0);
     }
 }

@@ -64,6 +64,10 @@ class Report(object):
     DATA_SOURCE_SECURITY_ASSESSMENT = "SECURITY_ASSESSMENT"
 
     #: A constant which can be used with the data_source property of a Report.
+    #: This constant has a value of "CRYPTO_ASSESSMENT"
+    DATA_SOURCE_CRYPTO_ASSESSMENT = "CRYPTO_ASSESSMENT"
+
+    #: A constant which can be used with the data_source property of a Report.
     #: This constant has a value of "VIOLATIONS"
     DATA_SOURCE_VIOLATIONS = "VIOLATIONS"
 
@@ -128,7 +132,7 @@ class Report(object):
 
         :param data_source:
             The value to assign to the data_source property of this Report.
-            Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type data_source: str
 
@@ -504,7 +508,7 @@ class Report(object):
         Gets the data_source of this Report.
         Specifies the name of a resource that provides data for the report. For example alerts, events.
 
-        Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -523,7 +527,7 @@ class Report(object):
         :param data_source: The data_source of this Report.
         :type: str
         """
-        allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
+        allowed_values = ["EVENTS", "ALERTS", "SECURITY_ASSESSMENT", "CRYPTO_ASSESSMENT", "VIOLATIONS", "ALLOWED_SQL"]
         if not value_allowed_none_or_none_sentinel(data_source, allowed_values):
             data_source = 'UNKNOWN_ENUM_VALUE'
         self._data_source = data_source

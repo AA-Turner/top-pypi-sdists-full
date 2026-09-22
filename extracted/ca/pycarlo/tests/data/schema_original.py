@@ -7460,8 +7460,9 @@ class RemediationAction(sgqlc.types.Enum):
     up the fix. MONITOR_TUNING: a surface offers a monitor edit.
     ALERT_CLOSURE: a surface offers to close the alert with the plan's
     explanation attached. HUMAN_OWNER: the plan hands off to a human
-    owner. Key any behavior off this field rather than responseType,
-    so a new response type never silently changes what is offered.
+    owner. Key any behavior off recommendedActions rather than
+    responseTypes, so a new response type never silently changes what
+    is offered.
 
     Enumeration Choices:
 
@@ -12051,6 +12052,8 @@ class ClusteringConfigInput(sgqlc.types.Input):
     __field_names__ = (
         "discovery_model_id",
         "classify_model_id",
+        "embedding_model_id",
+        "embedding_input_char_cap",
         "max_clusters",
         "discovery_sample_size",
         "discovery_lookback_days",
@@ -12076,6 +12079,17 @@ class ClusteringConfigInput(sgqlc.types.Input):
     classify_model_id = sgqlc.types.Field(String, graphql_name="classifyModelId")
     """Bedrock model id for per-conversation classification (and
     discovery summaries).
+    """
+
+    embedding_model_id = sgqlc.types.Field(String, graphql_name="embeddingModelId")
+    """Warehouse embedding model producing 1024 dimensions. Defaults to
+    snowflake-arctic-embed-l-v2.0-8k for Cortex and databricks-gte-
+    large-en for Genie. Applies to platform intent spaces.
+    """
+
+    embedding_input_char_cap = sgqlc.types.Field(Int, graphql_name="embeddingInputCharCap")
+    """Maximum rendered conversation characters sent to the embedding
+    model. Choose a cap within the selected model's token window.
     """
 
     max_clusters = sgqlc.types.Field(Int, graphql_name="maxClusters")
@@ -18129,6 +18143,51 @@ class SetLinearWebhookSecretInput(sgqlc.types.Input):
     in Linear, after registering the URL from
     configureLinearIntegration).
     """
+
+
+class SimilarConversationFiltersInput(sgqlc.types.Input):
+    """Candidate filters applied before similarity ranking."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "has_errors",
+        "min_total_tokens",
+        "max_total_tokens",
+        "cluster_keys",
+        "clustering_space_uuid",
+        "eval_type",
+        "eval_monitor_uuid",
+        "min_eval_score",
+        "max_eval_score",
+    )
+    has_errors = sgqlc.types.Field(Boolean, graphql_name="hasErrors")
+    """True requires errors, false requires no errors, null allows either"""
+
+    min_total_tokens = sgqlc.types.Field(Int, graphql_name="minTotalTokens")
+    """Inclusive minimum total tokens"""
+
+    max_total_tokens = sgqlc.types.Field(Int, graphql_name="maxTotalTokens")
+    """Inclusive maximum total tokens"""
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
+    )
+    """Match any listed cluster; requires clusteringSpaceUuid"""
+
+    clustering_space_uuid = sgqlc.types.Field(UUID, graphql_name="clusteringSpaceUuid")
+    """Clustering space for clusterKeys"""
+
+    eval_type = sgqlc.types.Field(String, graphql_name="evalType")
+    """Evaluation dimension for score bounds"""
+
+    eval_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="evalMonitorUuid")
+    """Evaluation monitor for score bounds"""
+
+    min_eval_score = sgqlc.types.Field(Float, graphql_name="minEvalScore")
+    """Inclusive minimum latest evaluation score"""
+
+    max_eval_score = sgqlc.types.Field(Float, graphql_name="maxEvalScore")
+    """Inclusive maximum latest evaluation score"""
 
 
 class SimulateMonitorEvaluationRequestType(sgqlc.types.Input):
@@ -29329,6 +29388,8 @@ class ClusteringConfig(sgqlc.types.Type):
     __field_names__ = (
         "discovery_model_id",
         "classify_model_id",
+        "embedding_model_id",
+        "embedding_input_char_cap",
         "max_clusters",
         "discovery_sample_size",
         "discovery_lookback_days",
@@ -29358,6 +29419,19 @@ class ClusteringConfig(sgqlc.types.Type):
     )
     """Bedrock model id for per-conversation classification (and
     discovery summaries).
+    """
+
+    embedding_model_id = sgqlc.types.Field(String, graphql_name="embeddingModelId")
+    """Warehouse embedding model producing 1024 dimensions. Defaults to
+    snowflake-arctic-embed-l-v2.0-8k for Cortex and databricks-gte-
+    large-en for Genie. Applies to platform intent spaces.
+    """
+
+    embedding_input_char_cap = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="embeddingInputCharCap"
+    )
+    """Maximum rendered conversation characters sent to the embedding
+    model. Choose a cap within the selected model's token window.
     """
 
     max_clusters = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="maxClusters")
@@ -77969,6 +78043,7 @@ class Query(sgqlc.types.Type):
         "get_top_tools",
         "get_conversations_filters",
         "get_conversations_filters_data",
+        "get_similar_conversations",
         "get_conversations",
         "get_agent_segments",
         "get_conversation_thread",
@@ -80085,6 +80160,56 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetConversationsFiltersDataInput!`)None
+    """
+
+    get_similar_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("SimilarConversation"))),
+        graphql_name="getSimilarConversations",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "conversation_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="conversationId", default=None
+                    ),
+                ),
+                ("lookback_days", sgqlc.types.Arg(Int, graphql_name="lookbackDays", default=3)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=10)),
+                (
+                    "filters",
+                    sgqlc.types.Arg(
+                        SimilarConversationFiltersInput, graphql_name="filters", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Find similar conversations, nearest first. Returns
+    an empty list when the anchor has no embedding.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Cortex or Genie agent name
+    * `trace_table_mcon` (`String!`): Trace table or platform agent
+      MCON
+    * `conversation_id` (`String!`): Anchor conversation ID
+    * `lookback_days` (`Int`): Candidate lookback in days, from 1 to
+      30 (default: `3`)
+    * `first` (`Int`): Maximum results, from 1 to 100 (default: `10`)
+    * `filters` (`SimilarConversationFiltersInput`): Optional
+      candidate filters
     """
 
     get_conversations = sgqlc.types.Field(
@@ -104391,6 +104516,8 @@ class RemediationResult(sgqlc.types.Type):
         "tsa_run_id",
         "summary",
         "instructions",
+        "recommended_actions",
+        "response_types",
         "recommended_action",
         "response_type",
         "reference_uuid",
@@ -104436,17 +104563,42 @@ class RemediationResult(sgqlc.types.Type):
     COMPLETED.
     """
 
+    recommended_actions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RemediationAction))),
+        graphql_name="recommendedActions",
+    )
+    """Who should act on the plan next, primary first — one entry per
+    branch of the plan. Key any behavior off this field rather than
+    responseTypes, so a new response type never silently changes what
+    is offered. Usually one entry; when the analysis cannot settle the
+    cause there are several, and `instructions` then opens with a
+    Decide section saying how to pick between them, with one section
+    per entry here. An entry the schema does not recognize is omitted
+    rather than failing the query. Empty unless status is COMPLETED.
+    """
+
+    response_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="responseTypes",
+    )
+    """The kinds of response the plan carries, primary first, for display
+    only. Informational: use recommendedActions to decide what to
+    offer. Lower-snake-case, e.g. `fix_the_code`; new values can
+    appear without a schema change. Can be longer than
+    recommendedActions, since two response kinds can share one
+    executor. Empty unless status is COMPLETED.
+    """
+
     recommended_action = sgqlc.types.Field(RemediationAction, graphql_name="recommendedAction")
-    """Who should act on the plan next. Key any behavior off this field
-    rather than responseType, so a new response type never silently
-    changes what is offered. Available when status is COMPLETED.
+    """The primary destination, kept for callers that haven't migrated to
+    recommendedActions yet. Null when there is no primary destination,
+    or when the schema does not recognize it — never a different,
+    lower-priority destination.
     """
 
     response_type = sgqlc.types.Field(String, graphql_name="responseType")
-    """The kind of response the plan represents, for display only.
-    Informational: use recommendedAction to decide what to offer.
-    Lower-snake-case, e.g. `fix_the_code`; new values can appear
-    without a schema change. Available when status is COMPLETED.
+    """The primary response kind, kept for callers that haven't migrated
+    to responseTypes yet. Null when there is no primary response kind.
     """
 
     reference_uuid = sgqlc.types.Field(String, graphql_name="referenceUuid")
@@ -106942,6 +107094,20 @@ class SheetDashboardRef(sgqlc.types.Type):
     dashboard_id = sgqlc.types.Field(String, graphql_name="dashboardId")
 
     dashboard_title = sgqlc.types.Field(String, graphql_name="dashboardTitle")
+
+
+class SimilarConversation(sgqlc.types.Type):
+    """A conversation ranked by semantic similarity to an anchor
+    conversation.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("conversation_id", "distance")
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Matching conversation ID"""
+
+    distance = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="distance")
+    """Cosine distance from 0 to 2; smaller means more similar"""
 
 
 class SiteRef(sgqlc.types.Type):

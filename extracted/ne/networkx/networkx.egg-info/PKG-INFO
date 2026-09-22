@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: networkx
-Version: 3.6.1
+Version: 3.7
 Summary: Python package for creating and manipulating graphs and networks
 Author-email: Aric Hagberg <hagberg@lanl.gov>
 Maintainer-email: NetworkX Developers <networkx-discuss@googlegroups.com>
@@ -19,27 +19,28 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: !=3.14.1,>=3.11
+Requires-Python: !=3.14.1,>=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: benchmarking
-Requires-Dist: asv; extra == "benchmarking"
+Requires-Dist: asv>=0.6.5; extra == "benchmarking"
+Requires-Dist: py-rattler<0.22,>=0.21; extra == "benchmarking"
 Requires-Dist: virtualenv; extra == "benchmarking"
 Provides-Extra: default
-Requires-Dist: numpy>=1.25; extra == "default"
-Requires-Dist: scipy>=1.11.2; extra == "default"
-Requires-Dist: matplotlib>=3.8; extra == "default"
-Requires-Dist: pandas>=2.0; extra == "default"
+Requires-Dist: numpy>=2.2; extra == "default"
+Requires-Dist: scipy>=1.15; extra == "default"
+Requires-Dist: matplotlib>=3.10; extra == "default"
+Requires-Dist: pandas>=2.3; extra == "default"
 Provides-Extra: developer
 Requires-Dist: pre-commit>=4.1; extra == "developer"
 Requires-Dist: mypy>=1.15; extra == "developer"
@@ -59,11 +60,12 @@ Requires-Dist: contextily>=1.6; extra == "example"
 Requires-Dist: seaborn>=0.13; extra == "example"
 Requires-Dist: cairocffi>=1.7; extra == "example"
 Requires-Dist: igraph>=0.11; extra == "example"
-Requires-Dist: scikit-learn>=1.5; extra == "example"
+Requires-Dist: scikit-learn>=1.6; extra == "example"
 Requires-Dist: iplotx>=0.9.0; extra == "example"
+Requires-Dist: hiveplotlib>=0.28; extra == "example"
 Provides-Extra: extra
 Requires-Dist: lxml>=4.6; extra == "extra"
-Requires-Dist: pygraphviz>=1.14; extra == "extra"
+Requires-Dist: pygraphviz>=2.0; extra == "extra"
 Requires-Dist: pydot>=3.0.1; extra == "extra"
 Requires-Dist: sympy>=1.10; extra == "extra"
 Provides-Extra: release
@@ -99,10 +101,6 @@ NetworkX
 .. image::
     https://img.shields.io/pypi/pyversions/networkx.svg?
     :target: https://pypi.python.org/pypi/networkx
-
-.. image::
-    https://img.shields.io/github/labels/networkx/networkx/good%20first%20issue?color=green&label=contribute
-    :target: https://github.com/networkx/networkx/contribute
 
 .. image::
     https://insights.linuxfoundation.org/api/badge/health-score?project=networkx
@@ -171,7 +169,7 @@ License
 
 Released under the `3-clause BSD license <https://github.com/networkx/networkx/blob/main/LICENSE.txt>`_::
 
-    Copyright (c) 2004-2025, NetworkX Developers
+    Copyright (c) 2004-2026, NetworkX Developers
     Aric Hagberg <hagberg@lanl.gov>
     Dan Schult <dschult@colgate.edu>
     Pieter Swart <swart@lanl.gov>

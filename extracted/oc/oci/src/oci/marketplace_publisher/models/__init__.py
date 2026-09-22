@@ -8,11 +8,61 @@ from __future__ import absolute_import
 
 from .additional_filter import AdditionalFilter
 from .additional_info import AdditionalInfo
+from .admin_ai_agent_listing_revision import AdminAiAgentListingRevision
+from .admin_artifact import AdminArtifact
+from .admin_artifact_collection import AdminArtifactCollection
+from .admin_artifact_summary import AdminArtifactSummary
+from .admin_bill_to_countries import AdminBillToCountries
+from .admin_container_image_artifact import AdminContainerImageArtifact
+from .admin_container_package import AdminContainerPackage
+from .admin_customer_success_attachment import AdminCustomerSuccessAttachment
+from .admin_helm_chart_package import AdminHelmChartPackage
+from .admin_kubernetes_image_artifact import AdminKubernetesImageArtifact
+from .admin_lead_gen_listing_revision import AdminLeadGenListingRevision
+from .admin_listing import AdminListing
+from .admin_listing_product import AdminListingProduct
+from .admin_listing_revision import AdminListingRevision
+from .admin_listing_revision_attachment import AdminListingRevisionAttachment
+from .admin_listing_revision_attachment_collection import AdminListingRevisionAttachmentCollection
+from .admin_listing_revision_attachment_summary import AdminListingRevisionAttachmentSummary
+from .admin_listing_revision_collection import AdminListingRevisionCollection
+from .admin_listing_revision_package import AdminListingRevisionPackage
+from .admin_listing_revision_package_collection import AdminListingRevisionPackageCollection
+from .admin_listing_revision_package_summary import AdminListingRevisionPackageSummary
+from .admin_listing_revision_summary import AdminListingRevisionSummary
+from .admin_machine_image_artifact import AdminMachineImageArtifact
+from .admin_machine_image_package import AdminMachineImagePackage
+from .admin_market import AdminMarket
+from .admin_oci_listing_revision import AdminOciListingRevision
+from .admin_opn_partner_summary import AdminOpnPartnerSummary
+from .admin_publisher import AdminPublisher
+from .admin_publisher_sku import AdminPublisherSku
+from .admin_publisher_sku_collection import AdminPublisherSkuCollection
+from .admin_publisher_summary import AdminPublisherSummary
+from .admin_related_document_attachment import AdminRelatedDocumentAttachment
+from .admin_review_support_document_attachment import AdminReviewSupportDocumentAttachment
+from .admin_screen_shot_attachment import AdminScreenShotAttachment
+from .admin_service_listing_revision import AdminServiceListingRevision
+from .admin_sku_pricing_rate import AdminSkuPricingRate
+from .admin_stack_artifact import AdminStackArtifact
+from .admin_stack_package import AdminStackPackage
+from .admin_supported_service_attachment import AdminSupportedServiceAttachment
+from .admin_term import AdminTerm
+from .admin_term_collection import AdminTermCollection
+from .admin_term_summary import AdminTermSummary
+from .admin_term_version import AdminTermVersion
+from .admin_term_version_attachment import AdminTermVersionAttachment
+from .admin_term_version_collection import AdminTermVersionCollection
+from .admin_term_version_summary import AdminTermVersionSummary
+from .admin_video_attachment import AdminVideoAttachment
+from .admin_work_request_summary import AdminWorkRequestSummary
+from .admin_work_request_summary_collection import AdminWorkRequestSummaryCollection
 from .artifact import Artifact
 from .artifact_collection import ArtifactCollection
 from .artifact_summary import ArtifactSummary
 from .available_service_collection import AvailableServiceCollection
 from .available_service_summary import AvailableServiceSummary
+from .bill_to_country import BillToCountry
 from .category import Category
 from .category_collection import CategoryCollection
 from .category_summary import CategorySummary
@@ -22,6 +72,7 @@ from .change_term_compartment_details import ChangeTermCompartmentDetails
 from .container_image_artifact import ContainerImageArtifact
 from .container_image_details import ContainerImageDetails
 from .container_package import ContainerPackage
+from .create_admin_listing_revision_note_details import CreateAdminListingRevisionNoteDetails
 from .create_artifact_details import CreateArtifactDetails
 from .create_container_image_artifact_details import CreateContainerImageArtifactDetails
 from .create_container_image_details import CreateContainerImageDetails
@@ -36,7 +87,9 @@ from .create_listing_revision_note_details import CreateListingRevisionNoteDetai
 from .create_listing_revision_package_details import CreateListingRevisionPackageDetails
 from .create_machine_image_artifact_details import CreateMachineImageArtifactDetails
 from .create_machine_image_details import CreateMachineImageDetails
+from .create_market_details import CreateMarketDetails
 from .create_oci_listing_revision_details import CreateOciListingRevisionDetails
+from .create_publisher_details import CreatePublisherDetails
 from .create_related_document_attachment_details import CreateRelatedDocumentAttachmentDetails
 from .create_review_support_document_attachment import CreateReviewSupportDocumentAttachment
 from .create_screen_shot_attachment_details import CreateScreenShotAttachmentDetails
@@ -47,6 +100,9 @@ from .create_supported_service_attachment import CreateSupportedServiceAttachmen
 from .create_term_details import CreateTermDetails
 from .create_video_attachment_details import CreateVideoAttachmentDetails
 from .create_video_details import CreateVideoDetails
+from .customer_instance_report_export import CustomerInstanceReportExport
+from .customer_instance_report_export_collection import CustomerInstanceReportExportCollection
+from .customer_instance_report_export_summary import CustomerInstanceReportExportSummary
 from .customer_instance_report_record import CustomerInstanceReportRecord
 from .customer_instance_report_record_collection import CustomerInstanceReportRecordCollection
 from .customer_success_attachment import CustomerSuccessAttachment
@@ -54,9 +110,11 @@ from .disbursement_report_record import DisbursementReportRecord
 from .disbursement_report_record_collection import DisbursementReportRecordCollection
 from .download_info import DownloadInfo
 from .filter_property import FilterProperty
+from .generate_customer_instance_report_export_details import GenerateCustomerInstanceReportExportDetails
 from .geo_location import GeoLocation
 from .helm_chart_image_details import HelmChartImageDetails
 from .helm_chart_package import HelmChartPackage
+from .hybrid_pricing_plan import HybridPricingPlan
 from .image_memory_constraints import ImageMemoryConstraints
 from .image_ocpu_constraints import ImageOcpuConstraints
 from .image_shape_compatibility import ImageShapeCompatibility
@@ -76,6 +134,7 @@ from .listing_revision import ListingRevision
 from .listing_revision_attachment import ListingRevisionAttachment
 from .listing_revision_attachment_collection import ListingRevisionAttachmentCollection
 from .listing_revision_attachment_summary import ListingRevisionAttachmentSummary
+from .listing_revision_banner_attachment import ListingRevisionBannerAttachment
 from .listing_revision_collection import ListingRevisionCollection
 from .listing_revision_icon_attachment import ListingRevisionIconAttachment
 from .listing_revision_note import ListingRevisionNote
@@ -97,6 +156,7 @@ from .metered_pricing_plan import MeteredPricingPlan
 from .named_link import NamedLink
 from .oci_listing_revision import OciListingRevision
 from .opn_membership import OpnMembership
+from .partner_portal_options import PartnerPortalOptions
 from .pricing_plan import PricingPlan
 from .pricing_rate import PricingRate
 from .private_offer_account_details import PrivateOfferAccountDetails
@@ -135,6 +195,7 @@ from .term_version_attachment import TermVersionAttachment
 from .term_version_collection import TermVersionCollection
 from .term_version_summary import TermVersionSummary
 from .trained_professionals import TrainedProfessionals
+from .update_admin_artifact_status_details import UpdateAdminArtifactStatusDetails
 from .update_artifact_details import UpdateArtifactDetails
 from .update_container_image_artifact_details import UpdateContainerImageArtifactDetails
 from .update_container_image_details import UpdateContainerImageDetails
@@ -161,6 +222,8 @@ from .update_term_details import UpdateTermDetails
 from .update_term_version_details import UpdateTermVersionDetails
 from .update_video_attachment_details import UpdateVideoAttachmentDetails
 from .upload_data import UploadData
+from .usage_based_pricing_plan import UsageBasedPricingPlan
+from .usage_dimension import UsageDimension
 from .version_details import VersionDetails
 from .video_attachment import VideoAttachment
 from .work_request import WorkRequest
@@ -176,11 +239,61 @@ from .work_request_summary_collection import WorkRequestSummaryCollection
 marketplace_publisher_type_mapping = {
     "AdditionalFilter": AdditionalFilter,
     "AdditionalInfo": AdditionalInfo,
+    "AdminAiAgentListingRevision": AdminAiAgentListingRevision,
+    "AdminArtifact": AdminArtifact,
+    "AdminArtifactCollection": AdminArtifactCollection,
+    "AdminArtifactSummary": AdminArtifactSummary,
+    "AdminBillToCountries": AdminBillToCountries,
+    "AdminContainerImageArtifact": AdminContainerImageArtifact,
+    "AdminContainerPackage": AdminContainerPackage,
+    "AdminCustomerSuccessAttachment": AdminCustomerSuccessAttachment,
+    "AdminHelmChartPackage": AdminHelmChartPackage,
+    "AdminKubernetesImageArtifact": AdminKubernetesImageArtifact,
+    "AdminLeadGenListingRevision": AdminLeadGenListingRevision,
+    "AdminListing": AdminListing,
+    "AdminListingProduct": AdminListingProduct,
+    "AdminListingRevision": AdminListingRevision,
+    "AdminListingRevisionAttachment": AdminListingRevisionAttachment,
+    "AdminListingRevisionAttachmentCollection": AdminListingRevisionAttachmentCollection,
+    "AdminListingRevisionAttachmentSummary": AdminListingRevisionAttachmentSummary,
+    "AdminListingRevisionCollection": AdminListingRevisionCollection,
+    "AdminListingRevisionPackage": AdminListingRevisionPackage,
+    "AdminListingRevisionPackageCollection": AdminListingRevisionPackageCollection,
+    "AdminListingRevisionPackageSummary": AdminListingRevisionPackageSummary,
+    "AdminListingRevisionSummary": AdminListingRevisionSummary,
+    "AdminMachineImageArtifact": AdminMachineImageArtifact,
+    "AdminMachineImagePackage": AdminMachineImagePackage,
+    "AdminMarket": AdminMarket,
+    "AdminOciListingRevision": AdminOciListingRevision,
+    "AdminOpnPartnerSummary": AdminOpnPartnerSummary,
+    "AdminPublisher": AdminPublisher,
+    "AdminPublisherSku": AdminPublisherSku,
+    "AdminPublisherSkuCollection": AdminPublisherSkuCollection,
+    "AdminPublisherSummary": AdminPublisherSummary,
+    "AdminRelatedDocumentAttachment": AdminRelatedDocumentAttachment,
+    "AdminReviewSupportDocumentAttachment": AdminReviewSupportDocumentAttachment,
+    "AdminScreenShotAttachment": AdminScreenShotAttachment,
+    "AdminServiceListingRevision": AdminServiceListingRevision,
+    "AdminSkuPricingRate": AdminSkuPricingRate,
+    "AdminStackArtifact": AdminStackArtifact,
+    "AdminStackPackage": AdminStackPackage,
+    "AdminSupportedServiceAttachment": AdminSupportedServiceAttachment,
+    "AdminTerm": AdminTerm,
+    "AdminTermCollection": AdminTermCollection,
+    "AdminTermSummary": AdminTermSummary,
+    "AdminTermVersion": AdminTermVersion,
+    "AdminTermVersionAttachment": AdminTermVersionAttachment,
+    "AdminTermVersionCollection": AdminTermVersionCollection,
+    "AdminTermVersionSummary": AdminTermVersionSummary,
+    "AdminVideoAttachment": AdminVideoAttachment,
+    "AdminWorkRequestSummary": AdminWorkRequestSummary,
+    "AdminWorkRequestSummaryCollection": AdminWorkRequestSummaryCollection,
     "Artifact": Artifact,
     "ArtifactCollection": ArtifactCollection,
     "ArtifactSummary": ArtifactSummary,
     "AvailableServiceCollection": AvailableServiceCollection,
     "AvailableServiceSummary": AvailableServiceSummary,
+    "BillToCountry": BillToCountry,
     "Category": Category,
     "CategoryCollection": CategoryCollection,
     "CategorySummary": CategorySummary,
@@ -190,6 +303,7 @@ marketplace_publisher_type_mapping = {
     "ContainerImageArtifact": ContainerImageArtifact,
     "ContainerImageDetails": ContainerImageDetails,
     "ContainerPackage": ContainerPackage,
+    "CreateAdminListingRevisionNoteDetails": CreateAdminListingRevisionNoteDetails,
     "CreateArtifactDetails": CreateArtifactDetails,
     "CreateContainerImageArtifactDetails": CreateContainerImageArtifactDetails,
     "CreateContainerImageDetails": CreateContainerImageDetails,
@@ -204,7 +318,9 @@ marketplace_publisher_type_mapping = {
     "CreateListingRevisionPackageDetails": CreateListingRevisionPackageDetails,
     "CreateMachineImageArtifactDetails": CreateMachineImageArtifactDetails,
     "CreateMachineImageDetails": CreateMachineImageDetails,
+    "CreateMarketDetails": CreateMarketDetails,
     "CreateOciListingRevisionDetails": CreateOciListingRevisionDetails,
+    "CreatePublisherDetails": CreatePublisherDetails,
     "CreateRelatedDocumentAttachmentDetails": CreateRelatedDocumentAttachmentDetails,
     "CreateReviewSupportDocumentAttachment": CreateReviewSupportDocumentAttachment,
     "CreateScreenShotAttachmentDetails": CreateScreenShotAttachmentDetails,
@@ -215,6 +331,9 @@ marketplace_publisher_type_mapping = {
     "CreateTermDetails": CreateTermDetails,
     "CreateVideoAttachmentDetails": CreateVideoAttachmentDetails,
     "CreateVideoDetails": CreateVideoDetails,
+    "CustomerInstanceReportExport": CustomerInstanceReportExport,
+    "CustomerInstanceReportExportCollection": CustomerInstanceReportExportCollection,
+    "CustomerInstanceReportExportSummary": CustomerInstanceReportExportSummary,
     "CustomerInstanceReportRecord": CustomerInstanceReportRecord,
     "CustomerInstanceReportRecordCollection": CustomerInstanceReportRecordCollection,
     "CustomerSuccessAttachment": CustomerSuccessAttachment,
@@ -222,9 +341,11 @@ marketplace_publisher_type_mapping = {
     "DisbursementReportRecordCollection": DisbursementReportRecordCollection,
     "DownloadInfo": DownloadInfo,
     "FilterProperty": FilterProperty,
+    "GenerateCustomerInstanceReportExportDetails": GenerateCustomerInstanceReportExportDetails,
     "GeoLocation": GeoLocation,
     "HelmChartImageDetails": HelmChartImageDetails,
     "HelmChartPackage": HelmChartPackage,
+    "HybridPricingPlan": HybridPricingPlan,
     "ImageMemoryConstraints": ImageMemoryConstraints,
     "ImageOcpuConstraints": ImageOcpuConstraints,
     "ImageShapeCompatibility": ImageShapeCompatibility,
@@ -244,6 +365,7 @@ marketplace_publisher_type_mapping = {
     "ListingRevisionAttachment": ListingRevisionAttachment,
     "ListingRevisionAttachmentCollection": ListingRevisionAttachmentCollection,
     "ListingRevisionAttachmentSummary": ListingRevisionAttachmentSummary,
+    "ListingRevisionBannerAttachment": ListingRevisionBannerAttachment,
     "ListingRevisionCollection": ListingRevisionCollection,
     "ListingRevisionIconAttachment": ListingRevisionIconAttachment,
     "ListingRevisionNote": ListingRevisionNote,
@@ -265,6 +387,7 @@ marketplace_publisher_type_mapping = {
     "NamedLink": NamedLink,
     "OciListingRevision": OciListingRevision,
     "OpnMembership": OpnMembership,
+    "PartnerPortalOptions": PartnerPortalOptions,
     "PricingPlan": PricingPlan,
     "PricingRate": PricingRate,
     "PrivateOfferAccountDetails": PrivateOfferAccountDetails,
@@ -303,6 +426,7 @@ marketplace_publisher_type_mapping = {
     "TermVersionCollection": TermVersionCollection,
     "TermVersionSummary": TermVersionSummary,
     "TrainedProfessionals": TrainedProfessionals,
+    "UpdateAdminArtifactStatusDetails": UpdateAdminArtifactStatusDetails,
     "UpdateArtifactDetails": UpdateArtifactDetails,
     "UpdateContainerImageArtifactDetails": UpdateContainerImageArtifactDetails,
     "UpdateContainerImageDetails": UpdateContainerImageDetails,
@@ -329,6 +453,8 @@ marketplace_publisher_type_mapping = {
     "UpdateTermVersionDetails": UpdateTermVersionDetails,
     "UpdateVideoAttachmentDetails": UpdateVideoAttachmentDetails,
     "UploadData": UploadData,
+    "UsageBasedPricingPlan": UsageBasedPricingPlan,
+    "UsageDimension": UsageDimension,
     "VersionDetails": VersionDetails,
     "VideoAttachment": VideoAttachment,
     "WorkRequest": WorkRequest,

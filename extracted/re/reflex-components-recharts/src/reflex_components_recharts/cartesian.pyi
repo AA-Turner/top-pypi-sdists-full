@@ -98,6 +98,7 @@ class Axis(Recharts):
         tick_count: Var[int] | int | None = None,
         tick_line: Var[bool] | bool | None = None,
         tick_size: Var[int] | int | None = None,
+        tick_formatter: Var[str] | str | None = None,
         min_tick_gap: Var[int] | int | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         text_anchor: Literal["end", "middle", "start"]
@@ -131,7 +132,10 @@ class Axis(Recharts):
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> Axis:
-        """Create the component.
+        """Create an Axis component.
+
+        A ``tick_formatter`` string is emitted as a JS function expression
+        rather than a quoted string.
 
         Args:
             *children: The children of the component.
@@ -157,6 +161,7 @@ class Axis(Recharts):
             tick_count: The count of axis ticks. Not used if 'type' is 'category'. Default: 5
             tick_line: If set false, no axis tick lines will be drawn. Default: True
             tick_size: The length of tick line. Default: 6
+            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)".
             min_tick_gap: The minimum gap between two adjacent labels. Default: 5
             stroke: The stroke color of axis. Default: rx.color("gray", 9)
             text_anchor: The text anchor of axis. Default: "middle"
@@ -182,10 +187,10 @@ class Axis(Recharts):
             on_scroll_end: Fired when scrolling ends on the element.
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
-            **props: The props of the component.
+            **props: The properties of the component.
 
         Returns:
-            The component.
+            The Axis component.
         """
 
 class XAxis(Axis):
@@ -280,6 +285,7 @@ class XAxis(Axis):
         tick_count: Var[int] | int | None = None,
         tick_line: Var[bool] | bool | None = None,
         tick_size: Var[int] | int | None = None,
+        tick_formatter: Var[str] | str | None = None,
         min_tick_gap: Var[int] | int | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         text_anchor: Literal["end", "middle", "start"]
@@ -313,7 +319,10 @@ class XAxis(Axis):
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> XAxis:
-        """Create the component.
+        """Create an Axis component.
+
+        A ``tick_formatter`` string is emitted as a JS function expression
+        rather than a quoted string.
 
         Args:
             *children: The children of the component.
@@ -344,6 +353,7 @@ class XAxis(Axis):
             tick_count: The count of axis ticks. Not used if 'type' is 'category'. Default: 5
             tick_line: If set false, no axis tick lines will be drawn. Default: True
             tick_size: The length of tick line. Default: 6
+            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)".
             min_tick_gap: The minimum gap between two adjacent labels. Default: 5
             stroke: The stroke color of axis. Default: rx.color("gray", 9)
             text_anchor: The text anchor of axis. Default: "middle"
@@ -369,10 +379,10 @@ class XAxis(Axis):
             on_scroll_end: Fired when scrolling ends on the element.
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
-            **props: The props of the component.
+            **props: The properties of the component.
 
         Returns:
-            The component.
+            The Axis component.
         """
 
 class YAxis(Axis):
@@ -465,6 +475,7 @@ class YAxis(Axis):
         tick_count: Var[int] | int | None = None,
         tick_line: Var[bool] | bool | None = None,
         tick_size: Var[int] | int | None = None,
+        tick_formatter: Var[str] | str | None = None,
         min_tick_gap: Var[int] | int | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         text_anchor: Literal["end", "middle", "start"]
@@ -498,7 +509,10 @@ class YAxis(Axis):
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> YAxis:
-        """Create the component.
+        """Create an Axis component.
+
+        A ``tick_formatter`` string is emitted as a JS function expression
+        rather than a quoted string.
 
         Args:
             *children: The children of the component.
@@ -527,6 +541,7 @@ class YAxis(Axis):
             tick_count: The count of axis ticks. Not used if 'type' is 'category'. Default: 5
             tick_line: If set false, no axis tick lines will be drawn. Default: True
             tick_size: The length of tick line. Default: 6
+            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)".
             min_tick_gap: The minimum gap between two adjacent labels. Default: 5
             stroke: The stroke color of axis. Default: rx.color("gray", 9)
             text_anchor: The text anchor of axis. Default: "middle"
@@ -552,10 +567,10 @@ class YAxis(Axis):
             on_scroll_end: Fired when scrolling ends on the element.
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
-            **props: The props of the component.
+            **props: The properties of the component.
 
         Returns:
-            The component.
+            The Axis component.
         """
 
 class ZAxis(Recharts):
@@ -1790,6 +1805,7 @@ class ReferenceLine(Reference):
         y: Var[int | str] | int | str | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         stroke_width: Var[float | int | str] | float | int | str | None = None,
+        stroke_dasharray: Var[str] | str | None = None,
         segment: Sequence[Segment] | Var[Sequence[Segment]] | None = None,
         x_axis_id: Var[int | str] | int | str | None = None,
         y_axis_id: Var[int | str] | int | str | None = None,
@@ -1833,6 +1849,7 @@ class ReferenceLine(Reference):
             y: If set a string or a number, a horizontal line perpendicular to the y-axis specified by yAxisId will be drawn. If the specified y-axis is a number axis, the type of y must be Number. If the specified y-axis is a category axis, the value of y must be one of the categorys, otherwise no line will be drawn.
             stroke: The color of the reference line.
             stroke_width: The width of the stroke. Default: 1
+            stroke_dasharray: The pattern of dashes and gaps used to paint the reference line.
             segment: Array of endpoints in { x, y } format. These endpoints would be used to draw the ReferenceLine.
             x_axis_id: The id of x-axis which is corresponding to the data. Default: 0
             y_axis_id: The id of y-axis which is corresponding to the data. Default: 0

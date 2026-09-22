@@ -47,6 +47,9 @@ class TestSyncUpdateRequest(unittest.TestCase):
                         'key' : null
                         }, ),
                 skip_batch_submission = True,
+                batch_collection_ids = [
+                    ''
+                    ],
                 max_objects_per_run = 1.0,
                 sync_concurrency = 1.0,
                 reconcile = mixpeek.models.reconcile_settings.ReconcileSettings(

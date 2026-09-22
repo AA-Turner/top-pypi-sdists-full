@@ -40,26 +40,33 @@ class PipelineInfrastructureConfigurationDetails(object):
             The value to assign to the block_storage_size_in_gbs_parameterized property of this PipelineInfrastructureConfigurationDetails.
         :type block_storage_size_in_gbs_parameterized: str
 
+        :param capacity_reservation_id:
+            The value to assign to the capacity_reservation_id property of this PipelineInfrastructureConfigurationDetails.
+        :type capacity_reservation_id: str
+
         """
         self.swagger_types = {
             'shape_name': 'str',
             'block_storage_size_in_gbs': 'int',
             'subnet_id': 'str',
             'shape_config_details': 'PipelineShapeConfigDetails',
-            'block_storage_size_in_gbs_parameterized': 'str'
+            'block_storage_size_in_gbs_parameterized': 'str',
+            'capacity_reservation_id': 'str'
         }
         self.attribute_map = {
             'shape_name': 'shapeName',
             'block_storage_size_in_gbs': 'blockStorageSizeInGBs',
             'subnet_id': 'subnetId',
             'shape_config_details': 'shapeConfigDetails',
-            'block_storage_size_in_gbs_parameterized': 'blockStorageSizeInGBsParameterized'
+            'block_storage_size_in_gbs_parameterized': 'blockStorageSizeInGBsParameterized',
+            'capacity_reservation_id': 'capacityReservationId'
         }
         self._shape_name = None
         self._block_storage_size_in_gbs = None
         self._subnet_id = None
         self._shape_config_details = None
         self._block_storage_size_in_gbs_parameterized = None
+        self._capacity_reservation_id = None
 
     @property
     def shape_name(self):
@@ -178,6 +185,34 @@ class PipelineInfrastructureConfigurationDetails(object):
         :type: str
         """
         self._block_storage_size_in_gbs_parameterized = block_storage_size_in_gbs_parameterized
+
+    @property
+    def capacity_reservation_id(self):
+        """
+        Gets the capacity_reservation_id of this PipelineInfrastructureConfigurationDetails.
+        This specifies the `OCID`__ of the customer-managed compute capacity reservation to be used for launching pipelines.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_id of this PipelineInfrastructureConfigurationDetails.
+        :rtype: str
+        """
+        return self._capacity_reservation_id
+
+    @capacity_reservation_id.setter
+    def capacity_reservation_id(self, capacity_reservation_id):
+        """
+        Sets the capacity_reservation_id of this PipelineInfrastructureConfigurationDetails.
+        This specifies the `OCID`__ of the customer-managed compute capacity reservation to be used for launching pipelines.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_id: The capacity_reservation_id of this PipelineInfrastructureConfigurationDetails.
+        :type: str
+        """
+        self._capacity_reservation_id = capacity_reservation_id
 
     def __repr__(self):
         return formatted_flat_dict(self)

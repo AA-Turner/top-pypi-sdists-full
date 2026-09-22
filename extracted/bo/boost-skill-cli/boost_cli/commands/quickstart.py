@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from .. import cliparse, spin
 from ..core import (
+    bootstrap,
     catalog,
     complete,
     config,
@@ -36,9 +37,9 @@ def _selection(catalog_scope: bool) -> list[dict]:
     """The registries quickstart will tap: the seven defaults, or all of them.
 
     `--catalog` exists because "search everything" is a real ask and the two
-    costs that used to make it unreasonable are gone: tapping 463 registries is
-    2 min 10 s now that clones run in parallel, and their vectors are a
-    download rather than an hour of CPU.
+    costs that used to make it unreasonable are gone: tapping the whole
+    catalogue measured 2 min 10 s (463 registries) once clones ran in
+    parallel, and their vectors are a download rather than an hour of CPU.
     """
     if not catalog_scope:
         return [d.copy() for d in config.DEFAULT_TAPS]
@@ -48,34 +49,42 @@ def _selection(catalog_scope: bool) -> list[dict]:
 
 
 def _tap_defaults(selection: list[dict], pins: dict[str, dict],
-                  dry_run: bool) -> list[str]:
+                  dry_run: bool) -> tuple[list[str], bootstrap.SetupOutcome]:
     """Tap the selected registries, pinned to a shard's commit when one exists.
 
-    Returns the tap names that are configured afterwards, tapped here or not.
+    Returns the selected tap names and what happened to each. The names are
+    the *selection*, not the result — a registry whose clone failed is still
+    in them — and they used to be all this returned, which is how seven failed
+    clones ended in "✓ ready": nothing downstream could tell a working machine
+    from an unreachable one. The outcome is the result; see
+    `bootstrap.SetupOutcome`. A dry run changes nothing, so its outcome is
+    empty.
+
     Pinning is the whole point: tapping HEAD and then fetching a shard is the
     ordering that produces a commit mismatch on every registry that moved since
     the last shard run.
     """
     names = [str(d["name"]) for d in selection]
+    outcome = bootstrap.SetupOutcome()
     commits = {name: str(pins[name].get("commit")) for name in names
                if name in pins}
     if dry_run:
         existing = {t.name for t in registry.list_taps()}
         pending = [n for n in names if n not in existing]
-        # Over 463 registries a line each is a wall of text, so past a handful
+        # Over the whole catalogue a line each is a wall of text, so past a handful
         # the dry run reports the shape instead of the list.
-        if len(pending) > 12:
+        if len(pending) > bootstrap.MAX_NAMED_REGISTRIES:
             out.info("would tap %d registries (%d pinned to a published "
                      "shard's commit)"
                      % (len(pending), sum(1 for n in pending if n in commits)))
-            return names
+            return names, outcome
         for name in names:
             if name in existing:
                 out.info(out.role("%s already tapped" % name, "muted"))
                 continue
             at = commits.get(name)
             out.info("would tap %s%s" % (name, " @ %s" % at[:7] if at else ""))
-        return names
+        return names, outcome
     # One pool, one config write: seven sequential clones is ~11 s of waiting
     # for work that takes ~2 s done together, and the first thing a new user
     # sees should not be a progress bar.
@@ -86,20 +95,27 @@ def _tap_defaults(selection: list[dict], pins: dict[str, dict],
         name = res["name"]
         if res.get("skipped"):
             out.info(out.role("%s already tapped" % name, "muted"))
+            outcome.already.append(name)
             continue
         if not res.get("ok"):
             out.warn("could not tap %s: %s" % (name, res.get("error", "")))
+            outcome.failed.append(name)
             continue
         try:
             entries = catalog.rebuild_tap(res["tap"])
         except BoostError as exc:
             out.warn("could not index %s: %s" % (name, exc.message))
+            # Not `failed`: the clone arrived and add_many has already written
+            # it to the config, so the verdict must not send this user to
+            # check a network that worked.
+            outcome.unindexed.append(name)
             continue
         journal.log("tap", name)
+        outcome.tapped.append(name)
         at = commits.get(name)
         out.ok("tapped %s (%d items)%s"
                % (name, len(entries), " @ %s" % at[:7] if at else ""))
-    return names
+    return names, outcome
 
 
 def _report(results: list[dict]) -> None:
@@ -128,11 +144,43 @@ def _report(results: list[dict]) -> None:
             out.info(out.role("%s: %s%s" % (r["tap"], label,
                                             " (%s)" % detail if detail else ""),
                               "muted"))
+    if any(r.get("commit_moved") for r in results):
+        # A tap that moved past its vectors has a cheaper fix than embedding:
+        # the manifest names the commit they describe, and `update --shards`
+        # moves the tap there. A registry first tapped before quickstart
+        # pinned anything lands here, and so does any tap once a week's
+        # republish moves the manifest past it.
+        out.info("taps that moved past their vectors: `boost update --shards`")
     left = [r["tap"] for r in results
             if r["status"] not in ("imported", "current")]
     if left:
         out.info("embed the rest locally when you want to: "
                  "`boost reindex --dense`")
+
+
+def _muted(msg: str) -> None:
+    """An indented muted line, wrapped to the pane.
+
+    Wrap first, colour each line after: `out.role` brackets its argument with
+    a start code and a reset, so colouring first and folding after leaves
+    line 1 unterminated and the rest unstyled (CLAUDE.md's wrap rule). `- 2`
+    pays for the indent `out.info` adds.
+    """
+    for line in out.wrap(msg, max(out.term_width() - 2, 20)):
+        out.info(out.role(line, "muted"))
+
+
+def _vectors_refused(outcome: bootstrap.SetupOutcome,
+                     dry_run: bool = False) -> None:
+    """Say once why the published vectors do not apply here, and the fix.
+
+    Once, not per tap: `shards.sync` stamps the same machine-level detail on
+    every row, so rendering its rows would print the reason seven times.
+    """
+    line, fix = outcome.vectors_note(dry_run)
+    # Muted like every other zero-reason line: a missed upgrade, not a fault.
+    _muted(line)
+    _muted(fix)
 
 
 def cmd_quickstart(argv) -> int:
@@ -152,22 +200,50 @@ def cmd_quickstart(argv) -> int:
     manifest = None
     pins: dict[str, dict] = {}
     want_vectors = not args.no_vectors and dense.have_backend()
-    if want_vectors:
-        # Fetched first because it decides how the taps are pinned. A failure
-        # here is not fatal: keyword search is the documented default and works
-        # without a single vector.
+    # Fetched first because it decides how the taps are pinned — and fetched
+    # without the extra too. Pinning is config, not embedding, and the line a
+    # machine without the extra ends on promises that installing it and
+    # rerunning brings the vectors. A rerun cannot keep that promise alone:
+    # `add_many` skips a tap already configured, so a registry first tapped at
+    # HEAD stays at HEAD, and `sync` refuses every shard built for a commit it
+    # is not at. Only `--no-vectors` opts out, and it leaves the taps
+    # unpinned, so `boost update` keeps moving them. A failure here is not
+    # fatal: keyword search is the documented default and works without a
+    # single vector.
+    if not args.no_vectors:
         try:
             with spin.Spinner("reading the shard manifest"):
                 manifest = shards.fetch_manifest()
             pins = shards.rows(manifest)
         except BoostError as exc:
-            out.warn("no published shards: %s" % exc.message)
+            # "no published shards" named the wrong cause — the project's
+            # shards are fine; this machine could not read the manifest (a
+            # proxy, a dropped connection, a BOOST_SHARD_MANIFEST typo, an
+            # air-gapped mirror). And the hint was the actionable half: every
+            # transport-shaped failure raised here carries one.
+            out.warn("could not read the shard manifest: %s" % exc.message,
+                     wrap=True)
+            # Without the extra the manifest was read for its pins alone, and
+            # losing them is the whole cost. The transport hint offers
+            # `boost reindex --dense`, which needs the very extra this machine
+            # lacks, and the run already ends naming how to install it. Every
+            # other hint (https only, retry, self-update) still applies.
+            if exc.hint and (want_vectors or exc.hint != shards.LOCAL_EMBED_HINT):
+                _muted(exc.hint)
             manifest = None
 
     selection = _selection(args.catalog)
-    names = _tap_defaults(selection, pins, args.dry_run)
+    names, outcome = _tap_defaults(selection, pins, args.dry_run)
+    # Judged once, from the manifest alone, and read by both runs below. The
+    # live run used to learn it only inside `shards.sync`, whose seven
+    # `incompatible` rows it then rendered none of — while the dry run, which
+    # never asked, promised every published shard.
+    # Only with the extra: without it the manifest was read for its pins, and
+    # the missing extra is the reason no vector loads, said in its own words.
+    usable = (want_vectors and manifest is not None
+              and outcome.judge_vectors(manifest))
     if args.dry_run:
-        planned = [n for n in names if n in pins] if manifest else []
+        planned = [n for n in names if n in pins] if usable else []
         out.info("would build the keyword index, then import %d shard(s)"
                  % len(planned))
         # "0 shard(s)" reads as "none are published" when the real cause is
@@ -179,25 +255,31 @@ def cmd_quickstart(argv) -> int:
                 out.info(out.role("(0 because --no-vectors was asked for)",
                                   "muted"))
             elif not dense.have_backend():
-                out.info("0 because semantic search needs the extra: "
-                         "`pipx inject boost-skill-cli "
-                         "\"boost-skill-cli[rag]\"` — keyword search works "
-                         "without it", wrap=True)
+                out.info("0 because semantic search needs the extra: `%s` — "
+                         "keyword search works without it"
+                         % dense.install_extra(), wrap=True)
             elif manifest is None:
-                out.info(out.role("(0 because the shard manifest could not be "
-                                  "read — keyword search is unaffected)",
-                                  "muted"), wrap=True)
+                _muted("(0 because the shard manifest could not be read — "
+                       "keyword search is unaffected)")
+            elif outcome.vectors_refused:
+                # Before "none published": `sync` refuses the space before it
+                # looks at a single row, so this is the zero the live run hits.
+                _vectors_refused(outcome, dry_run=True)
             else:
-                out.info(out.role("(0 because none of these registries have a "
-                                  "published shard yet)", "muted"), wrap=True)
+                _muted("(0 because none of these registries have a "
+                       "published shard yet)")
         return 0
 
     with spin.Spinner("building the keyword index"):
         stats = rag.build()
-    out.ok("indexed %s items for keyword search" % format(
-        int(stats.get("entries", 0)), ","))
+    outcome.entries = int(stats.get("entries", 0))
+    # A tick on "indexed 0 items" is half of the contradiction this command
+    # used to print; the other half is the "ready" line below. Both turn on
+    # the same fact, so they cannot disagree.
+    (out.ok if outcome.searchable else out.warn)(
+        "indexed %s items for keyword search" % format(outcome.entries, ","))
 
-    if manifest is not None:
+    if usable:
         commits = rag._tap_commits()
         stored = dense.tap_commits()
         # `_tap_commits`/`dense.tap_commits` are keyed by safe name; `sync`
@@ -209,13 +291,30 @@ def cmd_quickstart(argv) -> int:
         results = shards.sync([n for n in names if n in by_name], by_name,
                               manifest=manifest, built=built)
         _report(results)
+    elif outcome.vectors_refused:
+        _vectors_refused(outcome)
     elif args.no_vectors:
         out.info(out.role("skipped vectors as asked", "muted"))
     elif not dense.have_backend():
-        out.info("semantic search needs the extra: "
-                 "`pipx inject boost-skill-cli \"boost-skill-cli[rag]\"`, "
-                 "then `boost quickstart` again")
+        out.info("semantic search needs the extra: `%s`, then `boost "
+                 "quickstart` again" % dense.install_extra(), wrap=True)
+    elif want_vectors:
+        # The whole vector step was skipped, and the only word about it was a
+        # warning many screens back. Without this the run ends "✓ ready" as
+        # though vectors had been imported.
+        _muted("no vectors imported — the shard manifest could not be read; "
+               "`boost update --shards` retries it, and `boost reindex "
+               "--dense` builds them locally")
 
     complete.refresh_names()
-    out.ok("ready — try `boost search brainstorming`")
-    return 0
+    note = outcome.failure_note()
+    if note:
+        out.warn(note, wrap=True)
+    message, hint = outcome.verdict()
+    if outcome.ok:
+        out.ok(message)
+        return 0
+    # Raised rather than returned so the failure wears the same `Error:`/`hint:`
+    # shape as `boost search`'s own "no taps configured" — the command a user
+    # runs next, and the one README's install snippet runs next.
+    raise BoostError(message, hint=hint)

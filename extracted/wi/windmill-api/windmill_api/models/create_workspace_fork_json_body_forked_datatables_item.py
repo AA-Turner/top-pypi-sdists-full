@@ -1,7 +1,12 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..models.create_workspace_fork_json_body_forked_datatables_item_fork_behavior import (
+    CreateWorkspaceForkJsonBodyForkedDatatablesItemForkBehavior,
+)
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="CreateWorkspaceForkJsonBodyForkedDatatablesItem")
 
@@ -12,15 +17,22 @@ class CreateWorkspaceForkJsonBodyForkedDatatablesItem:
     Attributes:
         name (str): Datatable name
         new_dbname (str): New database name for the fork
+        fork_behavior (Union[Unset, CreateWorkspaceForkJsonBodyForkedDatatablesItemForkBehavior]): What the fork request
+            copies into `new_dbname`, which it creates — with the owners and grants of a data table under roles. This server
+            refuses an entry without it; servers predating it expect `new_dbname` created and filled beforehand.
     """
 
     name: str
     new_dbname: str
+    fork_behavior: Union[Unset, CreateWorkspaceForkJsonBodyForkedDatatablesItemForkBehavior] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
         new_dbname = self.new_dbname
+        fork_behavior: Union[Unset, str] = UNSET
+        if not isinstance(self.fork_behavior, Unset):
+            fork_behavior = self.fork_behavior.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -30,6 +42,8 @@ class CreateWorkspaceForkJsonBodyForkedDatatablesItem:
                 "new_dbname": new_dbname,
             }
         )
+        if fork_behavior is not UNSET:
+            field_dict["fork_behavior"] = fork_behavior
 
         return field_dict
 
@@ -40,9 +54,17 @@ class CreateWorkspaceForkJsonBodyForkedDatatablesItem:
 
         new_dbname = d.pop("new_dbname")
 
+        _fork_behavior = d.pop("fork_behavior", UNSET)
+        fork_behavior: Union[Unset, CreateWorkspaceForkJsonBodyForkedDatatablesItemForkBehavior]
+        if isinstance(_fork_behavior, Unset):
+            fork_behavior = UNSET
+        else:
+            fork_behavior = CreateWorkspaceForkJsonBodyForkedDatatablesItemForkBehavior(_fork_behavior)
+
         create_workspace_fork_json_body_forked_datatables_item = cls(
             name=name,
             new_dbname=new_dbname,
+            fork_behavior=fork_behavior,
         )
 
         create_workspace_fork_json_body_forked_datatables_item.additional_properties = d

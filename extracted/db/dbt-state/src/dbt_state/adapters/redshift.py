@@ -12,7 +12,6 @@ from multiprocessing import get_context
 
 from dbt.adapters.sql import SQLAdapter
 from sqlglot import TokenType, exp, tokenize
-from sqlglot.dialects.dialect import Dialect
 from typing_extensions import override
 
 from dbt_state import events
@@ -33,9 +32,14 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
     IMPLEMENTS_CUSTOM_CLONE: bool = True
 
     _SYS_QUERY_DETAIL_LOOKBACK_MINUTES = 30
-    _CASE_SENSITIVE_NORMALIZATION_DIALECT: t.ClassVar[Dialect] = Dialect.get_or_raise(
-        "redshift, normalization_strategy = case_sensitive"
+    _CASE_SENSITIVE_NORMALIZATION_DIALECT: t.ClassVar[str] = (
+        "redshift, normalization_strategy = lowercase"
     )
+    """Dialect used when Redshift has enable_case_sensitive_identifier = on. When enabled, Redshift
+    folds unquoted identifiers to lowercase and preserves case only when identifiers are quoted,
+    which matches sqlglot 'lowercase' strategy.
+    https://docs.aws.amazon.com/redshift/latest/dg/r_enable_case_sensitive_identifier.html
+    """
 
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
@@ -48,6 +52,17 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
     @property
     def use_heuristic_clock_for_last_modified(self) -> bool:
         return True
+
+    @property
+    def dialect(self) -> str:
+        """sqlglot dialect specifications used for SQL rendering, parsing, identifier normalization.
+
+        Result carries sqlglot settings when case sensitivity is enabled, but otherwise uses the
+        plain 'redshift' dialect value.
+        """
+        if self.case_sensitivity_enabled:
+            return self._CASE_SENSITIVE_NORMALIZATION_DIALECT
+        return super().dialect
 
     @cached_property
     def case_sensitivity_enabled(self) -> bool:
@@ -169,15 +184,6 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
         for adapter in self._catalog_adapters.values():
             adapter.cleanup_connections()
         super().close()
-
-    def _to_fqn(
-        self, table: str | exp.Table, normalization_dialect: t.Optional[str | Dialect] = None
-    ) -> exp.Table:
-        if self.case_sensitivity_enabled:
-            return super()._to_fqn(
-                table, normalization_dialect=self._CASE_SENSITIVE_NORMALIZATION_DIALECT
-            )
-        return super()._to_fqn(table)
 
     def _show_table_ddl(self, table_fqn: str) -> t.Optional[str]:
         """Run SHOW TABLE and return the DDL string, or None if unavailable."""

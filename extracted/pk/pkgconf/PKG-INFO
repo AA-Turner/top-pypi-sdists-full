@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkgconf
-Version: 3.0.1.post0
+Version: 3.0.7.post0
 Summary: `pkgconf` is a program which helps with discovering library dependencies and configuring compiler and linker flags.
 Author-Email: Ralf Gommers <ralf.gommers@gmail.com>, Filipe Laíns <lains@riseup.net>
 License-Expression: MIT

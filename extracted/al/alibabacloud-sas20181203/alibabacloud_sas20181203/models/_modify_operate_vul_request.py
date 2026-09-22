@@ -16,9 +16,9 @@ class ModifyOperateVulRequest(DaraModel):
         resource_directory_account_id: int = None,
         type: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. Use a different token for each request. Only ASCII characters are supported. The token can be up to 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Use a different token for each request. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # 是否只预检此次请求。true：仅检查请求，不执行实际操作；false：正常执行请求。默认值为 false。
+        # Specifies whether to perform only a dry run, without performing the actual request. Valid values: true: performs only a dry run without performing the actual operation. false: performs the actual request. Default value: false.
         self.dry_run = dry_run
         # The source identifier of the request. Set the value to **sas**.
         self.from_ = from_
@@ -27,13 +27,13 @@ class ModifyOperateVulRequest(DaraModel):
         # - **name**: The name of the vulnerability.
         # - **uuid**: The UUID of the server on which the vulnerability is detected.
         # - **tag**: The tag of the vulnerability. Valid values:
-        #     - **oval**: Linux software vulnerability.
-        #     - **system**: Windows system vulnerability.
-        #     - **cms**: Web-CMS vulnerability.
+        #     - **oval**: Linux software vulnerability
+        #     - **system**: Windows system vulnerability
+        #     - **cms**: Web-CMS vulnerability
         # 
         # > For other vulnerability types, call the [DescribeVulList](~~DescribeVulList~~) operation to obtain the vulnerability information.
         # 
-        # - **isFront**: Specifies whether the Windows patch is a prerequisite patch. This field is required only when handling Windows system vulnerabilities and can be ignored for other vulnerability types. Valid values:
+        # - **isFront**: Specifies whether the Windows patch is a prerequisite patch. This parameter is required only when handling Windows system vulnerabilities and can be ignored for other vulnerability types. Valid values:
         #     - **0**: No.
         #     - **1**: Yes.
         # 
@@ -51,20 +51,20 @@ class ModifyOperateVulRequest(DaraModel):
         # This parameter is required.
         self.operate_type = operate_type
         # The reason for ignoring the vulnerability.
-        # > This parameter is required only when the operation type is **ignore** (OperateType is set to **vul_ignore**).
+        # > This parameter is required only when the operation type is **ignore** (that is, **OperateType** is set to **vul_ignore**).
         self.reason = reason
         # The Alibaba Cloud account ID of the member accounts in the resource folder.
         # > Invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         # The type of the vulnerability to handle. Valid values:
-        # - **cve**: Linux software vulnerability.
-        # - **sys**: Windows system vulnerability.
-        # - **cms**: Web-CMS vulnerability.
-        # - **emg**: emergency vulnerability.
-        # - **app**: application vulnerability.
-        # - **sca**: software constituency parsing vulnerability.
+        # - **cve**: Linux software vulnerability
+        # - **sys**: Windows system vulnerability
+        # - **cms**: Web-CMS vulnerability
+        # - **emg**: emergency vulnerability
+        # - **app**: application vulnerability
+        # - **sca**: software constituency parsing vulnerability
         # 
-        # > Emergency vulnerabilities (emg), application vulnerabilities (app), and software constituency parsing vulnerabilities (sca) do not support the execute vulnerability fix operation.
+        # > Emergency vulnerabilities (emg), application vulnerabilities (app), and software constituency parsing vulnerabilities (sca) do not support the vulnerability fix operation. You cannot execute the fix operation for these types.
         # 
         # This parameter is required.
         self.type = type

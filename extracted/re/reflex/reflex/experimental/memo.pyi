@@ -82,6 +82,8 @@ class MemoFunctionDefinition(MemoDefinition):
 class MemoComponentDefinition(MemoDefinition):
     export_name: str
     passthrough_hole_child: Component | None
+    forward_root_props: bool
+    root_ref_prop: str | None
     wrapper: Var | None
     auto_memo_wrapper: bool
     display_name: str | None

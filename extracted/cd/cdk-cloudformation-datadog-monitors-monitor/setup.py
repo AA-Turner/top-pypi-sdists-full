@@ -5,8 +5,8 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-cloudformation-datadog-monitors-monitor",
-    "version": "4.11.1.a7",
-    "description": "Datadog Monitor 4.11.1",
+    "version": "4.12.0.a7",
+    "description": "Datadog Monitor 4.12.0",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-cloudformation.git",
     "long_description_content_type": "text/markdown",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_cloudformation_datadog_monitors_monitor._jsii": [
-            "datadog-monitors-monitor@4.11.1-alpha.7.jsii.tgz"
+            "datadog-monitors-monitor@4.12.0-alpha.7.jsii.tgz"
         ],
         "cdk_cloudformation_datadog_monitors_monitor": [
             "py.typed"

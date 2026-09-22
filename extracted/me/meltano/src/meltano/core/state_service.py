@@ -93,6 +93,7 @@ class StateService:
         Returns:
             A dict with state_ids as keys and state payloads as values.
         """
+        logger.info("Reading state from %s", self.state_store_manager.label)
         return {
             state_id: self.get_state(state_id)
             for state_id in self.state_store_manager.get_state_ids(state_id_pattern)
@@ -104,11 +105,11 @@ class StateService:
         Args:
             job: either an existing Job to modify state for, or a state_id
 
-        Raises:
-            TypeError: if job is not of type Job or str
-
         Returns:
             A new job with given state_id, or the given Job
+
+        Raises:
+            TypeError: if job is not of type Job or str
         """
         if isinstance(job, str):
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -202,6 +203,7 @@ class StateService:
         Returns:
             Dict representing state that would be used in the next run.
         """
+        logger.info("Reading state from %s", self.state_store_manager.label)
         if state := self.state_store_manager.get(state_id=state_id):
             return json.loads(state.json_merged())
         return {}
@@ -261,6 +263,33 @@ class StateService:
             state_id_dst: the state_id_to copy state onto
         """
         self.set_state(state_id_dst, json.dumps(self.get_state(state_id_src)))
+
+    def export_state(self) -> dict[str, dict[str, t.Any]]:
+        """Export all states as a mapping preserving the completed/partial split.
+
+        Returns:
+            A dict mapping each state_id to ``{"completed": ..., "partial": ...}``.
+        """
+        logger.info("Exporting state from %s", self.state_store_manager.label)
+        return {s.state_id: s.to_dict() for s in self.state_store_manager.get_all()}
+
+    def import_state(self, states: dict[str, dict[str, t.Any]]) -> int:
+        """Import states from a mapping, overwriting any existing state.
+
+        Args:
+            states: dict mapping state_id to ``{"completed": ..., "partial": ...}``
+
+        Returns:
+            The number of states written.
+        """
+        return self.state_store_manager.set_all(
+            MeltanoState(
+                state_id=state_id,
+                completed_state=entry.get("completed"),
+                partial_state=entry.get("partial"),
+            )
+            for state_id, entry in states.items()
+        )
 
     def move_state(self, state_id_src: str, state_id_dst: str) -> None:
         """Move state from Job state_id_src to Job state_id_dst.

@@ -292,6 +292,27 @@ def _private_network_info(config):
     return {'enabled': enabled, 'name': name, 'internal': internal}
 
 
+def _compose_proxy_env(config):
+    """Return proxy env vars from the top-level beamline config when defined."""
+    proxy_env = {}
+
+    http_proxy = config.get('http_proxy') or config.get('HTTP_PROXY')
+    https_proxy = config.get('https_proxy') or config.get('HTTPS_PROXY')
+    no_proxy = config.get('no_proxy') or config.get('NO_PROXY')
+
+    if http_proxy:
+        proxy_env['http_proxy'] = str(http_proxy)
+        proxy_env['HTTP_PROXY'] = str(http_proxy)
+    if https_proxy:
+        proxy_env['https_proxy'] = str(https_proxy)
+        proxy_env['HTTPS_PROXY'] = str(https_proxy)
+    if no_proxy:
+        proxy_env['no_proxy'] = str(no_proxy)
+        proxy_env['NO_PROXY'] = str(no_proxy)
+
+    return proxy_env
+
+
 def _compose_service_platform(service_name, default_platform):
     """Return the compose platform value for a generated service."""
     if not default_platform:
@@ -671,6 +692,7 @@ def generate_docker_compose(config, args, caport, pvaport, ingressport):
     selected_services = args.services or None
     host_dir = args.host_dir  # may be None
     platform = args.platform
+    proxy_env = _compose_proxy_env(config)
 
     epics_config = config.get('epicsConfiguration', {})
     docker_compose = {'services': {}}
@@ -754,6 +776,8 @@ def generate_docker_compose(config, args, caport, pvaport, ingressport):
             f'EPICS_PVA_NAME_SERVERS="{" ".join(epics_pva_addr_list)}"\n'
             f'EPICS_PVA_ADDR_LIST="{" ".join(epics_pva_addr_list)}"\n'
         )
+        for key, value in proxy_env.items():
+            env_content += f'{key}="{value}"\n'
 
     # Host-side env helper (for caget/pvget from the host)
     env_host_content = ""
@@ -985,6 +1009,9 @@ def generate_docker_compose(config, args, caport, pvaport, ingressport):
             svc['network_mode'] = 'host'
             svc.pop('ports', None)
             svc_env = svc.setdefault('environment', {})
+            # Host-network IOCs skip epics.env, so pass the proxy explicitly.
+            for key, value in proxy_env.items():
+                svc_env.setdefault(key, value)
             svc_env.setdefault('EPICS_CAS_SERVER_PORT', str(ioc_net['ca_server_port']))
             svc_env.setdefault('EPICS_CAS_BEACON_PORT', str(ioc_net['ca_beacon_port']))
             if _ioc_supports_pva(ioc):
@@ -1021,6 +1048,8 @@ def generate_docker_compose(config, args, caport, pvaport, ingressport):
         env_host_content += "export EPICS_CA_AUTO_ADDR_LIST=NO\n"
         if host_visible_pva_targets and 'EPICS_PVA_NAME_SERVERS' not in env_host_content:
             env_host_content += f"export EPICS_PVA_NAME_SERVERS={' '.join(host_visible_pva_targets)}\n"
+        for key, value in proxy_env.items():
+            env_host_content += f'export {key}="{value}"\n'
         write_file(output_dir, env_host_content, "epics-channel.env")
         print(f"* wrote {output_dir}/epics-channel.env  (source this on the host to reach the beamline)")
     elif host_visible_ca_targets or host_visible_pva_targets:
@@ -1029,6 +1058,8 @@ def generate_docker_compose(config, args, caport, pvaport, ingressport):
         if host_visible_pva_targets:
             env_host_content += f"export EPICS_PVA_NAME_SERVERS={' '.join(host_visible_pva_targets)}\n"
         env_host_content += "export EPICS_CA_AUTO_ADDR_LIST=NO\n"
+        for key, value in proxy_env.items():
+            env_host_content += f'export {key}="{value}"\n'
         write_file(output_dir, env_host_content, "epics-channel.env")
         print(f"* wrote {output_dir}/epics-channel.env  (host-network IOC access)")
     else:

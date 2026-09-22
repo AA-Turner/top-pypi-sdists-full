@@ -28,7 +28,7 @@ from ..core import (
 from ..core import output as out
 from ..errors import BoostError
 from ._common import _s
-from .pkg import _report_result
+from .pkg import _report_result, _warn_unwritable
 
 _tilde = paths.tilde
 
@@ -202,6 +202,7 @@ def cmd_cohort(argv) -> int:
                 res = store.install(entry)
                 if not args.json:
                     out.ok("installed %s → %s" % (skill, " · ".join(res.linked)))
+                    _warn_unwritable(res)
                 installed_here.append(skill)
                 applied += 1
             per_cohort.append({"cohort": cname, "member": True,
@@ -250,7 +251,8 @@ def cmd_cohort(argv) -> int:
                  "tdd-workflow --percent 50`",
             wrap=True))
         return 0
-    out.table(rows, headers=("COHORT", "SKILLS", "ROLLOUT", "YOU"))
+    out.table(rows, headers=("COHORT", "SKILLS", "ROLLOUT", "YOU"),
+              whole=("COHORT",))  # `cohort status|apply|delete <name>`
     print()
     out.dim("membership = sha256(user:cohort) % 100 < rollout · apply with `boost cohort apply`")
     return 0
@@ -344,7 +346,8 @@ def cmd_profile(argv) -> int:
                 util.rel_time(pr["saved"]) if not pr["unreadable"]
                 else out.role("(unreadable)", "danger"))
                for pr in profiles]
-        out.table(rows, headers=("PROFILE", "SKILLS", "SAVED"))
+        out.table(rows, headers=("PROFILE", "SKILLS", "SAVED"),
+                  whole=("PROFILE",))  # `profile use|show|diff <name>`
         return 0
 
     if args.action == "save":
@@ -395,7 +398,8 @@ def cmd_profile(argv) -> int:
                 for n, s in sorted(profile.get("skills", {}).items())]
         if rows:
             print()
-            out.table(rows, headers=("SKILL", "VERSION", "TAP"))
+            out.table(rows, headers=("SKILL", "VERSION", "TAP"),
+                      whole=("SKILL",))  # `boost install <name>`
         return 0
 
     if args.action == "diff":
@@ -462,6 +466,7 @@ def cmd_profile(argv) -> int:
         res = store.install(entry)
         if not args.json:
             out.ok("installed %s → %s" % (n, " · ".join(res.linked)))
+            _warn_unwritable(res)
         installed_now.append(n)
     for n in changed:
         # Mirrors `diff`'s "~ NAME (version differs)" — `use` used to discard
@@ -761,7 +766,8 @@ def cmd_replay(argv) -> int:
         for h, delta in reversed(annotated):  # newest first
             rows.append((h["id"], util.rel_time(h["updated"]),
                          str(h["count"]), delta))
-        out.table(rows, headers=("ID", "WHEN", "ITEMS", "Δ"))
+        # ID is what the footer's `replay show|rollback <id>` take.
+        out.table(rows, headers=("ID", "WHEN", "ITEMS", "Δ"), whole=("ID",))
         print()
         if skipped:
             out.dim("%d unreadable snapshot%s skipped"
@@ -880,6 +886,8 @@ def cmd_replay(argv) -> int:
                          % (n, entry.get("version"), want.get("version")))
         elif not args.json:
             out.ok("restored %s → %s" % (n, " · ".join(res.linked)))
+        if not args.json:
+            _warn_unwritable(res)
         restored.append(n)
     for n in changed:
         if not args.json:

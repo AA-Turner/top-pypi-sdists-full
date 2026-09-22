@@ -26,7 +26,7 @@ from meltano.core.settings_store import (
 from meltano.core.utils import EnvironmentVariableNotSetError
 
 if t.TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    import sys
 
     from sqlalchemy.orm import Session
 
@@ -34,10 +34,17 @@ if t.TYPE_CHECKING:
     from meltano.core.plugin.settings_service import PluginSettingsService
     from meltano.core.project import Project
 
-    PluginSettingsServiceFactory: t.TypeAlias = Callable[
-        [ProjectPlugin],
-        PluginSettingsService,
-    ]
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
+
+    class PluginSettingsServiceFactory(t.Protocol):
+        def __call__(
+            self,
+            plugin: ProjectPlugin,
+            env_override: dict | None = None,
+        ) -> PluginSettingsService: ...
 
 
 @pytest.mark.order(0)
@@ -86,7 +93,7 @@ def subject(tap, plugin_settings_service_factory) -> PluginSettingsService:
 
 
 @pytest.fixture
-def environment(project: Project) -> Generator[Environment, None, None]:
+def environment(project: Project) -> Generator[Environment | None]:
     project.activate_environment("dev")
     try:
         yield project.environment
@@ -223,7 +230,10 @@ class TestPluginSettingsService:
         """Casting is disabled for expandable strings."""
         monkeypatch.setenv("PORT", "4444")
         service = plugin_settings_service_factory(inherited_tap)
+
         parent = service.inherited_settings_service
+        assert parent is not None
+
         parent.set(
             "port",
             "5555",
@@ -341,7 +351,7 @@ class TestPluginSettingsService:
 
         config = subject.as_dict(process=True)
         assert config["auth"]["username"] == "nested_username"
-        assert config["auth"]["password"] == "nested_password"  # noqa: S105
+        assert config["auth"]["password"] == "nested_password"
         assert "auth.username" not in config
         assert "auth.password" not in config
 
@@ -879,6 +889,33 @@ class TestPluginSettingsService:
             SettingValueStore.ENV,
         )
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    def test_escaped_dot_in_setting_name(
+        self,
+        subject: PluginSettingsService,
+        project,
+        tap,
+    ) -> None:
+        r"""A `\.` in a setting name is a literal dot, not a nesting separator."""
+        subject.set(
+            r"s3\.endpoint_url",
+            "http://localhost:9000",
+            store=SettingValueStore.MELTANO_YML,
+        )
+
+        # Stored escaped, so reading `meltano.yml` back does not nest it.
+        stored = project.plugins.get_plugin(tap).config
+        assert stored[r"s3\.endpoint_url"] == "http://localhost:9000"
+        assert "s3" not in stored
+
+        # Addressable by the same escaped name it was set with.
+        assert subject.get(r"s3\.endpoint_url") == "http://localhost:9000"
+
+        # And handed to the plugin as a single literal key.
+        processed = subject.as_dict(process=True)
+        assert processed["s3.endpoint_url"] == "http://localhost:9000"
+        assert "s3" not in processed
+
     @pytest.mark.usefixtures("tap")
     def test_extra(self, subject, monkeypatch, env_var) -> None:
         subject._setting_defs = None
@@ -1090,3 +1127,33 @@ class TestPluginSettingsService:
         )
         subject.set("stacked_env_var", "${NONEXISTENT_ENV_VAR}")
         assert subject.get("stacked_env_var") is None
+
+    def test_inherited_env_override(
+        self,
+        plugin_settings_service_factory: PluginSettingsServiceFactory,
+        inherited_tap: ProjectPlugin,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test child plugins safely clone parent env_override."""
+        # 1. Initialize the child service (which builds its parent)
+        child_service = plugin_settings_service_factory(inherited_tap)
+        parent_service = child_service.inherited_settings_service
+        assert parent_service is not None
+
+        # 2. Verify mutation isolation (child state won't poison parent)
+        child_service.env_override["CHILD_EXCLUSIVE_KEY"] = "isolated"
+        assert "CHILD_EXCLUSIVE_KEY" not in parent_service.env_override
+
+        # 3. Verify parent's `env:` block inheritance
+        parent = inherited_tap.parent
+        monkeypatch.setattr(parent, "env", {"PARENT_ENV_VAR": "from_parent_env"})
+        child_service = plugin_settings_service_factory(inherited_tap)
+        assert child_service.env_override.get("PARENT_ENV_VAR") == "from_parent_env"
+
+        # 4. Child's own env_override kwarg takes priority over parent's `env:` block.
+        monkeypatch.setattr(parent, "env", {"SHARED_ENV_VAR": "from_parent"})
+        child_service = plugin_settings_service_factory(
+            inherited_tap,
+            env_override={"SHARED_ENV_VAR": "from_child"},
+        )
+        assert child_service.env_override.get("SHARED_ENV_VAR") == "from_child"

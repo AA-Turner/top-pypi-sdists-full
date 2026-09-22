@@ -24,7 +24,7 @@ from ._public import public
 from ._startup import install
 
 
-__version__ = '8.0.0'
+__version__ = '8.0.1'
 
 
 # 2026-08-18(warsaw): Irony alert!

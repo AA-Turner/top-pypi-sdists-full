@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 import compressed_tensors.offload.load as load_module
 import pytest
 import torch
+from compressed_tensors.distributed import utils as dist_utils
+from compressed_tensors.distributed.utils import is_distributed
 from compressed_tensors.offload import (
     disable_onloading,
     from_accelerate,
@@ -15,13 +17,14 @@ from compressed_tensors.offload import (
 from compressed_tensors.offload.convert import to_accelerate
 from compressed_tensors.offload.convert.from_accelerate import _infer_module_device
 from compressed_tensors.offload.load import load_offloaded_model
+from compressed_tensors.offload.utils import as_single_threaded
 from tests.test_offload.conftest import (
     assert_device_equal,
     skip_if_mps_device,
     torchrun,
 )
 from tests.testing_utils import requires_gpu
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoModelForImageTextToText
 
 
 acclerate = pytest.importorskip("accelerate")
@@ -194,3 +197,76 @@ def test_mmap_cap_skipped_without_tensor_info():
     result_no_info = load_module._get_shared_memory()
     result_zero = load_module._get_shared_memory(num_tensors=0, total_model_bytes=0)
     assert result_no_info == result_zero
+
+
+LOAD_NO_MISSING_KEYS_PARAMETERS = [
+    # multimodal and tied tensors
+    ("inference-optimization/gemma-4-1B-0.8B-tiny", AutoModelForImageTextToText),
+    # non-tied tensors
+    ("inference-optimization/Qwen3.8-1.0B-A0.6B", AutoModelForCausalLM),
+    # tied word embeddings, only one in the checkpoint
+    ("inference-optimization/Llama-3.2-0.5B-Instruct", AutoModelForCausalLM),
+    # tied word embeddings, both in the checkpoint
+    ("nm-testing/tinysmokellama-3.2", AutoModelForCausalLM),
+]
+
+
+def _assert_load_no_missing_keys(model_id, model_class, **from_pretrained_kwargs):
+    """Load under `load_offloaded_model` and error if any keys are reported missing."""
+
+    def checked_report(*args, loading_info=None, **kwargs):
+        assert (
+            not loading_info.missing_keys
+        ), f"Missing keys when loading {model_id}: {loading_info.missing_keys}"
+
+    with patch(
+        "transformers.modeling_utils.log_state_dict_report", side_effect=checked_report
+    ):
+        with load_offloaded_model(model_class):
+            model = model_class.from_pretrained(
+                model_id, dtype=torch.bfloat16, **from_pretrained_kwargs
+            )
+
+    assert model is not None
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("model_id,model_class", LOAD_NO_MISSING_KEYS_PARAMETERS)
+def test_load_no_missing_keys(model_id, model_class):
+    _assert_load_no_missing_keys(model_id, model_class, device_map="cpu")
+
+
+@pytest.mark.integration
+@requires_gpu(2)
+@torchrun(world_size=2, init_dist=True)
+def test_load_dist_no_missing_keys():
+    for model_id, model_class in LOAD_NO_MISSING_KEYS_PARAMETERS:
+        _assert_load_no_missing_keys(model_id, model_class, device_map="cpu")
+
+
+@pytest.mark.integration
+@requires_gpu(2)
+@torchrun(world_size=2, init_dist=True)
+def test_load_dist_estimate_tensor_count(tmp_path):
+    """Loading with default max_memory triggers _estimate_tensor_count without hang."""
+    with load_offloaded_model(AutoModelForCausalLM):
+        model = AutoModelForCausalLM.from_pretrained(
+            "inference-optimization/Llama-3.2-1B-Instruct-FP8-Block",
+            device_map="auto",
+            dtype=torch.bfloat16,
+        )
+    assert model is not None
+
+
+@pytest.mark.unit
+def test_as_single_threaded_toggles_is_distributed():
+    """as_single_threaded suppresses is_distributed and restores on exit."""
+    with patch.object(dist_utils, "_force_single_threaded", False), patch(
+        "torch.distributed.is_available", return_value=True
+    ), patch("torch.distributed.is_initialized", return_value=True):
+        assert is_distributed() is True
+
+        with as_single_threaded():
+            assert is_distributed() is False
+
+        assert is_distributed() is True

@@ -22,6 +22,7 @@ from ..types.error_schema import ErrorSchema
 from ..types.file_content_schema import FileContentSchema
 from ..types.file_info_schema import FileInfoSchema
 from ..types.file_upload_schema import FileUploadSchema
+from ..types.file_upload_url_schema import FileUploadUrlSchema
 from ..types.validation_error_schema import ValidationErrorSchema
 from pydantic import ValidationError
 
@@ -175,15 +176,20 @@ class RawFilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[FileUploadSchema]:
         """
-        Upload a file.
+        Upload a file in one multipart/form-data request.
 
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
+        Request bodies over 4.5 MB are rejected at the platform edge before they
+        reach this route. For larger files, create an upload URL and PUT the bytes
+        to it instead; the SDK's files.upload() does that for files of any size.
+        The [Upload files](https://docs.labric.co/upload-files) guide walks
+        through both flows.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
 
         Requires an API key with the `write` scope.
 
@@ -274,6 +280,288 @@ class RawFilesClient:
                 )
             if _response.status_code == 409:
                 raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def create_upload_url(
+        self,
+        *,
+        file_name: str,
+        content_type: typing.Optional[str] = OMIT,
+        job_execution_id: typing.Optional[str] = OMIT,
+        instrument_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[FileUploadUrlSchema]:
+        """
+        Start an upload that sends the file bytes straight to storage.
+
+        Creates the file record and returns a signed URL that accepts the bytes as
+        the body of an HTTP PUT for the next 15 minutes. Send exactly the returned
+        headers on the PUT and no Authorization header, then confirm the upload to
+        make the file visible. The URL only creates the object, never replaces one,
+        and refuses bodies over 500 MB. Asking again for an instrument path whose
+        upload was never confirmed returns a fresh URL for the same file, so a
+        failed PUT can be retried. The SDK's files.upload() runs all three steps;
+        the [Upload files](https://docs.labric.co/upload-files) guide shows them
+        with curl.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_name : str
+            The file name to record, e.g. results.csv.
+
+        content_type : typing.Optional[str]
+            MIME type of the file. Defaults to application/octet-stream, which is also substituted for types a browser could render as a page.
+
+        job_execution_id : typing.Optional[str]
+            The job execution producing the file, for a job artifact.
+
+        instrument_id : typing.Optional[str]
+            The instrument that captured the file, for off-platform data.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[FileUploadUrlSchema]
+            OK
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/files/upload-url",
+            method="POST",
+            json={
+                "file_name": file_name,
+                "content_type": content_type,
+                "job_execution_id": job_execution_id,
+                "instrument_id": instrument_id,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    FileUploadUrlSchema,
+                    parse_obj_as(
+                        type_=FileUploadUrlSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def confirm_upload(
+        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[FileUploadSchema]:
+        """
+        Finish an upload after the PUT to its upload URL has succeeded.
+
+        Records the stored file's size and checksum, makes the file visible in
+        listings, and notifies triggers and parsers. Files over 500 MB and native
+        executables are discarded with a 400, as the one-request upload rejects
+        them. Confirming a file that is already confirmed returns its record again
+        without notifying anyone twice. The
+        [Upload files](https://docs.labric.co/upload-files) guide shows the full
+        sequence.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[FileUploadSchema]
+            OK
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/files/{encode_path_param(file_id)}/confirm-upload",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    FileUploadSchema,
+                    parse_obj_as(
+                        type_=FileUploadSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         ErrorSchema,
@@ -575,15 +863,20 @@ class AsyncRawFilesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[FileUploadSchema]:
         """
-        Upload a file.
+        Upload a file in one multipart/form-data request.
 
-        Accepts a multipart/form-data file upload, stores it in GCS, and returns the
-        created file record. At least one of job_execution_id and instrument_id is
-        required: pass a job_execution_id for an artifact of a job running in a
-        sandbox, which also records provenance linking the file to that execution,
-        and pass an instrument_id for data captured off-platform by an instrument the
-        Sync app cannot reach, which attaches the file to that instrument so
-        instrument triggers and parsers pick it up.
+        Request bodies over 4.5 MB are rejected at the platform edge before they
+        reach this route. For larger files, create an upload URL and PUT the bytes
+        to it instead; the SDK's files.upload() does that for files of any size.
+        The [Upload files](https://docs.labric.co/upload-files) guide walks
+        through both flows.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
 
         Requires an API key with the `write` scope.
 
@@ -674,6 +967,288 @@ class AsyncRawFilesClient:
                 )
             if _response.status_code == 409:
                 raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_upload_url(
+        self,
+        *,
+        file_name: str,
+        content_type: typing.Optional[str] = OMIT,
+        job_execution_id: typing.Optional[str] = OMIT,
+        instrument_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[FileUploadUrlSchema]:
+        """
+        Start an upload that sends the file bytes straight to storage.
+
+        Creates the file record and returns a signed URL that accepts the bytes as
+        the body of an HTTP PUT for the next 15 minutes. Send exactly the returned
+        headers on the PUT and no Authorization header, then confirm the upload to
+        make the file visible. The URL only creates the object, never replaces one,
+        and refuses bodies over 500 MB. Asking again for an instrument path whose
+        upload was never confirmed returns a fresh URL for the same file, so a
+        failed PUT can be retried. The SDK's files.upload() runs all three steps;
+        the [Upload files](https://docs.labric.co/upload-files) guide shows them
+        with curl.
+
+        At least one of job_execution_id and instrument_id is required: pass a
+        job_execution_id for an artifact of a job running in a sandbox, which also
+        records provenance linking the file to that execution, and pass an
+        instrument_id for data captured off-platform by an instrument the Sync app
+        cannot reach, which attaches the file to that instrument so instrument
+        triggers and parsers pick it up.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_name : str
+            The file name to record, e.g. results.csv.
+
+        content_type : typing.Optional[str]
+            MIME type of the file. Defaults to application/octet-stream, which is also substituted for types a browser could render as a page.
+
+        job_execution_id : typing.Optional[str]
+            The job execution producing the file, for a job artifact.
+
+        instrument_id : typing.Optional[str]
+            The instrument that captured the file, for off-platform data.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[FileUploadUrlSchema]
+            OK
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/files/upload-url",
+            method="POST",
+            json={
+                "file_name": file_name,
+                "content_type": content_type,
+                "job_execution_id": job_execution_id,
+                "instrument_id": instrument_id,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    FileUploadUrlSchema,
+                    parse_obj_as(
+                        type_=FileUploadUrlSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def confirm_upload(
+        self, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[FileUploadSchema]:
+        """
+        Finish an upload after the PUT to its upload URL has succeeded.
+
+        Records the stored file's size and checksum, makes the file visible in
+        listings, and notifies triggers and parsers. Files over 500 MB and native
+        executables are discarded with a 400, as the one-request upload rejects
+        them. Confirming a file that is already confirmed returns its record again
+        without notifying anyone twice. The
+        [Upload files](https://docs.labric.co/upload-files) guide shows the full
+        sequence.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[FileUploadSchema]
+            OK
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/files/{encode_path_param(file_id)}/confirm-upload",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    FileUploadSchema,
+                    parse_obj_as(
+                        type_=FileUploadSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         ErrorSchema,

@@ -9,7 +9,7 @@ import json
 import platform
 import shlex
 import shutil
-import subprocess
+import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
 import typing as t
 from asyncio.subprocess import Process
@@ -22,11 +22,17 @@ import structlog
 from meltano.core.error import AsyncSubprocessError
 
 if t.TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Sequence
+    import os
+    from collections.abc import Iterable, Sequence
     from pathlib import Path
 
     from meltano.core.plugin.project_plugin import ProjectPlugin
     from meltano.core.project import Project
+
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
 
 if sys.version_info >= (3, 11):
     from typing import Self  # noqa: ICN003
@@ -105,13 +111,10 @@ class VirtualEnv:
 
     @cached_property
     def lib_dir(self) -> Path:
-        """Return the lib directory of the virtual environment.
+        """The lib directory of the virtual environment.
 
         Raises:
             MeltanoError: The current system is not supported.
-
-        Returns:
-            The lib directory of the virtual environment.
         """
         if self._system == "Windows":
             return self.root / "Lib"
@@ -120,13 +123,10 @@ class VirtualEnv:
 
     @cached_property
     def bin_dir(self) -> Path:
-        """Return the bin directory of the virtual environment.
+        """The bin directory of the virtual environment.
 
         Raises:
             MeltanoError: The current system is not supported.
-
-        Returns:
-            The bin directory of the virtual environment.
         """
         if self._system == "Windows":
             return self.root / "Scripts"
@@ -135,13 +135,10 @@ class VirtualEnv:
 
     @cached_property
     def site_packages_dir(self) -> Path:
-        """Return the site-packages directory of the virtual environment.
+        """The site-packages directory of the virtual environment.
 
         Raises:
             MeltanoError: The current system is not supported.
-
-        Returns:
-            The site-packages directory of the virtual environment.
         """
         if self._system == "Windows":
             return self.lib_dir / "site-packages"
@@ -154,11 +151,7 @@ class VirtualEnv:
 
     @cached_property
     def python_version_tuple(self) -> tuple[int, int, int]:
-        """Return the Python version tuple of the virtual environment.
-
-        Returns:
-            The Python version tuple of the virtual environment.
-        """
+        """The Python version tuple of the virtual environment."""
         if self.python_path == sys.executable:
             return sys.version_info[:3]
 
@@ -235,7 +228,7 @@ class VirtualEnv:
         """
 
         # A generator is used to perform the checks lazily
-        def checks() -> Generator[bool, None, None]:
+        def checks() -> Generator[bool]:
             # The Python installation used to create this venv no longer exists
             yield not self.exec_path("python").exists()
             # The fingerprint of the venv does not match the pip install args
@@ -246,11 +239,15 @@ class VirtualEnv:
         return any(checks())
 
 
-async def _extract_stderr(_) -> None:
+async def _extract_stderr(_) -> None:  # ruff:ignore[unused-async]
     return None  # pragma: no cover
 
 
-async def exec_async(*args, extract_stderr=_extract_stderr, **kwargs) -> Process:  # noqa: ANN001, ANN002, ANN003
+async def exec_async(
+    *args: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    extract_stderr: StdErrExtractor = _extract_stderr,
+    **kwargs: t.Any,
+) -> Process:
     """Run an executable asynchronously in a subprocess.
 
     Args:
@@ -259,11 +256,11 @@ async def exec_async(*args, extract_stderr=_extract_stderr, **kwargs) -> Process
             and returns its error string or `None`.
         kwargs: Keyword arguments for `asyncio.create_subprocess_exec`.
 
-    Raises:
-        AsyncSubprocessError: The command failed.
-
     Returns:
         The subprocess.
+
+    Raises:
+        AsyncSubprocessError: The command failed.
     """
     run = await asyncio.create_subprocess_exec(
         *args,
@@ -301,6 +298,169 @@ def fingerprint(pip_install_args: Iterable[str], interpreter: str | None = None)
     if interpreter and interpreter != sys.executable:
         components.append(f"python:{interpreter}")
     return hashlib.sha256(" ".join(components).encode()).hexdigest()
+
+
+@dataclass(slots=True, frozen=True)
+class PackageManager(abc.ABC):
+    """Standalone package manager tool, independent of any virtual environment."""
+
+    _: KW_ONLY
+
+    log_path: Path | None = None
+    """Optional path to write install logs."""
+
+    @abc.abstractmethod
+    async def install(
+        self,
+        args: Sequence[str],
+        *,
+        python: str,
+        extract_stderr: StdErrExtractor = _extract_stderr,
+        force: bool = False,
+        env: dict[str, str | None] | None = None,
+    ) -> Process:
+        """Install packages.
+
+        Args:
+            args: Arguments to pass to the install command.
+            python: Path to the Python executable to install into.
+            log_path: Optional path to write install logs.
+            extract_stderr: Async function that returns error string or ``None``.
+            force: Whether to ignore Python version requirements.
+            env: Environment variables to pass to the subprocess.
+
+        Returns:
+            The install subprocess.
+        """
+
+    @abc.abstractmethod
+    async def uninstall(self, package: str, *, python: str) -> Process:
+        """Uninstall a single package.
+
+        Args:
+            package: The package name.
+            python: Path to the Python executable to uninstall from.
+
+        Returns:
+            The uninstall subprocess.
+        """
+
+    @abc.abstractmethod
+    async def list_installed(self, *args: str, python: str) -> list[dict[str, t.Any]]:
+        """List installed packages.
+
+        Args:
+            args: Extra arguments to pass to the list command.
+            python: Path to the Python executable to query.
+
+        Returns:
+            A list of installed package dictionaries.
+        """
+
+
+@dataclass(slots=True, frozen=True)
+class PipPackageManager(PackageManager):
+    """Package manager using ``pip``."""
+
+    @override
+    async def install(
+        self,
+        args: Sequence[str],
+        *,
+        python: str,
+        extract_stderr: StdErrExtractor = _extract_stderr,
+        force: bool = False,
+        env: dict[str, str | None] | None = None,
+    ) -> Process:
+        install_args = ("--ignore-requires-python", *args) if force else args
+        cmd: tuple[str, ...] = (python, "-m", "pip", "install")
+        cmd = (*cmd, "--log", str(self.log_path)) if self.log_path else cmd
+        return await exec_async(
+            *cmd,
+            *install_args,
+            extract_stderr=extract_stderr,
+            env=env,
+        )
+
+    @override
+    async def uninstall(self, package: str, *, python: str) -> Process:
+        return await exec_async(
+            python,
+            "-m",
+            "pip",
+            "uninstall",
+            "--yes",
+            package,
+            extract_stderr=_extract_stderr,
+        )
+
+    @override
+    async def list_installed(self, *args: str, python: str) -> list[dict[str, t.Any]]:
+        proc = await exec_async(
+            python,
+            "-m",
+            "pip",
+            "--no-color",
+            "list",
+            "--format=json",
+            *args,
+        )
+        stdout, _ = await proc.communicate()
+
+        # pip may include warnings before the JSON output
+        return json.loads(stdout.splitlines()[-1])
+
+
+@dataclass(slots=True, frozen=True)
+class UvPackageManager(PackageManager):
+    """Package manager using ``uv pip``."""
+
+    cli: tuple[str, ...]
+    """Base uv CLI arguments, e.g. ``uv --quiet``."""
+
+    @override
+    async def install(
+        self,
+        args: Sequence[str],
+        *,
+        python: str,
+        extract_stderr: StdErrExtractor = _extract_stderr,
+        force: bool = False,  # uv has no --ignore-requires-python equivalent
+        env: dict[str, str | None] | None = None,
+    ) -> Process:
+        return await exec_async(
+            *self.cli,
+            "pip",
+            "install",
+            f"--python={python}",
+            *args,
+            extract_stderr=extract_stderr,
+            env=env,
+        )
+
+    @override
+    async def uninstall(self, package: str, *, python: str) -> Process:
+        return await exec_async(
+            *self.cli,
+            "pip",
+            "uninstall",
+            f"--python={python}",
+            package,
+        )
+
+    @override
+    async def list_installed(self, *args: str, python: str) -> list[dict[str, t.Any]]:
+        proc = await exec_async(
+            *self.cli,
+            "pip",
+            "list",
+            "--quiet",
+            "--format=json",
+            f"--python={python}",
+            *args,
+        )
+        stdout, _ = await proc.communicate()
+        return json.loads(stdout)
 
 
 class VirtualEnvService:
@@ -392,11 +552,11 @@ class VirtualEnvService:
     async def create(self) -> Process:
         """Create a new virtual environment.
 
-        Raises:
-            AsyncSubprocessError: The virtual environment could not be created.
-
         Returns:
             The Python process creating the virtual environment.
+
+        Raises:
+            AsyncSubprocessError: The virtual environment could not be created.
         """
         logger.debug(
             "Creating virtual environment for '%s/%s'",
@@ -404,7 +564,7 @@ class VirtualEnvService:
             self.name,
         )
 
-        async def extract_stderr(proc: Process):  # noqa: ANN202
+        async def extract_stderr(proc: Process) -> str:
             return (await t.cast("asyncio.StreamReader", proc.stdout).read()).decode(
                 "utf-8",
                 errors="replace",
@@ -435,11 +595,11 @@ class VirtualEnvService:
             force: Whether to ignore the Python version required by plugins.
             env: Environment variables to pass to the subprocess.
 
-        Raises:
-            AsyncSubprocessError: The command failed.
-
         Returns:
             The process running `pip install` with the provided args.
+
+        Raises:
+            AsyncSubprocessError: The command failed.
         """
         if clean:
             await self.create()
@@ -536,9 +696,29 @@ class VenvBackend(abc.ABC):
         log_path = project.dirs.logs("pip", namespace, name, "install.log").resolve()
         venv = VirtualEnv(
             venv_path,
-            python=plugin.python or project.settings.get("python"),
+            python=(
+                plugin.python
+                or project.settings.get("python")
+                or project.python_version
+            ),
         )
         return cls(venv=venv, log_path=log_path)
+
+    @abc.abstractmethod
+    async def create_venv(
+        self,
+        *,
+        extract_stderr: StdErrExtractor = _extract_stderr,
+    ) -> Process:
+        """Create a new virtual environment.
+
+        Args:
+            extract_stderr: Async function that is provided the completed failed
+                process, and returns its error string or `None`.
+
+        Returns:
+            The Python subprocess creating the virtual environment.
+        """
 
     @abc.abstractmethod
     async def upgrade_installer(
@@ -586,22 +766,6 @@ class VenvBackend(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def create_venv(
-        self,
-        *,
-        extract_stderr: StdErrExtractor = _extract_stderr,
-    ) -> Process:
-        """Create a new virtual environment.
-
-        Args:
-            extract_stderr: Async function that is provided the completed failed
-                process, and returns its error string or `None`.
-
-        Returns:
-            The Python subprocess creating the virtual environment.
-        """
-
-    @abc.abstractmethod
     async def list_installed(self, *args: str) -> list[dict[str, t.Any]]:
         """List the installed dependencies."""
 
@@ -611,6 +775,11 @@ class VirtualenvBackend(VenvBackend):
 
     The methods in this class are not thread-safe.
     """
+
+    @cached_property
+    def package_manager(self) -> PipPackageManager:
+        """The pip-based package manager for this virtual environment."""
+        return PipPackageManager(log_path=self.log_path)
 
     @override
     async def create_venv(
@@ -648,11 +817,11 @@ class VirtualenvBackend(VenvBackend):
         Args:
             env: Environment variables to pass to the subprocess.
 
-        Raises:
-            AsyncSubprocessError: Failed to upgrade pip to the latest version.
-
         Returns:
             The process running `pip install --upgrade ...`.
+
+        Raises:
+            AsyncSubprocessError: Failed to upgrade pip to the latest version.
         """
         return await self.install_pip_args(("--upgrade", "pip"), env=env)
 
@@ -665,7 +834,7 @@ class VirtualenvBackend(VenvBackend):
         force: bool = False,
         env: dict[str, str | None] | None = None,
     ) -> Process:
-        """Return the `pip install` arguments to use.
+        """Install packages using pip.
 
         Args:
             pip_install_args: The arguments to pass to `pip install`.
@@ -677,20 +846,11 @@ class VirtualenvBackend(VenvBackend):
         Returns:
             The process running `pip install` with the provided args.
         """
-        pip_install_args = (
-            ("--ignore-requires-python", *pip_install_args)
-            if force
-            else pip_install_args
-        )
-        return await exec_async(
-            str(self.venv.exec_path("python")),
-            "-m",
-            "pip",
-            "install",
-            "--log",
-            str(self.log_path),
-            *pip_install_args,
+        return await self.package_manager.install(
+            pip_install_args,
+            python=str(self.venv.exec_path("python")),
             extract_stderr=extract_stderr,
+            force=force,
             env=env,
         )
 
@@ -704,44 +864,64 @@ class VirtualenvBackend(VenvBackend):
         Returns:
             The process running `pip uninstall` with the provided package.
         """
-        return await exec_async(
-            str(self.venv.exec_path("python")),
-            "-m",
-            "pip",
-            "uninstall",
-            "--yes",
+        return await self.package_manager.uninstall(
             package,
-            extract_stderr=_extract_stderr,
+            python=str(self.venv.exec_path("python")),
         )
 
     @override
     async def list_installed(self, *args: str) -> list[dict[str, t.Any]]:
         """List the installed dependencies."""
-        proc = await exec_async(
-            str(self.venv.exec_path("python")),
-            "-m",
-            "pip",
-            "list",
-            "--format=json",
+        return await self.package_manager.list_installed(
             *args,
+            python=str(self.venv.exec_path("python")),
         )
-        stdout, _ = await proc.communicate()
-        return json.loads(stdout)
 
 
 class UvBackend(VenvBackend):
     """Manages virtual environments using `uv`."""
 
-    def __init__(self, *args: t.Any, **kwargs: t.Any):
+    def __init__(self, *args: t.Any, preview: bool = False, **kwargs: t.Any):
         """Initialize the `UvBackend`.
 
         Args:
             args: Positional arguments for the VenvBackend.
+            preview: Run uv with the ``--preview`` flag.
             kwargs: Keyword arguments for the VenvBackend.
         """
         super().__init__(*args, **kwargs)
         self.uv = find_uv()
+        self._cli = (self.uv, "--preview") if preview else (self.uv,)
         logger.debug("Using uv executable at %s", self.uv)
+
+    @cached_property
+    def package_manager(self) -> UvPackageManager:
+        """The uv-based package manager for this virtual environment."""
+        return UvPackageManager(cli=self._cli)
+
+    @override
+    async def create_venv(
+        self,
+        *,
+        extract_stderr: StdErrExtractor = _extract_stderr,
+    ) -> Process:
+        """Create a new virtual environment using `uv`.
+
+        Args:
+            extract_stderr: Async function that is provided the completed failed
+                process, and returns its error string or `None`.
+
+        Returns:
+            The Python process creating the virtual environment.
+        """
+        return await exec_async(
+            *self._cli,
+            "venv",
+            "--clear",
+            f"--python={self.venv.python_path}",
+            str(self.venv.root),
+            extract_stderr=extract_stderr,
+        )
 
     @override
     async def upgrade_installer(
@@ -764,7 +944,7 @@ class UvBackend(VenvBackend):
         force: bool = False,
         env: dict[str, str | None] | None = None,
     ) -> Process:
-        """Run `pip install` in the plugin's virtual environment.
+        """Run `uv pip install` in the plugin's virtual environment.
 
         Args:
             pip_install_args: The arguments to pass to `pip install`.
@@ -776,13 +956,11 @@ class UvBackend(VenvBackend):
         Returns:
             The process running `pip install` with the provided args.
         """
-        return await exec_async(
-            self.uv,
-            "pip",
-            "install",
-            f"--python={self.venv.exec_path('python')}",
-            *pip_install_args,
+        return await self.package_manager.install(
+            pip_install_args,
+            python=str(self.venv.exec_path("python")),
             extract_stderr=extract_stderr,
+            force=force,
             env=env,
         )
 
@@ -796,49 +974,15 @@ class UvBackend(VenvBackend):
         Returns:
             The process running `pip uninstall` with the provided package.
         """
-        return await exec_async(
-            self.uv,
-            "pip",
-            "uninstall",
-            f"--python={self.venv.exec_path('python')}",
+        return await self.package_manager.uninstall(
             package,
-        )
-
-    @override
-    async def create_venv(
-        self,
-        *,
-        extract_stderr: StdErrExtractor = _extract_stderr,
-    ) -> Process:
-        """Create a new virtual environment using `uv`.
-
-        Args:
-            extract_stderr: Async function that is provided the completed failed
-                process, and returns its error string or `None`.
-
-        Returns:
-            The Python process creating the virtual environment.
-        """
-        return await exec_async(
-            self.uv,
-            "venv",
-            "--clear",
-            f"--python={self.venv.python_path}",
-            str(self.venv.root),
-            extract_stderr=extract_stderr,
+            python=str(self.venv.exec_path("python")),
         )
 
     @override
     async def list_installed(self, *args: str) -> list[dict[str, t.Any]]:
         """List the installed dependencies."""
-        proc = await exec_async(
-            self.uv,
-            "pip",
-            "list",
-            "--quiet",
-            "--format=json",
-            f"--python={self.venv.exec_path('python')}",
+        return await self.package_manager.list_installed(
             *args,
+            python=str(self.venv.exec_path("python")),
         )
-        stdout, _ = await proc.communicate()
-        return json.loads(stdout)

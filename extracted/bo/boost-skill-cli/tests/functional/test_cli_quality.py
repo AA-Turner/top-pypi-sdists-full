@@ -11,9 +11,12 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from datetime import datetime
 
-from boost_cli.core import paths
+import pytest
+
+from boost_cli.core import agents, lockfile, paths, registry
 
 
 def _copy_tap(src, dest):
@@ -87,6 +90,330 @@ class TestDoctor:
         r = boost("doctor")
         assert "● healthy" not in r.out
         assert "ready to set up" in r.out
+
+    def test_a_corrupt_config_is_an_issue_not_a_fresh_install(
+            self, boost, installed):
+        from boost_cli.core import paths
+        paths.config_path().write_text('{"taps": [', encoding="utf-8")
+        r = boost("doctor", expect=1)
+        assert "ready to set up" not in r.out
+        assert "boost tap --defaults" not in r.out     # not a new user
+        assert "invalid JSON" in r.out
+        assert "1 tap clone on disk is not listed" in r.out.replace("\n    ", " ")
+        d = json.loads(boost("doctor", "--json", expect=1).out)
+        assert d["ok"] is False
+        assert [c["name"] for c in d["checks"] if c["status"] == "issue"] == ["config"]
+
+    def test_heal_does_not_certify_a_corrupt_config(self, boost, installed):
+        from boost_cli.core import paths
+        paths.config_path().write_text('{"taps": [', encoding="utf-8")
+        r = boost("heal", expect=1)
+        assert "nothing to heal" not in r.out
+        assert "heal cannot repair it" in r.out.replace("\n    ", " ")
+
+    def test_a_config_that_is_not_utf8_is_an_issue_not_a_crash(
+            self, boost, installed):
+        # The decode failure is a ValueError that no guard caught, so this was
+        # a traceback out of `logs.configure` — the one command meant to
+        # diagnose a broken config could not start.
+        paths.config_path().write_bytes(b"\xff\xfe")
+        r = boost("doctor", expect=1)
+        flat = " ".join(r.out.split())
+        assert "not valid UTF-8" in flat
+        assert "1 tap clone on disk is not listed" in flat
+        assert "ready to set up" not in flat
+        d = json.loads(boost("doctor", "--json", expect=1).out)
+        assert [c["name"] for c in d["checks"] if c["status"] == "issue"] == ["config"]
+        boost("list")          # every other command runs on defaults
+
+    @pytest.mark.parametrize("taps", ['"x"', "null", "{}"])
+    def test_a_taps_that_is_not_a_list_is_an_issue(self, boost, installed,
+                                                   taps):
+        # `list_taps` reads these as no taps, so doctor called the machine
+        # "ready to set up" while `--help` (for "x") called it configured.
+        paths.config_path().write_text('{"taps": %s}' % taps, encoding="utf-8")
+        r = boost("doctor", expect=1)
+        flat = " ".join(r.out.split())
+        assert 'expected "taps" to be a list' in flat
+        assert "1 tap clone on disk is not listed" in flat
+        assert "ready to set up" not in flat
+        r = boost("heal", expect=1)
+        flat = " ".join(r.out.split())
+        assert "heal cannot repair it" in flat
+        assert "nothing to heal" not in flat
+
+    def test_re_adding_a_tap_over_a_non_list_taps_repairs_the_file(
+            self, boost, installed, tapped):
+        # doctor's advice is "re-add your taps", and `boost tap` crashed
+        # appending to the string. Now the write moves the file aside first.
+        paths.config_path().write_text('{"taps": "x"}', encoding="utf-8")
+        boost("tap", tapped)
+        aside = paths.config_path().with_name("config.json.corrupt")
+        assert aside.read_text(encoding="utf-8") == '{"taps": "x"}'
+        r = boost("doctor")
+        assert "1 tap cloned & cached" in r.out
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_an_unwritable_cache_dir_is_an_issue(self, boost, tapped):
+        paths.cache_dir().chmod(0o500)
+        try:
+            r = boost("doctor", expect=1)
+        finally:
+            paths.cache_dir().chmod(0o700)
+        assert "is not writable" in r.out
+        # ...and nothing beneath it still claims the taps are cached.
+        assert "1 tap cloned & cached" not in r.out
+        assert "1 tap cloned" in r.out
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_heal_names_an_unwritable_cache_dir_doctor_flags(self, boost,
+                                                             tapped):
+        # doctor calls it an issue; heal answering "nothing to heal" under it
+        # is the contradiction #888 removed for config.json.
+        paths.cache_dir().chmod(0o500)
+        try:
+            r = boost("heal", expect=1)
+        finally:
+            paths.cache_dir().chmod(0o700)
+        out = r.out.replace("\n    ", " ")
+        assert "is not writable — heal does not change permissions" in out
+        assert "nothing to heal" not in out
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_a_missing_cache_dir_is_not_an_unwritable_one(self, boost, tapped):
+        # The real heal creates it, so neither the preview nor doctor may
+        # call it unwritable: a preview exiting 1 where the run exits 0 is the
+        # dry-run divergence this repo treats as a defect.
+        shutil.rmtree(paths.cache_dir())
+        dry = boost("heal", "--dry-run").out
+        assert "not writable" not in dry
+        assert "would rebuild catalog cache" in dry
+        doc = boost("doctor", expect=1).out      # the missing cache IS an issue
+        assert "no catalog cache" in doc and "not writable" not in doc
+        assert "rebuilt catalog cache" in boost("heal").out
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_heal_does_not_claim_a_cache_it_could_not_write(self, boost,
+                                                            tapped):
+        for f in paths.cache_dir().glob("*.json"):
+            if f.name not in paths.INTERNAL_CACHE_FILES:
+                f.unlink()
+        paths.cache_dir().chmod(0o500)
+        try:
+            r = boost("heal", expect=1)
+        finally:
+            paths.cache_dir().chmod(0o700)
+        assert "could not save the catalog cache" in r.out + r.err
+        assert "rebuilt catalog cache" not in r.out
+        paths.cache_dir().chmod(0o500)
+        try:
+            dry = boost("heal", "--dry-run", expect=1).out
+        finally:
+            paths.cache_dir().chmod(0o700)
+        assert "would rebuild catalog cache" not in dry   # the run won't
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="Windows refuses to replace a read-only file")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_a_read_only_names_file_crashes_nothing(self, boost, installed,
+                                                    fixture_tap_src):
+        # The card's repro (cache-writers-that-still-crash-on-a-read-only-
+        # cache): doctor said healthy while heal, update, untap and a repeat
+        # tap all exited 70 writing `_names.txt` in place.
+        from boost_cli.core import complete
+        names = complete.names_file()
+        names.chmod(0o444)
+        assert "● healthy" in boost("doctor").out
+        boost("heal")
+        assert os.access(names, os.W_OK)          # replaced, not refused
+        for argv in (("update",), ("untap", "fixture-tap"),
+                     ("tap", fixture_tap_src), ("tap", fixture_tap_src)):
+            names.chmod(0o444)
+            r = boost(*argv)
+            assert "could not save" not in r.out + r.err, argv
+        assert "brainstorming" in names.read_text(encoding="utf-8")
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_a_names_file_it_cannot_write_or_replace_is_a_warning(
+            self, boost, tapped):
+        # Read-only file in a read-only dir: neither the replace nor the
+        # in-place write can land, and `update` must still finish.
+        from boost_cli.core import complete
+        complete.names_file().chmod(0o444)
+        paths.cache_dir().chmod(0o500)
+        try:
+            r = boost("update")
+        finally:
+            paths.cache_dir().chmod(0o700)
+            complete.names_file().chmod(0o600)
+        err = " ".join(r.err.split())
+        assert "could not save the completion list (Permission denied)" in err
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_an_unwritable_agent_dir_names_its_remedy_everywhere(
+            self, boost, tapped):
+        # doctor named it with no next action, heal answered "nothing to
+        # heal", and the next install crashed at exit 70.
+        cursor = paths.home() / ".cursor" / "skills"
+        cursor.mkdir(parents=True, exist_ok=True)
+        cursor.chmod(0o500)
+        try:
+            doc = boost("doctor", expect=1).out.replace("\n    ", " ")
+            heal = boost("heal", expect=1).out.replace("\n    ", " ")
+            inst = boost("install", "brainstorming").out.replace("\n    ", " ")
+        finally:
+            cursor.chmod(0o700)
+        remedy = "`chmod u+w ~/.cursor/skills`"
+        assert remedy in doc and "`boost sync`" in doc
+        assert remedy in heal and "nothing to heal" not in heal
+        assert "not linked: ~/.cursor/skills is not writable" in inst
+        assert remedy in inst
+        boost("sync")                                # now it may
+        assert (cursor / "brainstorming").is_symlink()
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_reinstall_names_the_link_it_could_not_make(self, boost, installed):
+        cursor = paths.home() / ".cursor" / "skills"
+        cursor.chmod(0o500)
+        try:
+            r = boost("reinstall", "brainstorming")
+        finally:
+            cursor.chmod(0o700)
+        assert "not linked: ~/.cursor/skills is not writable" in r.out.replace(
+            "\n    ", " ")
+
+    def test_reinstall_names_a_conflict_it_left_in_place(self, boost,
+                                                         installed):
+        # reinstall discarded the install result, so a real directory
+        # squatting the link path went unmentioned under "reinstalled".
+        link = paths.home() / ".cursor" / "skills" / "brainstorming"
+        link.unlink()
+        link.mkdir()
+        r = boost("reinstall", "brainstorming")
+        assert ("not linked: ~/.cursor/skills/brainstorming exists and is not "
+                "managed by boost") in " ".join(r.out.split())
+        assert link.is_dir() and not link.is_symlink()
+
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_a_native_store_agents_dir_is_not_boosts_to_write(self, boost,
+                                                               installed):
+        # Gemini reads the canonical store; boost never links into its skills
+        # dir, so a locked one is not an issue `boost sync` could fix.
+        gemini = paths.home() / ".gemini" / "skills"
+        gemini.mkdir(parents=True, exist_ok=True)
+        gemini.chmod(0o500)
+        try:
+            doc = boost("doctor").out
+            boost("heal")                          # rc 0: nothing of boost's
+        finally:
+            gemini.chmod(0o700)
+        assert "agent dir" not in doc
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_an_unwritable_rules_or_commands_dir_is_skipped_with_a_remedy(
+            self, boost, fixture_tap_src, tmp_path):
+        # Rules and workflows are written, not linked: an unwritable
+        # ~/.cursor/rules crashed the install at exit 70, left a CLAUDE.md
+        # block the lock never recorded, and doctor stayed healthy.
+        dst = tmp_path / "rw-tap"
+        shutil.copytree(fixture_tap_src, dst)
+        (dst / "rules").mkdir()
+        (dst / "rules" / "house.mdc").write_text(
+            "---\nname: house\n---\n\nAlways write tests first.\n",
+            encoding="utf-8")
+        (dst / "commands").mkdir()
+        (dst / "commands" / "ship-it.md").write_text(
+            "---\nname: ship-it\ndescription: release helper\n---\n\nShip.\n",
+            encoding="utf-8")
+        subprocess.run(["git", "-C", str(dst), "add", "-A"], check=True,
+                       capture_output=True)
+        subprocess.run(["git", "-C", str(dst), "commit", "-qm", "rw"],
+                       check=True, capture_output=True)
+        boost("tap", str(dst))
+        cursor = paths.home() / ".cursor"
+        dirs = [cursor / "rules", cursor / "commands"]
+        for d in dirs:
+            d.mkdir(parents=True)
+            d.chmod(0o500)
+        try:
+            rule = boost("install", "house").out.replace("\n    ", " ")
+            wf = boost("install", "ship-it").out.replace("\n    ", " ")
+            doc = boost("doctor", expect=1).out.replace("\n    ", " ")
+            heal = boost("heal", expect=1).out.replace("\n    ", " ")
+            synced = boost("sync").out.replace("\n    ", " ")
+        finally:
+            for d in dirs:
+                d.chmod(0o700)
+        # sync may not write there yet, so it names the dir, not an all-clear.
+        assert "everything in sync" not in synced
+        assert ("agent dir ~/.cursor/rules is not writable — "
+                "`chmod u+w ~/.cursor/rules`") in synced
+        assert ("not written: ~/.cursor/rules is not writable — "
+                "`chmod u+w ~/.cursor/rules`, then `boost sync` writes it") in rule
+        assert "not written: ~/.cursor/commands is not writable" in wf
+        for d in ("rules", "commands"):
+            assert "agent dir ~/.cursor/%s is not writable" % d in doc
+            assert "`chmod u+w ~/.cursor/%s`" % d in heal
+        assert "rule house was not written for cursor" in doc
+        assert "nothing to heal" not in heal
+        boost("sync")                                # now it may
+        assert (cursor / "rules" / "house.mdc").is_file()
+        assert (cursor / "commands" / "ship-it.md").is_file()
+        boost("doctor")                              # rc 0 again
+        boost("uninstall", "house")                  # the lock knows it
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="chmod can't make a directory unwritable on Windows")
+    @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                        reason="root ignores mode bits")
+    def test_a_locked_dir_nothing_installed_writes_into_is_not_an_issue(
+            self, boost, installed):
+        # Skills only: boost has nothing to write into ~/.claude/commands or
+        # ~/.cursor/rules, so a read-only one (managed by another tool, say)
+        # is not boost's to report. It turned doctor rc 1 and kept sync from
+        # ever saying "everything in sync".
+        home = paths.home()
+        dirs = [home / ".claude" / "commands", home / ".cursor" / "rules"]
+        for d in dirs:
+            d.mkdir(parents=True, exist_ok=True)
+            d.chmod(0o500)
+        try:
+            doc = boost("doctor").out
+            synced = boost("sync").out
+            heal = boost("heal").out
+        finally:
+            for d in dirs:
+                d.chmod(0o700)
+        assert "agent dir" not in doc + synced + heal
+        assert "everything in sync" in synced
 
     def test_an_untapped_machine_is_still_rc0(self, boost):
         # Reported, never fatal. The exit code turns on real issues only, so
@@ -168,6 +495,40 @@ class TestDoctor:
         assert "1 skill installed · 1 tap synced · 4 broken links" in r.out
         assert "2 issues need attention" in r.out  # plural verb: two bad() calls
 
+    def test_missing_store_of_a_url_import_names_reinstall(
+            self, boost, sandbox, tmp_path, monkeypatch):
+        # `boost heal` only keeps a URL import's entry and points onward, since
+        # sync never touches the network — so doctor sending the reader to heal
+        # cost a second command to reach the one that clones it again.
+        src = tmp_path / "url-skill"
+        src.mkdir()
+        (src / "SKILL.md").write_text(
+            "---\nname: url-skill\ndescription: a skill imported by URL\n"
+            "version: 0.1.0\n---\n\nBody.\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "boost_cli.core.gitutil.clone_shallow",
+            lambda url, dest, sparse=True: shutil.copytree(src, dest))
+        boost("import", "https://example.invalid/skills.git")
+        shutil.rmtree(paths.store_dir() / "url-skill")
+        r = boost("doctor", expect=1)
+        line = next(ln for ln in r.out.splitlines() if "missing from store" in ln)
+        assert "skill url-skill missing from store — run `boost reinstall url-skill`" in line
+        assert "boost heal" not in line
+
+    def test_missing_store_of_a_path_import_still_names_heal(
+            self, boost, sandbox, tmp_path):
+        # A local-path import has no URL, and heal re-copies it from the path
+        # it recorded — so heal stays the remedy there.
+        src = tmp_path / "path-skill"
+        src.mkdir()
+        (src / "SKILL.md").write_text(
+            "---\nname: path-skill\ndescription: a skill imported by path\n"
+            "version: 0.1.0\n---\n\nBody.\n", encoding="utf-8")
+        boost("import", src)
+        shutil.rmtree(paths.store_dir() / "path-skill")
+        r = boost("doctor", expect=1)
+        assert "skill path-skill missing from store — run `boost heal`" in r.out
+
     def test_missing_lock_over_populated_store_rc1(self, boost, installed):
         # The store dir and its agent links from `installed` are still on
         # disk; only the lock record is gone. Doctor used to print
@@ -233,6 +594,14 @@ class TestDoctor:
         assert "lock file is corrupt — restore with `boost replay`" in r.out
         assert "lock file parses (v3)" not in r.out
         assert "lock file integrity OK" not in r.out
+
+    def test_a_lock_that_is_not_utf8_is_corrupt_not_a_crash(self, boost,
+                                                             installed):
+        # list, doctor, sync, heal, install and verify all exited 70 on it.
+        paths.lockfile_path().write_bytes(b"\xff\xfe")
+        r = boost("doctor", expect=1)
+        assert "lock file is corrupt — restore with `boost replay`" in r.out
+        boost("list")
 
     def test_wrong_schema_lock_rc1(self, boost, installed):
         paths.lockfile_path().write_text(
@@ -1503,11 +1872,88 @@ class TestConflict:
 # ── changelog ────────────────────────────────────────────────────────────
 
 class TestChangelog:
-    def test_fixture_commit_and_shallow_note(self, boost, installed):
+    def test_fixture_commit_and_no_shallow_note_on_a_complete_clone(
+            self, boost, installed):
+        # git ignores --depth when cloning a local path, so the fixture clone
+        # is complete. The note used to fire on any log shorter than three
+        # lines and send the user to `fetch --unshallow`, which fails on a
+        # complete repository.
         r = boost("changelog", "brainstorming")
         assert "changelog for brainstorming (fixture-tap)" in r.out
         assert "fixture skills" in r.out          # the fixture commit subject
-        assert "fetch --unshallow" in r.out       # < 3 entries → shallow note
+        assert not (paths.repos_dir() / "fixture-tap" / ".git" / "shallow").exists()
+        assert "fetch --unshallow" not in r.out
+
+    def test_shallow_note_on_a_shallow_clone(self, boost, installed):
+        # A depth-1 clone writes its tip commit into .git/shallow. Writing it
+        # by hand gives the same state, since `boost tap` cannot make a
+        # shallow clone of a local path.
+        clone = paths.repos_dir() / "fixture-tap"
+        head = subprocess.run(["git", "-C", str(clone), "rev-parse", "HEAD"],
+                              check=True, capture_output=True, text=True)
+        (clone / ".git" / "shallow").write_text(head.stdout, encoding="utf-8")
+        r = boost("changelog", "brainstorming")
+        assert "fetch --unshallow" in " ".join(r.out.split())
+
+    def test_shallow_note_on_a_deepened_clone_is_gated_on_n(
+            self, boost, installed):
+        # A clone deepened past three commits is still shallow. The note used
+        # to need a log shorter than three lines, so it went quiet here even
+        # when git returned fewer entries than -n asked for.
+        clone = paths.repos_dir() / "fixture-tap"
+        skill_md = next(p for p in clone.rglob("SKILL.md")
+                        if p.parent.name == "brainstorming")
+
+        def git(*a):
+            return subprocess.run(
+                ["git", "-C", str(clone), "-c", "user.name=Deepen",
+                 "-c", "user.email=deepen@boost.test", *a],
+                check=True, capture_output=True, text=True).stdout
+
+        for i in range(3):
+            with skill_md.open("a", encoding="utf-8") as fh:
+                fh.write("\nrevision %d\n" % i)
+            git("commit", "-qam", "revise brainstorming %d" % i)
+        # `.git/shallow` names the boundary commits. The root keeps all four
+        # in the log, the shape `fetch --deepen` leaves on a longer history.
+        root = git("rev-list", "--max-parents=0", "HEAD")
+        (clone / ".git" / "shallow").write_text(root, encoding="utf-8")
+
+        def changelog(*extra):
+            r = boost("changelog", "brainstorming", *extra)
+            return (sum("revise brainstorming" in ln or "fixture skills" in ln
+                        for ln in r.out.splitlines()),
+                    "fetch --unshallow" in " ".join(r.out.split()))
+
+        assert changelog() == (4, True)           # 4 < the default 20
+        assert changelog("-n", "5") == (4, True)   # one short of -n
+        assert changelog("-n", "4") == (4, False)  # everything asked for came back
+        assert changelog("-n", "2") == (2, False)  # 2 < 3, but not < 2
+
+    def test_a_rule_is_logged_over_its_file_not_its_directory(
+            self, boost, sibling_rules_tap):
+        # Not installed: resolved from the catalog. The sibling commit only
+        # touches rules/ci-cd/dotnet-test.mdc.
+        r = boost("changelog", "dotnet-build")
+        assert "add dotnet-build and reviewers" in r.out
+        assert "add sibling rule dotnet-test" not in r.out
+        boost("install", "dotnet-build")
+        r = boost("changelog", "dotnet-build")   # installed: resolved from the lock
+        assert "add dotnet-build and reviewers" in r.out
+        assert "add sibling rule dotnet-test" not in r.out
+        data = json.loads(boost("changelog", "dotnet-build", "--json").out)
+        assert [c["subject"] for c in data["commits"]] == [
+            "add dotnet-build and reviewers"]
+
+    def test_an_installed_workflow_resolves_through_the_lock(
+            self, boost, sibling_rules_tap):
+        # The catalog refuses the bare name: three copies in one tap. The
+        # refusal tells the user to install one with --path and retry, so
+        # the retry has to work.
+        boost("install", "csharp-reviewer", "--path", "plugins/a/agents")
+        r = boost("changelog", "csharp-reviewer")
+        assert "changelog for csharp-reviewer" in r.out
+        assert "add dotnet-build and reviewers" in r.out
 
     def test_local_import_message(self, boost, sandbox, tmp_path):
         _import_skill(boost, tmp_path, "local-one", "# Local\n\nBody.\n")
@@ -1614,16 +2060,25 @@ class TestHealth:
             self, boost, installed):
         # The bug: twelve minutes after tapping, health read the tap clone's
         # own git log (the upstream's commit clock, unmoved by a local sync)
-        # and reported weeks-old staleness for a brand-new clone. A tap that
-        # has only ever been *tapped*, never `update`d, has genuinely never
-        # been synced — "never" is the honest answer, not a fabricated age.
+        # and reported weeks-old staleness for a brand-new clone. The marker
+        # is the local clock, and a clone stamps it — a fresh clone IS a
+        # sync, which is what makes the stale-tap hint reachable on a machine
+        # that never runs `boost update` (stale-tap-hint-dead-for-tap-only-
+        # installs). This test read "never" here until then.
         r = boost("health")
-        assert re.search(r"last tap sync\s+never", r.out)
+        sync_line = next(ln for ln in r.out.splitlines() if "last tap sync" in ln)
+        assert "never" not in sync_line and "ago" in sync_line
         boost("update")
         r = boost("health")
         sync_line = next(ln for ln in r.out.splitlines() if "last tap sync" in ln)
         assert "never" not in sync_line
         assert "ago" in sync_line
+
+    def test_last_tap_sync_is_never_before_anything_is_tapped(self, boost,
+                                                              sandbox):
+        # The marker starts at the first clone, so a machine with no taps at
+        # all still has nothing to report — and must not fabricate an age.
+        assert re.search(r"last tap sync\s+never", boost("health").out)
 
 
 class TestDuplicateSkillDiscovery:
@@ -1713,3 +2168,518 @@ class TestDuplicateSkillDiscovery:
         r = boost("heal", "--prune-duplicates")
         assert "duplicate skill discovery" not in r.out
         assert (gem / "SKILL.md").is_file()
+
+
+class TestStateFilesThatAreNotUtf8:
+    """One bad byte in a file boost keeps for itself is a corrupt file, never
+    a traceback: each of these took a command down at exit 70."""
+
+    def test_a_policy_file_reads_as_defaults(self, boost, tapped):
+        paths.policy_path().write_bytes(b"\xff\xfe")
+        boost("install", "brainstorming")
+
+    @pytest.mark.parametrize("which", ["tap", "index"])
+    def test_a_search_cache_is_rebuilt(self, boost, tapped, which):
+        boost("search", "brainstorm")          # builds both caches
+        from boost_cli.core import rag, registry
+        bad = (rag.index_path() if which == "index"
+               else registry.list_taps()[0].cache_file)
+        assert bad.is_file()
+        bad.write_bytes(b"\xff\xfe")
+        r = boost("search", "brainstorm")
+        assert "brainstorming" in r.out
+        boost("info", "brainstorming")
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="chmod can't make a directory unwritable on Windows")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                    reason="root ignores mode bits")
+class TestReadOnlyBoostHomeWithNoCacheDir:
+    """The card's setup: a tap, no cache dir, and `chmod 500 ~/.boost`.
+    update, heal and doctor exited 70 creating the cache dir, and
+    `heal --dry-run` promised to create it and exited 0."""
+
+    @pytest.fixture()
+    def ro_home(self, boost, tapped):
+        shutil.rmtree(paths.cache_dir())
+        paths.boost_home().chmod(0o500)
+        yield
+        paths.boost_home().chmod(0o700)
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+    def test_doctor_names_the_directory_that_refuses(self, boost, ro_home):
+        out = self._flat(boost("doctor", expect=1).out)
+        assert ("~/.boost/cache cannot be created: ~/.boost is not writable"
+                in out)
+        assert "make ~/.boost writable" in out
+        # `boost update` alone cannot write the cache it is sent to make.
+        assert ("run `boost update fixture-tap` once ~/.boost is writable"
+                in out)
+        assert "cloned & cached" not in out
+
+    def test_heal_and_its_preview_agree(self, boost, ro_home):
+        dry = boost("heal", "--dry-run", expect=1).out
+        run = boost("heal", expect=1).out
+        line = ("! ~/.boost/cache cannot be created: ~/.boost is not writable "
+                "— heal does not change permissions; run `chmod u+w ~/.boost`")
+        # Once each: the missing cache dir is both a refused mkdir and the
+        # stuck cache dir doctor flags, and heal names it as one problem.
+        assert self._flat(dry).count(line) == 1
+        assert self._flat(run).count(line) == 1
+        assert "would create directory ~/.boost/cache" not in dry
+        assert "would rebuild catalog cache" not in dry
+        assert "rebuilt catalog cache" not in run
+        assert "nothing to heal" not in dry + run
+
+    def test_heal_still_creates_the_directories_it_can(self, boost, ro_home):
+        agent_dirs = [d for d in agents.linking_agents().values()
+                      if not d.is_dir()]
+        assert agent_dirs, "the fixture must leave an agent dir to create"
+        dry = boost("heal", "--dry-run", expect=1).out
+        for d in agent_dirs:
+            assert "would create directory %s" % paths.tilde(d) in dry
+        run = boost("heal", expect=1).out
+        assert "created %d missing directories" % len(agent_dirs) in run
+        assert all(d.is_dir() for d in agent_dirs)
+
+    @pytest.mark.parametrize("argv", [("update",), ("compact",),
+                                      ("install", "brainstorming")])
+    def test_commands_that_never_needed_the_cache_dir_finish(self, boost,
+                                                             ro_home, argv):
+        boost(*argv)
+        assert not paths.cache_dir().exists()
+
+    def test_untap_names_the_directory_and_keeps_the_tap(self, boost,
+                                                       ro_home):
+        # config.save writes config.json into ~/.boost itself, so untap
+        # cannot finish here. It exited 70; now it says which dir and why,
+        # before it deletes anything.
+        r = boost("untap", "fixture-tap", expect=1)
+        out = self._flat(r.out + r.err)
+        assert "could not save ~/.boost/config.json" in out
+        assert "~/.boost is not writable" in out
+        assert "run `chmod u+w ~/.boost`, then re-run" in out
+        assert [t.name for t in registry.list_taps()] == ["fixture-tap"]
+        assert registry.get("fixture-tap").path.is_dir()
+
+    def test_doctor_and_heal_name_any_boost_dir_they_cannot_create(
+            self, boost, tapped):
+        # Not only the cache dir: a missing snapshots dir under a read-only
+        # state dir is what heal previews and fails on, so doctor names it.
+        state = paths.state_dir()
+        shutil.rmtree(paths.snapshots_dir())
+        state.chmod(0o500)
+        try:
+            doc = self._flat(boost("doctor", expect=1).out)
+            dry = self._flat(boost("heal", "--dry-run", expect=1).out)
+            run = self._flat(boost("heal", expect=1).out)
+        finally:
+            state.chmod(0o700)
+        said = ("~/.boost/state/snapshots cannot be created: ~/.boost/state "
+                "is not writable")
+        assert said in doc and said in dry and said in run
+        assert "would create directory ~/.boost/state/snapshots" not in dry
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    def test_with_no_taps_doctor_still_names_what_heal_does(self, boost,
+                                                            sandbox):
+        boost("doctor")                      # creates every boost dir
+        shutil.rmtree(paths.cache_dir())
+        paths.boost_home().chmod(0o500)
+        try:
+            doc = self._flat(boost("doctor", expect=1).out)
+            run = self._flat(boost("heal", expect=1).out)
+        finally:
+            paths.boost_home().chmod(0o700)
+        said = "~/.boost/cache cannot be created: ~/.boost is not writable"
+        assert said in doc and said in run
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="chmod can't make a directory unwritable on Windows")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                    reason="root ignores mode bits")
+class TestAnInstallRecordsWhatItWrites:
+    """An install must not write what its lock entry cannot record. With the
+    lock-history dir missing under a read-only ~/.boost/state, install copied
+    and linked a skill, or merged a rule into ~/.claude/CLAUDE.md, then exited
+    70 in lockfile.write: files that `uninstall` called "not installed" and
+    `sync` called "in sync"."""
+
+    RULE = "Always write tests first."
+
+    @pytest.fixture(autouse=True)
+    def _fresh_warning(self, monkeypatch):
+        # raising=False: the flag is new, so the old code fails on behaviour.
+        monkeypatch.setattr(lockfile, "_WARNED_UNSAVED", False, raising=False)
+
+    @pytest.fixture()
+    def mixed_tap(self, boost, fixture_tap_src, tmp_path):
+        tap_dir = _copy_tap(fixture_tap_src, tmp_path / "mixed-tap")
+        _add_and_commit(tap_dir, "rules/team-conventions.mdc",
+                        "---\nname: team-conventions\n---\n\n%s\n" % self.RULE,
+                        "add rule")
+        _add_and_commit(tap_dir, "commands/ship-it.md",
+                        "---\nname: ship-it\n---\n\nShip it.\n", "add workflow")
+        boost("tap", tap_dir)
+        boost("install", "brainstorming")        # a lock for write() to snapshot
+        return tap_dir
+
+    @pytest.fixture()
+    def ro_history(self, mixed_tap):
+        shutil.rmtree(paths.lock_history_dir())
+        paths.state_dir().chmod(0o500)
+        yield
+        paths.state_dir().chmod(0o700)
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+    @staticmethod
+    def _claude_md():
+        f = paths.home() / ".claude" / "CLAUDE.md"
+        return f.read_text(encoding="utf-8") if f.exists() else ""
+
+    @pytest.mark.parametrize("name, section", [
+        ("tdd-workflow", "skills"), ("team-conventions", "rules"),
+        ("ship-it", "workflows")])
+    def test_a_refused_history_snapshot_still_records_the_install(
+            self, boost, ro_history, name, section):
+        r = boost("install", name)
+        assert name in lockfile.read()[section]
+        err = self._flat(r.err)
+        assert err.count("could not keep a history snapshot") == 1
+        assert "make ~/.boost/state writable" in err
+
+    def test_the_recorded_rule_leaves_with_uninstall(self, boost, ro_history):
+        boost("install", "team-conventions")
+        assert self.RULE in self._claude_md()
+        boost("uninstall", "team-conventions")
+        assert self.RULE not in self._claude_md()
+
+    @pytest.mark.parametrize("name", ["team-conventions", "ship-it"])
+    def test_a_store_that_refuses_writes_stops_the_install_before_it_writes(
+            self, boost, mixed_tap, name):
+        before = sorted(p for p in paths.home().rglob("*")
+                        if paths.boost_home() not in p.parents)
+        store = paths.store_dir()
+        store.chmod(0o500)
+        try:
+            r = boost("install", name, expect=1)
+        finally:
+            store.chmod(0o700)
+        out = self._flat(r.out + r.err)
+        assert ("cannot install %s: ~/.agents/skills is not writable" % name
+                in out)
+        assert "run `chmod u+w ~/.agents/skills`, then re-run" in out
+        after = sorted(p for p in paths.home().rglob("*")
+                       if paths.boost_home() not in p.parents)
+        assert after == before
+        assert not lockfile.find_any(name)
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @pytest.mark.parametrize("name, section, cursor_file", [
+        ("team-conventions", "rules", "rules/team-conventions.mdc"),
+        ("ship-it", "workflows", "commands/ship-it.md")])
+    def test_one_agent_dir_that_refuses_skips_that_agent_and_records_it(
+            self, boost, mixed_tap, name, section, cursor_file):
+        # claude-code comes first, so a read-only ~/.cursor let the install
+        # write CLAUDE.md (or ~/.claude/commands) and then exit 70 with no
+        # lock entry for what it had written. Unlike the store, one agent's
+        # dir does not stop the install (it once refused the whole of it):
+        # that agent is skipped and recorded, the rest are written, and
+        # `boost sync` writes it after the chmod.
+        cursor = paths.home() / ".cursor"
+        assert cursor.is_dir()
+        cursor.chmod(0o500)
+        try:
+            r = boost("install", name)
+        finally:
+            cursor.chmod(0o700)
+        out = self._flat(r.out + r.err)
+        assert ("not written: ~/.cursor is not writable — `chmod u+w "
+                "~/.cursor`, then `boost sync` writes it" in out)
+        rows = {m["agent"]: m for m in
+                lockfile.read()[section][name]["materializations"]}
+        assert rows["cursor"]["unwritable"] is True
+        assert "claude-code" in rows
+        assert not rows["claude-code"].get("unwritable")
+        assert os.path.isfile(rows["claude-code"]["path"])
+        assert not (cursor / cursor_file).exists()
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+        boost("sync")
+        assert (cursor / cursor_file).is_file()
+        assert not any(m.get("unwritable") for m in
+                       lockfile.read()[section][name]["materializations"])
+
+    def test_a_missing_store_names_the_parent_that_refuses(self, boost,
+                                                           tapped):
+        # Not a regression: _copy_skill already refused here. It is the same
+        # check, worded the way doctor and heal word it.
+        shutil.rmtree(paths.store_dir())
+        agents_dir = paths.store_dir().parent
+        agents_dir.chmod(0o500)
+        try:
+            r = boost("install", "brainstorming", expect=1)
+        finally:
+            agents_dir.chmod(0o700)
+        out = self._flat(r.out + r.err)
+        assert ("cannot install brainstorming: ~/.agents/skills cannot be "
+                "created: ~/.agents is not writable" in out)
+        assert "run `chmod u+w ~/.agents`, then re-run" in out
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="creating a symlink needs a privilege on Windows")
+class TestHealWithSomethingInTheWay:
+    """A dangling symlink where an agent's skills dir belongs: the preview
+    promised "would create directory" and exited 0, and the run failed the
+    mkdir and advised a `chmod` that cannot work on a dangling link."""
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+    def test_preview_and_run_agree_on_a_dangling_link(self, boost, sandbox,
+                                                      tmp_path):
+        link = paths.home() / ".claude" / "skills"
+        link.parent.mkdir(parents=True)
+        link.symlink_to(tmp_path / "nowhere")
+        dry = self._flat(boost("heal", "--dry-run", expect=1).out)
+        run = self._flat(boost("heal", expect=1).out)
+        line = ("~/.claude/skills is not a directory — heal does not move "
+                "files; move ~/.claude/skills aside")
+        assert dry.count(line) == 1 and run.count(line) == 1
+        assert "would create directory ~/.claude/skills" not in dry
+        assert "chmod" not in run
+        would = dry.count("would create directory")
+        assert would, "a fresh HOME must leave other dirs to create"
+        assert "created %d missing directories" % would in run
+        assert link.is_symlink()
+
+    def test_a_dir_the_run_is_refused_is_not_counted_as_created(
+            self, boost, sandbox, monkeypatch):
+        # The preview can only ask; the mkdir can still fail (a race, a full
+        # disk). The run must count what it made, and name the rest once.
+        dry = self._flat(boost("heal", "--dry-run").out)
+        would = dry.count("would create directory")
+        refused = paths.home() / ".claude" / "skills"
+        assert "would create directory ~/.claude/skills" in dry
+        real = paths.create_dirs
+        monkeypatch.setattr(paths, "create_dirs", lambda dirs: [
+            *(d for d in dirs if d == refused),
+            *real([d for d in dirs if d != refused])])
+        run = self._flat(boost("heal", expect=1).out)
+        assert "created %d missing directories" % (would - 1) in run
+        assert run.count("~/.claude/skills is not writable") == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="creating a symlink needs a privilege on Windows")
+class TestAnInstallPastSomethingInTheWay:
+    """A dangling ~/.claude/skills, or a file at ~/.claude: link_agents' mkdir
+    raised FileExistsError after the skill was copied, so install exited 70
+    with the skill in the store and no lock entry. `uninstall` then said "not
+    installed" and a second install crashed the same way. origin/main too."""
+
+    @pytest.fixture()
+    def claude(self, boost, tapped):
+        d = paths.home() / ".claude"
+        if d.exists():
+            shutil.rmtree(d)
+        yield d
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+    @pytest.mark.parametrize("shape, block", [
+        ("dangling", "~/.claude/skills"), ("file", "~/.claude")])
+    def test_the_install_is_recorded_and_names_the_move(
+            self, boost, claude, tmp_path, shape, block):
+        if shape == "dangling":
+            claude.mkdir()
+            (claude / "skills").symlink_to(tmp_path / "nowhere")
+            why = "~/.claude/skills is not a directory"
+        else:
+            claude.write_text("not a dir\n", encoding="utf-8")
+            why = ("~/.claude/skills cannot be created: ~/.claude is not a "
+                   "directory")
+        r = boost("install", "brainstorming")
+        out = self._flat(r.out + r.err)
+        assert ("not linked: %s — move %s aside, then `boost sync` adds the "
+                "link" % (why, block) in out)
+        assert "chmod" not in out
+        rec = lockfile.get_skill("brainstorming")
+        assert rec is not None
+        assert "claude-code" not in rec["agents"]
+        assert rec["agents"], "the other agents are still linked"
+        # Recorded, so the store copy is boost's to remove again.
+        boost("uninstall", "brainstorming")
+        assert not (paths.store_dir() / "brainstorming").exists()
+        assert lockfile.get_skill("brainstorming") is None
+
+    def test_sync_doctor_and_heal_name_it_until_it_is_moved(
+            self, boost, claude, tmp_path):
+        claude.mkdir()
+        link = claude / "skills"
+        link.symlink_to(tmp_path / "nowhere")
+        boost("install", "brainstorming")
+        blocked = "brainstorming → claude-code (~/.claude/skills in the way)"
+        # sync listed the link as missing, link_agents skipped it, and sync
+        # printed "everything in sync".
+        r = boost("sync")
+        sync = self._flat(r.out + r.err)
+        assert blocked in sync
+        assert "everything in sync" not in sync
+        assert blocked in self._flat(boost("sync", "--diff").out)
+        r = boost("doctor", expect=1)
+        assert ("~/.claude/skills is not a directory — move ~/.claude/skills "
+                "aside, then `boost sync` relinks what it missed"
+                in self._flat(r.out + r.err))
+        heal = self._flat(boost("heal", "--dry-run", expect=1).out)
+        assert "would link brainstorming → claude-code" not in heal
+        assert "move ~/.claude/skills aside" in heal
+        # Moved aside, the same sync makes the link.
+        link.unlink()
+        assert "linked brainstorming → claude-code" in boost("sync").out
+        assert (link / "brainstorming").is_symlink()
+        r = boost("doctor", expect=None)
+        assert "~/.claude/skills is not a directory" not in r.out + r.err
+
+
+class TestARulePastSomethingInTheWay:
+    """A file at ~/.cursor: the rule install's mkdir raised
+    NotADirectoryError, which only a read-only dir was guarded against, so it
+    exited 70 with CLAUDE.md already written. Cursor is skipped and recorded,
+    and every surface names the move, not a chmod."""
+
+    def test_install_doctor_heal_and_sync_name_the_move(
+            self, boost, fixture_tap_src, tmp_path):
+        tap_dir = _copy_tap(fixture_tap_src, tmp_path / "rule-tap")
+        _add_and_commit(tap_dir, "rules/team-conventions.mdc",
+                        "---\nname: team-conventions\n---\n\nTest first.\n",
+                        "add rule")
+        boost("tap", tap_dir)
+        cursor = paths.home() / ".cursor"
+        if cursor.exists():
+            shutil.rmtree(cursor)
+        cursor.write_text("not a dir\n", encoding="utf-8")
+        out = self._flat(boost("install", "team-conventions").out)
+        assert ("not written: ~/.cursor/rules cannot be created: ~/.cursor is "
+                "not a directory — move ~/.cursor aside, then `boost sync` "
+                "writes it" in out)
+        assert "chmod" not in out
+        assert "cursor" in {m["agent"] for m in lockfile.get_rule(
+            "team-conventions")["materializations"]}
+        doc = self._flat(boost("doctor", expect=1).out)
+        assert "move ~/.cursor aside" in doc
+        assert ("rule team-conventions was not written for cursor: ~/.cursor "
+                "is in the way — `boost sync` writes it once it is moved" in doc)
+        heal = self._flat(boost("heal", "--dry-run", expect=1).out)
+        assert heal.count("move ~/.cursor aside") == 1
+        sync = self._flat(boost("sync").out)
+        assert "move ~/.cursor aside, then re-run `boost sync`" in sync
+        assert "everything in sync" not in sync
+        assert "re-materialized" not in sync
+        cursor.unlink()
+        assert "re-materialized rule team-conventions" in boost("sync").out
+        assert (cursor / "rules" / "team-conventions.mdc").is_file()
+        assert not list(paths.logs_dir().glob("crash-*.log"))
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="chmod can't make a directory unwritable on Windows")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                    reason="root ignores mode bits")
+class TestSyncSaysWhyARuleWasNotRematerialized:
+    """With the rule's source still in its tap and ~/.cursor/rules refusing
+    writes, `boost sync` said "its source is gone — run `boost update`": the
+    install's own error landed in a catch-all that assumed the source."""
+
+    RULE = "Always write tests first."
+
+    @pytest.fixture()
+    def rule_gone(self, boost, fixture_tap_src, tmp_path):
+        tap_dir = _copy_tap(fixture_tap_src, tmp_path / "rule-tap")
+        _add_and_commit(tap_dir, "rules/team-conventions.mdc",
+                        "---\nname: team-conventions\n---\n\n%s\n" % self.RULE,
+                        "add rule")
+        boost("tap", tap_dir)
+        boost("install", "team-conventions")
+        rules_dir = paths.home() / ".cursor" / "rules"
+        (rules_dir / "team-conventions.mdc").unlink()
+        return rules_dir
+
+    def test_a_locked_target_dir_is_named_not_called_gone(self, boost,
+                                                          rule_gone):
+        # A target dir that refuses no longer fails the install, so there is
+        # no install error to report: sync claims no repair and names the dir.
+        rule_gone.chmod(0o500)
+        try:
+            text = self._flat(boost("sync").out)
+            actions = json.loads(boost("sync", "--json").out)["actions"]
+        finally:
+            rule_gone.chmod(0o700)
+        assert ("agent dir ~/.cursor/rules is not writable — `chmod u+w "
+                "~/.cursor/rules`, then re-run `boost sync`" in text)
+        assert actions == []
+        assert "source is gone" not in text
+        # And once the dir takes writes again, the same sync repairs it.
+        assert "re-materialized rule team-conventions" in boost("sync").out
+        assert (rule_gone / "team-conventions.mdc").is_file()
+
+    def test_the_install_error_is_the_reported_cause(self, boost, rule_gone):
+        # The store still refuses a whole install, and that refusal is what
+        # sync reports, not `_GONE`.
+        store = paths.store_dir()
+        store.chmod(0o500)
+        try:
+            text = self._flat(boost("sync").out)
+            actions = json.loads(boost("sync", "--json").out)["actions"]
+        finally:
+            store.chmod(0o700)
+        cause = ("rule team-conventions was not re-materialized: cannot "
+                 "install team-conventions: ~/.agents/skills is not writable "
+                 "— run `chmod u+w ~/.agents/skills`, then re-run")
+        assert cause in text
+        assert cause in actions
+        assert "source is gone" not in text + " ".join(actions)
+        assert "re-materialized rule team-conventions" in boost("sync").out
+        assert (rule_gone / "team-conventions.mdc").is_file()
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+
+class TestDoctorAndHealAgreeOnAFileAtTheCachePath:
+    """A file where ~/.boost/cache belongs: heal said "move ~/.boost/cache
+    aside" while doctor said "make ~/.boost/cache writable", which no chmod
+    of a file achieves."""
+
+    def test_both_say_move_it_aside(self, boost, tapped):
+        cache = paths.cache_dir()
+        shutil.rmtree(cache)
+        cache.write_text("x\n", encoding="utf-8")
+        doc = " ".join(boost("doctor", expect=1).out.split())
+        heal = " ".join(boost("heal", "--dry-run", expect=1).out.split())
+        assert ("~/.boost/cache is not a directory — every command rescans its "
+                "taps and cannot keep the result; move ~/.boost/cache aside"
+                in doc)
+        assert ("run `boost update fixture-tap` once ~/.boost/cache is moved "
+                "aside" in doc)
+        assert "writable" not in doc
+        assert "move ~/.boost/cache aside" in heal

@@ -39,11 +39,12 @@ class SyncUpdateRequest(BaseModel):
     batch_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=None, description="Optional new batch size for file processing. NOT REQUIRED. Must be between 1 and 100 if provided. Larger batches improve throughput but use more memory. Changes apply to subsequent batches only.")
     schema_mapping: Optional[SchemaMappingInput] = Field(default=None, description="Optional schema mapping to replace existing mapping. NOT REQUIRED. Completely replaces existing schema_mapping (not merged). Defines how source data maps to bucket schema fields and blobs. See SyncCreateRequest.schema_mapping for detailed documentation.")
     skip_batch_submission: Optional[StrictBool] = Field(default=None, description="If True, sync objects to the bucket without creating or submitting batches for collection processing. Objects are created in the bucket but no tier processing is triggered. NOT REQUIRED. When omitted, existing value is preserved.")
+    batch_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collections this sync's auto-batch processes, by id or name. NOT REQUIRED. When omitted, the existing value is preserved. Send an empty list to clear it and return to auto-discovery.")
     max_objects_per_run: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Hard cap on objects processed per sync run. NOT REQUIRED. When omitted, existing value is preserved. Use to limit runaway syncs or control ingestion volume.")
     sync_concurrency: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=None, description="Per-sync override for concurrent object processing. NOT REQUIRED. Must be between 1 and 100 if provided. When omitted, existing value is preserved.")
     reconcile: Optional[ReconcileSettings] = Field(default=None, description="Controls how Mixpeek reconciles objects when the source changes. on_delete: cascade-delete when source asset is removed. on_update: propagate metadata changes and re-process. on_filter_drift: remove objects that no longer match filters. NOT REQUIRED. When omitted, existing value is preserved.")
     provider_filters: Optional[Dict[str, Any]] = Field(default=None, description="Provider-specific pre-filters pushed down to the storage API call. NOT REQUIRED. Completely replaces existing provider_filters (not merged). Each provider defines its own filter schema. Examples: - Iconik: {'collection_ids': [...], 'media_type': 'video,image', 'path_patterns': ['*/Footage/*']} - Google Drive: {'shared_drive_id': '0AH-Xabc123'} - S3: {'prefix': 'videos/'}")
-    __properties: ClassVar[List[str]] = ["description", "metadata", "status", "is_active", "polling_interval_seconds", "batch_size", "schema_mapping", "skip_batch_submission", "max_objects_per_run", "sync_concurrency", "reconcile", "provider_filters"]
+    __properties: ClassVar[List[str]] = ["description", "metadata", "status", "is_active", "polling_interval_seconds", "batch_size", "schema_mapping", "skip_batch_submission", "batch_collection_ids", "max_objects_per_run", "sync_concurrency", "reconcile", "provider_filters"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -110,6 +111,7 @@ class SyncUpdateRequest(BaseModel):
             "batch_size": obj.get("batch_size"),
             "schema_mapping": SchemaMappingInput.from_dict(obj["schema_mapping"]) if obj.get("schema_mapping") is not None else None,
             "skip_batch_submission": obj.get("skip_batch_submission"),
+            "batch_collection_ids": obj.get("batch_collection_ids"),
             "max_objects_per_run": obj.get("max_objects_per_run"),
             "sync_concurrency": obj.get("sync_concurrency"),
             "reconcile": ReconcileSettings.from_dict(obj["reconcile"]) if obj.get("reconcile") is not None else None,

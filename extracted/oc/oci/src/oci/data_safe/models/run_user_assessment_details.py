@@ -65,7 +65,7 @@ class RunUserAssessmentDetails(object):
     def compartment_id(self):
         """
         Gets the compartment_id of this RunUserAssessmentDetails.
-        The OCID of the compartment that contains the user assessment.
+        This field is ignored when refreshing a user assessment.
 
 
         :return: The compartment_id of this RunUserAssessmentDetails.
@@ -77,7 +77,7 @@ class RunUserAssessmentDetails(object):
     def compartment_id(self, compartment_id):
         """
         Sets the compartment_id of this RunUserAssessmentDetails.
-        The OCID of the compartment that contains the user assessment.
+        This field is ignored when refreshing a user assessment.
 
 
         :param compartment_id: The compartment_id of this RunUserAssessmentDetails.

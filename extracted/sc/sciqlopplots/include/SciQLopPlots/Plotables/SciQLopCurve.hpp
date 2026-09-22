@@ -87,6 +87,14 @@ public:
 
     virtual ~SciQLopCurve() override;
 
+    virtual void set_visible(bool visible) noexcept override;
+
+private:
+    //! Tells the plot to re-read the colour scale; a gradient is applied to it too.
+    void _notify_plot(std::optional<::ColorGradient> gradient = std::nullopt);
+
+public:
+
     Q_SLOT virtual void set_data(SciQLopPyBuffer x, SciQLopPyBuffer y) override;
     virtual QList<SciQLopPyBuffer> data() const noexcept override;
 
@@ -97,6 +105,9 @@ public:
      * \param values One value per data point, any numeric dtype. An empty buffer
      *        turns the colouring back off.
      * \throws std::invalid_argument if \a values does not match the current data length.
+     *
+     * On a plot the curve's colour scale is the plot's, so \a gradient (Jet by default)
+     * also replaces an earlier plot.set_z_gradient(). A colormap on the plot keeps its own.
      */
     Q_SLOT void set_color_data(SciQLopPyBuffer values,
                                ::ColorGradient gradient = ::ColorGradient::Jet) override;
@@ -106,6 +117,18 @@ public:
     void set_time_values(const QVector<double>& times);
     void set_color_values(const QVector<double>& values);
     void set_time_color_gradient(const QColor& start, const QColor& end);
+    //! Preset gradient for the scalar colouring, without touching the colour values.
+    void set_color_gradient(::ColorGradient gradient);
+#ifndef BINDINGS_H
+    //! Follow a scale shared with other curves instead of the curve's own range and gradient.
+    void set_color_scale(QCPColorScale* scale);
+    bool has_color_values() const;
+    std::optional<std::pair<double, double>> color_range(bool log) const;
+#endif
+
+    //! Applies to every component. Reads back the first one (1 when there is none).
+    void set_line_width(qreal width);
+    qreal line_width() const;
 
     /*!
      * \brief position_at_time Data point closest to \a t among the time values.

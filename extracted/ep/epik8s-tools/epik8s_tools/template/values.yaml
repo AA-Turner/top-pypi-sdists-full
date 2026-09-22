@@ -326,7 +326,8 @@ epicsConfiguration:
   iocs:
   {% for i in range(1, vicpdas + 1) %}
 
-    - name: "tempsim{{ "%02d" % i }}"
+    tempsim{{ "%02d" % i }}:
+      name: "tempsim{{ "%02d" % i }}"
       asset: "https://confluence.infn.it/x/nYD8DQ"
       charturl: 'https://baltig.infn.it/epics-containers/ioc-chart.git'
       iocprefix: "TST"
@@ -353,7 +354,8 @@ epicsConfiguration:
       {%- endfor %}
 
   {% endfor %}
-    - name: "camerasim"
+    camerasim:
+      name: "camerasim"
       charturl: 'https://baltig.infn.it/epics-containers/ioc-chart.git'
       autosync: false ## restart automatically on changes
       pva: true
@@ -399,7 +401,8 @@ epicsConfiguration:
       {% endfor %}
 
 {% if vdip or vqua  or vcor %}
-    - name: "unimag"
+    unimag:
+      name: "unimag"
       asset: "https://confluence.infn.it/display/SCS/Magnet+SoftIOC+Devil+Wrapper"
       charturl: 'https://baltig.infn.it/epics-containers/ioc-chart.git'
       image: baltig.infn.it:4567/epics-containers/epics-py-base

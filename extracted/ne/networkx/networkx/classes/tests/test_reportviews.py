@@ -595,9 +595,9 @@ class TestEdgeView:
         with pytest.raises(nx.NetworkXError, match=".*does not support slicing"):
             G.edges[0:5]
 
-        # Invalid edge
-        with pytest.raises(KeyError, match=r".*edge.*is not in the graph."):
-            G.edges[0, 9]
+        # Missing edge
+        with pytest.raises(KeyError, match=r".*edge.*is not in the graph"):
+            G.edges[42, 42]
 
     def test_call(self):
         ev = self.eview(self.G)
@@ -786,6 +786,10 @@ class TestMultiEdgeView(TestEdgeView):
         # slicing
         with pytest.raises(nx.NetworkXError):
             G.edges[0:5]
+
+        # Missing edge
+        with pytest.raises(KeyError, match=r".*edge.*is not in the graph"):
+            G.edges[42, 42, 42]
 
     def test_repr(self):
         ev = self.eview(self.G)
@@ -1411,6 +1415,25 @@ def test_cache_dict_get_set_state(graph):
     # Raises error if the cached properties and views do not work
     pickle.loads(pickle.dumps(G, -1))
     deepcopy(G)
+
+
+@pytest.mark.parametrize(
+    "graph_class", [nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]
+)
+def test_unpickled_views_are_callable(graph_class):
+    # Views hold their graph weakly. An unpickled view, or a view of a graph
+    # that no longer exists, must still answer nbunch/weight calls and pickle.
+    G = graph_class([(0, 1), (1, 2)])
+    ev = pickle.loads(pickle.dumps(G.edges, -1))
+    assert list(ev([1])) == list(G.edges([1]))
+    assert list(ev.data("w", nbunch=[1])) == list(G.edges.data("w", nbunch=[1]))
+    dv = pickle.loads(pickle.dumps(G.degree, -1))
+    assert dict(dv(weight="w")) == dict(G.degree(weight="w"))
+    assert dv(1) == G.degree(1)
+    # the graph is a temporary here: gone before pickling even starts
+    ev = pickle.loads(pickle.dumps(graph_class([(0, 1), (1, 2)]).edges, -1))
+    assert list(ev([1])) == list(G.edges([1]))
+    pickle.dumps(ev, -1)
 
 
 def test_edge_views_inherit_from_EdgeViewABC():

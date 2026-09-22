@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import asyncio.subprocess
 import enum
+import logging
 import os
 import sys
 import typing as t
@@ -28,8 +29,12 @@ else:
     from backports.strenum import StrEnum
     from typing_extensions import Unpack
 
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
+
 if t.TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
     from pathlib import Path
 
     from sqlalchemy.orm import Session
@@ -42,6 +47,11 @@ if t.TYPE_CHECKING:
     from meltano.core.plugin.command import Command
     from meltano.core.plugin.project_plugin import ProjectPlugin
     from meltano.core.project import Project
+
+    if sys.version_info >= (3, 13):
+        from collections.abc import AsyncGenerator
+    else:
+        from typing_extensions import AsyncGenerator
 
     class InvokerInitKwargs(t.TypedDict, total=False):
         """Keyword arguments for the Invoker constructor."""
@@ -122,6 +132,7 @@ class UnknownCommandError(InvokerError):
         self.plugin = plugin
         self.command = command
 
+    @override
     def __str__(self) -> str:
         """Return error message.
 
@@ -218,26 +229,19 @@ class PluginInvoker:
 
     @property
     def capabilities(self) -> frozenset[str]:
-        """Get plugin immutable capabilities.
+        """Plugin immutable capabilities.
 
         Makes sure the capabilities are immutable from the `PluginInvoker` interface.
-
-        Returns:
-            The set of plugin capabilities.
         """
-        return frozenset(self.plugin.capabilities)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
+        return frozenset(self.plugin.capabilities)
 
     @property
     def files(self) -> dict[str, Path]:
-        """Get all config and output files of the plugin.
-
-        Returns:
-            A mapping of file IDs to file names.
-        """
+        """A mapping of file IDs to file names."""
         plugin_files = {**self.plugin.config_files, **self.plugin.output_files}
         return {
-            _key: self.plugin_config_service.run_dir.joinpath(filename)
-            for _key, filename in plugin_files.items()
+            key: self.plugin_config_service.run_dir.joinpath(filename)
+            for key, filename in plugin_files.items()
         }
 
     async def prepare(self, session: Session) -> None:
@@ -275,7 +279,7 @@ class PluginInvoker:
             self._prepared = False
 
     @asynccontextmanager
-    async def prepared(self, session: Session) -> t.AsyncGenerator[None, None]:
+    async def prepared(self, session: Session) -> AsyncGenerator[None]:
         """Context manager that prepares plugin config.
 
         Args:
@@ -412,7 +416,7 @@ class PluginInvoker:
                 else {}
             )
 
-        env = {
+        env: dict[str, str] = {
             **self.plugin.exec_env(self),
             **expanded_project_env,
             **self.project.dotenv_env,
@@ -451,7 +455,7 @@ class PluginInvoker:
         env: dict[str, t.Any] | None = None,
         command: str | None = None,
         **kwargs: t.Any,
-    ) -> AsyncGenerator[tuple[list[str], dict[str, t.Any], dict[str, t.Any]], None]:
+    ) -> AsyncGenerator[tuple[list[str], dict[str, t.Any], dict[str, t.Any]]]:
         """Invoke a command.
 
         Args:
@@ -534,11 +538,11 @@ class PluginInvoker:
             args: Command line invocation arguments.
             kwargs: Command line invocation keyword arguments.
 
-        Raises:
-            ValueError: If the command doesn't declare a container spec.
-
         Returns:
             The container run exit code.
+
+        Raises:
+            ValueError: If the command doesn't declare a container spec.
         """
         command_config = self.find_command(plugin_command)
 
@@ -594,29 +598,41 @@ class PluginInvoker:
         else:
             self.output_handlers = {src: [handler]}
 
+    @t.overload
+    def get_logger(
+        self,
+        io: t.Literal["stderr", "stdout"],
+        kind: t.Literal["structlog"],
+    ) -> BoundLogger: ...
+
+    @t.overload
+    def get_logger(
+        self,
+        io: t.Literal["stderr", "stdout"],
+        kind: t.Literal["stdlib"],
+    ) -> logging.Logger: ...
+
+    def get_logger(
+        self,
+        io: t.Literal["stderr", "stdout"],
+        kind: t.Literal["structlog", "stdlib"],
+    ) -> BoundLogger | logging.Logger:
+        """Get a logger for this plugin."""
+        name = f"meltano.plugin.{io}.{self.plugin.type}.{self.plugin.name}"
+        if kind == "structlog":
+            return get_logger(name, stdio=io)
+
+        return logging.getLogger(name)  # noqa: TID251
+
     @property
     def stdout_logger(self) -> BoundLogger:
-        """Get the logger for the plugin stdout.
-
-        Returns:
-            The logger for the plugin stdout.
-        """
-        return get_logger(
-            f"meltano.plugin.stdout.{self.plugin.type}.{self.plugin.name}",
-            stdio="stdout",
-        )
+        """The logger for the plugin stdout."""
+        return self.get_logger("stdout", "structlog")
 
     @property
     def stderr_logger(self) -> BoundLogger:
-        """Get the logger for the plugin stderr.
-
-        Returns:
-            The logger for the plugin stderr.
-        """
-        return get_logger(
-            f"meltano.plugin.stderr.{self.plugin.type}.{self.plugin.name}",
-            stdio="stderr",
-        )
+        """The logger for the plugin stderr."""
+        return self.get_logger("stderr", "structlog")
 
     def get_log_parser(self) -> str | None:
         """Get the log parser for the plugin.

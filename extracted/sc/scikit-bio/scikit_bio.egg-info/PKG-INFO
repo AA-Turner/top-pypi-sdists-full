@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-bio
-Version: 0.7.3
+Version: 0.7.4
 Summary: Data structures, algorithms and educational resources for bioinformatics.
 Author-email: scikit-bio development team <qiyunzhu@gmail.com>
 Maintainer-email: scikit-bio development team <qiyunzhu@gmail.com>
@@ -29,7 +29,6 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: requests>=2.20.0
 Requires-Dist: decorator>=3.4.2
-Requires-Dist: natsort>=4.0.3
 Requires-Dist: numpy>=2.0
 Requires-Dist: pandas>=1.5.0
 Requires-Dist: scipy>=1.9.0
@@ -96,7 +95,7 @@ Visit the scikit-bio website: https://scikit.bio to learn more about this projec
 Releases
 --------
 
-Latest release: `0.7.3 <https://github.com/scikit-bio/scikit-bio/releases/tag/0.7.3>`_ (`documentation <https://scikit.bio/docs/0.7.3/index.html>`_, `changelog <https://github.com/scikit-bio/scikit-bio/blob/main/CHANGELOG.md#version-073>`_). Compatible with Python 3.10 and above.
+Latest release: `0.7.4 <https://github.com/scikit-bio/scikit-bio/releases/tag/0.7.4>`_ (`documentation <https://scikit.bio/docs/0.7.4/index.html>`_, `changelog <https://github.com/scikit-bio/scikit-bio/blob/main/CHANGELOG.md#version-074>`_). Compatible with Python 3.10 and above.
 
 
 Installation

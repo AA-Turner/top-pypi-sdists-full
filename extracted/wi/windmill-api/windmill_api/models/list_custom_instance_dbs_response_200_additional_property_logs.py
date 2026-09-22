@@ -21,6 +21,9 @@ from ..models.list_custom_instance_dbs_response_200_additional_property_logs_rep
 from ..models.list_custom_instance_dbs_response_200_additional_property_logs_super_admin import (
     ListCustomInstanceDbsResponse200AdditionalPropertyLogsSuperAdmin,
 )
+from ..models.list_custom_instance_dbs_response_200_additional_property_logs_user_connect import (
+    ListCustomInstanceDbsResponse200AdditionalPropertyLogsUserConnect,
+)
 from ..models.list_custom_instance_dbs_response_200_additional_property_logs_valid_dbname import (
     ListCustomInstanceDbsResponse200AdditionalPropertyLogsValidDbname,
 )
@@ -41,6 +44,7 @@ class ListCustomInstanceDbsResponse200AdditionalPropertyLogs:
         grant_permissions (Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsGrantPermissions]):
         replication_user (Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsReplicationUser]):
         replication_user_error (Union[Unset, str]):
+        user_connect (Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsUserConnect]):
     """
 
     super_admin: Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsSuperAdmin] = UNSET
@@ -53,6 +57,7 @@ class ListCustomInstanceDbsResponse200AdditionalPropertyLogs:
     grant_permissions: Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsGrantPermissions] = UNSET
     replication_user: Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsReplicationUser] = UNSET
     replication_user_error: Union[Unset, str] = UNSET
+    user_connect: Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsUserConnect] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -85,6 +90,9 @@ class ListCustomInstanceDbsResponse200AdditionalPropertyLogs:
             replication_user = self.replication_user.value
 
         replication_user_error = self.replication_user_error
+        user_connect: Union[Unset, str] = UNSET
+        if not isinstance(self.user_connect, Unset):
+            user_connect = self.user_connect.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -105,6 +113,8 @@ class ListCustomInstanceDbsResponse200AdditionalPropertyLogs:
             field_dict["replication_user"] = replication_user
         if replication_user_error is not UNSET:
             field_dict["replication_user_error"] = replication_user_error
+        if user_connect is not UNSET:
+            field_dict["user_connect"] = user_connect
 
         return field_dict
 
@@ -166,6 +176,13 @@ class ListCustomInstanceDbsResponse200AdditionalPropertyLogs:
 
         replication_user_error = d.pop("replication_user_error", UNSET)
 
+        _user_connect = d.pop("user_connect", UNSET)
+        user_connect: Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyLogsUserConnect]
+        if isinstance(_user_connect, Unset):
+            user_connect = UNSET
+        else:
+            user_connect = ListCustomInstanceDbsResponse200AdditionalPropertyLogsUserConnect(_user_connect)
+
         list_custom_instance_dbs_response_200_additional_property_logs = cls(
             super_admin=super_admin,
             database_credentials=database_credentials,
@@ -175,6 +192,7 @@ class ListCustomInstanceDbsResponse200AdditionalPropertyLogs:
             grant_permissions=grant_permissions,
             replication_user=replication_user,
             replication_user_error=replication_user_error,
+            user_connect=user_connect,
         )
 
         list_custom_instance_dbs_response_200_additional_property_logs.additional_properties = d

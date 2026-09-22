@@ -38,6 +38,7 @@ from ..core import (
     registry,
     rules,
     scopes,
+    staleness,
     store,
     util,
 )
@@ -201,11 +202,6 @@ def _skill_meta(name: str):
     return frontmatter.parse(_read(p))[0]
 
 
-def _file_count(d: Path) -> int:
-    return sum(1 for p in Path(d).rglob("*")
-               if p.is_file() and not any(part in util.IGNORED for part in p.parts))
-
-
 def _mark(installed: bool) -> str:
     return (out.role("✓ installed", "success") if installed
             else out.role("✗ not installed", "danger"))
@@ -256,7 +252,8 @@ def _kind_table(heading, items, extra=None):
     if extra:
         headers = (headers[0], headers[1], headers[2], headers[3], extra[0],
                    headers[4])
-    out.table(rows, headers=headers)
+    # NAME is what `uninstall`/`update`/`cat` take: shown whole or dropped.
+    out.table(rows, headers=headers, whole=("NAME",))
     noun = heading.split()[-1][:-1]  # "installed rules" -> "rule"
     print("  " + out.aurora("%d %s%s installed"
                             % (len(rows), noun, "" if len(rows) == 1 else "s"),
@@ -339,7 +336,10 @@ def cmd_list(argv):
             rows.append((name, e.get("version", "?"), e.get("tap", "?"),
                          "·".join(a.split("-")[0] for a in e.get("agents") or []),
                          " ".join(flags)))
-        out.table(rows, headers=("NAME", "VERSION", "TAP", "AGENTS", "FLAGS"))
+        # NAME is what `uninstall`/`update`/`cat` take: `brainstorm…` is not
+        # a name any of them accepts, so it is shown whole or dropped.
+        out.table(rows, headers=("NAME", "VERSION", "TAP", "AGENTS", "FLAGS"),
+                  whole=("NAME",))
         print("  " + out.aurora("%d skill%s installed%s"
                                 % (len(rows), "" if len(rows) == 1 else "s",
                                    " with tag #%s" % args.tag.lstrip("#")
@@ -349,7 +349,8 @@ def cmd_list(argv):
         rows = [(name, e.get("version", "?"), e.get("tap", "?"),
                  "·".join(a.split("-")[0] for a in e.get("agents") or []))
                 for name, e in sorted(project.items())]
-        out.table(rows, headers=("NAME", "VERSION", "TAP", "AGENTS"))
+        out.table(rows, headers=("NAME", "VERSION", "TAP", "AGENTS"),
+                  whole=("NAME",))
         print("  " + out.role("committed with the repo — %s/%s"
                               % (projectlock.LOCK_DIRNAME,
                                  projectlock.LOCK_FILENAME), "muted"))
@@ -498,7 +499,12 @@ def cmd_info(argv):
     score = size = files = None
     if skill_dir:
         score, _notes = util.score_skill(skill_dir)
-        size, files = util.dir_size(skill_dir), _file_count(skill_dir)
+        # What an install will copy, not what the tap's tree occupies: links
+        # dereferenced (a skill a tap ships as links arrives as their
+        # targets) and IGNORED names skipped, one set for both numbers.
+        copied = util.copied_files(skill_dir)
+        size = sum(f.stat().st_size for f in copied)
+        files = len(copied)
 
     if args.json:
         print(json.dumps({
@@ -518,6 +524,11 @@ def cmd_info(argv):
     # Identity-card badges: a scannable status strip beneath the name, echoing
     # the web .badge pills. The detailed kv rows below still carry the specifics.
     badges = []
+    # One decision for the badge and the "latest" row, compared as versions:
+    # string inequality called a tap still at 1.4.0 an update to 1.4.1.
+    relation = (staleness.catalog_relation(
+        str(lock.get("version", "?")), str((cat or {}).get("version") or ""))
+        if lock and cat else None)
     if lock:
         badges.append(out.badge("installed", "green"))
         if lock.get("pinned"):
@@ -526,9 +537,10 @@ def cmd_info(argv):
             badges.append(out.badge("quarantined", "pink"))
         if lock.get("sidelined_by"):
             badges.append(out.badge("sidelined by %s" % lock["sidelined_by"], "cyan"))
-        latest = str((cat or {}).get("version") or "")
-        if cat and latest != str(lock.get("version", "?")):
+        if relation == staleness.BEHIND:
             badges.append(out.badge("update available", "yellow"))
+        elif relation == staleness.AHEAD:
+            badges.append(out.badge("ahead of tap", "cyan"))
     elif plock:
         badges.append(out.badge("installed in this project", "green"))
     else:
@@ -555,9 +567,14 @@ def cmd_info(argv):
         inst_v = str(lock.get("version", "?"))
         out.kv("version", inst_v)
         latest = str((cat or {}).get("version") or "")
-        if cat and latest != inst_v:
+        if relation == staleness.BEHIND:
             out.kv("latest", out.role(latest, "warn", bold=True)
                    + out.role("  (update available)", "muted"))
+        elif relation == staleness.AHEAD:
+            # Kept short: kv does not wrap by default, and the long form ran
+            # this row to 71 columns, past a 60-column pane.
+            out.kv("latest", latest + out.role("  (older than installed)",
+                                               "muted"))
     else:
         out.kv("latest", str((cat or {}).get("version", "?")))
     out.kv("tap", (lock or cat or {}).get("tap", "?"))
@@ -573,7 +590,11 @@ def cmd_info(argv):
     # one file this item actually is.
     src = lock.get("source_dir") if lock else (
         (cat or {}).get("skill_md") if kind != "skill" else (cat or {}).get("rel_dir"))
-    if src:
+    if lock and lock.get("source_url"):
+        # A URL import's source_dir is a path inside that repo, not on disk.
+        out.kv("source", str(lock["source_url"])
+               + ("" if src in (None, "", ".") else " (%s)" % src))
+    elif src:
         out.kv("source", _tilde(src))
     if lock:
         if lock.get("commit"):
@@ -769,6 +790,13 @@ def cmd_preview(argv):
 _FAITHFULNESS_MIN_KEY = "ai.explain_faithfulness_min"
 _FAITHFULNESS_DEFAULT = 0.5
 
+# The heuristic explain's outline is a summary, not a reprint of the file.
+# Uncapped it printed 521 lines for one catalog entry, while "Key rules:" in
+# the same function stopped at 12. 25 is the line the audit measured against:
+# the median entry (16 headings) prints unchanged, and the ~28% over it get a
+# counted "… and N more headings" instead of a wall.
+_OUTLINE_CAP = 25
+
 
 def _faithfulness_threshold() -> float:
     """The minimum faithfulness score an AI explanation must clear (config-tunable).
@@ -841,8 +869,12 @@ def cmd_explain(argv):
     if headings:
         print()
         out.info(out.c("Outline:", out.BOLD))
-        for hashes, title in headings:
+        for hashes, title in headings[:_OUTLINE_CAP]:
             out.info("  " * len(hashes) + title)
+        if len(headings) > _OUTLINE_CAP:
+            more = len(headings) - _OUTLINE_CAP
+            out.info(out.role("  … and %d more heading%s"
+                              % (more, "" if more == 1 else "s"), "muted"))
     rules, seen = [], set()
     for line in body.splitlines():
         stripped = re.sub(r"^\s*(?:[-*]|\d+\.)\s+", "", line).strip()
@@ -1017,30 +1049,34 @@ def cmd_log(argv):
 
 def cmd_home(argv):
     ap = cliparse.parser(prog="boost home",
-                                 description="Open a skill's GitHub page in the browser")
+                                 description="Open an item's GitHub page in the browser")
     ap.add_argument("name")
     ap.add_argument("--print", dest="print_only", action="store_true",
                     help="print the URL without opening a browser")
     args = ap.parse_args(argv)
-    found = lockfile.find_any(args.name)
-    lock = found[1] if found else None
-    try:
-        entry = catalog.resolve_one(args.name)
-        tap_name, rel = entry["tap"], entry["rel_dir"]
-    except BoostError:
-        if not lock:
-            raise
-        tap_name = lock.get("tap", "local")
-        rel = lock.get("source_dir") or lock.get("source_file") or "."
+    # Lock first: the catalog guesses by name, the lock knows the copy that
+    # was installed. A rule or workflow is linked to its own file.
+    _bare, kind, tap_name, rel = store.upstream_source(args.name)
     try:
         tap = registry.get(tap_name)
     except BoostError:
-        out.info(_tilde(rel))   # local import — only a path to show
+        lock = store.resolve_lock_entry(args.name)[2]
+        home = str((lock or {}).get("source_url") or "")
+        if not home:
+            out.info(_tilde(rel))   # local import — only a path to show
+            return 0
+        # A URL import: the repo it was cloned from is its home.
+        out.info(home)
+        if (home.startswith(("http://", "https://")) and not args.print_only
+                and sys.stdout.isatty()):
+            webbrowser.open(home)
         return 0
     if not tap.url.startswith(("http://", "https://")):
         out.info(_tilde(Path(tap.url) if rel == "." else Path(tap.url) / rel))
         return 0
-    url = tap.url.rstrip("/") + ("" if rel == "." else "/tree/HEAD/" + rel)
+    # GitHub serves a directory under /tree/ and a file under /blob/.
+    view = "tree" if kind == "skill" else "blob"
+    url = tap.url.rstrip("/") + ("" if rel == "." else "/%s/HEAD/%s" % (view, rel))
     out.info(url)
     if not args.print_only and sys.stdout.isatty():
         webbrowser.open(url)
@@ -1236,7 +1272,7 @@ def cmd_tag(argv):
             out.info(out.role("hint: boost tag <skill> +mytag", "muted"))
             return 0
         out.table([("#" + t, ", ".join(mapping[t])) for t in sorted(mapping)],
-                  headers=("TAG", "SKILLS"))
+                  headers=("TAG", "SKILLS"), whole=("TAG",))  # `list --tag`
         return 0
 
     if not args.name:

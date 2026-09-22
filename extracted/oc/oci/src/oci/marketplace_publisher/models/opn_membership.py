@@ -15,18 +15,6 @@ class OpnMembership(object):
     OPN membership information
     """
 
-    #: A constant which can be used with the opn_status property of a OpnMembership.
-    #: This constant has a value of "ACTIVE"
-    OPN_STATUS_ACTIVE = "ACTIVE"
-
-    #: A constant which can be used with the opn_status property of a OpnMembership.
-    #: This constant has a value of "INACTIVE"
-    OPN_STATUS_INACTIVE = "INACTIVE"
-
-    #: A constant which can be used with the opn_status property of a OpnMembership.
-    #: This constant has a value of "RENEWAL_IN_PROGRESS"
-    OPN_STATUS_RENEWAL_IN_PROGRESS = "RENEWAL_IN_PROGRESS"
-
     def __init__(self, **kwargs):
         """
         Initializes a new OpnMembership object with values from keyword arguments.
@@ -42,8 +30,6 @@ class OpnMembership(object):
 
         :param opn_status:
             The value to assign to the opn_status property of this OpnMembership.
-            Allowed values for this property are: "ACTIVE", "INACTIVE", "RENEWAL_IN_PROGRESS", 'UNKNOWN_ENUM_VALUE'.
-            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type opn_status: str
 
         :param opn_number:
@@ -129,9 +115,6 @@ class OpnMembership(object):
         Gets the opn_status of this OpnMembership.
         OPN status
 
-        Allowed values for this property are: "ACTIVE", "INACTIVE", "RENEWAL_IN_PROGRESS", 'UNKNOWN_ENUM_VALUE'.
-        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
-
 
         :return: The opn_status of this OpnMembership.
         :rtype: str
@@ -148,9 +131,6 @@ class OpnMembership(object):
         :param opn_status: The opn_status of this OpnMembership.
         :type: str
         """
-        allowed_values = ["ACTIVE", "INACTIVE", "RENEWAL_IN_PROGRESS"]
-        if not value_allowed_none_or_none_sentinel(opn_status, allowed_values):
-            opn_status = 'UNKNOWN_ENUM_VALUE'
         self._opn_status = opn_status
 
     @property

@@ -29,7 +29,7 @@ classifiers = [
 dynamic = ['version']
 
 [project.optional-dependencies]
-install = ['atpublic-install']
+install = ['atpublic-install >= 1.0.0']
 
 [project.urls]
 'Home Page' = 'https://public.readthedocs.io'
@@ -45,9 +45,14 @@ packages = [
     'src/public',
 ]
 
+# Include everything a downstream packager needs to build the wheel *and* run the test suite from
+# the sdist alone.
 [tool.hatch.build.targets.sdist]
 include = [
     'src/public/',
+    'docs/',
+    'tests/',
+    'conftest.py',
 ]
 
 [build-system]

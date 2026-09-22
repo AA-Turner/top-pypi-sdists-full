@@ -102,6 +102,38 @@ class PublisherSummary(object):
             The value to assign to the time_updated property of this PublisherSummary.
         :type time_updated: datetime
 
+        :param email:
+            The value to assign to the email property of this PublisherSummary.
+        :type email: str
+
+        :param business_phone_number:
+            The value to assign to the business_phone_number property of this PublisherSummary.
+        :type business_phone_number: str
+
+        :param employee_count:
+            The value to assign to the employee_count property of this PublisherSummary.
+        :type employee_count: int
+
+        :param solution_description:
+            The value to assign to the solution_description property of this PublisherSummary.
+        :type solution_description: str
+
+        :param opn_number:
+            The value to assign to the opn_number property of this PublisherSummary.
+        :type opn_number: str
+
+        :param country:
+            The value to assign to the country property of this PublisherSummary.
+        :type country: str
+
+        :param city:
+            The value to assign to the city property of this PublisherSummary.
+        :type city: str
+
+        :param state:
+            The value to assign to the state property of this PublisherSummary.
+        :type state: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this PublisherSummary.
         :type freeform_tags: dict(str, str)
@@ -134,6 +166,14 @@ class PublisherSummary(object):
             'publisher_type': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
+            'email': 'str',
+            'business_phone_number': 'str',
+            'employee_count': 'int',
+            'solution_description': 'str',
+            'opn_number': 'str',
+            'country': 'str',
+            'city': 'str',
+            'state': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'system_tags': 'dict(str, dict(str, object))'
@@ -157,6 +197,14 @@ class PublisherSummary(object):
             'publisher_type': 'publisherType',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
+            'email': 'email',
+            'business_phone_number': 'businessPhoneNumber',
+            'employee_count': 'employeeCount',
+            'solution_description': 'solutionDescription',
+            'opn_number': 'opnNumber',
+            'country': 'country',
+            'city': 'city',
+            'state': 'state',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'system_tags': 'systemTags'
@@ -179,6 +227,14 @@ class PublisherSummary(object):
         self._publisher_type = None
         self._time_created = None
         self._time_updated = None
+        self._email = None
+        self._business_phone_number = None
+        self._employee_count = None
+        self._solution_description = None
+        self._opn_number = None
+        self._country = None
+        self._city = None
+        self._state = None
         self._freeform_tags = None
         self._defined_tags = None
         self._system_tags = None
@@ -616,6 +672,198 @@ class PublisherSummary(object):
         :type: datetime
         """
         self._time_updated = time_updated
+
+    @property
+    def email(self):
+        """
+        Gets the email of this PublisherSummary.
+        Email address of the publisher.
+
+
+        :return: The email of this PublisherSummary.
+        :rtype: str
+        """
+        return self._email
+
+    @email.setter
+    def email(self, email):
+        """
+        Sets the email of this PublisherSummary.
+        Email address of the publisher.
+
+
+        :param email: The email of this PublisherSummary.
+        :type: str
+        """
+        self._email = email
+
+    @property
+    def business_phone_number(self):
+        """
+        Gets the business_phone_number of this PublisherSummary.
+        The business phone number of the publisher.
+
+
+        :return: The business_phone_number of this PublisherSummary.
+        :rtype: str
+        """
+        return self._business_phone_number
+
+    @business_phone_number.setter
+    def business_phone_number(self, business_phone_number):
+        """
+        Sets the business_phone_number of this PublisherSummary.
+        The business phone number of the publisher.
+
+
+        :param business_phone_number: The business_phone_number of this PublisherSummary.
+        :type: str
+        """
+        self._business_phone_number = business_phone_number
+
+    @property
+    def employee_count(self):
+        """
+        Gets the employee_count of this PublisherSummary.
+        Count of employees in publisher's company
+
+
+        :return: The employee_count of this PublisherSummary.
+        :rtype: int
+        """
+        return self._employee_count
+
+    @employee_count.setter
+    def employee_count(self, employee_count):
+        """
+        Sets the employee_count of this PublisherSummary.
+        Count of employees in publisher's company
+
+
+        :param employee_count: The employee_count of this PublisherSummary.
+        :type: int
+        """
+        self._employee_count = employee_count
+
+    @property
+    def solution_description(self):
+        """
+        Gets the solution_description of this PublisherSummary.
+        A description of the publisher solutions.
+
+
+        :return: The solution_description of this PublisherSummary.
+        :rtype: str
+        """
+        return self._solution_description
+
+    @solution_description.setter
+    def solution_description(self, solution_description):
+        """
+        Sets the solution_description of this PublisherSummary.
+        A description of the publisher solutions.
+
+
+        :param solution_description: The solution_description of this PublisherSummary.
+        :type: str
+        """
+        self._solution_description = solution_description
+
+    @property
+    def opn_number(self):
+        """
+        Gets the opn_number of this PublisherSummary.
+        OPN membership number of the publisher
+
+
+        :return: The opn_number of this PublisherSummary.
+        :rtype: str
+        """
+        return self._opn_number
+
+    @opn_number.setter
+    def opn_number(self, opn_number):
+        """
+        Sets the opn_number of this PublisherSummary.
+        OPN membership number of the publisher
+
+
+        :param opn_number: The opn_number of this PublisherSummary.
+        :type: str
+        """
+        self._opn_number = opn_number
+
+    @property
+    def country(self):
+        """
+        Gets the country of this PublisherSummary.
+        Country in which partner company resides
+
+
+        :return: The country of this PublisherSummary.
+        :rtype: str
+        """
+        return self._country
+
+    @country.setter
+    def country(self, country):
+        """
+        Sets the country of this PublisherSummary.
+        Country in which partner company resides
+
+
+        :param country: The country of this PublisherSummary.
+        :type: str
+        """
+        self._country = country
+
+    @property
+    def city(self):
+        """
+        Gets the city of this PublisherSummary.
+        City in which partner company resides
+
+
+        :return: The city of this PublisherSummary.
+        :rtype: str
+        """
+        return self._city
+
+    @city.setter
+    def city(self, city):
+        """
+        Sets the city of this PublisherSummary.
+        City in which partner company resides
+
+
+        :param city: The city of this PublisherSummary.
+        :type: str
+        """
+        self._city = city
+
+    @property
+    def state(self):
+        """
+        Gets the state of this PublisherSummary.
+        State in which partner company resides
+
+
+        :return: The state of this PublisherSummary.
+        :rtype: str
+        """
+        return self._state
+
+    @state.setter
+    def state(self, state):
+        """
+        Sets the state of this PublisherSummary.
+        State in which partner company resides
+
+
+        :param state: The state of this PublisherSummary.
+        :type: str
+        """
+        self._state = state
 
     @property
     def freeform_tags(self):

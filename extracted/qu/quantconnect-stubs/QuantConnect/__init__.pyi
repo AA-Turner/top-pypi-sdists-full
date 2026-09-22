@@ -9368,13 +9368,31 @@ class DataMonitorReport(System.Object):
     def data_request_rates(self, value: typing.Sequence[float]) -> None:
         ...
 
+    @property
+    def succeeded_data_requests_file(self) -> str:
+        """Name of the file listing the data requests that were successfully fetched, if they were stored"""
+        ...
+
+    @succeeded_data_requests_file.setter
+    def succeeded_data_requests_file(self, value: str) -> None:
+        ...
+
+    @property
+    def failed_data_requests_file(self) -> str:
+        """Name of the file listing the data requests that could not be fetched, if they were stored"""
+        ...
+
+    @failed_data_requests_file.setter
+    def failed_data_requests_file(self, value: str) -> None:
+        ...
+
     @overload
     def __init__(self) -> None:
         """Initializes an empty instance of the DataMonitorReport class"""
         ...
 
     @overload
-    def __init__(self, succeeded_data_requests_count: int, failed_data_requests_count: int, succeeded_universe_data_requests_count: int, failed_universe_data_requests_count: int, data_request_rates: typing.Sequence[float]) -> None:
+    def __init__(self, succeeded_data_requests_count: int, failed_data_requests_count: int, succeeded_universe_data_requests_count: int, failed_universe_data_requests_count: int, data_request_rates: typing.Sequence[float], succeeded_data_requests_file: str = None, failed_data_requests_file: str = None) -> None:
         """
         Initializes a new instance of the DataMonitorReport class
         
@@ -9383,6 +9401,8 @@ class DataMonitorReport(System.Object):
         :param succeeded_universe_data_requests_count: Number of universe data paths that were requested and successfuly served
         :param failed_universe_data_requests_count: Number of universe data paths that were requested but could not be served
         :param data_request_rates: Rates at which data requests were made per second
+        :param succeeded_data_requests_file: Name of the file listing the succeeded data requests, if stored
+        :param failed_data_requests_file: Name of the file listing the failed data requests, if stored
         """
         ...
 

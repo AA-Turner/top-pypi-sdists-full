@@ -7,8 +7,14 @@
 from __future__ import absolute_import
 
 
+from .administrator_artifact_client import AdministratorArtifactClient
+from .administrator_artifact_client_composite_operations import AdministratorArtifactClientCompositeOperations
+from .administrator_publisher_client import AdministratorPublisherClient
+from .administrator_publisher_client_composite_operations import AdministratorPublisherClientCompositeOperations
+from .marketplace_administrator_client import MarketplaceAdministratorClient
+from .marketplace_administrator_client_composite_operations import MarketplaceAdministratorClientCompositeOperations
 from .marketplace_publisher_client import MarketplacePublisherClient
 from .marketplace_publisher_client_composite_operations import MarketplacePublisherClientCompositeOperations
 from . import models
 
-__all__ = ["MarketplacePublisherClient", "MarketplacePublisherClientCompositeOperations", "models"]
+__all__ = ["AdministratorArtifactClient", "AdministratorArtifactClientCompositeOperations", "AdministratorPublisherClient", "AdministratorPublisherClientCompositeOperations", "MarketplaceAdministratorClient", "MarketplaceAdministratorClientCompositeOperations", "MarketplacePublisherClient", "MarketplacePublisherClientCompositeOperations", "models"]

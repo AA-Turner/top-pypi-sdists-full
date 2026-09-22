@@ -1,98 +1,119 @@
+import typing as t
 from datetime import date
 from datetime import datetime
 from datetime import time
 
 import peewee
+from flask import Flask
+from peewee import SqliteDatabase
 from wtforms import fields
+from wtforms import StringField
 from wtforms import validators
 
+from flask_admin import Admin
 from flask_admin import form
 from flask_admin._compat import as_unicode
 from flask_admin._compat import iteritems
+from flask_admin._types import T_PEEWEE_MODEL
 from flask_admin.contrib.peewee import ModelView
 
 
 class CustomModelView(ModelView):
     def __init__(
-        self, model, name=None, category=None, endpoint=None, url=None, **kwargs
-    ):
+        self,
+        model: type[T_PEEWEE_MODEL],
+        name: SqliteDatabase | None = None,
+        category: str | None = None,
+        endpoint: str | None = None,
+        url: str | None = None,
+        **kwargs: t.Any,
+    ) -> None:
         for k, v in iteritems(kwargs):
             setattr(self, k, v)
 
         super().__init__(model, name, category, endpoint, url)
 
 
-def create_models(db):
-    class BaseModel(peewee.Model):
-        class Meta:
-            database = db
+class BaseModel(peewee.Model):
+    id: peewee.AutoField
 
-    class Model1(BaseModel):
-        def __init__(
-            self,
-            test1=None,
-            test2=None,
-            test3=None,
-            test4=None,
-            date_field=None,
-            timeonly_field=None,
-            datetime_field=None,
-            **kwargs,
-        ):
-            super().__init__(**kwargs)
+    class Meta:
+        database = peewee.SqliteDatabase(None)
 
-            self.test1 = test1
-            self.test2 = test2
-            self.test3 = test3
-            self.test4 = test4
-            self.date_field = date_field
-            self.timeonly_field = timeonly_field
-            self.datetime_field = datetime_field
 
-        test1 = peewee.CharField(max_length=20, null=True)
-        test2 = peewee.CharField(max_length=20, null=True)
-        test3 = peewee.TextField(null=True)
-        test4 = peewee.TextField(null=True)
-        date_field = peewee.DateField(null=True)
-        timeonly_field = peewee.TimeField(null=True)
-        datetime_field = peewee.DateTimeField(null=True)
+class Model1(BaseModel):
+    def __init__(
+        self,
+        test1: t.Any = None,
+        test2: t.Any = None,
+        test3: t.Any = None,
+        test4: t.Any = None,
+        date_field: t.Any = None,
+        timeonly_field: t.Any = None,
+        datetime_field: t.Any = None,
+        **kwargs: t.Any,
+    ) -> None:
+        super().__init__(**kwargs)
 
-        def __str__(self):
-            # "or ''" fixes error when loading choices for relation field:
-            # TypeError: coercing to Unicode: need string or buffer, NoneType found
-            return self.test1 or ""
+        self.test1 = test1
+        self.test2 = test2
+        self.test3 = test3
+        self.test4 = test4
+        self.date_field = date_field
+        self.timeonly_field = timeonly_field
+        self.datetime_field = datetime_field
 
-    class Model2(BaseModel):
-        def __init__(
-            self,
-            char_field=None,
-            int_field=None,
-            float_field=None,
-            bool_field=0,
-            **kwargs,
-        ):
-            super().__init__(**kwargs)
+    test1 = peewee.CharField(max_length=20, null=True)
+    test2 = peewee.CharField(max_length=20, null=True)
+    test3 = peewee.TextField(null=True)
+    test4 = peewee.TextField(null=True)
+    date_field = peewee.DateField(null=True)
+    timeonly_field = peewee.TimeField(null=True)
+    datetime_field = peewee.DateTimeField(null=True)
 
-            self.char_field = char_field
-            self.int_field = int_field
-            self.float_field = float_field
-            self.bool_field = bool_field
+    def __str__(self) -> str:
+        # "or ''" fixes error when loading choices for relation field:
+        # TypeError: coercing to Unicode: need string or buffer, NoneType found
+        return self.test1 or ""
 
-        char_field = peewee.CharField(max_length=20)
-        int_field = peewee.IntegerField(null=True)
-        float_field = peewee.FloatField(null=True)
-        bool_field = peewee.BooleanField()
 
-        # Relation
-        model1 = peewee.ForeignKeyField(Model1, null=True)
+class Model2(BaseModel):
+    def __init__(
+        self,
+        char_field: t.Any = None,
+        int_field: int | None = None,
+        float_field: float | None = None,
+        bool_field: t.Any = False,
+        **kwargs: t.Any,
+    ) -> None:
+        super().__init__(**kwargs)
 
-    Model1.create_table()
-    Model2.create_table()
+        self.char_field = char_field
+        self.int_field = int_field
+        self.float_field = float_field
+        self.bool_field = bool_field
+
+    char_field = peewee.CharField(max_length=20)
+    int_field = peewee.IntegerField(null=True)
+    float_field = peewee.FloatField(null=True)
+    bool_field = peewee.BooleanField()
+
+    # Relation
+    model1 = peewee.ForeignKeyField(Model1, null=True)
+
+
+def create_models(
+    db: peewee.SqliteDatabase,
+) -> tuple[type[Model1], type[Model2]]:
+    models = (Model1, Model2)
+    db.bind(models)
+    db.connect()
+    db.create_tables(models)
 
     return Model1, Model2
 
 
-def fill_db(Model1, Model2):
+def fill_db(Model1: type[Model1], Model2: type[Model2]) -> None:
     Model1("test1_val_1", "test2_val_1").save()
     Model1("test1_val_2", "test2_val_2").save()
     Model1("test1_val_3", "test2_val_3").save()
@@ -113,7 +134,7 @@ def fill_db(Model1, Model2):
     Model1("datetime_obj2", datetime_field=datetime(2013, 3, 2, 0, 8, 0)).save()
 
 
-def test_model(app, db, admin):
+def test_model(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     Model1, Model2 = create_models(db)
 
     view = CustomModelView(Model1)
@@ -182,7 +203,9 @@ def test_model(app, db, admin):
     assert Model1.select().count() == 0
 
 
-def test_column_editable_list(app, db, admin):
+def test_column_editable_list(
+    app: Flask, db: peewee.SqliteDatabase, admin: Admin
+) -> None:
     Model1, Model2 = create_models(db)
 
     # wtf-peewee doesn't automatically add length validators for max_length
@@ -271,7 +294,7 @@ def test_column_editable_list(app, db, admin):
     assert "test1_val_3" in data
 
 
-def test_details_view(app, db, admin):
+def test_details_view(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     Model1, Model2 = create_models(db)
 
     view_no_details = CustomModelView(Model1)
@@ -325,7 +348,49 @@ def test_details_view(app, db, admin):
     assert "5000" not in data
 
 
-def test_column_filters(app, db, admin):
+def test_get_one_missing_record(
+    app: Flask, db: peewee.SqliteDatabase, admin: Admin
+) -> None:
+    Model1, Model2 = create_models(db)
+
+    view = CustomModelView(Model2, can_view_details=True, can_delete=True)
+    admin.add_view(view)
+
+    fill_db(Model1, Model2)
+
+    client = app.test_client()
+
+    # a record that does not exist is not an error: get_one returns None and the
+    # view redirects with a message, rather than raising peewee's DoesNotExist
+    assert view.get_one(999999) is None
+
+    rv = client.get("/admin/model2/details/?url=%2Fadmin%2Fmodel2%2F&id=999999")
+    assert rv.status_code == 302
+
+    rv = client.get(
+        "/admin/model2/details/?url=%2Fadmin%2Fmodel2%2F&id=999999",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert "Record does not exist." in rv.data.decode("utf-8")
+
+    rv = client.get("/admin/model2/edit/?url=%2Fadmin%2Fmodel2%2F&id=999999")
+    assert rv.status_code == 302
+
+    rv = client.post(
+        "/admin/model2/delete/",
+        data={"id": "999999", "url": "/admin/model2/"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert "Record does not exist." in rv.data.decode("utf-8")
+
+    # an id that cannot match the primary key behaves the same way
+    rv = client.get("/admin/model2/details/?url=%2Fadmin%2Fmodel2%2F&id=notanint")
+    assert rv.status_code == 302
+
+
+def test_column_filters(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     Model1, Model2 = create_models(db)
 
     fill_db(Model1, Model2)
@@ -875,7 +940,7 @@ def test_column_filters(app, db, admin):
     assert "timeonly_obj2" in data
 
 
-def test_default_sort(app, db, admin):
+def test_default_sort(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     M1, _ = create_models(db)
 
     M1("c", 1).save()
@@ -906,7 +971,7 @@ def test_default_sort(app, db, admin):
     assert data[2].test1 == "a"  # type: ignore[union-attr]
 
 
-def test_extra_fields(app, db, admin):
+def test_extra_fields(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     Model1, _ = create_models(db)
 
     view = CustomModelView(
@@ -927,7 +992,7 @@ def test_extra_fields(app, db, admin):
     assert pos2 < pos1
 
 
-def test_custom_form_base(app, db, admin):
+def test_custom_form_base(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     class TestForm(form.BaseForm):
         pass
 
@@ -942,7 +1007,7 @@ def test_custom_form_base(app, db, admin):
     assert isinstance(create_form, TestForm)
 
 
-def test_form_args(app, db, admin):
+def test_form_args(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     class BaseModel(peewee.Model):
         class Meta:
             database = db
@@ -959,14 +1024,25 @@ def test_form_args(app, db, admin):
 
     # ensure shared field_args don't create duplicate validators
     create_form = view.create_form()
-
-    assert len(create_form.test.validators) == 2  # type: ignore[attr-defined]
+    assert (
+        sum(
+            isinstance(v, validators.Regexp)
+            for v in create_form.test.validators  # type: ignore[attr-defined]
+        )
+        == 1
+    )
 
     edit_form = view.edit_form()
-    assert len(edit_form.test.validators) == 2  # type: ignore[attr-defined]
+    assert (
+        sum(
+            isinstance(v, validators.Regexp)
+            for v in edit_form.test.validators  # type: ignore[attr-defined]
+        )
+        == 1
+    )
 
 
-def test_ajax_fk(app, db, admin):
+def test_ajax_fk(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     class BaseModel(peewee.Model):
         class Meta:
             database = db
@@ -975,7 +1051,7 @@ def test_ajax_fk(app, db, admin):
         test1 = peewee.CharField(max_length=20)
         test2 = peewee.CharField(max_length=20)
 
-        def __str__(self):
+        def __str__(self) -> str:
             return self.test1
 
     class Model2(BaseModel):
@@ -1039,7 +1115,9 @@ def test_ajax_fk(app, db, admin):
     assert mdl.model1.test1 == "first"
 
 
-def test_customising_page_size(app, db, admin):
+def test_customising_page_size(
+    app: Flask, db: peewee.SqliteDatabase, admin: Admin
+) -> None:
     with app.app_context():
         M1, _ = create_models(db)
 
@@ -1125,7 +1203,7 @@ def test_customising_page_size(app, db, admin):
         assert "instance-016" not in rv.text
 
 
-def test_export_csv(app, db, admin):
+def test_export_csv(app: Flask, db: peewee.SqliteDatabase, admin: Admin) -> None:
     Model1, Model2 = create_models(db)
 
     view = CustomModelView(
@@ -1163,3 +1241,35 @@ def test_export_csv(app, db, admin):
     data = rv.data.decode("utf-8")
     assert rv.status_code == 200
     assert len(data.splitlines()) > 21
+
+
+def test_inline_admin_form_extra_fields(
+    app: Flask, db: peewee.SqliteDatabase, admin: Admin
+) -> None:
+    Model1, Model2 = create_models(db)
+
+    view = CustomModelView(
+        Model1,
+        inline_models=[
+            (
+                Model2,
+                {
+                    "form_extra_fields": {
+                        "extra_field": StringField("Extra Field"),
+                    }
+                },
+            )
+        ],
+    )
+    admin.add_view(view)
+
+    form_class = view.get_form()
+    form = form_class()
+
+    inline_field = form._fields["model2_set"]
+
+    child_form_class = inline_field.form  # type: ignore[attr-defined]
+
+    child_form = child_form_class()
+
+    assert "extra_field" in child_form._fields

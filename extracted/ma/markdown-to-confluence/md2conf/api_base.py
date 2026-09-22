@@ -15,12 +15,14 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar, cast, overload
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
-from requests import Response, Session
+from requests import RequestException, Response, Session
 
 from .api_types import (
     ConfluenceAttachment,
     ConfluenceComment,
     ConfluenceContentProperty,
+    ConfluenceContentState,
+    ConfluenceContentStateResponse,
     ConfluenceContentVersion,
     ConfluenceIdentifiedContentProperty,
     ConfluenceIdentifiedLabel,
@@ -42,6 +44,9 @@ from .serializer import JsonType, json_to_object, object_to_json_payload
 LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# request header an endpoint can set to opt out of transport-level retries (e.g. non-idempotent calls)
+NO_RETRY_HEADER = "X-No-Retry"
 
 
 def build_url(base_url: str, query: dict[str, str] | None = None) -> str:
@@ -98,6 +103,26 @@ class ConfluenceSession(ABC):
     def close(self) -> None: ...
 
     @abstractmethod
+    def get_object_space_id(self, object_id: str) -> str:
+        """
+        Returns the space ID that contains the given Confluence object (page, folder, etc.).
+
+        :param object_id: The Confluence object ID.
+        :returns: The space ID that contains the given Confluence object.
+        """
+        ...
+
+    @abstractmethod
+    def get_object_parent_position(self, object_id: str) -> tuple[str | None, int | None]:
+        """
+        Returns the parent of the given Confluence object (page, folder, etc.) and its position among its siblings.
+
+        :param object_id: The Confluence object ID.
+        :returns: A tuple containing the parent ID (or `None` if no parent) and the position among siblings (or `None` if not applicable).
+        """
+        ...
+
+    @abstractmethod
     def space_id_to_key(self, id: str) -> str:
         "Finds the Confluence space key for a space ID."
         ...
@@ -125,6 +150,7 @@ class ConfluenceSession(ABC):
         :param expr: Search expression to match the user's name against with the *contains* operator (`~`).
         :returns: List of users whose name matches the expression.
         """
+        ...
 
     @abstractmethod
     def get_attachments(self, page_id: str) -> list[ConfluenceAttachment]:
@@ -278,8 +304,7 @@ class ConfluenceSession(ABC):
         :returns: Confluence page info for the found or newly created page.
         """
 
-        parent_page = self.get_page_properties(parent_id)
-        space_id = parent_page.spaceId
+        space_id = self.get_object_space_id(parent_id)
         page_id = self.page_exists(title, space_id=space_id)
 
         if page_id is not None:
@@ -395,33 +420,37 @@ class ConfluenceSession(ABC):
         """
         ...
 
-    def update_content_properties_for_page(self, page_id: str, properties: list[ConfluenceContentProperty], *, keep_existing: bool = False) -> None:
+    def update_content_properties_for_page(self, page_id: str, properties: list[ConfluenceContentProperty], *, keep_existing: bool = False) -> bool:
         """
         Updates content properties associated with a Confluence page.
 
         :param page_id: The Confluence page ID.
         :param properties: A list of content property data to update.
         :param keep_existing: Whether to keep content property data whose key is not included in the list of properties passed as an argument.
+        :returns: `True` if any content properties were added, removed, or updated, `False` otherwise.
         """
 
         old_mapping = {p.key: p for p in self.get_content_properties_for_page(page_id)}
         new_mapping = {p.key: p for p in properties}
 
-        new_props = set(p.key for p in properties)
+        new_props = {p.key for p in properties}
         old_props = set(old_mapping.keys())
 
         add_props = list(new_props - old_props)
         remove_props = list(old_props - new_props)
         update_props = list(old_props & new_props)
 
+        changed = False
         if add_props:
             add_props.sort()
             for key in add_props:
                 self.add_content_property_to_page(page_id, new_mapping[key])
+                changed = True
         if not keep_existing and remove_props:
             remove_props.sort()
             for key in remove_props:
                 self.remove_content_property_from_page(page_id, old_mapping[key].id)
+                changed = True
         if update_props:
             update_props.sort()
             for key in update_props:
@@ -430,6 +459,9 @@ class ConfluenceSession(ABC):
                 if old_prop.value == new_prop.value:
                     continue
                 self.update_content_property_for_page(page_id, old_prop.id, old_prop.version.number + 1, new_prop)
+                changed = True
+
+        return changed
 
     @abstractmethod
     def get_comments(self, page_id: str) -> list[ConfluenceComment]:
@@ -440,6 +472,30 @@ class ConfluenceSession(ABC):
         :returns: A list of comments associated with the page.
         """
 
+        ...
+
+    @abstractmethod
+    def get_content_state(self, page_id: str) -> ConfluenceContentState | None:
+        """
+        Retrieves the content state assigned to a Confluence page, if any.
+
+        Content states are only exposed via REST API v1, regardless of which API version is used for other operations.
+
+        :param page_id: The Confluence page ID.
+        :returns: The content state assigned to the page, or `None` if no state is set.
+        """
+        ...
+
+    @abstractmethod
+    def set_content_state(self, page_id: str, state: ConfluenceContentState) -> None:
+        """
+        Re-assigns a content state to a Confluence page, publishing a new version without changing the body.
+
+        Content states are only exposed via REST API v1, regardless of which API version is used for other operations.
+
+        :param page_id: The Confluence page ID.
+        :param state: The content state to assign.
+        """
         ...
 
 
@@ -488,28 +544,39 @@ class ConfluenceSessionShared(ConfluenceSession):
         base_url = f"{self._api_url}{version.value}{path}"
         return build_url(base_url, query)
 
-    def _get(self, version: ConfluenceVersion, path: str, response_type: type[T], *, query: dict[str, str] | None = None) -> T:
+    def _get(self, version: ConfluenceVersion, path: str, response_type: type[T], *, query: dict[str, str] | None = None, retry: bool = True) -> T:
         "Executes an HTTP request via Confluence API."
 
-        return self._get_impl(version, path, response_type, query=query)
+        return self._get_impl(version, path, response_type, query=query, retry=retry)
 
     def _get_impl(
-        self, version: ConfluenceVersion, path: str, response_type: type[T], *, query: dict[str, str] | None = None, headers: dict[str, str] | None = None
+        self,
+        version: ConfluenceVersion,
+        path: str,
+        response_type: type[T],
+        *,
+        query: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        retry: bool = True,
     ) -> T:
         url = self._build_url(version, path, query)
         if headers is None:
             headers = {}
         headers["Accept"] = "application/json"
+        if not retry:
+            headers[NO_RETRY_HEADER] = "1"
         response = self._session.get(url, headers=headers, verify=True)
         if response.text:
             LOGGER.debug("Received HTTP payload:\n%s", response.text)
         response.raise_for_status()
         return json_to_object(response_type, response.json())
 
-    def _build_request(self, version: ConfluenceVersion, path: str, body: Any, response_type: type[T] | None) -> tuple[str, dict[str, str], bytes]:
+    def _build_request(
+        self, version: ConfluenceVersion, path: str, body: Any, response_type: type[T] | None, *, query: dict[str, str] | None = None
+    ) -> tuple[str, dict[str, str], bytes]:
         "Generates URL, headers and raw payload for a typed request/response."
 
-        url = self._build_url(version, path)
+        url = self._build_url(version, path, query)
         headers: dict[str, str] = {}
         if body is not None:
             headers["Content-Type"] = "application/json"
@@ -518,7 +585,7 @@ class ConfluenceSessionShared(ConfluenceSession):
         if body is not None:
             data = object_to_json_payload(body)
         else:
-            data = bytes()
+            data = b""
         return url, headers, data
 
     @overload
@@ -536,15 +603,15 @@ class ConfluenceSessionShared(ConfluenceSession):
         return response_cast(response_type, response)
 
     @overload
-    def _put(self, version: ConfluenceVersion, path: str, body: Any, response_type: None) -> None: ...
+    def _put(self, version: ConfluenceVersion, path: str, body: Any, response_type: None, *, query: dict[str, str] | None = None) -> None: ...
 
     @overload
-    def _put(self, version: ConfluenceVersion, path: str, body: Any, response_type: type[T]) -> T: ...
+    def _put(self, version: ConfluenceVersion, path: str, body: Any, response_type: type[T], *, query: dict[str, str] | None = None) -> T: ...
 
-    def _put(self, version: ConfluenceVersion, path: str, body: Any, response_type: type[T] | None) -> T | None:
+    def _put(self, version: ConfluenceVersion, path: str, body: Any, response_type: type[T] | None, *, query: dict[str, str] | None = None) -> T | None:
         "Updates an existing object via Confluence REST API."
 
-        url, headers, data = self._build_request(version, path, body, response_type)
+        url, headers, data = self._build_request(version, path, body, response_type, query=query)
         response = self._session.put(url, data=data, headers=headers, verify=True)
         response.raise_for_status()
         return response_cast(response_type, response)
@@ -811,6 +878,23 @@ class ConfluenceSessionShared(ConfluenceSession):
         self._put(ConfluenceVersion.VERSION_1, path, None, ConfluencePageRef)
 
     @override
+    def get_content_state(self, page_id: str) -> ConfluenceContentState | None:
+        path = f"/content/{page_id}/state"
+        query = {"status": "current"}
+        try:
+            response = self._get(ConfluenceVersion.VERSION_1, path, ConfluenceContentStateResponse, query=query, retry=False)
+        except RequestException as e:
+            if e.response is not None and e.response.status_code == 404:
+                return None
+            raise
+        return response.contentState
+
+    @override
+    def set_content_state(self, page_id: str, state: ConfluenceContentState) -> None:
+        path = f"/content/{page_id}/state"
+        self._put(ConfluenceVersion.VERSION_1, path, state, ConfluenceContentStateResponse, query={"status": "current"})
+
+    @override
     def add_labels(self, page_id: str, labels: list[ConfluenceLabel]) -> None:
         path = f"/content/{page_id}/label"
         self._post(ConfluenceVersion.VERSION_1, path, labels, None)
@@ -824,7 +908,7 @@ class ConfluenceSessionShared(ConfluenceSession):
     @override
     def update_labels(self, page_id: str, labels: list[ConfluenceLabel], *, keep_existing: bool = False) -> None:
         new_labels = set(labels)
-        old_labels = set(ConfluenceLabel(name=label.name, prefix=label.prefix) for label in self.get_labels(page_id))
+        old_labels = {ConfluenceLabel(name=label.name, prefix=label.prefix) for label in self.get_labels(page_id)}
 
         add_labels = list(new_labels - old_labels)
         remove_labels = list(old_labels - new_labels)

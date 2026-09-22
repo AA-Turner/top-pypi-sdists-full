@@ -189,6 +189,7 @@ if TYPE_CHECKING:
         AnthropicPlainTextSourceType,
         AnthropicPlainTextSourceTypedDict,
     )
+    from .anthropicsafeguard import AnthropicSafeguard, AnthropicSafeguardTypedDict
     from .anthropicsearchresultblockparam import (
         AnthropicSearchResultBlockParam,
         AnthropicSearchResultBlockParamCitations,
@@ -914,6 +915,7 @@ if TYPE_CHECKING:
     )
     from .createworkspacerequest import (
         CreateWorkspaceRequest,
+        CreateWorkspaceRequestDisabledServerTool,
         CreateWorkspaceRequestTypedDict,
     )
     from .createworkspaceresponse import (
@@ -1659,6 +1661,11 @@ if TYPE_CHECKING:
     from .internchatprompttokensdetails import (
         InternChatPromptTokensDetails,
         InternChatPromptTokensDetailsTypedDict,
+    )
+    from .internchatsteeredresponse import (
+        InternChatSteeredResponse,
+        InternChatSteeredResponseStatus,
+        InternChatSteeredResponseTypedDict,
     )
     from .internchatstreamerror import (
         InternChatStreamError,
@@ -3336,6 +3343,7 @@ if TYPE_CHECKING:
     )
     from .updateworkspacerequest import (
         UpdateWorkspaceRequest,
+        UpdateWorkspaceRequestDisabledServerTool,
         UpdateWorkspaceRequestTypedDict,
     )
     from .updateworkspaceresponse import (
@@ -3490,6 +3498,7 @@ if TYPE_CHECKING:
         WorkspaceMemberRole,
         WorkspaceMemberTypedDict,
     )
+    from .xsearchoptions import XSearchOptions, XSearchOptionsTypedDict
 
 __all__ = [
     "AABenchmarkEntry",
@@ -3632,6 +3641,8 @@ __all__ = [
     "AnthropicPlainTextSourceMediaType",
     "AnthropicPlainTextSourceType",
     "AnthropicPlainTextSourceTypedDict",
+    "AnthropicSafeguard",
+    "AnthropicSafeguardTypedDict",
     "AnthropicSearchResultBlockParam",
     "AnthropicSearchResultBlockParamCitations",
     "AnthropicSearchResultBlockParamCitationsTypedDict",
@@ -4140,6 +4151,7 @@ __all__ = [
     "CreateScimSyncJobResponse",
     "CreateScimSyncJobResponseTypedDict",
     "CreateWorkspaceRequest",
+    "CreateWorkspaceRequestDisabledServerTool",
     "CreateWorkspaceRequestTypedDict",
     "CreateWorkspaceResponse",
     "CreateWorkspaceResponseTypedDict",
@@ -4672,6 +4684,9 @@ __all__ = [
     "InternChatMessageTypedDict",
     "InternChatPromptTokensDetails",
     "InternChatPromptTokensDetailsTypedDict",
+    "InternChatSteeredResponse",
+    "InternChatSteeredResponseStatus",
+    "InternChatSteeredResponseTypedDict",
     "InternChatStreamError",
     "InternChatStreamErrorTypedDict",
     "InternChatStreamingResponse",
@@ -5920,6 +5935,7 @@ __all__ = [
     "UpdateScimGroupMappingResponse",
     "UpdateScimGroupMappingResponseTypedDict",
     "UpdateWorkspaceRequest",
+    "UpdateWorkspaceRequestDisabledServerTool",
     "UpdateWorkspaceRequestTypedDict",
     "UpdateWorkspaceResponse",
     "UpdateWorkspaceResponseTypedDict",
@@ -6028,6 +6044,8 @@ __all__ = [
     "WorkspaceMemberRole",
     "WorkspaceMemberTypedDict",
     "WorkspaceTypedDict",
+    "XSearchOptions",
+    "XSearchOptionsTypedDict",
 ]
 
 _dynamic_imports: dict[str, str] = {
@@ -6160,6 +6178,8 @@ _dynamic_imports: dict[str, str] = {
     "AnthropicPlainTextSourceMediaType": ".anthropicplaintextsource",
     "AnthropicPlainTextSourceType": ".anthropicplaintextsource",
     "AnthropicPlainTextSourceTypedDict": ".anthropicplaintextsource",
+    "AnthropicSafeguard": ".anthropicsafeguard",
+    "AnthropicSafeguardTypedDict": ".anthropicsafeguard",
     "AnthropicSearchResultBlockParam": ".anthropicsearchresultblockparam",
     "AnthropicSearchResultBlockParamCitations": ".anthropicsearchresultblockparam",
     "AnthropicSearchResultBlockParamCitationsTypedDict": ".anthropicsearchresultblockparam",
@@ -6652,6 +6672,7 @@ _dynamic_imports: dict[str, str] = {
     "CreateScimSyncJobResponse": ".createscimsyncjobresponse",
     "CreateScimSyncJobResponseTypedDict": ".createscimsyncjobresponse",
     "CreateWorkspaceRequest": ".createworkspacerequest",
+    "CreateWorkspaceRequestDisabledServerTool": ".createworkspacerequest",
     "CreateWorkspaceRequestTypedDict": ".createworkspacerequest",
     "CreateWorkspaceResponse": ".createworkspaceresponse",
     "CreateWorkspaceResponseTypedDict": ".createworkspaceresponse",
@@ -7206,6 +7227,9 @@ _dynamic_imports: dict[str, str] = {
     "InternChatMessageContentTypedDict": ".internchatmessagecontent",
     "InternChatPromptTokensDetails": ".internchatprompttokensdetails",
     "InternChatPromptTokensDetailsTypedDict": ".internchatprompttokensdetails",
+    "InternChatSteeredResponse": ".internchatsteeredresponse",
+    "InternChatSteeredResponseStatus": ".internchatsteeredresponse",
+    "InternChatSteeredResponseTypedDict": ".internchatsteeredresponse",
     "InternChatStreamError": ".internchatstreamerror",
     "InternChatStreamErrorTypedDict": ".internchatstreamerror",
     "InternChatStreamingResponse": ".internchatstreamingresponse",
@@ -8464,6 +8488,7 @@ _dynamic_imports: dict[str, str] = {
     "UpdateScimGroupMappingResponse": ".updatescimgroupmappingresponse",
     "UpdateScimGroupMappingResponseTypedDict": ".updatescimgroupmappingresponse",
     "UpdateWorkspaceRequest": ".updateworkspacerequest",
+    "UpdateWorkspaceRequestDisabledServerTool": ".updateworkspacerequest",
     "UpdateWorkspaceRequestTypedDict": ".updateworkspacerequest",
     "UpdateWorkspaceResponse": ".updateworkspaceresponse",
     "UpdateWorkspaceResponseTypedDict": ".updateworkspaceresponse",
@@ -8567,6 +8592,8 @@ _dynamic_imports: dict[str, str] = {
     "WorkspaceMember": ".workspacemember",
     "WorkspaceMemberRole": ".workspacemember",
     "WorkspaceMemberTypedDict": ".workspacemember",
+    "XSearchOptions": ".xsearchoptions",
+    "XSearchOptionsTypedDict": ".xsearchoptions",
 }
 
 

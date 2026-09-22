@@ -58,6 +58,10 @@ class ListingRevisionNote(object):
             The value to assign to the note_details property of this ListingRevisionNote.
         :type note_details: str
 
+        :param admin_email:
+            The value to assign to the admin_email property of this ListingRevisionNote.
+        :type admin_email: str
+
         :param lifecycle_state:
             The value to assign to the lifecycle_state property of this ListingRevisionNote.
             Allowed values for this property are: "ACTIVE", "DELETED", 'UNKNOWN_ENUM_VALUE'.
@@ -91,6 +95,7 @@ class ListingRevisionNote(object):
             'compartment_id': 'str',
             'note_source': 'str',
             'note_details': 'str',
+            'admin_email': 'str',
             'lifecycle_state': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
@@ -104,6 +109,7 @@ class ListingRevisionNote(object):
             'compartment_id': 'compartmentId',
             'note_source': 'noteSource',
             'note_details': 'noteDetails',
+            'admin_email': 'adminEmail',
             'lifecycle_state': 'lifecycleState',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
@@ -116,6 +122,7 @@ class ListingRevisionNote(object):
         self._compartment_id = None
         self._note_source = None
         self._note_details = None
+        self._admin_email = None
         self._lifecycle_state = None
         self._time_created = None
         self._time_updated = None
@@ -248,6 +255,30 @@ class ListingRevisionNote(object):
         :type: str
         """
         self._note_details = note_details
+
+    @property
+    def admin_email(self):
+        """
+        Gets the admin_email of this ListingRevisionNote.
+        Email address of the administrator who created the note, if available.
+
+
+        :return: The admin_email of this ListingRevisionNote.
+        :rtype: str
+        """
+        return self._admin_email
+
+    @admin_email.setter
+    def admin_email(self, admin_email):
+        """
+        Sets the admin_email of this ListingRevisionNote.
+        Email address of the administrator who created the note, if available.
+
+
+        :param admin_email: The admin_email of this ListingRevisionNote.
+        :type: str
+        """
+        self._admin_email = admin_email
 
     @property
     def lifecycle_state(self):

@@ -18,9 +18,14 @@ else:
     from typing_extensions import override
 
 if t.TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Iterable, Iterator
 
     from sqlalchemy.orm import Session
+
+    if sys.version_info >= (3, 13):
+        from collections.abc import Generator
+    else:
+        from typing_extensions import Generator
 
 
 class DBStateStoreManager(StateStoreManager):
@@ -70,6 +75,7 @@ class DBStateStoreManager(StateStoreManager):
         self.session.add(new_job_state)
         self.session.commit()
 
+    @override
     def get(self, state_id: str) -> MeltanoState | None:
         """Get the job state for the given state_id.
 
@@ -113,6 +119,58 @@ class DBStateStoreManager(StateStoreManager):
         return count
 
     @override
+    def get_all(self, pattern: str | None = None) -> Iterator[MeltanoState]:
+        """Yield all states in a memory-efficient way, optionally filtered by pattern.
+
+        Args:
+            pattern: glob-style pattern to filter by.
+        """
+        query = self.session.query(JobState)
+        if pattern:
+            like_pattern = pattern.replace("*", "%")
+            query = query.filter(JobState.state_id.like(like_pattern))
+
+        # Use yield_per so rows are fetched in bounded batches instead of all at once.
+        query = query.yield_per(1000)
+
+        return (
+            MeltanoState(
+                state_id=js.state_id,
+                partial_state=js.partial_state,
+                completed_state=js.completed_state,
+            )
+            for js in query
+        )
+
+    @override
+    def set_all(self, states: Iterable[MeltanoState]) -> int:
+        """Replace multiple states in bulk using a single transaction.
+
+        Deletes any existing rows for the given state IDs, then inserts the
+        new ones — all in one commit.
+
+        Args:
+            states: iterable of MeltanoState objects to persist
+        """
+        state_list = list(states)
+        if not state_list:
+            return 0
+        state_ids = [s.state_id for s in state_list]
+        self.session.query(JobState).filter(
+            JobState.state_id.in_(state_ids),
+        ).delete(synchronize_session=False)
+        for state in state_list:
+            self.session.add(
+                JobState(
+                    state_id=state.state_id,
+                    partial_state=state.partial_state,
+                    completed_state=state.completed_state,
+                ),
+            )
+        self.session.commit()
+        return len(state_list)
+
+    @override
     def get_state_ids(self, pattern: str | None = None) -> Iterator[str]:
         """Get all state_ids available in this state store manager.
 
@@ -141,7 +199,7 @@ class DBStateStoreManager(StateStoreManager):
         state_id: str,
         *,
         retry_seconds: float = 1,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[None]:
         """Acquire a naive lock for the given job's state.
 
         For DBStateStoreManager, the db manages transactions.

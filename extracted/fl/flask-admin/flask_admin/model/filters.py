@@ -174,7 +174,7 @@ class BaseDateFilter(BaseFilter):
 
     def __init__(
         self, name: str, options: T_OPTIONS = None, data_type: T_WIDGET_TYPE = None
-    ):
+    ) -> None:
         super().__init__(name, options, data_type="datepicker")
 
     def clean(self, value: str) -> datetime.date:
@@ -300,7 +300,6 @@ class BaseTimeBetweenFilter(BaseFilter):
             else:
                 return False
         except ValueError:
-            raise
             return False
 
 

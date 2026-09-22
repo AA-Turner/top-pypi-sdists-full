@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyterlab
-Version: 4.6.3
+Version: 4.6.4
 Summary: JupyterLab computational environment
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Changelog, https://jupyterlab.readthedocs.io/en/stable/getting_started/changelog.html
@@ -10,7 +10,7 @@ Project-URL: Issues, https://github.com/jupyterlab/jupyterlab/issues/new/choose
 Project-URL: Zulip, https://jupyter.zulipchat.com/#narrow/channel/469762-jupyterlab
 Project-URL: Pypi, https://pypi.org/project/jupyterlab
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
-License: Copyright (c) 2015-2025 Project Jupyter Contributors
+License: Copyright (c) 2015-2026 Project Jupyter Contributors
         All rights reserved.
         
         Redistribution and use in source and binary forms, with or without

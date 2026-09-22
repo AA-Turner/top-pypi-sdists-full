@@ -6,7 +6,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.get_data_table_table_schema_response_200 import GetDataTableTableSchemaResponse200
-from ...types import UNSET, Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
@@ -15,6 +15,7 @@ def _get_kwargs(
     datatable_name: str,
     schema_name: str,
     table_name: str,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -24,6 +25,8 @@ def _get_kwargs(
     params["schema_name"] = schema_name
 
     params["table_name"] = table_name
+
+    params["role"] = role
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -67,6 +70,7 @@ def sync_detailed(
     datatable_name: str,
     schema_name: str,
     table_name: str,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Response[GetDataTableTableSchemaResponse200]:
     """get one Datatable table schema
 
@@ -75,6 +79,7 @@ def sync_detailed(
         datatable_name (str):
         schema_name (str):
         table_name (str):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -89,6 +94,7 @@ def sync_detailed(
         datatable_name=datatable_name,
         schema_name=schema_name,
         table_name=table_name,
+        role=role,
     )
 
     response = client.get_httpx_client().request(
@@ -105,6 +111,7 @@ def sync(
     datatable_name: str,
     schema_name: str,
     table_name: str,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Optional[GetDataTableTableSchemaResponse200]:
     """get one Datatable table schema
 
@@ -113,6 +120,7 @@ def sync(
         datatable_name (str):
         schema_name (str):
         table_name (str):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,6 +136,7 @@ def sync(
         datatable_name=datatable_name,
         schema_name=schema_name,
         table_name=table_name,
+        role=role,
     ).parsed
 
 
@@ -138,6 +147,7 @@ async def asyncio_detailed(
     datatable_name: str,
     schema_name: str,
     table_name: str,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Response[GetDataTableTableSchemaResponse200]:
     """get one Datatable table schema
 
@@ -146,6 +156,7 @@ async def asyncio_detailed(
         datatable_name (str):
         schema_name (str):
         table_name (str):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,6 +171,7 @@ async def asyncio_detailed(
         datatable_name=datatable_name,
         schema_name=schema_name,
         table_name=table_name,
+        role=role,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -174,6 +186,7 @@ async def asyncio(
     datatable_name: str,
     schema_name: str,
     table_name: str,
+    role: Union[Unset, None, str] = UNSET,
 ) -> Optional[GetDataTableTableSchemaResponse200]:
     """get one Datatable table schema
 
@@ -182,6 +195,7 @@ async def asyncio(
         datatable_name (str):
         schema_name (str):
         table_name (str):
+        role (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -198,5 +212,6 @@ async def asyncio(
             datatable_name=datatable_name,
             schema_name=schema_name,
             table_name=table_name,
+            role=role,
         )
     ).parsed

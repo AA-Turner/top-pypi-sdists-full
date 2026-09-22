@@ -203,15 +203,38 @@ fi""")
     return result.returncode
 
 
-def apply_ioc_defaults(values):
-    """Merge iocDefaults into each IOC entry. IOC-specific values always override defaults."""
-    ioc_defaults = values.get("iocDefaults") or {}
-    if not ioc_defaults:
-        return values
-    epics_config = values.get("epicsConfiguration", {})
-    iocs = epics_config.get("iocs")
+def iocs_to_list(iocs):
+    """Normalize an ``iocs`` section into a list of IOC dicts.
+
+    Accepts the map form ``{ioc_name: {...}}`` as well as the legacy list form
+    ``[{name: ioc_name, ...}]``. In the map form the key is injected as the
+    ``name`` field of each entry, so downstream code can keep treating IOCs as
+    a list of dicts that carry their own ``name``.
+    """
     if not iocs:
+        return []
+    if isinstance(iocs, dict):
+        result = []
+        for key, ioc in iocs.items():
+            ioc = ioc if ioc is not None else {}
+            name = ioc.setdefault('name', key)
+            if name != key:
+                print(f"%% ioc key '{key}' differs from its name '{name}', using '{name}'")
+            result.append(ioc)
+        return result
+    return list(iocs)
+
+
+def apply_ioc_defaults(values):
+    """Normalize ``iocs`` to a list and merge iocDefaults into each IOC entry.
+
+    IOC-specific values always override defaults.
+    """
+    epics_config = values.get("epicsConfiguration")
+    if not epics_config or "iocs" not in epics_config:
         return values
+    iocs = iocs_to_list(epics_config["iocs"])
+    ioc_defaults = values.get("iocDefaults") or {}
     merged = []
     for ioc in iocs:
         tmpl = ioc.get("template") or ioc.get("devtype") or ""

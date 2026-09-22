@@ -1318,6 +1318,14 @@ def test_get_num_tokens_from_messages_o_series(model: str) -> None:
     assert actual == expected
 
 
+def test_get_num_tokens_from_messages_gpt_6() -> None:
+    llm = ChatOpenAI(model="gpt-6-astra")
+    messages = [HumanMessage("how are you")]
+
+    assert llm._get_encoding_model()[1].name == "o200k_base"
+    assert llm.get_num_tokens_from_messages(messages) > 0
+
+
 class Foo(BaseModel):
     bar: int
 
@@ -4583,6 +4591,89 @@ def test_gpt_5_temperature_case_insensitive(
         messages = [HumanMessage(content="Hello")]
         payload = llm._get_request_payload(messages)
         assert payload["temperature"] == 0.7
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"output_version": "responses/v1"},
+        {"context_management": []},
+        {"include": []},
+        {"reasoning": {}},
+        {"truncation": "auto"},
+        {"use_previous_response_id": True},
+        {"model": "gpt-5-pro"},
+        {"model": "gpt-5.3-codex"},
+    ],
+)
+@pytest.mark.parametrize("explicit", [None, True, False])
+def test_infer_use_responses_api(kwargs: dict, explicit: bool | None) -> None:
+    llm = ChatOpenAI(**kwargs, use_responses_api=explicit)
+    expected = explicit if explicit is not None else True
+    assert llm.use_responses_api is expected
+    assert llm._use_responses_api({}) is expected
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"output_version": "v1"},
+        {"reasoning_effort": "low"},
+        {"model": "gpt-6-astra"},
+        {"model_kwargs": {"text": {}}},
+        {"model_kwargs": {"tools": [{"type": "web_search"}]}},
+    ],
+)
+def test_infer_use_responses_api_remains_dynamic(kwargs: dict) -> None:
+    llm = ChatOpenAI(**kwargs)
+    assert llm.use_responses_api is None
+    assert llm._use_responses_api({"tools": [{"type": "web_search"}]})
+    assert llm._use_responses_api({"text": {}})
+    assert not llm._use_responses_api({})
+
+
+def test_infer_use_responses_api_from_output_version_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LC_OUTPUT_VERSION", "responses/v1")
+    assert ChatOpenAI().use_responses_api is True
+
+
+def test_inferred_responses_api_bind_tools_strict() -> None:
+    llm = ChatOpenAI(reasoning={})
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+    bound = llm.bind_tools(
+        [tool],
+        response_format={"title": "Weather", "type": "object", "properties": {}},
+    )
+    assert isinstance(bound, RunnableBinding)
+    assert "strict" not in bound.kwargs["tools"][0]["function"]
+
+
+def test_gpt_6_tools_use_responses_api() -> None:
+    llm = ChatOpenAI(model="gpt-6-astra")
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    payload = llm._get_request_payload([HumanMessage(content="Hello")], tools=tools)
+
+    assert "input" in payload
+    assert "messages" not in payload
 
 
 @pytest.mark.parametrize("use_responses_api", [False, True])

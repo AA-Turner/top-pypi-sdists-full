@@ -1,11 +1,11 @@
 r'''
 # datadog-monitors-monitor
 
-> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.11.1.
+> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.12.0.
 
 ## Description
 
-Datadog Monitor 4.11.1
+Datadog Monitor 4.12.0
 
 ## Usage
 
@@ -33,7 +33,7 @@ You can find more information about activating this type in the [AWS CloudFormat
 
 This library is auto-generated and published to all supported programming languages by the [cdklabs/cdk-cloudformation](https://github.com/cdklabs/cdk-cloudformation) project based on the API schema published for `Datadog::Monitors::Monitor`.
 
-* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.11.1).
+* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.12.0).
 * Issues related to `Datadog::Monitors::Monitor` should be reported to the [publisher](undefined).
 
 ## License
@@ -98,6 +98,7 @@ class CfnMonitor(
         *,
         query: builtins.str,
         type: "CfnMonitorPropsType",
+        assets: typing.Optional[typing.Sequence[typing.Union["MonitorAsset", typing.Dict[builtins.str, typing.Any]]]] = None,
         cloudformation_options: typing.Optional[typing.Union["CloudformationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         creator: typing.Optional[typing.Union["Creator", typing.Dict[builtins.str, typing.Any]]] = None,
         message: typing.Optional[builtins.str] = None,
@@ -114,6 +115,7 @@ class CfnMonitor(
         :param id: - scoped id of the resource.
         :param query: The monitor query.
         :param type: The type of the monitor.
+        :param assets: List of monitor assets (for example, runbooks) tied to this monitor.
         :param cloudformation_options: Cloudformation specific options. This is only used by the Cloudformation resource.
         :param creator: 
         :param message: A message to include with notifications for the monitor.
@@ -131,6 +133,7 @@ class CfnMonitor(
         props = CfnMonitorProps(
             query=query,
             type=type,
+            assets=assets,
             cloudformation_options=cloudformation_options,
             creator=creator,
             message=message,
@@ -199,6 +202,7 @@ class CfnMonitor(
     name_mapping={
         "query": "query",
         "type": "type",
+        "assets": "assets",
         "cloudformation_options": "cloudformationOptions",
         "creator": "creator",
         "message": "message",
@@ -216,6 +220,7 @@ class CfnMonitorProps:
         *,
         query: builtins.str,
         type: "CfnMonitorPropsType",
+        assets: typing.Optional[typing.Sequence[typing.Union["MonitorAsset", typing.Dict[builtins.str, typing.Any]]]] = None,
         cloudformation_options: typing.Optional[typing.Union["CloudformationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         creator: typing.Optional[typing.Union["Creator", typing.Dict[builtins.str, typing.Any]]] = None,
         message: typing.Optional[builtins.str] = None,
@@ -226,10 +231,11 @@ class CfnMonitorProps:
         restricted_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''Datadog Monitor 4.11.1.
+        '''Datadog Monitor 4.12.0.
 
         :param query: The monitor query.
         :param type: The type of the monitor.
+        :param assets: List of monitor assets (for example, runbooks) tied to this monitor.
         :param cloudformation_options: Cloudformation specific options. This is only used by the Cloudformation resource.
         :param creator: 
         :param message: A message to include with notifications for the monitor.
@@ -252,6 +258,7 @@ class CfnMonitorProps:
             type_hints = cached_type_hints(_typecheckingstub__1b250b503cf3a08db9d357fada826dc16015ba9e60db0e9ae681c949469261fd)
             check_type(argname="argument query", value=query, expected_type=type_hints["query"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument assets", value=assets, expected_type=type_hints["assets"])
             check_type(argname="argument cloudformation_options", value=cloudformation_options, expected_type=type_hints["cloudformation_options"])
             check_type(argname="argument creator", value=creator, expected_type=type_hints["creator"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
@@ -265,6 +272,8 @@ class CfnMonitorProps:
             "query": query,
             "type": type,
         }
+        if assets is not None:
+            self._values["assets"] = assets
         if cloudformation_options is not None:
             self._values["cloudformation_options"] = cloudformation_options
         if creator is not None:
@@ -303,6 +312,15 @@ class CfnMonitorProps:
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast("CfnMonitorPropsType", result)
+
+    @builtins.property
+    def assets(self) -> typing.Optional[typing.List["MonitorAsset"]]:
+        '''List of monitor assets (for example, runbooks) tied to this monitor.
+
+        :schema: CfnMonitorProps#Assets
+        '''
+        result = self._values.get("assets")
+        return typing.cast(typing.Optional[typing.List["MonitorAsset"]], result)
 
     @builtins.property
     def cloudformation_options(self) -> typing.Optional["CloudformationOptions"]:
@@ -565,6 +583,144 @@ class Creator:
         return "Creator(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdk-cloudformation/datadog-monitors-monitor.MonitorAsset",
+    jsii_struct_bases=[],
+    name_mapping={
+        "category": "category",
+        "name": "name",
+        "url": "url",
+        "resource_key": "resourceKey",
+        "resource_type": "resourceType",
+    },
+)
+class MonitorAsset:
+    def __init__(
+        self,
+        *,
+        category: "MonitorAssetCategory",
+        name: builtins.str,
+        url: builtins.str,
+        resource_key: typing.Optional[builtins.str] = None,
+        resource_type: typing.Optional["MonitorAssetResourceType"] = None,
+    ) -> None:
+        '''A monitor asset (for example, a runbook) tied to a monitor to help users take action on alerts.
+
+        :param category: Indicates the type of asset this entity represents on a monitor.
+        :param name: Name for the monitor asset.
+        :param url: URL link for the asset. For internal resource types (notebooks), provide a relative path. For external links, provide the full URL.
+        :param resource_key: Identifier of the internal Datadog resource that this asset represents (for example, a notebook ID). IDs should be passed as strings.
+        :param resource_type: Type of internal Datadog resource associated with a monitor asset.
+
+        :schema: MonitorAsset
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ac56d5e82a2eb540b29258054e562bba4287867917213c167b75bbb9e241ccfc)
+            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            check_type(argname="argument resource_key", value=resource_key, expected_type=type_hints["resource_key"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "category": category,
+            "name": name,
+            "url": url,
+        }
+        if resource_key is not None:
+            self._values["resource_key"] = resource_key
+        if resource_type is not None:
+            self._values["resource_type"] = resource_type
+
+    @builtins.property
+    def category(self) -> "MonitorAssetCategory":
+        '''Indicates the type of asset this entity represents on a monitor.
+
+        :schema: MonitorAsset#Category
+        '''
+        result = self._values.get("category")
+        assert result is not None, "Required property 'category' is missing"
+        return typing.cast("MonitorAssetCategory", result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name for the monitor asset.
+
+        :schema: MonitorAsset#Name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def url(self) -> builtins.str:
+        '''URL link for the asset.
+
+        For internal resource types (notebooks), provide a relative path. For external links, provide the full URL.
+
+        :schema: MonitorAsset#Url
+        '''
+        result = self._values.get("url")
+        assert result is not None, "Required property 'url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_key(self) -> typing.Optional[builtins.str]:
+        '''Identifier of the internal Datadog resource that this asset represents (for example, a notebook ID).
+
+        IDs should be passed as strings.
+
+        :schema: MonitorAsset#ResourceKey
+        '''
+        result = self._values.get("resource_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_type(self) -> typing.Optional["MonitorAssetResourceType"]:
+        '''Type of internal Datadog resource associated with a monitor asset.
+
+        :schema: MonitorAsset#ResourceType
+        '''
+        result = self._values.get("resource_type")
+        return typing.cast(typing.Optional["MonitorAssetResourceType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MonitorAsset(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(
+    jsii_type="@cdk-cloudformation/datadog-monitors-monitor.MonitorAssetCategory"
+)
+class MonitorAssetCategory(enum.Enum):
+    '''Indicates the type of asset this entity represents on a monitor.
+
+    :schema: MonitorAssetCategory
+    '''
+
+    RUNBOOK = "RUNBOOK"
+    '''runbook.'''
+
+
+@jsii.enum(
+    jsii_type="@cdk-cloudformation/datadog-monitors-monitor.MonitorAssetResourceType"
+)
+class MonitorAssetResourceType(enum.Enum):
+    '''Type of internal Datadog resource associated with a monitor asset.
+
+    :schema: MonitorAssetResourceType
+    '''
+
+    NOTEBOOK = "NOTEBOOK"
+    '''notebook.'''
 
 
 @jsii.enum(
@@ -1144,6 +1300,7 @@ class MonitorSchedulingOptions:
         "day_starts": "dayStarts",
         "hour_starts": "hourStarts",
         "month_starts": "monthStarts",
+        "timezone": "timezone",
     },
 )
 class MonitorSchedulingOptionsEvaluationWindow:
@@ -1153,6 +1310,7 @@ class MonitorSchedulingOptionsEvaluationWindow:
         day_starts: typing.Optional[builtins.str] = None,
         hour_starts: typing.Optional[jsii.Number] = None,
         month_starts: typing.Optional[jsii.Number] = None,
+        timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Configuration options for the evaluation window.
 
@@ -1161,6 +1319,7 @@ class MonitorSchedulingOptionsEvaluationWindow:
         :param day_starts: The time of the day at which a one day cumulative evaluation window starts. Must be defined in UTC time in ``HH:mm`` format.
         :param hour_starts: The minute of the hour at which a one hour cumulative evaluation window starts.
         :param month_starts: The day of the month at which a one month cumulative evaluation window starts.
+        :param timezone: The timezone for the cumulative evaluation window start time.
 
         :schema: MonitorSchedulingOptionsEvaluationWindow
         '''
@@ -1169,6 +1328,7 @@ class MonitorSchedulingOptionsEvaluationWindow:
             check_type(argname="argument day_starts", value=day_starts, expected_type=type_hints["day_starts"])
             check_type(argname="argument hour_starts", value=hour_starts, expected_type=type_hints["hour_starts"])
             check_type(argname="argument month_starts", value=month_starts, expected_type=type_hints["month_starts"])
+            check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if day_starts is not None:
             self._values["day_starts"] = day_starts
@@ -1176,6 +1336,8 @@ class MonitorSchedulingOptionsEvaluationWindow:
             self._values["hour_starts"] = hour_starts
         if month_starts is not None:
             self._values["month_starts"] = month_starts
+        if timezone is not None:
+            self._values["timezone"] = timezone
 
     @builtins.property
     def day_starts(self) -> typing.Optional[builtins.str]:
@@ -1205,6 +1367,15 @@ class MonitorSchedulingOptionsEvaluationWindow:
         '''
         result = self._values.get("month_starts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def timezone(self) -> typing.Optional[builtins.str]:
+        '''The timezone for the cumulative evaluation window start time.
+
+        :schema: MonitorSchedulingOptionsEvaluationWindow#Timezone
+        '''
+        result = self._values.get("timezone")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1391,6 +1562,9 @@ __all__ = [
     "CfnMonitorPropsType",
     "CloudformationOptions",
     "Creator",
+    "MonitorAsset",
+    "MonitorAssetCategory",
+    "MonitorAssetResourceType",
     "MonitorNotificationPresetName",
     "MonitorOnMissingData",
     "MonitorOptions",
@@ -1409,6 +1583,7 @@ def _typecheckingstub__9f282a849d0258c7c00bf6bb5adfaf5888d8d58a6ea859cf96cb55870
     *,
     query: builtins.str,
     type: CfnMonitorPropsType,
+    assets: typing.Optional[typing.Sequence[typing.Union[MonitorAsset, typing.Dict[builtins.str, typing.Any]]]] = None,
     cloudformation_options: typing.Optional[typing.Union[CloudformationOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     creator: typing.Optional[typing.Union[Creator, typing.Dict[builtins.str, typing.Any]]] = None,
     message: typing.Optional[builtins.str] = None,
@@ -1426,6 +1601,7 @@ def _typecheckingstub__1b250b503cf3a08db9d357fada826dc16015ba9e60db0e9ae681c9494
     *,
     query: builtins.str,
     type: CfnMonitorPropsType,
+    assets: typing.Optional[typing.Sequence[typing.Union[MonitorAsset, typing.Dict[builtins.str, typing.Any]]]] = None,
     cloudformation_options: typing.Optional[typing.Union[CloudformationOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     creator: typing.Optional[typing.Union[Creator, typing.Dict[builtins.str, typing.Any]]] = None,
     message: typing.Optional[builtins.str] = None,
@@ -1451,6 +1627,17 @@ def _typecheckingstub__9d5afe2b8f1151f0f40371462dd579b9cfa7efda301b6f260a034f152
     email: typing.Optional[builtins.str] = None,
     handle: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac56d5e82a2eb540b29258054e562bba4287867917213c167b75bbb9e241ccfc(
+    *,
+    category: MonitorAssetCategory,
+    name: builtins.str,
+    url: builtins.str,
+    resource_key: typing.Optional[builtins.str] = None,
+    resource_type: typing.Optional[MonitorAssetResourceType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1500,6 +1687,7 @@ def _typecheckingstub__cbea4e24a36be3bbaaa00e68ad56410a6c88f9a6db8c6e0ae6834bb09
     day_starts: typing.Optional[builtins.str] = None,
     hour_starts: typing.Optional[jsii.Number] = None,
     month_starts: typing.Optional[jsii.Number] = None,
+    timezone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

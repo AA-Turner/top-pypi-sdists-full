@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-webui
-Version: 0.11.3
+Version: 0.11.4
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -73,10 +73,8 @@ Requires-Dist: aiohttp==3.13.5
 Requires-Dist: aiosqlite==0.22.1
 Requires-Dist: alembic==1.18.4
 Requires-Dist: anthropic==0.86.0
-Requires-Dist: apscheduler==3.11.2
 Requires-Dist: argon2-cffi==25.1.0
 Requires-Dist: asgiref==3.11.1
-Requires-Dist: async-timeout==5.0.1
 Requires-Dist: authlib==1.7.2
 Requires-Dist: azure-ai-documentintelligence==1.0.2
 Requires-Dist: azure-identity==1.25.3
@@ -96,29 +94,23 @@ Requires-Dist: einops==0.8.2
 Requires-Dist: fake-useragent==2.2.0
 Requires-Dist: fastapi==0.136.3
 Requires-Dist: faster-whisper==1.2.1
-Requires-Dist: fpdf2==2.8.7
 Requires-Dist: ftfy==6.3.1
-Requires-Dist: google-api-python-client==2.197.0
-Requires-Dist: google-auth-httplib2==0.4.0
-Requires-Dist: google-auth-oauthlib==1.4.0
 Requires-Dist: google-cloud-storage==3.9.0
-Requires-Dist: google-genai==1.66.0
+Requires-Dist: google-re2==1.1.20251105
 Requires-Dist: googleapis-common-protos==1.75.0
 Requires-Dist: hiredis==3.4.0
 Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
 Requires-Dist: itsdangerous==2.2.0
 Requires-Dist: joserfc==1.7.4
 Requires-Dist: langchain-classic==1.0.7
-Requires-Dist: langchain-community==0.4.2
+Requires-Dist: langchain-core==1.4.8
 Requires-Dist: langchain-text-splitters==1.1.2
-Requires-Dist: langchain==1.2.10
 Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
 Requires-Dist: lxml==6.1.1
 Requires-Dist: markdown==3.10.2
 Requires-Dist: mcp==1.27.2
 Requires-Dist: msoffcrypto-tool==6.0.0
-Requires-Dist: nltk==3.9.4
 Requires-Dist: onnxruntime==1.26.0
 Requires-Dist: openai==2.29.0
 Requires-Dist: opencv-python-headless==4.13.0.92
@@ -134,7 +126,6 @@ Requires-Dist: pycrdt==0.13.1
 Requires-Dist: pydantic==2.13.4
 Requires-Dist: pydub==0.25.1
 Requires-Dist: pyjwt[crypto]==2.13.0
-Requires-Dist: pymdown-extensions==10.21.3
 Requires-Dist: pymysql==1.2.0
 Requires-Dist: pypandoc==1.17
 Requires-Dist: pypdf==6.7.5
@@ -143,7 +134,6 @@ Requires-Dist: python-mimeparse==2.0.0
 Requires-Dist: python-multipart==0.0.32
 Requires-Dist: python-pptx==1.0.2
 Requires-Dist: python-socketio==5.16.2
-Requires-Dist: pytube==15.0.0
 Requires-Dist: pytz==2026.2
 Requires-Dist: pyxlsb==1.0.10
 Requires-Dist: rank-bm25==0.2.2
@@ -151,7 +141,6 @@ Requires-Dist: rapidocr==3.9.2
 Requires-Dist: redis==8.0.1
 Requires-Dist: regex==2026.5.9
 Requires-Dist: requests==2.34.2
-Requires-Dist: restrictedpython==8.2
 Requires-Dist: sentence-transformers==5.5.1
 Requires-Dist: sentencepiece==0.2.1
 Requires-Dist: soundfile==0.13.1
@@ -174,7 +163,6 @@ Requires-Dist: pinecone==6.0.2; extra == 'all'
 Requires-Dist: playwright==1.60.0; extra == 'all'
 Requires-Dist: psycopg2-binary==2.9.12; extra == 'all'
 Requires-Dist: pymilvus==2.6.14; extra == 'all'
-Requires-Dist: pymongo==4.17.0; extra == 'all'
 Requires-Dist: qdrant-client==1.18.0; extra == 'all'
 Requires-Dist: unstructured==0.22.31; extra == 'all'
 Requires-Dist: weaviate-client==4.20.3; extra == 'all'
@@ -221,6 +209,8 @@ For more information, be sure to check out our [Open WebUI Documentation](https:
 - 🧩 **Plugin Support**: Extend Open WebUI with **Filters**, **Actions**, **Pipes**, **Tools**, and **Skills**. Connect external services through **MCP**, **MCPO**, and **OpenAPI tool servers**. Build custom integrations, rate limits, approval flows, data connections, and more.
 
 - 🤖 **Models & Agents**: Wrap any base model with custom instructions, tools, and knowledge to build specialized agents. Supports dynamic variables, per-user/group access control, and community preset imports via [Open WebUI Community](https://openwebui.com/).
+
+- ⚡ **Agentic Execution with [Open Terminal](https://github.com/open-webui/open-terminal)**: Give your agents a terminal and filesystem to carry out multi-step tasks. Let them analyze data, run scripts, fix errors, and produce files directly in chat. Scale to teams with **[Terminals (Enterprise)](https://github.com/open-webui/terminals)** for per-user isolated environments, resource limits, and automatic lifecycle management.
 
 - 📝 **Notes**: A dedicated workspace for content outside conversations. Draft with a rich editor, use AI to rewrite selected text, and attach notes to any chat for full-context injection.
 

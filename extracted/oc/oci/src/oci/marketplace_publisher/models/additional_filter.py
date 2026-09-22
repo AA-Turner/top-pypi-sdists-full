@@ -28,6 +28,10 @@ class AdditionalFilter(object):
             The value to assign to the code property of this AdditionalFilter.
         :type code: str
 
+        :param time_created:
+            The value to assign to the time_created property of this AdditionalFilter.
+        :type time_created: datetime
+
         :param usage_instructions:
             The value to assign to the usage_instructions property of this AdditionalFilter.
         :type usage_instructions: str
@@ -48,6 +52,7 @@ class AdditionalFilter(object):
         self.swagger_types = {
             'name': 'str',
             'code': 'str',
+            'time_created': 'datetime',
             'usage_instructions': 'str',
             'is_multi_select': 'bool',
             'is_mandatory': 'bool',
@@ -56,6 +61,7 @@ class AdditionalFilter(object):
         self.attribute_map = {
             'name': 'name',
             'code': 'code',
+            'time_created': 'timeCreated',
             'usage_instructions': 'usageInstructions',
             'is_multi_select': 'isMultiSelect',
             'is_mandatory': 'isMandatory',
@@ -63,6 +69,7 @@ class AdditionalFilter(object):
         }
         self._name = None
         self._code = None
+        self._time_created = None
         self._usage_instructions = None
         self._is_multi_select = None
         self._is_mandatory = None
@@ -115,6 +122,38 @@ class AdditionalFilter(object):
         :type: str
         """
         self._code = code
+
+    @property
+    def time_created(self):
+        """
+        Gets the time_created of this AdditionalFilter.
+        The date and time the additional filter was created, in the format defined by `RFC3339`__.
+
+        Example: `2022-09-15T21:10:29.600Z`
+
+        __ https://tools.ietf.org/html/rfc3339
+
+
+        :return: The time_created of this AdditionalFilter.
+        :rtype: datetime
+        """
+        return self._time_created
+
+    @time_created.setter
+    def time_created(self, time_created):
+        """
+        Sets the time_created of this AdditionalFilter.
+        The date and time the additional filter was created, in the format defined by `RFC3339`__.
+
+        Example: `2022-09-15T21:10:29.600Z`
+
+        __ https://tools.ietf.org/html/rfc3339
+
+
+        :param time_created: The time_created of this AdditionalFilter.
+        :type: datetime
+        """
+        self._time_created = time_created
 
     @property
     def usage_instructions(self):

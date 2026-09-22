@@ -71,7 +71,7 @@ _register_with_shiboken_signatures()
 
 from . import tracing  # noqa: E402,F401  -- runtime tracer facade
 
-__version__ = '0.36.1'
+__version__ = '0.37.0'
 
 def _merge_kwargs(kwargs, **kwargs2):
     for k, v in kwargs2.items():
@@ -351,6 +351,7 @@ def _validate_color_data(func):
 
 
 for _graph_cls in (SciQLopPlotsBindings.SciQLopSingleLineGraph,
-                   SciQLopPlotsBindings.SciQLopCurve):
+                   SciQLopPlotsBindings.SciQLopCurve,
+                   SciQLopPlotsBindings.SciQLopNDProjectionCurves):
     _graph_cls.set_color_data = _validate_color_data(_graph_cls.set_color_data)
 

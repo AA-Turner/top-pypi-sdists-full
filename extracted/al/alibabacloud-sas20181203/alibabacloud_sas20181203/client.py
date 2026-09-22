@@ -41009,6 +41009,84 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.get_agentless_task_count_with_options_async(request, runtime)
 
+    def get_agentless_task_count_batch_with_options(
+        self,
+        request: main_models.GetAgentlessTaskCountBatchRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GetAgentlessTaskCountBatchResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.target_type):
+            query['TargetType'] = request.target_type
+        body = {}
+        if not DaraCore.is_null(request.uuid_list):
+            body['UuidList'] = request.uuid_list
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query),
+            body = Utils.parse_to_map(body)
+        )
+        params = open_api_util_models.Params(
+            action = 'GetAgentlessTaskCountBatch',
+            version = '2018-12-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GetAgentlessTaskCountBatchResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def get_agentless_task_count_batch_with_options_async(
+        self,
+        request: main_models.GetAgentlessTaskCountBatchRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GetAgentlessTaskCountBatchResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.target_type):
+            query['TargetType'] = request.target_type
+        body = {}
+        if not DaraCore.is_null(request.uuid_list):
+            body['UuidList'] = request.uuid_list
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query),
+            body = Utils.parse_to_map(body)
+        )
+        params = open_api_util_models.Params(
+            action = 'GetAgentlessTaskCountBatch',
+            version = '2018-12-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GetAgentlessTaskCountBatchResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def get_agentless_task_count_batch(
+        self,
+        request: main_models.GetAgentlessTaskCountBatchRequest,
+    ) -> main_models.GetAgentlessTaskCountBatchResponse:
+        runtime = RuntimeOptions()
+        return self.get_agentless_task_count_batch_with_options(request, runtime)
+
+    async def get_agentless_task_count_batch_async(
+        self,
+        request: main_models.GetAgentlessTaskCountBatchRequest,
+    ) -> main_models.GetAgentlessTaskCountBatchResponse:
+        runtime = RuntimeOptions()
+        return await self.get_agentless_task_count_batch_with_options_async(request, runtime)
+
     def get_agentless_task_used_size_estimate_with_options(
         self,
         request: main_models.GetAgentlessTaskUsedSizeEstimateRequest,

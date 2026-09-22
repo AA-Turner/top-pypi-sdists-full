@@ -42,6 +42,8 @@ from .literals import (
     DescriptorTypeType,
     HarnessBedrockApiFormatType,
     HarnessConversationRoleType,
+    HarnessHookDecisionType,
+    HarnessHookEventTypeType,
     HarnessOpenAiApiFormatType,
     HarnessStopReasonType,
     HarnessToolTypeType,
@@ -263,6 +265,7 @@ __all__ = (
     "HarnessContentBlockTypeDef",
     "HarnessGatewayOutboundAuthTypeDef",
     "HarnessGeminiModelConfigTypeDef",
+    "HarnessHookEventTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
     "HarnessLiteLlmModelConfigTypeDef",
     "HarnessMessageStartEventTypeDef",
@@ -1236,6 +1239,18 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     additionalParams: NotRequired[Mapping[str, Any]]
 
 
+HarnessHookEventTypeDef = TypedDict(
+    "HarnessHookEventTypeDef",
+    {
+        "hookEventId": str,
+        "name": str,
+        "type": HarnessHookEventTypeType,
+        "decision": NotRequired[HarnessHookDecisionType],
+        "reason": NotRequired[str],
+    },
+)
+
+
 class HarnessInlineFunctionConfigTypeDef(TypedDict):
     description: str
     inputSchema: Mapping[str, Any]
@@ -1274,6 +1289,7 @@ class HarnessTokenUsageTypeDef(TypedDict):
 class HarnessOpenAiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
+    apiBase: NotRequired[str]
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
@@ -2916,6 +2932,7 @@ class InvokeHarnessStreamOutputTypeDef(TypedDict):
     internalServerException: NotRequired[InternalServerExceptionTypeDef]
     validationException: NotRequired[ValidationExceptionTypeDef]
     runtimeClientError: NotRequired[RuntimeClientErrorTypeDef]
+    hookEvent: NotRequired[HarnessHookEventTypeDef]
 
 
 class HarnessToolConfigurationTypeDef(TypedDict):

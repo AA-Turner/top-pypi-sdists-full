@@ -36,6 +36,10 @@ class NotebookSessionConfigurationDetails(object):
             The value to assign to the private_endpoint_id property of this NotebookSessionConfigurationDetails.
         :type private_endpoint_id: str
 
+        :param capacity_reservation_id:
+            The value to assign to the capacity_reservation_id property of this NotebookSessionConfigurationDetails.
+        :type capacity_reservation_id: str
+
         :param notebook_session_shape_config_details:
             The value to assign to the notebook_session_shape_config_details property of this NotebookSessionConfigurationDetails.
         :type notebook_session_shape_config_details: oci.data_science.models.NotebookSessionShapeConfigDetails
@@ -46,6 +50,7 @@ class NotebookSessionConfigurationDetails(object):
             'block_storage_size_in_gbs': 'int',
             'subnet_id': 'str',
             'private_endpoint_id': 'str',
+            'capacity_reservation_id': 'str',
             'notebook_session_shape_config_details': 'NotebookSessionShapeConfigDetails'
         }
         self.attribute_map = {
@@ -53,12 +58,14 @@ class NotebookSessionConfigurationDetails(object):
             'block_storage_size_in_gbs': 'blockStorageSizeInGBs',
             'subnet_id': 'subnetId',
             'private_endpoint_id': 'privateEndpointId',
+            'capacity_reservation_id': 'capacityReservationId',
             'notebook_session_shape_config_details': 'notebookSessionShapeConfigDetails'
         }
         self._shape = None
         self._block_storage_size_in_gbs = None
         self._subnet_id = None
         self._private_endpoint_id = None
+        self._capacity_reservation_id = None
         self._notebook_session_shape_config_details = None
 
     @property
@@ -160,6 +167,34 @@ class NotebookSessionConfigurationDetails(object):
         :type: str
         """
         self._private_endpoint_id = private_endpoint_id
+
+    @property
+    def capacity_reservation_id(self):
+        """
+        Gets the capacity_reservation_id of this NotebookSessionConfigurationDetails.
+        This specifies the `OCID`__ of the customer-managed compute capacity reservation to be used for launching notebook sessions.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_id of this NotebookSessionConfigurationDetails.
+        :rtype: str
+        """
+        return self._capacity_reservation_id
+
+    @capacity_reservation_id.setter
+    def capacity_reservation_id(self, capacity_reservation_id):
+        """
+        Sets the capacity_reservation_id of this NotebookSessionConfigurationDetails.
+        This specifies the `OCID`__ of the customer-managed compute capacity reservation to be used for launching notebook sessions.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_id: The capacity_reservation_id of this NotebookSessionConfigurationDetails.
+        :type: str
+        """
+        self._capacity_reservation_id = capacity_reservation_id
 
     @property
     def notebook_session_shape_config_details(self):

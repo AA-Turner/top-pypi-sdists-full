@@ -36,6 +36,7 @@ class StorageConnectionModel(BaseModel):
     internal_id: StrictStr = Field(description="REQUIRED. Organization internal identifier for multi-tenancy scoping. All connection operations are scoped to this organization. Format: int_{24-character secure token}.")
     provider_type: StorageProvider = Field(description="REQUIRED. Storage provider implementation to use. Determines which client adapter is loaded for sync operations. Supported: google_drive, s3, snowflake, sharepoint, tigris.")
     provider_config: ProviderConfig
+    write_enabled: Optional[StrictBool] = Field(default=False, description="Explicitly permit exports to write to this connection. Defaults to false; enabling requires the provider credentials to grant destination write access.")
     name: Annotated[str, Field(min_length=1, strict=True, max_length=100)] = Field(description="REQUIRED. Human-readable connection name for identification. Displayed in dashboards, sync logs, and API responses. Must be unique within the organization for clarity. Format: 1-100 characters, descriptive of the connection's purpose.")
     description: Optional[Annotated[str, Field(strict=True, max_length=500)]] = Field(default=None, description="NOT REQUIRED. Optional description explaining the connection's purpose and scope. Helpful for team collaboration and documentation. Format: Up to 500 characters.")
     status: Optional[TaskStatusEnum] = Field(default=None, description="Operational status of the connection. ACTIVE: Connection is healthy and ready for use in sync operations. SUSPENDED: Temporarily disabled by user, credentials preserved but sync paused. FAILED: Health checks failing, credentials may be invalid or expired. ARCHIVED: Permanently retired, cannot be reactivated. Status transitions automatically based on health checks and user actions.")
@@ -47,7 +48,7 @@ class StorageConnectionModel(BaseModel):
     updated_at: Optional[datetime] = Field(default=None, description="UTC timestamp of the most recent update to the connection. Updated automatically on any field modification. Tracks configuration changes, status updates, and credential refreshes. Format: ISO 8601 datetime.")
     created_by_user_id: StrictStr = Field(description="REQUIRED. User identifier of the user who created this connection. Used for audit trails and permission checks. Format: usr_{15-character alphanumeric}. Immutable after creation.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary key-value metadata provided by the user. Useful for tagging, categorization, and custom annotations. NOT REQUIRED - defaults to empty dictionary. Common uses: team tags, cost center codes, project identifiers.")
-    __properties: ClassVar[List[str]] = ["connection_id", "internal_id", "provider_type", "provider_config", "name", "description", "status", "is_active", "last_used_at", "last_error", "consecutive_failures", "created_at", "updated_at", "created_by_user_id", "metadata"]
+    __properties: ClassVar[List[str]] = ["connection_id", "internal_id", "provider_type", "provider_config", "write_enabled", "name", "description", "status", "is_active", "last_used_at", "last_error", "consecutive_failures", "created_at", "updated_at", "created_by_user_id", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -107,6 +108,7 @@ class StorageConnectionModel(BaseModel):
             "internal_id": obj.get("internal_id"),
             "provider_type": obj.get("provider_type"),
             "provider_config": ProviderConfig.from_dict(obj["provider_config"]) if obj.get("provider_config") is not None else None,
+            "write_enabled": obj.get("write_enabled") if obj.get("write_enabled") is not None else False,
             "name": obj.get("name"),
             "description": obj.get("description"),
             "status": obj.get("status"),

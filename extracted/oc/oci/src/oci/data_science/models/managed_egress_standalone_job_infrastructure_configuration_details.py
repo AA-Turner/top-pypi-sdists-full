@@ -34,6 +34,10 @@ class ManagedEgressStandaloneJobInfrastructureConfigurationDetails(JobInfrastruc
             The value to assign to the block_storage_size_in_gbs property of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
         :type block_storage_size_in_gbs: int
 
+        :param capacity_reservation_id:
+            The value to assign to the capacity_reservation_id property of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
+        :type capacity_reservation_id: str
+
         :param job_shape_config_details:
             The value to assign to the job_shape_config_details property of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
         :type job_shape_config_details: oci.data_science.models.JobShapeConfigDetails
@@ -43,17 +47,20 @@ class ManagedEgressStandaloneJobInfrastructureConfigurationDetails(JobInfrastruc
             'job_infrastructure_type': 'str',
             'shape_name': 'str',
             'block_storage_size_in_gbs': 'int',
+            'capacity_reservation_id': 'str',
             'job_shape_config_details': 'JobShapeConfigDetails'
         }
         self.attribute_map = {
             'job_infrastructure_type': 'jobInfrastructureType',
             'shape_name': 'shapeName',
             'block_storage_size_in_gbs': 'blockStorageSizeInGBs',
+            'capacity_reservation_id': 'capacityReservationId',
             'job_shape_config_details': 'jobShapeConfigDetails'
         }
         self._job_infrastructure_type = None
         self._shape_name = None
         self._block_storage_size_in_gbs = None
+        self._capacity_reservation_id = None
         self._job_shape_config_details = None
         self._job_infrastructure_type = 'ME_STANDALONE'
 
@@ -104,6 +111,34 @@ class ManagedEgressStandaloneJobInfrastructureConfigurationDetails(JobInfrastruc
         :type: int
         """
         self._block_storage_size_in_gbs = block_storage_size_in_gbs
+
+    @property
+    def capacity_reservation_id(self):
+        """
+        Gets the capacity_reservation_id of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
+        This specifies the `OCID`__ of the customer-managed compute capacity reservation to be used for launching jobs.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :return: The capacity_reservation_id of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
+        :rtype: str
+        """
+        return self._capacity_reservation_id
+
+    @capacity_reservation_id.setter
+    def capacity_reservation_id(self, capacity_reservation_id):
+        """
+        Sets the capacity_reservation_id of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
+        This specifies the `OCID`__ of the customer-managed compute capacity reservation to be used for launching jobs.
+
+        __ https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm
+
+
+        :param capacity_reservation_id: The capacity_reservation_id of this ManagedEgressStandaloneJobInfrastructureConfigurationDetails.
+        :type: str
+        """
+        self._capacity_reservation_id = capacity_reservation_id
 
     @property
     def job_shape_config_details(self):
