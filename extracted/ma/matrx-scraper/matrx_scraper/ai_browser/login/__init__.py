@@ -61,12 +61,17 @@ from .verifier import (
     AMBIGUOUS_STRUCTURAL_REASONS,
     AUTH_FLOW_URL_SEGMENTS,
     CHALLENGE_URL_SEGMENTS,
+    EXPECT_SIGNALS,
+    FIXED_VERDICT_REASONS,
+    GENERIC_STRUCTURAL_SIGNALS,
+    EvaluatedObservation,
     Outcome,
     PageObservation,
     Verdict,
     VerdictSignal,
     url_segments,
     verify,
+    verify_evaluated,
 )
 
 __all__ = [
@@ -96,6 +101,10 @@ __all__ = [
     "AMBIGUOUS_STRUCTURAL_REASONS",
     "AUTH_FLOW_URL_SEGMENTS",
     "CHALLENGE_URL_SEGMENTS",
+    "EXPECT_SIGNALS",
+    "FIXED_VERDICT_REASONS",
+    "GENERIC_STRUCTURAL_SIGNALS",
+    "EvaluatedObservation",
     "PageObservation",
     "PageObserver",
     "RecipeFieldMap",
@@ -117,4 +126,5 @@ __all__ = [
     "run_login_attempt",
     "url_segments",
     "verify",
+    "verify_evaluated",
 ]

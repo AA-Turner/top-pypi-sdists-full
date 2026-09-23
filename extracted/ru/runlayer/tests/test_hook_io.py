@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from io import StringIO
+from io import BytesIO, StringIO, TextIOWrapper
 from threading import Barrier
 
 import httpx
@@ -218,6 +218,105 @@ def test_hook_io_falls_through_to_process_defaults(monkeypatch, capsys):
 
     assert stdout.getvalue() == "request stdout"
     assert stderr.getvalue() == "request stderr"
+
+
+@pytest.mark.parametrize(
+    ("case", "daemon_served", "in_forwarded_env", "in_process_env", "expected"),
+    [
+        # Fast path -- forwarded env carries the key -- works regardless of
+        # how the request arrived.
+        ("daemon forwarded hit", True, True, True, "forwarded"),
+        ("daemon forwarded only", True, True, False, "forwarded"),
+        ("inline forwarded hit", False, True, True, "forwarded"),
+        ("inline forwarded only", False, True, False, "forwarded"),
+        # Fallback path -- forwarded env omits the key.
+        # daemon_served + forwarded_only must NOT reach the daemon's os.environ.
+        ("daemon missing both", True, False, False, None),
+        ("daemon poisoned ambient", True, False, True, None),
+        ("daemon poisoned custom default", True, False, True, "fallback"),
+        # inline path (no daemon_served) still falls through to os.environ so a
+        # real nested host that set the marker in its process env keeps reading it.
+        ("inline missing both", False, False, False, None),
+        ("inline reads ambient", False, False, True, "ambient"),
+        ("inline custom default when absent", False, False, False, "fallback"),
+    ],
+)
+def test_getenv_forwarded_only_for_daemon_served_requests(
+    monkeypatch,
+    case,
+    daemon_served,
+    in_forwarded_env,
+    in_process_env,
+    expected,
+):
+    """``forwarded_only=True`` pins a per-invocation marker to the forwarded env
+    for daemon-served requests so the daemon's ambient ``os.environ`` cannot
+    decide it; the inline path keeps the ``os.environ`` fallback."""
+    monkeypatch.delenv("FORWARDED_ONLY_PROBE", raising=False)
+    if in_process_env:
+        monkeypatch.setenv("FORWARDED_ONLY_PROBE", "ambient")
+
+    forwarded_env = {"FORWARDED_ONLY_PROBE": "forwarded"} if in_forwarded_env else {}
+    request_io = hook_io.HookIO(env=forwarded_env, daemon_served=daemon_served)
+    default = "fallback" if "custom default" in case else None
+
+    with hook_io.scoped(request_io):
+        assert (
+            hook_io.getenv("FORWARDED_ONLY_PROBE", default, forwarded_only=True)
+            == expected
+        ), case
+
+
+def test_getenv_forwarded_only_default_is_backwards_compatible(monkeypatch):
+    """``forwarded_only`` defaults to False so every existing caller keeps the
+    historical os.environ fallback, including on the daemon-served path."""
+    monkeypatch.delenv("BACKCOMPAT_PROBE", raising=False)
+    monkeypatch.setenv("BACKCOMPAT_PROBE", "ambient")
+
+    request_io = hook_io.HookIO(env={}, daemon_served=True)
+    with hook_io.scoped(request_io):
+        # No forwarded_only: the daemon-served request still sees os.environ.
+        assert hook_io.getenv("BACKCOMPAT_PROBE") == "ambient"
+
+
+def test_getenv_forwarded_only_without_request_io_falls_through(monkeypatch):
+    """With no HookIO installed (the inline subprocess path) forwarded_only is
+    a no-op: the marker is read from os.environ exactly as before, with or
+    without a caller-supplied default."""
+    monkeypatch.delenv("INLINE_PROBE", raising=False)
+    monkeypatch.setenv("INLINE_PROBE", "ambient")
+
+    assert hook_io.getenv("INLINE_PROBE", forwarded_only=True) == "ambient"
+    # A missing inline marker still resolves to the caller's default rather
+    # than the (absent) process env value.
+    monkeypatch.delenv("INLINE_PROBE", raising=False)
+    assert (
+        hook_io.getenv("INLINE_PROBE", default="fallback", forwarded_only=True)
+        == "fallback"
+    )
+
+
+def windows_piped_stdin(payload: bytes) -> TextIOWrapper:
+    """What CPython hands a hook on Windows: ANSI code page + surrogateescape."""
+    return TextIOWrapper(BytesIO(payload), encoding="cp1252", errors="surrogateescape")
+
+
+def test_read_stdin_decodes_harness_payload_as_utf8_regardless_of_locale(monkeypatch):
+    text = json.dumps({"tool_response": "⚠️ done → ┐"}, ensure_ascii=False)
+    monkeypatch.setattr(sys, "stdin", windows_piped_stdin(text.encode("utf-8")))
+
+    decoded = hook_io.read_stdin()
+
+    assert decoded == text
+    assert json.dumps(json.loads(decoded), ensure_ascii=False).encode("utf-8") == (
+        text.encode("utf-8")
+    )
+
+
+def test_read_stdin_replaces_invalid_utf8_instead_of_raising(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", TextIOWrapper(BytesIO(b'{"k": "a\xffb"}')))
+
+    assert hook_io.read_stdin() == '{"k": "a\ufffdb"}'
 
 
 def test_abspath_anchors_relative_paths_at_request_cwd(monkeypatch):

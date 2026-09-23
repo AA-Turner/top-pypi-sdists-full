@@ -731,6 +731,12 @@ from matrice_analytics.post_processing.usecases.vehicle_segmentation import (
 from matrice_analytics.post_processing.usecases.vehicle_segmentation import (
     VehicleSegmentationUseCase as VehicleSegmentationUseCase,
 )
+from matrice_analytics.post_processing.usecases.vehicle_speed_estimation import (
+    VehicleSpeedEstimationUseCase as VehicleSpeedEstimationUseCase,
+)
+from matrice_analytics.post_processing.usecases.vehicle_speed_estimation_config import (
+    VehicleSpeedEstimationConfig as VehicleSpeedEstimationConfig,
+)
 from matrice_analytics.post_processing.usecases.vehicle_type_classification import (
     VehicleTypeClassificationConfig as VehicleTypeClassificationConfig,
 )

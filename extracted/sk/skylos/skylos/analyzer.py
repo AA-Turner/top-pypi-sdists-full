@@ -35,6 +35,7 @@ from skylos.constants import (
 
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.visitors.test_aware import TestAwareVisitor
+from skylos.visitors.languages.cpp import CPP_HEADER_EXTS, CPP_SOURCE_EXTS
 from skylos.visitors.languages.shell import SHELL_SOURCE_EXTS
 from skylos.visitors.languages.typescript.analysis import (
     build_ts_import_graph,
@@ -42,6 +43,7 @@ from skylos.visitors.languages.typescript.analysis import (
     _discover_ts_vscode_lifecycle_entry_files,
     find_dead_ts_files,
     find_unused_ts_exports,
+    mark_package_api_ts_exports_consumed,
 )
 from skylos.analysis.ast_cache import (
     MODE_IGNORE,
@@ -466,6 +468,7 @@ _TS_JS_SOURCE_EXTS = (
 )
 _PHP_SOURCE_EXTS = (".php",)
 _RUST_SOURCE_EXTS = (".rs",)
+_CPP_SOURCE_EXTS = CPP_SOURCE_EXTS + CPP_HEADER_EXTS
 _DART_SOURCE_EXTS = (".dart",)
 _CSHARP_SOURCE_EXTS = (".cs",)
 _KOTLIN_SOURCE_EXTS = (".kt", ".kts")
@@ -1510,6 +1513,12 @@ class Skylos:
         ".java": "Java",
         ".php": "PHP",
         ".rs": "Rust",
+        ".cpp": "C++",
+        ".cc": "C++",
+        ".cxx": "C++",
+        ".hpp": "C++",
+        ".hh": "C++",
+        ".hxx": "C++",
         ".dart": "Dart",
         ".cs": "C#",
         ".kt": "Kotlin",
@@ -1543,6 +1552,7 @@ class Skylos:
             ".java",
             *(_PHP_SOURCE_EXTS),
             *(_RUST_SOURCE_EXTS),
+            *(_CPP_SOURCE_EXTS),
             *(_DART_SOURCE_EXTS),
             *(_CSHARP_SOURCE_EXTS),
             *(_KOTLIN_SOURCE_EXTS),
@@ -1571,6 +1581,12 @@ class Skylos:
             "java",
             "php",
             "rs",
+            "cpp",
+            "cc",
+            "cxx",
+            "hpp",
+            "hh",
+            "hxx",
             "dart",
             "cs",
             "kt",
@@ -1824,6 +1840,14 @@ class Skylos:
     ):
         if not hasattr(self, "ts_consumed_exports"):
             return
+        mark_package_api_ts_exports_consumed(
+            self.defs,
+            self.ts_consumed_exports,
+            files or [],
+            project_root=str(self._project_root),
+            workspace_inventory=workspace_inventory,
+            exclude_folders=exclude_folders,
+        )
         lifecycle_entry_points = _discover_ts_vscode_lifecycle_entry_files(
             files or [],
             project_root=str(self._project_root),
@@ -2132,6 +2156,7 @@ class Skylos:
         """Post-pass: use grep strategies to rescue false-positive dead code."""
         from skylos.core.grep_cache import GrepCache
         from skylos.core.grep_verify import grep_verify_findings
+        from skylos.core.grep_verify_common import grep_verification_scope
 
         self.__dict__.pop("_grep_verify_incomplete_candidates", None)
         report = getattr(self, "_grep_verify_report", None)
@@ -2175,13 +2200,17 @@ class Skylos:
                 if report_filter is not None
                 else {}
             )
-            verdicts = grep_verify_findings(
-                candidates,
+            with grep_verification_scope(
                 project_root,
-                cache=grep_cache,
-                time_budget=grep_budget,
-                **filter_kwargs,
-            )
+                getattr(self, "_analysis_scope", {}).get("excluded_folders"),
+            ):
+                verdicts = grep_verify_findings(
+                    candidates,
+                    project_root,
+                    cache=grep_cache,
+                    time_budget=grep_budget,
+                    **filter_kwargs,
+                )
         finally:
             if use_project_cache:
                 grep_cache.save(grep_root)
@@ -3029,6 +3058,7 @@ class Skylos:
         architecture_main_guard_modules=None,
         pyproject_entrypoint_qnames=None,
         pyproject_entrypoint_modules=None,
+        ts_importers_of=None,
         config_file=None,
         analysis_errors=None,
         include_review_proofs=False,
@@ -3063,6 +3093,7 @@ class Skylos:
             architecture_main_guard_modules=architecture_main_guard_modules,
             pyproject_entrypoint_qnames=pyproject_entrypoint_qnames,
             pyproject_entrypoint_modules=pyproject_entrypoint_modules,
+            ts_importers_of=ts_importers_of,
             config_file=config_file,
             analysis_errors=analysis_errors,
             include_review_proofs=include_review_proofs,
@@ -3716,7 +3747,9 @@ class Skylos:
                 for definition in defs:
                     if definition.type == "import":
                         key = f"{definition.filename}:{definition.name}"
-                    elif str(definition.filename).endswith(_TS_JS_SOURCE_EXTS):
+                    elif str(definition.filename).endswith(
+                        _TS_JS_SOURCE_EXTS + _CPP_SOURCE_EXTS
+                    ):
                         key = f"{definition.filename}:{definition.name}"
                     else:
                         key = definition.name
@@ -4736,9 +4769,10 @@ class Skylos:
 
             try:
                 policy_findings = analyze_repo_policy(
-                    root,
+                    project_root,
                     project_cfg,
                     changed_files=requested_changed_files,
+                    exclude_folders=exclude_folders,
                 )
                 if policy_findings:
                     all_quality.extend(policy_findings)
@@ -5020,6 +5054,7 @@ class Skylos:
             architecture_main_guard_modules=architecture_main_guard_modules,
             pyproject_entrypoint_qnames=pyproject_entrypoint_qnames,
             pyproject_entrypoint_modules=pyproject_entrypoint_modules,
+            ts_importers_of=getattr(self, "_ts_importers_of", {}),
             config_file=config_file,
             analysis_errors=analysis_errors,
             include_review_proofs=include_review_proofs,

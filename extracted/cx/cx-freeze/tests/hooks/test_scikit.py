@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 TIMEOUT = 15
 TIMEOUT_SLOW = 60 if IS_CONDA else 30
-TIMEOUT_VERY_SLOW = 120 if IS_CONDA else 60
+TIMEOUT_VERY_SLOW = 120 if IS_CONDA else 90
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -60,16 +60,10 @@ pyproject.toml
 """
 
 
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 15),
-    raises=ModuleNotFoundError,
-    reason="scipy does not support Python 3.15 yet",
-    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
-)
 @pytest.mark.venv
 @zip_packages
 def test_scipy(tmp_package: TempPackage, zip_packages: bool) -> None:
-    """Test that the scipy/numpy is working correctly."""
+    """Test that the scipy is working correctly."""
     tmp_package.create(SOURCE_TEST_SCIPY)
     if zip_packages:
         pyproject = tmp_package.path / "pyproject.toml"
@@ -186,12 +180,6 @@ pyproject.toml
 """
 
 
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 15),
-    raises=ModuleNotFoundError,
-    reason="scikit-learn does not support Python 3.15 yet",
-    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
-)
 @pytest.mark.venv
 @zip_packages
 def test_sklearn(tmp_package: TempPackage, zip_packages: bool) -> None:

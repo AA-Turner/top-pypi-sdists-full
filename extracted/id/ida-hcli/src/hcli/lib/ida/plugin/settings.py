@@ -1,9 +1,16 @@
+from __future__ import annotations
+
 import inspect
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hcli.lib.ida import PluginConfig, get_ida_config, set_ida_config
 from hcli.lib.ida.plugin import ChoiceValueError, PluginSettingDescriptor
+
+if TYPE_CHECKING:
+    from hcli.lib.ida.plugin import IDAMetadataDescriptor
+
 from hcli.lib.ida.plugin.install import (
     find_installed_plugin,
     get_metadata_from_plugin_directory,
@@ -14,16 +21,70 @@ from hcli.lib.ida.plugin.install import (
 logger = logging.getLogger(__name__)
 
 
-def _resolve_installed_plugin_name(plugin_name: str) -> str:
+def _find_installed_component(plugin_name: str) -> tuple[Path, str] | None:
+    """Search installed suites for a component at any nesting depth.
+
+    Returns (component_dir, canonical_name) or None. Matching is
+    case-insensitive, consistent with top-level plugin lookup.
+    """
+    from hcli.lib.ida.plugin.components import walk_component_tree_from_directory
+    from hcli.lib.ida.plugin.install import get_installed_plugin_records
+
+    wanted = plugin_name.lower()
+    for record in get_installed_plugin_records():
+        if not record.metadata.plugin.components:
+            continue
+        try:
+            tree = walk_component_tree_from_directory(record.path)
+        except ValueError:
+            continue
+        for comp_path, comp_meta in tree:
+            if comp_meta.plugin.name.lower() == wanted:
+                return comp_path, comp_meta.plugin.name
+    return None
+
+
+def resolve_plugin_name(plugin_name: str) -> str:
     """Return the canonical name of the installed plugin matching ``plugin_name``.
 
-    Settings are keyed by bare plugin name in ida-config.json, so we standardize
-    on the canonical casing from the installed plugin's metadata.
+    Looks up top-level plugins first, then falls back to installed suite
+    components so that ``hcli plugin config component-name`` works.
 
     Raises:
         PluginNotInstalledError: when no matching installed plugin exists.
     """
-    return find_installed_plugin(plugin_name).name
+    from hcli.lib.ida.plugin.exceptions import PluginNotInstalledError
+
+    try:
+        return find_installed_plugin(plugin_name).name
+    except PluginNotInstalledError:
+        pass
+
+    result = _find_installed_component(plugin_name)
+    if result is not None:
+        return result[1]
+
+    raise PluginNotInstalledError(plugin_name)
+
+
+def resolve_plugin_directory(plugin_name: str) -> Path:
+    """Resolve plugin directory for a top-level or component plugin.
+
+    For nested components (depth >= 2), returns the actual on-disk path
+    rather than assuming the component is a direct child of the suite root.
+    """
+    from hcli.lib.ida.plugin.exceptions import PluginNotInstalledError
+
+    try:
+        return get_plugin_directory(find_installed_plugin(plugin_name).name)
+    except PluginNotInstalledError:
+        pass
+
+    result = _find_installed_component(plugin_name)
+    if result is not None:
+        return result[0]
+
+    raise PluginNotInstalledError(plugin_name)
 
 
 def parse_setting_value(descriptor: PluginSettingDescriptor, string_value: str) -> str | bool:
@@ -49,10 +110,13 @@ def parse_setting_value(descriptor: PluginSettingDescriptor, string_value: str) 
         raise ValueError(f"unsupported setting type: {descriptor.type}")
 
 
-def set_plugin_setting(plugin_name: str, key: str, value: str | bool):
-    plugin_name = _resolve_installed_plugin_name(plugin_name)
-    plugin_path = get_plugin_directory(plugin_name)
-    metadata = get_metadata_from_plugin_directory(plugin_path)
+def _write_setting(
+    plugin_name: str,
+    key: str,
+    value: str | bool,
+    metadata: IDAMetadataDescriptor,
+) -> None:
+    """Validate and persist a single setting to ida-config.json."""
     descr = metadata.plugin.get_setting(key)
 
     if descr.type == "string" and not isinstance(value, str) or descr.type == "boolean" and not isinstance(value, bool):
@@ -79,13 +143,19 @@ def set_plugin_setting(plugin_name: str, key: str, value: str | bool):
 
     plugin_config.settings[key] = value
     config.plugins[plugin_name] = plugin_config
-
     set_ida_config(config)
 
 
+def set_plugin_setting(plugin_name: str, key: str, value: str | bool):
+    plugin_name = resolve_plugin_name(plugin_name)
+    plugin_path = resolve_plugin_directory(plugin_name)
+    metadata = get_metadata_from_plugin_directory(plugin_path)
+    _write_setting(plugin_name, key, value, metadata)
+
+
 def get_plugin_setting(plugin_name: str, key: str) -> str | bool:
-    plugin_name = _resolve_installed_plugin_name(plugin_name)
-    plugin_path = get_plugin_directory(plugin_name)
+    plugin_name = resolve_plugin_name(plugin_name)
+    plugin_path = resolve_plugin_directory(plugin_name)
     metadata = get_metadata_from_plugin_directory(plugin_path)
     descr = metadata.plugin.get_setting(key)
 
@@ -118,8 +188,8 @@ def get_plugin_setting(plugin_name: str, key: str) -> str | bool:
 
 
 def del_plugin_setting(plugin_name: str, key: str):
-    plugin_name = _resolve_installed_plugin_name(plugin_name)
-    plugin_path = get_plugin_directory(plugin_name)
+    plugin_name = resolve_plugin_name(plugin_name)
+    plugin_path = resolve_plugin_directory(plugin_name)
     metadata = get_metadata_from_plugin_directory(plugin_path)
     descr = metadata.plugin.get_setting(key)
 
@@ -149,8 +219,8 @@ def has_plugin_setting(plugin_name: str, key: str) -> bool:
 
     Returns: True if the setting is explicitly set, False otherwise
     """
-    plugin_name = _resolve_installed_plugin_name(plugin_name)
-    plugin_path = get_plugin_directory(plugin_name)
+    plugin_name = resolve_plugin_name(plugin_name)
+    plugin_path = resolve_plugin_directory(plugin_name)
     metadata = get_metadata_from_plugin_directory(plugin_path)
     metadata.plugin.get_setting(key)
 
@@ -160,6 +230,54 @@ def has_plugin_setting(plugin_name: str, key: str) -> bool:
 
     plugin_config = config.plugins[plugin_name]
     return key in plugin_config.settings
+
+
+def set_setting_for_metadata(
+    plugin_name: str,
+    key: str,
+    value: str | bool,
+    metadata: IDAMetadataDescriptor,
+):
+    """Set a setting given pre-loaded metadata.
+
+    Does not perform installed-plugin lookup. Used during install when the
+    target may be a component not yet discoverable as a top-level plugin.
+    """
+    _write_setting(plugin_name, key, value, metadata)
+
+
+def apply_resolved_settings(
+    plugin_name: str,
+    metadata: IDAMetadataDescriptor,
+    settings: dict[str, str],
+) -> bool:
+    """Apply pre-resolved settings to IDA config without interactive prompts.
+
+    Each value is parsed according to the setting descriptor's type, validated,
+    and written when it differs from the default. Returns False on any
+    validation failure.
+    """
+    for key, value_str in settings.items():
+        try:
+            descr = metadata.plugin.get_setting(key)
+            parsed_value = parse_setting_value(descr, value_str)
+            descr.validate_value(parsed_value)
+            if descr.default != parsed_value:
+                _write_setting(plugin_name, key, parsed_value, metadata)
+        except (KeyError, ValueError):
+            return False
+    return True
+
+
+def has_setting_in_config(plugin_name: str, key: str) -> bool:
+    """Check if a setting value exists in ida-config.json.
+
+    Does not validate against installed plugins or setting descriptors.
+    """
+    config = get_ida_config()
+    if plugin_name not in config.plugins:
+        return False
+    return key in config.plugins[plugin_name].settings
 
 
 def get_current_plugin() -> str:
@@ -197,27 +315,41 @@ def get_current_plugin() -> str:
             module_path = Path(module_filename)
             module_path_candidates = (module_path, module_path.resolve())
 
-            plugin_directory_name = None
+            module_relative_path = None
             for mp in module_path_candidates:
                 for pp in plugin_root_candidates:
                     try:
                         module_relative_path = mp.relative_to(pp)
                     except ValueError:
                         continue
-                    plugin_directory_name = module_relative_path.parts[0]
                     break
-                if plugin_directory_name is not None:
+                if module_relative_path is not None:
                     break
 
-            if plugin_directory_name is None:
+            if module_relative_path is None:
                 current_frame = current_frame.f_back
                 continue
 
+            plugin_directory_name = module_relative_path.parts[0]
             plugin_directory = plugins_path / plugin_directory_name
             metadata = get_metadata_from_plugin_directory(plugin_directory)
-            plugin_name = metadata.plugin.name
-            logger.debug("found plugin by path: %s %s", module_filename, plugin_name)
-            return plugin_name
+
+            current_dir = plugin_directory
+            current_name = metadata.plugin.name
+            for part in module_relative_path.parts[1:]:
+                candidate = current_dir / part
+                candidate_manifest = candidate / "ida-plugin.json"
+                if not candidate_manifest.exists():
+                    break
+                try:
+                    sub_metadata = get_metadata_from_plugin_directory(candidate)
+                except ValueError:
+                    break
+                current_dir = candidate
+                current_name = sub_metadata.plugin.name
+
+            logger.debug("found plugin by path: %s %s", module_filename, current_name)
+            return current_name
 
         raise RuntimeError("get_current_plugin() must be called from within a plugin module")
     finally:
@@ -253,6 +385,6 @@ def list_current_plugin_settings() -> list[PluginSettingDescriptor]:
         List of PluginSettingDescriptor instances defined for the current plugin.
     """
     plugin = get_current_plugin()
-    plugin_path = get_plugin_directory(plugin)
+    plugin_path = resolve_plugin_directory(plugin)
     metadata = get_metadata_from_plugin_directory(plugin_path)
     return metadata.plugin.settings

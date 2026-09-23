@@ -27,13 +27,17 @@ from typing_extensions import NotRequired, TypedDict
 
 class AgentListResponseTypedDict(TypedDict):
     agents: NotRequired[List[AgentParam]]
+    r"""The list of agents."""
     next_page_token: NotRequired[str]
+    r"""A token to retrieve the next page of results."""
 
 
 class AgentListResponse(BaseModel):
     agents: Optional[List[Agent]] = None
+    r"""The list of agents."""
 
     next_page_token: Optional[str] = None
+    r"""A token to retrieve the next page of results."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):

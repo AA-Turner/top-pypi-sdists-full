@@ -61,7 +61,7 @@ async def test_run_agent_system_run_forks_context_flag():
 
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()
@@ -115,7 +115,7 @@ async def test_run_agent_default_is_not_system_run():
     set_app_context(AppContext(emitter=ConsoleEmitter(), user_id=USER_ID, request_id=REQUEST_ID))
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         seen["system_run"] = getattr(get_app_context(), "system_run", None)
@@ -163,7 +163,7 @@ async def test_system_run_can_stream_without_enabling_chat_persistence():
     )
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()
@@ -355,9 +355,15 @@ async def test_system_run_persists_cost_spine_only(system_run_harness):
     assert req_row["conversation_id"] == CONVERSATION_ID
     assert req_row["execution_kind"] == "workflow_run"
     assert req_row["execution_id"] == REQUEST_ID
-    assert calls["user_request_update"], "cx_user_request rollup must still land"
+    assert calls["user_request_update"], "cx_user_request completion must still land"
     ur_updates = {k: v for _, kw in calls["user_request_update"] for k, v in kw.items()}
-    assert ur_updates.get("total_input_tokens") == 100
+    assert ur_updates.get("status") == "completed"
+    # The parent's totals are DERIVED by the chat.request _propagate_totals
+    # trigger from the cost row above; assigning them here is last-write-wins
+    # and erases every sibling call's money
+    # (scripts/check_user_request_totals_derived.py).
+    assert "total_input_tokens" not in ur_updates
+    assert "total_cost" not in ur_updates
     assert result["conversation_id"] == CONVERSATION_ID
     assert result["request_ids"], "cost row id must be reported"
 

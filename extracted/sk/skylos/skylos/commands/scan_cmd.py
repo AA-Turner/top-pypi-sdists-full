@@ -1,14 +1,69 @@
 from __future__ import annotations
 
+from contextlib import nullcontext, redirect_stdout
 from types import ModuleType
 from typing import Sequence
 
 from skylos.core.safe_cache_io import write_text_no_symlink
 
 
+_DIFF_FINDING_CATEGORIES = (
+    "unused_functions",
+    "unused_imports",
+    "unused_classes",
+    "unused_variables",
+    "unused_parameters",
+    "unused_files",
+    "unused_fixtures",
+    "unused_exports",
+    "forgotten",
+    "danger",
+    "reliability",
+    "ai_defects",
+    "quality",
+    "secrets",
+    "custom_rules",
+    "circular_dependencies",
+    "dependency_vulnerabilities",
+)
+
+
 def _write_scan_output(path: str, text: str) -> None:
     if not write_text_no_symlink(path, text, encoding="utf-8"):
         raise OSError(f"could not safely write output file: {path}")
+
+
+# Top-level ledger/context blobs omitted by `--format json-ci`. These back the
+# full scan state (cloud upload, TUI detail views, SARIF enrichment) but dwarf
+# the findings themselves: on a mid-size repo they measured ~31 MB and ~17 MB
+# against 96 findings. `--format json` is untouched.
+_CI_JSON_OMITTED_TOP_LEVEL_KEYS = ("dead_code_evidence", "definitions")
+
+
+def _build_ci_json_payload(payload):
+    """Return a copy of `payload` without the top-level bulk fields.
+
+    Findings, per-finding evidence, summary counts (including the small
+    dead-code aggregate), analysis errors and exit behavior all survive. The
+    input is never mutated, so cloud upload and other consumers retain the
+    complete result.
+    """
+    if not isinstance(payload, dict):
+        return payload
+
+    return {
+        k: v for k, v in payload.items() if k not in _CI_JSON_OMITTED_TOP_LEVEL_KEYS
+    }
+
+
+def _check_managed_gitlab_delivery(response: dict) -> None:
+    if "gitlab_delivery_exit_code" not in response:
+        return
+    import sys
+
+    print(response["gitlab_delivery_message"], file=sys.stderr)
+    if response["gitlab_delivery_exit_code"] == 2:
+        raise SystemExit(2)
 
 
 def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
@@ -75,6 +130,14 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
     parser = _build_main_parser()
     args = _parse_main_cli_args(parser, argv)
+    if args.upload and (args.diff or args.diff_base):
+        parser.error(
+            "diff-scoped results cannot be uploaded as a full scan; "
+            "run a separate scan without --diff or --diff-base to upload"
+        )
+    gitlab_output = getattr(args, "format", "rich") == "gitlab"
+    if getattr(args, "baseline_ref", None) is not None:
+        args.baseline = True
     if getattr(args, "tui", False):
         if getattr(args, "output", None):
             parser.error(
@@ -85,7 +148,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
     args._explicit_upload_requested = bool(getattr(args, "upload", False))
 
     try:
-        context = _build_main_scan_context(args)
+        with redirect_stdout(sys.stderr) if gitlab_output else nullcontext():
+            context = _build_main_scan_context(args)
     except cli_module.ConfigError as exc:
         parser.error(str(exc))
 
@@ -101,11 +165,18 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
     if _print_main_scan_banner(args, console, final_exclude_folders):
         return
 
-    pre_analysis = _run_pre_analysis_steps(args, project_root, console)
+    with redirect_stdout(sys.stderr) if gitlab_output else nullcontext():
+        pre_analysis = _run_pre_analysis_steps(args, project_root, console)
     pytest_fixtures_ok = pre_analysis.pytest_fixtures_ok
     custom_rules_data = pre_analysis.custom_rules_data
     changed_files = pre_analysis.changed_files
     trace_file = pre_analysis.trace_file
+
+    from skylos.cloud.gitlab import cli_full_scan
+
+    gitlab_full_scan = cli_full_scan(
+        args, config, project_root, changed_files=changed_files
+    )
 
     from skylos.core.review_decisions import review_scan_requirements
 
@@ -152,7 +223,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             analyzer_logger_level = analyzer_logger.level
             analyzer_logger.setLevel(logging.WARNING)
             try:
-                result_json = run_main_analysis()
+                with redirect_stdout(sys.stderr) if gitlab_output else nullcontext():
+                    result_json = run_main_analysis()
             finally:
                 analyzer_logger.setLevel(analyzer_logger_level)
         else:
@@ -197,39 +269,12 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 if args.verbose:
                     console.print(f"[warn]SCA scan error: {e}[/warn]")
 
-        if changed_files is not None:
-            for category in [
-                "unused_functions",
-                "unused_imports",
-                "unused_classes",
-                "unused_variables",
-                "unused_parameters",
-                "unused_files",
-                "danger",
-                "reliability",
-                "ai_defects",
-                "quality",
-                "secrets",
-                "custom_rules",
-            ]:
-                items = result.get(category, [])
-                if items:
-                    result[category] = [
-                        item
-                        for item in items
-                        if _precommit_finding_targets_report_file(
-                            item, project_root, changed_files
-                        )
-                        or str(item.get("rule_id", "")).upper()
-                        in selected_prerequisite_ids
-                    ]
-            result_json = json.dumps(result)
-
         if getattr(args, "diff", None):
             from skylos.cicd.review import (
                 get_changed_line_ranges,
                 filter_findings_to_diff,
             )
+            from skylos.core.file_discovery import find_git_root
 
             base_ref = args.diff
             if base_ref == "auto":
@@ -237,43 +282,17 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 if base_ref and not base_ref.startswith("origin/"):
                     base_ref = f"origin/{base_ref}"
 
-            changed_ranges = get_changed_line_ranges(base_ref)
-            if changed_ranges:
-                for category in [
-                    "unused_functions",
-                    "unused_imports",
-                    "unused_classes",
-                    "unused_variables",
-                    "unused_parameters",
-                    "unused_files",
-                    "danger",
-                    "reliability",
-                    "ai_defects",
-                    "quality",
-                    "secrets",
-                    "custom_rules",
-                ]:
-                    items = result.get(category, [])
-                    if items:
-                        diff_findings = filter_findings_to_diff(items, changed_ranges)
-                        diff_finding_ids = {id(item) for item in diff_findings}
-                        result[category] = [
-                            item
-                            for item in items
-                            if id(item) in diff_finding_ids
-                            or str(item.get("rule_id", "")).upper()
-                            in selected_prerequisite_ids
-                        ]
-                result_json = json.dumps(result)
-                if not machine_output:
-                    console.print(
-                        f"[brand]--diff:[/brand] filtered to {len(changed_ranges)} changed line ranges "
-                        f"from {base_ref}"
-                    )
-            elif not machine_output:
-                console.print(
-                    f"[warn]--diff: no changed lines found vs {base_ref}[/warn]"
+            diff_root = find_git_root(project_root) or project_root
+            try:
+                changed_ranges = get_changed_line_ranges(
+                    base_ref,
+                    cwd=diff_root,
+                    raise_on_error=True,
+                    include_deletion_anchors=False,
                 )
+            except ValueError as exc:
+                print(f"Skylos diff unavailable: {exc}", file=sys.stderr)
+                raise SystemExit(2) from None
 
         if args.pytest_fixtures:
             report_path = project_root / ".skylos_unused_fixtures.json"
@@ -311,6 +330,69 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             else:
                 result["unused_fixtures"] = []
                 result["unused_fixtures_counts"] = {}
+
+        if changed_files is not None:
+            from skylos.core.file_discovery import find_git_root
+
+            diff_root = find_git_root(project_root) or project_root
+            for category in _DIFF_FINDING_CATEGORIES:
+                items = result.get(category, [])
+                if items:
+                    result[category] = [
+                        item
+                        for item in items
+                        if _precommit_finding_targets_report_file(
+                            item, project_root, changed_files
+                        )
+                        or (
+                            diff_root != project_root
+                            and _precommit_finding_targets_report_file(
+                                item, diff_root, changed_files
+                            )
+                        )
+                        or str(item.get("rule_id", "")).upper()
+                        in selected_prerequisite_ids
+                    ]
+            result.pop("unused_fixtures_counts", None)
+            result = _apply_display_filters(result)
+            result_json = json.dumps(result)
+
+        if getattr(args, "diff", None):
+            for category in _DIFF_FINDING_CATEGORIES:
+                items = result.get(category, [])
+                if items:
+                    diff_findings = filter_findings_to_diff(
+                        items, changed_ranges, project_root=diff_root
+                    )
+                    diff_finding_ids = {id(item) for item in diff_findings}
+                    result[category] = [
+                        item
+                        for item in items
+                        if id(item) in diff_finding_ids
+                        or str(item.get("rule_id", "")).upper()
+                        in selected_prerequisite_ids
+                    ]
+            # Fixture totals and aggregate grades describe the full scan, not
+            # the findings visible in a diff-scoped report.
+            result.pop("unused_fixtures_counts", None)
+            result = _apply_display_filters(result)
+            result_json = json.dumps(result)
+            if not changed_ranges and not machine_output:
+                if any(result.get(category) for category in _DIFF_FINDING_CATEGORIES):
+                    console.print(
+                        f"[muted]--diff: no changed lines vs {base_ref}; "
+                        "showing selected prerequisite findings.[/muted]"
+                    )
+                else:
+                    console.print(
+                        f"[muted]--diff: no changed lines vs {base_ref}; "
+                        "no diff findings.[/muted]"
+                    )
+            elif not machine_output:
+                console.print(
+                    f"[brand]--diff:[/brand] filtered to {len(changed_ranges)} "
+                    f"changed line ranges from {base_ref}"
+                )
 
         if getattr(args, "select", None):
             result = _apply_rule_selection(result, args.select)
@@ -436,7 +518,40 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             from skylos.core.baseline import load_baseline, filter_new_findings
 
             baseline = load_baseline(project_root)
-            if baseline is None:
+            if "dependency_vulnerabilities" in result:
+                from skylos.config import dependency_baseline_policy_locked
+                from skylos.core.baseline_source import load_dependency_baseline
+
+                dependency_baseline, dependency_source = load_dependency_baseline(
+                    project_root, ref=getattr(args, "baseline_ref", None)
+                )
+                disabled_reason = None
+                gate_config = config.get("gate")
+                if args.upload:
+                    disabled_reason = "upload_requires_full_findings"
+                elif args.strict or (
+                    isinstance(gate_config, dict) and gate_config.get("strict")
+                ):
+                    disabled_reason = "strict_requires_full_findings"
+                elif dependency_baseline_policy_locked(config):
+                    disabled_reason = "synced_policy_requires_full_findings"
+                elif dependency_baseline is None:
+                    disabled_reason = dependency_source["status"]
+                result = filter_new_findings(
+                    result,
+                    baseline or {},
+                    project_root=project_root,
+                    dependency_baseline=dependency_baseline or {},
+                    dependency_disabled_reason=disabled_reason,
+                    dependency_source=dependency_source,
+                )
+                if not machine_output:
+                    receipt = result["analysis_summary"]["dependency_baseline"]
+                    console.print(
+                        f"[muted]Dependency baseline: {receipt['existing_count']} existing, "
+                        f"{receipt['new_count']} remaining ({receipt['status']}).[/muted]"
+                    )
+            elif baseline is None:
                 console.print(
                     "[warn]No baseline found. Run 'skylos baseline .' first.[/warn]"
                 )
@@ -465,7 +580,10 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 category=_cli_category,
                 file_filter=_cli_file_filter,
             )
-        output_result_json = json.dumps(json_output_result)
+        display_payload = json_output_result
+        if getattr(args, "json_ci", False):
+            display_payload = _build_ci_json_payload(json_output_result)
+        output_result_json = json.dumps(display_payload)
 
         def upload_formatted_result() -> None:
             if not args.upload:
@@ -477,9 +595,12 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 strict=args.strict,
                 quiet=True,
                 analyzer_owned=True,
+                gitlab_full_scan=gitlab_full_scan,
             )
             if not upload_resp.get("success"):
+                _check_managed_gitlab_delivery(upload_resp)
                 raise SystemExit(1)
+            _check_managed_gitlab_delivery(upload_resp)
             cloud_gate_passed = upload_resp.get("quality_gate_passed")
             if cloud_gate_passed is None:
                 cloud_gate_passed = (upload_resp.get("quality_gate") or {}).get(
@@ -534,6 +655,9 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             _add(output_result.get("ai_defects", []), "AI_DEFECT", None)
             _add(output_result.get("quality", []), "QUALITY", None)
             _add(output_result.get("secrets", []), "SECRET", None)
+            _add(
+                output_result.get("dependency_vulnerabilities", []), "DEPENDENCY", None
+            )
             _add(output_result.get("custom_rules", []), "CUSTOM", None)
             _add(
                 output_result.get("analysis_errors", []),
@@ -591,6 +715,41 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             import json as _json
 
             _write_scan_output(args.sarif, _json.dumps(sarif_data, indent=2))
+
+        if gitlab_output:
+            from skylos.core.file_discovery import find_git_root
+            from skylos.reporting.gitlab import build_gitlab_report
+
+            # GitLab resolves locations from the checkout root, even when the
+            # user scans only a subdirectory or a single file. Anchor discovery
+            # to the scan target, not the invoking shell's unrelated checkout.
+            report_root = find_git_root(project_root) or project_root
+            report = build_gitlab_report(output_result, project_root=report_root)
+            report_json = json.dumps(report.findings, separators=(",", ":")) + "\n"
+            if args.output:
+                _write_scan_output(args.output, report_json)
+            else:
+                print(report_json, end="")
+
+            for diagnostic in report.diagnostics:
+                print(f"Skylos GitLab report incomplete: {diagnostic}", file=sys.stderr)
+            incomplete_exit_code = _strict_scan_exit_code(result, args)
+            if not report.complete or incomplete_exit_code == 2:
+                if not report.diagnostics:
+                    print("Skylos GitLab scan incomplete.", file=sys.stderr)
+                raise SystemExit(2)
+
+            with redirect_stdout(sys.stderr):
+                upload_formatted_result()
+                if args.gate:
+                    exit_code = _formatted_output_gate_exit_code(
+                        result, config, args, provenance=prov_report
+                    )
+                    if exit_code:
+                        raise SystemExit(exit_code)
+            if incomplete_exit_code:
+                raise SystemExit(incomplete_exit_code)
+            return
 
         if args.json:
             if args.output:
@@ -689,6 +848,14 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             return
 
     except Exception as e:
+        if gitlab_output:
+            # Exceptions can contain scanned text, credentials, or host paths.
+            # Do not put them in the artifact or claim a clean/complete report.
+            print(
+                "Skylos GitLab scan incomplete: analysis or report writing failed.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from None
         logger.error(f"Error during analysis: {e}")
         sys.exit(1)
 
@@ -719,12 +886,15 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 is_forced=args.force,
                 strict=args.strict,
                 analyzer_owned=True,
+                gitlab_full_scan=gitlab_full_scan,
             )
             if not upload_resp.get("success"):
+                _check_managed_gitlab_delivery(upload_resp)
                 _render_upload_failure(console, upload_resp)
                 if getattr(args, "_explicit_upload_requested", False):
                     raise SystemExit(1)
             else:
+                _check_managed_gitlab_delivery(upload_resp)
                 cloud_gate_passed = upload_resp.get("quality_gate_passed")
                 if cloud_gate_passed is None:
                     cloud_gate_passed = (upload_resp.get("quality_gate") or {}).get(
@@ -882,8 +1052,11 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
     danger_count = len(result.get("danger", []) or [])
     reliability_count = len(result.get("reliability", []) or [])
     quality_count = len(result.get("quality", []) or [])
-    if getattr(args, "format", "rich") != "pretty" and not result.get(
-        "analysis_errors"
+    if (
+        getattr(args, "format", "rich") != "pretty"
+        and not result.get("analysis_errors")
+        and not getattr(args, "diff", None)
+        and changed_files is None
     ):
         print_badge(
             unused_total,
@@ -895,6 +1068,21 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             quality_enabled=bool(quality_count),
             quality_count=quality_count,
         )
+
+    if (
+        getattr(args, "diff", None)
+        and changed_ranges
+        and not result.get("analysis_errors")
+        and not any(result.get(category) for category in _DIFF_FINDING_CATEGORIES)
+    ):
+        console.print("[good]No issues found on changed lines.[/good]")
+    elif (
+        changed_files
+        and not getattr(args, "diff", None)
+        and not result.get("analysis_errors")
+        and not any(result.get(category) for category in _DIFF_FINDING_CATEGORIES)
+    ):
+        console.print("[good]No issues found in changed files.[/good]")
 
     strict_exit_code = _strict_scan_exit_code(result, args)
     if strict_exit_code:
@@ -945,7 +1133,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             if nudge:
                 console.print(f"\n  {nudge}")
             _print_upload_cta(console, project_root)
-        else:
+        elif not getattr(args, "diff", None) and changed_files is None:
             console.print()
             console.print(
                 "[good]✨ Clean codebase! No issues found.[/good]\n"
@@ -1035,13 +1223,16 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             is_forced=args.force,
             strict=args.strict,
             analyzer_owned=True,
+            gitlab_full_scan=gitlab_full_scan,
         )
 
         if not upload_resp.get("success"):
+            _check_managed_gitlab_delivery(upload_resp)
             _render_upload_failure(console, upload_resp)
             if getattr(args, "_explicit_upload_requested", False):
                 raise SystemExit(1)
         else:
+            _check_managed_gitlab_delivery(upload_resp)
             passed = upload_resp.get("quality_gate_passed")
             if passed is None:
                 passed = (upload_resp.get("quality_gate") or {}).get("passed", True)

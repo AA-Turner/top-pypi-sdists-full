@@ -1537,6 +1537,55 @@ class CoverageThreshold:
         )
 
 
+class Destination(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Destination"):
+    '''(experimental) Where a reporter's output is written.
+
+    :see: https://nodejs.org/api/test.html#test-reporters
+    :stability: experimental
+    '''
+
+    @jsii.member(jsii_name="file")
+    @builtins.classmethod
+    def file(cls, path: builtins.str) -> "Destination":
+        '''(experimental) Write to a file at the given path.
+
+        :param path: path of the file to write to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dc4bdf4525a5962ffc765ba3181d08ee39bd6a7591c57df4ff8a4f4dc2ccd800)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        return typing.cast("Destination", jsii.sinvoke(cls, "file", [path]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STDERR")
+    def STDERR(cls) -> "Destination":
+        '''(experimental) Write to standard error.
+
+        :stability: experimental
+        '''
+        return typing.cast("Destination", jsii.sget(cls, "STDERR"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STDOUT")
+    def STDOUT(cls) -> "Destination":
+        '''(experimental) Write to standard output.
+
+        :stability: experimental
+        '''
+        return typing.cast("Destination", jsii.sget(cls, "STDOUT"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The underlying value: ``"stdout"``, ``"stderr"``, or a file path.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
 @jsii.data_type(
     jsii_type="projen.javascript.DevEngineDependency",
     jsii_struct_bases=[],
@@ -8581,6 +8630,482 @@ class NodeConfigSchemaWatch:
         )
 
 
+class NodeNativeTestRunner(
+    _projen_04054675.Component,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.javascript.NodeNativeTestRunner",
+):
+    '''(experimental) Configures Node's built-in test runner (``node --test``).
+
+    Owns the generated Node.js configuration file, the "test", "test:update"
+    and "test:watch" tasks, and the reporters and test match patterns they use.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        *,
+        collect_coverage: typing.Optional[builtins.bool] = None,
+        config_file_path: typing.Optional[builtins.str] = None,
+        coverage_directory: typing.Optional[builtins.str] = None,
+        coverage_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+        global_setup: typing.Optional[builtins.str] = None,
+        module_mocks: typing.Optional[builtins.bool] = None,
+        node_options: typing.Optional[typing.Union["NodeConfigSchemaNodeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        preserve_default_reporters: typing.Optional[builtins.bool] = None,
+        reporters: typing.Optional[typing.Sequence[typing.Union["NodeReporter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_config: typing.Optional[typing.Union["NodeConfigSchemaTest", typing.Dict[builtins.str, typing.Any]]] = None,
+        test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
+        transform_types: typing.Optional[builtins.bool] = None,
+        update_snapshot: typing.Optional["NodeTestUpdateSnapshot"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param collect_coverage: (experimental) Indicates whether the coverage information should be collected while executing the test, via ``--experimental-test-coverage``. Default: true
+        :param config_file_path: (experimental) Path to the JSON configuration file for the test runner. Default: "node.config.json"
+        :param coverage_directory: (experimental) The directory where coverage files are output, if coverage collection is enabled. Default: "coverage"
+        :param coverage_path_ignore_patterns: (experimental) An array of glob patterns that are matched against all file paths before executing coverage collection. If a file path matches any of the patterns, coverage information will be skipped for it. Default: ["**/test/**", "**/**tests**/**"]
+        :param extra_cli_options: (experimental) Additional options to pass to the ``node --test`` CLI invocation. Each element is passed as a single argument, exactly as given: no shell parses these, so a flag and its value need separate elements (``["--foo", "bar"]``, not ``["--foo bar"]``). Default: - no extra options
+        :param global_setup: (experimental) This option allows the use of a custom global setup module which exports a function that is triggered once before all test suites. Written as ``test-global-setup`` in the generated Node.js configuration file. Default: - undefined
+        :param module_mocks: (experimental) Enable module mocking support via ``--experimental-test-module-mocks``. Default: false
+        :param node_options: (experimental) Additional entries for the ``nodeOptions`` section of the generated configuration file (e.g. ``enableSourceMaps``, ``disableWarning``). Default: - no additional node options
+        :param preserve_default_reporters: (experimental) Preserve the default reporters (``spec``, ``lcov``, ``junit``) when additional reporters are added. Default: true
+        :param reporters: (experimental) Additional reporters to configure (e.g. ``{ name: "tap", destination: Destination.file("test-reports/tap.txt") }``). These are added on top of the default reporters (``spec``, ``lcov``, ``junit``), which are controlled via ``collectCoverage``. Use ``NodeNativeTestRunner.addReporter``/``removeReporter``/``listReporters`` to manage reporters after construction. Default: - no additional reporters
+        :param test_config: (experimental) Additional entries for the ``test`` section of the generated configuration file (e.g. ``testConcurrency``, ``testTimeout``). Default: - no additional options
+        :param test_match: (experimental) Glob patterns matching the files that contain tests. By default it combines Node.js' own default test file discovery with Jest conventions. Default: - combines Node.js' own default test file discovery with Jest conventions
+        :param transform_types: (experimental) Whether to enable transformation of TypeScript-only syntax (e.g. enums, namespaces). Uses ``amaro`` (the TypeScript transformer used internally by Node.js) as an external loader via ``--import=amaro/transform``. Adds a dependency on the ``amaro`` package and enables ``--enable-source-maps`` to preserve accurate stack traces. Default: false
+        :param update_snapshot: (experimental) Whether to update snapshots in task "test" (which is executed in task "build" and build workflows), or create a separate task "test:update" for updating snapshots. Default: - ALWAYS
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19908de3c6b92f70b178dfea4058bf397ab9428ac173cf62936ab323a2ff8cc5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = NodeNativeTestRunnerOptions(
+            collect_coverage=collect_coverage,
+            config_file_path=config_file_path,
+            coverage_directory=coverage_directory,
+            coverage_path_ignore_patterns=coverage_path_ignore_patterns,
+            extra_cli_options=extra_cli_options,
+            global_setup=global_setup,
+            module_mocks=module_mocks,
+            node_options=node_options,
+            preserve_default_reporters=preserve_default_reporters,
+            reporters=reporters,
+            test_config=test_config,
+            test_match=test_match,
+            transform_types=transform_types,
+            update_snapshot=update_snapshot,
+        )
+
+        jsii.create(self.__class__, self, [scope, options])
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(
+        cls,
+        project: "_projen_04054675.Project",
+    ) -> typing.Optional["NodeNativeTestRunner"]:
+        '''(experimental) Returns the singleton NodeNativeTestRunner component of a project or undefined if there is none.
+
+        :param project: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51d5def3084933455abc335cde3400dcbc9e24da6f37b8cee8d70b0d7579422f)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        return typing.cast(typing.Optional["NodeNativeTestRunner"], jsii.sinvoke(cls, "of", [project]))
+
+    @jsii.member(jsii_name="addReporter")
+    def add_reporter(
+        self,
+        name: builtins.str,
+        destination: typing.Optional["Destination"] = None,
+    ) -> None:
+        '''(experimental) Adds a reporter, or updates its destination if one with the same name is already configured.
+
+        :param name: The name/kind of the reporter, e.g. ``spec``, ``junit``, ``lcov``.
+        :param destination: Where the reporter's output is written.
+
+        :default: Destination.STDOUT
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40f2110b359cd9bc260bb9d0c4b8037231bc7337444013ddfd01c9a78e94bef9)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+        return typing.cast(None, jsii.invoke(self, "addReporter", [name, destination]))
+
+    @jsii.member(jsii_name="addTestMatch")
+    def add_test_match(self, pattern: builtins.str) -> None:
+        '''(experimental) Adds a test match pattern.
+
+        :param pattern: glob pattern to match for tests.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4e8a861c1b1943c5ed700dd8d5b33973db9c0c0ac1e023f3e723a23502d515b0)
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+        return typing.cast(None, jsii.invoke(self, "addTestMatch", [pattern]))
+
+    @jsii.member(jsii_name="listReporters")
+    def list_reporters(self) -> typing.List["NodeReporter"]:
+        '''(experimental) Lists the configured reporters, in the order they were added.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["NodeReporter"], jsii.invoke(self, "listReporters", []))
+
+    @jsii.member(jsii_name="removeReporter")
+    def remove_reporter(self, name: builtins.str) -> None:
+        '''(experimental) Removes a reporter, if configured.
+
+        :param name: The name/kind of the reporter to remove.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b44359a5e677454c7d6277ed85ec3eeb54c35897934094ffc672901b4567b0a0)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast(None, jsii.invoke(self, "removeReporter", [name]))
+
+    @jsii.member(jsii_name="removeTestMatch")
+    def remove_test_match(self, pattern: builtins.str) -> None:
+        '''(experimental) Removes a test match pattern, if configured.
+
+        :param pattern: glob pattern to remove.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1640fcfcca3569b914c09a4b173face67e167152ba76529730f7045791bad719)
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+        return typing.cast(None, jsii.invoke(self, "removeTestMatch", [pattern]))
+
+    @builtins.property
+    @jsii.member(jsii_name="configFile")
+    def config_file(self) -> "NodeConfigFile":
+        '''(experimental) The generated Node.js configuration file.
+
+        :stability: experimental
+        '''
+        return typing.cast("NodeConfigFile", jsii.get(self, "configFile"))
+
+    @builtins.property
+    @jsii.member(jsii_name="project")
+    def project(self) -> "NodeProject":
+        '''
+        :stability: experimental
+        '''
+        return typing.cast("NodeProject", jsii.get(self, "project"))
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.NodeNativeTestRunnerOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collect_coverage": "collectCoverage",
+        "config_file_path": "configFilePath",
+        "coverage_directory": "coverageDirectory",
+        "coverage_path_ignore_patterns": "coveragePathIgnorePatterns",
+        "extra_cli_options": "extraCliOptions",
+        "global_setup": "globalSetup",
+        "module_mocks": "moduleMocks",
+        "node_options": "nodeOptions",
+        "preserve_default_reporters": "preserveDefaultReporters",
+        "reporters": "reporters",
+        "test_config": "testConfig",
+        "test_match": "testMatch",
+        "transform_types": "transformTypes",
+        "update_snapshot": "updateSnapshot",
+    },
+)
+class NodeNativeTestRunnerOptions:
+    def __init__(
+        self,
+        *,
+        collect_coverage: typing.Optional[builtins.bool] = None,
+        config_file_path: typing.Optional[builtins.str] = None,
+        coverage_directory: typing.Optional[builtins.str] = None,
+        coverage_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+        global_setup: typing.Optional[builtins.str] = None,
+        module_mocks: typing.Optional[builtins.bool] = None,
+        node_options: typing.Optional[typing.Union["NodeConfigSchemaNodeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        preserve_default_reporters: typing.Optional[builtins.bool] = None,
+        reporters: typing.Optional[typing.Sequence[typing.Union["NodeReporter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_config: typing.Optional[typing.Union["NodeConfigSchemaTest", typing.Dict[builtins.str, typing.Any]]] = None,
+        test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
+        transform_types: typing.Optional[builtins.bool] = None,
+        update_snapshot: typing.Optional["NodeTestUpdateSnapshot"] = None,
+    ) -> None:
+        '''(experimental) Options for Node.js' built-in test runner (``node --test``).
+
+        :param collect_coverage: (experimental) Indicates whether the coverage information should be collected while executing the test, via ``--experimental-test-coverage``. Default: true
+        :param config_file_path: (experimental) Path to the JSON configuration file for the test runner. Default: "node.config.json"
+        :param coverage_directory: (experimental) The directory where coverage files are output, if coverage collection is enabled. Default: "coverage"
+        :param coverage_path_ignore_patterns: (experimental) An array of glob patterns that are matched against all file paths before executing coverage collection. If a file path matches any of the patterns, coverage information will be skipped for it. Default: ["**/test/**", "**/**tests**/**"]
+        :param extra_cli_options: (experimental) Additional options to pass to the ``node --test`` CLI invocation. Each element is passed as a single argument, exactly as given: no shell parses these, so a flag and its value need separate elements (``["--foo", "bar"]``, not ``["--foo bar"]``). Default: - no extra options
+        :param global_setup: (experimental) This option allows the use of a custom global setup module which exports a function that is triggered once before all test suites. Written as ``test-global-setup`` in the generated Node.js configuration file. Default: - undefined
+        :param module_mocks: (experimental) Enable module mocking support via ``--experimental-test-module-mocks``. Default: false
+        :param node_options: (experimental) Additional entries for the ``nodeOptions`` section of the generated configuration file (e.g. ``enableSourceMaps``, ``disableWarning``). Default: - no additional node options
+        :param preserve_default_reporters: (experimental) Preserve the default reporters (``spec``, ``lcov``, ``junit``) when additional reporters are added. Default: true
+        :param reporters: (experimental) Additional reporters to configure (e.g. ``{ name: "tap", destination: Destination.file("test-reports/tap.txt") }``). These are added on top of the default reporters (``spec``, ``lcov``, ``junit``), which are controlled via ``collectCoverage``. Use ``NodeNativeTestRunner.addReporter``/``removeReporter``/``listReporters`` to manage reporters after construction. Default: - no additional reporters
+        :param test_config: (experimental) Additional entries for the ``test`` section of the generated configuration file (e.g. ``testConcurrency``, ``testTimeout``). Default: - no additional options
+        :param test_match: (experimental) Glob patterns matching the files that contain tests. By default it combines Node.js' own default test file discovery with Jest conventions. Default: - combines Node.js' own default test file discovery with Jest conventions
+        :param transform_types: (experimental) Whether to enable transformation of TypeScript-only syntax (e.g. enums, namespaces). Uses ``amaro`` (the TypeScript transformer used internally by Node.js) as an external loader via ``--import=amaro/transform``. Adds a dependency on the ``amaro`` package and enables ``--enable-source-maps`` to preserve accurate stack traces. Default: false
+        :param update_snapshot: (experimental) Whether to update snapshots in task "test" (which is executed in task "build" and build workflows), or create a separate task "test:update" for updating snapshots. Default: - ALWAYS
+
+        :stability: experimental
+        '''
+        if isinstance(node_options, dict):
+            node_options = NodeConfigSchemaNodeOptions(**node_options)
+        if isinstance(test_config, dict):
+            test_config = NodeConfigSchemaTest(**test_config)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__123ab4de741067dc0404ffd31be1cf2a91149b9ed70d688e8685ebac2ac0b1d1)
+            check_type(argname="argument collect_coverage", value=collect_coverage, expected_type=type_hints["collect_coverage"])
+            check_type(argname="argument config_file_path", value=config_file_path, expected_type=type_hints["config_file_path"])
+            check_type(argname="argument coverage_directory", value=coverage_directory, expected_type=type_hints["coverage_directory"])
+            check_type(argname="argument coverage_path_ignore_patterns", value=coverage_path_ignore_patterns, expected_type=type_hints["coverage_path_ignore_patterns"])
+            check_type(argname="argument extra_cli_options", value=extra_cli_options, expected_type=type_hints["extra_cli_options"])
+            check_type(argname="argument global_setup", value=global_setup, expected_type=type_hints["global_setup"])
+            check_type(argname="argument module_mocks", value=module_mocks, expected_type=type_hints["module_mocks"])
+            check_type(argname="argument node_options", value=node_options, expected_type=type_hints["node_options"])
+            check_type(argname="argument preserve_default_reporters", value=preserve_default_reporters, expected_type=type_hints["preserve_default_reporters"])
+            check_type(argname="argument reporters", value=reporters, expected_type=type_hints["reporters"])
+            check_type(argname="argument test_config", value=test_config, expected_type=type_hints["test_config"])
+            check_type(argname="argument test_match", value=test_match, expected_type=type_hints["test_match"])
+            check_type(argname="argument transform_types", value=transform_types, expected_type=type_hints["transform_types"])
+            check_type(argname="argument update_snapshot", value=update_snapshot, expected_type=type_hints["update_snapshot"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if collect_coverage is not None:
+            self._values["collect_coverage"] = collect_coverage
+        if config_file_path is not None:
+            self._values["config_file_path"] = config_file_path
+        if coverage_directory is not None:
+            self._values["coverage_directory"] = coverage_directory
+        if coverage_path_ignore_patterns is not None:
+            self._values["coverage_path_ignore_patterns"] = coverage_path_ignore_patterns
+        if extra_cli_options is not None:
+            self._values["extra_cli_options"] = extra_cli_options
+        if global_setup is not None:
+            self._values["global_setup"] = global_setup
+        if module_mocks is not None:
+            self._values["module_mocks"] = module_mocks
+        if node_options is not None:
+            self._values["node_options"] = node_options
+        if preserve_default_reporters is not None:
+            self._values["preserve_default_reporters"] = preserve_default_reporters
+        if reporters is not None:
+            self._values["reporters"] = reporters
+        if test_config is not None:
+            self._values["test_config"] = test_config
+        if test_match is not None:
+            self._values["test_match"] = test_match
+        if transform_types is not None:
+            self._values["transform_types"] = transform_types
+        if update_snapshot is not None:
+            self._values["update_snapshot"] = update_snapshot
+
+    @builtins.property
+    def collect_coverage(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Indicates whether the coverage information should be collected while executing the test, via ``--experimental-test-coverage``.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("collect_coverage")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def config_file_path(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Path to the JSON configuration file for the test runner.
+
+        :default: "node.config.json"
+
+        :stability: experimental
+        '''
+        result = self._values.get("config_file_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def coverage_directory(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The directory where coverage files are output, if coverage collection is enabled.
+
+        :default: "coverage"
+
+        :stability: experimental
+        '''
+        result = self._values.get("coverage_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def coverage_path_ignore_patterns(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) An array of glob patterns that are matched against all file paths before executing coverage collection.
+
+        If a file path matches any of the
+        patterns, coverage information will be skipped for it.
+
+        :default: ["**/test/**", "**/**tests**/**"]
+
+        :stability: experimental
+        '''
+        result = self._values.get("coverage_path_ignore_patterns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def extra_cli_options(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Additional options to pass to the ``node --test`` CLI invocation.
+
+        Each element is passed as a single argument, exactly as given: no shell
+        parses these, so a flag and its value need separate elements
+        (``["--foo", "bar"]``, not ``["--foo bar"]``).
+
+        :default: - no extra options
+
+        :stability: experimental
+        '''
+        result = self._values.get("extra_cli_options")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def global_setup(self) -> typing.Optional[builtins.str]:
+        '''(experimental) This option allows the use of a custom global setup module which exports a function that is triggered once before all test suites.
+
+        Written as ``test-global-setup`` in the generated Node.js configuration
+        file.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("global_setup")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def module_mocks(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable module mocking support via ``--experimental-test-module-mocks``.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("module_mocks")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def node_options(self) -> typing.Optional["NodeConfigSchemaNodeOptions"]:
+        '''(experimental) Additional entries for the ``nodeOptions`` section of the generated configuration file (e.g. ``enableSourceMaps``, ``disableWarning``).
+
+        :default: - no additional node options
+
+        :stability: experimental
+        '''
+        result = self._values.get("node_options")
+        return typing.cast(typing.Optional["NodeConfigSchemaNodeOptions"], result)
+
+    @builtins.property
+    def preserve_default_reporters(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Preserve the default reporters (``spec``, ``lcov``, ``junit``) when additional reporters are added.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("preserve_default_reporters")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def reporters(self) -> typing.Optional[typing.List["NodeReporter"]]:
+        '''(experimental) Additional reporters to configure (e.g. ``{ name: "tap", destination: Destination.file("test-reports/tap.txt") }``).
+
+        These are added on top of the default reporters (``spec``, ``lcov``, ``junit``),
+        which are controlled via ``collectCoverage``. Use
+        ``NodeNativeTestRunner.addReporter``/``removeReporter``/``listReporters`` to
+        manage reporters after construction.
+
+        :default: - no additional reporters
+
+        :stability: experimental
+        '''
+        result = self._values.get("reporters")
+        return typing.cast(typing.Optional[typing.List["NodeReporter"]], result)
+
+    @builtins.property
+    def test_config(self) -> typing.Optional["NodeConfigSchemaTest"]:
+        '''(experimental) Additional entries for the ``test`` section of the generated configuration file (e.g. ``testConcurrency``, ``testTimeout``).
+
+        :default: - no additional options
+
+        :stability: experimental
+        '''
+        result = self._values.get("test_config")
+        return typing.cast(typing.Optional["NodeConfigSchemaTest"], result)
+
+    @builtins.property
+    def test_match(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Glob patterns matching the files that contain tests.
+
+        By default it
+        combines Node.js' own default test file discovery with Jest conventions.
+
+        :default: - combines Node.js' own default test file discovery with Jest conventions
+
+        :stability: experimental
+        '''
+        result = self._values.get("test_match")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def transform_types(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable transformation of TypeScript-only syntax (e.g. enums, namespaces).
+
+        Uses ``amaro`` (the TypeScript transformer used internally by Node.js) as an
+        external loader via ``--import=amaro/transform``. Adds a dependency on the
+        ``amaro`` package and enables ``--enable-source-maps`` to preserve accurate
+        stack traces.
+
+        :default: false
+
+        :see: https://github.com/nodejs/amaro
+        :stability: experimental
+        '''
+        result = self._values.get("transform_types")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def update_snapshot(self) -> typing.Optional["NodeTestUpdateSnapshot"]:
+        '''(experimental) Whether to update snapshots in task "test" (which is executed in task "build" and build workflows), or create a separate task "test:update" for updating snapshots.
+
+        :default: - ALWAYS
+
+        :stability: experimental
+        '''
+        result = self._values.get("update_snapshot")
+        return typing.cast(typing.Optional["NodeTestUpdateSnapshot"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeNativeTestRunnerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class NodePackage(
     _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
@@ -13690,6 +14215,84 @@ class NodeProjectOptions(
         return "NodeProjectOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.NodeReporter",
+    jsii_struct_bases=[],
+    name_mapping={"destination": "destination", "name": "name"},
+)
+class NodeReporter:
+    def __init__(self, *, destination: "Destination", name: builtins.str) -> None:
+        '''(experimental) A single reporter/destination pair for the Node.js native test runner.
+
+        :param destination: (experimental) Where the reporter's output is written. Default: Destination.STDOUT
+        :param name: (experimental) The name/kind of the reporter.
+
+        :see: https://nodejs.org/api/test.html#test-reporters
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__df7cde2c8b6699eb1e51eb1ea4194469412267b77d9756b8f288dcdb7b3fdad7)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+            "name": name,
+        }
+
+    @builtins.property
+    def destination(self) -> "Destination":
+        '''(experimental) Where the reporter's output is written.
+
+        :default: Destination.STDOUT
+
+        :see: https://github.com/nodejs/node/blob/4215cc35e25c44f9f4fea5a4541afc862db7ef0a/test/parallel/test-runner-reporters.js#L46-L77
+        :stability: experimental
+        '''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast("Destination", result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) The name/kind of the reporter.
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeReporter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="projen.javascript.NodeTestUpdateSnapshot")
+class NodeTestUpdateSnapshot(enum.Enum):
+    '''(experimental) Whether to update snapshots in task "test" (which is executed in task "build" and build workflows), or create a separate task "test:update" for updating snapshots.
+
+    :stability: experimental
+    '''
+
+    ALWAYS = "ALWAYS"
+    '''(experimental) Always update snapshots in "test" task.
+
+    :stability: experimental
+    '''
+    NEVER = "NEVER"
+    '''(experimental) Never update snapshots in "test" task and create a separate "test:update" task.
+
+    :stability: experimental
+    '''
 
 
 @jsii.enum(jsii_type="projen.javascript.NpmAccess")
@@ -29161,6 +29764,7 @@ __all__ = [
     "CodeArtifactAuthProvider",
     "CodeArtifactOptions",
     "CoverageThreshold",
+    "Destination",
     "DevEngineDependency",
     "DevEngines",
     "EmbeddedLanguageFormatting",
@@ -29188,11 +29792,15 @@ __all__ = [
     "NodeConfigSchemaPermission",
     "NodeConfigSchemaTest",
     "NodeConfigSchemaWatch",
+    "NodeNativeTestRunner",
+    "NodeNativeTestRunnerOptions",
     "NodePackage",
     "NodePackageManager",
     "NodePackageOptions",
     "NodeProject",
     "NodeProjectOptions",
+    "NodeReporter",
+    "NodeTestUpdateSnapshot",
     "NpmAccess",
     "NpmConfig",
     "NpmConfigOptions",
@@ -29469,6 +30077,12 @@ def _typecheckingstub__f9f20f577fcce2d29c8caf0cf8580b22e6e9616455ddbbdda0e6f84e3
     functions: typing.Optional[jsii.Number] = None,
     lines: typing.Optional[jsii.Number] = None,
     statements: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc4bdf4525a5962ffc765ba3181d08ee39bd6a7591c57df4ff8a4f4dc2ccd800(
+    path: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30106,6 +30720,78 @@ def _typecheckingstub__1a729fd962c9c3cc7b240a40a48ff4114cd412247f36cbff174429691
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__19908de3c6b92f70b178dfea4058bf397ab9428ac173cf62936ab323a2ff8cc5(
+    scope: _constructs_77d1e7e8.IConstruct,
+    *,
+    collect_coverage: typing.Optional[builtins.bool] = None,
+    config_file_path: typing.Optional[builtins.str] = None,
+    coverage_directory: typing.Optional[builtins.str] = None,
+    coverage_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+    global_setup: typing.Optional[builtins.str] = None,
+    module_mocks: typing.Optional[builtins.bool] = None,
+    node_options: typing.Optional[typing.Union[NodeConfigSchemaNodeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    preserve_default_reporters: typing.Optional[builtins.bool] = None,
+    reporters: typing.Optional[typing.Sequence[typing.Union[NodeReporter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_config: typing.Optional[typing.Union[NodeConfigSchemaTest, typing.Dict[builtins.str, typing.Any]]] = None,
+    test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
+    transform_types: typing.Optional[builtins.bool] = None,
+    update_snapshot: typing.Optional[NodeTestUpdateSnapshot] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51d5def3084933455abc335cde3400dcbc9e24da6f37b8cee8d70b0d7579422f(
+    project: _projen_04054675.Project,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40f2110b359cd9bc260bb9d0c4b8037231bc7337444013ddfd01c9a78e94bef9(
+    name: builtins.str,
+    destination: typing.Optional[Destination] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e8a861c1b1943c5ed700dd8d5b33973db9c0c0ac1e023f3e723a23502d515b0(
+    pattern: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b44359a5e677454c7d6277ed85ec3eeb54c35897934094ffc672901b4567b0a0(
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1640fcfcca3569b914c09a4b173face67e167152ba76529730f7045791bad719(
+    pattern: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__123ab4de741067dc0404ffd31be1cf2a91149b9ed70d688e8685ebac2ac0b1d1(
+    *,
+    collect_coverage: typing.Optional[builtins.bool] = None,
+    config_file_path: typing.Optional[builtins.str] = None,
+    coverage_directory: typing.Optional[builtins.str] = None,
+    coverage_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+    global_setup: typing.Optional[builtins.str] = None,
+    module_mocks: typing.Optional[builtins.bool] = None,
+    node_options: typing.Optional[typing.Union[NodeConfigSchemaNodeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    preserve_default_reporters: typing.Optional[builtins.bool] = None,
+    reporters: typing.Optional[typing.Sequence[typing.Union[NodeReporter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_config: typing.Optional[typing.Union[NodeConfigSchemaTest, typing.Dict[builtins.str, typing.Any]]] = None,
+    test_match: typing.Optional[typing.Sequence[builtins.str]] = None,
+    transform_types: typing.Optional[builtins.bool] = None,
+    update_snapshot: typing.Optional[NodeTestUpdateSnapshot] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3e9c846b(
     project: _projen_04054675.Project,
     *,
@@ -30515,6 +31201,14 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     workflow_git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workflow_package_cache: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df7cde2c8b6699eb1e51eb1ea4194469412267b77d9756b8f288dcdb7b3fdad7(
+    *,
+    destination: Destination,
+    name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

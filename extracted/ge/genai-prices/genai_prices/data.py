@@ -406,7 +406,8 @@ providers: list[Provider] = [
                 id='claude-opus-5',
                 match=ClauseOr(
                     or_=[
-                        ClauseStartsWith(starts_with='claude-opus-5'),
+                        ClauseEquals(equals='claude-opus-5'),
+                        ClauseRegex(regex='^claude-opus-5-\\d{8}$'),
                         ClauseStartsWith(starts_with='claude-opus-5.0'),
                         ClauseStartsWith(starts_with='claude-5-opus'),
                         ClauseStartsWith(starts_with='claude-5.0-opus'),
@@ -422,6 +423,30 @@ providers: list[Provider] = [
                     cache_read_mtok=Decimal('0.5'),
                     output_mtok=Decimal('25'),
                     cache_write_1h_mtok=Decimal('10'),
+                    web_searches_kcount=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-5-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='claude-opus-5-5'),
+                        ClauseRegex(regex='^claude-opus-5-5-\\d{8}$'),
+                        ClauseStartsWith(starts_with='claude-opus-5.5'),
+                        ClauseStartsWith(starts_with='claude-5-5-opus'),
+                        ClauseStartsWith(starts_with='claude-5.5-opus'),
+                    ]
+                ),
+                name='Claude Opus 5.5',
+                description='For long-running agentic coding and knowledge work',
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Prompt caching ref: https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing',
+                prices=ModelPrice(
+                    input_mtok=Decimal('4'),
+                    cache_write_mtok=Decimal('5'),
+                    cache_read_mtok=Decimal('0.2'),
+                    output_mtok=Decimal('20'),
+                    cache_write_1h_mtok=Decimal('8'),
                     web_searches_kcount=Decimal('10'),
                 ),
             ),
@@ -1020,13 +1045,36 @@ providers: list[Provider] = [
             ),
             ModelInfo(
                 id='global.anthropic.claude-opus-5',
-                match=ClauseContains(contains='global.anthropic.claude-opus-5'),
+                match=ClauseOr(
+                    or_=[
+                        ClauseEndsWith(ends_with='global.anthropic.claude-opus-5'),
+                        ClauseContains(contains='global.anthropic.claude-opus-5-v1'),
+                    ]
+                ),
                 context_window=1000000,
                 prices=ModelPrice(
                     input_mtok=Decimal('5'),
                     cache_write_mtok=Decimal('6.25'),
                     cache_read_mtok=Decimal('0.5'),
                     output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
+                id='global.anthropic.claude-opus-5-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEndsWith(ends_with='global.anthropic.claude-opus-5-5'),
+                        ClauseContains(contains='global.anthropic.claude-opus-5-5-v1'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments='Global endpoint (no premium). Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Opus 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json) Model ID ref: https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock',
+                prices=ModelPrice(
+                    input_mtok=Decimal('4'),
+                    cache_write_mtok=Decimal('5'),
+                    cache_read_mtok=Decimal('0.2'),
+                    output_mtok=Decimal('20'),
+                    cache_write_1h_mtok=Decimal('8'),
                 ),
             ),
             ModelInfo(
@@ -1691,12 +1739,18 @@ providers: list[Provider] = [
                 id='regional.anthropic.claude-opus-5',
                 match=ClauseOr(
                     or_=[
-                        ClauseStartsWith(starts_with='anthropic.claude-opus-5'),
-                        ClauseStartsWith(starts_with='claude-opus-5'),
-                        ClauseContains(contains='us.anthropic.claude-opus-5'),
-                        ClauseContains(contains='au.anthropic.claude-opus-5'),
-                        ClauseContains(contains='eu.anthropic.claude-opus-5'),
-                        ClauseContains(contains='jp.anthropic.claude-opus-5'),
+                        ClauseEquals(equals='anthropic.claude-opus-5'),
+                        ClauseEquals(equals='claude-opus-5'),
+                        ClauseStartsWith(starts_with='anthropic.claude-opus-5-v1'),
+                        ClauseStartsWith(starts_with='claude-opus-5-v1'),
+                        ClauseEquals(equals='us.anthropic.claude-opus-5'),
+                        ClauseEquals(equals='au.anthropic.claude-opus-5'),
+                        ClauseEquals(equals='eu.anthropic.claude-opus-5'),
+                        ClauseEquals(equals='jp.anthropic.claude-opus-5'),
+                        ClauseContains(contains='us.anthropic.claude-opus-5-v1'),
+                        ClauseContains(contains='au.anthropic.claude-opus-5-v1'),
+                        ClauseContains(contains='eu.anthropic.claude-opus-5-v1'),
+                        ClauseContains(contains='jp.anthropic.claude-opus-5-v1'),
                     ]
                 ),
                 context_window=1000000,
@@ -1706,6 +1760,34 @@ providers: list[Provider] = [
                     cache_write_mtok=Decimal('6.875'),
                     cache_read_mtok=Decimal('0.55'),
                     output_mtok=Decimal('27.5'),
+                ),
+            ),
+            ModelInfo(
+                id='regional.anthropic.claude-opus-5-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='anthropic.claude-opus-5-5'),
+                        ClauseEquals(equals='claude-opus-5-5'),
+                        ClauseStartsWith(starts_with='anthropic.claude-opus-5-5-v1'),
+                        ClauseStartsWith(starts_with='claude-opus-5-5-v1'),
+                        ClauseEquals(equals='us.anthropic.claude-opus-5-5'),
+                        ClauseEquals(equals='au.anthropic.claude-opus-5-5'),
+                        ClauseEquals(equals='eu.anthropic.claude-opus-5-5'),
+                        ClauseEquals(equals='jp.anthropic.claude-opus-5-5'),
+                        ClauseContains(contains='us.anthropic.claude-opus-5-5-v1'),
+                        ClauseContains(contains='au.anthropic.claude-opus-5-5-v1'),
+                        ClauseContains(contains='eu.anthropic.claude-opus-5-5-v1'),
+                        ClauseContains(contains='jp.anthropic.claude-opus-5-5-v1'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments='Regional endpoints and US/EU/JP/AU inference profiles carry a 10% premium over the global endpoint. Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Opus 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json)',
+                prices=ModelPrice(
+                    input_mtok=Decimal('4.4'),
+                    cache_write_mtok=Decimal('5.5'),
+                    cache_read_mtok=Decimal('0.22'),
+                    output_mtok=Decimal('22'),
+                    cache_write_1h_mtok=Decimal('8.8'),
                 ),
             ),
             ModelInfo(
@@ -3471,6 +3553,15 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('1.74'), output_mtok=Decimal('3.48')),
             ),
             ModelInfo(
+                id='deepseek-ai/DeepSeek-V4.1-Flash',
+                match=ClauseEquals(equals='deepseek-ai/DeepSeek-V4.1-Flash'),
+                name='DeepSeek V4.1 Flash',
+                price_comments='Realtime pricing. See https://docs.doubleword.ai/inference-api/models/deepseek-ai-deepseek-v4-1-flash.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.15'), cache_read_mtok=Decimal('0.01'), output_mtok=Decimal('0.6')
+                ),
+            ),
+            ModelInfo(
                 id='google/gemma-4-31B-it',
                 match=ClauseEquals(equals='google/gemma-4-31B-it'),
                 name='Gemma 4 31B IT',
@@ -4752,7 +4843,8 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseContains(contains='claude-5-opus'),
-                        ClauseContains(contains='claude-opus-5'),
+                        ClauseEndsWith(ends_with='claude-opus-5'),
+                        ClauseContains(contains='claude-opus-5@'),
                         ClauseContains(contains='claude-5.0-opus'),
                         ClauseContains(contains='claude-opus-5.0'),
                     ]
@@ -4764,6 +4856,26 @@ providers: list[Provider] = [
                     cache_write_mtok=Decimal('6.25'),
                     cache_read_mtok=Decimal('0.5'),
                     output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-5-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseContains(contains='claude-5-5-opus'),
+                        ClauseEndsWith(ends_with='claude-opus-5-5'),
+                        ClauseContains(contains='claude-opus-5-5@'),
+                        ClauseContains(contains='claude-5.5-opus'),
+                        ClauseContains(contains='claude-opus-5.5'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments="Global endpoint pricing, flat across the full 1M context window. Multi-region and regional endpoints carry a 10% premium. Google's pricing page renders client-side and could not be read when this entry was added; the rates follow Anthropic's list price, as every other Claude entry in this file does. Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models Anthropic ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Model ID ref: https://platform.claude.com/docs/en/models/opus-5-5/overview",
+                prices=ModelPrice(
+                    input_mtok=Decimal('4'),
+                    cache_write_mtok=Decimal('5'),
+                    cache_read_mtok=Decimal('0.2'),
+                    output_mtok=Decimal('20'),
                 ),
             ),
             ModelInfo(
@@ -10372,6 +10484,46 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='gpt-6-luna',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-6-luna'), ClauseRegex(regex='^gpt-6-luna-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-6 Luna',
+                description='Efficient model for focused, high-volume tasks.',
+                context_window=1050000,
+                price_comments='Cache reads cost 10% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Ref: https://developers.openai.com/api/docs/models/gpt-6-luna',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('0.125'), tiers=[Tier(start=272000, price=Decimal('0.25'))]
+                    ),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.01'), tiers=[Tier(start=272000, price=Decimal('0.02'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('0.75'))]),
+                    web_searches_kcount=Decimal('10'),
+                    storage_searches_kcount=Decimal('2.5'),
+                ),
+            ),
+            ModelInfo(
+                id='gpt-6-sol',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-6-sol'), ClauseRegex(regex='^gpt-6-sol-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-6 Sol',
+                description='Model for complex coding and agentic workflows.',
+                context_window=1050000,
+                price_comments='Cache reads cost 10% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Ref: https://developers.openai.com/api/docs/models/gpt-6-sol',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]),
+                    output_mtok=TieredPrices(base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('15'))]),
+                    web_searches_kcount=Decimal('10'),
+                    storage_searches_kcount=Decimal('2.5'),
+                ),
+            ),
+            ModelInfo(
                 id='gpt-audio',
                 match=ClauseOr(
                     or_=[
@@ -11221,6 +11373,23 @@ providers: list[Provider] = [
                     cache_write_mtok=Decimal('12.5'),
                     cache_read_mtok=Decimal('1'),
                     output_mtok=Decimal('50'),
+                ),
+            ),
+            ModelInfo(
+                id='anthropic/claude-opus-5.5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='anthropic/claude-opus-5.5'),
+                        ClauseEquals(equals='anthropic/claude-opus-5.5:beta'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Cache-read rate confirmed via https://openrouter.ai/api/v1/models',
+                prices=ModelPrice(
+                    input_mtok=Decimal('4'),
+                    cache_write_mtok=Decimal('5'),
+                    cache_read_mtok=Decimal('0.2'),
+                    output_mtok=Decimal('20'),
                 ),
             ),
             ModelInfo(
@@ -14302,6 +14471,94 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='openai/gpt-6-luna',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='openai/gpt-6-luna'),
+                        ClauseEquals(equals='openai/gpt-6-luna-pro'),
+                        ClauseRegex(regex='^openai/gpt-6-luna-\\d{8}$'),
+                    ]
+                ),
+                name='GPT-6 Luna',
+                context_window=1050000,
+                price_comments='OpenRouter lists the base and pro routes at the same rates. Long-context tier (>272K prompt tokens) is 2x input and cache rates and 1.5x output. Ref: https://openrouter.ai/api/v1/models (pricing.overrides).',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('0.125'), tiers=[Tier(start=272000, price=Decimal('0.25'))]
+                    ),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.01'), tiers=[Tier(start=272000, price=Decimal('0.02'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('0.75'))]),
+                    web_searches_kcount=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
+                id='openai/gpt-6-luna:batch',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='openai/gpt-6-luna:batch'),
+                        ClauseEquals(equals='openai/gpt-6-luna-pro:batch'),
+                    ]
+                ),
+                name='GPT-6 Luna Batch',
+                context_window=1050000,
+                price_comments="OpenRouter's batch routes bill input, cache, and output tokens at half the standard rates; web searches retain their $0.01 per-call rate. Ref: https://openrouter.ai/api/v1/models.",
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('0.05'), tiers=[Tier(start=272000, price=Decimal('0.1'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('0.0625'), tiers=[Tier(start=272000, price=Decimal('0.125'))]
+                    ),
+                    cache_read_mtok=TieredPrices(
+                        base=Decimal('0.005'), tiers=[Tier(start=272000, price=Decimal('0.01'))]
+                    ),
+                    output_mtok=TieredPrices(base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.375'))]),
+                    web_searches_kcount=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
+                id='openai/gpt-6-sol',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='openai/gpt-6-sol'),
+                        ClauseEquals(equals='openai/gpt-6-sol-pro'),
+                        ClauseRegex(regex='^openai/gpt-6-sol-\\d{8}$'),
+                    ]
+                ),
+                name='GPT-6 Sol',
+                context_window=1050000,
+                price_comments='OpenRouter lists the base and pro routes at the same rates. Long-context tier (>272K prompt tokens) is 2x input and cache rates and 1.5x output. Ref: https://openrouter.ai/api/v1/models (pricing.overrides).',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]),
+                    output_mtok=TieredPrices(base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('15'))]),
+                    web_searches_kcount=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
+                id='openai/gpt-6-sol:batch',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='openai/gpt-6-sol:batch'),
+                        ClauseEquals(equals='openai/gpt-6-sol-pro:batch'),
+                    ]
+                ),
+                name='GPT-6 Sol Batch',
+                context_window=1050000,
+                price_comments="OpenRouter's batch routes bill input, cache, and output tokens at half the standard rates; web searches retain their $0.01 per-call rate. Ref: https://openrouter.ai/api/v1/models.",
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('2'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                    ),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]),
+                    output_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('7.5'))]),
+                    web_searches_kcount=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
                 id='openai/gpt-audio',
                 match=ClauseEquals(equals='openai/gpt-audio'),
                 name='GPT Audio',
@@ -15754,12 +16011,25 @@ providers: list[Provider] = [
                 match=ClauseEquals(equals='~anthropic/claude-opus-latest'),
                 name='Claude Opus Latest',
                 context_window=1000000,
-                prices=ModelPrice(
-                    input_mtok=Decimal('5'),
-                    cache_write_mtok=Decimal('6.25'),
-                    cache_read_mtok=Decimal('0.5'),
-                    output_mtok=Decimal('25'),
-                ),
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('5'),
+                            cache_write_mtok=Decimal('6.25'),
+                            cache_read_mtok=Decimal('0.5'),
+                            output_mtok=Decimal('25'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 9, 22)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('4'),
+                            cache_write_mtok=Decimal('5'),
+                            cache_read_mtok=Decimal('0.2'),
+                            output_mtok=Decimal('20'),
+                        ),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='~anthropic/claude-sonnet-latest',
@@ -16941,6 +17211,40 @@ providers: list[Provider] = [
                 match=ClauseEquals(equals='zero-one-ai/Yi-6B'),
                 prices=ModelPrice(input_mtok=Decimal('0.2'), output_mtok=Decimal('0.2')),
             ),
+        ],
+    ),
+    Provider(
+        id='typesafe',
+        name='TypeSafe',
+        api_pattern='https://api\\.typesafe\\.ai',
+        pricing_urls=['https://docs.typesafe.ai/models'],
+        price_comments='TypeSafe bills Jev per input token only; output tokens are free. `jev-latest` and `jev-preview` are aliases that move with releases and currently point at `jev-1.13.0`; a versioned id is billed the same.',
+        model_match=ClauseStartsWith(starts_with='jev-'),
+        provider_match=ClauseContains(contains='typesafe'),
+        extractors=[
+            UsageExtractor(
+                root='usage',
+                mappings=[
+                    UsageExtractorMapping(path='input_tokens', dest='input_tokens', required=True),
+                    UsageExtractorMapping(path='output_tokens', dest='output_tokens', required=True),
+                ],
+                api_flavor='default',
+                model_path='model',
+            )
+        ],
+        models=[
+            ModelInfo(
+                id='jev-1.13.0',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='jev-1.13.0'),
+                        ClauseEquals(equals='jev-latest'),
+                        ClauseEquals(equals='jev-preview'),
+                    ]
+                ),
+                name='Jev 1.13.0',
+                prices=ModelPrice(input_mtok=Decimal('0.042')),
+            )
         ],
     ),
     Provider(

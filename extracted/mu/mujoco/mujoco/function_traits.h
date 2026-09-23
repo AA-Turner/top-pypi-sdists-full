@@ -1377,9 +1377,9 @@ struct mj_copyState {
 
 struct mj_readCtrl {
   static constexpr char name[] = "mj_readCtrl";
-  static constexpr char doc[] = "Read ctrl value for actuator at given time. Returns d->ctrl[id] if no history, otherwise reads from history buffer. interp: 0=zero-order-hold, 1=linear, 2=cubic spline.";
-  using type = mjtNum (const mjModel *, const mjData *, int, mjtNum, int);
-  static constexpr auto param_names = std::make_tuple("m", "d", "id", "time", "interp");
+  static constexpr char doc[] = "Read ctrl value for actuator at given time. Returns pointer to ctrl (no history) or history buffer (exact match), or NULL if interpolation performed (writes to result). interp: 0=zero-order-hold, 1=linear, 2=cubic spline.";
+  using type = const mjtNum * (const mjModel *, const mjData *, int, mjtNum, mjtNum *, int);
+  static constexpr auto param_names = std::make_tuple("m", "d", "id", "time", "result", "interp");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_readCtrl;
@@ -4254,6 +4254,39 @@ struct mjp_findEncoder {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjp_findEncoder;
+  }
+};
+
+struct mjp_registerArchiveResourceProvider {
+  static constexpr char name[] = "mjp_registerArchiveResourceProvider";
+  static constexpr char doc[] = "Globally register an archive resource provider. This function is thread-safe. provider->prefix specifies the filename extension(s) (e.g. .mjz|.zip).";
+  using type = void (const mjpResourceProvider *);
+  static constexpr auto param_names = std::make_tuple("provider");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_registerArchiveResourceProvider;
+  }
+};
+
+struct mjp_findArchiveResourceProvider {
+  static constexpr char name[] = "mjp_findArchiveResourceProvider";
+  static constexpr char doc[] = "Return the archive resource provider that matches against the resource name. If no match, return NULL.";
+  using type = const mjpResourceProvider * (const char *);
+  static constexpr auto param_names = std::make_tuple("resource_name");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_findArchiveResourceProvider;
+  }
+};
+
+struct mjp_archiveResourceProviderCount {
+  static constexpr char name[] = "mjp_archiveResourceProviderCount";
+  static constexpr char doc[] = "Return the number of globally registered archive resource providers.";
+  using type = int ();
+  static constexpr auto param_names = std::make_tuple();
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_archiveResourceProviderCount;
   }
 };
 

@@ -5295,6 +5295,60 @@ class TestScanSubmissionResultExitCode:
         )
         assert result.exit_code == EXIT_SUBMIT_FAILED
 
+    def test_backend_incomplete_only_exits_zero(self):
+        result = ScanSubmissionResult(
+            response={"servers_processed": 1},
+            backend_incomplete=[("mcp", "wsl", "wsl_parent_attribution_failed")],
+        )
+        assert result.exit_code == 0
+
+
+class TestConsumeBackendSurfaceFailures:
+    def test_records_and_warns_per_entry_without_failing_submission(self):
+        submission = ScanSubmissionResult()
+
+        with mock.patch("runlayer_cli.scan.service.logger.warning") as warning_mock:
+            scan_service._consume_backend_surface_failures(
+                submission,
+                {
+                    "incomplete_surfaces": [
+                        {
+                            "category": "mcp",
+                            "surface": "wsl",
+                            "reason": "wsl_parent_attribution_failed",
+                        },
+                        {
+                            "category": "mcp",
+                            "surface": "container",
+                            "reason": "container_scan_failed",
+                        },
+                    ]
+                },
+            )
+
+        assert submission.failed_submissions == []
+        assert submission.backend_incomplete == [
+            ("mcp", "wsl", "wsl_parent_attribution_failed"),
+            ("mcp", "container", "container_scan_failed"),
+        ]
+        assert submission.incomplete_surfaces[("mcp", "wsl")] == (
+            "wsl_parent_attribution_failed"
+        )
+        assert warning_mock.call_args_list == [
+            mock.call(
+                "mcp_watch_scan_backend_surface_incomplete",
+                category="mcp",
+                surface="wsl",
+                reason="wsl_parent_attribution_failed",
+            ),
+            mock.call(
+                "mcp_watch_scan_backend_surface_incomplete",
+                category="mcp",
+                surface="container",
+                reason="container_scan_failed",
+            ),
+        ]
+
 
 def _submission_scan_result(
     *,
@@ -7136,12 +7190,15 @@ class TestSubmitScanResults:
             "complete": False,
             "reason": "container_inventory_ingest_failed",
         }
-        assert submission.failed_submissions == ["servers", "scan manifest"]
+        assert submission.failed_submissions == ["scan manifest"]
+        assert submission.backend_incomplete == [
+            ("mcp", "container", "container_inventory_ingest_failed")
+        ]
         assert submission.incomplete_surfaces[("mcp", "container")] == (
             "container_inventory_ingest_failed"
         )
 
-    def test_container_image_backend_failure_is_nonzero_and_gates_container(self):
+    def test_container_image_backend_failure_exits_zero_and_gates_container(self):
         client = mock.MagicMock()
         client.submit_mcp_watch_scan.return_value = {
             "servers_processed": 1,
@@ -7175,8 +7232,11 @@ class TestSubmitScanResults:
             "complete": False,
             "reason": "container_image_inventory_ingest_failed",
         }
-        assert submission.failed_submissions == ["servers"]
-        assert submission.exit_code == EXIT_SUBMIT_FAILED
+        assert submission.failed_submissions == []
+        assert submission.backend_incomplete == [
+            ("mcp", "container", "container_image_inventory_ingest_failed")
+        ]
+        assert submission.exit_code == 0
 
     def test_plugins_submit_before_plugin_dependents_and_manifest_is_last(self):
         client = mock.MagicMock()

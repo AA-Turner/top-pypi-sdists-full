@@ -1151,7 +1151,14 @@ class AsyncTrainer:
         self._published_sampling_step = None
         self._running = True
         self._status = "running"
+        previous_snapshot_sampling = self.engine._latest_snapshot_sampling
         try:
+            # Only the trainer publishes snapshots before each admission.
+            # Standalone trajectory rollouts must still select current weights.
+            self.engine._latest_snapshot_sampling = (
+                callable(getattr(self.engine.model, "submit_sampling_batch", None))
+                and getattr(self.engine.model, "checkpoint", None) is None
+            )
             with store_context as self._store:
                 saved = self._store.load() if self._store else None
                 if saved:
@@ -1277,8 +1284,9 @@ class AsyncTrainer:
                             ):
                                 self._checkpoint_task.result()
                             self._check_step()
-                            async with self._lock:
-                                await self._publish_sampling_snapshot()
+                            if self._submitted < self._total_groups:
+                                async with self._lock:
+                                    await self._publish_sampling_snapshot()
                             self._validate_reservations()
                             ahead = min(
                                 self.engine.schedule.admit_ahead, self.max_staleness
@@ -1615,6 +1623,7 @@ class AsyncTrainer:
             )
             raise
         finally:
+            self.engine._latest_snapshot_sampling = previous_snapshot_sampling
             if self._status == "running":
                 self._status = "completed" if self._n == steps else "stopped"
             for sig, handler in handlers.items():

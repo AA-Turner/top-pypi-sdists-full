@@ -143,6 +143,29 @@ class GoogleTranslator(BaseTranslator):
         """Materialize the config-layer's neutral TTS shape at the SDK boundary."""
         return types.SpeechConfig(**payload)
 
+    @staticmethod
+    def _replace_script_text(contents: list[Any], compiled: Any) -> None:
+        """Swap the script's neutral transcript part for the compiled prompt.
+
+        ``SpeechScriptContent.to_google`` rendered the neutral transcript; the
+        compiled prompt is that transcript with the director's notes in front.
+        Matched by exact text so no other part is touched.
+        """
+        neutral = compiled.transcript
+        for content in reversed(contents):
+            parts = content.get("parts") if isinstance(content, dict) else getattr(content, "parts", None)
+            role = content.get("role") if isinstance(content, dict) else getattr(content, "role", None)
+            if role != "user" or not parts:
+                continue
+            for part in parts:
+                text = part.get("text") if isinstance(part, dict) else getattr(part, "text", None)
+                if text == neutral:
+                    if isinstance(part, dict):
+                        part["text"] = compiled.prompt()
+                    else:
+                        part.text = compiled.prompt()
+                    return
+
     def _assemble_request(self, config: UnifiedConfig, route_ctx: Any = ""):
         return self.to_google(config, self.require_profile(route_ctx))
 
@@ -230,7 +253,21 @@ class GoogleTranslator(BaseTranslator):
                 # response_modalities is a Google implementation detail — always audio
                 generation_config_kwargs["response_modalities"] = ["audio"]
 
-                tts = config.tts_voice_config
+                from matrx_ai.speech.compile import compile_google, find_speech_script
+
+                script = find_speech_script(config)
+                tts = None if script is not None else config.tts_voice_config
+                if script is not None:
+                    # A speech_script part: the transcript part already rendered
+                    # itself as "Name: text" lines (SpeechScriptContent.to_google);
+                    # the speakers map to voices through multi_speaker_voice_config
+                    # and the director's notes (global + per-line direction,
+                    # pauses, pace) go BEFORE the transcript as prose.
+                    compiled = compile_google(script, config, profile)
+                    generation_config_kwargs["speech_config"] = (
+                        self._speech_config_from_tts_payload(compiled.speech_config_payload())
+                    )
+                    self._replace_script_text(contents, compiled)
                 if tts and tts.is_configured:
                     # Reconcile + validate speaker labels against the PURE
                     # transcript: to_google() rewrites the script's labels to the
@@ -544,7 +581,9 @@ JSON Schema:
 
         prompt = pick_text_by_role(config.messages, None) or ""
         if not prompt and config.system_instruction:
-            prompt = self.get_system_text(config) or ""
+            # STABLE text only: a per-turn context block must never be spoken
+            # or drawn into a generated image.
+            prompt = self.get_stable_system_text(config) or ""
         return prompt
 
     @staticmethod

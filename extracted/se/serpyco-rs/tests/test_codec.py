@@ -13,6 +13,7 @@ from typing_extensions import NotRequired, TypedDict
 
 import serpyco_rs
 from serpyco_rs import JSON, MSGPACK, SchemaValidationError, Serializer, ValidationError
+from serpyco_rs._impl import ErrorItem
 from serpyco_rs._custom_types import CustomType
 from serpyco_rs.metadata import CustomEncoder, Discriminator, Flatten, Max, MaxLength, Min, MinLength
 
@@ -290,6 +291,50 @@ def test_big_int_roundtrip(codec, big):
     s = Serializer(int, codec=codec)
     assert s.load(s.dump(big)) == big
     assert load_any(codec, s.dump(big)) == big
+
+
+# msgpack cannot encode ints beyond u64 / below i64, so the wire value differs per codec.
+parametrize_big_int = pytest.mark.parametrize(
+    ('codec', 'big'), [(JSON, 2**100), (MSGPACK, 2**63)], ids=['json', 'msgpack']
+)
+
+
+@parametrize_big_int
+def test_big_int_load__only_min_bound_accepts(codec, big):
+    s = Serializer(Annotated[int, Min(0)], codec=codec)
+    assert s.load(dump_any(codec, big)) == big
+
+
+@parametrize_big_int
+def test_big_int_load__bounded_raises_schema_error(codec, big):
+    s = Serializer(Annotated[int, Min(0), Max(100)], codec=codec)
+    with pytest.raises(SchemaValidationError) as e:
+        s.load(dump_any(codec, big))
+    assert e.value.errors == [ErrorItem(message=f'{big} is greater than the maximum of 100', instance_path='')]
+
+
+def test_big_negative_int_load__json():
+    big = -(2**63) - 1
+    assert Serializer(Annotated[int, Max(100)], codec=JSON).load(dump_any(JSON, big)) == big
+    with pytest.raises(SchemaValidationError) as e:
+        Serializer(Annotated[int, Min(0), Max(100)], codec=JSON).load(dump_any(JSON, big))
+    assert e.value.errors == [ErrorItem(message=f'{big} is less than the minimum of 0', instance_path='')]
+
+
+@pytest.mark.parametrize(('codec', 'big'), [(JSON, 10**400), (MSGPACK, 2**63)], ids=['json', 'msgpack'])
+def test_big_int_on_float_field(codec, big):
+    assert Serializer(float, codec=codec).load(dump_any(codec, big)) == big
+    with pytest.raises(SchemaValidationError) as e:
+        Serializer(Annotated[float, Max(1.5)], codec=codec).load(dump_any(codec, big))
+    # msgpack's 2**63 fits f64, so its message renders the float; JSON's 10**400 renders the int.
+    assert 'is greater than the maximum of 1.5' in e.value.errors[0].message
+
+
+@parametrize_big_int
+def test_big_int_on_decimal_field(codec, big):
+    assert Serializer(Decimal, codec=codec).load(dump_any(codec, big)) == Decimal(big)
+    with pytest.raises(SchemaValidationError):
+        Serializer(Annotated[Decimal, Max(100)], codec=codec).load(dump_any(codec, big))
 
 
 @parametrize_codec
@@ -1439,3 +1484,63 @@ def test_entity_load_duplicate_key_last_wins():
 
     s = Serializer(M, codec=JSON)
     assert s.load(b'{"a": 9, "b": "x", "c": true, "a": 1, "d": 2}') == M(a=1, b='x', c=True, d=2)
+
+
+# The format load paths look a string-valued Enum/Literal member up in a
+# Rust-side map keyed by the wire text, instead of building a Python `str` and
+# probing the load map with it. That map is only ever an accelerator, so it must
+# hold nothing whose Python-level lookup could disagree with a byte comparison.
+
+
+@parametrize_codec
+def test_enum_with_a_str_subclass_value_matches_the_dict_path(codec):
+    class NeverEqual(str):
+        # A `str` subclass may define what equality means; a byte comparison
+        # cannot see that, so such a member must not be resolved by one.
+        def __eq__(self, other: object) -> bool:
+            return False
+
+        def __hash__(self) -> int:
+            return hash('never-equal')
+
+    class Weird(Enum):
+        A = NeverEqual('a')
+
+    codec_serializer = Serializer(Weird, codec=codec)
+    dict_serializer = Serializer(Weird)
+
+    with pytest.raises(SchemaValidationError):
+        dict_serializer.load('a')
+    with pytest.raises(SchemaValidationError):
+        codec_serializer.load(dump_any(codec, 'a'))
+
+
+@parametrize_codec
+def test_literal_with_an_unencodable_value_still_builds(codec):
+    # A lone surrogate has no UTF-8 form to key on. It must be skipped, not
+    # turned into a construction error for the whole serializer.
+    serializer = Serializer(Literal['ok', '\ud800'], codec=codec)
+    assert serializer.load(dump_any(codec, 'ok')) == 'ok'
+
+
+@parametrize_codec
+def test_enum_with_an_unencodable_value_still_builds(codec):
+    class Surrogate(Enum):
+        OK = 'ok'
+        BROKEN = '\ud800'
+
+    serializer = Serializer(Surrogate, codec=codec)
+    assert serializer.load(dump_any(codec, 'ok')) is Surrogate.OK
+
+
+@parametrize_codec
+def test_int_enum_from_string_is_unaffected(codec):
+    # `try_cast_from_string` resolves int members through the load map; the
+    # string cache holds none of them, so this has to keep working via the miss.
+    class Numbers(IntEnum):
+        ONE = 1
+
+    serializer = Serializer(Numbers, codec=codec)
+    assert serializer.load(dump_any(codec, 1)) is Numbers.ONE
+    with pytest.raises(SchemaValidationError):
+        serializer.load(dump_any(codec, 'nope'))

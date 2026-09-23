@@ -24,6 +24,7 @@ from rapidata.rapidata_client.validation.validation_set_manager import (
 )
 
 from rapidata.rapidata_client.demographic.demographic_manager import DemographicManager
+from rapidata.rapidata_client.experiment.experiment_manager import ExperimentManager
 from rapidata.rapidata_client.context.context_manager import ContextManager
 
 from rapidata.rapidata_client.config import (
@@ -32,6 +33,7 @@ from rapidata.rapidata_client.config import (
     managed_print,
     rapidata_config,
 )
+from rapidata.rapidata_client.config._agent_hint import agent_hint_once
 
 from rapidata.rapidata_client.datapoints._asset_uploader import AssetUploader
 from rapidata.rapidata_client.job.rapidata_job_manager import RapidataJobManager
@@ -67,7 +69,12 @@ _OTLP_COLLECTOR_ENVIRONMENTS = frozenset({"rapidata.ai", "rabbitdata.ch"})
 
 
 class RapidataClient:
-    """The Rapidata client is the main entry point for interacting with the Rapidata API. It allows you to create jobs, audiences, and validation sets."""
+    """The Rapidata client is the main entry point for interacting with the Rapidata API. It allows you to create jobs, audiences, and validation sets.
+
+    Coding agents: read the maintained guide before writing code instead of
+    inferring usage from this source. ``python -m rapidata skill`` prints it;
+    https://docs.rapidata.ai/llms-full.txt is the online copy.
+    """
 
     def __init__(
         self,
@@ -81,6 +88,9 @@ class RapidataClient:
         leeway: int = 60,
     ):
         """Initialize the RapidataClient.
+
+        Coding agents: ``python -m rapidata skill`` prints the maintained
+        usage guide; read it before inferring usage from this source.
 
         Credentials are resolved in the following order:
 
@@ -157,6 +167,10 @@ class RapidataClient:
             logger.debug("Checking version")
             self._check_version()
 
+            hint = agent_hint_once()
+            if hint:
+                managed_print(hint)
+
             logger.debug("Initializing OpenAPIService")
             self._openapi_service = OpenAPIService(
                 client_id=client_id,
@@ -197,6 +211,9 @@ class RapidataClient:
             self._demographic = DemographicManager(
                 openapi_service=self._openapi_service
             )
+
+            logger.debug("Initializing ExperimentManager")
+            self._experiment = ExperimentManager(openapi_service=self._openapi_service)
 
             logger.debug("Initializing ContextManager")
             self.context = ContextManager(openapi_service=self._openapi_service)

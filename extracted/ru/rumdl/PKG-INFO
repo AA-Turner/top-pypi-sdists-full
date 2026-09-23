@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.75
+Version: 0.2.76
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -100,7 +100,7 @@ caching, and editor integration in a single tool.
 It offers:
 
 - ⚡️ **Built for fast feedback** with a native Rust binary and result caching
-- 🔍 **<!-- RULE_COUNT -->87<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
+- 🔍 **<!-- RULE_COUNT -->88<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
 - 📦 **Zero dependencies** - single binary with no runtime requirements
 - 🔧 **Highly configurable** with TOML-based config files
@@ -256,7 +256,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.75
+mise use rumdl@0.2.76
 ```
 
 ### Using Nix (macOS/Linux)
@@ -488,7 +488,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.75
+    rev: v0.2.76
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, exits 0 on violations
@@ -504,7 +504,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.75
+    rev: v0.2.76
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -521,7 +521,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.75
+    rev: v0.2.76
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -621,7 +621,7 @@ rumdl is also embedded out of the box in [MegaLinter](https://megalinter.io/), a
 
 ## Rules
 
-rumdl implements <!-- RULE_COUNT -->87<!-- /RULE_COUNT --> lint rules for Markdown files. Here are some key rule categories:
+rumdl implements <!-- RULE_COUNT -->88<!-- /RULE_COUNT --> lint rules for Markdown files. Here are some key rule categories:
 
 | Category       | Description                              | Example Rules       |
 | -------------- | ---------------------------------------- | ------------------- |
@@ -710,7 +710,7 @@ Lint Markdown files and print warnings/errors (main subcommand)
 - `-e, --enable <rules>`: Enable only specific rules (comma-separated)
 - `--exclude <patterns>`: Exclude specific files or directories (comma-separated glob patterns)
 - `--include <patterns>`: Include only specific files or directories (comma-separated glob patterns)
-- `--respect-gitignore`: Respect .gitignore files when scanning directories (does not apply to explicitly provided paths)
+- `--respect-gitignore`: Respect .gitignore, .ignore and git exclude files when scanning directories (.markdownlintignore always applies; neither applies to explicitly named files)
 - `--no-exclude`: Disable all exclude patterns from config
 - `-v, --verbose`: Show detailed output
 - `--profile`: Show profiling information

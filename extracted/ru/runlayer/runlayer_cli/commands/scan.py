@@ -727,6 +727,16 @@ def _run_scan(
                 fg=typer.colors.YELLOW,
             )
 
+        if submission.backend_incomplete and not quiet:
+            detail = ", ".join(
+                f"{category}/{surface} ({reason})"
+                for category, surface, reason in submission.backend_incomplete
+            )
+            typer.secho(
+                f"{WARN} Submitted; server marked surfaces incomplete: {detail}",
+                fg=typer.colors.YELLOW,
+            )
+
         # The WARN lines above already told the user what happened; here we only
         # act on the exit-code policy the orchestrator computed.
         exit_code = submission.exit_code

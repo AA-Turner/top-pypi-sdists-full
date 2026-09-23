@@ -1,10 +1,10 @@
 import atexit
 import http.client
 import logging
-import multiprocessing
 import os
 import socket
 import sys
+import threading
 import time
 from collections import deque
 from collections.abc import Callable
@@ -37,19 +37,25 @@ SOCKET_TCP = socket.IPPROTO_TCP
 core_socket_options = [
     (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
     (SOCKET_TCP, socket.TCP_NODELAY, 1),
-    (socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 256),
-    (socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 256),
 ]
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 _proxy_managers: dict[str, PoolManager] = {}
 all_managers: dict[PoolManager, int] = {}
+_inherited_managers: list[PoolManager] = []
 
 
 @atexit.register
 def close_managers():
     for manager in all_managers:
         manager.clear()
+
+
+def _close_pool_manager(manager: PoolManager) -> None:
+    try:
+        manager.clear()
+    finally:
+        all_managers.pop(manager, None)
 
 
 def resolve_ca_cert(ca_cert: str | None) -> str | None:
@@ -87,7 +93,7 @@ def get_pool_manager_options(
         options["cert_file"] = client_cert
     if client_cert_key:
         options["key_file"] = client_cert_key
-    options["socket_options"] = socket_options
+    options.setdefault("socket_options", socket_options)
     options["block"] = options.get("block", False)
     return options
 
@@ -190,13 +196,39 @@ def check_env_proxy(scheme: str, host: str, port: int) -> str | None:
 
 
 _default_pool_manager = get_pool_manager()
+_default_pool_pid = os.getpid()
+_default_pool_lock = threading.Lock()
 
 
-def default_pool_manager():
-    if multiprocessing.current_process().name == "MainProcess":
+def _reset_pool_state_after_fork() -> None:
+    global _default_pool_lock, _default_pool_pid
+    # Keep inherited managers alive. Deallocating one runs urllib3 pool finalizers that take inherited locks.
+    _inherited_managers.extend([_default_pool_manager, *all_managers])
+    _default_pool_lock = threading.Lock()
+    _default_pool_pid = -1
+    _proxy_managers.clear()
+    all_managers.clear()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_pool_state_after_fork)
+
+
+def default_pool_manager() -> PoolManager:
+    """Return the process-local shared PoolManager.
+
+    urllib3 pools are not fork-safe, so a child must not reuse the parent's
+    manager. Within a process the same manager is reused so closing clients
+    does not retain one PoolManager per client.
+    """
+    global _default_pool_manager, _default_pool_pid
+    pid = os.getpid()
+    with _default_pool_lock:
+        # The child hook forces this mismatch. Keep the PID check for fork paths where the hook is not invoked.
+        if pid != _default_pool_pid:
+            _default_pool_manager = get_pool_manager()
+            _default_pool_pid = pid
         return _default_pool_manager
-    #  PoolManagers don't seem to be safe for some multiprocessing environments, always return a new one
-    return get_pool_manager()
 
 
 class ResponseSource:

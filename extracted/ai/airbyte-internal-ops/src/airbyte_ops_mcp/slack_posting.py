@@ -370,6 +370,45 @@ def format_github_login_contact(github_login: str) -> str:
     return github_login
 
 
+def resolve_airbyte_human_slack_id(github_login: str) -> str | None:
+    """Resolve an Airbyte human's GitHub login to a Slack ID.
+
+    This checks the internal roster for an employee or contractor with an
+    `@airbyte.io` email so community contributors are never tagged.
+    """
+    try:
+        roster = fetch_roster()
+    except Exception as exc:
+        logger.warning(
+            "Could not resolve GitHub login %s through the internal roster: %s",
+            github_login,
+            exc,
+        )
+        return None
+
+    login = github_login.casefold()
+    for person in roster:
+        handle = person.get("github_handle")
+        if not isinstance(handle, str) or handle.casefold() != login:
+            continue
+
+        slack_id = person.get("slack_id")
+        if not isinstance(slack_id, str) or not slack_id:
+            continue
+
+        emails = (
+            person.get("slack_email"),
+            person.get("github_public_email"),
+        )
+        if any(
+            isinstance(email, str) and email.casefold().endswith("@airbyte.io")
+            for email in emails
+        ):
+            return slack_id
+
+    return None
+
+
 def _extract_short_session_token(url: str, length: int = 8) -> str | None:
     """Extract a short token from the trailing path segment of a URL.
 

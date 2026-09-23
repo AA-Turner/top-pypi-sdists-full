@@ -28,6 +28,9 @@ const CFlags = "ENV CFLAGS=\"-O3 -funroll-loops -fno-strict-aliasing -flto -S\""
 const UVVersion = "0.9.26"
 const uvCacheMount = "--mount=type=cache,target=/root/.cache/uv"
 const uvPip = "uv pip"
+const observabilityConfigBuildPath = "telemetry.py"
+const observabilityConfigRuntimePath = "/.cog/telemetry.py"
+const PythonTracingRequirements = "opentelemetry-exporter-otlp-proto-http==1.44.0 opentelemetry-exporter-otlp-proto-grpc==1.44.0"
 const uvBreakSystemPackages = "--break-system-packages"
 const PrecompilePythonCommand = "RUN find / -type f -name \"*.py[co]\" -delete && find / -type f -name \"*.py\" -exec touch -t 197001010000 {} \\; && find / -type f -name \"*.py\" -printf \"%h\\n\" | sort -u | /usr/bin/python3 -m compileall --invalidation-mode timestamp -o 2 -j 0"
 const STANDARD_GENERATOR_NAME = "STANDARD_GENERATOR"
@@ -150,15 +153,14 @@ func (g *StandardGenerator) SetBreakSystemPackages(breakSystemPackages bool) {
 }
 
 // needsBreakSystemPackages reports whether pip invocations need
-// --break-system-packages. True when either the caller opted in explicitly
-// (SetBreakSystemPackages) or the generated Dockerfile installs Python via
-// `uv python install` (inside installPythonCUDA). The latter happens when the
-// base image is nvidia/cuda — which has no Python — as opposed to python:X-slim
-// or r8.im/cog-base, which ship their own. uv marks its installed Pythons as
-// externally managed (PEP 668).
+// --break-system-packages. True when the caller opts in explicitly, the
+// generated Dockerfile installs Python via uv, or a CUDA 13+ Cog base supplies
+// uv-managed Python. uv marks its installed Pythons as externally managed
+// (PEP 668).
 func (g *StandardGenerator) needsBreakSystemPackages() bool {
 	return g.breakSystemPackages ||
-		(g.Config.Build.GPU && g.useCudaBaseImage && !g.IsUsingCogBaseImage())
+		(g.Config.Build.GPU && g.useCudaBaseImage && !g.IsUsingCogBaseImage()) ||
+		(g.IsUsingCogBaseImage() && version.GreaterOrEqual(g.Config.Build.CUDA, "13.0"))
 }
 
 func (g *StandardGenerator) uvPipInstallFlags(flags string) string {
@@ -215,6 +217,7 @@ func (g *StandardGenerator) GenerateInitialSteps(ctx context.Context) (string, e
 			envs,
 			aptInstalls,
 			g.installUV(),
+			g.installPythonAlias(),
 		}
 		// Install user packages before the SDK so that changing the SDK
 		// wheel (e.g. via --cog-ref or COG_SDK_WHEEL) does not invalidate
@@ -294,6 +297,9 @@ func (g *StandardGenerator) GenerateModelBase(ctx context.Context) (string, erro
 		`WORKDIR /src`,
 		`EXPOSE 5000`,
 	}
+	if step := g.observabilityConfigCopy(); step != "" {
+		steps = append(steps, step)
+	}
 	steps = append(steps, g.cogEnvVars()...)
 	steps = append(steps, `CMD ["python", "-m", "cog.server.http"]`)
 	return strings.Join(steps, "\n"), nil
@@ -349,6 +355,9 @@ func (g *StandardGenerator) GenerateModelBaseWithSeparateWeights(ctx context.Con
 		`WORKDIR /src`,
 		`EXPOSE 5000`,
 	)
+	if step := g.observabilityConfigCopy(); step != "" {
+		base = append(base, step)
+	}
 	base = append(base, g.cogEnvVars()...)
 	base = append(base,
 		`CMD ["python", "-m", "cog.server.http"]`,
@@ -379,7 +388,34 @@ func (g *StandardGenerator) cogEnvVars() []string {
 	if g.Config.Concurrency != nil && g.Config.Concurrency.Max > 0 {
 		envs = append(envs, fmt.Sprintf(`ENV COG_MAX_CONCURRENCY=%d`, g.Config.Concurrency.Max))
 	}
+	if g.Config.Observability != nil && g.Config.Observability.Traces != nil && g.Config.Observability.Traces.Enabled {
+		traces := g.Config.Observability.Traces
+		envs = append(envs,
+			`ENV COG_TRACE_CONFIGURED=true`,
+			`ENV COG_TRACE_ENABLED=true`,
+			fmt.Sprintf(`ENV COG_TRACE_SAMPLER="%s"`, traces.Sampler),
+		)
+		if traces.SamplerArg != "" {
+			envs = append(envs, fmt.Sprintf(`ENV COG_TRACE_SAMPLER_ARG="%s"`, traces.SamplerArg))
+		}
+		if traces.TraceHeader != "" {
+			envs = append(envs,
+				fmt.Sprintf(`ENV COG_TRACE_HEADER="%s"`, traces.TraceHeader),
+				fmt.Sprintf(`ENV COG_TRACE_HEADER_FORMAT="%s"`, traces.TraceHeaderFormat),
+			)
+		}
+		if g.Config.Observability.Config != "" {
+			envs = append(envs, `ENV COG_OBSERVABILITY_CONFIG="`+observabilityConfigRuntimePath+`"`)
+		}
+	}
 	return envs
+}
+
+func (g *StandardGenerator) observabilityConfigCopy() string {
+	if g.Config.Observability == nil || g.Config.Observability.Traces == nil || !g.Config.Observability.Traces.Enabled || g.Config.Observability.Config == "" {
+		return ""
+	}
+	return "COPY --from=cog_build " + observabilityConfigBuildPath + " " + observabilityConfigRuntimePath
 }
 
 func (g *StandardGenerator) cpCogYaml() string {
@@ -506,6 +542,13 @@ func (g *StandardGenerator) installPython() (string, error) {
 	return "", nil
 }
 
+func (g *StandardGenerator) installPythonAlias() string {
+	if g.IsUsingCogBaseImage() && version.GreaterOrEqual(g.Config.Build.CUDA, "13.0") {
+		return `RUN ln -sf /usr/bin/python3 /usr/local/bin/python`
+	}
+	return ""
+}
+
 func (g *StandardGenerator) installUV() string {
 	return `COPY --from=ghcr.io/astral-sh/uv:` + UVVersion + ` /uv /uvx /usr/local/bin/
 ENV UV_SYSTEM_PYTHON=true`
@@ -523,9 +566,10 @@ func (g *StandardGenerator) installPythonCUDA() (string, error) {
 	ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 ` + g.installUV() + "\n" + fmt.Sprintf(`RUN uv python install %s && \
-	ln -sf $(uv python find %s) /usr/bin/python3
+	ln -sf $(uv python find %s) /usr/bin/python3 && \
+	ln -sf $(uv python find %s) /usr/local/bin/python
 ENV UV_PYTHON=%s
-ENV PATH="/usr/local/bin:$PATH"`, py, py, py), nil
+ENV PATH="/usr/local/bin:$PATH"`, py, py, py, py), nil
 }
 
 // resolveCogWheelConfigs resolves and caches the cog and coglet wheel configs.
@@ -704,8 +748,22 @@ func (g *StandardGenerator) installCog() (string, error) {
 		}
 		installLines += cogInstall
 	}
+	if tracingInstall := g.installPythonTracingDependencies(); tracingInstall != "" {
+		installLines += "\n" + tracingInstall
+	}
 
 	return installLines, nil
+}
+
+func (g *StandardGenerator) installPythonTracingDependencies() string {
+	if g.Config.Observability == nil || g.Config.Observability.Traces == nil || !g.Config.Observability.Traces.Enabled {
+		return ""
+	}
+	install := "RUN " + uvCacheMount + " " + uvPip + " install " + g.uvPipInstallFlags("--no-cache") + " " + PythonTracingRequirements
+	if g.strip {
+		install += " && " + StripDebugSymbolsCommand
+	}
+	return install
 }
 
 // installCogFromPyPI installs the cog SDK from PyPI.

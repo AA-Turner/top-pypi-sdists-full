@@ -5,11 +5,95 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 use coglet_core::bridge::protocol::SlotId;
 use coglet_core::worker::{PredictHandler, PredictResult, SetupError, SlotSender};
 
 use crate::predictor::PythonPredictor;
+
+struct PythonTraceGuard {
+    token: Option<Py<PyAny>>,
+}
+
+impl PythonTraceGuard {
+    fn enter(py: Python<'_>, carrier: Option<&HashMap<String, String>>) -> PyResult<Self> {
+        if carrier.is_none() {
+            return Ok(Self { token: None });
+        }
+        let trace_module = py.import("cog._trace")?;
+        let dict = PyDict::new(py);
+        if let Some(carrier) = carrier {
+            for (key, value) in carrier {
+                dict.set_item(key, value)?;
+            }
+        }
+        let token = trace_module.call_method1("attach", (dict,))?;
+        Ok(Self {
+            token: if token.is_none() {
+                None
+            } else {
+                Some(token.unbind())
+            },
+        })
+    }
+}
+
+impl Drop for PythonTraceGuard {
+    fn drop(&mut self) {
+        let Some(token) = self.token.take() else {
+            return;
+        };
+        Python::attach(|py| {
+            if let Ok(trace_module) = py.import("cog._trace") {
+                let _ = trace_module.call_method1("detach", (token.bind(py),));
+            }
+        });
+    }
+}
+
+fn env_true(name: &str, default: bool) -> bool {
+    std::env::var(name).map_or(default, |value| {
+        matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes")
+    })
+}
+
+fn python_tracing_enabled() -> bool {
+    if !env_true("COG_TRACE_CONFIGURED", false)
+        || !env_true("COG_TRACE_ENABLED", true)
+        || env_true("OTEL_SDK_DISABLED", false)
+    {
+        return false;
+    }
+    if std::env::var_os("COG_OBSERVABILITY_CONFIG").is_some() {
+        return true;
+    }
+    if std::env::var("OTEL_TRACES_EXPORTER").as_deref() == Ok("none") {
+        return false;
+    }
+    [
+        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+    ]
+    .iter()
+    .any(|name| std::env::var(name).is_ok_and(|value| !value.trim().is_empty()))
+}
+
+fn current_trace_carrier() -> Option<HashMap<String, String>> {
+    #[cfg(feature = "tracing")]
+    {
+        let carrier = coglet_core::trace::carrier_from_span(&tracing::Span::current())?;
+        let mut values = HashMap::from([("traceparent".to_string(), carrier.traceparent)]);
+        if let Some(tracestate) = carrier.tracestate {
+            values.insert("tracestate".to_string(), tracestate);
+        }
+        Some(values)
+    }
+    #[cfg(not(feature = "tracing"))]
+    {
+        None
+    }
+}
 
 /// What operation the handler performs
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,21 +165,14 @@ impl SlotState {
 
 /// Wraps PythonPredictor to implement the PredictHandler trait.
 ///
-/// The `is_train` flag determines whether predict() calls the Python
-/// predict() or train() method. This is set at construction time.
-///
-/// BUG-FOR-BUG COMPATIBILITY: In cog mainline, training routes use a worker
-/// that was created with is_train=false, so training routes actually call
-/// predict() instead of train(). We replicate this by always creating the
-/// handler with is_train=false. To fix this bug, pass is_train=true when
-/// creating a handler for training routes.
+/// The mode determines whether predict() calls the Python predict() or train()
+/// method. This is set at construction time from the worker's `is_train` flag.
 pub struct PythonPredictHandler {
     predictor_ref: String,
     predictor: Mutex<Option<Arc<PythonPredictor>>>,
     /// Per-slot cancellation state (keyed by SlotId).
     slots: Mutex<HashMap<SlotId, SlotState>>,
     /// What operation this handler performs (predict or train).
-    /// BUG: cog mainline always uses Predict mode, even for training routes.
     mode: HandlerMode,
     /// Shared asyncio event loop for async predictions (runs in dedicated thread).
     async_loop: Mutex<Option<Py<PyAny>>>,
@@ -120,10 +197,6 @@ impl PythonPredictHandler {
     }
 
     /// Create a handler in training mode.
-    ///
-    /// NOTE: For bug-for-bug compatibility with cog mainline, use new() instead.
-    /// Cog mainline's training routes incorrectly use a predict-mode worker.
-    #[allow(dead_code)]
     pub fn new_train(predictor_ref: String, max_concurrency: usize) -> Result<Self, SetupError> {
         let (loop_obj, thread) = Self::init_async_loop()?;
         Ok(Self {
@@ -280,6 +353,17 @@ impl PythonPredictHandler {
 impl PredictHandler for PythonPredictHandler {
     async fn setup(&self) -> Result<(), SetupError> {
         Python::attach(|py| {
+            let carrier = current_trace_carrier();
+            if python_tracing_enabled() {
+                let trace_module = py
+                    .import("cog._trace")
+                    .map_err(|error| SetupError::setup(error.to_string()))?;
+                trace_module
+                    .call_method0("install_provider")
+                    .map_err(|error| SetupError::setup(error.to_string()))?;
+            }
+            let _trace_guard = PythonTraceGuard::enter(py, carrier.as_ref())
+                .map_err(|error| SetupError::internal(error.to_string()))?;
             tracing::info!(predictor_ref = %self.predictor_ref, "Loading predictor");
 
             let pred = PythonPredictor::load(py, &self.predictor_ref)
@@ -318,6 +402,10 @@ impl PredictHandler for PythonPredictHandler {
         })
     }
 
+    fn is_train(&self) -> bool {
+        self.mode == HandlerMode::Train
+    }
+
     async fn predict(
         &self,
         slot: SlotId,
@@ -340,6 +428,40 @@ impl PredictHandler for PythonPredictHandler {
         };
         let is_async = pred.is_async();
         tracing::trace!(%slot, %id, is_async, "Got predictor");
+        #[cfg(feature = "tracing")]
+        let bounded_prediction_id = coglet_core::bounded_attribute_value(&id);
+        let _invoke_span = match self.mode {
+            HandlerMode::Train => coglet_core::cog_span!(
+                info_span,
+                "cog.train.invoke",
+                "cog.prediction.id" = %bounded_prediction_id,
+                "cog.slot.id" = %slot
+            ),
+            HandlerMode::Predict => coglet_core::cog_span!(
+                info_span,
+                "cog.prediction.invoke",
+                "cog.prediction.id" = %bounded_prediction_id,
+                "cog.slot.id" = %slot
+            ),
+        };
+        let _invoke_entered = _invoke_span.enter();
+        let trace_carrier = {
+            #[cfg(feature = "tracing")]
+            {
+                coglet_core::trace::carrier_from_span(&_invoke_span).map(|carrier| {
+                    let mut values =
+                        HashMap::from([("traceparent".to_string(), carrier.traceparent)]);
+                    if let Some(tracestate) = carrier.tracestate {
+                        values.insert("tracestate".to_string(), tracestate);
+                    }
+                    values
+                })
+            }
+            #[cfg(not(feature = "tracing"))]
+            {
+                None
+            }
+        };
 
         // Track that we're starting a prediction on this slot.
         // Capture the Python thread ID for this thread (used by
@@ -415,9 +537,13 @@ impl PredictHandler for PythonPredictHandler {
 
                     // Submit coroutine and get future + prepared input for cleanup
                     let scope_ref = scope_guard.as_ref().map(|g| g.scope());
-                    let (future, is_async_gen, prepared) = match pred
-                        .train_async_worker(input, &loop_obj, &id, scope_ref)
-                    {
+                    let (future, is_async_gen, prepared) = match pred.train_async_worker(
+                        input,
+                        &loop_obj,
+                        &id,
+                        scope_ref,
+                        trace_carrier.as_ref(),
+                    ) {
                         Ok(f) => f,
                         Err(e) => {
                             self.finish_prediction(slot);
@@ -464,7 +590,7 @@ impl PredictHandler for PythonPredictHandler {
                 } else {
                     // Sync train - set sync prediction ID for log routing
                     crate::log_writer::set_sync_prediction_id(Some(&id));
-                    let r = pred.train_worker(input, slot_sender.clone());
+                    let r = pred.train_worker(input, slot_sender.clone(), trace_carrier.as_ref());
                     crate::log_writer::set_sync_prediction_id(None);
 
                     // Upgrade to Cancelled if the slot was marked cancelled
@@ -494,9 +620,13 @@ impl PredictHandler for PythonPredictHandler {
 
                     // Submit coroutine and get future + prepared input for cleanup
                     let scope_ref = scope_guard.as_ref().map(|g| g.scope());
-                    let (future, is_async_gen, prepared) = match pred
-                        .predict_async_worker(input, &loop_obj, &id, scope_ref)
-                    {
+                    let (future, is_async_gen, prepared) = match pred.predict_async_worker(
+                        input,
+                        &loop_obj,
+                        &id,
+                        scope_ref,
+                        trace_carrier.as_ref(),
+                    ) {
                         Ok(f) => f,
                         Err(e) => {
                             self.finish_prediction(slot);
@@ -544,7 +674,7 @@ impl PredictHandler for PythonPredictHandler {
                     // Sync predict - set sync prediction ID for log routing
                     crate::log_writer::set_sync_prediction_id(Some(&id));
                     tracing::trace!(%slot, %id, "Calling predict_worker");
-                    let r = pred.predict_worker(input, slot_sender.clone());
+                    let r = pred.predict_worker(input, slot_sender.clone(), trace_carrier.as_ref());
                     tracing::trace!(%slot, %id, "predict_worker returned");
                     crate::log_writer::set_sync_prediction_id(None);
 
@@ -660,6 +790,17 @@ impl PredictHandler for PythonPredictHandler {
             // Sync healthcheck - run in thread pool with timeout
             Python::attach(|py| pred.healthcheck_sync(py))
         }
+    }
+
+    async fn shutdown(&self) {
+        if !python_tracing_enabled() {
+            return;
+        }
+        Python::attach(|py| {
+            if let Ok(trace_module) = py.import("cog._trace") {
+                let _ = trace_module.call_method0("shutdown");
+            }
+        });
     }
 }
 

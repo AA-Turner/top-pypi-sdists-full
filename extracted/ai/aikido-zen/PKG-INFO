@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: aikido_zen
-Version: 1.2.35
+Version: 1.2.36
 Summary: Aikido Zen for Python
 License: AGPL-3.0-or-later
 License-File: LICENSE
 Keywords: web application firewall,WAF,cybersecurity,security,firewall,web security,application security,threat detection,intrusion prevention,DDoS protection,malware protection,Python,Python 3,network security,data protection,secure coding,vulnerability management,API security,SSL/TLS,penetration testing
 Author: Aikido Security
 Author-email: help@aikido.dev
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.8,<3.15
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -25,8 +25,10 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Security
 Requires-Dist: packaging (>=24.1,<25.0)
 Requires-Dist: pytricia (>=1.3.0,<2.0.0) ; sys_platform != "win32"
-Requires-Dist: regex (>=2024.5.15,<2025.0.0)
-Requires-Dist: wrapt (>=1.17.2,<2.0.0)
+Requires-Dist: regex (>=2024.5.15,<2025.0.0) ; python_version < "3.13"
+Requires-Dist: regex (>=2026.8.31,<2027.0.0) ; python_version >= "3.13"
+Requires-Dist: wrapt (>=1.17.2,<2.0.0) ; python_version < "3.13"
+Requires-Dist: wrapt (>=2.4.0,<3.0.0) ; python_version >= "3.13"
 Project-URL: Bug Tracker, https://github.com/AikidoSec/firewall-python/issues
 Project-URL: Bug Bounty, https://app.intigriti.com/programs/aikido
 Project-URL: Homepage, https://www.aikido.dev/runtime/firewall
@@ -99,7 +101,7 @@ Zen instruments the following AI SDKs to track which models are used and how man
 * ✅ [`boto3`](https://pypi.org/project/boto3) (AWS Bedrock)
 * ✅ [`groq`](https://pypi.org/project/groq)
 
-Zen is compatible with Python 3.8-3.13 and can run on Windows, Linux, and Mac OS X.
+Zen is compatible with Python 3.8-3.14 and can run on Windows, Linux, and Mac OS X.
 
 ## Reporting to your Aikido Security dashboard
 

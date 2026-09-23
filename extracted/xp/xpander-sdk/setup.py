@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="xpander-sdk",
-    version="2.0.522",
+    version="2.0.524",
     author="xpanderAI",
     author_email="dev@xpander.ai",
     description="xpander.ai Backend-as-a-service for AI Agents - SDK",
@@ -43,6 +43,8 @@ setup(
             "aioboto3==15.5.0",
             # agno 2.5.14 tools/mcp imports the pre-2.x streamablehttp_client
             "mcp<2",
+            # agno 2.5.14's Claude model passes an httpx.Client that anthropic 1.x rejects
+            "anthropic<1",
         ],
         "test": [
             "pytest",

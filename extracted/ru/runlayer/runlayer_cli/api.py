@@ -448,6 +448,22 @@ class RunlayerClient(CatalogClientMixin):
             response.raise_for_status()
             return response.json()
 
+    def submit_aiwatch_checkin_batch(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Submit several feature check-ins for one device in a single request.
+
+        Returns {"unsupported": True} when the backend predates the batch route
+        so the caller can fall back to one request per feature.
+        """
+        with self._client(timeout=_AIWATCH_CHECKIN_TIMEOUT) as client:
+            response = client.post(
+                f"{self.base_url}/api/v1/ai-watch/check-in/batch",
+                json=payload,
+            )
+            if response.status_code == 404:
+                return {"unsupported": True}
+            response.raise_for_status()
+            return response.json()
+
     def get_aiwatch_config(
         self, *, device_id: str | None = None
     ) -> SyncedAIWatchConfig | None:

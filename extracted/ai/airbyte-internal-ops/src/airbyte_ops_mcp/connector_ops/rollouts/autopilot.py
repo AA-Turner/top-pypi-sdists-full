@@ -56,6 +56,9 @@ from airbyte_ops_mcp.connector_ops.rollouts.constants import (
     CustomerTier,
     resolve_strategy,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.escalation import (
+    team_oncall_alias_for_connector,
+)
 from airbyte_ops_mcp.connector_ops.rollouts.models import (
     AutopilotAction,
     AutopilotResult,
@@ -68,7 +71,8 @@ from airbyte_ops_mcp.connector_ops.rollouts.paused_report import (
 from airbyte_ops_mcp.connector_ops.rollouts.state_transitions import pause_rollout
 from airbyte_ops_mcp.prod_db_access.queries import query_connector_rollouts
 from airbyte_ops_mcp.registry.release_attribution import (
-    KIND_BOT,
+    ACTOR_BOT,
+    ACTOR_USER,
     KIND_MAINTAINER,
     lookup_release_attribution,
 )
@@ -76,8 +80,8 @@ from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.slack_posting import (
     SlackAPIError,
     SlackPostResult,
-    format_github_login_contact,
     post_thread_reply,
+    resolve_airbyte_human_slack_id,
     send_hitl_notification,
 )
 
@@ -89,27 +93,26 @@ _AUTOPILOT_ESCALATION_FALLBACK = "S0BJ4K3LC4X"
 
 @dataclass(frozen=True)
 class ReleaseContext:
-    """Release attribution for a rollout notification.
+    """Release escalation context using the four-rung contact ladder.
 
-    `contact_login` is set only for a human release owner.  A bot identity is
-    named in the message but cannot act on a paused rollout, and a community
-    contributor is never named at all, so both route to the oncall rotation.
+    The ladder tries the Airbyte human PR author, then merger, then the
+    certified connector's team oncall, and finally the Hydra oncall group.
     """
 
     text: str = ""
-    contact_login: str | None = None
+    target: str | None = None
 
     @property
     def escalation_target(self) -> str:
         """Return the person to notify, falling back to the oncall usergroup."""
-        if self.contact_login:
-            return f"@{self.contact_login}"
+        if self.target:
+            return self.target
         return _AUTOPILOT_ESCALATION_FALLBACK
 
     @property
     def escalation_cc(self) -> list[str]:
         """Return the oncall CC list, empty when oncall is already the target."""
-        return [_AUTOPILOT_ESCALATION_FALLBACK] if self.contact_login else []
+        return [_AUTOPILOT_ESCALATION_FALLBACK] if self.target else []
 
 
 def _release_context(
@@ -119,9 +122,11 @@ def _release_context(
     store: RegistryStore | None = None,
 ) -> ReleaseContext:
     """Return best-effort release context for a rollout notification."""
+    store = store or RegistryStore.parse("coral:prod")
+    attribution = None
     try:
         result = lookup_release_attribution(
-            store or RegistryStore.parse("coral:prod"),
+            store,
             connector,
             version,
         )
@@ -132,21 +137,20 @@ def _release_context(
             version,
             exc,
         )
-        return ReleaseContext()
+    else:
+        if result.status != "found" or result.attribution is None:
+            if result.status == "error":
+                logger.warning(
+                    "Release attribution lookup failed for %s@%s: %s",
+                    connector,
+                    version,
+                    result.error,
+                )
+        else:
+            attribution = result.attribution
 
-    if result.status != "found" or result.attribution is None:
-        if result.status == "error":
-            logger.warning(
-                "Release attribution lookup failed for %s@%s: %s",
-                connector,
-                version,
-                result.error,
-            )
-        return ReleaseContext()
-
-    attribution = result.attribution
     lines: list[str] = []
-    if attribution.pr_url:
+    if attribution is not None and attribution.pr_url:
         pr_label = (
             f"PR {attribution.pr_number}"
             if attribution.pr_number is not None
@@ -154,16 +158,59 @@ def _release_context(
         )
         lines.append(f"Release PR: <{attribution.pr_url}|{pr_label}>")
 
-    contact_login: str | None = None
-    if attribution.attributed_to_kind == KIND_MAINTAINER and attribution.attributed_to:
-        contact_login = attribution.attributed_to
-        lines.append(f"Release contact: {format_github_login_contact(contact_login)}")
-    elif attribution.attributed_to_kind == KIND_BOT and attribution.attributed_to:
-        lines.append(f"Released by: `{attribution.attributed_to}` (automated account)")
-    if attribution.released_at:
+    target: str | None = None
+    if attribution is not None:
+        for rung, login, actor_type in (
+            ("PR author", attribution.pr_author_login, attribution.pr_author_type),
+            (
+                "PR merger",
+                attribution.pr_merged_by_login,
+                attribution.pr_merged_by_type,
+            ),
+            (
+                "release contact",
+                attribution.attributed_to
+                if attribution.attributed_to_kind == KIND_MAINTAINER
+                else None,
+                ACTOR_USER,
+            ),
+        ):
+            if actor_type != ACTOR_USER or not login:
+                continue
+            slack_id = resolve_airbyte_human_slack_id(login)
+            if slack_id:
+                target = slack_id
+                lines.append(f"Release contact: <@{slack_id}> (`{login}`)")
+                lines.append(f"Escalation: routed to {rung} (Airbyte release contact)")
+                break
+
+        if target is None:
+            for login, actor_type in (
+                (attribution.pr_author_login, attribution.pr_author_type),
+                (attribution.pr_merged_by_login, attribution.pr_merged_by_type),
+            ):
+                if actor_type == ACTOR_BOT and login:
+                    lines.append(f"Released by: `{login}` (automated account)")
+                    break
+
+    if attribution is not None and attribution.released_at:
         lines.append(f"Released at: `{attribution.released_at.isoformat()}`")
 
-    return ReleaseContext(text="\n".join(lines), contact_login=contact_login)
+    if target is None:
+        alias = team_oncall_alias_for_connector(connector, store=store)
+        if alias:
+            target = alias
+            lines.append(
+                f"Escalation: routed to {alias.removeprefix('@')} "
+                "(connector team oncall; no Airbyte release contact resolved)"
+            )
+        else:
+            lines.append(
+                "Escalation: no release contact or connector team resolved; "
+                "routed to oc-hydra"
+            )
+
+    return ReleaseContext(text="\n".join(lines), target=target)
 
 
 @dataclass(frozen=True)

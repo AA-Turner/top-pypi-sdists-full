@@ -264,6 +264,7 @@ class TooltipTransform(ESMTransform):
     _transform = """\
 import Icon from "@mui/material/Icon";
 import Tooltip from "@mui/material/Tooltip";
+import {{render_icon_text as render_tooltip_icon_text}} from "./utils";
 
 {esm}
 
@@ -274,7 +275,7 @@ function {output}(props, ref) {{
   const Wrapped{input} = React.forwardRef({input})
   return (description ? (
     <Tooltip
-      title={{description}}
+      title={{render_tooltip_icon_text(description)}}
       arrow
       enterDelay={{description_delay}}
       enterNextDelay={{description_delay}}
@@ -346,7 +347,11 @@ class MaterialComponent(ReactComponent):
         if 'dark_theme' not in params:
             params['dark_theme'] = config.theme == 'dark'
         if 'design' not in params:
-            params['design'] = MaterialDesign
+            design = config.design
+            if isinstance(design, type) and issubclass(design, MaterialDesign):
+                params['design'] = design
+            else:
+                params['design'] = MaterialDesign
         super().__init__(**params)
         for p, value in params.items():
             if p not in self.param or not self.param[p].allow_refs:

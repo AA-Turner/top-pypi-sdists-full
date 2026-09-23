@@ -9,6 +9,7 @@ _NULL_KEYRING_BACKEND = "keyring.backends.null.Keyring"
 # Set before any test dependency can initialize the OS backend.
 os.environ["PYTHON_KEYRING_BACKEND"] = _NULL_KEYRING_BACKEND
 
+import logging  # noqa: E402
 import subprocess  # noqa: E402
 from pathlib import Path  # noqa: E402
 from unittest.mock import patch  # noqa: E402
@@ -16,6 +17,7 @@ from unittest.mock import patch  # noqa: E402
 import keyring  # noqa: E402
 import keyring.backends.null  # noqa: E402
 import pytest  # noqa: E402
+import structlog  # noqa: E402
 
 from runlayer_cli.credential_store import reset_credential_store  # noqa: E402
 from runlayer_cli.hook_install.browser_extension import (  # noqa: E402
@@ -49,6 +51,36 @@ def _guard_subprocess_keyring():
 
     with patch.object(subprocess.Popen, "__init__", new=guarded_init):
         yield
+
+
+def _reset_global_logging() -> None:
+    logging.disable(logging.NOTSET)
+    structlog.reset_defaults()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_logging_state():
+    """Restore process-global logging state around every test.
+
+    ``setup_logging`` replaces the root handlers (``basicConfig(force=True)``)
+    and pins the root level; every in-process hook run calls
+    ``silence_hook_logging`` (``logging.disable(CRITICAL)`` + a drop-everything
+    structlog config). The CLI never undoes any of it, so on a shared xdist
+    worker a later test asserting on log output reads an empty log file or an
+    empty ``capture_logs`` list. The reset also runs before the test: state
+    that lands after the previous test's teardown must not reach this one.
+    """
+    root = logging.root
+    handlers = list(root.handlers)
+    level = root.level
+    _reset_global_logging()
+    yield
+    for handler in root.handlers:
+        if handler not in handlers:
+            handler.close()
+    root.handlers[:] = handlers
+    root.setLevel(level)
+    _reset_global_logging()
 
 
 @pytest.fixture(autouse=True)

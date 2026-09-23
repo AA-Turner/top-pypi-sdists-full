@@ -1,6 +1,9 @@
+import itertools
+
 import pytest
+import strawberry
 from _pytest.main import ExitCode
-from flask import Response, jsonify
+from flask import Flask, Response, jsonify, request
 
 import schemathesis
 from schemathesis.python._constants.registry import default_registry
@@ -387,6 +390,72 @@ def test_missing_test_data_advice_for_unusable_linked_data(ctx, cli, snapshot_cl
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_advice_from_dependency_graph(ctx, cli, snapshot_cli):
+    # No links are declared, so the advice comes from the inferred dependency graph:
+    # `POST /orders` supplies what `GET /orders/{orderId}/receipt` needs, nothing in the schema
+    # supplies what `GET /invoices/{invoiceId}` needs, and `GET /status` consumes no resource at
+    # all, so it keeps the generic advice.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/orders": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "string"}}}
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            "/orders/{orderId}/receipt": {
+                "get": {
+                    "parameters": [{"in": "path", "name": "orderId", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+            "/invoices/{invoiceId}": {
+                "get": {
+                    "parameters": [{"in": "path", "name": "invoiceId", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+            "/status": {"get": {"responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}}}},
+        }
+    )
+
+    @app.route("/orders", methods=["POST"])
+    def create_order():
+        return jsonify({"id": "order-1"}), 201
+
+    @app.route("/orders/<order_id>/receipt", methods=["GET"])
+    def get_receipt(order_id):
+        return jsonify({"message": "Not found"}), 404
+
+    @app.route("/invoices/<invoice_id>", methods=["GET"])
+    def get_invoice(invoice_id):
+        return jsonify({"message": "Not found"}), 404
+
+    @app.route("/status", methods=["GET"])
+    def get_status():
+        return jsonify({"message": "Not found"}), 404
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "-c not_a_server_error",
+            "--phases=fuzzing",
+            "--mode=positive",
+            "-n 10",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_missing_test_data_advice_grouped_by_cause(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     assert (
@@ -490,3 +559,191 @@ def test_no_missing_auth_warning_when_the_operation_later_succeeds(ctx, cli, app
     result = cli.run(schema_url, "-c not_a_server_error", "--max-examples=5", "--phases=examples,fuzzing")
 
     assert "Missing authentication" not in result.stdout
+
+
+ORDERS = {
+    "/orders/{orderId}": {
+        "get": {
+            "parameters": [{"name": "orderId", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}},
+        }
+    }
+}
+
+
+LOW_VALID_RATE_ARGS = ("--max-examples=10", "--phases=fuzzing", "-m", "positive", "--warnings=low_valid_rate")
+
+
+def _orders_app(ctx, *, accept_every, rejection_status=404):
+    app, _ = ctx.openapi.make_flask_app(ORDERS)
+    calls = itertools.count()
+
+    @app.route("/orders/<order_id>")
+    def orders(order_id):
+        if next(calls) % accept_every == 0:
+            return jsonify({"id": order_id})
+        return jsonify({"error": "unavailable"}), rejection_status
+
+    return app
+
+
+def test_low_valid_rate_reported(ctx, cli):
+    app = _orders_app(ctx, accept_every=10)
+
+    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS)
+
+    assert "Low valid-input rate" in result.stdout
+    assert "GET /orders/{orderId}" in result.stdout
+
+
+def test_low_valid_rate_is_opt_in(ctx, cli):
+    app = _orders_app(ctx, accept_every=10)
+
+    result = cli.run_openapi_app(app, "--max-examples=10", "--phases=fuzzing", "-m", "positive")
+
+    assert "Low valid-input rate" not in result.stdout
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_low_valid_rate_warning(ctx, cli, snapshot_cli):
+    # One request in ten reaches the resource; the rest are well-formed but hit nothing.
+    app = _orders_app(ctx, accept_every=10)
+
+    assert cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS) == snapshot_cli
+
+
+def test_low_valid_rate_distinguishes_rejections_from_missing_resources(ctx, cli):
+    app = _orders_app(ctx, accept_every=10, rejection_status=422)
+
+    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
+
+    assert "(1/10, 9 rejected)" in result.stdout
+    assert "refused on their data" in result.stdout
+
+
+def test_no_low_valid_rate_warning_when_most_requests_are_accepted(ctx, cli):
+    app = _orders_app(ctx, accept_every=1)
+
+    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS)
+
+    assert "Low valid-input rate" not in result.stdout
+
+
+def test_low_valid_rate_threshold_is_configurable(ctx, cli, tmp_path, monkeypatch):
+    config_file = tmp_path / "schemathesis.toml"
+    config_file.write_text("""
+[warnings]
+display = ["low_valid_rate"]
+
+[warnings.low_valid_rate]
+threshold = 0.05
+""")
+    monkeypatch.chdir(tmp_path)
+    app = _orders_app(ctx, accept_every=10)
+
+    result = cli.run_openapi_app(app, "--max-examples=10", "--phases=fuzzing", "-m", "positive")
+
+    assert "Low valid-input rate" not in result.stdout
+
+
+def _erratic_books_schema():
+    calls = itertools.count()
+
+    @strawberry.type
+    class Book:
+        id: str
+        title: str
+
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def get_book(self, book_id: str) -> Book:
+            if next(calls) % 10 == 0:
+                return Book(id=book_id, title="Hitchhiker")
+            raise ValueError("Book not found")
+
+    return strawberry.Schema(query=Query)
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_low_valid_rate_for_graphql(ctx, cli, snapshot_cli):
+    # GraphQL answers 200 whether it served the query or only returned errors.
+    api = ctx.graphql.apps.from_schema(_erratic_books_schema())
+
+    assert cli.run(api.schema_url, *LOW_VALID_RATE_ARGS, "--continue-on-failure") == snapshot_cli
+
+
+def test_low_valid_rate_tip_for_graphql(ctx, cli):
+    api = ctx.graphql.apps.from_schema(_erratic_books_schema())
+
+    result = cli.run(api.schema_url, *LOW_VALID_RATE_ARGS, "--continue-on-failure")
+
+    assert "supply argument values via a fuzz dictionary" in result.stdout
+
+
+GRAPHQL_SDL = """
+type Book {
+  id: String!
+  title: String!
+}
+
+type Query {
+  getBook(bookId: String!): Book!
+}
+"""
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_for_graphql(cli, app_runner, tmp_path, snapshot_cli):
+    # A 200 with neither `data` nor `errors` fails no check, so nothing else in the run says the query was never served.
+    sdl = tmp_path / "schema.graphql"
+    sdl.write_text(GRAPHQL_SDL)
+
+    app = Flask(__name__)
+
+    @app.route("/graphql", methods=["POST"])
+    def graphql():
+        return jsonify({"data": None})
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            str(sdl),
+            f"--url=http://127.0.0.1:{port}/graphql",
+            "--max-examples=5",
+            "--phases=fuzzing",
+            "-m",
+            "positive",
+        )
+        == snapshot_cli
+    )
+
+
+GRAPHQL_SDL_WITH_MUTATION = f"""{GRAPHQL_SDL}
+type Mutation {{
+  addBook(title: String!): Book!
+}}
+"""
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_for_graphql_survives_stateful(cli, app_runner, tmp_path, snapshot_cli):
+    # The mutation is served, so the stateful phase reaches the query - but it still returns no data.
+    sdl = tmp_path / "schema.graphql"
+    sdl.write_text(GRAPHQL_SDL_WITH_MUTATION)
+
+    app = Flask(__name__)
+
+    @app.route("/graphql", methods=["POST"])
+    def graphql():
+        if "addBook" in request.get_data(as_text=True):
+            return jsonify({"data": {"addBook": {"id": "1", "title": "Hitchhiker"}}})
+        return jsonify({"data": None})
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(str(sdl), f"--url=http://127.0.0.1:{port}/graphql", "--max-examples=5", "-m", "positive")
+        == snapshot_cli
+    )

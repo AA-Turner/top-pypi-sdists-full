@@ -64,6 +64,33 @@ def test_daemon_failure_replays_consumed_stdin_to_inline_hook(
     assert capsys.readouterr().out == "request"
 
 
+def test_daemon_first_decodes_stdin_as_utf8_regardless_of_locale(
+    monkeypatch,
+) -> None:
+    seen: dict[str, str] = {}
+    monkeypatch.setattr(daemon_client, "daemon_is_enabled", lambda: True)
+
+    def fake_try_daemon_hook(stdin, **_kwargs):
+        seen["stdin"] = stdin
+        return {"stdout": "", "stderr": "", "exit_code": 0}
+
+    monkeypatch.setattr(daemon_client, "try_daemon_hook", fake_try_daemon_hook)
+    monkeypatch.setattr(
+        aiwatch.sys,
+        "stdin",
+        io.TextIOWrapper(
+            io.BytesIO("⚠️ → ┐".encode()),
+            encoding="cp1252",
+            errors="surrogateescape",
+        ),
+    )
+
+    with pytest.raises(SystemExit, match="0"):
+        aiwatch._run_hook_daemon_first()
+
+    assert seen["stdin"] == "⚠️ → ┐"
+
+
 def test_stdin_read_failure_does_not_replay_partial_stream(monkeypatch) -> None:
     class FlakyStdin:
         def __init__(self) -> None:

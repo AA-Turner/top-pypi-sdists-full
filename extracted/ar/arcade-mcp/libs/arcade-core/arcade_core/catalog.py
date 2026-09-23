@@ -22,7 +22,7 @@ from typing import (
     get_type_hints,
 )
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, create_model, model_serializer
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
@@ -35,6 +35,13 @@ from arcade_core.errors import (
     ToolOutputSchemaError,
 )
 from arcade_core.metadata import ToolMetadata
+from arcade_core.resources import (
+    InvalidResourcePathError,
+    ResourceDeclaration,
+    ResourceRegistry,
+    interface_uri,
+    ui_pointer,
+)
 from arcade_core.schema import (
     TOOL_NAME_SEPARATOR,
     FullyQualifiedName,
@@ -59,8 +66,8 @@ from arcade_core.utils import (
     is_strict_optional,
     is_string_literal,
     is_union,
+    normalize_toolkit_name,
     snake_to_pascal_case,
-    space_to_snake_case,
 )
 
 logger = logging.getLogger(__name__)
@@ -159,10 +166,20 @@ class ToolCatalog(BaseModel):
     _disabled_tools: set[str] = set()
     _disabled_toolkits: set[str] = set()
 
+    # Resources ride the catalog because it is the only object handed to the
+    # worker surface. They are a separate collection with separate types; the
+    # catalog is the carrier, not the owner.
+    _resources: ResourceRegistry = PrivateAttr(default_factory=ResourceRegistry)
+
     def __init__(self, **data) -> None:  # type: ignore[no-untyped-def]
         super().__init__(**data)
         self._load_disabled_tools()
         self._load_disabled_toolkits()
+
+    @property
+    def resources(self) -> ResourceRegistry:
+        """The resources declared by the toolkits in this catalog."""
+        return self._resources
 
     def _load_disabled_tools(self) -> None:
         """Load disabled tools from the environment variable.
@@ -258,6 +275,21 @@ class ToolCatalog(BaseModel):
             logger.info(f"Server '{toolkit_name!s}' is disabled and will not be cataloged.")
             return
 
+        ui = getattr(tool_func, "__tool_ui__", None)
+        if ui is not None:
+            try:
+                self._resources.declare(
+                    ui,
+                    toolkit_name=definition.toolkit.name,
+                    toolkit_version=definition.toolkit.version,
+                    as_interface=True,
+                )
+            except Exception as e:
+                raise ToolDefinitionError(
+                    f"Tool '{definition.name}' names {ui.name!r} as its user interface, which "
+                    f"could not be registered. Reason: {e}"
+                ) from e
+
         self._tools[fully_qualified_name] = MaterializedTool(
             definition=definition,
             tool=tool_func,
@@ -340,6 +372,64 @@ class ToolCatalog(BaseModel):
                     raise ToolDefinitionError(
                         f"Error encountered while adding tool {tool_name} from {module_name}. Reason: {e}"
                     ).with_context(tool_name)
+
+        self._add_toolkit_resources(toolkit, version)
+
+    def _add_toolkit_resources(self, toolkit: Toolkit, version: str | None = None) -> None:
+        """Register the resources a toolkit declares, qualifying each URI.
+
+        A resource that fails to register raises, the same as a tool that fails
+        to register. Both are toolkit primitives, and a toolkit that cannot
+        produce something it declares has not loaded.
+        """
+        if toolkit.name.lower() in self._disabled_toolkits:
+            # add_tool applies this per tool, on the normalised toolkit name.
+            # Resources arrive by a different path and would otherwise be
+            # published for a toolkit whose tools are hidden.
+            return
+
+        toolkit_name = normalize_toolkit_name(toolkit.name)
+        toolkit_version = version or toolkit.version
+
+        for module_name, resource_names in (toolkit.resources or {}).items():
+            try:
+                module = import_module(module_name)
+            except Exception as e:
+                raise ToolkitLoadError(
+                    f"Could not import module {module_name}. Reason: {e}"
+                ).with_context(toolkit.name) from e
+
+            for resource_name in resource_names:
+                declaration = getattr(module, resource_name, None)
+                if declaration is None:
+                    # Discovery reads the source, so a declaration the module
+                    # guards behind something false at import time is found there
+                    # and absent here. Skipping is what stops one unreachable
+                    # declaration taking every tool in the toolkit offline.
+                    logger.warning(
+                        f"{module_name}.{resource_name} is declared with @resource but the module "
+                        f"does not define it. Skipping it."
+                    )
+                    continue
+
+                if not isinstance(declaration, ResourceDeclaration):
+                    # Discovery saw the decorator in the source, so something above
+                    # @resource replaced what it returned.
+                    raise ToolkitLoadError(
+                        f"{module_name}.{resource_name} is declared with @resource but the "
+                        f"module attribute is a {type(declaration).__name__}, not the "
+                        f"declaration. A decorator above @resource is replacing it."
+                    ).with_context(toolkit.name)
+
+                try:
+                    self._resources.declare(
+                        declaration, toolkit_name=toolkit_name, toolkit_version=toolkit_version
+                    )
+                except Exception as e:
+                    raise ToolkitLoadError(
+                        f"Could not register resource {resource_name} from {module_name}. "
+                        f"Reason: {e}"
+                    ).with_context(toolkit.name) from e
 
     def __getitem__(self, name: FullyQualifiedName) -> MaterializedTool:
         return self.get_tool(name)
@@ -461,7 +551,7 @@ class ToolCatalog(BaseModel):
         metadata_requirement = create_metadata_requirement(tool, auth_requirement)
 
         toolkit_definition = ToolkitDefinition(
-            name=snake_to_pascal_case(space_to_snake_case(toolkit_name)),
+            name=normalize_toolkit_name(toolkit_name),
             description=toolkit_desc,
             version=toolkit_version,
         )
@@ -479,6 +569,16 @@ class ToolCatalog(BaseModel):
                 )
             tool_metadata.validate_for_tool()
 
+        meta = None
+        ui = getattr(tool, "__tool_ui__", None)
+        if ui is not None:
+            if not isinstance(ui, ResourceDeclaration):
+                raise ToolDefinitionError(
+                    f"Tool '{raw_tool_name}' passes a {type(ui).__name__} as its ui. Pass the "
+                    f"declaration @resource returns."
+                )
+            meta = ui_pointer(_interface_uri(raw_tool_name, ui, toolkit_definition))
+
         return ToolDefinition(
             name=tool_name,
             fully_qualified_name=str(fully_qualified_name),
@@ -493,7 +593,28 @@ class ToolCatalog(BaseModel):
             ),
             deprecation_message=deprecation_message,
             metadata=tool_metadata,
+            _meta=meta,
         )
+
+
+def _interface_uri(
+    tool_name: str, declaration: ResourceDeclaration, toolkit: ToolkitDefinition
+) -> str:
+    """Qualify the declaration a tool names, through the derivation registration uses."""
+    if toolkit.version is None:
+        raise ToolDefinitionError(
+            f"Tool '{tool_name}' names {declaration.name!r} as its user interface, but the "
+            f"toolkit has no version, so no URI can be derived for it."
+        )
+    try:
+        return interface_uri(
+            declaration, toolkit_name=toolkit.name, toolkit_version=toolkit.version
+        )
+    except InvalidResourcePathError as e:
+        raise ToolDefinitionError(
+            f"Tool '{tool_name}' names {declaration.name!r} as its user interface, but its "
+            f"path {declaration.path!r} is not usable. Reason: {e}"
+        ) from e
 
 
 def create_input_definition(func: Callable) -> ToolInput:

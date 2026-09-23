@@ -145,7 +145,7 @@ class SSRFSafeTransport(httpx.AsyncBaseTransport):
         # certificate validation uses the original hostname.
         extensions = dict(request.extensions)
         if scheme == "https":
-            extensions["sni_hostname"] = hostname.encode("ascii")
+            extensions["sni_hostname"] = hostname
 
         pinned_request = httpx.Request(
             method=request.method,

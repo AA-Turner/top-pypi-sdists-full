@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-import subprocess
+from subprocess import Popen
 from datetime import datetime
 from pathlib import Path
 from typing import Union, Optional
@@ -396,10 +396,14 @@ def execute():
     # Run the Spy job as a subprocess. Let stdout/stderr go to the parent process.
     # Use sys.executable rather than 'python3' so that the subprocess is the same interpreter the container started
     # with.
-    process = subprocess.Popen([sys.executable, '-c', spy_job_command])
+    process = Popen([sys.executable, '-c', spy_job_command])
 
     # Wait for the subprocess to finish and get the exit status
     exit_code = process.wait()
+
+    peak_memory_usage = get_memory_usage()
+    if peak_memory_usage:
+        logger.info(f'used a peak of {peak_memory_usage} bytes of memory')
 
     if exit_code == 0:
         logger.info('completed successfully.')

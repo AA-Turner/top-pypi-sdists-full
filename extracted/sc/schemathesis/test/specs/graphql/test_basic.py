@@ -5,6 +5,7 @@ from unittest.mock import ANY
 import pytest
 import requests
 import strawberry
+from graphql import GraphQLError
 from hypothesis import HealthCheck, Phase, find, given, settings
 
 import schemathesis
@@ -14,7 +15,7 @@ from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
 from schemathesis.core.errors import LoaderError
 from schemathesis.core.failures import AcceptedNegativeData, Failure, FailureGroup
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transport import USER_AGENT, Response
+from schemathesis.core.transport import USER_AGENT, CallOutcome, Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import (
@@ -25,7 +26,7 @@ from schemathesis.generation.meta import (
     PhaseInfo,
     TestPhase,
 )
-from schemathesis.graphql.checks import GraphQLClientError, GraphQLServerError
+from schemathesis.graphql.checks import GraphQLClientError, GraphQLSchemaViolation, GraphQLServerError
 from schemathesis.graphql.loaders import extract_schema_from_response, get_introspection_query
 from schemathesis.specs.graphql.validation import is_client_error, validate_graphql_response
 from schemathesis.specs.openapi.checks import (
@@ -157,6 +158,109 @@ def test_client_error(ctx):
         ({"data": {"field": "value"}}, False),
         # Empty errors array
         ({"data": None, "errors": []}, False),
+        # Apollo caller-side code outweighs the resolver `path`
+        (
+            {
+                "data": None,
+                "errors": [{"message": "Bad input", "path": ["addBook"], "extensions": {"code": "BAD_USER_INPUT"}}],
+            },
+            True,
+        ),
+        # Apollo server-side code outweighs the missing `path`
+        ({"data": None, "errors": [{"message": "Boom", "extensions": {"code": "INTERNAL_SERVER_ERROR"}}]}, False),
+        # graphql-java caller-side classification outweighs the resolver `path`
+        (
+            {
+                "data": None,
+                "errors": [
+                    {"message": "Bad query", "path": ["addBook"], "extensions": {"classification": "ValidationError"}}
+                ],
+            },
+            True,
+        ),
+        # graphql-java server-side classification outweighs the missing `path`
+        (
+            {"data": None, "errors": [{"message": "Boom", "extensions": {"classification": "DataFetchingException"}}]},
+            False,
+        ),
+        # Unrecognised markers fall back to the response shape
+        ({"data": None, "errors": [{"message": "Nope", "extensions": {"code": "TEAPOT"}}]}, True),
+        (
+            {"data": None, "errors": [{"message": "Nope", "path": ["addBook"], "extensions": {"code": "TEAPOT"}}]},
+            False,
+        ),
+        (
+            {
+                "data": None,
+                "errors": [
+                    {"message": "APQ off", "path": ["addBook"], "extensions": {"code": "PERSISTED_QUERY_NOT_SUPPORTED"}}
+                ],
+            },
+            True,
+        ),
+        (
+            {
+                "data": None,
+                "errors": [
+                    {
+                        "message": "No such operation",
+                        "path": ["addBook"],
+                        "extensions": {"code": "OPERATION_RESOLUTION_FAILURE"},
+                    }
+                ],
+            },
+            True,
+        ),
+        (
+            {
+                "data": None,
+                "errors": [
+                    {
+                        "message": "Wrongly returned null",
+                        "extensions": {"classification": "NullValueInNonNullableField"},
+                    }
+                ],
+            },
+            False,
+        ),
+        (
+            {
+                "data": None,
+                "errors": [
+                    {
+                        "message": "Mutations are not supported",
+                        "path": ["addBook"],
+                        "extensions": {"classification": "OperationNotSupported"},
+                    }
+                ],
+            },
+            True,
+        ),
+        # Auth codes say nothing about the data that was sent
+        (
+            {
+                "data": None,
+                "errors": [{"message": "Nope", "path": ["addBook"], "extensions": {"code": "UNAUTHENTICATED"}}],
+            },
+            False,
+        ),
+        (
+            {"data": None, "errors": [{"message": "Nope", "extensions": {"code": "FORBIDDEN"}}]},
+            True,
+        ),
+        # A crash anywhere in the response outweighs a rejection reported beside it
+        (
+            {
+                "data": None,
+                "errors": [
+                    {"message": "Bad input", "extensions": {"code": "BAD_USER_INPUT"}},
+                    {"message": "Boom", "path": ["addBook"], "extensions": {"code": "INTERNAL_SERVER_ERROR"}},
+                ],
+            },
+            False,
+        ),
+        # Error entries that are not objects must not crash the classification
+        ({"data": None, "errors": ["Boom"]}, True),
     ],
     ids=[
         "client_error_no_data_no_path",
@@ -165,6 +269,20 @@ def test_client_error(ctx):
         "server_error_has_partial_data",
         "no_errors",
         "empty_errors_array",
+        "apollo_caller_side_code",
+        "apollo_server_side_code",
+        "graphql_java_caller_side_classification",
+        "graphql_java_server_side_classification",
+        "unknown_code_without_path",
+        "unknown_code_with_path",
+        "apollo_persisted_query_not_supported",
+        "apollo_operation_resolution_failure",
+        "graphql_java_non_null_violation",
+        "graphql_java_operation_not_supported",
+        "auth_code_with_path_falls_back_to_shape",
+        "auth_code_without_path_falls_back_to_shape",
+        "server_side_marker_outweighs_caller_side_one",
+        "non_object_error_entry",
     ],
 )
 def test_is_client_error(payload, expected):
@@ -214,6 +332,108 @@ def test_multiple_server_error(ctx):
         validate_graphql_response(case, payload)
 
     assert exc.value.message == "1. Hidden 1 / 0 bug\n\n2. Another bug\n\n3. Third bug"
+
+
+GRAPHQL_CORE_NON_NULL_ERROR = "Cannot return null for non-nullable field Query.getBooks."
+GRAPHQL_JAVA_NON_NULL_ERROR = (
+    "The field at path '/getBooks' was declared as a non null type, but the code involved in retrieving data has "
+    "wrongly returned a null value.  The graphql specification requires that the parent field be set to null, or if "
+    "that is non nullable that it bubble up null to its parent and so on. The non-nullable type is 'Book' within "
+    "parent type 'Query'"
+)
+
+
+@pytest.mark.parametrize(
+    "error_message",
+    [GRAPHQL_CORE_NON_NULL_ERROR, GRAPHQL_JAVA_NON_NULL_ERROR],
+    ids=["graphql-core", "graphql-java"],
+)
+def test_schema_violation(ctx, error_message):
+    case = _books_schema(ctx)["Query"]["getBooks"].Case()
+    with pytest.raises(GraphQLSchemaViolation, match="GraphQL schema violation"):
+        validate_graphql_response(case, {"data": None, "errors": [{"message": error_message, "path": ["getBooks"]}]})
+
+
+def test_schema_violation_from_classification(ctx):
+    # Servers that label the error say so in a language the message text cannot be relied on to carry.
+    case = _books_schema(ctx)["Query"]["getBooks"].Case()
+    payload = {
+        "data": None,
+        "errors": [
+            {
+                "message": "Le champ ne peut pas etre null",
+                "path": ["getBooks"],
+                "extensions": {"classification": "NullValueInNonNullableField"},
+            }
+        ],
+    }
+    with pytest.raises(GraphQLSchemaViolation, match="GraphQL schema violation"):
+        validate_graphql_response(case, payload)
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        (
+            {"data": None, "errors": [{"message": "Cannot read property 'name' of null", "path": ["getBooks"]}]},
+            GraphQLServerError,
+        ),
+        (
+            {
+                "data": None,
+                "errors": [
+                    {"message": GRAPHQL_CORE_NON_NULL_ERROR, "path": ["getBooks"]},
+                    {"message": "Hidden 1 / 0 bug", "path": ["getAuthors"]},
+                ],
+            },
+            GraphQLServerError,
+        ),
+        (
+            {
+                "data": None,
+                "errors": [
+                    {
+                        "message": "Boom",
+                        "path": ["getBooks"],
+                        "extensions": {"classification": "DataFetchingException"},
+                    }
+                ],
+            },
+            GraphQLServerError,
+        ),
+        ({"errors": [{"message": "Cannot query field 'nope' on type 'Query'."}]}, GraphQLClientError),
+    ],
+    ids=[
+        "resolver_error_mentioning_null",
+        "mixed_with_resolver_error",
+        "resolver_crash_classification",
+        "unknown_field",
+    ],
+)
+def test_not_a_schema_violation(ctx, payload, expected):
+    case = _books_schema(ctx)["Query"]["getBooks"].Case()
+    with pytest.raises(expected):
+        validate_graphql_response(case, payload)
+
+
+def test_schema_violation_on_real_server(ctx):
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def author_name(self) -> str:
+            return None
+
+    api = ctx.graphql.apps.from_schema(strawberry.Schema(Query))
+    schema = schemathesis.graphql.from_url(api.schema_url)
+
+    @given(case=schema["Query"]["authorName"].as_strategy())
+    @settings(max_examples=1, deadline=None, phases=[Phase.generate])
+    def test(case):
+        case.call_and_validate()
+
+    with pytest.raises(FailureGroup) as exc:
+        test()
+    assert isinstance(exc.value.exceptions[0], GraphQLSchemaViolation)
 
 
 def test_no_query(ctx):
@@ -489,8 +709,10 @@ def test_negative_mode_fallback_to_positive(ctx):
     test_()
 
 
-def _make_graphql_case_with_mode(schema, mode):
-    operation = schema["Mutation"]["addBook"]
+def _make_graphql_case_with_mode(
+    schema, mode, *, operation=None, body='{ addBook(title: "test", author: "test") { id } }'
+):
+    operation = operation if operation is not None else schema["Mutation"]["addBook"]
     meta = CaseMetadata(
         generation=GenerationInfo(time=0.0, mode=mode),
         components={ParameterLocation.BODY: ComponentInfo(mode=mode)},
@@ -508,7 +730,7 @@ def _make_graphql_case_with_mode(schema, mode):
         operation=operation,
         method="POST",
         path="/graphql",
-        body='{ addBook(title: "test", author: "test") { id } }',
+        body=body,
         media_type="application/json",
         meta=meta,
     )
@@ -580,6 +802,55 @@ def test_not_a_server_error_graphql_negative_mode_server_error_raises(ctx):
         not_a_server_error(check_ctx, response, case)
 
 
+def test_negative_mode_resolver_rejection_marked_by_extensions(ctx):
+    # A resolver that rejects bad input reports a `path`, so only its `extensions` tell a rejection from a crash.
+    @strawberry.type
+    class Book:
+        title: str
+
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def bookByTitle(self, title: str) -> Book:
+            raise GraphQLError("Title must not be empty", extensions={"code": "BAD_USER_INPUT"})
+
+    api = ctx.graphql.apps.from_schema(strawberry.Schema(Query))
+    schema = schemathesis.graphql.from_url(api.schema_url)
+    case = _make_graphql_case_with_mode(
+        schema,
+        GenerationMode.NEGATIVE,
+        operation=schema["Query"]["bookByTitle"],
+        body='{ bookByTitle(title: "") { title } }',
+    )
+
+    assert case.call_and_validate().json()["errors"][0]["path"] == ["bookByTitle"]
+
+
+def test_not_a_server_error_graphql_positive_mode_server_side_extensions_code_raises(ctx, response_factory):
+    schema = _books_schema(ctx)
+    case = _make_graphql_case_with_mode(schema, GenerationMode.POSITIVE)
+    response = response_factory.requests(
+        content=json.dumps(
+            {
+                "data": None,
+                "errors": [
+                    {
+                        "message": "Internal error in resolver",
+                        "path": ["addBook"],
+                        "extensions": {"code": "INTERNAL_SERVER_ERROR"},
+                    }
+                ],
+            }
+        ).encode()
+    )
+    check_ctx = CheckContext(
+        override=None, auth=None, headers=None, config=ChecksConfig(), transport_kwargs=None, response_checks=None
+    )
+
+    with pytest.raises(GraphQLServerError, match="Internal error in resolver"):
+        not_a_server_error(check_ctx, response, case)
+
+
 def test_not_a_server_error_graphql_negative_mode_includes_description(ctx):
     schema = _books_schema(ctx)
     case = _make_graphql_case_with_mode(schema, GenerationMode.NEGATIVE)
@@ -624,3 +895,27 @@ def test_not_a_server_error_graphql_bad_charset(ctx, charset):
     )
 
     assert not_a_server_error(check_ctx, response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        (b'{"data": {"getBooks": []}}', CallOutcome.ACCEPTED),
+        (b'{"data": null, "errors": [{"message": "Boom", "path": ["getBooks"]}]}', CallOutcome.REJECTED),
+        (b'{"data": {"getBooks": []}, "errors": [{"message": "Boom"}]}', CallOutcome.REJECTED),
+        (b'{"data": null}', CallOutcome.REJECTED),
+        (b'{"data": {"getBooks": []}, "errors": []}', CallOutcome.ACCEPTED),
+        (b"INTERNAL SERVER ERROR", CallOutcome.UNINFORMATIVE),
+    ],
+    ids=["data", "errors", "partial-data", "null-data", "empty-errors", "not-a-graphql-response"],
+)
+def test_classify_call_outcome(ctx, response_factory, content, expected):
+    schema = _books_schema(ctx)
+    assert schema.classify_call_outcome(response_factory.requests(content=content)) is expected
+
+
+@pytest.mark.parametrize("status_code", [401, 403, 500])
+def test_classify_call_outcome_ignores_uninformative_responses(ctx, response_factory, status_code):
+    schema = _books_schema(ctx)
+    response = response_factory.requests(status_code=status_code, content=b'{"errors": [{"message": "Nope"}]}')
+    assert schema.classify_call_outcome(response) is CallOutcome.UNINFORMATIVE

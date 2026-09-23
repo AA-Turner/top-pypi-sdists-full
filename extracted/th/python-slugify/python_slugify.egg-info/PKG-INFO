@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-slugify
-Version: 9.1.0
+Version: 9.1.1
 Summary: A Python slugify application that also handles Unicode
 Author-email: Val Neekman <info@neekware.com>
 License-Expression: MIT
@@ -36,8 +36,8 @@ Unicode-aware slug generation for Python, with explicit transliteration choices.
 
 ## Quickstart
 
-**9.0.0 is available on [PyPI](https://pypi.org/project/python-slugify/9.0.0/).**
-Legacy behavior remains the default; improved rules require `algorithm='modern'`.
+**[9+ releases](https://github.com/un33k/python-slugify/releases) ship the modern algorithm.**
+Legacy behavior remains the default; use `algorithm='modern'` for the latest rules.
 See the [migration guide](docs/release-9/migration.md) before changing persisted URLs or keys.
 
 Install **python-slugify**, import **slugify**. Other similarly named distributions are not this package.
@@ -49,9 +49,14 @@ python -m pip install --upgrade python-slugify
 ```python
 from slugify import slugify
 
+# Use the modern algorithm for the latest rules.
+assert slugify("C'est déjà l'été.", algorithm='modern') == 'c-est-deja-l-ete'
+assert slugify('影師嗎', backend='text-unidecode', algorithm='modern') == 'ying-shi-ma'
+assert slugify('影師嗎', allow_unicode=True, algorithm='modern') == '影師嗎'
+
+# Calling slugify() without algorithm uses the legacy pipeline (the old default),
+# kept unchanged for backward compatibility.
 assert slugify("C'est déjà l'été.") == 'c-est-deja-l-ete'
-assert slugify('影師嗎', backend='text-unidecode') == 'ying-shi-ma'
-assert slugify('影師嗎', allow_unicode=True) == '影師嗎'
 ```
 
 ```sh
@@ -63,7 +68,7 @@ slugify --regex-pattern '[^-a-z0-9_]+' '___This is a test___'
 # ___this-is-a-test___
 ```
 
-The examples above work with the published 9.0.0 release. Python 3.10 or newer is required.
+The examples above work with 9+ releases. Python 3.10 or newer is required.
 
 ## Python support
 

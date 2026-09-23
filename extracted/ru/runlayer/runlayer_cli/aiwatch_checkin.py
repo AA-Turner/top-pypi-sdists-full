@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import time
 from collections.abc import Callable, Mapping
+from typing import Any, Protocol
 
 import httpx
 import structlog
@@ -38,6 +39,65 @@ _SYNC_DETAIL_MAX_ITEMS = 50
 _SYNC_DETAIL_MAX_ITEM_LEN = 200
 _CHECKIN_RETRY_DELAYS_SECONDS = (0.1, 0.2)
 _CHECKIN_REJECTED_RESPONSE_BODY_MAX_LEN = 500
+
+# Single-form payload keys that describe the device rather than one feature.
+# The batch body carries them once at the top level; everything else in a
+# single-form payload is that feature's entry. Mirrored by the backend's
+# ``AIWatchCheckInDeviceFields`` (contract test on the backend side).
+BATCH_CHECKIN_DEVICE_KEYS: frozenset[str] = frozenset(
+    {
+        "device_id",
+        "hostname",
+        "os",
+        "os_version",
+        "username",
+        "org_device_id",
+        "serial_number",
+        "windows_user_sid",
+        "tools",
+    }
+)
+
+# Failure log event per scan-tick feature. The builders and the batch
+# fallback replay both read from here, so the replay cannot log a different
+# event than the direct single-form path would have.
+_SCAN_LOG_EVENTS: dict[str, str] = {
+    "protect": "aiwatch_protect_checkin_failed",
+    "enforce": "aiwatch_enforce_checkin_failed",
+    "sessions": "aiwatch_sessions_checkin_failed",
+    "daemon": "aiwatch_daemon_checkin_failed",
+    "detect": "aiwatch_detect_checkin_failed",
+}
+
+
+class CheckInSubmitter(Protocol):
+    """The slice of ``RunlayerClient`` the check-in builders depend on."""
+
+    @property
+    def base_url(self) -> str: ...
+
+    def submit_aiwatch_checkin(self, payload: dict[str, Any]) -> dict[str, Any]: ...
+
+
+class _CheckInCollector:
+    """Stand-in submitter that captures single-form payloads instead of sending.
+
+    Lets the scan path reuse every existing check-in builder unchanged and ship
+    the captured payloads in one batch request afterwards.
+    """
+
+    def __init__(self, client: RunlayerClient) -> None:
+        self._client = client
+        self.payloads: list[dict[str, object]] = []
+
+    @property
+    def base_url(self) -> str:
+        return self._client.base_url
+
+    def submit_aiwatch_checkin(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.payloads.append(payload)
+        return {}
+
 
 _PRIVILEGED_USERNAMES = frozenset(
     {
@@ -123,7 +183,7 @@ def _base_payload(
 
 
 def _submit_payload_for_response(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     payload: dict[str, object],
     *,
     log_event: str,
@@ -157,7 +217,7 @@ def _submit_payload_for_response(
 
 
 def _submit_payload(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     payload: dict[str, object],
     *,
     log_event: str,
@@ -206,7 +266,7 @@ def submit_llm_routing_checkin(
 
 
 def _submit_simple_checkin(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     *,
     feature: str,
     status: str,
@@ -233,7 +293,7 @@ def _submit_simple_checkin(
     _submit_payload(client, payload, log_event=log_event)
 
 
-def submit_detect_checkin(client: RunlayerClient, result: ScanResult) -> None:
+def submit_detect_checkin(client: CheckInSubmitter, result: ScanResult) -> None:
     """Record that a scan ran, even when no findings were submitted."""
     payload = _base_payload(
         device_context_dict(result),
@@ -255,10 +315,10 @@ def submit_detect_checkin(client: RunlayerClient, result: ScanResult) -> None:
     # full-CLI hook host deviation: ``None`` (no fresh marker) clears the
     # tenant-side record, so a fixed ``default_host`` self-heals within a scan.
     payload["hook_host_detail"] = _hook_host_detail(client)
-    _submit_payload(client, payload, log_event="aiwatch_detect_checkin_failed")
+    _submit_payload(client, payload, log_event=_SCAN_LOG_EVENTS["detect"])
 
 
-def _hook_host_detail(client: RunlayerClient) -> host_override.HostOverride | None:
+def _hook_host_detail(client: CheckInSubmitter) -> host_override.HostOverride | None:
     """Fresh ``hook_host_override`` marker for the user this scan reports on.
 
     Hooks write it under the user's ``~/.runlayer/state``, and every scan path
@@ -276,16 +336,13 @@ def _hook_host_detail(client: RunlayerClient) -> host_override.HostOverride | No
     marker = host_override.read_marker()
     if marker is None:
         return None
-    destination = getattr(client, "base_url", None)
-    if not isinstance(destination, str):
-        return None
-    if destination.rstrip("/") != marker["managed_host"].rstrip("/"):
+    if client.base_url.rstrip("/") != marker["managed_host"].rstrip("/"):
         return None
     return marker
 
 
 def _submit_hook_validation_checkin(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     *,
     feature: str,
     include_pipeline: bool,
@@ -351,7 +408,7 @@ def submit_detect_error_checkin(
 
 
 def submit_enforce_validation_checkin(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     *,
     ctx: DeviceContext,
     tools: list[InstalledTool],
@@ -373,12 +430,11 @@ def submit_enforce_validation_checkin(
                 status="disabled",
                 ctx=ctx,
                 tools=tools,
-                log_event=f"aiwatch_{feature}_checkin_failed",
+                log_event=_SCAN_LOG_EVENTS[feature],
             )
         return
 
     feature = "enforce"
-    log_event = "aiwatch_enforce_checkin_failed"
     if mode is AIWatchMode.PROTECT:
         # Clear any formerly-active Enforce state before reporting Protect.
         _submit_simple_checkin(
@@ -387,10 +443,9 @@ def submit_enforce_validation_checkin(
             status="disabled",
             ctx=ctx,
             tools=tools,
-            log_event="aiwatch_enforce_checkin_failed",
+            log_event=_SCAN_LOG_EVENTS["enforce"],
         )
         feature = "protect"
-        log_event = "aiwatch_protect_checkin_failed"
     else:
         # Enforce and Protect are mutually exclusive endpoint modes. Clear a
         # formerly-active Protect row before reporting current Enforce health.
@@ -400,7 +455,7 @@ def submit_enforce_validation_checkin(
             status="disabled",
             ctx=ctx,
             tools=tools,
-            log_event="aiwatch_protect_checkin_failed",
+            log_event=_SCAN_LOG_EVENTS["protect"],
         )
 
     _submit_hook_validation_checkin(
@@ -409,12 +464,12 @@ def submit_enforce_validation_checkin(
         include_pipeline=resolve_include_pipeline(False, managed),
         ctx=ctx,
         tools=tools,
-        log_event=log_event,
+        log_event=_SCAN_LOG_EVENTS[feature],
     )
 
 
 def submit_sessions_validation_checkin(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     *,
     ctx: DeviceContext,
     tools: list[InstalledTool],
@@ -430,7 +485,7 @@ def submit_sessions_validation_checkin(
             status="disabled",
             ctx=ctx,
             tools=tools,
-            log_event="aiwatch_sessions_checkin_failed",
+            log_event=_SCAN_LOG_EVENTS["sessions"],
         )
         return
     _submit_hook_validation_checkin(
@@ -439,7 +494,7 @@ def submit_sessions_validation_checkin(
         include_pipeline=True,
         ctx=ctx,
         tools=tools,
-        log_event="aiwatch_sessions_checkin_failed",
+        log_event=_SCAN_LOG_EVENTS["sessions"],
     )
 
 
@@ -581,7 +636,7 @@ def _daemon_degraded_message(detail: Mapping[str, object]) -> str:
 
 
 def submit_daemon_checkin(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     *,
     ctx: DeviceContext,
     tools: list[InstalledTool],
@@ -622,7 +677,7 @@ def submit_daemon_checkin(
         error_message=error_message,
     )
     payload["daemon_detail"] = detail
-    _submit_payload(client, payload, log_event="aiwatch_daemon_checkin_failed")
+    _submit_payload(client, payload, log_event=_SCAN_LOG_EVENTS["daemon"])
 
 
 def _run_isolated(feature: str, run: Callable[[], None]) -> None:
@@ -645,7 +700,7 @@ def _run_isolated(feature: str, run: Callable[[], None]) -> None:
 
 
 def submit_validation_checkins(
-    client: RunlayerClient,
+    client: CheckInSubmitter,
     *,
     ctx: DeviceContext,
     tools: list[InstalledTool],
@@ -666,20 +721,114 @@ def submit_validation_checkins(
     )
 
 
+def build_batch_checkin_payload(
+    ctx: DeviceContext,
+    tools: list[InstalledTool],
+    payloads: list[dict[str, object]],
+) -> dict[str, object]:
+    """Fold single-form payloads into one batch body.
+
+    Every captured payload was built from the same ``ctx`` + ``tools``, so the
+    device half goes out once and each entry keeps only its feature half.
+    """
+    return {
+        **ctx,
+        "tools": tools,
+        "features": [
+            {
+                key: value
+                for key, value in payload.items()
+                if key not in BATCH_CHECKIN_DEVICE_KEYS
+            }
+            for payload in payloads
+        ],
+    }
+
+
+def _submit_batch(client: RunlayerClient, payload: dict[str, object]) -> bool:
+    """Send one batch; True when the single-form path should run instead.
+
+    Falling back covers a backend without the batch route (the client maps
+    that 404 to ``{"unsupported": True}``) and a rejected body (422): one
+    refused feature must not cost the others their liveness, which the
+    sequential path guarantees by construction. Any other failure is final for
+    this tick — replaying five requests against a struggling backend would
+    defeat the batching.
+    """
+    for attempt in range(len(_CHECKIN_RETRY_DELAYS_SECONDS) + 1):
+        try:
+            response = client.submit_aiwatch_checkin_batch(payload)
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
+            logger.warning(
+                "aiwatch_checkin_batch_rejected",
+                status_code=status_code,
+                response_body=exc.response.text[
+                    :_CHECKIN_REJECTED_RESPONSE_BODY_MAX_LEN
+                ],
+            )
+            return status_code == 422
+        except (httpx.TransportError, OSError) as exc:
+            if attempt == len(_CHECKIN_RETRY_DELAYS_SECONDS):
+                logger.warning("aiwatch_checkin_batch_failed", error=str(exc))
+                return False
+            time.sleep(_CHECKIN_RETRY_DELAYS_SECONDS[attempt])
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("aiwatch_checkin_batch_failed", error=str(exc))
+            return False
+        else:
+            if response.get("unsupported"):
+                logger.debug("aiwatch_checkin_batch_unsupported")
+                return True
+            return False
+    return False
+
+
+def _flush_scan_checkins(
+    client: RunlayerClient,
+    *,
+    ctx: DeviceContext,
+    tools: list[InstalledTool],
+    payloads: list[dict[str, object]],
+) -> None:
+    if not payloads:
+        return
+    should_fall_back = _submit_batch(
+        client, build_batch_checkin_payload(ctx, tools, payloads)
+    )
+    if not should_fall_back:
+        return
+    for payload in payloads:
+        _submit_payload(
+            client,
+            payload,
+            log_event=_SCAN_LOG_EVENTS.get(
+                str(payload.get("feature")), "aiwatch_checkin_failed"
+            ),
+        )
+
+
 def submit_all_scan_checkins(client: RunlayerClient, result: ScanResult) -> None:
     """Submit every best-effort AI Watch check-in for a completed scan.
 
     Owns all scan check-in policy: the enforce + sessions hook-validation
     check-ins, the daemon fleet-health check-in, plus the final detect check-in.
     Detect runs last so its current container health wins over MCP ingestion,
-    including when the scan found servers. Each is independently guarded so a transient
-    failure — corrupt MDM config, a network blip — never interrupts the scan.
+    including when the scan found servers. Each is independently guarded so a
+    transient failure — corrupt MDM config, a network blip — never interrupts
+    the scan. The builders write into a collector and the captured payloads go
+    out as one batch request (one request per feature on backends without the
+    batch route), so the per-feature ordering above is preserved either way.
     Callers just hand over the client + scan result.
     """
     ctx = device_context_dict(result)
-    submit_validation_checkins(client, ctx=ctx, tools=result.tools)
+    collector = _CheckInCollector(client)
+    submit_validation_checkins(collector, ctx=ctx, tools=result.tools)
     _run_isolated(
         "daemon",
-        lambda: submit_daemon_checkin(client, ctx=ctx, tools=result.tools),
+        lambda: submit_daemon_checkin(collector, ctx=ctx, tools=result.tools),
     )
-    _run_isolated("detect", lambda: submit_detect_checkin(client, result))
+    _run_isolated("detect", lambda: submit_detect_checkin(collector, result))
+    _flush_scan_checkins(
+        client, ctx=ctx, tools=result.tools, payloads=collector.payloads
+    )

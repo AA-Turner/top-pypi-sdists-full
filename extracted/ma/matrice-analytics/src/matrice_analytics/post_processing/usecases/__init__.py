@@ -309,6 +309,8 @@ __all__ = [
     "FenceClimbingPoseGatedDetectionConfig",
     "FenceClimbingWithZoneConfig",
     "VehicleColorDetectionConfig",
+    "VehicleSpeedEstimationConfig",
+    "VehicleSpeedEstimationUseCase",
     "VehicleTypeClassificationConfig",
     "VegetableDetectionConfig",
     "FallDetectionConfig",

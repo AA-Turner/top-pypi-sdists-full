@@ -178,6 +178,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from matrice_analytics.engine.manifest.loader import CustomImpl, LoadedApp
 
 __all__ = [
+    "CLOSE_SEVERITY",
     "DEFAULT_THRESHOLD_SEVERITY",
     "FrameOutcome",
     "Session",
@@ -193,6 +194,23 @@ DEFAULT_THRESHOLD_SEVERITY: Final[str] = "medium"
 A bare threshold says *this is a violation*; it does not say how bad.  The middle rung is the
 honest reading, and a manifest that means something else says so with ``levels:``.  Defaulting
 to ``critical`` would page someone at 3am for a config that never asked to.
+"""
+
+
+CLOSE_SEVERITY: Final[str] = "info"
+"""Severity published on the event that closes an incident.
+
+The close is the *end signal* for a cycle, and all three incident state machines in this wheel
+spell that signal ``info``: ``analytics/incident_lifecycle.py`` emits an "``info`` end-signal
+event", and ``post_processing/utils/incident_manager_utils.py`` publishes ``info`` on its close
+cycle.  The engine used to publish whatever severity the incident was last at, which made the
+same lifecycle read differently depending on which machine ran the app.  Parity is worth more
+here than the extra reading, and the extra reading is not lost: the last *real* severity was
+already published on its own event before the close.
+
+This does not affect resolution.  ``derive_incident_status`` keys off ``end_time`` alone, so a
+close is a close whatever severity rides along with it -- which is precisely why the field is
+free to carry the end-signal convention instead.
 """
 
 #: How many frames of "still happening" are remembered before confirmation.  Bounded so a
@@ -566,7 +584,10 @@ class Session:
         # partition counters behind `_report_partition`. Scoped under a reserved name so it
         # cannot collide with a stage: `__session__` is not a legal stage_name.
         self._window_state: StateStore = (
-            self._state.scoped(stream.camera_id).scoped(manifest.app.id).scoped(GLOBAL_ZONE).scoped("__session__")
+            self._state.scoped(stream.camera_id)
+            .scoped(manifest.app.id)
+            .scoped(GLOBAL_ZONE)
+            .scoped("__session__")
         )
         self._stage_keys = stage_key_map(manifest)
         self._metric_plan = metric_plan(manifest)
@@ -651,7 +672,11 @@ class Session:
             StreamInfoError: A required ``stream_info`` field is missing.
             SessionError: The manifest cannot be run against this stream.
         """
-        stream = stream_info if isinstance(stream_info, StreamInfo) else resolve_stream_info(stream_info).stream
+        stream = (
+            stream_info
+            if isinstance(stream_info, StreamInfo)
+            else resolve_stream_info(stream_info).stream
+        )
         kwargs.setdefault("custom", getattr(app, "custom", None))
         return cls(app.manifest, stream, **kwargs)
 
@@ -739,7 +764,11 @@ class Session:
         required_zones = self._manifest.zones is not None and self._manifest.zones.required
         problems: list[str] = []
         for requirement in self._manifest.geometry_requirements():
-            have = len(self._geometry.zone_names()) if requirement.kind == "zones" else len(self._geometry.line_names())
+            have = (
+                len(self._geometry.zone_names())
+                if requirement.kind == "zones"
+                else len(self._geometry.line_names())
+            )
             if requirement.exact is not None and have != requirement.exact:
                 problems.append(f"{requirement.describe()} This camera has {have}.")
             elif requirement.minimum is not None and have < requirement.minimum:
@@ -850,7 +879,9 @@ class Session:
     @property
     def _on_overlap(self) -> str:
         """``zones.on_overlap`` -- **on ``ZonesSpec``**, not on the stage (§6b coupling 2)."""
-        return self._manifest.zones.on_overlap if self._manifest.zones is not None else "first_match"
+        return (
+            self._manifest.zones.on_overlap if self._manifest.zones is not None else "first_match"
+        )
 
     def _build_pipeline(self, bucket: str) -> dict[str, Primitive]:
         """Instantiate one pipeline for one bucket, in manifest order.
@@ -874,7 +905,9 @@ class Session:
             scope = self._scope_for(bucket, stage.stage_name)
             if isinstance(stage, CustomConfig):
                 impl = self._custom[stage.stage_name]
-                pipeline[stage.stage_name] = _CustomStage(stage.stage_name, impl.obj, impl.config, scope)
+                pipeline[stage.stage_name] = _CustomStage(
+                    stage.stage_name, impl.obj, impl.config, scope
+                )
                 continue
             pipeline[stage.stage_name] = _construct(
                 self._registry.get(stage.PRIMITIVE),
@@ -1045,7 +1078,9 @@ class Session:
                     continue
                 ctx = FrameContext(
                     detections=(
-                        self._all_zones_view(staged, zone_of) if stage_name in self._all_in_one_stages else staged
+                        self._all_zones_view(staged, zone_of)
+                        if stage_name in self._all_in_one_stages
+                        else staged
                     ),
                     zone=bucket,
                     frame_ts=resolved_ts,
@@ -1074,7 +1109,11 @@ class Session:
         # the aggregation publishes the anchor of the frame the session was built from, which
         # for a long-lived camera is hours stale.
         self._window.observe(resolved_ts, zone_outputs, buckets, stream=stream)
-        frame_result = self._frame_result(buckets, zone_outputs) if self._manifest.emission.frame_summary else None
+        frame_result = (
+            self._frame_result(buckets, zone_outputs)
+            if self._manifest.emission.frame_summary
+            else None
+        )
         aggregation = self._close_window() if self._window.is_due() else None
 
         return FrameOutcome(
@@ -1099,7 +1138,9 @@ class Session:
         if frame_ts is not None:
             value = float(frame_ts)
             if value != value:  # NaN
-                raise SessionError("frame_ts is NaN; it must be the real frame time in epoch seconds")
+                raise SessionError(
+                    "frame_ts is NaN; it must be the real frame time in epoch seconds"
+                )
             return value
         anchor = stream_time or self._stream.stream_time
         if anchor:
@@ -1117,7 +1158,9 @@ class Session:
             "backfilled window wrong."
         )
 
-    def _frame_stream(self, frame_id: str | None, stream_time: str | None, rtp_number: str | None) -> StreamInfo:
+    def _frame_stream(
+        self, frame_id: str | None, stream_time: str | None, rtp_number: str | None
+    ) -> StreamInfo:
         """The stream context for this frame, with the media anchors refreshed.
 
         **All three** anchors, not two.  ``rtp_number`` sits in the same ``Media anchoring``
@@ -1174,7 +1217,11 @@ class Session:
                 continue
             if float(detection.confidence) < self._intake_floor:
                 continue
-            if isinstance(detection, PipelineDetection) and detection.entity == entity and detection.category:
+            if (
+                isinstance(detection, PipelineDetection)
+                and detection.entity == entity
+                and detection.category
+            ):
                 # The caller's remap is respected, but a bare class index is not a label
                 # anyone can read, so it is still resolved.  ``model_copy`` carries every
                 # field by construction, which is why this path does not fall through to the
@@ -1183,7 +1230,9 @@ class Session:
                 # line to forget there.
                 label = self._mapper.display_label(detection.category, index)
                 kept.append(
-                    detection if label == detection.category else detection.model_copy(update={"category": label})
+                    detection
+                    if label == detection.category
+                    else detection.model_copy(update={"category": label})
                 )
                 continue
             mask, keypoints = self._detection_extras(item, detection)
@@ -1212,7 +1261,9 @@ class Session:
                     # runs before zone partition and a raw producer dict has no `zone` key.
                     # The wire `Detection` has no such field, hence the isinstance test rather
                     # than a getattr default.
-                    zone=detection.zone if isinstance(detection, PipelineDetection) else GLOBAL_ZONE,
+                    zone=detection.zone
+                    if isinstance(detection, PipelineDetection)
+                    else GLOBAL_ZONE,
                 )
             )
         if unmapped:
@@ -1231,7 +1282,9 @@ class Session:
                 )
         return (tuple(kept), unmapped)
 
-    def _detection_extras(self, item: Any, detection: Detection) -> tuple[MaskRef | None, tuple[Keypoint, ...]]:
+    def _detection_extras(
+        self, item: Any, detection: Detection
+    ) -> tuple[MaskRef | None, tuple[Keypoint, ...]]:
         """This detection's mask and keypoints -- the two engine-internal input fields.
 
         Both are optional and both are dropped by :meth:`PipelineDetection.to_wire`, so adding
@@ -1334,7 +1387,9 @@ class Session:
         position = {id(detection): index for index, detection in enumerate(detections)}
         zone_of: list[str | None] = [None] * len(detections)
 
-        def stamp(found: Sequence[PipelineDetection], identity: str) -> tuple[PipelineDetection, ...]:
+        def stamp(
+            found: Sequence[PipelineDetection], identity: str
+        ) -> tuple[PipelineDetection, ...]:
             for detection in found:
                 index = position.get(id(detection))
                 if index is not None and zone_of[index] is None:
@@ -1367,10 +1422,16 @@ class Session:
         if not self._zoned:
             return
         self._window_state.incr(_PARTITION_SEEN, float(total), lifetime=Lifetime.WINDOW)
-        self._window_state.incr(_PARTITION_NO_MATCH, float(assignment.no_match_count), lifetime=Lifetime.WINDOW)
-        self._window_state.incr(_PARTITION_ASSIGNED, float(assignment.assigned_count), lifetime=Lifetime.WINDOW)
+        self._window_state.incr(
+            _PARTITION_NO_MATCH, float(assignment.no_match_count), lifetime=Lifetime.WINDOW
+        )
+        self._window_state.incr(
+            _PARTITION_ASSIGNED, float(assignment.assigned_count), lifetime=Lifetime.WINDOW
+        )
         for identity, found in assignment.by_zone.items():
-            self._window_state.incr(f"{_PARTITION_ZONE_PREFIX}{identity}", float(len(found)), lifetime=Lifetime.WINDOW)
+            self._window_state.incr(
+                f"{_PARTITION_ZONE_PREFIX}{identity}", float(len(found)), lifetime=Lifetime.WINDOW
+            )
 
     def _report_partition(self) -> None:
         """One line per window naming where the detections went, and a warning when most are lost.
@@ -1455,7 +1516,9 @@ class Session:
 
     # -- metrics, incidents, frame result -----------------------------------
 
-    def _metric_values(self, zone_outputs: Mapping[str, Mapping[str, PrimitiveOutput]], zone: str) -> dict[str, float]:
+    def _metric_values(
+        self, zone_outputs: Mapping[str, Mapping[str, PrimitiveOutput]], zone: str
+    ) -> dict[str, float]:
         """This frame's reading of every declared metric, for incidents raised in ``zone``.
 
         A ``metrics[].zone: per_zone`` entry reads *this* ``zone``'s own stage outputs; a
@@ -1559,7 +1622,9 @@ class Session:
         values.update(self._derived_frame_values(zone_outputs, zone))
         return values
 
-    def _frame_metric_values(self, zone_outputs: Mapping[str, Mapping[str, PrimitiveOutput]]) -> dict[str, float]:
+    def _frame_metric_values(
+        self, zone_outputs: Mapping[str, Mapping[str, PrimitiveOutput]]
+    ) -> dict[str, float]:
         """:attr:`FrameOutcome.metric_values` -- one flat reading per declared metric.
 
         ``result["metrics"]`` (``runtime/backends.py::_outcome_as_result``) publishes this
@@ -1616,7 +1681,9 @@ class Session:
         # itself a global-bucket reading, not the collapse, so it is excluded rather than kept
         # and then overwritten below).
         values: dict[str, float] = {
-            key: value for key, value in self._resolved_values(zone_outputs, GLOBAL_ZONE).items() if key not in per_zone
+            key: value
+            for key, value in self._resolved_values(zone_outputs, GLOBAL_ZONE).items()
+            if key not in per_zone
         }
         readings: dict[str, list[float]] = {key: [] for key in per_zone}
         for zone in self._emission_zones:
@@ -1640,10 +1707,19 @@ class Session:
     ) -> tuple[IncidentMessage, ...]:
         """Run the incident lifecycle and emit on **transitions** only (contract §3.4).
 
-        The backend does find-or-create with **up-only escalation**: re-sending the same
-        severity is a no-op, a de-escalation is not representable, and only a non-empty
-        ``end_time`` closes an incident.  Emitting per frame would therefore be 1,500 writes a
-        minute that mean nothing.
+        The backend does find-or-create on ``incident_id``: re-sending the same severity is a
+        no-op, and only a non-empty ``end_time`` closes an incident.  Emitting per frame would
+        therefore be 1,500 writes a minute that mean nothing.
+
+        Contract §3.4 additionally says escalation is **up-only** and that a de-escalation "is not
+        representable".  That claim is not what production shows -- the alert timeline renders
+        ``Critical -> Medium`` rows, and both legacy incident machines publish downward changes
+        with no direction check -- so severity changes are emitted symmetrically here; see
+        :meth:`_advance`.  Whether the backend stores a downgrade as the incident's *current*
+        severity or only as a timeline row is unverified from this repo (the claim cites
+        ``incident_clickhouse_service.go:178``, which is not in this workspace).  Either way
+        emitting it is correct: a row the backend chooses to ignore costs one write, where
+        suppressing it loses information the operator needs.
 
         Takes the frame's full ``zone_outputs`` rather than one precomputed ``metric_values``
         dict: a threshold rule is evaluated in the ``global`` bucket only (see
@@ -1662,11 +1738,15 @@ class Session:
         for rule in self._rules:
             active = self._active_for(rule, events, zone_outputs)
             for incident in self._close_orphans(rule, active, frame_ts):
-                messages.append(build_incident(stream, incidents=[incident], category=rule.spec.category))
+                messages.append(
+                    build_incident(stream, incidents=[incident], category=rule.spec.category)
+                )
             for zone, severity in active.items():
                 incident = self._advance(rule, zone, severity, frame_ts, lifecycle, zone_outputs)
                 if incident is not None:
-                    messages.append(build_incident(stream, incidents=[incident], category=rule.spec.category))
+                    messages.append(
+                        build_incident(stream, incidents=[incident], category=rule.spec.category)
+                    )
         published = tuple(messages)
         if self._publisher is not None:
             for message in published:
@@ -1745,13 +1825,23 @@ class Session:
         """
         if not self._zoned:
             return (GLOBAL_ZONE,)
-        zoned_keys = {planned.spec.key for planned in self._metric_plan if planned.spec.zone in _ZONED_METRIC_SCOPES}
-        zoned_keys |= {planned.spec.key for planned in self._derived_plan if planned.spec.zone in _ZONED_METRIC_SCOPES}
+        zoned_keys = {
+            planned.spec.key
+            for planned in self._metric_plan
+            if planned.spec.zone in _ZONED_METRIC_SCOPES
+        }
+        zoned_keys |= {
+            planned.spec.key
+            for planned in self._derived_plan
+            if planned.spec.zone in _ZONED_METRIC_SCOPES
+        }
         if any(key in zoned_keys for key in rule.thresholds):
             return self._emission_zones
         return (GLOBAL_ZONE,)
 
-    def _close_orphans(self, rule: _IncidentRule, active: Mapping[str, str], frame_ts: float) -> list[Incident]:
+    def _close_orphans(
+        self, rule: _IncidentRule, active: Mapping[str, str], frame_ts: float
+    ) -> list[Incident]:
         """Close any incident left open in a zone this rule no longer evaluates.
 
         Lifecycle records are keyed ``f"{rule.key}|{zone}"`` and are ``Lifetime.PERSISTENT`` --
@@ -1767,11 +1857,15 @@ class Session:
         backend treats as a close.
         """
         remembered = self._incident_state.get(f"{rule.key}|__zones__")
-        previous = tuple(str(zone) for zone in remembered) if isinstance(remembered, (list, tuple)) else ()
+        previous = (
+            tuple(str(zone) for zone in remembered) if isinstance(remembered, (list, tuple)) else ()
+        )
         current = tuple(active)
         if previous == current:
             return []
-        self._incident_state.set(f"{rule.key}|__zones__", list(current), lifetime=Lifetime.PERSISTENT)
+        self._incident_state.set(
+            f"{rule.key}|__zones__", list(current), lifetime=Lifetime.PERSISTENT
+        )
 
         closed: list[Incident] = []
         for zone in previous:
@@ -1808,11 +1902,25 @@ class Session:
     ) -> Incident | None:
         """Advance one ``(type, zone)`` lifecycle by one frame; return what to emit.
 
+        Three transitions emit, and nothing else does: **open**, a **severity change** in either
+        direction, and **close**.
+
         Confirmation uses **soft decay**, matching the ``state_machine`` primitive and
         ``base_processor.py:258-292``: an inactive frame decrements the streak by one rather
         than resetting it, so a detector that drops one frame in five still confirms.  A hard
         reset makes ``confirm_frames`` unreachable on any real camera, which is how a
         confirmation threshold ends up quietly lowered to 1.
+
+        Two independent gates, which is the part worth keeping straight:
+
+        ``confirm_frames`` (minimum 3)
+            Gates the **open** -- the "nothing -> something" transition.
+        ``severity_confirm_frames`` (default 1)
+            Gates a **change** between two severities once open, symmetrically. At the default it
+            publishes every change on the frame it is first read, which is the behaviour every
+            shipped app carries. It does *not* gate the opening severity; there is no prior
+            severity for it to confirm a change from, and requiring it there would stop a wobbling
+            signal from ever opening.
         """
         # Resolved for *this* zone, not the frame's global-only reading: a per_zone metric
         # (e.g. dwell.active_count under state: in_zone) is only ever real here, in the zone
@@ -1829,26 +1937,37 @@ class Session:
         streak = int(record.get("streak", 0))
         empty = int(record.get("empty", 0))
         is_open = bool(record.get("open", False))
+        # A severity read on the wire-facing side but not yet held for
+        # `severity_confirm_frames`. Absent from a record written before these keys existed --
+        # incident state is PERSISTENT, so that is a live upgrade case, not a test fixture.
+        pending_sev = str(record.get("pending_severity", "") or "")
+        pending_run = int(record.get("pending_run", 0))
         emitted: Incident | None = None
 
         if severity:
             streak = min(_MAX_STREAK, streak + 1)
             empty = 0
-            if not is_open and streak >= lifecycle.confirm_frames:
-                record["start_time"] = to_rfc3339z(frame_ts)
-                record["id"] = self._incident_id(rule, zone, str(record["start_time"]))
-                record["severity"] = severity
-                record["human_text"] = _interpolate(rule.spec.human_text, metric_values)
-                is_open = True
-                emitted = self._incident(rule, record, end_time="")
-            elif is_open and _rank(severity) > _rank(str(record.get("severity", ""))):
-                # Up-only escalation (contract §3.4): the backend ignores a downward change,
-                # so a de-escalation is not emitted -- it is not representable.
-                record["severity"] = severity
-                record["human_text"] = _interpolate(rule.spec.human_text, metric_values)
-                emitted = self._incident(rule, record, end_time="")
+            emitted, is_open, pending_sev, pending_run = self._advance_active(
+                rule,
+                zone,
+                severity,
+                frame_ts,
+                lifecycle,
+                metric_values,
+                record,
+                streak=streak,
+                is_open=is_open,
+                pending_sev=pending_sev,
+                pending_run=pending_run,
+            )
         else:
             streak = max(0, streak - 1)
+            # Soft decay, matching `streak`: an empty frame is not a reading of a competing
+            # severity, so it weakens the pending change rather than erasing it, and a detector
+            # that drops one frame mid-change still completes that change.
+            pending_run = max(0, pending_run - 1)
+            if not pending_run:
+                pending_sev = ""
             if is_open:
                 empty += 1
                 if empty >= lifecycle.close_after_empty_frames:
@@ -1863,13 +1982,88 @@ class Session:
                     is_open = False
                     streak = 0
                     empty = 0
+                    pending_sev, pending_run = "", 0
 
-        record.update({"streak": streak, "empty": empty, "open": is_open})
+        record.update(
+            {
+                "streak": streak,
+                "empty": empty,
+                "open": is_open,
+                "pending_severity": pending_sev,
+                "pending_run": pending_run,
+            }
+        )
         # PERSISTENT: an open incident outlives the aggregation window it started in. Writing
         # this WINDOW-scoped would close and reopen every incident once a minute, and the
         # backend's find-or-create would then show one alert per minute (09 §4 rule 2).
         state.set(key, record, lifetime=Lifetime.PERSISTENT)
         return emitted
+
+    def _advance_active(
+        self,
+        rule: _IncidentRule,
+        zone: str,
+        severity: str,
+        frame_ts: float,
+        lifecycle: IncidentLifecycle,
+        metric_values: Mapping[str, float],
+        record: dict[str, Any],
+        *,
+        streak: int,
+        is_open: bool,
+        pending_sev: str,
+        pending_run: int,
+    ) -> tuple[Incident | None, bool, str, int]:
+        """The active-frame half of :meth:`_advance`: open, change severity, or hold.
+
+        Split out because ``_advance`` crossed the 120-line cap (INC-2026-147), and this is the
+        branchy part the cap is aimed at.  ``record`` is mutated in place, as it is in the caller.
+
+        Returns:
+            ``(incident to emit or None, is_open, pending_severity, pending_run)``.
+        """
+        if not is_open and streak >= lifecycle.confirm_frames:
+            # The opening severity is THIS frame's reading, deliberately ungated by
+            # `severity_confirm_frames`. That parameter confirms a *change* from a severity
+            # already published, and at the open there is none to change from: the transition
+            # being confirmed here is "nothing -> something", which `confirm_frames` (minimum 3)
+            # already gates. Requiring both would leave an app whose `severity_confirm_frames`
+            # exceeds `confirm_frames` unable to open at all on a signal that wobbles across a
+            # rung -- precisely the signal the parameter exists for.
+            record["start_time"] = to_rfc3339z(frame_ts)
+            record["id"] = self._incident_id(rule, zone, str(record["start_time"]))
+            record["severity"] = severity
+            record["human_text"] = _interpolate(rule.spec.human_text, metric_values)
+            return self._incident(rule, record, end_time=""), True, "", 0
+
+        if is_open and _rank(severity) != _rank(str(record.get("severity", ""))):
+            # SYMMETRIC severity change: a downward change is published exactly like an upward
+            # one. This reverses the up-only rule the contract states ("a de-escalation is not
+            # representable"), which the live alert timeline contradicts -- the UI renders
+            # `Critical -> Medium` rows, and both legacy machines have always published them
+            # without a direction check. An operator watching a fire subside needs to see it
+            # subside; leaving the alert pinned at its worst reading is not a safer default, it
+            # is a stale one.
+            #
+            # `_rank` rather than string equality so the internal 'significant' spelling does not
+            # read as a change away from the 'high' already on the wire (FROZEN-7).
+            if severity == pending_sev:
+                pending_run = min(_MAX_STREAK, pending_run + 1)
+            else:
+                pending_sev, pending_run = severity, 1
+            if pending_run >= lifecycle.severity_confirm_frames:
+                record["severity"] = severity
+                record["human_text"] = _interpolate(rule.spec.human_text, metric_values)
+                return self._incident(rule, record, end_time=""), is_open, "", 0
+            return None, is_open, pending_sev, pending_run
+
+        if is_open:
+            # This frame reads back the severity already published, so whatever change was
+            # accumulating is over. Dropping the candidate here is what makes
+            # `severity_confirm_frames` count CONSECUTIVE frames rather than a running total.
+            return None, is_open, "", 0
+
+        return None, is_open, pending_sev, pending_run
 
     def _incident_id(self, rule: _IncidentRule, zone: str, start_time: str) -> str:
         """A stable id for one occurrence of one incident type in one zone.
@@ -1909,13 +2103,23 @@ class Session:
         :attr:`Lifetime.PERSISTENT` and survives a restart.  A visible ``{placeholder}`` is the
         right failure there: it says "this text was not resolved", where a silently
         re-interpolated zero would read as a measurement.
+
+        The severity is the record's, except on a close -- a non-empty ``end_time`` -- which
+        carries :data:`CLOSE_SEVERITY` (``info``) to match the other two incident state
+        machines.  See that constant for why.
         """
+        # A non-empty `end_time` IS the close (`derive_incident_status`), so deriving the
+        # closing severity from it here rather than taking it as an argument means no call
+        # site can open a close that forgets to carry `info`.
+        severity = (
+            CLOSE_SEVERITY if end_time else (record.get("severity") or DEFAULT_THRESHOLD_SEVERITY)
+        )
         return Incident(
             incident_id=str(record["id"]),
             incident_type=rule.key,
             # parse_severity maps the internal 'significant' onto 'high' (FROZEN-7); it must
             # never reach the wire, and a primitive is free to say it.
-            severity_level=parse_severity(record.get("severity") or DEFAULT_THRESHOLD_SEVERITY),
+            severity_level=parse_severity(severity),
             human_text=str(record.get("human_text") or _interpolate(rule.spec.human_text, {})),
             start_time=str(record["start_time"]),
             end_time=end_time,
@@ -1984,7 +2188,10 @@ class Session:
                     human_text=human_text_for(counters.current),
                     **counters.count_lists(),
                 ),
-                business_analytics={stage: dict(output.values) for stage, output in zone_outputs.get(zone, {}).items()},
+                business_analytics={
+                    stage: dict(output.values)
+                    for stage, output in zone_outputs.get(zone, {}).items()
+                },
             )
         return build_frame_result(agg_summary=summary, original_fps=self._stream.original_fps)
 
@@ -2002,7 +2209,9 @@ class Session:
         for bucket, pipeline in self._pipelines.items():
             collected: dict[str, WindowOutput] = {}
             for stage_name, primitive in pipeline.items():
-                collected[stage_name] = primitive.window(self._window.frames_for(bucket, stage_name))
+                collected[stage_name] = primitive.window(
+                    self._window.frames_for(bucket, stage_name)
+                )
             window_outputs[bucket] = collected
 
         result = self._window.build(window_outputs)
@@ -2214,7 +2423,11 @@ def _stamp_track_ids(
     by_index: dict[int, int] = {}
     for track_id in sorted(tracks):  # sorted: first-wins is deterministic (O5)
         index = tracks[track_id].attributes.get(_DET_INDEX)
-        if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(detections):
+        if (
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or not 0 <= index < len(detections)
+        ):
             continue
         by_index.setdefault(index, int(track_id))
     if not by_index:
@@ -2256,7 +2469,9 @@ def _to_detection(item: Any) -> Detection:
     if isinstance(item, Detection):  # includes PipelineDetection
         return item
     if not isinstance(item, Mapping):
-        raise SessionError(f"detection must be a mapping or a Detection, got {type(item).__name__} ({item!r:.60})")
+        raise SessionError(
+            f"detection must be a mapping or a Detection, got {type(item).__name__} ({item!r:.60})"
+        )
     label = ""
     for key in _CATEGORY_KEYS:
         value = item.get(key)
@@ -2314,7 +2529,9 @@ def _to_box(item: Mapping[str, Any]) -> BoundingBox | None:
         if isinstance(raw, Mapping):
             corners = _corners(raw)
             if corners is not None:
-                return BoundingBox(xmin=corners[0], ymin=corners[1], xmax=corners[2], ymax=corners[3])
+                return BoundingBox(
+                    xmin=corners[0], ymin=corners[1], xmax=corners[2], ymax=corners[3]
+                )
         if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)) and len(raw) == 4:
             values = [float(v) for v in raw]
             return BoundingBox(xmin=values[0], ymin=values[1], xmax=values[2], ymax=values[3])
@@ -2486,7 +2703,9 @@ def _to_polygon(raw: Sequence[Any], where: str) -> tuple[tuple[float, float], ..
                 not isinstance(vertex, Sequence)
                 or isinstance(vertex, (str, bytes))
                 or len(vertex) < 2
-                or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vertex[:2])
+                or not all(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) for v in vertex[:2]
+                )
             ):
                 raise SessionError(
                     f"{where} looks like a polygon but has the vertex {vertex!r}; every vertex "
@@ -2530,7 +2749,9 @@ def _to_polygon(raw: Sequence[Any], where: str) -> tuple[tuple[float, float], ..
     return tuple((values[i], values[i + 1]) for i in range(0, len(values), 2))
 
 
-def _to_keypoints(item: Mapping[str, Any], space: Callable[[], tuple[int, int] | None]) -> tuple[Keypoint, ...]:
+def _to_keypoints(
+    item: Mapping[str, Any], space: Callable[[], tuple[int, int] | None]
+) -> tuple[Keypoint, ...]:
     """Read a detection's pose joints, **normalized 0-1**, or ``()`` when it has none.
 
     ``keypoints`` is the only key, and that is deliberate: it is the wire name (contract ``04``
@@ -2607,9 +2828,13 @@ def _keypoint_triples(raw: Sequence[Any]) -> tuple[tuple[float, float, float], .
                 not isinstance(joint, Sequence)
                 or isinstance(joint, (str, bytes))
                 or len(joint) < 2
-                or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in joint[:3])
+                or not all(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) for v in joint[:3]
+                )
             ):
-                raise SessionError(f"detection keypoint {joint!r} is not a numeric [x, y] or [x, y, confidence] joint.")
+                raise SessionError(
+                    f"detection keypoint {joint!r} is not a numeric [x, y] or [x, y, confidence] joint."
+                )
             # No confidence channel -> 0.0. Never 1.0; see this module's _to_keypoints.
             confidence = float(joint[2]) if len(joint) > 2 else 0.0
             joints.append((float(joint[0]), float(joint[1]), confidence))

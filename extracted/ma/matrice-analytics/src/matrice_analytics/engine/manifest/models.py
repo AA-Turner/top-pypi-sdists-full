@@ -2706,15 +2706,40 @@ class IncidentType(ManifestModel):
 
 
 class IncidentLifecycle(ManifestModel):
-    """When an incident opens, escalates and closes.
+    """When an incident opens, changes severity and closes.
 
-    Two behaviours that surprise people and are not configurable: incidents cannot de-escalate (the
-    backend ignores a downward severity change), and only an end time closes one — which is what
-    ``close_after_empty_frames`` produces.
+    Severity changes are **symmetric**: a downward change is published exactly like an upward one,
+    gated by the same ``severity_confirm_frames``. This is a deliberate reversal of the up-only rule
+    this block used to document ("the backend ignores a downward severity change"), which the live
+    alert timeline contradicts — the UI renders ``Critical -> Medium`` transitions, and both legacy
+    incident machines have always published them (``incident_manager_utils.py:1271``,
+    ``incident_lifecycle.py:196``, neither of which checks direction).
+
+    Only an end time closes an incident — which is what ``close_after_empty_frames`` produces.
+    The closing message carries ``info`` as an end signal rather than the severity the incident
+    reached (``session.CLOSE_SEVERITY``, matching both legacy machines); the peak is published on
+    its own message before the close, so it is not lost.
     """
 
     confirm_frames: int = Field(default=5, description=f"Minimum {MIN_CONFIRM_FRAMES}.")
     close_after_empty_frames: int = Field(default=101, ge=1, description="~4s at 25fps.")
+    severity_confirm_frames: int = Field(
+        default=5,
+        ge=1,
+        description=(
+            "Consecutive frames a NEW severity must hold before the change is published, in either "
+            "direction. 1 publishes every change on the frame it is first read. It does NOT gate "
+            "the opening severity: see `Session._advance`.\n\n"
+            "The default is 5, matching `confirm_frames`, because symmetric severity changes are "
+            "new and no app has been tuned for them -- at 1 a quantiser that wobbles across a rung "
+            "turns one incident into a stream of flips. Measured on the weapon_detection v3.4 "
+            "replay (12,388 frames, 10fps inference, `max_confidence` with rungs at 27/40/70): 228 "
+            "messages at 1 against 28 at 5, an 88% cut, while the true peak severity was still "
+            "published in 4 of 4 episodes at both values. The cut is all wobble.\n\n"
+            "It is a FRAME count, so its duration follows the inference rate: 5 frames is 0.5s at "
+            "10fps but 0.17s at 30fps. A high-frame-rate app on a jittery strategy may need more."
+        ),
+    )
     emit_on: Literal["transition", "never"] = Field(
         default="transition",
         description=(

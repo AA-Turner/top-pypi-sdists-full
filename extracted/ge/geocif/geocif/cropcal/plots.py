@@ -13,9 +13,9 @@ Two families, following the house split:
 Every figure ships the exact frame behind it to ``csvs/``, mirroring the plot
 tree, and ``lookup_plots_csvs.csv`` maps each figure to its companion.
 
-The **signed** difference is what gets mapped, never the legacy ``delta_*``:
-that column's wrap branch forces roughly half the population positive, so its
-mean is not a bias. All numeric detail lives in the CSVs, not on the canvas.
+The **signed** difference (``*_diff_days``) is what gets mapped, never the
+legacy ``*_diff_legacy_days``: that column's wrap branch forces roughly half
+the population positive, so its mean is not a bias. All numeric detail lives in the CSVs, not on the canvas.
 """
 from __future__ import annotations
 
@@ -151,9 +151,9 @@ def region_diagnostic(
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8.0, 9.0), sharex=True)
 
         # (A) the comparison itself
-        _shade_difference(ax1, geoglam["midgreenup"], row["doy_RS_midgreenup"],
+        _shade_difference(ax1, geoglam["midgreenup"], row["satellite_midgreenup_doy"],
                           GREENUP_COLOUR, "Mid Greenup Difference")
-        _shade_difference(ax1, geoglam["midgreendown"], row["doy_RS_midgreendown"],
+        _shade_difference(ax1, geoglam["midgreendown"], row["satellite_midgreendown_doy"],
                           GREENDOWN_COLOUR, "Mid Greendown Difference")
         ax1.plot(doy, climatology.ndvi, color="0.55", lw=1.0, label="Median NDVI")
         ax1.plot(doy, fitted, color="black", lw=1.6, label="Fitted")
@@ -274,7 +274,7 @@ def difference_map(
         .rename(columns={column: "value"})
         .dropna(subset=["value"])
     )
-    stem = f"delta_{transition}_world" if crop is None else f"delta_{transition}_{crop}"
+    stem = f"difference_{transition}_world" if crop is None else f"difference_{transition}_{crop}"
     figures.record("maps", stem, table)
 
     if table.empty:
@@ -334,19 +334,20 @@ def agreement_by_crop(figures: FigureSet, summary: pd.DataFrame) -> Optional[Pat
     frame = summary[summary["crop"] != "All"].copy()
     if frame.empty:
         return None
-    frame = frame.sort_values("pct_works", ascending=True)
+    frame = frame.sort_values("pct_within_tolerance", ascending=True)
     stem = "agreement_crop"
 
     with style_ctx():
         fig, ax = plt.subplots(figsize=(7.5, 0.5 * len(frame) + 2.0))
         y = np.arange(len(frame))
-        ax.barh(y - 0.2, frame["pct_works"], height=0.38,
+        ax.barh(y - 0.2, frame["pct_within_tolerance"], height=0.38,
                 color="#4393c3", label="All Regions")
-        ax.barh(y + 0.2, frame["pct_works_subset"], height=0.38,
+        ax.barh(y + 0.2, frame["pct_within_tolerance_subset"], height=0.38,
                 color="#1b7837", label="Peak Inside Stage 2")
         ax.set_yticks(y)
         ax.set_yticklabels([display(c) for c in frame["crop"]], fontsize=10)
-        ax.set_xlabel("Regions Within 45 Days (%)", fontsize=11)
+        tolerance = int(summary["tolerance_days"].iloc[0]) if "tolerance_days" in summary.columns else 45
+        ax.set_xlabel(f"Regions Within {tolerance} Days (%)", fontsize=11)
         ax.set_xlim(0, 100)
         ax.tick_params(labelsize=10)
         ax.legend(loc="lower right", fontsize=9, frameon=False)
@@ -383,8 +384,8 @@ def difference_distribution(figures: FigureSet, scored: pd.DataFrame) -> Optiona
         for ax, (column, transition, colour) in zip(
             axes,
             (
-                ("delta_midgreenup_signed", "midgreenup", GREENUP_COLOUR),
-                ("delta_midgreendown_signed", "midgreendown", GREENDOWN_COLOUR),
+                ("midgreenup_diff_days", "midgreenup", GREENUP_COLOUR),
+                ("midgreendown_diff_days", "midgreendown", GREENDOWN_COLOUR),
             ),
         ):
             data = [scored.loc[scored["crop"] == c, column].dropna().to_numpy()
@@ -414,7 +415,7 @@ def difference_distribution(figures: FigureSet, scored: pd.DataFrame) -> Optiona
         "plots",
         stem,
         scored[["key", "country", "region", "crop", "season",
-                "delta_midgreenup_signed", "delta_midgreendown_signed"]],
+                "midgreenup_diff_days", "midgreendown_diff_days"]],
     )
     return path
 
@@ -445,8 +446,8 @@ def render_all(
         made["plots"] += 1
 
     for column, transition in (
-        ("delta_midgreenup_signed", "midgreenup"),
-        ("delta_midgreendown_signed", "midgreendown"),
+        ("midgreenup_diff_days", "midgreenup"),
+        ("midgreendown_diff_days", "midgreendown"),
     ):
         if column not in scored.columns:
             continue
@@ -461,7 +462,7 @@ def render_all(
     indexed = scored.set_index(["key", "crop", "season"], drop=False)
     ordered = sorted(
         diagnostics,
-        key=lambda item: -_combined_delta(indexed, item[0]),
+        key=lambda item: -_combined_difference(indexed, item[0]),
     )
     if max_region_figures is not None:
         ordered = ordered[:max_region_figures]
@@ -484,11 +485,11 @@ def render_all(
     return made
 
 
-def _combined_delta(indexed: pd.DataFrame, context) -> float:
+def _combined_difference(indexed: pd.DataFrame, context) -> float:
     key = (context.key, context.crop, context.season)
     if key not in indexed.index:
         return 0.0
-    value = indexed.loc[key, "combined_delta"]
+    value = indexed.loc[key, "combined_abs_diff_days"]
     if isinstance(value, pd.Series):
         value = value.iloc[0]
     return float(value) if np.isfinite(value) else 0.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kimi-cli
-Version: 1.51.0
+Version: 1.52.0
 Summary: [Archived] Legacy Python Kimi CLI, no longer maintained. Use Kimi Code CLI instead: https://github.com/MoonshotAI/kimi-code
 Classifier: Development Status :: 7 - Inactive
 Requires-Dist: agent-client-protocol==0.8.0

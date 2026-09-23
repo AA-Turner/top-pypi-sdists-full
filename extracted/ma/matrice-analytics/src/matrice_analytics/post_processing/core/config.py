@@ -8,8 +8,10 @@ with built-in validation, serialization support, and pythonic configuration mana
 import json
 import logging
 from dataclasses import asdict, dataclass, field, fields
+from importlib import import_module
+from inspect import Parameter, signature
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
@@ -146,7 +148,9 @@ class ZoneConfig:
             if zone_name not in self.zones:
                 errors.append(f"Zone confidence threshold defined for unknown zone '{zone_name}'")
             if not 0.0 <= threshold <= 1.0:
-                errors.append(f"Zone '{zone_name}' confidence threshold must be between 0.0 and 1.0")
+                errors.append(
+                    f"Zone '{zone_name}' confidence threshold must be between 0.0 and 1.0"
+                )
 
         return errors
 
@@ -272,7 +276,9 @@ class AlertConfig:
     alert_type: List[str] = field(
         default_factory=lambda: ["Default"]
     )  # webhook, email, sms, slack, telegram, whatsapp, etc.
-    alert_value: List[str] = field(default_factory=lambda: ["JSON"])  # webhook_url, email_recipients, etc.
+    alert_value: List[str] = field(
+        default_factory=lambda: ["JSON"]
+    )  # webhook_url, email_recipients, etc.
     alert_incident_category: List[str] = field(default_factory=lambda: ["Incident Alert"])
     # alert_settings: Optional[Dict[str, Any]] = {alert_type: None}
 
@@ -287,7 +293,9 @@ class AlertConfig:
 
         for zone, threshold in self.occupancy_thresholds.items():
             if threshold <= 0:
-                errors.append(f"People-count (occupancy) threshold for zone '{zone}' must be positive")
+                errors.append(
+                    f"People-count (occupancy) threshold for zone '{zone}' must be positive"
+                )
 
         # Validate time thresholds
         if self.dwell_time_threshold is not None and self.dwell_time_threshold <= 0:
@@ -299,9 +307,9 @@ class AlertConfig:
         if self.alert_cooldown <= 0:
             errors.append("alert_cooldown must be positive")
 
-        if len(self.alert_incident_category) != len(self.alert_type) or len(self.alert_incident_category) != len(
-            self.alert_value
-        ):
+        if len(self.alert_incident_category) != len(self.alert_type) or len(
+            self.alert_incident_category
+        ) != len(self.alert_value):
             errors.append("Details for all alerts is required")
 
         if self.alert_type[0] != "Default":
@@ -380,8 +388,12 @@ class PeopleCountingConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
 
     # ====== PERFORMANCE: Tracker selection ======
-    enable_advanced_tracker: bool = True  # Heavy O(n³) tracker - enable only when tracking quality is critical
-    enable_simple_tracker: bool = False  # Lightweight O(n) tracker - enabled by default for tracking ID assignment
+    enable_advanced_tracker: bool = (
+        True  # Heavy O(n³) tracker - enable only when tracking quality is critical
+    )
+    enable_simple_tracker: bool = (
+        False  # Lightweight O(n) tracker - enabled by default for tracking ID assignment
+    )
     # ====== END PERFORMANCE CONFIG ======
     confidence_threshold: float = 0.245
 
@@ -741,6 +753,23 @@ class CustomerServiceConfig(BaseConfig):
     enable_journey_analysis: bool = False
     enable_queue_analytics: bool = False
 
+    def _validate_areas(self) -> List[str]:
+        """Polygon checks for the customer, staff and service areas.
+
+        Lifted out of `validate` unchanged: that method sat at 23 branches against
+        the org cap of 20, and these four are the only ones that group naturally.
+        """
+        errors: List[str] = []
+        all_areas = {**self.customer_areas, **self.staff_areas, **self.service_areas}
+        for area_name, polygon in all_areas.items():
+            if len(polygon) < 3:
+                errors.append(f"Area '{area_name}' must have at least 3 points")
+
+            for i, point in enumerate(polygon):
+                if len(point) != 2:
+                    errors.append(f"Area '{area_name}' point {i} must have exactly 2 coordinates")
+        return errors
+
     def validate(self) -> List[str]:
         """Validate customer service configuration."""
         errors = super().validate()
@@ -761,15 +790,7 @@ class CustomerServiceConfig(BaseConfig):
         if not self.customer_categories:
             errors.append("customer_categories cannot be empty")
 
-        # Validate area polygons
-        all_areas = {**self.customer_areas, **self.staff_areas, **self.service_areas}
-        for area_name, polygon in all_areas.items():
-            if len(polygon) < 3:
-                errors.append(f"Area '{area_name}' must have at least 3 points")
-
-            for i, point in enumerate(polygon):
-                if len(point) != 2:
-                    errors.append(f"Area '{area_name}' point {i} must have exactly 2 coordinates")
+        errors.extend(self._validate_areas())
 
         # Zone temporal stability / aliasing bounds
         if self.min_inside_frames < 1:
@@ -892,11 +913,15 @@ class LineConfig:
     """Configuration for line crossing detection."""
 
     # Line definition
-    points: List[List[float]] = field(default_factory=list)  # Two points defining the line [[x1, y1], [x2, y2]]
+    points: List[List[float]] = field(
+        default_factory=list
+    )  # Two points defining the line [[x1, y1], [x2, y2]]
 
     # Line-specific settings
     side1_label: str = field(default_factory=lambda: "Side1")  # Label for one side of the line
-    side2_label: str = field(default_factory=lambda: "Side2")  # Label for the other side of the line
+    side2_label: str = field(
+        default_factory=lambda: "Side2"
+    )  # Label for the other side of the line
     crossing_categories: List[str] = field(default_factory=list)  # Categories to track for crossing
 
     def validate(self) -> List[str]:
@@ -1030,7 +1055,9 @@ class PeopleTrackingConfig(BaseConfig):
             if self.line_b is None:
                 errors.append("line_b is required for abline method")
             if self.in_direction not in ("A_to_B", "B_to_A"):
-                errors.append(f"in_direction must be 'A_to_B' or 'B_to_A', got '{self.in_direction}'")
+                errors.append(
+                    f"in_direction must be 'A_to_B' or 'B_to_A', got '{self.in_direction}'"
+                )
 
         if not self.person_categories:
             errors.append("person_categories cannot be empty")
@@ -1082,6 +1109,72 @@ def filter_config_kwargs(config_class: type, kwargs: Dict[str, Any]) -> Dict[str
     return filtered_kwargs
 
 
+#: Use cases whose config is built GENERICALLY, from a registered class plus an optional
+#: JSON defaults file, instead of a hand-written branch in :meth:`ConfigManager.create_config`.
+#:
+#: That chain is 2,253 lines and 286 branches, nineteen times the org complexity cap, and it
+#: grows by one branch for every use case anyone adds -- which is also why adding one is
+#: blocked by the complexity hook. Entries here cost nothing: the generic path is the
+#: `else` that was already there, so the chain does not grow at all.
+#:
+#: The value is ``"module:ClassName"`` and is imported only on first use, so listing a use
+#: case here does not drag its module into every import of this package.
+_GENERIC_CONFIG_CLASSES: Dict[str, str] = {
+    "vehicle_speed_estimation": (
+        "matrice_analytics.post_processing.usecases.vehicle_speed_estimation_config:"
+        "VehicleSpeedEstimationConfig"
+    ),
+}
+
+#: Where a use case's JSON defaults live, if it ships any.
+_DEFAULT_CONFIG_DIR = Path(__file__).resolve().parent.parent / "usecases" / "default_configs"
+
+
+def _load_default_config_json(usecase: str) -> Dict[str, Any]:
+    """Defaults shipped beside the use case, or ``{}`` when it ships none.
+
+    A missing file is normal and not an error -- most use cases carry their defaults in
+    their config class. A malformed one is NOT swallowed: a typo in a shipped default
+    would otherwise silently fall back to different behaviour than the file describes,
+    which is the kind of thing nobody notices until a camera reports wrong numbers.
+    """
+    path = _DEFAULT_CONFIG_DIR / f"{usecase}.json"
+    if not path.is_file():
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        loaded = json.load(fh)
+    if not isinstance(loaded, dict):
+        raise ConfigValidationError(
+            f"{path.name} must contain a JSON object, got {type(loaded).__name__}"
+        )
+    return loaded
+
+
+def _template_defaults(usecase: str, config_class: type) -> Dict[str, Any]:
+    """Shipped JSON defaults for *usecase*, narrowed to what *config_class* accepts.
+
+    ``get_config_template`` answers "what would this use case be configured with", so it
+    has to read the same JSON ``create_config`` reads -- otherwise the template shows the
+    class's defaults while the app runs on the file's. Empty for every use case that
+    ships no JSON, which is all of them bar one, so the hand-written branches are
+    unaffected.
+    """
+    data = _load_default_config_json(usecase)
+    return {k: v for k, v in data.items() if k in ConfigManager._accepted_kwargs(config_class)}
+
+
+# WHY `# fmt: skip` APPEARS SEVEN TIMES IN THE TWO METHODS BELOW.
+#
+# `create_config` and `get_config_template` carry a handful of lines written when
+# this repo formatted at 120 columns. The limit became 100 (INC-2026-295), so the
+# formatter now wants to wrap them, and each wrap adds two lines to a method that
+# is already 2,247 and 831 lines against a cap of 120 -- which the complexity gate
+# reads, correctly, as making an over-cap function worse. The two gates cannot both
+# be satisfied on those lines, so the lines are pinned as they were written.
+#
+# This is a stopgap for exactly those seven lines. Splitting these two methods is
+# the actual fix and wants its own change; every use case added since simply makes
+# the chain longer.
 class ConfigManager:
     """Centralized configuration management for post-processing operations."""
 
@@ -1217,6 +1310,71 @@ class ConfigManager:
             "deep_oc_sort": None,
             "pothole_detection": None,
         }
+
+    def _resolve_config_class(self, usecase: str) -> Optional[type]:
+        """The config class for *usecase*, importing it on first use, or ``None``."""
+        existing = self._config_classes.get(usecase)
+        if existing is not None:
+            return existing
+        spec = _GENERIC_CONFIG_CLASSES.get(usecase)
+        if spec is None:
+            return None
+        module_name, _, class_name = spec.partition(":")
+        config_class = getattr(import_module(module_name), class_name)
+        self._config_classes[usecase] = config_class
+        return config_class
+
+    @staticmethod
+    def _accepted_kwargs(config_class: type) -> set:
+        """Keyword names the class, and its bases, name explicitly in ``__init__``.
+
+        ``filter_config_kwargs`` filters a dataclass by its fields and lets everything
+        through for anything else. A plain config class that forwards ``**kwargs`` to
+        ``BaseConfig`` therefore receives every stray key the caller sent and raises on
+        the first one it does not want -- harmless for the hand-written branches, which
+        pre-filter, and fatal for a generic one, which has nothing to pre-filter with.
+        """
+        names: set = set()
+        for klass in getattr(config_class, "__mro__", (config_class,)):
+            init = klass.__dict__.get("__init__")
+            if init is None:
+                continue
+            for name, param in signature(init).parameters.items():
+                if param.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY):
+                    names.add(name)
+        names.discard("self")
+        return names
+
+    def _build_config_generic(
+        self, usecase: str, category: str | None, kwargs: Dict[str, Any]
+    ) -> BaseConfig:
+        """Build a config without a hand-written branch: class + JSON defaults + kwargs.
+
+        This is what ``create_config`` does instead of raising for an unrecognised use
+        case, so a new use case needs a registry entry rather than another branch in a
+        method that is already nineteen times over the complexity cap.
+
+        Caller-supplied ``kwargs`` win over the shipped JSON defaults, which in turn win
+        over the config class's own defaults -- the ordering anyone would expect, and the
+        reason the JSON is a starting point rather than an override.
+        """
+        config_class = self._resolve_config_class(usecase)
+        if config_class is None:
+            raise ConfigValidationError(f"Unknown use case: {usecase}")
+
+        params: Dict[str, Any] = dict(_load_default_config_json(usecase))
+        params.update(kwargs)
+        params.pop("usecase", None)
+        resolved_category = category or params.pop("category", None) or "general"
+        if isinstance(params.get("alert_config"), dict):
+            params["alert_config"] = AlertConfig(**params["alert_config"])
+
+        accepted = self._accepted_kwargs(config_class)
+        return config_class(
+            category=resolved_category,
+            usecase=usecase,
+            **{key: value for key, value in params.items() if key in accepted},
+        )
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
         """Register a configuration class for a use case."""
@@ -1992,7 +2150,9 @@ class ConfigManager:
 
     def fence_climbing_detection_pose_config_class(self):
         try:
-            from ..usecases.fence_climbing_detection_pose import FenceClimbingPoseGatedDetectionConfig
+            from ..usecases.fence_climbing_detection_pose import (
+                FenceClimbingPoseGatedDetectionConfig,
+            )
 
             return FenceClimbingPoseGatedDetectionConfig
         except ImportError:
@@ -2124,7 +2284,9 @@ class ConfigManager:
 
     def unauthorized_encampment_detection_config_class(self):
         try:
-            from ..usecases.unauthorized_encampment_detection import UnauthorizedEncampmentDetectionConfig
+            from ..usecases.unauthorized_encampment_detection import (
+                UnauthorizedEncampmentDetectionConfig,
+            )
 
             return UnauthorizedEncampmentDetectionConfig
         except ImportError:
@@ -2260,7 +2422,9 @@ class ConfigManager:
         except ImportError:
             return None
 
-    def _filter_kwargs_for_config(self, config_class: type, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def _filter_kwargs_for_config(
+        self, config_class: type, kwargs: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Filter kwargs to only include valid parameters for the config class.
 
@@ -2349,7 +2513,7 @@ class ConfigManager:
             if alert_config and isinstance(alert_config, dict):
                 alert_config = AlertConfig(**alert_config)
 
-            filtered_kwargs = self._filter_kwargs_for_config(ClaudePeopleCountingUsecaseConfig, kwargs)
+            filtered_kwargs = self._filter_kwargs_for_config(ClaudePeopleCountingUsecaseConfig, kwargs)  # fmt: skip
 
             config = ClaudePeopleCountingUsecaseConfig(
                 category=category or "general",
@@ -3107,7 +3271,7 @@ class ConfigManager:
             if alert_config and isinstance(alert_config, dict):
                 alert_config = AlertConfig(**alert_config)
 
-            filtered_kwargs = self._filter_kwargs_for_config(FaceCoveringDetectionPoseConfig, kwargs)
+            filtered_kwargs = self._filter_kwargs_for_config(FaceCoveringDetectionPoseConfig, kwargs)  # fmt: skip
 
             config = FaceCoveringDetectionPoseConfig(
                 category=category or "general",
@@ -3118,7 +3282,7 @@ class ConfigManager:
             )
 
         elif usecase == "fence_climbing_detection_pose":
-            from ..usecases.fence_climbing_detection_pose import FenceClimbingPoseGatedDetectionConfig
+            from ..usecases.fence_climbing_detection_pose import FenceClimbingPoseGatedDetectionConfig  # noqa: I001  # fmt: skip
 
             zone_config = kwargs.pop("zone_config", None)
             if zone_config and isinstance(zone_config, dict):
@@ -3128,7 +3292,7 @@ class ConfigManager:
             if alert_config and isinstance(alert_config, dict):
                 alert_config = AlertConfig(**alert_config)
 
-            filtered_kwargs = self._filter_kwargs_for_config(FenceClimbingPoseGatedDetectionConfig, kwargs)
+            filtered_kwargs = self._filter_kwargs_for_config(FenceClimbingPoseGatedDetectionConfig, kwargs)  # fmt: skip
 
             config = FenceClimbingPoseGatedDetectionConfig(
                 category=category or "general",
@@ -4311,7 +4475,7 @@ class ConfigManager:
 
         elif usecase == "unauthorized_encampment_detection":
             # Import here to avoid circular import
-            from ..usecases.unauthorized_encampment_detection import UnauthorizedEncampmentDetectionConfig
+            from ..usecases.unauthorized_encampment_detection import UnauthorizedEncampmentDetectionConfig  # noqa: I001  # fmt: skip
 
             # Handle nested configurations
             alert_config = kwargs.pop("alert_config", None)
@@ -4502,7 +4666,7 @@ class ConfigManager:
             )
 
         else:
-            raise ConfigValidationError(f"Unknown use case: {usecase}")
+            config = self._build_config_generic(usecase, category, kwargs)
 
         # Validate configuration
         errors = config.validate()
@@ -4556,11 +4720,13 @@ class ConfigManager:
             return self.create_config(usecase, category, **data_copy)
 
         except (json.JSONDecodeError, yaml.YAMLError) as e:
-            raise ConfigValidationError(f"Failed to parse configuration file: {str(e)}")
+            raise ConfigValidationError(f"Failed to parse configuration file: {str(e)}") from e
         except Exception as e:
-            raise ConfigValidationError(f"Failed to load configuration: {str(e)}")
+            raise ConfigValidationError(f"Failed to load configuration: {str(e)}") from e
 
-    def save_to_file(self, config: BaseConfig, file_path: Union[str, Path], fmt: str = "json") -> None:
+    def save_to_file(
+        self, config: BaseConfig, file_path: Union[str, Path], fmt: str = "json"
+    ) -> None:
         """
         Save configuration to file.
 
@@ -4587,7 +4753,7 @@ class ConfigManager:
                 raise ConfigValidationError(f"Unsupported format: {fmt}")
 
         except Exception as e:
-            raise ConfigValidationError(f"Failed to save configuration: {str(e)}")
+            raise ConfigValidationError(f"Failed to save configuration: {str(e)}") from e
 
     def get_config_template(self, usecase: str) -> Dict[str, Any]:
         """Get configuration template for a use case."""
@@ -4816,7 +4982,7 @@ class ConfigManager:
             default_config = FaceCoveringDetectionPoseConfig()
             return default_config.to_dict()
         elif usecase == "fence_climbing_detection_pose":
-            from ..usecases.fence_climbing_detection_pose import FenceClimbingPoseGatedDetectionConfig
+            from ..usecases.fence_climbing_detection_pose import FenceClimbingPoseGatedDetectionConfig  # noqa: I001  # fmt: skip
 
             default_config = FenceClimbingPoseGatedDetectionConfig()
             return default_config.to_dict()
@@ -5323,7 +5489,7 @@ class ConfigManager:
 
         elif usecase == "unauthorized_encampment_detection":
             # Import here to avoid circular import
-            from ..usecases.unauthorized_encampment_detection import UnauthorizedEncampmentDetectionConfig
+            from ..usecases.unauthorized_encampment_detection import UnauthorizedEncampmentDetectionConfig  # noqa: I001  # fmt: skip
 
             default_config = UnauthorizedEncampmentDetectionConfig()
             return default_config.to_dict()
@@ -5410,11 +5576,11 @@ class ConfigManager:
             default_config = PackageDetectionConfig()
             return default_config.to_dict()
 
-        elif usecase not in self._config_classes:
+        elif self._resolve_config_class(usecase) is None:
             raise ConfigValidationError(f"Unsupported use case: {usecase}")
 
-        config_class = self._config_classes[usecase]
-        default_config = config_class()
+        config_class = self._resolve_config_class(usecase)
+        default_config = config_class(**_template_defaults(usecase, config_class))
         return default_config.to_dict()
 
     def list_supported_usecases(self) -> List[str]:

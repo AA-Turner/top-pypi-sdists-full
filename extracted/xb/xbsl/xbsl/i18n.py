@@ -13,13 +13,13 @@ and its wording cannot drift apart:
 
 Keys are `<rule id>.title` for a rule title and `<rule id>.<variant>` for its messages;
 non-rule text uses a `<module>.<name>` key. Placeholders are `str.format` fields and must be
-the same in every language – `tests/test_i18n.py` enforces that. A brace that is part of the
-text – `() [] {{}}` – has to be doubled, because every template is formatted.
+the same in every language - `tests/test_i18n.py` enforces that. A brace that is part of the
+text - `() [] {{}}` - has to be doubled, because every template is formatted.
 
 The language is chosen by: set_lang() (CLI --lang) > env XBSL_LANG (or the pre-rename
 XBSLLINT_LANG) > system locale > ru.
-An unknown key is returned as is, so a plugin written against 0.3 – which passed literal
-strings rather than keys – keeps working.
+An unknown key is returned as is, so a plugin written against 0.3 - which passed literal
+strings rather than keys - keeps working.
 
 The --help text is translated too (the `cli.help.*` keys), including argparse's own
 `-h/--help` - see ArgumentParser at the bottom of this module. The check-mode parser is
@@ -44,7 +44,7 @@ _catalog: dict[str, dict[str, str]] = {}
 _selected: str | None = None
 _keywords: dict[str, str] | None = None
 
-# Text of the adapters themselves (CLI summary, tool descriptions) – not tied to any one rule.
+# Text of the adapters themselves (CLI summary, tool descriptions) - not tied to any one rule.
 _CORE_MESSAGES = {
     "cli.summary": {
         "ru": "\nПроверено файлов: {files} ({xbsl} .xbsl, {yaml} .yaml); "
@@ -1376,6 +1376,23 @@ _CORE_MESSAGES = {
               "range and the line of each place; see also move-resource, which moves a resource "
               "and rewrites its keys",
     },
+    "cli.help.scaf.unused-resources": {
+        "ru": "найти файлы в каталогах Ресурсы, до которых не дошли статические ссылки, "
+              "ограниченные вычисляемые пути и ссылки из достигнутых JSON/CSS/HTML/SVG/JS; "
+              "результат – кандидаты для проверки, команда ничего не удаляет",
+        "en": "find files under Resources folders not reached by static references, bounded "
+              "computed paths, or links from reached JSON/CSS/HTML/SVG/JS files; results are "
+              "review candidates and the command deletes nothing",
+    },
+    "cli.help.scaf.unused-resources-protected": {
+        "ru": "включить отдельно файлы, защищенные вычисляемыми и неопределенными путями",
+        "en": "also return files protected by bounded dynamic or uncertain paths",
+    },
+    "cli.help.scaf.unused-resources-limit": {
+        "ru": "не более N записей в каждом возвращаемом списке; итоги всегда полные "
+              "(по умолчанию 100)",
+        "en": "return at most N items in each list; totals stay complete (default: 100)",
+    },
     "cli.help.scaf.project-info": {
         "ru": "обзор исходников: проекты, подсистемы, объекты",
         "en": "sources overview: projects, subsystems, objects",
@@ -1609,11 +1626,11 @@ def set_lang(lang: str | None) -> None:
 def lang_from_argv(argv) -> str | None:
     """Read --lang out of raw argv, before the parser is built.
 
-    The parser is built with translated help=, but argparse learns --lang only when it parses –
+    The parser is built with translated help=, but argparse learns --lang only when it parses -
     too late to choose the help language. So the value is scanned out of argv beforehand.
     Accepts "--lang en" and "--lang=en". A value outside LANGS returns None: the language stays
     at its default and argparse rejects the bad value with its own message. env / locale need no
-    prescan – t() already reads them through current_lang() when the parser is built.
+    prescan - t() already reads them through current_lang() when the parser is built.
     """
     for i, arg in enumerate(argv):
         value = None
@@ -1760,7 +1777,7 @@ def t(key: str, /, **fields) -> str:
     """Translate a key and substitute the fields. An unknown key is returned unchanged.
 
     A template is always run through str.format, so a literal brace must be doubled: `{{}}`.
-    Formatting conditionally – only when fields are passed – would turn a literal brace into a
+    Formatting conditionally - only when fields are passed - would turn a literal brace into a
     field the day someone adds one, and the failure would surface as a crash in a rule.
     """
     entry = _catalog.get(key)

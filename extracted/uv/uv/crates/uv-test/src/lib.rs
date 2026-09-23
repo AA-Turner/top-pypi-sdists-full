@@ -117,8 +117,6 @@ pub const INSTA_FILTERS: &[(&str, &str)] = &[
         r"(?ms)^([ \t]*custom_certificates: )(?:None|Some\(\n.*?^[ \t]*\),\n[ \t]*\)),",
         "${1}[CERTIFICATES],",
     ),
-    // Filter SSL certificate loading debug messages (environment-dependent)
-    (r"DEBUG Loaded \d+ certificate\(s\) from [^\n]+\n", ""),
 ];
 
 /// Create a context for tests which simplifies shared behavior across tests.
@@ -1015,10 +1013,7 @@ impl TestContext {
                 .map(|pattern| (pattern, "[UV]".to_string())),
         );
 
-        // Exclude `link-mode` on Windows since we set it in the remote test suite
         if cfg!(windows) {
-            filters.push((" --link-mode <LINK_MODE>".to_string(), String::new()));
-            filters.push((r#"link-mode = "copy"\n"#.to_string(), String::new()));
             // Unix uses "exit status", Windows uses "exit code"
             filters.push((r"exit code: ".to_string(), "exit status: ".to_string()));
         }
@@ -1326,15 +1321,18 @@ impl TestContext {
             .env(EnvVars::UV_PYTHON_DOWNLOADS, "never")
             .env(EnvVars::UV_PYTHON_SEARCH_PATH, self.python_path())
             .env(EnvVars::UV_EXCLUDE_NEWER, TEST_TIMESTAMP)
-            .env(EnvVars::UV_TEST_CURRENT_TIMESTAMP, TEST_TIMESTAMP)
-            .env(EnvVars::UV_TEST_AVAILABLE_VERSION_CUTOFF, TEST_TIMESTAMP)
+            .env(EnvVars::UV_INTERNAL__TEST_CURRENT_TIMESTAMP, TEST_TIMESTAMP)
+            .env(
+                EnvVars::UV_INTERNAL__TEST_AVAILABLE_VERSION_CUTOFF,
+                TEST_TIMESTAMP,
+            )
             // Keep Python discovery hermetic and avoid mutating global state, like the Windows
             // registry, unless a test opts in explicitly.
             .env(EnvVars::UV_PYTHON_NO_REGISTRY, "1")
             .env(EnvVars::UV_PYTHON_INSTALL_REGISTRY, "0")
             // Since downloads, fetches and builds run in parallel, their message output order is
             // non-deterministic, so can't capture them in test output.
-            .env(EnvVars::UV_TEST_NO_CLI_PROGRESS, "1")
+            .env(EnvVars::UV_INTERNAL__TEST_NO_CLI_PROGRESS, "1")
             // I believe the intent of all tests is that they are run outside the
             // context of an existing git repository. And when they aren't, state
             // from the parent git repository can bleed into the behavior of `uv
@@ -2075,7 +2073,6 @@ impl TestContext {
             // For linux distributions
             EnvVars::PATH,
             // For debugging tests.
-            EnvVars::RUST_LOG,
             EnvVars::RUST_BACKTRACE,
             // Windows System configuration.
             EnvVars::SYSTEMDRIVE,
@@ -2098,6 +2095,10 @@ impl TestContext {
             .filter(|name| !passthrough.contains(name))
         {
             command.env_remove(env_var);
+        }
+
+        if let Some(rust_log) = env::var_os(EnvVars::UV_INTERNAL__TEST_RUST_LOG) {
+            command.env(EnvVars::RUST_LOG, rust_log);
         }
 
         command

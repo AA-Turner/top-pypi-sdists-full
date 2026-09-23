@@ -35,7 +35,7 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 class UpdateCredentialGlobalsTypedDict(TypedDict):
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
 
 class UpdateCredentialGlobals(BaseModel):
@@ -43,7 +43,7 @@ class UpdateCredentialGlobals(BaseModel):
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -64,10 +64,13 @@ class UpdateCredentialGlobals(BaseModel):
 
 class UpdateCredentialRequestParam(TypedDict):
     id: str
-    r"""Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122."""
+    r"""Required. Resource ID segment making up resource `name`. It identifies the resource
+    within its parent collection as described in https://google.aip.dev/122.
+    """
     body: credentials_credentialupdate.CredentialUpdateParam
+    r"""Required. The request body."""
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
     update_mask: NotRequired[str]
     r"""Optional. The list of fields to update."""
 
@@ -76,18 +79,21 @@ class UpdateCredentialRequest(BaseModel):
     id: Annotated[
         str, FieldMetadata(path=PathParamMetadata(style="simple", explode=False))
     ]
-    r"""Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122."""
+    r"""Required. Resource ID segment making up resource `name`. It identifies the resource
+    within its parent collection as described in https://google.aip.dev/122.
+    """
 
     body: Annotated[
         credentials_credentialupdate.CredentialUpdate,
         FieldMetadata(request=RequestMetadata(media_type="application/json")),
     ]
+    r"""Required. The request body."""
 
     api_version: Annotated[
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     update_mask: Annotated[
         Optional[str],

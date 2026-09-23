@@ -24,6 +24,12 @@ def derive_key(org_id: str, agent_id: str, task_id: str) -> bytes:
     return hashlib.sha256(material.encode()).digest()
 
 
+def session_id_for(task) -> str:
+    """The session every runtime keys continuity on: the task's conversation when it
+    is one turn of a direct conversation, else the task's own id."""
+    return (getattr(task, "conversation_id", None) or getattr(task, "id", "")) or ""
+
+
 def conversation_scope_id(task) -> str:
     """Scope id for an offloaded file's key. The root (gateway) execution id when
     the task is a sub-execution, else the task's own id — so content offloaded in

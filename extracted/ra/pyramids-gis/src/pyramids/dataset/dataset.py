@@ -94,6 +94,7 @@ from pyramids.dataset.ops._zonal import zonal_stats as _zonal_stats
 from pyramids.dataset.ops.interpolate import grid_points
 from pyramids.dataset.ops.units import convert_array
 from pyramids.dataset.ops.vectorize import rasterize_features
+from pyramids.dataset.transform import GeoTransform
 from pyramids.feature import FeatureCollection, create_polygon
 
 # tuple of collaborator attribute names. Used by
@@ -775,9 +776,28 @@ class Dataset(RasterBase):
         """Facade — delegates to :meth:`COG.to_cog_bytes <pyramids.dataset.engines.COG.to_cog_bytes>`."""
         return self.cog.to_cog_bytes(*args, **kwargs)
 
-    def read_part(self, *args, **kwargs):
-        """Facade — delegates to :meth:`COG.read_part <pyramids.dataset.engines.COG.read_part>`."""
-        return self.cog.read_part(*args, **kwargs)
+    def read_part(
+        self, *args, **kwargs
+    ) -> (
+        np.typing.NDArray
+        | tuple[np.typing.NDArray, tuple[float, float, float, float, float, float]]
+    ):
+        """Facade — delegates to :meth:`COG.read_part <pyramids.dataset.engines.COG.read_part>`.
+
+        Typed with the engine's union return -- a bare array, or an
+        `(array, geotransform)` tuple when `return_transform=True` -- so the
+        public entry point stays type-safe instead of erasing to `Any` through
+        the `*args, **kwargs` passthrough. The per-flag narrowing lives on
+        `COG.read_part`; duplicating its `@overload` stubs here bought the facade
+        nothing over this union and only tripped the duplication gate.
+        """
+        # `*args`/`**kwargs` are `Any`, so the overloaded engine call resolves to
+        # `Any`; cast back to the declared union to keep the facade type-safe.
+        return cast(
+            "np.typing.NDArray"
+            " | tuple[np.typing.NDArray, tuple[float, float, float, float, float, float]]",
+            self.cog.read_part(*args, **kwargs),
+        )
 
     def preview(self, *args, **kwargs):
         """Facade — delegates to :meth:`COG.preview <pyramids.dataset.engines.COG.preview>`."""
@@ -877,6 +897,46 @@ class Dataset(RasterBase):
         """
         result = self.analysis.fill(*args, **kwargs)
         return self if result is None else result
+
+    def where(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.where <pyramids.dataset.engines.Analysis.where>`.
+
+        Keeps the cells a condition selects and masks the rest — the inverse of
+        :meth:`fill`, which writes to the cells that are data rather than deciding which
+        ones stay data.
+        """
+        return self.analysis.where(*args, **kwargs)
+
+    def fillna(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.fillna <pyramids.dataset.engines.Analysis.fillna>`.
+
+        Writes to the **gaps**, where :meth:`fill` writes to the cells that already hold
+        data. One letter apart, opposite effects.
+        """
+        return self.analysis.fillna(*args, **kwargs)
+
+    def isnull(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.isnull <pyramids.dataset.engines.Analysis.isnull>`."""
+        return self.analysis.isnull(*args, **kwargs)
+
+    def equals(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.equals <pyramids.dataset.engines.Analysis.equals>`.
+
+        Value equality, which :meth:`same_grid` does not provide: that says two rasters
+        *could* be combined, this says they agree.
+        """
+        return self.analysis.equals(*args, **kwargs)
+
+    def identical(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.identical <pyramids.dataset.engines.Analysis.identical>`.
+
+        :meth:`equals` with the attributes read too.
+        """
+        return self.analysis.identical(*args, **kwargs)
+
+    def notnull(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.notnull <pyramids.dataset.engines.Analysis.notnull>`."""
+        return self.analysis.notnull(*args, **kwargs)
 
     def extract(self, *args, **kwargs):
         """Facade — delegates to :meth:`Analysis.extract <pyramids.dataset.engines.Analysis.extract>`."""
@@ -1778,13 +1838,14 @@ class Dataset(RasterBase):
         `bbox` / `bounds` properties are reachable before the
         collaborator is wired during `Dataset.__init__`.
         """
-        # Derive the extent from the geotransform's separate X/Y pixel sizes (gt[1], gt[5]) rather
-        # than a single cell_size, so non-square grids (e.g. 2° lon, 1° lat) are not stretched.
-        gt = self.geotransform
-        x_min, y_max = gt[0], gt[3]
-        x_max = x_min + self.columns * gt[1]
-        y_min = y_max + self.rows * gt[5]
-        return [x_min, y_min, x_max, y_max]
+        # `transform.extent` projects and reduces all four corners, so it returns a
+        # normalised [min_x, min_y, max_x, max_y] for a south-up (gt[5] > 0), east-left
+        # (gt[1] < 0) or rotated grid alike -- the same derivation merge/cog_info use,
+        # rather than a fourth hand-rolled copy that assumed a north-up, west-left grid
+        # and inverted the box otherwise. Non-square cells are honoured (separate gt[1],
+        # gt[5]). A no-op for the usual north-up, west-left grid.
+        min_x, min_y, max_x, max_y = self.transform.extent(self.columns, self.rows)
+        return [min_x, min_y, max_x, max_y]
 
     def _calculate_bounds(self):
         """Concrete override of :meth:`RasterBase._calculate_bounds`."""
@@ -2255,6 +2316,33 @@ class Dataset(RasterBase):
     # dispatch as "Concatenation operation is not implemented for NumPy
     # arrays" -- unhelpful, but an error rather than a silent wrong answer.
     __array_ufunc__ = None
+
+    def _combine_layout_source(self, other: Any, band: int | None) -> Any:
+        """Check two operands' band layouts before `Analysis._combine` computes, and name the source.
+
+        A hook: `Analysis._combine` calls it on the left operand after the grid and band-count
+        checks, and hands what it returns to `_label_combined`. A plain raster has no band
+        dimensions, so it checks nothing and names no source; `NetCDF` overrides it.
+
+        Args:
+            other: The right operand, or `None` when `Analysis._fold` combines this raster with
+                itself.
+            band: The single band being combined, or `None` for all of them.
+
+        Returns:
+            Any: `None` for a plain raster.
+        """
+
+    def _label_combined(self, result: Any, source: Any) -> None:
+        """Label a combined result with its operands' band layout, after `Analysis._combine`.
+
+        A hook, paired with `_combine_layout_source`. A plain raster has no layout to carry;
+        `NetCDF` overrides it.
+
+        Args:
+            result: The combined raster.
+            source: What `_combine_layout_source` returned.
+        """
 
     def _arithmetic(self, other: Any, op: Callable) -> Any:
         """Route a binary operator to :meth:`combine`, or decline the operand.
@@ -3634,7 +3722,40 @@ class Dataset(RasterBase):
 
     @property
     def bbox(self) -> list:
-        """Bound box [xmin, ymin, xmax, ymax].
+        """The raster's map-space bounding box, ``[xmin, ymin, xmax, ymax]``.
+
+        Always normalised min-before-max on each axis, whatever the
+        geotransform's orientation: a south-up (positive ``geotransform[5]``),
+        east-left (negative ``geotransform[1]``) or rotated grid returns a proper
+        box, not an inverted one. Derived from
+        :meth:`~pyramids.dataset.transform.GeoTransform.extent`.
+
+        Examples:
+            - A north-up raster spans its cells:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> ds = Dataset.from_array(
+                ...     np.zeros((2, 3)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=3857),
+                ... )
+                >>> ds.bbox
+                [0.0, 0.0, 3.0, 2.0]
+
+                ```
+            - A south-up raster (positive y step) reports the same box, not an
+              inverted one:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> ds = Dataset.from_array(
+                ...     np.zeros((2, 3)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 0.0, 0.0, 1.0), epsg=3857),
+                ... )
+                >>> ds.bbox
+                [0.0, 0.0, 3.0, 2.0]
+
+                ```
 
         See Also:
             - Dataset.bounds: Dataset bounding polygon.
@@ -3739,25 +3860,27 @@ class Dataset(RasterBase):
             - Dataset.x: Dataset x coordinates.
             - Dataset.lat: Dataset latitude.
         """
-        pixel_width = self._geotransform[1]
-        x_coords = self.get_x_lon_dimension_array(
-            self.top_left_corner[0], pixel_width, self.columns
-        )
-        return x_coords
+        # Built from the cached `_geotransform` (not the `geotransform` property) so
+        # a subclass that derives `geotransform` from `lon`/`lat` does not recurse.
+        # `x_axis` reads the signed pixel width (`geotransform[1]`), ignoring rotation.
+        return GeoTransform(*self._geotransform).x_axis(self.columns)
 
     @property
     def lat(self) -> np.typing.NDArray:
         """Latitude / y cell-centre coordinates.
 
-        Uses the geotransform's pixel height (``abs(geotransform[5])``) rather than
-        :attr:`cell_size` (which only tracks pixel width), so the axis is correct for
-        non-square cells. Reads the cached ``_geotransform`` (like
+        Uses the geotransform's **signed** pixel height (``geotransform[5]``) rather
+        than :attr:`cell_size` (which only tracks pixel width), so the axis is correct
+        for non-square cells and honours the step's sign — a north-up raster (negative
+        ``geotransform[5]``) descends from north to south and a south-up one (positive
+        ``geotransform[5]``) ascends, mirroring how :attr:`lon` honours
+        ``geotransform[1]``. Reads the cached ``_geotransform`` (like
         :attr:`top_left_corner`) rather than the ``geotransform`` property, so
         subclasses that derive ``geotransform`` from ``lon``/``lat`` (e.g.
         :class:`~pyramids.netcdf.NetCDF`) do not recurse.
 
         Examples:
-            - Row-centre latitudes decrease from north to south:
+            - A north-up raster's row-centre latitudes decrease from north to south:
                 ```python
                 >>> import numpy as np
                 >>> from pyramids.dataset import Dataset, GeoReference
@@ -3767,6 +3890,18 @@ class Dataset(RasterBase):
                 ... )
                 >>> ds.lat.tolist()
                 [-0.25, -0.75]
+
+                ```
+            - A south-up raster (positive ``geotransform[5]``) ascends instead:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> ds = Dataset.from_array(
+                ...     np.zeros((2, 3)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 0.0, 0.0, 1.0), epsg=3857),
+                ... )
+                >>> ds.lat.tolist()
+                [0.5, 1.5]
 
                 ```
             - With non-square cells the latitude axis uses the pixel height, not the
@@ -3788,11 +3923,11 @@ class Dataset(RasterBase):
             - Dataset.y: Dataset y coordinates.
             - Dataset.lon: Dataset longitude.
         """
-        pixel_height = abs(self._geotransform[5])
-        y_coords = self.get_y_lat_dimension_array(
-            self.top_left_corner[1], pixel_height, self.rows
-        )
-        return y_coords
+        # Built from the cached `_geotransform` (not the `geotransform` property) so
+        # a subclass that derives `geotransform` from `lon`/`lat` does not recurse.
+        # `y_axis` reads the signed pixel height (`geotransform[5]`), so a north-up
+        # grid descends and a south-up one ascends.
+        return GeoTransform(*self._geotransform).y_axis(self.rows)
 
     @property
     def x(self) -> np.typing.NDArray:

@@ -1,8 +1,6 @@
 //! Shared CLI utility functions used across command handlers and watch mode.
 
 use colored::*;
-use core::error::Error;
-use std::fs;
 use std::path::Path;
 
 use rumdl_lib::config as rumdl_config;
@@ -99,11 +97,6 @@ pub fn resolve_output_format(
         .unwrap_or("text");
 
     rumdl_lib::output::OutputFormat::from_str(output_format_str).map_err(|e| e.to_string())
-}
-
-/// Read file content as a UTF-8 string.
-pub fn read_file_efficiently(path: &Path) -> Result<String, Box<dyn Error>> {
-    fs::read_to_string(path).map_err(|e| format!("Failed to read file {}: {}", path.display(), e).into())
 }
 
 /// Load configuration with standard CLI error handling.

@@ -73,6 +73,8 @@ class TestMySQL(Validator):
             "ALTER TABLE t CHANGE COLUMN a b BIGINT NOT NULL",
         )
         self.validate_identity("ALTER TABLE t AUTO_INCREMENT=3000000000")
+        self.validate_identity("ALTER TABLE t COMMENT='hi'")
+        self.validate_identity("ALTER TABLE t COMMENT 'hi'", "ALTER TABLE t COMMENT='hi'")
         self.validate_identity("ALTER VIEW v AS SELECT a, b, c, d FROM foo")
         self.validate_identity("ALTER VIEW v AS SELECT * FROM foo WHERE c > 100")
         self.validate_identity(
@@ -181,6 +183,26 @@ class TestMySQL(Validator):
             "ALTER TABLE t ADD INDEX `i` (`c`)",
         )
         self.validate_identity(
+            "ALTER TABLE t ADD UNIQUE KEY uq (a) USING BTREE COMMENT 'why' INVISIBLE",
+            "ALTER TABLE t ADD UNIQUE uq (a) USING BTREE COMMENT 'why' INVISIBLE",
+        )
+        self.validate_identity(
+            "ALTER TABLE t ADD UNIQUE KEY u USING BTREE (c)",
+            "ALTER TABLE t ADD UNIQUE u (c) USING BTREE",
+        )
+        self.validate_identity(
+            "CREATE TABLE t (a INT, UNIQUE KEY u USING BTREE (a))",
+            "CREATE TABLE t (a INT, UNIQUE u (a) USING BTREE)",
+        )
+        self.validate_identity(
+            "CREATE TABLE t (a INT, UNIQUE USING BTREE (a))",
+            "CREATE TABLE t (a INT, UNIQUE (a) USING BTREE)",
+        )
+        self.validate_identity(
+            "CREATE TABLE t (a INT, UNIQUE KEY `using` (a) USING BTREE)",
+            "CREATE TABLE t (a INT, UNIQUE `using` (a) USING BTREE)",
+        )
+        self.validate_identity(
             "CREATE TABLE `foo` (`id` char(36) NOT NULL DEFAULT (uuid()), PRIMARY KEY (`id`), UNIQUE KEY `id` (`id`))",
             "CREATE TABLE `foo` (`id` CHAR(36) NOT NULL DEFAULT (UUID()), PRIMARY KEY (`id`), UNIQUE `id` (`id`))",
         )
@@ -199,6 +221,34 @@ class TestMySQL(Validator):
         self.validate_identity(
             "CREATE TABLE t (a INT, UNIQUE KEY `Key` (a))",
             "CREATE TABLE t (a INT, UNIQUE `Key` (a))",
+        )
+        self.validate_identity(
+            "CREATE TABLE foo (a BIGINT, UNIQUE KEY b (a) USING BTREE COMMENT 'c' VISIBLE, UNIQUE KEY d (a) KEY_BLOCK_SIZE=8)",
+            "CREATE TABLE foo (a BIGINT, UNIQUE b (a) USING BTREE COMMENT 'c' VISIBLE, UNIQUE d (a) KEY_BLOCK_SIZE = 8)",
+        )
+        self.validate_identity("CREATE TABLE t (c VARCHAR(64), PRIMARY KEY (c(20)))")
+        self.validate_identity("CREATE TABLE t (d INT, INDEX k ((d + 1)))")
+        self.validate_identity(
+            "CREATE TABLE t (c VARCHAR(64), KEY k (c(20)))",
+            "CREATE TABLE t (c VARCHAR(64), INDEX k (c(20)))",
+        )
+        self.validate_identity(
+            "CREATE TABLE t (c VARCHAR(64), UNIQUE KEY u (c(20) DESC))",
+            "CREATE TABLE t (c VARCHAR(64), UNIQUE u (c(20) DESC))",
+        )
+        self.validate_identity("ALTER TABLE t ADD INDEX k (c(20))")
+        self.validate_identity("ALTER TABLE t ADD PRIMARY KEY (c(20))")
+        self.validate_identity(
+            "ALTER TABLE t ADD UNIQUE KEY u (c(20))",
+            "ALTER TABLE t ADD UNIQUE u (c(20))",
+        )
+        self.validate_all(
+            "CREATE TABLE t (a INT, b INT, CONSTRAINT u UNIQUE (a, b))",
+            write={
+                "mysql": "CREATE TABLE t (a INT, b INT, CONSTRAINT u UNIQUE (a, b))",
+                "postgres": "CREATE TABLE t (a INT, b INT, CONSTRAINT u UNIQUE (a, b))",
+                "duckdb": "CREATE TABLE t (a INT, b INT, CONSTRAINT u UNIQUE (a, b))",
+            },
         )
         self.validate_identity(
             "CREATE TABLE test (ts TIMESTAMP, ts_tz TIMESTAMPTZ, ts_ltz TIMESTAMPLTZ)",
@@ -1065,6 +1115,12 @@ class TestMySQL(Validator):
             },
         )
         self.validate_all(
+            "WITH x AS (SELECT 1 AS id), y AS (SELECT 2 AS id) SELECT COALESCE(x.id, y.id) AS id FROM x LEFT JOIN y ON x.id = y.id UNION ALL SELECT COALESCE(x.id, y.id) AS id FROM x RIGHT JOIN y ON x.id = y.id WHERE NOT EXISTS(SELECT 1 FROM x WHERE x.id = y.id) ORDER BY 1 LIMIT 1 OFFSET 1",
+            read={
+                "postgres": "WITH x AS (SELECT 1 AS id), y AS (SELECT 2 AS id) SELECT COALESCE(x.id, y.id) AS id FROM x FULL JOIN y ON x.id = y.id ORDER BY 1 LIMIT 1 OFFSET 1",
+            },
+        )
+        self.validate_all(
             # MySQL doesn't support FULL OUTER joins
             "SELECT * FROM t1 LEFT OUTER JOIN t2 ON t1.x = t2.x UNION ALL SELECT * FROM t1 RIGHT OUTER JOIN t2 ON t1.x = t2.x WHERE NOT EXISTS(SELECT 1 FROM t1 WHERE t1.x = t2.x)",
             read={
@@ -1170,7 +1226,7 @@ class TestMySQL(Validator):
             "GROUP_CONCAT(DISTINCT x ORDER BY y DESC)",
             write={
                 "mysql": "GROUP_CONCAT(DISTINCT x ORDER BY y DESC SEPARATOR ',')",
-                "sqlite": "GROUP_CONCAT(DISTINCT x)",
+                "sqlite": "GROUP_CONCAT(DISTINCT x ORDER BY y DESC)",
                 "tsql": "STRING_AGG(x, ',') WITHIN GROUP (ORDER BY y DESC)",
                 "databricks": "LISTAGG(DISTINCT x, ',') WITHIN GROUP (ORDER BY y DESC)",
                 "postgres": "STRING_AGG(DISTINCT x, ',' ORDER BY y DESC NULLS LAST)",
@@ -1180,7 +1236,7 @@ class TestMySQL(Validator):
             "GROUP_CONCAT(x ORDER BY y SEPARATOR z)",
             write={
                 "mysql": "GROUP_CONCAT(x ORDER BY y SEPARATOR z)",
-                "sqlite": "GROUP_CONCAT(x, z)",
+                "sqlite": "GROUP_CONCAT(x, z ORDER BY y)",
                 "tsql": "STRING_AGG(x, z) WITHIN GROUP (ORDER BY y)",
                 "databricks": "LISTAGG(x, z) WITHIN GROUP (ORDER BY y)",
                 "postgres": "STRING_AGG(x, z ORDER BY y NULLS FIRST)",
@@ -1190,7 +1246,7 @@ class TestMySQL(Validator):
             "GROUP_CONCAT(DISTINCT x ORDER BY y DESC SEPARATOR '')",
             write={
                 "mysql": "GROUP_CONCAT(DISTINCT x ORDER BY y DESC SEPARATOR '')",
-                "sqlite": "GROUP_CONCAT(DISTINCT x, '')",
+                "sqlite": "GROUP_CONCAT(DISTINCT x, '' ORDER BY y DESC)",
                 "tsql": "STRING_AGG(x, '') WITHIN GROUP (ORDER BY y DESC)",
                 "databricks": "LISTAGG(DISTINCT x, '') WITHIN GROUP (ORDER BY y DESC)",
                 "postgres": "STRING_AGG(DISTINCT x, '' ORDER BY y DESC NULLS LAST)",
@@ -1231,7 +1287,7 @@ class TestMySQL(Validator):
             "GROUP_CONCAT(a, b, c ORDER BY d SEPARATOR '')",
             write={
                 "mysql": "GROUP_CONCAT(CONCAT(a, b, c) ORDER BY d SEPARATOR '')",
-                "sqlite": "GROUP_CONCAT(a || b || c, '')",
+                "sqlite": "GROUP_CONCAT(a || b || c, '' ORDER BY d)",
                 "tsql": "STRING_AGG(a + b + c, '') WITHIN GROUP (ORDER BY d)",
                 "databricks": "LISTAGG(CONCAT(a, b, c), '') WITHIN GROUP (ORDER BY d)",
                 "postgres": "STRING_AGG(a || b || c, '' ORDER BY d NULLS FIRST)",
@@ -1241,7 +1297,7 @@ class TestMySQL(Validator):
             "GROUP_CONCAT(DISTINCT a, b, c ORDER BY d SEPARATOR '')",
             write={
                 "mysql": "GROUP_CONCAT(DISTINCT CONCAT(a, b, c) ORDER BY d SEPARATOR '')",
-                "sqlite": "GROUP_CONCAT(DISTINCT a || b || c, '')",
+                "sqlite": "GROUP_CONCAT(DISTINCT a || b || c, '' ORDER BY d)",
                 "tsql": "STRING_AGG(a + b + c, '') WITHIN GROUP (ORDER BY d)",
                 "databricks": "LISTAGG(DISTINCT CONCAT(a, b, c), '') WITHIN GROUP (ORDER BY d)",
                 "postgres": "STRING_AGG(DISTINCT a || b || c, '' ORDER BY d NULLS FIRST)",
@@ -1383,6 +1439,36 @@ COMMENT='客户账户表'"""
             self.assertIsInstance(show, exp.Show)
             self.assertEqual(show.name, key)
             self.assertEqual(show.text("target"), "foo")
+
+    def test_show_create_qualified(self):
+        for key in ["CREATE TABLE", "CREATE VIEW", "CREATE FUNCTION", "CREATE PROCEDURE"]:
+            with self.subTest(create_stmt=key):
+                show = self.validate_identity(f"SHOW {key} db_name.foo")
+                self.assertIsInstance(show, exp.Show)
+                self.assertEqual(show.text("db"), "db_name")
+                self.assertEqual(show.text("target"), "foo")
+
+        # SHOW CREATE has no FROM clause, the database is part of the name
+        self.validate_identity(
+            "SHOW CREATE TABLE foo FROM db_name", "SHOW CREATE TABLE db_name.foo"
+        )
+
+    def test_if(self):
+        self.validate_identity("SELECT IF(a, 1, 2)")
+        self.validate_identity("SELECT IF(a, 1, IF(b, 2, 3))")
+
+        # a CASE that was written as one stays a CASE
+        self.validate_identity("SELECT CASE WHEN a THEN 1 ELSE 2 END")
+
+        self.validate_all(
+            "SELECT IF(a, 1, 2)",
+            read={"bigquery": "SELECT IF(a, 1, 2)", "tsql": "SELECT IIF(a, 1, 2)"},
+        )
+
+        # IF takes exactly three arguments, so a missing branch becomes NULL
+        self.validate_all("SELECT IF(a, 1, NULL)", read={"spark": "SELECT IF(a, 1)"})
+        # IF takes exactly three arguments, so a missing branch becomes NULL
+        self.validate_all("SELECT IF(a, 1, NULL)", read={"presto": "SELECT IF(a, 1)"})
 
     def test_show_grants(self):
         show = self.validate_identity("SHOW GRANTS FOR foo")
@@ -1883,6 +1969,18 @@ COMMENT='客户账户表'"""
 
         expr = self.parse_one("ALTER TABLE t ADD COLUMN c INT INVISIBLE")
         self.assertIsNotNone(expr.find(exp.InvisibleColumnConstraint))
+
+    def test_unique_key_index_options(self):
+        unique = self.parse_one(
+            "CREATE TABLE t (a INT, UNIQUE KEY u (a) INVISIBLE)"
+        ).this.expressions[1]
+        self.assertIs(unique.args["options"][0].args["visible"], False)
+
+        columns = self.parse_one(
+            "CREATE TABLE t (a INT UNIQUE COMMENT 'c', b INT UNIQUE INVISIBLE)"
+        ).this.expressions
+        self.assertIsInstance(columns[0].constraints[1].kind, exp.CommentColumnConstraint)
+        self.assertIsInstance(columns[1].constraints[1].kind, exp.InvisibleColumnConstraint)
 
     def test_alter_table_auto_increment(self):
         prop = self.parse_one("ALTER TABLE t AUTO_INCREMENT=3000000000").find(

@@ -136,7 +136,7 @@ class BackupPolicy(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_policy: pulumi.Input[Optional[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict']]] = None,
+                 backup_policy: pulumi.Input[Optional[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict', 'outputs.BackupPolicyBackupPolicy']]] = None,
                  file_system_id: pulumi.Input[Optional[_builtins.str]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -160,6 +160,17 @@ class BackupPolicy(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `id` (String) ID of the file system.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+        * `region` (String) Region where this resource is managed.
+
         Using `pulumi import`, import the EFS backup policies using the `id`. For example:
 
         ```sh
@@ -169,7 +180,7 @@ class BackupPolicy(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict']] backup_policy: A backup_policy object (documented below).
+        :param pulumi.Input[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict', 'outputs.BackupPolicyBackupPolicy']] backup_policy: A backup_policy object (documented below).
         :param pulumi.Input[_builtins.str] file_system_id: The ID of the EFS file system.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         """
@@ -199,6 +210,17 @@ class BackupPolicy(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `id` (String) ID of the file system.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+        * `region` (String) Region where this resource is managed.
+
         Using `pulumi import`, import the EFS backup policies using the `id`. For example:
 
         ```sh
@@ -221,7 +243,7 @@ class BackupPolicy(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 backup_policy: pulumi.Input[Optional[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict']]] = None,
+                 backup_policy: pulumi.Input[Optional[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict', 'outputs.BackupPolicyBackupPolicy']]] = None,
                  file_system_id: pulumi.Input[Optional[_builtins.str]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -250,7 +272,7 @@ class BackupPolicy(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            backup_policy: pulumi.Input[Optional[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict']]] = None,
+            backup_policy: pulumi.Input[Optional[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict', 'outputs.BackupPolicyBackupPolicy']]] = None,
             file_system_id: pulumi.Input[Optional[_builtins.str]] = None,
             region: pulumi.Input[Optional[_builtins.str]] = None) -> 'BackupPolicy':
         """
@@ -260,7 +282,7 @@ class BackupPolicy(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict']] backup_policy: A backup_policy object (documented below).
+        :param pulumi.Input[Union['BackupPolicyBackupPolicyArgs', 'BackupPolicyBackupPolicyArgsDict', 'outputs.BackupPolicyBackupPolicy']] backup_policy: A backup_policy object (documented below).
         :param pulumi.Input[_builtins.str] file_system_id: The ID of the EFS file system.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         """

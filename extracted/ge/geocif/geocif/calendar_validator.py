@@ -19,13 +19,20 @@ Pipeline: geoextract (per-region daily EO) -> this runner.
 
 Outputs, under ``{dir_output}/calendar_validation/{today}/``::
 
-    frame_all.csv          one row per region, scored or skipped with a reason
+    frame_all.csv          one row per region, scored or skipped with a reason;
+                           columns follow score.RegionScore (calendar_*_doy,
+                           satellite_*_doy, <transition>_diff_days, ...)
     frame_subset.csv       rows whose NDVI peak falls inside calendar stage 2
     {crop}.csv             per-crop splits
-    summary_{delta}.csv    per-crop medians, pass rates, circular r-squared
+    summary_{delta}.csv    per-crop medians, within-tolerance shares, circular r2
     skips.csv              every unscored region and why
-    models/                ML comparison: predictions + metrics per CV scheme
-    figures/               per-region diagnostics and delta maps, each with a CSV
+    models/                four-target comparison: design_matrix, predictions,
+                           metrics (with skill vs the climatology null and a
+                           bootstrap interval), cv_schemes (with the duplicate-
+                           row leakage per scheme), model_failures
+    plots/, maps/, csvs/   per-region diagnostics and difference maps, each
+                           with a companion CSV
+    run_manifest.json      versions, targets, feature groups, column_scheme = 2
 """
 from __future__ import annotations
 
@@ -102,6 +109,7 @@ class CalendarValidator(base.BaseGeo):
         self.n_splits = self._getint("n_splits", cv.DEFAULT_N_SPLITS)
         self.block_degrees = float(self._get("block_degrees", cv.DEFAULT_BLOCK_DEGREES))
         self.seed = self._getint("seed", 0)
+        self.encodings = self._getlist("target_encodings", models.ENCODINGS)
 
         self.make_plots = self._getbool("make_plots", True)
         # Deliberately NOT named `crops`/`countries`: both already exist in
@@ -322,7 +330,10 @@ def run(path_config_files):
     table.add_row("circular_peak_distance", str(obj.circular_peak_distance))
     table.add_row("fix_gdd100_offset", str(obj.fix_gdd100_offset))
     table.add_row("Models", ", ".join(obj.models) if obj.run_models else "(disabled)")
+    table.add_row("Targets", ", ".join(features.TARGETS))
+    table.add_row("Encodings", ", ".join(obj.encodings))
     table.add_row("CV schemes", ", ".join(obj.cv_schemes))
+    table.add_row("Features", f"{len(features.FEATURE_NAMES)} in {len(features.FEATURE_GROUPS)} groups")
     table.add_row("Figures", str(obj.make_plots))
     table.add_row("Output", str(out_dir))
     console.print(table)
@@ -362,6 +373,11 @@ def run(path_config_files):
                 "rows_scored": int(len(scored)),
                 "rows_skipped": int(len(skipped)),
                 "crops": sorted(frame["crop"].unique().tolist()),
+                "column_scheme": 2,
+                "targets": list(features.TARGETS),
+                "target_encodings": list(obj.encodings),
+                "feature_groups": {k: len(v) for k, v in features.FEATURE_GROUPS.items()},
+                "n_features": len(features.FEATURE_NAMES),
                 "doy_convention": obj.convention,
                 "legacy_wrap_gate": obj.legacy_wrap_gate,
                 "circular_peak_distance": obj.circular_peak_distance,
@@ -374,8 +390,8 @@ def run(path_config_files):
 
     frame.to_csv(out_dir / "frame_all.csv", index=False)
     skipped.to_csv(out_dir / "skips.csv", index=False)
-    if "Peak_in_2ndStage" in scored.columns:
-        scored[scored["Peak_in_2ndStage"] == True].to_csv(  # noqa: E712
+    if "peak_in_calendar_stage2" in scored.columns:
+        scored[scored["peak_in_calendar_stage2"] == True].to_csv(  # noqa: E712
             out_dir / "frame_subset.csv", index=False
         )
     for crop, part in scored.groupby("crop"):
@@ -391,9 +407,9 @@ def run(path_config_files):
         console.print(
             f"\n[bold]scored[/bold] {len(scored)}  "
             f"[bold]skipped[/bold] {len(skipped)}  "
-            f"median |delta| greenup "
-            f"{scored['delta_midgreenup'].abs().median():.0f} d, greendown "
-            f"{scored['delta_midgreendown'].abs().median():.0f} d"
+            f"median |diff| greenup "
+            f"{scored['midgreenup_diff_days'].abs().median():.0f} d, greendown "
+            f"{scored['midgreendown_diff_days'].abs().median():.0f} d"
         )
         if not skipped.empty:
             console.print("\nskip reasons:")
@@ -416,16 +432,17 @@ def run(path_config_files):
             seed=obj.seed,
             names=obj.cv_schemes,
         )
-        cv.describe(schemes).to_csv(model_dir / "cv_schemes.csv", index=False)
+        cv.describe(schemes, design).to_csv(model_dir / "cv_schemes.csv", index=False)
         evaluation = models.evaluate(
             design,
             models=obj.models,
             schemes=schemes,
-            baseline_columns={
-                "midgreenup": "rule_midgreenup",
-                "midgreendown": "rule_midgreendown",
-            },
+            baseline_columns=features.BASELINE_COLUMNS,
             tolerance=obj.max_delta,
+            encodings=obj.encodings,
+            seed=obj.seed,
+            n_splits=obj.n_splits,
+            block_degrees=obj.block_degrees,
         )
         design.to_csv(model_dir / "design_matrix.csv", index=False)
         evaluation.predictions.to_csv(model_dir / "predictions.csv", index=False)
@@ -453,23 +470,40 @@ def run(path_config_files):
 
 
 def _print_model_table(console, metrics: pd.DataFrame, tolerance: int) -> None:
-    """Headline comparison: overall MAE per model and CV scheme."""
+    """Headline comparison: overall circular MAE per model x encoding and CV scheme.
+
+    One table per target, all rows, every row a (model, encoding) pair. The
+    climatology null and the rule-based port appear as rows like any model;
+    ``skill`` is 1 - MAE / MAE_null under the spatial-block null, with its
+    bootstrap interval, for the non-leaky scheme when present.
+    """
     from rich.table import Table
 
     if metrics.empty:
         return
-    overall = metrics[metrics["split"] == "overall"]
-    for target, part in overall.groupby("target"):
-        table = Table(title=f"{target}: circular MAE (days)", box=None)
+    overall = metrics[(metrics["split"] == "overall") & (metrics["sample"] == "all")]
+    for target, part in overall.groupby("target", sort=False):
+        table = Table(title=f"{target}: circular MAE (days), all rows", box=None)
         table.add_column("model", style="bold cyan")
+        table.add_column("encoding")
         schemes = sorted(part["scheme"].unique())
         for scheme in schemes:
             table.add_column(scheme, justify="right")
-        for model_name, rows in part.groupby("model"):
+        table.add_column("skill [90% CI]", justify="right")
+        for (model_name, encoding), rows in part.groupby(["model", "encoding"], sort=False):
             cells = []
             for scheme in schemes:
                 hit = rows[rows["scheme"] == scheme]["mae_days"]
-                cells.append(f"{hit.iloc[0]:.1f}" if len(hit) else "-")
-            table.add_row(model_name, *cells)
+                cells.append(f"{hit.iloc[0]:.1f}" if len(hit) and pd.notna(hit.iloc[0]) else "-")
+            honest = rows[~rows["scheme"].isin(["random", "none"])]
+            pick = honest.iloc[0] if len(honest) else rows.iloc[0]
+            if pd.notna(pick.get("skill_vs_climatology", float("nan"))):
+                skill = (
+                    f"{pick['skill_vs_climatology']:+.2f} "
+                    f"[{pick['skill_ci_low']:+.2f}, {pick['skill_ci_high']:+.2f}]"
+                )
+            else:
+                skill = "-"
+            table.add_row(str(model_name), str(encoding), *cells, skill)
         console.print()
         console.print(table)

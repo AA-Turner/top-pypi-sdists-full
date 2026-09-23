@@ -489,6 +489,7 @@ def structural_conversation_update(
     existing_system_instruction: str | None,
     incoming_system_instruction: str | None,
     request_already_frozen: bool,
+    turn_mandate_key: str | None = None,
 ) -> StructuralConversationUpdate:
     """The end-of-turn write to a conversation's structural half.
 
@@ -518,11 +519,19 @@ def structural_conversation_update(
     ``packages/matrx-ai/tests/persistence/test_a_mandate_held_row_is_never_refrozen.py``.
     """
 
-    if live_structure.marks_live_structure(existing_config):
+    # TWO INDEPENDENT SOURCES, EITHER ONE SUFFICIENT. The row is the primary
+    # record. ``turn_mandate_key`` is what the RESOLVER established when it
+    # built this very turn from the mandate's live Holder — and it is the layer
+    # that saves the row when the read above failed, which on 2026-09-21 is
+    # exactly how a mandate-held thread got its belt frozen back on and then
+    # reached the provider with zero authored tools.
+    if live_structure.marks_live_structure(existing_config) or turn_mandate_key:
         return StructuralConversationUpdate(
             config=live_structure.stamp_live_structure(
                 assembled_config,
-                mandate_key=live_structure.mandate_key_of(existing_config),
+                mandate_key=(
+                    live_structure.mandate_key_of(existing_config) or turn_mandate_key
+                ),
             ),
             system_instruction=None,
             mark_request_frozen=False,
@@ -826,6 +835,9 @@ async def persist_completed_request(
             _structural = structural_conversation_update(
                 assembled_config=update_kwargs["config"],
                 existing_config=existing_config,
+                turn_mandate_key=getattr(
+                    completed.request.config, "responder_mandate_key", None
+                ),
                 existing_system_instruction=existing_system_instruction,
                 incoming_system_instruction=conv_data.get("system_instruction"),
                 request_already_frozen=bool(
@@ -1344,6 +1356,18 @@ async def persist_completed_request(
                 # machine run. Do not rely on a host's ambient owner default.
                 req_create_data["created_by"] = None
                 req_create_data["organization_id"] = _ctx.organization_id
+            elif _ctx is not None and getattr(_ctx, "organization_id", None):
+                # 🚨 THE SAME RULE FOR A HUMAN-INITIATED RUN. This row used to rely on
+                # the Session's ambient owner stamp, and the stamp is applied on the
+                # coordinator's BACKGROUND commit — a task whose contextvars snapshot
+                # does not always carry the AppContext the request ran in. Measured
+                # 2026-09-21 on the page-intent proposer (a plain admin user, an
+                # AppContext with organization_id set the whole time): batches 1–13
+                # persisted with the org, then 14–17 failed `23502 null value in column
+                # "organization_id" of relation "request"`, and it recurred at random
+                # in the next pass. The org is KNOWN here; a cost row that ran in an
+                # organization names it, and never depends on which task flushes it.
+                req_create_data["organization_id"] = _ctx.organization_id
 
             # Mark THIS iteration failed when it's the attempt that failed: the
             # request failed AND no model resolved from a response (i.e. the
@@ -1657,89 +1681,6 @@ async def persist_completed_request(
         # queued before this failure, and this raise stops the run loudly so a
         # partial persist can never masquerade as success.
         raise
-
-
-async def apply_authoritative_user_request_rollup(user_request_id: str) -> None:
-    """Overwrite cx_user_request numeric totals with the authoritative SUM over
-    every committed cx_request row sharing ``user_request_id``.
-
-    One user click = one cx_user_request = the total cost of everything it
-    triggered (the parent's turns AND every sub-agent's turns, which all carry
-    the same inherited user_request_id). The per-turn in-memory rollup in
-    ``persist_completed_request`` only ever saw its OWN call's rows and wrote
-    last-write-wins through the coordinator — so a parent finalizing after its
-    sub-agents CLOBBERED their totals. This SUM, run once after the owner's
-    final coordinator commit (when every row is durable), is idempotent and
-    order-independent — recomputing the same total from ground truth structurally
-    kills that clobber.
-
-    Overwrites ONLY the numeric aggregates; status / completed_at / error /
-    metadata.usage_by_model stay as the in-memory rollup wrote them.
-
-    Loud-but-non-fatal: a failure leaves the in-memory value (a lower bound) and
-    the per-row cx_request ground truth intact — both recomputable. Never raise:
-    the response and per-row costs are already safe; turning a finished request
-    into a failure here would lose the response.
-    """
-    if not _is_valid_uuid(user_request_id):
-        return
-
-    # Client host: totals live in the host store (persist_completed_request
-    # delegated the whole turn write); there are no cx_request rows to SUM
-    # and _cxm() would raise DBNotConfiguredError.
-    from matrx_ai.client_host import get_conversation_store
-
-    if get_conversation_store() is not None:
-        return
-
-    try:
-        rollup = await _cxm().request.sum_costs_by_user_request(user_request_id)
-    except Exception as exc:
-        vcprint(
-            f"[CX PERSISTENCE ROLLUP] SUM over cx_request for user_request "
-            f"{user_request_id} failed ({type(exc).__name__}: {exc}); leaving the "
-            f"per-turn rollup value in place. cx_request rows remain the ground "
-            f"truth — the total is recomputable.",
-            color="red",
-        )
-        return
-
-    if rollup.request_count == 0:
-        # No committed rows yet — should not happen post-finalize. Don't zero out
-        # a row the in-memory path may have populated.
-        return
-
-    update_data: dict[str, Any] = {
-        "total_input_tokens": rollup.input_tokens,
-        "total_output_tokens": rollup.output_tokens,
-        "total_cached_tokens": rollup.cached_tokens,
-        "total_tokens": rollup.total_tokens,
-        "total_cost": round(float(rollup.total_cost), 6),
-        "api_duration_ms": rollup.api_duration_ms,
-        "tool_duration_ms": rollup.tool_duration_ms,
-        "total_duration_ms": rollup.total_duration_ms,
-        "iterations": rollup.request_count,
-        "total_tool_calls": rollup.total_tool_calls,
-    }
-
-    try:
-        if _get_coordinator() is not None:
-            _queue_user_request_update(user_request_id, **update_data)
-        else:
-            from matrx_ai.persistence import standalone_coordinator
-
-            async with standalone_coordinator(
-                reason="authoritative_user_request_rollup",
-                request_id=user_request_id,
-            ):
-                _queue_user_request_update(user_request_id, **update_data)
-    except Exception as exc:
-        vcprint(
-            f"[CX PERSISTENCE ROLLUP] authoritative UPDATE of cx_user_request "
-            f"{user_request_id} failed ({type(exc).__name__}: {exc}); the per-turn "
-            f"rollup value stands. cx_request rows remain the ground truth.",
-            color="red",
-        )
 
 
 # --------------------------------------------------------------------------- #

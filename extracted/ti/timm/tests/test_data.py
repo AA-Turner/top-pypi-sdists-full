@@ -3,6 +3,7 @@ import pytest
 import torch
 
 from timm.data import create_loader, create_naflex_loader, create_transform
+from timm.data.naflex_loader import NaFlexPrefetchLoader
 from timm.data.auto_augment import (
     _HPARAMS_DEFAULT,
     AugMixAugment,
@@ -65,6 +66,75 @@ def test_create_loader_disables_persistent_workers_without_workers():
 
     assert loader.num_workers == 0
     assert not loader.persistent_workers
+
+
+class _PatchDictDataset(torch.utils.data.Dataset):
+    """NaFlex style patch dicts where every patch value equals the sample index."""
+
+    def __init__(self, num_samples: int, num_patches: int = 4):
+        self.num_samples = num_samples
+        self.num_patches = num_patches
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, index):
+        return {
+            'patches': torch.full((self.num_patches, 3), index, dtype=torch.uint8),
+            'patch_coord': torch.zeros((self.num_patches, 2), dtype=torch.int64),
+            'patch_valid': torch.ones(self.num_patches, dtype=torch.bool),
+        }, index
+
+
+def _create_prefetch_loader(kind: str, num_samples: int, batch_size: int):
+    """Create a CUDA prefetch loader over samples whose image or patch values equal the sample index.
+
+    Returns:
+        The loader and a function reading the first value of a device batch.
+    """
+    device = torch.device('cuda')
+    if kind == 'naflex':
+        loader = torch.utils.data.DataLoader(_PatchDictDataset(num_samples), batch_size=batch_size, pin_memory=True)
+        loader = NaFlexPrefetchLoader(loader, device=device, mean=(0., 0., 0.), std=(1., 1., 1.))
+        return loader, lambda x: x['patches'][0, 0, 0]
+
+    dataset = torch.utils.data.TensorDataset(
+        torch.arange(num_samples, dtype=torch.uint8).view(-1, 1, 1, 1).expand(-1, 3, 32, 32),
+        torch.arange(num_samples),
+    )
+    loader = create_loader(
+        dataset,
+        input_size=(3, 32, 32),
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=True,
+        device=device,
+        mean=(0., 0., 0.),
+        std=(1., 1., 1.),
+    )
+    return loader, lambda x: x[0, 0, 0, 0]
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA is required')
+@pytest.mark.parametrize('kind', ['standard', 'naflex'])
+def test_prefetch_loader_consumer_lifetime(kind):
+    # Storage of a consumed batch must not be reused by a later prefetch while the consumer's queued reads
+    # of it are still pending on its stream.
+    num_batches = 64
+    loader, first_value = _create_prefetch_loader(kind, num_batches, batch_size=1)
+    images_out = torch.empty(num_batches, device='cuda')
+    targets_out = torch.empty(num_batches, device='cuda', dtype=torch.int64)
+    torch.cuda.synchronize()
+
+    for _ in range(2):
+        for i, (images, targets) in enumerate(loader):
+            # Let prefetching run ahead while reads of earlier batches remain queued.
+            torch.cuda._sleep(2_000_000)
+            images_out[i].copy_(first_value(images))
+            targets_out[i].copy_(targets[0])
+
+        torch.testing.assert_close(images_out.cpu(), torch.arange(num_batches) / 255)
+        torch.testing.assert_close(targets_out.cpu(), torch.arange(num_batches))
 
 
 @pytest.mark.parametrize('is_training', [False, True])
@@ -133,3 +203,25 @@ def test_augmix_blended_flag_respects_zero(config_str, expected_blended):
     # to select the blended code path instead of disabling it.
     transform = augment_and_mix_transform(config_str, hparams={})
     assert transform.blended == expected_blended
+
+
+@pytest.mark.parametrize('size, mode', [
+    ((53, 37), 'RGB'),  # non-square, width != height
+    ((40, 40), 'L'),    # single band, np.asarray() has no channel axis
+    ((53, 37), 'L'),
+])
+def test_augmix_basic_mixes_non_square_and_single_band_images(size, mode):
+    # _apply_basic accumulated into a (width, height, bands) buffer, but np.asarray(img) is
+    # (height, width[, bands]); the two only line up for square multi-band images.
+    from PIL import Image
+
+    img = Image.fromarray(np.random.randint(0, 256, size=(size[1], size[0], 3), dtype=np.uint8)).convert(mode)
+    # fill colour must match the band count, as create_transform() derives it from `mean`
+    hparams = dict(img_mean=(128,) * len(img.getbands()))
+    transform = augment_and_mix_transform('augmix-m5-w4-d2', hparams=hparams)
+    assert not transform.blended
+
+    out = transform(img)
+
+    assert out.size == img.size
+    assert out.mode == img.mode

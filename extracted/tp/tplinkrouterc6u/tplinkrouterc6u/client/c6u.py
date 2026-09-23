@@ -13,6 +13,7 @@ from tplinkrouterc6u.common.dataclass import (
     Firmware,
     Status,
     Device,
+    MeshNode,
     IPv4Reservation,
     IPv4DHCPLease,
     IPv4Status,
@@ -414,6 +415,9 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
         status.wifi_2g_enable = self._str2bool(data.get('wireless_2g_enable'))
         status.wifi_5g_enable = self._str2bool(data.get('wireless_5g_enable'))
         status.wifi_6g_enable = self._str2bool(data.get('wireless_6g_enable'))
+        status.wifi_mlo_2g_enable = self._str2bool(data.get('mlo_host_2g_enable'))
+        status.wifi_mlo_5g_enable = self._str2bool(data.get('mlo_host_5g_enable'))
+        status.wifi_mlo_6g_enable = self._str2bool(data.get('mlo_host_6g_enable'))
 
         if (status.mem_usage is None or status.cpu_usage is None) and self._perf_status:
             try:
@@ -459,10 +463,16 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
                     conn = self._map_wire_type(item.get('deviceTag'), not item.get('isGuest'))
                     devices[mac] = Device(conn, get_mac(item.get('mac', '00:00:00:00:00:00')),
                                           get_ip(item.get('ip', '0.0.0.0')), item.get('deviceName', ''))
+                    # Clients only present in game_accelerator (e.g. MLO / 6G on GE800)
+                    # are absent from access_devices_*; count them here like IoT.
                     if conn.is_iot():
                         if status.iot_clients_total is None:
                             status.iot_clients_total = 0
                         status.iot_clients_total += 1
+                    elif conn.is_host_wifi():
+                        status.wifi_clients_total += 1
+                    elif conn.is_guest_wifi():
+                        status.guest_clients_total += 1
 
                 device = devices[mac]
                 device.down_speed = item.get('downloadSpeed', item.get('downSpeed'))
@@ -542,6 +552,50 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
                                 + (status.iot_clients_total or 0))
 
         return status
+
+    def get_mesh_nodes(self) -> list[MeshNode]:
+        """Return the EasyMesh nodes reported by the main router.
+
+        Returns an empty list on routers that do not run EasyMesh: they answer
+        the form with an error, which is the same signal get_status() already
+        uses to stop enriching clients with ap_name.
+        """
+        if not self._easymesh:
+            return []
+
+        try:
+            data = self.request(self._url_easymesh_device_list, 'operation=read')
+        except Exception:
+            self._easymesh = False
+            return []
+
+        mesh_nodes = []
+        for item in data or []:
+            mesh_node = MeshNode()
+            mesh_node._macaddr = get_mac(item['mac']) if item.get('mac') else None
+            mesh_node._ipaddr = get_ip(item['ip']) if item.get('ip') else None
+            mesh_node._parent_macaddr = get_mac(item['parent_mac']) if item.get('parent_mac') else None
+            mesh_node.name = item.get('name')
+            mesh_node.model = item.get('model')
+            mesh_node.role = item.get('role')
+            mesh_node.status = item.get('status')
+            mesh_node.device_type = item.get('device_type')
+            mesh_node.vendor = item.get('vendor')
+            mesh_node.location = item.get('location')
+            mesh_node.connect_type = item.get('connect_type')
+            mesh_node.mesh_type = item.get('mesh_type')
+            mesh_node.client_num = int(item['client_num']) if item.get('client_num') is not None else None
+            # The payload key is signal_strength but the value is a firmware-dependent bar
+            # level (observed 1..3 on BE, up to 5 on AX), so it lands in signal_level;
+            # signal_strength stays reserved for dBm. Absent on the main router, which has
+            # no uplink of its own, and on older AX firmware that omits the key.
+            mesh_node.signal_level = (
+                int(item['signal_strength']) if item.get('signal_strength') is not None else None)
+            support_reboot = item.get('support_reboot')
+            mesh_node.support_reboot = None if support_reboot is None else bool(support_reboot)
+            mesh_nodes.append(mesh_node)
+
+        return mesh_nodes
 
     def get_ipv4_status(self) -> IPv4Status:
         ipv4_status = IPv4Status()
@@ -833,6 +887,9 @@ class TplinkBaseRouter(AbstractRouter, TplinkRequest):
             result = Connection.IOT_5G
         elif data.startswith('iot_6'):
             result = Connection.IOT_6G
+        elif data == 'mlo':
+            # game_accelerator deviceTag on BE/GE firmwares (e.g. Archer GE800); #233
+            result = Connection.HOST_MLO
         return result
 
 

@@ -191,6 +191,7 @@ __all__ = (
     "StartingPositionType",
     "StatementStateType",
     "StatisticEvaluationLevelType",
+    "SubObjectSourceTypeType",
     "TableAttributesType",
     "TableOptimizerEventTypeType",
     "TableOptimizerTypeType",
@@ -672,6 +673,9 @@ SourceControlProviderType = Literal["AWS_CODE_COMMIT", "BITBUCKET", "GITHUB", "G
 StartingPositionType = Literal["earliest", "latest", "timestamp", "trim_horizon"]
 StatementStateType = Literal["AVAILABLE", "CANCELLED", "CANCELLING", "ERROR", "RUNNING", "WAITING"]
 StatisticEvaluationLevelType = Literal["Column", "Dataset", "Multicolumn"]
+SubObjectSourceTypeType = Literal[
+    "HIVE_CSV", "HIVE_JSON", "HIVE_ORC", "HIVE_PARQUET", "ICEBERG", "PLAIN_PARQUET"
+]
 TableAttributesType = Literal["DEFAULT", "LATEST_ICEBERG_METADATA", "NAME", "TABLE_TYPE"]
 TableOptimizerEventTypeType = Literal["completed", "failed", "in_progress", "starting"]
 TableOptimizerTypeType = Literal["compaction", "orphan_file_deletion", "retention"]
@@ -790,6 +794,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",

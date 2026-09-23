@@ -1,8 +1,9 @@
 //! Simplified force-field geometry minimization for molecular structures.
 //!
-//! Uses gradient descent with finite differences over energy terms:
-//! bond stretching, angle bending, VDW repulsion, and (for MMFF94) electrostatic interactions.
-//! Bond lengths and angles use element-specific parameters; charges use 3D geometry.
+//! Uses bounded force-field minimizers over bond, angle, torsion, out-of-plane,
+//! van der Waals, and electrostatic terms. The production MMFF94 bridge uses
+//! the prepared analytic energy/gradient pair; reference and legacy paths
+//! retain finite-difference or gradient-descent implementations.
 
 use std::collections::HashSet;
 
@@ -1496,11 +1497,9 @@ fn vec_to_coords(v: &[[f64; 3]]) -> Coords3D {
 }
 
 /// Central-difference max |gradient component| over an arbitrary black-box
-/// energy function. Used both to report `max_residual_force` in production
-/// and, in tests, as an independent bridge-plumbing check (see module tests
-/// — chematic-ff exposes no analytic gradient anywhere, so this is a
-/// finite-difference-vs-finite-difference cross-check across two independent
-/// code paths, not an analytic-vs-FD check; see test doc comment for why).
+/// energy function. Production MMFF94 uses the matching prepared analytic
+/// gradient; this remains as an independent reference for tests and for force
+/// fields that do not yet expose a validated analytic residual gradient.
 fn fd_max_gradient<F: Fn(&[[f64; 3]]) -> f64>(
     coords: &[[f64; 3]],
     energy_fn: F,
@@ -1522,6 +1521,14 @@ fn fd_max_gradient<F: Fn(&[[f64; 3]]) -> f64>(
         }
     }
     max_g
+}
+
+fn max_gradient_component(gradient: &[[f64; 3]]) -> f64 {
+    gradient
+        .iter()
+        .flat_map(|v| v.iter())
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max)
 }
 
 // --- Geometric/energetic soundness gate -------------------------------------
@@ -1946,6 +1953,7 @@ fn run_mmff94_bridge(
     max_iter: usize,
     include_torsion_oop_in_gate: bool,
     include_stretch_bend_in_gate: bool,
+    accept_geometry: Option<&dyn Fn(&Coords3D) -> bool>,
 ) -> Result<Mmff94BridgeRun, ForceFieldBridgeError> {
     let n = mol.atom_count();
     // Must use the same MMFF-specific re-perceived bond orders chematic-ff's
@@ -1964,10 +1972,29 @@ fn run_mmff94_bridge(
     let energy_before = energy_model.energy_breakdown(&coord_vec);
 
     let mut work = coord_vec.clone();
-    let result = energy_model.minimize_lbfgs(&mut work, max_iter)?;
+    let result = if let Some(accept_geometry) = accept_geometry {
+        energy_model.minimize_lbfgs_bounded_analytic_with_constraint(
+            &mut work,
+            max_iter,
+            |candidate| {
+                let candidate = vec_to_coords(candidate);
+                accept_geometry(&candidate)
+            },
+        )?
+    } else {
+        energy_model.minimize_lbfgs_bounded_analytic(&mut work, max_iter)?
+    };
 
     let energy_after = energy_model.energy_breakdown(&work);
-    let max_residual_force = fd_max_gradient(&work, |c| energy_model.energy(c), 1e-4);
+    // The minimizer and the reported energy use this exact prepared MMFF94
+    // objective. Re-running a central-difference gradient here cost 6N full
+    // energy evaluations after every minimization and disproportionately
+    // penalized the stereo-safe explicit-H lane. The analytic gradient is
+    // already the production minimizer gradient and is checked against the
+    // same total energy in chematic-ff; one final analytic evaluation preserves
+    // the residual-force soundness gate without the redundant O(N) objective
+    // sweep.
+    let max_residual_force = max_gradient_component(&energy_model.bounded_analytic_gradient(&work));
 
     check_minimization_soundness(
         mol,
@@ -2358,13 +2385,14 @@ fn finish_uff(
 /// [`minimize_with_policy`] passes `false`, matching its existing
 /// `include_torsion_oop_in_gate = false` default — no existing caller's
 /// behavior changes.
-pub fn minimize_with_policy_gated(
+fn minimize_with_policy_gated_impl(
     mol: &Molecule,
     coords: Coords3D,
     policy: ForceFieldPolicy,
     config: &MinimizeConfig,
     include_torsion_oop_in_gate: bool,
     include_stretch_bend_in_gate: bool,
+    accept_geometry: Option<&dyn Fn(&Coords3D) -> bool>,
 ) -> Result<PolicyMinimizeResult, ForceFieldBridgeError> {
     if mol.atom_count() <= 1 {
         return Ok(trivial_result(coords, policy));
@@ -2425,6 +2453,7 @@ pub fn minimize_with_policy_gated(
                 config.max_steps,
                 include_torsion_oop_in_gate,
                 include_stretch_bend_in_gate,
+                accept_geometry,
             )?;
             Ok(finish_mmff94(
                 r,
@@ -2441,6 +2470,7 @@ pub fn minimize_with_policy_gated(
                 config.max_steps,
                 include_torsion_oop_in_gate,
                 include_stretch_bend_in_gate,
+                accept_geometry,
             ) {
                 Ok(r) => Ok(finish_mmff94(
                     r,
@@ -2479,6 +2509,54 @@ pub fn minimize_with_policy_gated(
             }
         }
     }
+}
+
+/// Run the selected force field with optional MMFF94 parameter-coverage
+/// gates. This low-level API preserves its historical unconstrained MMFF94
+/// line search; the stereo-aware pipeline uses an internal constrained path.
+pub fn minimize_with_policy_gated(
+    mol: &Molecule,
+    coords: Coords3D,
+    policy: ForceFieldPolicy,
+    config: &MinimizeConfig,
+    include_torsion_oop_in_gate: bool,
+    include_stretch_bend_in_gate: bool,
+) -> Result<PolicyMinimizeResult, ForceFieldBridgeError> {
+    minimize_with_policy_gated_impl(
+        mol,
+        coords,
+        policy,
+        config,
+        include_torsion_oop_in_gate,
+        include_stretch_bend_in_gate,
+        None,
+    )
+}
+
+/// Pipeline-only force-field dispatch with a caller-owned MMFF94 line-search
+/// acceptance predicate. Public low-level callers retain the historical
+/// unconstrained minimizer through [`minimize_with_policy_gated`].
+pub(crate) fn minimize_with_policy_gated_with_constraint<F>(
+    mol: &Molecule,
+    coords: Coords3D,
+    policy: ForceFieldPolicy,
+    config: &MinimizeConfig,
+    include_torsion_oop_in_gate: bool,
+    include_stretch_bend_in_gate: bool,
+    accept_geometry: &F,
+) -> Result<PolicyMinimizeResult, ForceFieldBridgeError>
+where
+    F: Fn(&Coords3D) -> bool,
+{
+    minimize_with_policy_gated_impl(
+        mol,
+        coords,
+        policy,
+        config,
+        include_torsion_oop_in_gate,
+        include_stretch_bend_in_gate,
+        Some(accept_geometry),
+    )
 }
 
 /// Convenience wrapper over [`minimize_with_policy_gated`] with
@@ -2951,24 +3029,10 @@ mod policy_bridge_tests {
         }
     }
 
-    /// Per the RFC's "analytic-vs-finite-difference gradient self-check"
-    /// request: chematic-ff (verified by reading `mmff94_minimizer.rs` and
-    /// `uff.rs`) exposes NO analytic/closed-form gradient anywhere — both
-    /// `compute_gradient` and `uff_gradient` are private and finite-
-    /// difference-based internally. There is therefore no analytic gradient
-    /// to compare against; a literal analytic-vs-FD test is unsatisfiable
-    /// with the current chematic-ff surface (flagged in the PR body).
-    ///
-    /// What *is* a meaningful correctness check on the bridge itself is
-    /// whether this bridge's `Coords3D` <-> `Vec<[f64; 3]>` conversion
-    /// preserves atom correspondence into the FD gradient computation: this
-    /// test perturbs the SAME atom/axis via two independent routes — (a)
-    /// through `Coords3D::get`/`set` (mimicking how a caller holding a
-    /// `Coords3D` would use this bridge) and (b) directly on a raw
-    /// `Vec<[f64; 3]>` with no `Coords3D` involved at all — and confirms
-    /// both report the same gradient, localized on the atom that was
-    /// actually perturbed. A transposition/off-by-one bug in the bridge's
-    /// index handling would make these disagree.
+    /// The production bridge reports the prepared analytic MMFF94 residual
+    /// gradient. Keep an independent central-difference calculation here to
+    /// verify both the analytic value and the bridge's `Coords3D` <- > raw
+    /// coordinate mapping on a deliberately high-gradient geometry.
     #[test]
     fn bridge_fd_gradient_matches_raw_chematic_ff_call() {
         let mol = parse("CCO").expect("ethanol topology (heavy atoms only)");
@@ -3011,6 +3075,15 @@ mod policy_bridge_tests {
         assert!(
             grad_a > 10.0,
             "expected a large residual force from a 3 Å-stretched C-O bond, got {grad_a}"
+        );
+
+        let model = Mmff94EnergyModel::new(&mol).expect("prepared MMFF94 model");
+        let analytic = max_gradient_component(&model.bounded_analytic_gradient(&via_bridge));
+        let relative_delta = (analytic - grad_a).abs() / grad_a.max(1.0);
+        assert!(
+            relative_delta < 1e-5,
+            "prepared analytic residual force ({analytic}) disagrees with FD reference \
+             ({grad_a}); relative delta={relative_delta}"
         );
     }
 
@@ -3756,16 +3829,12 @@ mod policy_bridge_tests {
     // work (`uff_energy_breakdown`/`minimize_uff_with_trace`/etc., unrelated
     // to this fix).
 
-    /// #188 flexible-chain case: hexane's `UffOnly` + `generate_coords`
-    /// minimization is measured to blow its worst bond length past 3 Å at
-    /// the default 200-step budget (same shape as naphthalene's
-    /// `mmff94_with_uff_fallback_reports_typed_failure_when_fallback_itself_is_unsound`
-    /// above) -- but, per the #185/#188 fix, `run_uff_bridge` retries once
-    /// from `embed_distance_geometry_v2`'s geometry on exactly this failure
-    /// class, and that retry succeeds. Pins the now-fixed behavior: `Ok`,
-    /// with `starting_geometry` disclosing that the rescue fired.
+    /// The bounded UFF proposal introduced by the public-package performance
+    /// pass lets the original `generate_coords` hexane geometry recover at
+    /// the default budget. Pin that improvement: the bridge must return the
+    /// sound first trajectory and must not claim that the DG-v2 rescue ran.
     #[test]
-    fn uff_only_succeeds_for_hexane_from_generate_coords_via_distance_geometry_v2_rescue() {
+    fn uff_only_recovers_hexane_from_generate_coords_without_rescue() {
         let mol = parse("CCCCCC").expect("hexane");
         let coords = generate_coords(&mol);
         let config = MinimizeConfig::default();
@@ -3782,8 +3851,8 @@ mod policy_bridge_tests {
         assert_eq!(result.actual_force_field_used, ForceFieldPolicy::UffOnly);
         assert_eq!(
             result.starting_geometry,
-            Some(UffStartingGeometry::ReplacedWithDistanceGeometryV2),
-            "expected the rescue to have fired and to be disclosed, not silent"
+            Some(UffStartingGeometry::AsProvided),
+            "the bounded first trajectory should now succeed without a rescue"
         );
         let worst = worst_bond_length_vec(&mol, &coords_to_vec(&result.coords, mol.atom_count()));
         assert!(
@@ -3842,21 +3911,14 @@ mod policy_bridge_tests {
         }
     }
 
-    /// The energy-semantics regression this test exists to catch: on a successful
-    /// rescue, `energy_before`/`energy_after` must both describe the SAME
-    /// trajectory (the `embed_distance_geometry_v2` geometry, before and after
-    /// minimizing it) -- never the caller's abandoned original geometry paired
-    /// with the retry's outcome. Hexane's `generate_coords` energy (~1.5e7
-    /// kcal/mol, per `docs/rfcs/uff_robustness_diagnosis_185_188.md`) and its
-    /// `embed_distance_geometry_v2` energy (~3.78 kcal/mol) differ by roughly 6
-    /// orders of magnitude -- exactly the fixture needed to make a
-    /// caller-geometry/retry-outcome mismatch impossible to miss. A buggy
-    /// implementation that reused the caller's `energy_before` would report
-    /// something around 1.5e7 here; this asserts the ACTUAL value instead,
-    /// independently recomputed from `embed_distance_geometry_v2`'s own
-    /// deterministic output (`EmbedParameters::default()`'s `random_seed` is a
-    /// fixed constant, so this reproduces the exact geometry the rescue itself
-    /// used).
+    /// The energy-semantics regression this test exists to catch: on a
+    /// successful rescue, `energy_before`/`energy_after` must both describe
+    /// the SAME trajectory (the `embed_distance_geometry_v2` geometry, before
+    /// and after minimizing it) -- never the caller's abandoned original
+    /// geometry paired with the retry's outcome. The bounded-proposal
+    /// minimizer now recovers the former finite-clash hexane fixture directly,
+    /// so make the caller trajectory explicitly non-finite to exercise the
+    /// same public rescue contract deterministically.
     #[test]
     fn uff_only_rescue_energy_before_reflects_dg_v2_geometry_not_caller() {
         use crate::distance_geometry_v2::{EmbedParameters, embed_distance_geometry_v2};
@@ -3865,12 +3927,13 @@ mod policy_bridge_tests {
         let n = mol.atom_count();
         let types = assign_uff_types(&mol);
 
-        let caller_coords = generate_coords(&mol);
+        let mut caller_coords = generate_coords(&mol);
+        let first = caller_coords.get(AtomIdx(0));
+        caller_coords.set(AtomIdx(0), Point3::new(f64::NAN, first.y, first.z));
         let caller_energy = uff_total_energy(&mol, &types, &coords_to_vec(&caller_coords, n));
         assert!(
-            caller_energy > 1.0e6,
-            "expected hexane's generate_coords energy to be the measured ~1.5e7-scale \
-             catastrophic-clash value, got {caller_energy}"
+            !caller_energy.is_finite(),
+            "fixture must force the typed non-finite rescue path"
         );
 
         let v2_coords = embed_distance_geometry_v2(&mol, &EmbedParameters::default())

@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
+from xpander_sdk.modules.tasks.models.conversation import ConversationKind
 from xpander_sdk.models.configuration import Configuration
 from xpander_sdk.modules.tasks.models.task import AgentExecutionStatus
 from xpander_sdk.modules.tasks.sub_modules.task import Task
@@ -87,6 +88,13 @@ class TasksListItem(BaseModel):
         description=(
             "Read model of a resident process (state, stop_reason, frozen, segment, "
             "wake, last_update, attempt); None for a plain turn"
+        ),
+    )
+    conversation_kind: Optional[ConversationKind] = Field(
+        default=None,
+        description=(
+            "On a conversation head: 'direct' (one task per message on the agent) or "
+            "'gateway' (router-era); None on a turn row"
         ),
     )
 

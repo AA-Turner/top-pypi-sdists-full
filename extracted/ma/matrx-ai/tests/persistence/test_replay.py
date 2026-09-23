@@ -225,6 +225,26 @@ async def test_replay_leaves_ambiguous_or_non_notes_synonyms_unmodified() -> Non
 
 
 @pytest.mark.asyncio
+async def test_replay_upgrades_legacy_youtube_transcript_category_in_memory() -> None:
+    rows = [
+        {
+            "table_target": "transcripts.transcripts",
+            "payload": {
+                "id": "transcript-1",
+                "source_type": "youtube",
+                "metadata": {"media": {"adapter": "youtube"}},
+            },
+        }
+    ]
+
+    upgraded = await replay._upgrade_legacy_payloads(rows)
+
+    assert upgraded[0]["payload"]["source_type"] == "video"
+    assert upgraded[0]["payload"]["metadata"]["media"]["adapter"] == "youtube"
+    assert rows[0]["payload"]["source_type"] == "youtube"
+
+
+@pytest.mark.asyncio
 async def test_replay_failure_is_structurally_captured(monkeypatch) -> None:
     captured: list[tuple[Exception, dict]] = []
 

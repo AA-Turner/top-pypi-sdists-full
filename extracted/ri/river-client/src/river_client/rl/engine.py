@@ -243,12 +243,12 @@ class RolloutEngine:
         self.server_capabilities = await call(read) if read is not None else None
         if self.server_capabilities is not None:
             self.server_capabilities.require("sampling_batch_v1")
-            if self._latest_snapshot_sampling:
-                self.server_capabilities.require("sampling_latest_snapshot_v1")
             if self.sampling_policy == "trajectory":
                 self.server_capabilities.require(
                     "policy_versions_v1", "sampling_policy_pinning_v1"
                 )
+            if self._latest_snapshot_sampling:
+                self.server_capabilities.require("sampling_latest_snapshot_v1")
             if self._retained_kv:
                 self.server_capabilities.require("policy_versions_v1")
                 self.server_capabilities.require_model(
@@ -555,8 +555,6 @@ class RolloutEngine:
             }
             if self.return_expert_routing:
                 kwargs["return_expert_routing"] = True
-            if self._latest_snapshot_sampling:
-                kwargs["policy_selection"] = "latest_snapshot"
             if self._retained_kv:
                 kwargs["retained_kv_groups"] = [
                     r.member.traj._kv_cache_group for r in requests
@@ -573,6 +571,10 @@ class RolloutEngine:
                 and getattr(self.model, "checkpoint", None) is None
             ):
                 kwargs["pinned_policy_id"] = requests[0].pinned_policy_id
+            elif self._latest_snapshot_sampling:
+                # Select a snapshot on the first turn; trajectory continuations
+                # keep its explicit pin instead of selecting newer weights.
+                kwargs["policy_selection"] = "latest_snapshot"
             if self._independent_samples:
                 pending = await asyncio.get_running_loop().run_in_executor(
                     self._pool, partial(self.model.submit_sampling_batch, **kwargs)

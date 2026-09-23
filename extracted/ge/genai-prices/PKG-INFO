@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: genai-prices
-Version: 0.1.7
+Version: 0.1.8
 Summary: Calculate prices for calling LLM inference APIs.
 Project-URL: Homepage, https://github.com/pydantic/genai-prices
 Project-URL: Source, https://github.com/pydantic/genai-prices

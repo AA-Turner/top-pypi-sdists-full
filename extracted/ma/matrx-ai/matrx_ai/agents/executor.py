@@ -352,6 +352,7 @@ async def run_agent(
     system_run: bool = False,
     stream_system_run: bool = False,
     require_complete_output: bool = False,
+    max_iterations: int | None = None,
 ) -> AgentRunResult[ParsedT]:
     """Execute an already-prepared ``Agent`` inside ``child_agent_context``.
 
@@ -446,6 +447,13 @@ async def run_agent(
                             truncated, or empty child result as a failed
                             lifecycle completion. Use when partial child text
                             must be rewound rather than retained.
+        max_iterations: This ONE run's iteration ceiling — the subtree half of a
+                            per-child execution budget (the time half rides the
+                            forked context; see
+                            ``matrx_ai.orchestrator.subtree_budget``). The loop
+                            stops AT the ceiling through its graceful
+                            ``max_iterations_exceeded`` exit and keeps
+                            everything it produced. None = the funnel default.
 
     Returns:
         ``AgentRunResult`` — ``success`` indicates execution status;
@@ -613,7 +621,9 @@ async def run_agent(
                 )
                 raise
 
-            execute_result: AgentExecuteResult = await agent.execute(user_input=user_input)
+            execute_result: AgentExecuteResult = await agent.execute(
+                user_input=user_input, max_iterations=max_iterations
+            )
             if require_complete_output:
                 child_status = str((execute_result.metadata or {}).get("status") or "")
                 incomplete = (

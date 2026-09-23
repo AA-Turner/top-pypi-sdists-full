@@ -16,6 +16,7 @@ from loguru import logger
 from pydantic import ValidationError
 from xpander_sdk import Configuration
 from xpander_sdk.consts.api_routes import APIRoute
+from xpander_sdk.core.context_optimizer.encryption import session_id_for
 from xpander_sdk.core.context_optimizer.action_ledger import (
     _PLAN_TOOLS,
     ActionLedger,
@@ -123,6 +124,7 @@ from xpander_sdk.modules.backend.utils.tool_call_events import (
     extract_reasoning,
     get_tool_call_summary,
     is_agent_gateway_task,
+    is_chat_turn_task,
     is_reasoning_tool,
     PLANNING_TOOLS,
     REASONING_TOOLS,
@@ -4364,7 +4366,7 @@ async def build_agent_args(
                     if replacement is not None:
                         # Fire-and-forget: a later microcompact pass splices the
                         # summary in, so the hot path never waits on it.
-                        if is_agent_gateway_task(task):
+                        if is_chat_turn_task(task):
                             try:
                                 summary_task = asyncio.create_task(
                                     get_tool_call_summary(
@@ -5868,7 +5870,8 @@ def _configure_session_storage(
         return
 
     args["add_history_to_context"] = True
-    args["session_id"] = task.id if task else None
+    # a direct conversation's turns share one agno session: history replays natively
+    args["session_id"] = session_id_for(task) if task else None
     args["user_id"] = (
         task.input.user.id if task and task.input and task.input.user else None
     )

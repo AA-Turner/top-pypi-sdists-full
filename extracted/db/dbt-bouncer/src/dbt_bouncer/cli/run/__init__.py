@@ -1,5 +1,6 @@
 """Run command package."""
 
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -7,7 +8,8 @@ import typer
 
 from dbt_bouncer.cli import app
 from dbt_bouncer.cli.run.utils import detect_config_file_source, run_bouncer
-from dbt_bouncer.enums import ConfigFileName, OutputFormat
+from dbt_bouncer.enums import ConfigFileName, ExitCode, OutputFormat, PresetName
+from dbt_bouncer.exceptions import DbtBouncerArtifactError, DbtBouncerConfigError
 
 
 @app.command(name="run")
@@ -19,6 +21,7 @@ def run(
     create_pr_comment_file: Annotated[
         bool,
         typer.Option(
+            envvar="DBT_BOUNCER_CREATE_PR_COMMENT_FILE",
             hidden=True,
             help="Create a `github-comment.md` file that will be sent to GitHub as a PR comment. Defaults to True when `dbt-bouncer` is run as a GitHub Action.",
         ),
@@ -26,6 +29,7 @@ def run(
     check: Annotated[
         str,
         typer.Option(
+            envvar="DBT_BOUNCER_CHECK",
             help="Limit the checks run to specific check names, comma-separated.",
             rich_help_panel="Check Selection",
         ),
@@ -33,6 +37,7 @@ def run(
     dry_run: Annotated[
         bool,
         typer.Option(
+            envvar="DBT_BOUNCER_DRY_RUN",
             help="Print which checks would run (name, resource type, count) without executing them.",
             rich_help_panel="Check Selection",
         ),
@@ -40,13 +45,31 @@ def run(
     only: Annotated[
         str,
         typer.Option(
+            envvar="DBT_BOUNCER_ONLY",
             help="Limit the checks run to specific categories, comma-separated.",
             rich_help_panel="Check Selection",
         ),
     ] = "",
+    baseline: Annotated[
+        Path | None,
+        typer.Option(
+            envvar="DBT_BOUNCER_BASELINE",
+            help="Path to a baseline file. Failures listed in it are suppressed, so only new failures are reported.",
+            rich_help_panel="Regression",
+        ),
+    ] = None,
+    state: Annotated[
+        Path | None,
+        typer.Option(
+            envvar="DBT_BOUNCER_STATE",
+            help="Directory of dbt artifacts from a previous run. Failures present in that base run are suppressed, so only new failures are reported.",
+            rich_help_panel="Regression",
+        ),
+    ] = None,
     output_file: Annotated[
         Path | None,
         typer.Option(
+            envvar="DBT_BOUNCER_OUTPUT_FILE",
             help="Location of the file where check metadata will be saved.",
             rich_help_panel="Output Options",
         ),
@@ -54,21 +77,33 @@ def run(
     output_format: Annotated[
         OutputFormat,
         typer.Option(
-            help="Format for the output file or stdout when no output file is specified. Choices: csv, json, junit, sarif, tap. Defaults to json.",
             case_sensitive=False,
+            envvar="DBT_BOUNCER_OUTPUT_FORMAT",
+            help="Format for the output file (requires --output-file). Choices: csv, json, junit, sarif, tap. Defaults to json.",
             rich_help_panel="Output Options",
         ),
     ] = OutputFormat.JSON,
     output_only_failures: Annotated[
         bool,
         typer.Option(
+            envvar="DBT_BOUNCER_OUTPUT_ONLY_FAILURES",
             help="If passed then only failures will be included in the output file.",
             rich_help_panel="Output Options",
         ),
     ] = False,
+    preset: Annotated[
+        PresetName | None,
+        typer.Option(
+            case_sensitive=False,
+            envvar="DBT_BOUNCER_PRESET",
+            help="Run a bundled preset config (minimal, standard, strict) instead of a config file. Ignored when --config-file is provided.",
+            rich_help_panel="Check Selection",
+        ),
+    ] = None,
     show_all_failures: Annotated[
         bool,
         typer.Option(
+            envvar="DBT_BOUNCER_SHOW_ALL_FAILURES",
             help="If passed then all failures will be printed to the console.",
             rich_help_panel="Display Options",
         ),
@@ -78,8 +113,9 @@ def run(
         typer.Option(
             "-v",
             "--verbosity",
-            help="Verbosity.",
             count=True,
+            envvar="DBT_BOUNCER_VERBOSITY",
+            help="Verbosity.",
             rich_help_panel="Display Options",
         ),
     ] = 0,
@@ -101,22 +137,33 @@ def run(
         [cyan]$ dbt-bouncer run --output-file results.json --output-format json[/cyan]
 
     Raises:
-        Exit: If an invalid output format is provided or the checks fail.
+        Exit: If an invalid output format is provided, the checks fail, the config
+            file is missing/invalid, or a required dbt artifact is missing/unsupported.
 
     """
     config_file_source = detect_config_file_source(config_file)
 
-    exit_code = run_bouncer(
-        check=check,
-        config_file=config_file,
-        create_pr_comment_file=create_pr_comment_file,
-        dry_run=dry_run,
-        only=only,
-        output_file=output_file,
-        output_format=output_format,
-        output_only_failures=output_only_failures,
-        show_all_failures=show_all_failures,
-        verbosity=verbosity,
-        config_file_source=config_file_source,
-    )
+    try:
+        exit_code = run_bouncer(
+            baseline=baseline,
+            check=check,
+            config_file=config_file,
+            create_pr_comment_file=create_pr_comment_file,
+            dry_run=dry_run,
+            only=only,
+            output_file=output_file,
+            output_format=output_format,
+            output_only_failures=output_only_failures,
+            preset=preset,
+            show_all_failures=show_all_failures,
+            state=state,
+            verbosity=verbosity,
+            config_file_source=config_file_source,
+        )
+    except DbtBouncerConfigError as e:
+        logging.error(str(e))
+        raise typer.Exit(ExitCode.CONFIG_ERROR) from e
+    except DbtBouncerArtifactError as e:
+        logging.error(str(e))
+        raise typer.Exit(ExitCode.ARTIFACT_ERROR) from e
     raise typer.Exit(exit_code)

@@ -13,6 +13,7 @@ Usage::
         Client,
         CloudWatchObservabilityAdminServiceClient,
         ListCentralizationRulesForOrganizationPaginator,
+        ListDatasetIntegrationsPaginator,
         ListResourceTelemetryForOrganizationPaginator,
         ListResourceTelemetryPaginator,
         ListS3TableIntegrationsPaginator,
@@ -25,6 +26,7 @@ Usage::
     client: CloudWatchObservabilityAdminServiceClient = session.client("observabilityadmin")
 
     list_centralization_rules_for_organization_paginator: ListCentralizationRulesForOrganizationPaginator = client.get_paginator("list_centralization_rules_for_organization")
+    list_dataset_integrations_paginator: ListDatasetIntegrationsPaginator = client.get_paginator("list_dataset_integrations")
     list_resource_telemetry_for_organization_paginator: ListResourceTelemetryForOrganizationPaginator = client.get_paginator("list_resource_telemetry_for_organization")
     list_resource_telemetry_paginator: ListResourceTelemetryPaginator = client.get_paginator("list_resource_telemetry")
     list_s3_table_integrations_paginator: ListS3TableIntegrationsPaginator = client.get_paginator("list_s3_table_integrations")
@@ -37,6 +39,7 @@ Usage::
 from .client import CloudWatchObservabilityAdminServiceClient
 from .paginator import (
     ListCentralizationRulesForOrganizationPaginator,
+    ListDatasetIntegrationsPaginator,
     ListResourceTelemetryForOrganizationPaginator,
     ListResourceTelemetryPaginator,
     ListS3TableIntegrationsPaginator,
@@ -52,6 +55,7 @@ __all__ = (
     "Client",
     "CloudWatchObservabilityAdminServiceClient",
     "ListCentralizationRulesForOrganizationPaginator",
+    "ListDatasetIntegrationsPaginator",
     "ListResourceTelemetryForOrganizationPaginator",
     "ListResourceTelemetryPaginator",
     "ListS3TableIntegrationsPaginator",

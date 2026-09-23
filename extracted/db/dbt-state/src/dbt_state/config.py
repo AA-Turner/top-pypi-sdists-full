@@ -233,7 +233,7 @@ class RunCacheConfig:
     )
     org_id: t.Optional[str] = None
     run_hooks_on_no_op: bool = False
-    compare_unrendered_code: bool = False
+    compare_unrendered_code: bool = True
     emit_reused_status: bool = False
     adaptive_metadata_fetch: bool = True
     snowflake_get_view_ddl_override: t.Optional[str] = None

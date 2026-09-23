@@ -4,7 +4,6 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from mistral_common.exceptions import InvalidAssistantMessageException, InvalidMessageStructureException
 from mistral_common.protocol.instruct.chunk import TextChunk
 from mistral_common.protocol.instruct.messages import AssistantMessage, ToolMessage, UserMessage
 from mistral_common.protocol.instruct.request import InstructRequest
@@ -16,6 +15,7 @@ from mistral_common.tokens.tokenizers.sentencepiece import (
     is_sentencepiece,
 )
 from mistral_common.tokens.tokenizers.tekken import SpecialTokenPolicy, Tekkenizer
+from tests.utils import decode_keep
 
 TEKKEN_SPECIAL_WHITESPACE = ""
 TEKKEN_WHITESPACE = " "
@@ -100,7 +100,8 @@ def test_tools_singleturn(
             available_tools=[Tool(function=Function(name="tool1", description="1", parameters={}))],
         )
     )
-    tokens, text = tokenized.tokens, tokenized.text
+    tokens = tokenized.tokens
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[AVAILABLE_TOOLS]{special_ws}["
         f'{{"type":{ws}"function",{ws}"function":{ws}{{"name":{ws}"tool1",{ws}"description":{ws}"1",{ws}"parameters":{ws}{{}}}}}}]'
@@ -159,7 +160,8 @@ def test_tools_multiturn(
             ],
         )
     )
-    tokens, text = tokenized.tokens, tokenized.text
+    tokens = tokenized.tokens
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST]{special_ws}b</s>[AVAILABLE_TOOLS]{special_ws}["
         f'{{"type":{ws}"function",{ws}"function":{ws}{{"name":{ws}"tool1",{ws}"description":{ws}"1",{ws}"parameters":{ws}{{}}}}}},'
@@ -219,7 +221,8 @@ def test_system_tools_multiturn(
             system_prompt="SYSTEM",
         )
     )
-    tokens, text = tokenized.tokens, tokenized.text
+    tokens = tokenized.tokens
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST]{special_ws}b</s>[AVAILABLE_TOOLS]{special_ws}["
         f'{{"type":{ws}"function",{ws}"function":{ws}{{"name":{ws}"tool1",{ws}"description":{ws}"1",{ws}"parameters":{ws}{{}}}}}}]'
@@ -247,7 +250,7 @@ def test_system_tools_multiturn(
         ),
     ],
 )
-def test_continue_final_message(
+def test_prefixed_final_message(
     tokenizer: InstructTokenizer,
     special_ws: str,
     new_line: str,
@@ -258,13 +261,13 @@ def test_continue_final_message(
                 UserMessage(content="a"),
                 AssistantMessage(content="b"),
                 UserMessage(content="c"),
-                AssistantMessage(content="d"),
+                AssistantMessage(content="d", prefix=True),
             ],
             system_prompt="SYSTEM",
-            continue_final_message=True,
         )
     )
-    tokens, text = tokenized.tokens, tokenized.text
+    tokens = tokenized.tokens
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST]{special_ws}b</s>[INST]{special_ws}SYSTEM{new_line}c[/INST]{special_ws}d"
     )
@@ -272,34 +275,6 @@ def test_continue_final_message(
         assert tokens == [1, 3, 1032, 4, 1055, 2, 3, 17889, 23294, 781, 781, 29485, 4, 1049]
     else:
         assert tokens == [1, 3, 1097, 4, 1098, 2, 3, 101289, 58343, 1267, 1099, 4, 1100]
-
-    with pytest.raises(
-        InvalidMessageStructureException, match="Cannot continue final message if it is not an assistant message"
-    ):
-        tokenized = tokenizer.encode_instruct(
-            InstructRequest(
-                messages=[
-                    UserMessage(content="a"),
-                    AssistantMessage(content="b"),
-                    UserMessage(content="c"),
-                ],
-                system_prompt="SYSTEM",
-                continue_final_message=True,
-            )
-        )
-
-    with pytest.raises(
-        InvalidAssistantMessageException,
-        match="`continue_message` is only supported for assistant messages that have `prefix=False`.",
-    ):
-        tokenizer.encode_assistant_message(  # type: ignore[attr-defined]
-            AssistantMessage(
-                content='"blabla"',
-                prefix=True,
-            ),
-            is_before_last_user_message=False,
-            continue_message=True,
-        )
 
 
 @pytest.mark.parametrize(
@@ -329,7 +304,7 @@ def test_tool_message(tokenizer: InstructTokenizer, special_ws: str, ws: str) ->
             ],
         )
     )
-    _, text = tokenized.tokens, tokenized.text
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f'<s>[INST]{special_ws}a[/INST][TOOL_CALLS]{special_ws}[{{"name":{ws}"b",{ws}'
         f'"arguments":{ws}{{}},{ws}"id":{ws}"123456789"}}]</s>[TOOL_RESULTS]{special_ws}'
@@ -351,7 +326,7 @@ def test_tool_message(tokenizer: InstructTokenizer, special_ws: str, ws: str) ->
             ],
         )
     )
-    _, text = tokenized.tokens, tokenized.text
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST][TOOL_CALLS]{special_ws}["
         f'{{"name":{ws}"b",{ws}"arguments":{ws}{{}},{ws}"id":{ws}"123456789"}}]</s>[TOOL_RESULTS]{special_ws}'
@@ -373,7 +348,7 @@ def test_tool_message(tokenizer: InstructTokenizer, special_ws: str, ws: str) ->
             ],
         )
     )
-    _, text = tokenized.tokens, tokenized.text
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST][TOOL_CALLS]{special_ws}["
         f'{{"name":{ws}"b",{ws}"arguments":{ws}{{}},{ws}"id":{ws}"123456789"}}]</s>[TOOL_RESULTS]{special_ws}'
@@ -407,7 +382,7 @@ def test_tool_message_no_id_fine_tuning_ok(tokenizer: InstructTokenizer, special
                 ],
             )
         )
-        _, text = tokenized.tokens, tokenized.text
+        text = decode_keep(tokenizer, tokenized)
         assert (
             text
             == f'<s>[INST]{special_ws}a[/INST][TOOL_CALLS]{special_ws}[{{"name":{ws}"b",{ws}"arguments":{ws}{{}}}}]</s>'
@@ -443,7 +418,7 @@ def test_tool_message_multiple_shots_with_history(tokenizer: InstructTokenizer, 
             ],
         )
     )
-    _, text = tokenized.tokens, tokenized.text
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST]"
         f'[TOOL_CALLS]{special_ws}[{{"name":{ws}"b",{ws}"arguments":{ws}{{}},{ws}"id":{ws}"0"}}]</s>[TOOL_RESULTS]{special_ws}{{"content":{ws}"d",{ws}"call_id":{ws}"0"}}[/TOOL_RESULTS]'  # noqa: E501
@@ -485,7 +460,7 @@ def test_tool_message_multiple_calls(tokenizer: InstructTokenizer, special_ws: s
             ],
         )
     )
-    _, text = tokenized.tokens, tokenized.text
+    text = decode_keep(tokenizer, tokenized)
     assert text == (
         f"<s>[INST]{special_ws}a[/INST]"
         f'[TOOL_CALLS]{special_ws}[{{"name":{ws}"b",{ws}"arguments":{ws}{{}},{ws}"id":{ws}"0"}},{ws}{{"name":{ws}"q",{ws}"arguments":{ws}{{}},{ws}"id":{ws}"1"}}]</s>'

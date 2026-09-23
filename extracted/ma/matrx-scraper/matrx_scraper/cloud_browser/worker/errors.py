@@ -132,6 +132,13 @@ class WorkerError(BaseModel):
     code: WorkerErrorCode
     message: str
     retryable: bool
+    #: What the worker was DOING when this refusal was produced — set on the
+    #: timeout plane so ``command_deadline_exceeded`` says ``humanize_type`` /
+    #: ``wait_for_visible`` / ``navigate_load`` instead of only "time passed".
+    #: A bare code is not a diagnosis (the same lesson as the 2026-09-16
+    #: ``worker_unreachable`` day). Additive in S2 v1.1; an older control plane
+    #: simply ignores it.
+    stage: str | None = None
     retry_after_ms: int | None = None
     current_fencing_revision: int | None = None
     current_controller: str | None = None
@@ -152,6 +159,7 @@ class WorkerProtocolError(Exception):
         code: WorkerErrorCode,
         *,
         message: str | None = None,
+        stage: str | None = None,
         retry_after_ms: int | None = None,
         current_fencing_revision: int | None = None,
         current_controller: str | None = None,
@@ -162,6 +170,7 @@ class WorkerProtocolError(Exception):
         self.http_status = http_status_for(code)
         self.retryable = retryable_for(code)
         self.message = message or code
+        self.stage = stage
         self.retry_after_ms = retry_after_ms
         self.current_fencing_revision = current_fencing_revision
         self.current_controller = current_controller
@@ -174,6 +183,7 @@ class WorkerProtocolError(Exception):
             code=self.code,
             message=self.message,
             retryable=self.retryable,
+            stage=self.stage,
             retry_after_ms=self.retry_after_ms,
             current_fencing_revision=self.current_fencing_revision,
             current_controller=self.current_controller,

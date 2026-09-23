@@ -36,13 +36,11 @@ class NonHumanAccount(BaseModel):
     label: StrictStr = Field(
         description="A human-readable label for the non-human account: the name of the account/role/principal itself. Do not combine it with the workload name - that belongs in `workload_name`."
     )
-    workload_name: Optional[StrictStr] = Field(
-        default=None,
-        description="Name of the workload the principal is bound to (e.g. an ECS service or a Lambda function), when the account represents a (workload, identity) pair. Omit for standalone principals (IAM users, service principals, service accounts).",
+    workload_name: StrictStr = Field(
+        description="Name of the workload the principal is bound to (e.g. an ECS service or a Lambda function).  A workload is the thing that runs. A container the principal merely belongs to - a workspace, a project, an app registration - is not a workload, and naming one here would repeat the same value across every principal inside it.  Some principals are their own workload - an IAM user, a service principal, a service account. They have no separate thing that runs, so mirror the account: set this to the same value as `label`."
     )
-    workload_id: Optional[StrictStr] = Field(
-        default=None,
-        description="Integration-specific identifier of the workload the principal is bound to (e.g. its ARN), when the account represents a (workload, identity) pair. Omit for standalone principals.",
+    workload_id: StrictStr = Field(
+        description="Integration-specific identifier of the workload the principal is bound to (e.g. its ARN).  When the principal is its own workload, set this to the same value as `id`. `workload_id == id` is how a consumer tells the two cases apart."
     )
     type: StrictStr = Field(
         description='Source-specific account kind (e.g. "github_app_installation", "iam_role") - connector-only data.'

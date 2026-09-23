@@ -1,19 +1,22 @@
 """Auto-generated stub for module: app_bundle."""
 from typing import Any, Dict, List, Optional, Tuple
 
+from ..clients.bootstrap import open_session
+from ..clients.bootstrap import resolve_action_id
+from ..clients.response import CallFailure, _is_not_found
+from ..clients.transport import _bases_for, _describe, backend_base_url
+from ..clients.transport import _rpc
+from ..clients.transport import _rpc_data
+
 # Constants
 ACTION_DETAILS_PATH: str
 APPLICATION_VERSION_PATH: str
 APP_DEPLOYMENT_PATH: str
-ENV_ACTION_ID: str
-ENV_ACTION_ID_BARE: str
 ENV_ALLOW_PUBLISHED_VERSION: str
-ENV_API_BASE: str
 ENV_BUNDLE_REF: str
 ENV_LICENSE_KEY: str
 ENV_SELF_MINT: str
 LICENSE_KEY_HEADER: str
-LOCAL_AUTHORITY_PREFIXES: Tuple[Any, ...]
 POST_PROCESSING_CONFIGS_PATH: str
 POST_PROCESSING_CONFIG_BY_CAMERA_APP_PATH: str
 USECASE_DOWNLOAD_LICENSE_PATH: str
@@ -21,23 +24,6 @@ USECASE_DOWNLOAD_PATH: str
 logger: Any
 
 # Functions
-def backend_base_url(env: Optional[Any[str, str]] = None) -> str:
-    """
-    The backend's own address, for a route the session's base URL will not serve.
-    
-        Deployments set ``MATRICE_BASE_URL`` to a local gateway (``http://localhost``). That gateway
-        proxies the route prefixes it knows -- ``/v1/inference/*`` among them, which is why
-        ``PostProcessingConfigClient`` has always worked -- and 302s anything else out to the real
-        backend. ``matrice_common``'s client has ``follow_redirects=True``, and httpx drops the
-        ``Authorization`` header when a redirect crosses origin, so a redirected call arrives
-        unauthenticated and be-application answers 404. Observed in production on 0.1.428:
-        ``http://localhost/v1/applications/.../usecase/download`` -> 302 -> prod -> 404, while the same
-        path with a direct base URL returns 200.
-    
-        Derived the same way ``matrice_common`` derives its own default, so an on-prem or non-prod
-        deployment still lands on its own backend; ``$MATRICE_APP_BUNDLE_API_BASE`` overrides it.
-    """
-    ...
 def config_get(config: Any, keys: Any[str]) -> Optional[str]:
     """
     First non-empty string among ``keys``, from a dict or an attribute-bearing object.
@@ -153,21 +139,6 @@ def mint_usecase_download_url(application_id: str, application_version: str) -> 
         ``session`` is injectable so tests never touch the network. Raises :class:`AppBundleError` --
         never returns ``None`` -- so a caller gets a message naming the application, not a ``None`` to
         trip over later.
-    """
-    ...
-def resolve_action_id(env: Optional[Any[str, str]] = None, argv: Optional[Any[str]] = None) -> Optional[str]:
-    """
-    The action record id for this worker, if it can be determined locally.
-    
-        Three sources, no I/O. ``$MATRICE_ACTION_ID`` first, because an operator setting it means it,
-        then ``$ACTION_ID`` -- the bare name the Go services and the ENV_ID_ACTIONS images read, and the
-        only one some py_compute launch paths emitted. Then ``sys.argv``: py_compute launches every
-        action container as ``python3 <entrypoint>.py <action_record_id> <port>``, so the id is the
-        first argument that looks like an ObjectId. Matching on shape rather than position keeps this
-        from mistaking a port or a flag for an id.
-    
-        A malformed value in either env var falls through rather than erroring, so a truncated id does
-        not mask a good one in argv.
     """
     ...
 def resolve_app_bundle_refs(post_processing_config: Any = None) -> Tuple[Any, ...]:

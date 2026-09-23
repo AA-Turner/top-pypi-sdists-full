@@ -24,6 +24,7 @@ from urllib3.response import HTTPResponse
 from clickhouse_connect.driver._backend.httpcommon import (
     auth_failed_ex_code,
     build_http_error,
+    columns_only_meta,
     ex_header,
     ex_tag_header,
     plan_command_request,
@@ -37,7 +38,7 @@ from clickhouse_connect.driver._backend.httpcommon import (
 from clickhouse_connect.driver._backend.models import Capabilities, CommandExecution, QueryExecution, QueryRuntime
 from clickhouse_connect.driver.common import ShowClickHouseErrors, dict_copy
 from clickhouse_connect.driver.exceptions import OperationalError, ProgrammingError
-from clickhouse_connect.driver.httputil import ResponseSource, all_managers, check_conn_expiration, get_response_data
+from clickhouse_connect.driver.httputil import ResponseSource, _close_pool_manager, check_conn_expiration, get_response_data
 
 if TYPE_CHECKING:
     from clickhouse_connect.driver._backend.contracts import SyncBackend
@@ -153,7 +154,7 @@ class HttpSyncBackend:
                 retries=runtime.retries,
                 fields=_plan_fields(plan),
             )
-            return QueryExecution(columns=json.loads(response.data)["meta"])
+            return QueryExecution(columns=columns_only_meta(json.loads(response.data)))
         response = self.request(
             plan.body if plan.body is not None else b"",
             plan.params,
@@ -388,7 +389,7 @@ class HttpSyncBackend:
             if self.server_host_name:
                 kwargs["assert_same_host"] = False
                 headers["Host"] = self.server_host_name
-            response = cast(PoolManager, self.http).request("GET", f"{self.url}/ping", **kwargs)
+            response = cast(PoolManager, self.http).request("GET", f"{self.url.rstrip('/')}/ping", **kwargs)
             return 200 <= response.status < 300
         except HTTPError:
             logger.debug("ping failed", exc_info=True)
@@ -399,8 +400,7 @@ class HttpSyncBackend:
 
     def close(self) -> None:
         if self.owns_pool_manager:
-            cast(PoolManager, self.http).clear()
-            all_managers.pop(cast(PoolManager, self.http), None)
+            _close_pool_manager(cast(PoolManager, self.http))
 
 
 if TYPE_CHECKING:

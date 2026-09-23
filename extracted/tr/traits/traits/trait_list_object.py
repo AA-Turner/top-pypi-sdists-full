@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -394,7 +394,7 @@ class TraitList(list):
         ----------
         index : integer
             The position at which to insert.
-        object : object
+        object : any object
             The object to insert.
         """
 
@@ -418,7 +418,7 @@ class TraitList(list):
 
         Returns
         -------
-        item : object
+        item : any object
             The removed item.
 
         Raises
@@ -443,7 +443,7 @@ class TraitList(list):
 
         Parameters
         ----------
-        value : object
+        value : any object
             Value to be removed.
 
         Raises
@@ -754,7 +754,7 @@ class TraitListObject(TraitList):
         ----------
         index : integer
             The position at which to insert.
-        object : object
+        object : any object
             The object to insert.
         """
 
@@ -772,7 +772,7 @@ class TraitListObject(TraitList):
 
         Returns
         -------
-        item : object
+        item : any object
             The removed item.
 
         Raises
@@ -793,7 +793,7 @@ class TraitListObject(TraitList):
 
         Parameters
         ----------
-        value : object
+        value : any object
             Value to be removed.
 
         Raises

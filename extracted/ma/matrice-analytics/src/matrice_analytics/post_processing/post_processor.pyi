@@ -30,6 +30,7 @@ from .usecases.people_tracking import PeopleTrackingUseCase
 from .usecases.ppe_compliance import PPEComplianceConfig
 from .usecases.ppe_compliance import PPEComplianceConfig
 from .usecases.vehicle_color_detection import VehicleColorDetectionUseCase
+from .usecases.vehicle_speed_estimation import VehicleSpeedEstimationUseCase
 from .utils.geometry_utils import reference_size_from_payload, resolve_frame_dims
 from .utils.legacy_analytics_bridge import legacy_redis_analytics_usecases, publish_legacy_frame_analytics
 from .utils.post_processing_config_client import PostProcessingConfigClient

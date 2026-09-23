@@ -29,8 +29,14 @@ use crate::mmff94_numeric::{
 
 type CoordVec = Vec<[f64; 3]>;
 type LbfgsHistory = VecDeque<(CoordVec, CoordVec, f64)>;
+const LBFGS_HISTORY_SIZE: usize = 80;
 type VdwPairs = Vec<PreparedVdwPair>;
 type ElectrostaticPairs = Vec<PreparedElectrostaticPair>;
+
+/// Below this size a linear pass over prepared vdW pairs is faster than
+/// rebuilding spatial hash bins for every line-search energy/gradient probe.
+/// The cutoff and pair set are identical; only candidate enumeration changes.
+const DIRECT_VDW_ATOM_THRESHOLD: usize = 64;
 
 #[derive(Clone, Copy)]
 struct PreparedBond {
@@ -294,9 +300,9 @@ impl Mmff94EnergyModel {
 
     /// Combine the currently soundness-gated analytic term gradients.
     ///
-    /// The prepared neighbor pairs are intentionally fixed for this bounded
-    /// evaluator. The public minimizer still uses finite differences until a
-    /// coordinate-dependent neighbor-list and full integration gate exists.
+    /// The prepared non-bonded pair set is intentionally fixed for this
+    /// no-cutoff evaluator, matching [`Self::energy`]. The 3D pipeline uses
+    /// this exact energy/gradient pair; the cutoff variant remains opt-in.
     pub fn bounded_analytic_gradient(&self, coords: &[[f64; 3]]) -> Vec<[f64; 3]> {
         self.bounded_analytic_gradient_with_nonbonded(false, coords)
     }
@@ -349,17 +355,37 @@ impl Mmff94EnergyModel {
         minimize_mmff94_lbfgs_prepared(self, coords, max_iter)
     }
 
-    /// Experimental L-BFGS path using the bounded prepared analytic gradient.
+    /// L-BFGS path using the bounded prepared analytic gradient.
     ///
-    /// This is opt-in because prepared non-bonded pairs are fixed and
-    /// singular geometries fail closed. The established finite-difference
-    /// [`Self::minimize_lbfgs`] path remains the compatibility default.
+    /// Singular derivative geometries fail closed. The finite-difference
+    /// [`Self::minimize_lbfgs`] method remains available as a reference path;
+    /// the 3D MMFF94 bridge uses this analytic path after its corpus-level
+    /// gradient, geometry, convergence, and timeout gates.
     pub fn minimize_lbfgs_bounded_analytic(
         &self,
         coords: &mut [[f64; 3]],
         max_iter: usize,
     ) -> Result<MinimizeResult, MinimizerError> {
-        minimize_mmff94_lbfgs_prepared_with_mode(self, coords, max_iter, true, false)
+        minimize_mmff94_lbfgs_prepared_with_mode(self, coords, max_iter, true, false, |_| true)
+    }
+
+    /// Analytic L-BFGS with a caller-supplied acceptance constraint.
+    ///
+    /// The predicate is evaluated for each energy-decreasing line-search
+    /// proposal. Rejected proposals are backtracked; if no bounded step can
+    /// satisfy the predicate, minimization stops at the last accepted
+    /// geometry with `converged = false`. The initial coordinates remain the
+    /// caller's responsibility and are never replaced by a rejected proposal.
+    pub fn minimize_lbfgs_bounded_analytic_with_constraint<F>(
+        &self,
+        coords: &mut [[f64; 3]],
+        max_iter: usize,
+        accept: F,
+    ) -> Result<MinimizeResult, MinimizerError>
+    where
+        F: Fn(&[[f64; 3]]) -> bool,
+    {
+        minimize_mmff94_lbfgs_prepared_with_mode(self, coords, max_iter, true, false, accept)
     }
 
     /// Experimental analytic L-BFGS using the bounded 10 Å coordinate-
@@ -373,7 +399,7 @@ impl Mmff94EnergyModel {
         coords: &mut [[f64; 3]],
         max_iter: usize,
     ) -> Result<MinimizeResult, MinimizerError> {
-        minimize_mmff94_lbfgs_prepared_with_mode(self, coords, max_iter, true, true)
+        minimize_mmff94_lbfgs_prepared_with_mode(self, coords, max_iter, true, true, |_| true)
     }
 
     fn bond_energy(&self, coords: &[[f64; 3]]) -> f64 {
@@ -617,17 +643,24 @@ fn minimize_mmff94_lbfgs_prepared(
     coords: &mut [[f64; 3]],
     max_iter: usize,
 ) -> Result<MinimizeResult, MinimizerError> {
-    minimize_mmff94_lbfgs_prepared_with_mode(model, coords, max_iter, false, false)
+    minimize_mmff94_lbfgs_prepared_with_mode(model, coords, max_iter, false, false, |_| true)
 }
 
-fn minimize_mmff94_lbfgs_prepared_with_mode(
+fn minimize_mmff94_lbfgs_prepared_with_mode<F>(
     model: &Mmff94EnergyModel,
     coords: &mut [[f64; 3]],
     max_iter: usize,
     use_analytic_gradient: bool,
     use_cutoff_nonbonded: bool,
-) -> Result<MinimizeResult, MinimizerError> {
-    const M: usize = 5; // L-BFGS history size
+    accept: F,
+) -> Result<MinimizeResult, MinimizerError>
+where
+    F: Fn(&[[f64; 3]]) -> bool,
+{
+    // The 265-molecule A6 gate shows that retaining 80 correction pairs reaches
+    // substantially more stationary points than the historical five-pair
+    // window without a measurable throughput penalty. Keep this bounded: each
+    // entry stores two coordinate-sized vectors and is discarded at run end.
     const DELTA: f64 = 1e-4; // finite-difference step (Å)
     const CONVERGENCE: f64 = 1e-4; // max |gradient| threshold
     const C_ARMIJO: f64 = 1e-4; // Armijo sufficient-decrease constant
@@ -666,7 +699,7 @@ fn minimize_mmff94_lbfgs_prepared_with_mode(
     let mut iters = 0usize;
     let mut converged = false;
 
-    for _ in 0..max_iter {
+    'iterations: for _ in 0..max_iter {
         iters += 1;
 
         // Convergence check
@@ -696,7 +729,7 @@ fn minimize_mmff94_lbfgs_prepared_with_mode(
 
         // Armijo backtracking line search along p
         let mut alpha = 1.0_f64;
-        let (new_coords, f_new) = loop {
+        let step = loop {
             let trial: Vec<[f64; 3]> = coords
                 .iter()
                 .zip(p.iter())
@@ -713,8 +746,8 @@ fn minimize_mmff94_lbfgs_prepared_with_mode(
             } else {
                 model.energy(&trial)
             };
-            if f_trial <= f0 + C_ARMIJO * alpha * gp {
-                break (trial, f_trial);
+            if f_trial <= f0 + C_ARMIJO * alpha * gp && accept(&trial) {
+                break Some((trial, f_trial));
             }
             alpha *= TAU;
             if alpha < 1e-12 {
@@ -736,8 +769,15 @@ fn minimize_mmff94_lbfgs_prepared_with_mode(
                 } else {
                     model.energy(&trial)
                 };
-                break (trial, f_trial);
+                break accept(&trial).then_some((trial, f_trial));
             }
+        };
+        let Some((new_coords, f_new)) = step else {
+            // No admissible bounded step exists along either the L-BFGS or
+            // tiny steepest-descent direction. Preserve the last accepted
+            // coordinates and report ordinary non-convergence; never cross a
+            // caller-defined geometry boundary just to keep iterating.
+            break 'iterations;
         };
 
         // Compute new gradient
@@ -768,7 +808,7 @@ fn minimize_mmff94_lbfgs_prepared_with_mode(
 
         // Only store if curvature condition holds
         if ys > 1e-10 {
-            if history.len() >= M {
+            if history.len() >= LBFGS_HISTORY_SIZE {
                 history.pop_front();
             }
             history.push_back((s, y, 1.0 / ys));
@@ -811,7 +851,7 @@ fn lbfgs_direction(g: &[[f64; 3]], history: &LbfgsHistory) -> Vec<[f64; 3]> {
     }
 
     let mut q: Vec<[f64; 3]> = g.to_vec();
-    let mut alphas = vec![0.0_f64; m];
+    let mut alphas = [0.0_f64; LBFGS_HISTORY_SIZE];
 
     // First loop (backward)
     for i in (0..m).rev() {
@@ -854,8 +894,15 @@ fn lbfgs_direction(g: &[[f64; 3]], history: &LbfgsHistory) -> Vec<[f64; 3]> {
         }
     }
 
-    // p = -H_k g = -q
-    q.iter().map(|qi| [-qi[0], -qi[1], -qi[2]]).collect()
+    // p = -H_k g = -q. Reuse q's allocation; this runs once per optimizer
+    // iteration and avoids allocating/copying a second coordinate-sized
+    // direction buffer without changing operation order.
+    for qi in &mut q {
+        qi[0] = -qi[0];
+        qi[1] = -qi[1];
+        qi[2] = -qi[2];
+    }
+    q
 }
 
 /// Compute finite-difference gradient: ∂E/∂x_i via central differences.
@@ -1415,13 +1462,22 @@ fn prepared_vdw_neighbor_list<'a>(
 
 fn vdw_energy_pairs(coords: &[[f64; 3]], pairs: &[PreparedVdwPair]) -> f64 {
     let mut energy = 0.0;
-    for pair in prepared_vdw_neighbor_list(coords, pairs) {
+    let mut add_pair = |pair: &PreparedVdwPair| {
         let r = dist(coords[pair.i], coords[pair.j]);
         if r > 10.0 {
-            continue;
+            return;
         }
         if r > 0.01 {
             energy += mmff94_vdw_energy_value(r, pair.r_star, pair.epsilon);
+        }
+    };
+    if coords.len() <= DIRECT_VDW_ATOM_THRESHOLD {
+        for pair in pairs {
+            add_pair(pair);
+        }
+    } else {
+        for pair in prepared_vdw_neighbor_list(coords, pairs) {
+            add_pair(pair);
         }
     }
     energy
@@ -1578,7 +1634,7 @@ fn prepared_nonbonded_gradient(
                 gradient[j][axis] -= value[axis];
             }
         };
-    for pair in prepared_vdw_neighbor_list(coords, vdw_pairs) {
+    let mut add_vdw = |pair: &PreparedVdwPair| {
         let delta = [
             coords[pair.i][0] - coords[pair.j][0],
             coords[pair.i][1] - coords[pair.j][1],
@@ -1588,6 +1644,15 @@ fn prepared_nonbonded_gradient(
         if r > 0.01 && r <= 10.0 {
             let radial = mmff94_vdw_radial_derivative(r, pair.r_star, pair.epsilon);
             add_pair(&mut gradient, pair.i, pair.j, radial, delta, r);
+        }
+    };
+    if coords.len() <= DIRECT_VDW_ATOM_THRESHOLD {
+        for pair in vdw_pairs {
+            add_vdw(pair);
+        }
+    } else {
+        for pair in prepared_vdw_neighbor_list(coords, vdw_pairs) {
+            add_vdw(pair);
         }
     }
     for pair in electrostatic_pairs {
@@ -3633,6 +3698,35 @@ mod tests {
             "analytic L-BFGS should reduce energy: {before} -> {}",
             result.energy
         );
+    }
+
+    #[test]
+    fn bounded_analytic_constraint_never_commits_a_rejected_step() {
+        let mol = chematic_smiles::parse("CCCC").expect("butane");
+        let model = Mmff94EnergyModel::new(&mol).expect("MMFF94 preparation");
+        let mut coords = vec![
+            [0.0, 0.0, 0.0],
+            [1.54, 0.1, 0.0],
+            [2.95, 0.85, 0.2],
+            [4.25, 0.15, 1.05],
+            [0.0, 1.05, 0.8],
+            [1.55, -0.9, -0.75],
+            [1.55, 0.25, 1.05],
+            [2.95, 1.9, -0.55],
+            [2.95, 1.05, 1.25],
+            [4.2, -0.8, 1.45],
+            [4.2, 0.0, 2.05],
+            [4.9, 0.35, 0.35],
+            [4.0, 0.95, 0.05],
+            [4.6, 0.35, 1.55],
+        ];
+        let initial = coords.clone();
+        let result = model
+            .minimize_lbfgs_bounded_analytic_with_constraint(&mut coords, 100, |_| false)
+            .expect("constraint rejection is ordinary non-convergence");
+        assert_eq!(coords, initial);
+        assert!(!result.converged);
+        assert_eq!(result.iterations, 1);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: k3d
-Version: 3.1.0
+Version: 3.1.1
 Summary: WebGL 3D plotting for Jupyter: meshes, isosurfaces, volumes, voxels and point clouds
 Project-URL: Documentation, https://k3d-jupyter.org
 Project-URL: Homepage, https://k3d-jupyter.org

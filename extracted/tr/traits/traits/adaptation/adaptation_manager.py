@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -104,11 +104,11 @@ class AdaptationManager(HasTraits):
 
         Parameters
         ----------
-        adaptee : object
+        adaptee : any object
             The object that we want to adapt.
         to_protocol : type or interface
             The protocol that the want to adapt *adaptee* to.
-        default : object, optional
+        default : any object, optional
             Object to return if no adaptation is possible. If no default is
             provided, and adaptation fails, an ``AdaptationError`` is raised.
 

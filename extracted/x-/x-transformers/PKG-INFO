@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x-transformers
-Version: 2.29.2
+Version: 2.30.4
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -38,7 +38,7 @@ Requires-Dist: einops>=0.8.0
 Requires-Dist: einx>=0.3.0
 Requires-Dist: loguru
 Requires-Dist: packaging>=21.0
-Requires-Dist: torch-einops-utils>=0.1.12
+Requires-Dist: torch-einops-utils>=0.1.29
 Requires-Dist: torch>=2.0
 Provides-Extra: examples
 Requires-Dist: adam-atan2-pytorch>=0.2.2; extra == 'examples'
@@ -2896,6 +2896,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass = {cs.CL},
     url    = {https://arxiv.org/abs/2608.29530}
+}
+```
+
+```bibtex
+@misc{wang2026fullbandwidthtransformer,
+    title         = {Full-bandwidth transformer},
+    author        = {Xi Wang and Ziyang Cai and Zheng Zhan and Harry Dong and Ying Fan and Gustavo de Rosa and Tim Pearce and John Langford},
+    year          = {2026},
+    eprint        = {2608.08888},
+    archivePrefix = {arXiv},
+    primaryClass  = {cs.LG},
+    url           = {https://arxiv.org/abs/2608.08888}
 }
 ```
 

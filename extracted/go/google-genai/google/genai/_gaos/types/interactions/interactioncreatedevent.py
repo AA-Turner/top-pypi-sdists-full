@@ -32,6 +32,8 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 
 class InteractionCreatedEventTypedDict(TypedDict):
+    r"""Server response confirming that a new interaction was created."""
+
     interaction: InteractionSseEventInteractionTypedDict
     r"""Partial interaction resource emitted by interaction lifecycle SSE events.
     Streaming lifecycle payloads may omit fields that are only available on
@@ -46,6 +48,8 @@ class InteractionCreatedEventTypedDict(TypedDict):
 
 
 class InteractionCreatedEvent(BaseModel):
+    r"""Server response confirming that a new interaction was created."""
+
     interaction: InteractionSseEventInteraction
     r"""Partial interaction resource emitted by interaction lifecycle SSE events.
     Streaming lifecycle payloads may omit fields that are only available on

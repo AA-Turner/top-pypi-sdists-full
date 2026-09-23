@@ -108,11 +108,41 @@ class BaseTranslator(ABC):
         text into user content — inherits dictionary support for free, and the
         directive survives the chat-decoration stripping non-FC models undergo.
         """
+        stable = self.get_stable_system_text(config)
+        turn_context = self.get_turn_context_text(config)
+        if not turn_context:
+            return stable
+        return f"{stable}\n\n{turn_context}" if stable else turn_context
+
+    def get_stable_system_text(self, config: UnifiedConfig) -> str | None:
+        """The system instruction WITHOUT this turn's context-channel block.
+
+        This is the byte-stable part — the same string every turn of a frozen
+        conversation — so it is what a prompt-cache breakpoint should cover.
+        Anthropic's translator caches this and sends the per-turn block as a
+        second, uncached system block; a non-chat prompt-fold path (image / TTS)
+        uses this so per-turn reference material is never spoken or drawn.
+        """
         base = config.resolved_system_instruction
         dict_block = self._render_dictionary(config)
         if not dict_block:
             return base
         return f"{base}\n\n{dict_block}" if base else dict_block
+
+    def get_turn_context_text(self, config: UnifiedConfig) -> str | None:
+        """This turn's platform context block, framed, or None.
+
+        🚨 THE PERSON'S TURN IS THE PERSON'S ALONE (2026-09-22). Platform
+        material is delivered HERE, in the system channel, and never
+        concatenated into a user message — see the header of
+        ``matrx_ai/config/unified_content.py`` for the Masterwork interview
+        answer that proves why no framing inside the person's turn is safe.
+        """
+        messages = getattr(config, "messages", None)
+        render = getattr(messages, "render_turn_context", None)
+        if render is None:
+            return None
+        return render()
 
     def _render_dictionary(self, config: UnifiedConfig) -> str:
         """Render config.dictionary into the shape this model class needs."""

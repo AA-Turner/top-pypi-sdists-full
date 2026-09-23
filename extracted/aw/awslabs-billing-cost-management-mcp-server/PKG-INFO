@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: awslabs.billing-cost-management-mcp-server
-Version: 0.0.37
+Version: 0.0.38
 Summary: A Model Context Protocol (MCP) server that provides tools for AWS Billing and Cost Management by wrapping boto3 SDK functions.
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/billing-cost-management-mcp-server/
@@ -22,11 +22,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: boto3>=1.43.41
-Requires-Dist: fastmcp>=3.2.0
+Requires-Dist: fastmcp>=4.0.0
 Requires-Dist: loguru>=0.7.0
-Requires-Dist: mcp[cli]>=1.23.0
-Requires-Dist: pydantic>=2.10.6
-Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: mcp[cli]<3.0.0,>=2.0.0
+Requires-Dist: pydantic>=2.12.0
+Requires-Dist: python-dotenv>=1.1.0
 Requires-Dist: sqlglot>=20.0.0
 Description-Content-Type: text/markdown
 
@@ -293,6 +293,7 @@ Cost Optimization Hub:
 - cost-optimization-hub:GetRecommendation
 - cost-optimization-hub:ListRecommendations
 - cost-optimization-hub:ListRecommendationSummaries
+- cost-optimization-hub:ListEfficiencyMetrics
 
 Compute Optimizer:
 - compute-optimizer:GetAutoScalingGroupRecommendations
@@ -446,6 +447,7 @@ The server currently supports the following AWS services
    - get_recommendation
    - list_recommendations
    - list_recommendation_summaries
+   - list_efficiency_metrics
 
 6. **Compute Optimizer**
    - get_auto_scaling_group_recommendations

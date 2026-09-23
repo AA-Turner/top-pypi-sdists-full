@@ -2096,18 +2096,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_list_ad_negative_keyword_lists(
-        account_id: str, customer_id: str | None = None, platform: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        platform: str | None = None,
     ) -> str:
         """List negative keyword lists
 
         Args:
             account_id: (required)
+            ad_account_id
             customer_id
             platform"""
         client = _get_client()
         try:
             response = client.ad_accounts.list_ad_negative_keyword_lists(
-                account_id=account_id, customer_id=customer_id, platform=platform
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                platform=platform,
             )
             return _format_response(response)
         except Exception as e:
@@ -2124,6 +2131,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_create_ad_negative_keyword_list(
         account_id: str,
         name: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         platform: str | None = None,
         keywords: list[Any] | None = None,
@@ -2132,7 +2140,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Zernio SocialAccount id. (required)
-            customer_id: Connected Google Ads customer id, without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             platform: Optional courtesy field. The resolved account or campaign determines support; other platforms return 501.
             name: Nonempty list name, trimmed before use. (required)
             keywords: Full desired keyword set. Bare strings use broad match. Send [] to clear the list."""
@@ -2140,6 +2149,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_accounts.create_ad_negative_keyword_list(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 platform=platform,
                 name=name,
@@ -2160,6 +2170,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_get_ad_negative_keyword_list(
         list_id: str,
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         platform: str | None = None,
     ) -> str:
@@ -2168,6 +2179,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             list_id: (required)
             account_id: (required)
+            ad_account_id
             customer_id
             platform"""
         client = _get_client()
@@ -2175,6 +2187,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_accounts.get_ad_negative_keyword_list(
                 list_id=list_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 platform=platform,
             )
@@ -2194,6 +2207,7 @@ def register_generated_tools(mcp, _get_client):
         list_id: str,
         account_id: str,
         name: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         platform: str | None = None,
     ) -> str:
@@ -2202,7 +2216,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             list_id: (required)
             account_id: Zernio SocialAccount id. (required)
-            customer_id: Connected Google Ads customer id, without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             platform: Optional courtesy field. The resolved account or campaign determines support; other platforms return 501.
             name: Nonempty list name, trimmed before use. (required)"""
         client = _get_client()
@@ -2210,6 +2225,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_accounts.update_ad_negative_keyword_list(
                 list_id=list_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 platform=platform,
                 name=name,
@@ -2229,6 +2245,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_delete_ad_negative_keyword_list(
         list_id: str,
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         platform: str | None = None,
     ) -> str:
@@ -2237,6 +2254,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             list_id: (required)
             account_id: (required)
+            ad_account_id
             customer_id
             platform"""
         client = _get_client()
@@ -2244,6 +2262,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_accounts.delete_ad_negative_keyword_list(
                 list_id=list_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 platform=platform,
             )
@@ -2263,6 +2282,7 @@ def register_generated_tools(mcp, _get_client):
         list_id: str,
         account_id: str,
         keywords: list[Any] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         platform: str | None = None,
     ) -> str:
@@ -2271,7 +2291,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             list_id: (required)
             account_id: Zernio SocialAccount id. (required)
-            customer_id: Connected Google Ads customer id, without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             platform: Optional courtesy field. The resolved account or campaign determines support; other platforms return 501.
             keywords: Full desired keyword set. Bare strings use broad match. Send [] to clear the list. (required)"""
         client = _get_client()
@@ -2279,6 +2300,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_accounts.replace_ad_negative_keyword_list_keywords(
                 list_id=list_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 platform=platform,
                 keywords=keywords,
@@ -2296,17 +2318,22 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_list_account_callouts(
-        account_id: str, customer_id: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """List account callouts
 
         Args:
             account_id: (required)
+            ad_account_id
             customer_id"""
         client = _get_client()
         try:
             response = client.ad_accounts.list_account_callouts(
-                account_id=account_id, customer_id=customer_id
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -2321,18 +2348,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_add_account_callouts(
-        account_id: str, callouts: list[str] | None, customer_id: str | None = None
+        account_id: str,
+        callouts: list[str] | None,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """Add account callouts
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             callouts: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.add_account_callouts(
-                account_id=account_id, customer_id=customer_id, callouts=callouts
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                callouts=callouts,
             )
             return _format_response(response)
         except Exception as e:
@@ -2349,18 +2383,23 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_update_account_callouts(
         account_id: str,
         updates: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Update account callouts
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             updates: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.update_account_callouts(
-                account_id=account_id, customer_id=customer_id, updates=updates
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                updates=updates,
             )
             return _format_response(response)
         except Exception as e:
@@ -2375,18 +2414,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_remove_account_callout(
-        account_id: str, asset_id: str, customer_id: str | None = None
+        account_id: str,
+        asset_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """Remove account callout
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             asset_id: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.remove_account_callout(
-                account_id=account_id, customer_id=customer_id, asset_id=asset_id
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                asset_id=asset_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -2401,17 +2447,22 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_list_account_sitelinks(
-        account_id: str, customer_id: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """List account sitelinks
 
         Args:
             account_id: (required)
+            ad_account_id
             customer_id"""
         client = _get_client()
         try:
             response = client.ad_accounts.list_account_sitelinks(
-                account_id=account_id, customer_id=customer_id
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -2428,18 +2479,23 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_add_account_sitelinks(
         account_id: str,
         sitelinks: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Add account sitelinks
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             sitelinks: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.add_account_sitelinks(
-                account_id=account_id, customer_id=customer_id, sitelinks=sitelinks
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                sitelinks=sitelinks,
             )
             return _format_response(response)
         except Exception as e:
@@ -2456,18 +2512,23 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_update_account_sitelinks(
         account_id: str,
         updates: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Update account sitelinks
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             updates: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.update_account_sitelinks(
-                account_id=account_id, customer_id=customer_id, updates=updates
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                updates=updates,
             )
             return _format_response(response)
         except Exception as e:
@@ -2482,18 +2543,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_remove_account_sitelink(
-        account_id: str, asset_id: str, customer_id: str | None = None
+        account_id: str,
+        asset_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """Remove account sitelink
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             asset_id: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.remove_account_sitelink(
-                account_id=account_id, customer_id=customer_id, asset_id=asset_id
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                asset_id=asset_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -2508,17 +2576,22 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_list_account_structured_snippets(
-        account_id: str, customer_id: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """List account snippets
 
         Args:
             account_id: (required)
+            ad_account_id
             customer_id"""
         client = _get_client()
         try:
             response = client.ad_accounts.list_account_structured_snippets(
-                account_id=account_id, customer_id=customer_id
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -2535,18 +2608,21 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_add_account_structured_snippets(
         account_id: str,
         structured_snippets: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Add account snippets
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             structured_snippets: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.add_account_structured_snippets(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 structured_snippets=structured_snippets,
             )
@@ -2565,18 +2641,23 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_update_account_structured_snippets(
         account_id: str,
         updates: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Update account snippets
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             updates: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.update_account_structured_snippets(
-                account_id=account_id, customer_id=customer_id, updates=updates
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                updates=updates,
             )
             return _format_response(response)
         except Exception as e:
@@ -2591,18 +2672,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_remove_account_structured_snippet(
-        account_id: str, asset_id: str, customer_id: str | None = None
+        account_id: str,
+        asset_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """Remove account snippet
 
         Args:
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             asset_id: (required)"""
         client = _get_client()
         try:
             response = client.ad_accounts.remove_account_structured_snippet(
-                account_id=account_id, customer_id=customer_id, asset_id=asset_id
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                asset_id=asset_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -2873,18 +2961,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_accounts_list_tik_tok_ad_pixels(
-        account_id: str, advertiser_id: str | None = None, code: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        advertiser_id: str | None = None,
+        code: str | None = None,
     ) -> str:
         """List TikTok ad pixels
 
         Args:
             account_id: Zernio SocialAccount ID. (required)
-            advertiser_id: Advertiser belonging to this connection.
+            ad_account_id: Platform ad account ID (TikTok advertiser id, digits only). Defaults to the first advertiser on the connection.
+            advertiser_id: Alias of adAccountId, kept for existing callers
             code: Filter by a Pixel Code."""
         client = _get_client()
         try:
             response = client.ad_accounts.list_tik_tok_ad_pixels(
-                account_id=account_id, advertiser_id=advertiser_id, code=code
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                advertiser_id=advertiser_id,
+                code=code,
             )
             return _format_response(response)
         except Exception as e:
@@ -3146,6 +3241,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_list_bid_strategies(
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
@@ -3154,13 +3250,15 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Google ads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             from_date: Defaults to 30 days ago.
             to_date: Defaults to today."""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_bid_strategies(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 from_date=from_date,
                 to_date=to_date,
@@ -3181,6 +3279,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         name: str,
         type: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         target_cpa: float | None = None,
         target_roas: float | None = None,
@@ -3189,7 +3288,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Google ads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             name: (required)
             type: (required)
             target_cpa: Required when type is TARGET_CPA, in the account's currency units.
@@ -3198,6 +3298,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_campaigns.create_bid_strategy(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 name=name,
                 type=type,
@@ -3219,6 +3320,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_update_bid_strategy(
         strategy_id: str,
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         name: str | None = None,
         type: str | None = None,
@@ -3230,7 +3332,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             strategy_id: Numeric Google Ads bid strategy id. (required)
             account_id: Google ads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             name
             type
             target_cpa
@@ -3240,6 +3343,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.update_bid_strategy(
                 strategy_id=strategy_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 name=name,
                 type=type,
@@ -3611,7 +3715,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_get_campaign_bidding(
-        campaign_id: str, account_id: str, platform: str, customer_id: str | None = None
+        campaign_id: str,
+        account_id: str,
+        platform: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """Read a campaign's current bidding
 
@@ -3619,13 +3727,15 @@ def register_generated_tools(mcp, _get_client):
             campaign_id: Numeric Google platform campaign id. (required)
             account_id: Zernio Google Ads SocialAccount id: resolves the customer id + refresh token. (required)
             platform: Required: campaign IDs are not globally unique. Only "google" is supported today. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Required when the connection has multiple Google Ads accounts; optional (and inferred) when it has only one."""
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple Google Ads accounts; optional (and inferred) when it has only one.
+            customer_id: Alias of adAccountId, kept for existing callers"""
         client = _get_client()
         try:
             response = client.ad_campaigns.get_campaign_bidding(
                 campaign_id=campaign_id,
                 account_id=account_id,
                 platform=platform,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
             )
             return _format_response(response)
@@ -3958,6 +4068,7 @@ def register_generated_tools(mcp, _get_client):
         campaign_id: str,
         name: str,
         status: str = "PAUSED",
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Create a standalone ad group
@@ -3968,7 +4079,8 @@ def register_generated_tools(mcp, _get_client):
             campaign_id: Google platform campaign ID (numeric) the ad group is created under. (required)
             name: (required)
             status
-            customer_id: Numeric Google Ads customer id. Only required when the connection has more than one."""
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Only required when the connection has more than one.
+            customer_id: Alias of adAccountId, kept for existing callers"""
         client = _get_client()
         try:
             response = client.ad_campaigns.create_ad_set(
@@ -3977,6 +4089,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_id=campaign_id,
                 name=name,
                 status=status,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
             )
             return _format_response(response)
@@ -4053,6 +4166,7 @@ def register_generated_tools(mcp, _get_client):
         rename_prefix: str | None = None,
         rename_suffix: str | None = None,
         sync_after: bool = True,
+        reuse_source_creative: bool = False,
     ) -> str:
         """Duplicate an ad
 
@@ -4063,7 +4177,8 @@ def register_generated_tools(mcp, _get_client):
             rename_strategy
             rename_prefix
             rename_suffix
-            sync_after"""
+            sync_after
+            reuse_source_creative: Point the copy at the source ad's creative object instead of copying it, so the copy keeps the same Facebook post, the same Instagram media, their existing likes, comments and shares, and the full creative setup (text variations included). This is what Ads Manager's "show existing reactions, comments and shares" does. Meta's native copy always publishes new posts. A creative belongs to one ad account, so `adSetId` must be in the source ad's account. 400 when the source ad has no creative yet."""
         client = _get_client()
         try:
             response = client.ad_campaigns.duplicate_ad(
@@ -4074,6 +4189,7 @@ def register_generated_tools(mcp, _get_client):
                 rename_prefix=rename_prefix,
                 rename_suffix=rename_suffix,
                 sync_after=sync_after,
+                reuse_source_creative=reuse_source_creative,
             )
             return _format_response(response)
         except Exception as e:
@@ -4482,18 +4598,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_list_campaign_assets(
-        campaign_id: str, account_id: str, customer_id: str | None = None
+        campaign_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """List campaign assets
 
         Args:
             campaign_id: Numeric Google platform id. (required)
             account_id: (required)
+            ad_account_id
             customer_id"""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_campaign_assets(
-                campaign_id=campaign_id, account_id=account_id, customer_id=customer_id
+                campaign_id=campaign_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -4510,6 +4633,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_attach_campaign_assets(
         campaign_id: str,
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
@@ -4520,7 +4644,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             campaign_id: Numeric Google platform id. (required)
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             sitelinks
             callouts
             structured_snippets"""
@@ -4529,6 +4654,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.attach_campaign_assets(
                 campaign_id=campaign_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 sitelinks=sitelinks,
                 callouts=callouts,
@@ -4550,6 +4676,7 @@ def register_generated_tools(mcp, _get_client):
         campaign_id: str,
         account_id: str,
         updates: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Update campaign assets
@@ -4557,13 +4684,15 @@ def register_generated_tools(mcp, _get_client):
         Args:
             campaign_id: Numeric Google platform id. (required)
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             updates: (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_campaign_assets(
                 campaign_id=campaign_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 updates=updates,
             )
@@ -4584,6 +4713,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         asset_resource_names: list[str] | None,
         campaign_asset_resource_names: list[str] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Remove campaign assets
@@ -4591,7 +4721,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             campaign_id: Numeric Google platform id. (required)
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             asset_resource_names: (required)
             campaign_asset_resource_names: (required)"""
         client = _get_client()
@@ -4599,6 +4730,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.remove_campaign_assets(
                 campaign_id=campaign_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 asset_resource_names=asset_resource_names,
                 campaign_asset_resource_names=campaign_asset_resource_names,
@@ -4616,18 +4748,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_list_ad_group_assets(
-        ad_set_id: str, account_id: str, customer_id: str | None = None
+        ad_set_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
     ) -> str:
         """List ad-group assets
 
         Args:
             ad_set_id: Numeric Google platform id. (required)
             account_id: (required)
+            ad_account_id
             customer_id"""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ad_group_assets(
-                ad_set_id=ad_set_id, account_id=account_id, customer_id=customer_id
+                ad_set_id=ad_set_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -4644,6 +4783,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_attach_ad_group_assets(
         ad_set_id: str,
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
@@ -4654,7 +4794,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             ad_set_id: Numeric Google platform id. (required)
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             sitelinks
             callouts
             structured_snippets"""
@@ -4663,6 +4804,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.attach_ad_group_assets(
                 ad_set_id=ad_set_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 sitelinks=sitelinks,
                 callouts=callouts,
@@ -4684,6 +4826,7 @@ def register_generated_tools(mcp, _get_client):
         ad_set_id: str,
         account_id: str,
         updates: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Update ad-group assets
@@ -4691,13 +4834,15 @@ def register_generated_tools(mcp, _get_client):
         Args:
             ad_set_id: Numeric Google platform id. (required)
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             updates: (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_group_assets(
                 ad_set_id=ad_set_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 updates=updates,
             )
@@ -4718,6 +4863,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         asset_resource_names: list[str] | None,
         ad_group_asset_resource_names: list[str] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> str:
         """Remove ad-group assets
@@ -4725,7 +4871,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             ad_set_id: Numeric Google platform id. (required)
             account_id: Zernio Google Ads connection id. (required)
-            customer_id: Google customer id without dashes. Required when the connection has multiple customers.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
             asset_resource_names: (required)
             ad_group_asset_resource_names: (required)"""
         client = _get_client()
@@ -4733,6 +4880,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.remove_ad_group_assets(
                 ad_set_id=ad_set_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 asset_resource_names=asset_resource_names,
                 ad_group_asset_resource_names=ad_group_asset_resource_names,
@@ -4814,11 +4962,15 @@ def register_generated_tools(mcp, _get_client):
         existing_campaign_id: str | None = None,
         identity_id: str | None = None,
         identity_type: str | None = None,
+        budget_amount: float | None = None,
+        budget_type: str | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
         whatsapp_phone_number: str | None = None,
         currency: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         schedule: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
         raw_targeting: dict[str, Any] | None = None,
@@ -4860,12 +5012,16 @@ def register_generated_tools(mcp, _get_client):
                 existing_campaign_id: TikTok only. Create the ad group and the Spark ad under this existing TikTok campaign instead of creating a new campaign. The campaign keeps its own status and objective (the objective must fit `goal`). Cannot be combined with adSetId or smartPlus. On Meta use POST /v1/ads/create with existingCampaignId.
                 identity_id: TikTok only. The identity the ad runs as (the profile shown on the ad), from GET /v1/ads/tiktok-identities. Default: the connected TikTok account's own identity. Must be authorized on the advertiser or the call fails naming the available ones.
                 identity_type: TikTok only. Type of identityId; resolved from the advertiser's identity list when omitted.
-                budget: Required unless adSetId is set.
+                budget_amount: Budget in whole currency units, the same flat field as POST /v1/ads/create. Required unless adSetId is set. Minimum varies: TikTok=$20, Pinterest=$5, others=$1
+                budget_type: Goes together with budgetAmount. lifetime requires schedule.endDate.
+                budget: Alias of budgetAmount + budgetType, kept for existing callers
                 instagram_account_id: Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative.
                 destination_type: Meta only. Ad-set destination_type: where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Independent of plain link CTAs and their goal. A messaging callToAction selects its destination automatically; an explicit destinationType must then match. Lead ads use ON_AD.
                 whatsapp_phone_number: Meta WhatsApp only. E.164 number already paired with the Page. Omit to use the default pairing. Requires WHATSAPP_MESSAGE callToAction. Stored as creative.whatsappPhoneNumber on the ad.
                 currency: ISO 4217 currency code matching the ad account's currency. Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
-                schedule
+                start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's `start_time`. When omitted the ad starts delivering immediately. Same field as on POST /v1/ads/create.
+                end_date: Ad-set end time (ISO 8601), mapped to the ad set's `end_time`. Required for lifetime budgets. Same field as on POST /v1/ads/create.
+                schedule: Alias of the top-level `startDate` / `endDate`, kept for existing callers. Sending both forms with differing values is a 400.
                 targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create.
         Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via
         GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng
@@ -4952,18 +5108,24 @@ def register_generated_tools(mcp, _get_client):
                 smart_plus: TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms. A Smart+ Spark ad uses a dynamic CTA portfolio, sent as ad_configuration.call_to_action_id (TikTok does not accept a named call to action there): Zernio creates one per ad account and reuses it, and `callToAction` is rejected with a 400 on this path.
                 spark_posts: TikTok Smart+ only (requires `smartPlus: true`). Several Spark posts as creatives of ONE Smart+ ad, each with its own post code (TikTok allows 1-50 per ad; posts from different creators mix). Replaces `platformPostId` + `sparkAuthCode`. Without `adSetId` it creates campaign + ad group + one ad carrying all of them; with `adSetId` it creates one new ad with all of them in that ad group. Rejected with a 400 on other platforms.
                 promo_codes: TikTok Smart+ Web Conversions only (requires `smartPlus: true`, goal `conversions`). Promo codes or offers TikTok highlights on the ad (Ads Manager's "Add promo code or offer"). A promo code needs shoppers to enter it at checkout; an entry without `promoCode` is an offer applied automatically. Rejected with a 400 on other platforms and on Lead Generation campaigns.
-                promoted_object: TikTok-only on this endpoint. The pixel a Website Conversion ad group
-        optimizes toward, so a Spark Ad built from an existing organic post can
-        optimize for a conversion instead of only engagement or traffic.
+                promoted_object: Meta and TikTok. What the conversion ad set optimizes toward, so a boost
+        of an existing organic post can run for a conversion instead of only
+        engagement or traffic. Required when `goal` is `conversions` (Meta also
+        `lead_conversion`); ignored on goals that do not optimize for a conversion.
 
-        Required when `goal` is `conversions`, and BOTH fields are required:
-        TikTok refuses a conversion ad group with no pixel ("Please select a
-        pixel") and equally one that has a pixel but no event ("Select a pixel
-        event."), because the event is what the ad group optimizes toward. Ignored
-        on every other goal, since only a WEB_CONVERSIONS ad group accepts them.
+        Meta: `pixelId` + `customEventType` (a commerce event such as PURCHASE
+        under `conversions`, a leads-class event such as LEAD under
+        `lead_conversion`), or `customConversionId` to optimize against a Custom
+        Conversion, or `customEventType: OTHER` + `customEventStr` for a pixel
+        custom event. Becomes the ad set `promoted_object`; without it Meta
+        rejects the ad set ("Please select a promoted object", subcode 1815430).
+        With `adSetId` the existing ad set already carries it.
 
-        Combine freely with `platformPostId` + `sparkAuthCode`: the pixel lives on
-        the ad group and the Spark item on the creative, so they never conflict.
+        TikTok: BOTH `pixelId` and `customEventType` are required. TikTok refuses
+        a conversion ad group with no pixel ("Please select a pixel") and one
+        with a pixel but no event ("Select a pixel event."). Combine freely with
+        `platformPostId` + `sparkAuthCode`: the pixel lives on the ad group and
+        the Spark item on the creative.
                 dsa_beneficiary: Legal entity that benefits from the ad. Required when targeting EU users
         (EU DSA, Article 26). Optional if the ad account has a default beneficiary:
         set it once via `PATCH /v1/ads/accounts` or in Meta Ads Manager, and Meta
@@ -5002,11 +5164,15 @@ def register_generated_tools(mcp, _get_client):
                 existing_campaign_id=existing_campaign_id,
                 identity_id=identity_id,
                 identity_type=identity_type,
+                budget_amount=budget_amount,
+                budget_type=budget_type,
                 budget=budget,
                 instagram_account_id=instagram_account_id,
                 destination_type=destination_type,
                 whatsapp_phone_number=whatsapp_phone_number,
                 currency=currency,
+                start_date=start_date,
+                end_date=end_date,
                 schedule=schedule,
                 targeting=targeting,
                 raw_targeting=raw_targeting,
@@ -5406,8 +5572,7 @@ def register_generated_tools(mcp, _get_client):
                 end_date: Required for lifetime budgets
                 start_date: Meta only. Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the
         ad set's `start_time`. When omitted the ad starts delivering immediately. For lifetime
-        budgets Meta also requires `endDate`. (Same `schedule.startDate` semantics already
-        available on `POST /v1/ads/boost`.)
+        budgets Meta also requires `endDate`. Same field as on `POST /v1/ads/boost`.
                 page_id: Meta only. The Facebook Page the ad runs as (`object_story_spec.page_id`). Defaults to
         the Page bound to the connection. Pass another Page ID to run the ad as that Page: any
         Page granted to the connection is accepted (for a business-login connection, every Page
@@ -6304,10 +6469,12 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_insights_get_ads_search_terms(
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
         campaign_id: str | None = None,
+        ad_set_id: str | None = None,
         ad_group_id: str | None = None,
         page_token: str | None = None,
     ) -> str:
@@ -6315,20 +6482,24 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Google ads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             from_date: Defaults to 30 days ago.
             to_date: Defaults to today.
             campaign_id: Numeric Google campaign id filter.
-            ad_group_id: Numeric Google ad group id filter.
+            ad_set_id: Platform ad set ID (Google ad group). Same value as adSetId on listAdKeywords and /ad-sets/{adSetId}/assets.
+            ad_group_id: Alias of adSetId, kept for existing callers.
             page_token: Cursor from paging.nextPageToken of the previous page."""
         client = _get_client()
         try:
             response = client.ad_insights.get_ads_search_terms(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 from_date=from_date,
                 to_date=to_date,
                 campaign_id=campaign_id,
+                ad_set_id=ad_set_id,
                 ad_group_id=ad_group_id,
                 page_token=page_token,
             )
@@ -6346,6 +6517,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_insights_list_local_services_leads(
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
@@ -6358,7 +6530,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Google ads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             from_date: Leads created at/after this day.
             to_date: Leads created at/before this day.
             lead_type
@@ -6369,6 +6542,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_insights.list_local_services_leads(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 from_date=from_date,
                 to_date=to_date,
@@ -6392,6 +6566,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_insights_list_local_services_lead_conversations(
         lead_id: str,
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         page_token: str | None = None,
     ) -> str:
@@ -6400,13 +6575,15 @@ def register_generated_tools(mcp, _get_client):
         Args:
             lead_id: Numeric lead id from /v1/ads/local-services/leads. (required)
             account_id: Google ads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             page_token: Cursor from paging.nextPageToken of the previous page."""
         client = _get_client()
         try:
             response = client.ad_insights.list_local_services_lead_conversations(
                 lead_id=lead_id,
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 page_token=page_token,
             )
@@ -6468,6 +6645,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_insights_generate_keyword_ideas(
         account_id: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         seed_keywords: list[str] | None = None,
         seed_url: str | None = None,
@@ -6482,7 +6660,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Zernio googleads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only).
+            customer_id: Alias of adAccountId, kept for existing callers
             seed_keywords: Seed terms. Provide these, seedUrl, or both.
             seed_url: Landing page to mine for ideas. Provide this, seedKeywords, or both.
             countries: ISO 3166-1 alpha-2 country codes. Omitted = worldwide.
@@ -6495,6 +6674,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_insights.generate_keyword_ideas(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 seed_keywords=seed_keywords,
                 seed_url=seed_url,
@@ -6520,6 +6700,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_insights_generate_keyword_historical_metrics(
         account_id: str,
         keywords: list[str] | None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         countries: list[str] | None = None,
         language_constant_id: str = "1000",
@@ -6531,7 +6712,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Zernio googleads SocialAccount id. (required)
-            customer_id: Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only).
+            customer_id: Alias of adAccountId, kept for existing callers
             keywords: (required)
             countries: ISO 3166-1 alpha-2 country codes. Omitted = worldwide.
             language_constant_id: Google languageConstant id (1000 = English).
@@ -6542,6 +6724,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_insights.generate_keyword_historical_metrics(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 keywords=keywords,
                 countries=countries,
@@ -6566,6 +6749,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         object_id: str | None = None,
         query: str | None = None,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         page_token: str | None = None,
         level: str | None = None,
@@ -6589,7 +6773,8 @@ def register_generated_tools(mcp, _get_client):
             account_id: Zernio SocialAccount id (posting or ads variant); its platform selects the Meta or Google contract. (required)
             object_id: Meta only (required there): insights node (act_<n>, campaign id, ad set id or ad id).
             query: Google only (required there): the GAQL SELECT statement to run.
-            customer_id: Google only: numeric customer id (no dashes) when the connection has several Google Ads accounts.
+            ad_account_id: Google only: platform ad account ID (Google customer ID, digits only) when the connection has several Google Ads accounts.
+            customer_id: Alias of adAccountId, kept for existing callers
             page_token: Google only: cursor from paging.nextPageToken of the previous page.
             level: Row granularity
             fields: Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set.
@@ -6611,6 +6796,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 object_id=object_id,
                 query=query,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 page_token=page_token,
                 level=level,
@@ -7153,6 +7339,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_you_tube_channel_insights(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         since: str | None = None,
         until: str | None = None,
         metric_type: str = "total_value",
@@ -7173,11 +7361,13 @@ def register_generated_tools(mcp, _get_client):
         Zernio-synthesized from daily follower snapshots (cross-platform parity):
           - followers_gained
           - followers_lost
-                since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                until: End date (YYYY-MM-DD). Defaults to today. YouTube Analytics has a 2-3 day delay,
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to today. YouTube Analytics has a 2-3 day delay,
         so the fetch is internally clamped to 3 days ago; any requested range extending
         beyond that returns zero values for the tail days. The response's dateRange.until
         field reflects your requested value.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
                 metric_type: "total_value" (default) returns aggregated totals.
         "time_series" returns per-day values in the "values" array."""
         client = _get_client()
@@ -7185,6 +7375,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_you_tube_channel_insights(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 since=since,
                 until=until,
                 metric_type=metric_type,
@@ -7204,6 +7396,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_linked_in_org_aggregate_analytics(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         since: str | None = None,
         until: str | None = None,
         metric_type: str = "total_value",
@@ -7238,14 +7432,18 @@ def register_generated_tools(mcp, _get_client):
         Zernio-synthesized from daily follower snapshots:
           - followers_gained
           - followers_lost
-                since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                until: End date (YYYY-MM-DD). Defaults to today.
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
                 metric_type"""
         client = _get_client()
         try:
             response = client.analytics.get_linked_in_org_aggregate_analytics(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 since=since,
                 until=until,
                 metric_type=metric_type,
@@ -7265,6 +7463,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_tik_tok_account_insights(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         since: str | None = None,
         until: str | None = None,
         metric_type: str = "total_value",
@@ -7285,8 +7485,10 @@ def register_generated_tools(mcp, _get_client):
         Zernio-synthesized:
           - followers_gained  (sum of positive daily follower deltas)
           - followers_lost    (sum of absolute negative daily deltas)
-                since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                until: End date (YYYY-MM-DD). Defaults to today.
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
                 metric_type: "total_value" returns the latest cumulative counter value.
         "time_series" returns daily values joined from AccountStats snapshots."""
         client = _get_client()
@@ -7294,6 +7496,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_tik_tok_account_insights(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 since=since,
                 until=until,
                 metric_type=metric_type,
@@ -7313,6 +7517,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_you_tube_daily_views(
         video_id: str,
         account_id: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> str:
@@ -7321,17 +7527,21 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 video_id: The YouTube video ID (e.g., "dQw4w9WgXcQ") (required)
                 account_id: The Zernio account ID for the YouTube account (required)
-                start_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                end_date: End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
-        (YouTube finalizes analytics with a ~3-day delay). An explicit endDate is honored
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
+        (YouTube finalizes analytics with a ~3-day delay). An explicit toDate is honored
         up to today: days inside the delay window are provisional and may still be revised
         by YouTube (see provisionalSince in the response), and days YouTube has not
-        processed yet are omitted from dailyViews."""
+        processed yet are omitted from dailyViews.
+                start_date: Alias of fromDate, kept for existing callers
+                end_date: Alias of toDate, kept for existing callers"""
         client = _get_client()
         try:
             response = client.analytics.get_you_tube_daily_views(
                 video_id=video_id,
                 account_id=account_id,
+                from_date=from_date,
+                to_date=to_date,
                 start_date=start_date,
                 end_date=end_date,
             )
@@ -7350,6 +7560,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_you_tube_video_retention(
         video_id: str,
         account_id: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> str:
@@ -7358,16 +7570,20 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 video_id: The YouTube video ID (e.g., "dQw4w9WgXcQ") (required)
                 account_id: The Zernio account ID for the YouTube account (required)
-                start_date: Start date (YYYY-MM-DD). Defaults to the video's publish date (lifetime curve).
-                end_date: End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
-        (YouTube finalizes analytics with a ~3-day delay). An explicit endDate is honored
+                from_date: Start date (YYYY-MM-DD). Defaults to the video's publish date (lifetime curve).
+                to_date: End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
+        (YouTube finalizes analytics with a ~3-day delay). An explicit toDate is honored
         up to today: days inside the delay window are provisional and may still be revised
-        by YouTube (see provisionalSince in the response)."""
+        by YouTube (see provisionalSince in the response).
+                start_date: Alias of fromDate, kept for existing callers
+                end_date: Alias of toDate, kept for existing callers"""
         client = _get_client()
         try:
             response = client.analytics.get_you_tube_video_retention(
                 video_id=video_id,
                 account_id=account_id,
+                from_date=from_date,
+                to_date=to_date,
                 start_date=start_date,
                 end_date=end_date,
             )
@@ -7386,6 +7602,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_facebook_page_insights(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         since: str | None = None,
         until: str | None = None,
         metric_type: str = "total_value",
@@ -7434,8 +7652,10 @@ def register_generated_tools(mcp, _get_client):
         the Page is enrolled. "unavailableMetrics" covers the narrower case where Meta returned no
         bucket for the metric at all ("no_data") or rejected the request outright, and the metric is
         then omitted from "metrics" rather than reported as 0.
-                since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                until: End date (YYYY-MM-DD). Defaults to today.
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
                 metric_type: "total_value" (default) returns aggregated totals only.
         "time_series" returns daily values in the "values" array."""
         client = _get_client()
@@ -7443,6 +7663,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_facebook_page_insights(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 since=since,
                 until=until,
                 metric_type=metric_type,
@@ -7497,6 +7719,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_instagram_account_insights(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         since: str | None = None,
         until: str | None = None,
         metric_type: str = "total_value",
@@ -7513,8 +7737,10 @@ def register_generated_tools(mcp, _get_client):
         follows_and_unfollows) are total_value only. This is an Instagram Graph API limitation,
         not a Zernio limitation - the IG API does not return time-series data for these metrics.
         For a daily running follower count, use /v1/analytics/instagram/follower-history instead.
-                since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                until: End date (YYYY-MM-DD). Defaults to today.
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
                 metric_type: "total_value" (default) returns aggregated totals and supports breakdowns.
         "time_series" returns daily values but only works with the "reach" metric.
                 breakdown: Breakdown dimension (only valid with metricType=total_value).
@@ -7524,6 +7750,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_instagram_account_insights(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 since=since,
                 until=until,
                 metric_type=metric_type,
@@ -7544,6 +7772,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_instagram_follower_history(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         since: str | None = None,
         until: str | None = None,
         metric_type: str = "total_value",
@@ -7556,8 +7786,10 @@ def register_generated_tools(mcp, _get_client):
           - follower_count   : per-day raw follower count
           - followers_gained : sum of positive daily deltas
           - followers_lost   : sum of absolute negative daily deltas
-                since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-                until: End date (YYYY-MM-DD). Defaults to today.
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
                 metric_type: "total_value" returns aggregated totals (latest for follower_count, sum for gained/lost).
         "time_series" returns per-day values in the "values" array."""
         client = _get_client()
@@ -7565,6 +7797,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_instagram_follower_history(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 since=since,
                 until=until,
                 metric_type=metric_type,
@@ -7619,6 +7853,8 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         video_id: str | None = None,
         breakdown: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> str:
@@ -7630,18 +7866,22 @@ def register_generated_tools(mcp, _get_client):
         (must belong to the connected channel; otherwise 404 video_not_found).
                 breakdown: Comma-separated list of demographic dimensions: age, gender, country.
         Defaults to all three if omitted.
-                start_date: Start date in YYYY-MM-DD format. Defaults to 90 days ago, or to the video's
+                from_date: Start date in YYYY-MM-DD format. Defaults to 90 days ago, or to the video's
         publish date (lifetime) when videoId is provided.
-                end_date: End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
-        (YouTube finalizes analytics with a ~3-day delay). An explicit endDate is honored
+                to_date: End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
+        (YouTube finalizes analytics with a ~3-day delay). An explicit toDate is honored
         up to today: days inside the delay window are provisional and may still be revised
-        by YouTube (see provisionalSince in the response)."""
+        by YouTube (see provisionalSince in the response).
+                start_date: Alias of fromDate, kept for existing callers
+                end_date: Alias of toDate, kept for existing callers"""
         client = _get_client()
         try:
             response = client.analytics.get_you_tube_demographics(
                 account_id=account_id,
                 video_id=video_id,
                 breakdown=breakdown,
+                from_date=from_date,
+                to_date=to_date,
                 start_date=start_date,
                 end_date=end_date,
             )
@@ -7830,6 +8070,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_google_business_performance(
         account_id: str,
         metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> str:
@@ -7842,13 +8084,17 @@ def register_generated_tools(mcp, _get_client):
         BUSINESS_IMPRESSIONS_MOBILE_MAPS, BUSINESS_IMPRESSIONS_MOBILE_SEARCH,
         BUSINESS_CONVERSATIONS, BUSINESS_DIRECTION_REQUESTS, CALL_CLICKS, WEBSITE_CLICKS,
         BUSINESS_BOOKINGS, BUSINESS_FOOD_ORDERS, BUSINESS_FOOD_MENU_CLICKS
-                start_date: Start date (YYYY-MM-DD). Defaults to 30 days ago. Max 18 months back.
-                end_date: End date (YYYY-MM-DD). Defaults to today."""
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago. Max 18 months back.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                start_date: Alias of fromDate, kept for existing callers
+                end_date: Alias of toDate, kept for existing callers"""
         client = _get_client()
         try:
             response = client.analytics.get_google_business_performance(
                 account_id=account_id,
                 metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
                 start_date=start_date,
                 end_date=end_date,
             )
@@ -7919,6 +8165,8 @@ def register_generated_tools(mcp, _get_client):
     def analytics_get_linked_in_aggregate_analytics(
         account_id: str,
         aggregation: str = "TOTAL",
+        from_date: str | None = None,
+        to_date: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
         metrics: str | None = None,
@@ -7928,14 +8176,18 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: The ID of the LinkedIn personal account (required)
             aggregation: TOTAL (default, lifetime totals) or DAILY (time series). MEMBERS_REACHED not available with DAILY.
-            start_date: Start date (YYYY-MM-DD). If omitted, returns lifetime analytics.
-            end_date: End date (YYYY-MM-DD, exclusive). Defaults to today if omitted.
+            from_date: Start date (YYYY-MM-DD). If omitted, returns lifetime analytics.
+            to_date: End date (YYYY-MM-DD, exclusive). Defaults to today if omitted.
+            start_date: Alias of fromDate, kept for existing callers
+            end_date: Alias of toDate, kept for existing callers
             metrics: Comma-separated metrics: IMPRESSION, MEMBERS_REACHED, REACTION, COMMENT, RESHARE, POST_SAVE, POST_SEND. Omit for all."""
         client = _get_client()
         try:
             response = client.analytics.get_linked_in_aggregate_analytics(
                 account_id=account_id,
                 aggregation=aggregation,
+                from_date=from_date,
+                to_date=to_date,
                 start_date=start_date,
                 end_date=end_date,
                 metrics=metrics,
@@ -11193,10 +11445,15 @@ def register_generated_tools(mcp, _get_client):
         numeric sponsored-account id), `googleads` (bare customer id digits)
         and `twitter` (X Ads, base36 account id). `tiktok` scopes advertisers
         at OAuth and `pinterest` has no ads discovery, so both ignore it.
-        Meta ids are additionally validated against the connected token;
-        unreachable IDs return 400. Setting a scope also removes already
-        synced ads from de-scoped ad accounts. For multiple accounts use
-        `adAccountIds` instead.
+        Meta ids are additionally validated against the connected token:
+        an id the token cannot see returns 400 `invalid_field_value`, and an
+        id it can see but that Meta marks unusable for ads (disabled, closed,
+        under risk review, settlement pending) returns 400 `ad_account_unusable`
+        with `details.accountStatus` (Meta's `account_status`) and, when Meta
+        gives one, `details.disableReason`. Unsettled and in-grace accounts
+        are accepted, matching the `selectable` flag of `GET /v1/ads/accounts`.
+        Setting a scope also removes already synced ads from de-scoped ad
+        accounts. For multiple accounts use `adAccountIds` instead.
                 ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform
         support and id shapes as `adAccountId`). Repeat the param
         (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate
@@ -11783,7 +12040,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_bluesky_credentials(
-        identifier: str, app_password: str, state: str, redirect_uri: str | None = None
+        identifier: str,
+        app_password: str,
+        state: str,
+        redirect_url: str | None = None,
+        redirect_uri: str | None = None,
     ) -> str:
         """Connect Bluesky account
 
@@ -11791,13 +12052,15 @@ def register_generated_tools(mcp, _get_client):
             identifier: Your Bluesky handle (e.g. user.bsky.social) or email address (required)
             app_password: App password generated from Bluesky Settings > App Passwords (required)
             state: Required state formatted as {userId}-{profileId}. Get userId from GET /v1/users and profileId from GET /v1/profiles. (required)
-            redirect_uri: Optional URL to redirect to after successful connection"""
+            redirect_url: Optional URL to redirect to after successful connection. Used when the state carries no redirect (a state minted by GET /v1/connect/bluesky with redirect_url already carries one, and that one wins).
+            redirect_uri: Alias of redirect_url, kept for existing callers"""
         client = _get_client()
         try:
             response = client.connect.connect_bluesky_credentials(
                 identifier=identifier,
                 app_password=app_password,
                 state=state,
+                redirect_url=redirect_url,
                 redirect_uri=redirect_uri,
             )
             return _format_response(response)
@@ -11816,6 +12079,7 @@ def register_generated_tools(mcp, _get_client):
         api_key: str,
         profile_id: str,
         state: str | None = None,
+        redirect_url: str | None = None,
         redirect_uri: str | None = None,
     ) -> str:
         """Connect an OpenAI Ads account
@@ -11824,13 +12088,15 @@ def register_generated_tools(mcp, _get_client):
             api_key: API key from ChatGPT Ads Manager (Settings). Grants full read/write access on OpenAI's side; Zernio only ever reads with it. (required)
             profile_id: Your Zernio profile ID (required)
             state: Optional state passthrough for the connect flow.
-            redirect_uri: Optional URL to redirect to after successful connection"""
+            redirect_url: Optional URL to redirect to after successful connection, echoed back as redirectUrl.
+            redirect_uri: Alias of redirect_url, kept for existing callers"""
         client = _get_client()
         try:
             response = client.connect.connect_open_ai_ads_credentials(
                 api_key=api_key,
                 profile_id=profile_id,
                 state=state,
+                redirect_url=redirect_url,
                 redirect_uri=redirect_uri,
             )
             return _format_response(response)
@@ -11962,7 +12228,7 @@ def register_generated_tools(mcp, _get_client):
             phone_number_id
             is_coexistence: Number is also live in the WhatsApp Business app
             expected_phone_number: Rejects the connect when Meta returns a different number
-            redirect_url: Hosted signup page only. When present, the response also carries `redirectUrl`, the URL the user should land on, with the outcome mapped exactly like the redirect flow (success params, or `error` and `platform` with the same values). Must be an absolute http(s) URL or a custom app scheme.
+            redirect_url: Hosted signup page only. When present, the response also carries `redirectUrl`, the URL the user should land on, with the outcome mapped exactly like the redirect flow (success params, or `error` and `platform` with the same values). Must be an absolute http(s) URL or a custom app scheme. The legacy spelling `redirectUrl` remains accepted as an alias.
             echo_connect_token: Hosted signup page only. Append the connect token to the success redirect, as the redirect flow does for API-key callers."""
         client = _get_client()
         try:
@@ -13130,18 +13396,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def conversions_list_conversion_actions(
-        account_id: str, customer_id: str | None = None, type: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        type: str | None = None,
     ) -> str:
         """List conversion actions
 
         Args:
             account_id: SocialAccount _id (must be a googleads account). (required)
-            customer_id: Google Ads customer id (digits only). Resolved automatically when the connection has exactly one accessible customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Resolved automatically when the connection has exactly one accessible customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             type: Filter by Google's ConversionActionType enum (e.g. WEBPAGE, UPLOAD_CLICKS)."""
         client = _get_client()
         try:
             response = client.conversions.list_conversion_actions(
-                account_id=account_id, customer_id=customer_id, type=type
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                type=type,
             )
             return _format_response(response)
         except Exception as e:
@@ -13159,6 +13432,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         name: str,
         type: str,
+        ad_account_id: str | None = None,
         customer_id: str | None = None,
         default_value: float | None = None,
         always_use_default_value: bool | None = None,
@@ -13167,7 +13441,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: SocialAccount ID. Must be a `googleads` account. (required)
-            customer_id: Google Ads customer id (digits only). Resolved automatically when the connection has exactly one accessible customer.
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Resolved automatically when the connection has exactly one accessible customer.
+            customer_id: Alias of adAccountId, kept for existing callers
             name: (required)
             type: Only WEBPAGE is supported for creation today. (required)
             default_value: Default conversion value used when an event doesn't carry its own value.
@@ -13176,6 +13451,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.conversions.create_conversion_action(
                 account_id=account_id,
+                ad_account_id=ad_account_id,
                 customer_id=customer_id,
                 name=name,
                 type=type,
@@ -16630,11 +16906,14 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         ad_account_id: str,
         name: str,
-        destination: str,
         creative_features: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
+        campaign_name: str | None = None,
+        ad_set_name: str | None = None,
+        platform_post_id: str | None = None,
         existing_post_id: str | None = None,
         object_story_id: str | None = None,
+        page_id: str | None = None,
         whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
@@ -16670,6 +16949,8 @@ def register_generated_tools(mcp, _get_client):
         dsa_payor: str | None = None,
         regional_regulated_categories: list[str] | None = None,
         regional_regulation_identities: dict[str, Any] | None = None,
+        destination: str | None = None,
+        destinations: list[str] | None = None,
     ) -> str:
         """Create messaging ad
 
@@ -16683,8 +16964,12 @@ def register_generated_tools(mcp, _get_client):
         " #N" suffix (1-indexed) so Ads Manager shows them as a
         numbered batch.
          (required)
-                existing_post_id: Messaging and CTWA only. Platform post or reel ID, resolved like boost platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
-                object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with existingPostId and fresh creative fields.
+                campaign_name: Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).
+                ad_set_name: Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.
+                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
+                existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
+                object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
+                page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
                 whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
                 headline: Single-creative shape only. Mutually exclusive with
         `creatives[]`.
@@ -16705,7 +16990,7 @@ def register_generated_tools(mcp, _get_client):
         `body` / `imageUrl` / `video`): setting both is a 400,
         unlike `POST /v1/ads/create` where the top-level fields
         are silently ignored in multi-creative mode. Each entry
-        supplies headline, body, and image/video, or an existingPostId or
+        supplies headline, body, and image/video, or a platformPostId or
         objectStoryId reference. Fresh and existing creatives can be mixed.
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
@@ -16808,7 +17093,8 @@ def register_generated_tools(mcp, _get_client):
         india_finserv_beneficiary / india_finserv_payer.
         Both beneficiary and payer must be included. If omitted and the advertiser has
         set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
-                destination: Where the conversation opens when the ad is tapped. (required)"""
+                destination: Where the conversation opens when the ad is tapped. Set this OR `destinations`, not both.
+                destinations: Two or three messaging apps on ONE ad set, like Ads Manager's "all messaging apps": the ad set gets Meta's combined destination_type (e.g. MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP) and the creative one CTA per app, so Meta opens the app each viewer is likeliest to answer from. WhatsApp in the list still needs the Page paired with a WhatsApp Business number. With `adSetId`, the existing ad set must already use that combined destination_type. Set this OR `destination`, not both."""
         client = _get_client()
         try:
             response = client.messaging_ads.create_messaging_ad(
@@ -16817,8 +17103,12 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 name=name,
+                campaign_name=campaign_name,
+                ad_set_name=ad_set_name,
+                platform_post_id=platform_post_id,
                 existing_post_id=existing_post_id,
                 object_story_id=object_story_id,
+                page_id=page_id,
                 whatsapp_phone_number=whatsapp_phone_number,
                 headline=headline,
                 body=body,
@@ -16855,6 +17145,7 @@ def register_generated_tools(mcp, _get_client):
                 regional_regulated_categories=regional_regulated_categories,
                 regional_regulation_identities=regional_regulation_identities,
                 destination=destination,
+                destinations=destinations,
             )
             return _format_response(response)
         except Exception as e:
@@ -16876,8 +17167,12 @@ def register_generated_tools(mcp, _get_client):
         link_url: str,
         creative_features: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
+        campaign_name: str | None = None,
+        ad_set_name: str | None = None,
+        platform_post_id: str | None = None,
         existing_post_id: str | None = None,
         object_story_id: str | None = None,
+        page_id: str | None = None,
         whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
@@ -16926,8 +17221,12 @@ def register_generated_tools(mcp, _get_client):
         " #N" suffix (1-indexed) so Ads Manager shows them as a
         numbered batch.
          (required)
-                existing_post_id: Messaging and CTWA only. Platform post or reel ID, resolved like boost platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
-                object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with existingPostId and fresh creative fields.
+                campaign_name: Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).
+                ad_set_name: Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.
+                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
+                existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
+                object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
+                page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
                 whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
                 headline: Single-creative shape only. Mutually exclusive with
         `creatives[]`.
@@ -16948,7 +17247,7 @@ def register_generated_tools(mcp, _get_client):
         `body` / `imageUrl` / `video`): setting both is a 400,
         unlike `POST /v1/ads/create` where the top-level fields
         are silently ignored in multi-creative mode. Each entry
-        supplies headline, body, and image/video, or an existingPostId or
+        supplies headline, body, and image/video, or a platformPostId or
         objectStoryId reference. Fresh and existing creatives can be mixed.
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
@@ -17061,8 +17360,12 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 name=name,
+                campaign_name=campaign_name,
+                ad_set_name=ad_set_name,
+                platform_post_id=platform_post_id,
                 existing_post_id=existing_post_id,
                 object_story_id=object_story_id,
+                page_id=page_id,
                 whatsapp_phone_number=whatsapp_phone_number,
                 headline=headline,
                 body=body,
@@ -17119,8 +17422,12 @@ def register_generated_tools(mcp, _get_client):
         name: str,
         creative_features: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
+        campaign_name: str | None = None,
+        ad_set_name: str | None = None,
+        platform_post_id: str | None = None,
         existing_post_id: str | None = None,
         object_story_id: str | None = None,
+        page_id: str | None = None,
         whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
@@ -17169,8 +17476,12 @@ def register_generated_tools(mcp, _get_client):
         " #N" suffix (1-indexed) so Ads Manager shows them as a
         numbered batch.
          (required)
-                existing_post_id: Messaging and CTWA only. Platform post or reel ID, resolved like boost platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
-                object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with existingPostId and fresh creative fields.
+                campaign_name: Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).
+                ad_set_name: Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.
+                platform_post_id: Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.
+                existing_post_id: Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.
+                object_story_id: Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.
+                page_id: Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.
                 whatsapp_phone_number: WhatsApp only. Optional E.164 number already paired with the Facebook Page. Omit to let Meta select the paired number. Sent to the creative CTA and, when creating a new ad set, its promoted_object. Attach requests do not change the existing ad set. Stored as creative.whatsappPhoneNumber on every created ad.
                 headline: Single-creative shape only. Mutually exclusive with
         `creatives[]`.
@@ -17191,7 +17502,7 @@ def register_generated_tools(mcp, _get_client):
         `body` / `imageUrl` / `video`): setting both is a 400,
         unlike `POST /v1/ads/create` where the top-level fields
         are silently ignored in multi-creative mode. Each entry
-        supplies headline, body, and image/video, or an existingPostId or
+        supplies headline, body, and image/video, or a platformPostId or
         objectStoryId reference. Fresh and existing creatives can be mixed.
                 ad_set_id: Attach the creatives to this EXISTING messaging ad set instead of
         building a campaign, so the ad set keeps its learning phase. It then
@@ -17302,8 +17613,12 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 name=name,
+                campaign_name=campaign_name,
+                ad_set_name=ad_set_name,
+                platform_post_id=platform_post_id,
                 existing_post_id=existing_post_id,
                 object_story_id=object_story_id,
+                page_id=page_id,
                 whatsapp_phone_number=whatsapp_phone_number,
                 headline=headline,
                 body=body,
@@ -17498,6 +17813,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def phone_numbers_search_available_phone_numbers(
         country: str = "US",
+        number_type: str | None = None,
+        area_code: str | None = None,
         type: str | None = None,
         prefix: str | None = None,
         locality: str | None = None,
@@ -17509,8 +17826,10 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             country
-            type: Number type; defaults to the country's WhatsApp-safe type
-            prefix: Area code
+            number_type: Number type; defaults to the country's WhatsApp-safe type (the same name as on purchase, availability and kyc)
+            area_code: Area code or national dialing code the number must start with, e.g. 415 or 91
+            type: Alias of numberType, kept for existing callers
+            prefix: Alias of areaCode, kept for existing callers
             locality: City
             contains: Pattern to match within the number
             sms: true narrows the pool to SMS-capable numbers. Each result still carries its full `features` list for per-number capability badging.
@@ -17519,6 +17838,8 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.phone_numbers.search_available_phone_numbers(
                 country=country,
+                number_type=number_type,
+                area_code=area_code,
                 type=type,
                 prefix=prefix,
                 locality=locality,
@@ -17734,6 +18055,7 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         country: str,
         area_code: str | None = None,
+        language: str | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
     ) -> str:
@@ -17743,6 +18065,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id: (required)
                 country: ISO 3166-1 alpha-2 country code (must be a regulated/KYC country). (required)
                 area_code: Area code (NDC) the eventual number must be in. Hard constraint carried by the link; the end customer filling the form makes no area choice. Options come from GET /v1/phone-numbers/availability (areaOptions).
+                language: Language of the hosted page: its copy, the carrier requirement texts (translated once per country and cached), the pre-submit review notes and the status emails to the end customer. Omitted: the browser language of the end customer, falling back to English. The end customer can also switch with `?lang=` on the page.
                 branding: Optional white-label of the hosted page the end customer sees.
                 redirect_url: Where to send the end customer's browser after a successful
         submit. On completion Zernio appends `kyc=submitted` and
@@ -17754,6 +18077,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 country=country,
                 area_code=area_code,
+                language=language,
                 branding=branding,
                 redirect_url=redirect_url,
             )
@@ -18164,11 +18488,14 @@ def register_generated_tools(mcp, _get_client):
     def posts_list_posts(
         page: int = 1,
         limit: int = 10,
+        offset: int | None = None,
         source: str = "zernio",
         status: str | None = None,
         platform: str | None = None,
         profile_id: str | None = None,
         created_by: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
         include_hidden: bool = False,
@@ -18181,13 +18508,16 @@ def register_generated_tools(mcp, _get_client):
         Args:
             page: Page number
             limit: Page size. Values above the maximum return 400 rather than being clamped.
+            offset: Row offset. Takes precedence over page when both are sent; the response pagination.page is derived from it.
             source: Which collection to read. `zernio` (default) returns posts authored through Zernio. `external` returns posts synced from the platform (existing/historical posts that were published outside Zernio). Combine with `accountId` and paginate via `page`/`limit` to walk the full synced history (we keep up to the last ~12 months per account).
             status
             platform
             profile_id: Filter posts to a specific profile (24-char hex ObjectId). Omit it, or send `all` or an empty value, to list posts across every profile.
             created_by: Filter posts to those created by a specific team user (24-char hex ObjectId).
-            date_from: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.
-            date_to: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.
+            from_date: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400. The same name the other date-window filters use (ads, analytics).
+            to_date: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400. The same name the other date-window filters use (ads, analytics).
+            date_from: Alias of fromDate, kept for existing callers
+            date_to: Alias of toDate, kept for existing callers
             include_hidden
             search: Search posts by text content.
             sort_by: Sort order for results.
@@ -18197,11 +18527,14 @@ def register_generated_tools(mcp, _get_client):
             response = client.posts.list_posts(
                 page=page,
                 limit=limit,
+                offset=offset,
                 source=source,
                 status=status,
                 platform=platform,
                 profile_id=profile_id,
                 created_by=created_by,
+                from_date=from_date,
+                to_date=to_date,
                 date_from=date_from,
                 date_to=date_to,
                 include_hidden=include_hidden,
@@ -21140,15 +21473,20 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def twitter_engagement_get_tweet(account_id: str, id: str) -> str:
+    def twitter_engagement_get_tweet(
+        account_id: str, tweet_id: str, id: str | None = None
+    ) -> str:
         """Look up a tweet
 
         Args:
             account_id: The account ID whose X token is used for the lookup (required)
-            id: Numeric tweet ID or a tweet URL (e.g. https://x.com/user/status/123...) (required)"""
+            tweet_id: Numeric tweet ID or a tweet URL (e.g. https://x.com/user/status/123...). The same name the other /v1/twitter operations use (retweet, bookmark). (required)
+            id: Alias of tweetId, kept for existing callers"""
         client = _get_client()
         try:
-            response = client.twitter_engagement.get_tweet(account_id=account_id, id=id)
+            response = client.twitter_engagement.get_tweet(
+                account_id=account_id, tweet_id=tweet_id, id=id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -22099,7 +22437,8 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def webhooks_update_webhook_settings(
-        id: str,
+        webhook_id: str | None = None,
+        id: str | None = None,
         name: str | None = None,
         url: str | None = None,
         secret: str | None = None,
@@ -22111,7 +22450,8 @@ def register_generated_tools(mcp, _get_client):
         """Update webhook
 
         Args:
-            id: Webhook ID to update (required) (required)
+            webhook_id: Webhook ID to update. Required unless the deprecated `_id` is sent instead.
+            id: Alias of webhookId, kept for existing callers
             name: Webhook name (1-50 characters). Must be non-empty if provided.
             url: Webhook endpoint URL (must be a valid URL, whitespace trimmed). Must be a valid URL if provided.
             secret: Secret key for HMAC-SHA256 signature verification
@@ -22122,6 +22462,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.webhooks.update_webhook_settings(
+                webhook_id=webhook_id,
                 id=id,
                 name=name,
                 url=url,
@@ -22143,14 +22484,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def webhooks_delete_webhook_settings(id: str) -> str:
+    def webhooks_delete_webhook_settings(
+        webhook_id: str | None = None, id: str | None = None
+    ) -> str:
         """Delete webhook
 
         Args:
-            id: Webhook ID to delete (required)"""
+            webhook_id: Webhook ID to delete, the same name the other /v1/webhooks operations use (logs, redeliver, test). Required unless the deprecated `id` is sent instead.
+            id: Alias of webhookId, kept for existing callers"""
         client = _get_client()
         try:
-            response = client.webhooks.delete_webhook_settings(id=id)
+            response = client.webhooks.delete_webhook_settings(
+                webhook_id=webhook_id, id=id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -24568,6 +24914,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def whatsapp_phone_numbers_search_available_whats_app_numbers(
         country: str = "US",
+        number_type: str | None = None,
+        area_code: str | None = None,
         type: str | None = None,
         prefix: str | None = None,
         locality: str | None = None,
@@ -24578,8 +24926,10 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             country
-            type: Number type; defaults to the country's WhatsApp-safe type
-            prefix: Area code
+            number_type: Number type; defaults to the country's WhatsApp-safe type (the same name as on purchase, availability and kyc)
+            area_code: Area code or national dialing code the number must start with, e.g. 415 or 91
+            type: Alias of numberType, kept for existing callers
+            prefix: Alias of areaCode, kept for existing callers
             locality: City
             contains: Pattern to match within the number
             limit"""
@@ -24587,6 +24937,8 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.whatsapp_phone_numbers.search_available_whats_app_numbers(
                 country=country,
+                number_type=number_type,
+                area_code=area_code,
                 type=type,
                 prefix=prefix,
                 locality=locality,
@@ -24785,6 +25137,7 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         country: str,
         area_code: str | None = None,
+        language: str | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
     ) -> str:
@@ -24794,6 +25147,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id: (required)
                 country: ISO 3166-1 alpha-2 country code (must be a regulated/KYC country). (required)
                 area_code: Area code (NDC) the eventual number must be in. Hard constraint carried by the link; the end customer filling the form makes no area choice. Options come from GET /v1/phone-numbers/availability (areaOptions).
+                language: Language of the hosted page: its copy, the carrier requirement texts (translated once per country and cached), the pre-submit review notes and the status emails to the end customer. Omitted: the browser language of the end customer, falling back to English. The end customer can also switch with `?lang=` on the page.
                 branding: Optional white-label of the hosted page the end customer sees.
                 redirect_url: Where to send the end customer's browser after a successful
         submit. On completion Zernio appends `kyc=submitted` and
@@ -24805,6 +25159,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 country=country,
                 area_code=area_code,
+                language=language,
                 branding=branding,
                 redirect_url=redirect_url,
             )

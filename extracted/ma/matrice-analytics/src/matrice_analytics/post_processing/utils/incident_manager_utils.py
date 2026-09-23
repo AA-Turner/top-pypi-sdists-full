@@ -32,6 +32,16 @@ from .location_name_cache import LocationNameCache
 # Severity level ordering for comparison (none = no incident)
 SEVERITY_LEVELS = ["none", "info", "low", "medium", "significant", "critical"]
 
+#: Severity published on the event that closes an incident.
+#:
+#: An end signal, not a claim about how bad the incident was. The same spelling is used by
+#: ``analytics/incident_lifecycle.py`` and by the primitives engine
+#: (``engine/runtime/session.py:CLOSE_SEVERITY``), so one lifecycle reads the same whichever
+#: of the three state machines ran the app. Kept as a named constant on both sides because
+#: the import direction is engine -> post_processing: this module cannot import the engine's
+#: copy without a cycle, so the two are changed together by hand.
+CLOSE_SEVERITY = "info"
+
 # Default thresholds if none provided (fire-style incident_quant / coverage %).
 # low was previously 0.0001 (effectively any non-zero); keep it tight but
 # above noise so tiny freckles do not open after CONSECUTIVE_FRAMES_LOW.
@@ -922,14 +932,33 @@ class INCIDENT_MANAGER:
         end_time: str,
         incident_type: Optional[str] = None,
     ) -> bool:
-        """Publish a closing ``info`` event and rotate to the next incident cycle."""
+        """Publish the closing event and rotate to the next incident cycle.
+
+        The close carries :data:`CLOSE_SEVERITY` (``info``), which is this codebase's
+        **end-signal** convention rather than a claim about how bad the incident was: the same
+        spelling is used by ``analytics/incident_lifecycle.py`` and by the primitives engine's
+        ``Session._incident``, so one lifecycle reads the same whichever machine ran the app.
+
+        ``info`` is not what *resolves* the incident -- ``end_time`` below is, and a non-empty
+        ``end_time`` is the only thing the backend treats as a close. The severity field on this
+        one event is therefore free to carry the convention, and the incident's real peak is not
+        lost: it was published on its own event before this one.
+
+        (This briefly published the last real severity instead, in #420. Reverted for parity
+        across the three state machines -- do not re-derive it from ``last_published_level``
+        without changing the other two as well.)
+
+        ``_try_publish_usecase_close`` also accepts ``severity_level: "info"`` as a use case's
+        way of *requesting* a close -- 24 use cases send it, and that input contract is
+        unchanged.
+        """
         from .incident_res_format import utc_now_iso_z
 
         resolved_type = incident_type or self._resolve_close_incident_type(camera_id, state)
-        info_incident = {
+        close_incident = {
             "incident_id": state.current_incident_id,
             "incident_type": resolved_type,
-            "severity_level": "info",
+            "severity_level": CLOSE_SEVERITY,
             "human_text": "Incident ended",
             "start_time": state.start_time,
             "end_time": end_time or utc_now_iso_z(),
@@ -938,7 +967,7 @@ class INCIDENT_MANAGER:
         state.current_level = "info"
         state.empty_frames_count = 0
 
-        success = self._publish_incident(camera_id, info_incident, stream_info)
+        success = self._publish_incident(camera_id, close_incident, stream_info)
         if not success:
             return False
 

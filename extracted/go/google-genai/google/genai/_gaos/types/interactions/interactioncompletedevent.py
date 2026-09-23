@@ -32,6 +32,11 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 
 class InteractionCompletedEventTypedDict(TypedDict):
+    r"""Signals that the Interaction completed. Sent when the Interaction receives
+    Complete/Cancel or naturally terminates. No more input can be sent to the
+    Interaction after this.
+    """
+
     interaction: InteractionSseEventInteractionTypedDict
     r"""Partial interaction resource emitted by interaction lifecycle SSE events.
     Streaming lifecycle payloads may omit fields that are only available on
@@ -46,6 +51,11 @@ class InteractionCompletedEventTypedDict(TypedDict):
 
 
 class InteractionCompletedEvent(BaseModel):
+    r"""Signals that the Interaction completed. Sent when the Interaction receives
+    Complete/Cancel or naturally terminates. No more input can be sent to the
+    Interaction after this.
+    """
+
     interaction: InteractionSseEventInteraction
     r"""Partial interaction resource emitted by interaction lifecycle SSE events.
     Streaming lifecycle payloads may omit fields that are only available on

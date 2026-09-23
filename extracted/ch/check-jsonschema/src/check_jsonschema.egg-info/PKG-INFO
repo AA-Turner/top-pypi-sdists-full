@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: check-jsonschema
-Version: 0.38.0
+Version: 0.38.1
 Summary: A jsonschema CLI and pre-commit hook
 Author-email: Stephen Rosen <sirosen0@gmail.com>
 Project-URL: Homepage, https://github.com/python-jsonschema/check-jsonschema
@@ -25,6 +25,7 @@ Dynamic: license-file
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/python-jsonschema/check-jsonschema/main.svg)](https://results.pre-commit.ci/latest/github/python-jsonschema/check-jsonschema/main)
 [![readthedocs documentation](https://readthedocs.org/projects/check-jsonschema/badge/?version=stable&style=flat)](https://check-jsonschema.readthedocs.io/en/stable)
 
+[![check-jsonschema logo](https://github.com/python-jsonschema/check-jsonschema/raw/main/docs/_static/logo.png)](https://check-jsonschema.readthedocs.io/en/stable/)
 
 # check-jsonschema
 
@@ -44,7 +45,7 @@ files.
 
 ```yaml
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.38.0
+  rev: 0.38.1
   hooks:
     - id: check-github-workflows
       args: ["--verbose"]

@@ -34,6 +34,33 @@ from .unified_content import (
     reconstruct_content,
 )
 
+# ── THE CONTEXT CHANNEL FRAME ───────────────────────────────────────────────
+#
+# Per-turn platform material (scope/active context, the deferred-context
+# manifest, skills attached mid-conversation, observational memory, safety
+# notes, the sandbox briefing, chat attachments) is delivered in the system
+# channel, wrapped in this frame so the model knows who wrote it.
+#
+# THE WORDING IS LOAD-BEARING. Its predecessor rode inside the user's message
+# and said "the user did not write it ... Do not respond to it". A model told
+# to dispose of something addressed to it tells the person it did: on
+# 2026-09-22 a Masterwork Scout answer to an Expert opened "Ignoring the
+# injected block -- that's platform noise, not from you." So this frame gives
+# the model nothing to dispose of and nothing to report: it is instruction
+# material, the person cannot see it, and mentioning it is what is forbidden.
+TURN_CONTEXT_OPEN = '<turn_context source="platform">'
+TURN_CONTEXT_NOTE = (
+    "Reference material the AI Matrx platform assembled for this turn. It is "
+    "part of your instructions, not part of the conversation: the person "
+    "cannot see it, did not write it, and is not asking about it. Your role "
+    "and instructions come from the rest of this system prompt and remain in "
+    "force. Where this restates something stated earlier in these "
+    "instructions, THIS copy is the current one. Never quote it, name it, or "
+    "mention that it exists -- answer the person's own message as if you "
+    "simply knew what this contains."
+)
+TURN_CONTEXT_CLOSE = "</turn_context>"
+
 # Marker embedded in a tool_result truncated by the Layer-2 absolute-ceiling pass.
 # Used to make that pass idempotent (a block already carrying it is skipped, so the
 # ceiling alarm fires once per event, not once per provider call).
@@ -256,7 +283,7 @@ class UnifiedMessage:
                         parsed_content.append(reconstruct_content({**item, "type": "code_exec"}))
                     elif content_type in ("code_execution_result", "code_result"):
                         parsed_content.append(reconstruct_content({**item, "type": "code_result"}))
-                    elif content_type in ("decision_questions", "decision_answers"):
+                    elif content_type in ("decision_questions", "decision_answers", "speech_script"):
                         parsed_content.append(reconstruct_content(item))
                     elif content_type in STRUCTURED_INPUT_TYPE_MAP:
                         obj = reconstruct_structured_input(item)
@@ -764,11 +791,7 @@ class UnifiedMessage:
         Returns dict with 'role', 'status', and 'content' (list of storage-format blocks).
         Content blocks use each item's to_storage_dict() for the cx_message.content JSONB.
         """
-        content_storage_dicts = [
-            content.to_storage_dict()
-            for content in self.content
-            if not (isinstance(content, TextContent) and content.is_ephemeral_only())
-        ]
+        content_storage_dicts = [content.to_storage_dict() for content in self.content]
         # vcprint(
         #     content_storage_dicts,
         #     "[UnifiedMessage] Content Storage Dicts",
@@ -832,59 +855,6 @@ class UnifiedMessage:
                 if piece:
                     parts.append(piece)
         return "\n\n".join(parts)
-
-    def attach_ephemeral(self, block: str, *, slot: str = "default") -> None:
-        """Stage a platform block in front of this message's first TextContent.
-
-        The block lands before the user's text, inside the ``<turn_context>``
-        provenance frame (see TextContent.attach_ephemeral). ``slot`` names an
-        independent block so multiple per-turn contributors accumulate instead of
-        overwriting each other. If no TextContent exists, one is created and
-        appended to the content list.
-        """
-        leased_item = getattr(self, "_ephemeral_text_content", None)
-        if isinstance(leased_item, TextContent) and any(
-            item is leased_item for item in self.content
-        ):
-            leased_item.attach_ephemeral(block, slot=slot)
-            return
-        for item in self.content:
-            if isinstance(item, TextContent):
-                item.attach_ephemeral(block, slot=slot)
-                setattr(self, "_ephemeral_text_content", item)
-                return
-        new_tc = TextContent(text="")
-        new_tc.attach_ephemeral(block, slot=slot, synthetic_carrier=True)
-        self.content.append(new_tc)
-        setattr(self, "_ephemeral_text_content", new_tc)
-
-    def detach_ephemeral(self) -> None:
-        """Remove the ephemeral block from this message's first TextContent."""
-        had_leased_item = hasattr(self, "_ephemeral_text_content")
-        leased_item = getattr(self, "_ephemeral_text_content", None)
-        if had_leased_item:
-            delattr(self, "_ephemeral_text_content")
-        if isinstance(leased_item, TextContent):
-            for index, item in enumerate(self.content):
-                if item is leased_item:
-                    if item.detach_ephemeral():
-                        self.content.pop(index)
-                    return
-        if had_leased_item:
-            return
-        for item in self.content:
-            if isinstance(item, TextContent):
-                item.detach_ephemeral()
-                return
-
-    def is_ephemeral_only(self) -> bool:
-        """True when this message exists solely to carry transient context."""
-        if not getattr(self, "_ephemeral_synthetic_message", False):
-            return False
-        return not any(
-            not (isinstance(content, TextContent) and content.is_ephemeral_only())
-            for content in self.content
-        )
 
     def strip_keep_fresh_blocks(self) -> list[UnifiedContent]:
         """Remove all keep_fresh=True structured input blocks from this message's content.
@@ -1021,6 +991,14 @@ class MessageList:
         repr=False,
         compare=False,
     )
+    # THE CONTEXT CHANNEL: per-turn platform blocks, by slot. Never a message,
+    # never persisted, rebuilt every turn. Rendered by render_turn_context().
+    _turn_context_blocks: dict[str, str] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self):
         """Normalize messages - convert dicts to UnifiedMessage objects."""
@@ -1124,58 +1102,53 @@ class MessageList:
         """Count messages with the given role."""
         return sum(1 for msg in self._messages if msg.role == role)
 
-    def attach_ephemeral_to_last_user(self, block: str, *, slot: str = "default") -> None:
-        """Stage a platform block in front of the last user message.
+    def attach_turn_context(self, block: str, *, slot: str = "default") -> None:
+        """Stage one per-turn platform block in the CONTEXT CHANNEL.
 
-        The block is placed before the user's text, inside the ``<turn_context>``
-        provenance frame, so the user's actual request stays last and stays the only
-        thing the model reads as the user speaking. If no user message exists, a
-        runtime-only one is created.
+        The block does NOT enter any message. It is held on the list for this
+        turn only and rendered into the provider's system channel by
+        ``BaseTranslator.get_system_text`` (Anthropic sends it as a second,
+        uncached system block so the cached prefix is untouched).
 
-        ``slot`` names an independent block: separate contributors (context engine,
-        deferred-context manifest, skills, observational memory, safety notes) must
-        each pass their own slot, or a later one silently deletes an earlier one's
-        instructions. Reversible via detach_ephemeral_from_last_user(); synthetic
-        carriers are omitted from storage even if persistence runs before detachment.
+        ``slot`` names an independent block: separate contributors (context
+        engine, deferred-context manifest, skills, observational memory, safety
+        notes, sandbox briefing, attachments) must each pass their own slot, or
+        a later one silently deletes an earlier one's material. Re-attaching the
+        same slot replaces only that slot. An empty ``block`` clears its slot.
+
+        🚨 THE PERSON'S TURN IS THE PERSON'S ALONE. This used to concatenate the
+        block into the last user message's text behind a frame that told the
+        model the user had not written it. See the header of
+        ``matrx_ai/config/unified_content.py`` for the interview turn that
+        proves why no wording can make that safe.
         """
-        if not block:
-            return
-        last_user = getattr(self, "_ephemeral_user_message", None)
-        if not isinstance(last_user, UnifiedMessage) or not any(
-            message is last_user for message in self._messages
-        ):
-            last_user = self.get_last_by_role(Role.USER)
-        if last_user is None:
-            last_user = UnifiedMessage(role=Role.USER, content=[])
-            setattr(last_user, "_ephemeral_synthetic_message", True)
-            self._messages.append(last_user)
-        last_user.attach_ephemeral(block, slot=slot)
-        setattr(self, "_ephemeral_user_message", last_user)
+        blocks = self._turn_context_blocks
+        if block:
+            blocks[slot] = block
+        else:
+            blocks.pop(slot, None)
 
-    def detach_ephemeral_from_last_user(self) -> None:
-        """Remove the ephemeral block from the last user message."""
-        had_leased_message = hasattr(self, "_ephemeral_user_message")
-        last_user = getattr(self, "_ephemeral_user_message", None)
-        if had_leased_message:
-            delattr(self, "_ephemeral_user_message")
-        leased_message_is_present = isinstance(last_user, UnifiedMessage) and any(
-            message is last_user for message in self._messages
-        )
-        if had_leased_message and not leased_message_is_present:
-            return
-        if not leased_message_is_present:
-            last_user = self.get_last_by_role(Role.USER)
-        if last_user is not None:
-            last_user.detach_ephemeral()
-            if getattr(last_user, "_ephemeral_synthetic_message", False):
-                delattr(last_user, "_ephemeral_synthetic_message")
-                if not last_user.content:
-                    self._messages.remove(last_user)
+    def clear_turn_context(self) -> None:
+        """Drop every staged per-turn block (called at the end of a turn)."""
+        self._turn_context_blocks.clear()
+
+    def render_turn_context(self) -> str | None:
+        """The staged blocks as ONE framed system-channel section, or None.
+
+        The frame names the platform as the author and says plainly that the
+        person cannot see it — and it never asks the model to "ignore" or "not
+        respond to" anything, because a model told to dispose of something in
+        its answer will say so out loud to the person.
+        """
+        body = "\n\n".join(b for b in self._turn_context_blocks.values() if b)
+        if not body:
+            return None
+        return "\n".join((TURN_CONTEXT_OPEN, TURN_CONTEXT_NOTE, "", body, TURN_CONTEXT_CLOSE))
 
     def merge_metadata_into_last_user(self, updates: dict[str, Any]) -> None:
         """Shallow-merge ``updates`` into the last user message's metadata.
 
-        Unlike the ephemeral text block (which is stripped before persistence),
+        Unlike the per-turn context channel (which never enters a message),
         message metadata IS persisted to cx_message.metadata and round-trips via
         from_cx_message. Use this to durably record per-turn facts ABOUT the user
         message (e.g. the context manifest that was presented) without touching
@@ -2032,6 +2005,11 @@ def _iter_user_content(messages: Any):
 
 
 def _content_role(content: Any) -> str | None:
+    # The TYPED image reference role (ImageContent.role) wins: a roled image is
+    # never "the un-tagged image" a translator treats as its generic input.
+    typed = getattr(content, "role", None)
+    if isinstance(typed, str) and typed:
+        return typed
     meta = getattr(content, "metadata", None)
     if not isinstance(meta, dict):
         return None

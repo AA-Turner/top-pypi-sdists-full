@@ -1238,3 +1238,34 @@ def test_resolve_plan_task_id_stale_trusted_id_dropped_after_plan_reshape():
     resolve_plan_task_id({"headers": {"toolcallplantaskid": "step-b"}}, task)
     task.deep_planning.tasks = [SimpleNamespace(id="step-a", completed=False)]
     assert resolve_plan_task_id({}, task) == "step-a"
+
+
+
+
+def test_is_agent_gateway_task_stays_header_only_for_a_direct_turn():
+    """The gateway-only exclusions (reasoning tools) must not fire on a direct conversation turn."""
+    task = SimpleNamespace(payload_extension=None, conversation_id="conv-1")
+    assert is_agent_gateway_task(task) is False
+
+
+def test_is_chat_turn_task_covers_direct_turns_and_gateway_children():
+    from xpander_sdk.modules.backend.utils.tool_call_events import is_chat_turn_task
+
+    assert is_chat_turn_task(SimpleNamespace(payload_extension=None, conversation_id="conv-1")) is True
+    assert is_chat_turn_task(_make_gateway_task()) is True
+    assert is_chat_turn_task(_make_fake_task(payload_extension=None)) is False
+
+
+def test_direct_inline_app_turn_keeps_reasoning_tools():
+    from xpander_sdk.modules.backend.frameworks.agno import _should_use_reasoning_tools
+
+    agent = SimpleNamespace(agno_settings=SimpleNamespace(reasoning_tools_enabled=True))
+    direct = SimpleNamespace(
+        payload_extension=None, conversation_id="conv-1", is_app=True, should_update_parent=False, source="email"
+    )
+    assert _should_use_reasoning_tools(agent, direct) is True
+    gateway_child = SimpleNamespace(
+        payload_extension={"headers": {"x-is-from-agent-gateway": "true"}},
+        conversation_id=None, is_app=True, should_update_parent=False, source=None,
+    )
+    assert _should_use_reasoning_tools(agent, gateway_child) is False

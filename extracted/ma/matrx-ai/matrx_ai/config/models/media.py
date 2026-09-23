@@ -62,6 +62,7 @@ class ImageContentModel(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     width: int | None = None
     height: int | None = None
+    role: str | None = None
     vision_class: str | None = None
     resolved_url: str | None = None
     file_size: int | None = None

@@ -668,6 +668,15 @@ def add_hive_metastore(ctx, database, name, **kwargs):
     prompt_if_requested=True,
 )
 @click.option("--catalog", help="Mount point to access data source.", required=False)
+@click.option(
+    "--metadata-catalog-id",
+    help="Name of the catalog in the metadata store (e.g. the AWS Glue "
+    "federated catalog name, like s3tablescatalog/<table-bucket>) when it "
+    "differs from the Trino mount name given in --catalog.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["catalog"],
+)
 @click.option("--schema", help="Schema to access.", required=False)
 @click.option(
     "--http-scheme",
@@ -1217,8 +1226,10 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
 )
 @click.option(
     "--bq-project-id",
-    help="BigQuery project ID for running queries. "
-    "Required for BigQuery connections with self-hosted credentials.",
+    help="Optional BigQuery project ID for running queries, "
+    "defaulting to the service account's project. When omitted, the "
+    "collector discovers all projects the service account can access. "
+    "Setting it limits collection to that project.",
     required=False,
 )
 @click.option(

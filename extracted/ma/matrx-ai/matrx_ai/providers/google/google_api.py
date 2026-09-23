@@ -454,6 +454,10 @@ class GoogleChat:
                             for part in cand.content.parts:
                                 await self._handle_part(part, emitter, unified_config.audio_format)
 
+            if is_tts:
+                from matrx_ai.speech.compile import attach_script_to_audio
+
+                attach_script_to_audio(converted_response, unified_config)
             return converted_response
 
         except Exception as e:

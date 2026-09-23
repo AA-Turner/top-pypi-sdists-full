@@ -18,7 +18,7 @@ from .normalize_scheme import DEFAULT_SCHEME, normalize_scheme
 from .normalize_userinfo import normalize_userinfo
 from .provide_url_domain import provide_url_domain
 from .provide_url_scheme import provide_url_scheme
-from .tools import deconstruct_url, reconstruct_url
+from .tools import cleanup_url_input, deconstruct_url, reconstruct_url
 
 
 def url_normalize(  # noqa: PLR0913
@@ -38,12 +38,12 @@ def url_normalize(  # noqa: PLR0913
     browsers handle data entered by the user:
 
     >>> url_normalize('http://de.wikipedia.org/wiki/Elf (Begriffsklärung)')
-    'http://de.wikipedia.org/wiki/Elf%20%28Begriffskl%C3%A4rung%29'
+    'http://de.wikipedia.org/wiki/Elf%20(Begriffskl%C3%A4rung)'
 
     Params:
         url : str | None : URL to normalize
         charset : str : optional
-            The target charset for the URL if the url was given as unicode string
+            Retained for compatibility. Unicode characters use UTF-8 percent encoding.
         default_scheme : str : default scheme to use if none present
         default_domain : str | None : optional
             Default domain to use for absolute paths (starting with '/')
@@ -56,6 +56,8 @@ def url_normalize(  # noqa: PLR0913
         str | None : a normalized url
 
     """
+    if url is not None:
+        url = cleanup_url_input(url)
     if not url:
         return url
     url = provide_url_domain(url, default_domain)
@@ -63,9 +65,11 @@ def url_normalize(  # noqa: PLR0913
     url = generic_url_cleanup(url)
     url_elements = deconstruct_url(url)
     url_elements = url_elements._replace(
+        host=normalize_host(url_elements.host, charset)
+    )
+    url_elements = url_elements._replace(
         scheme=normalize_scheme(url_elements.scheme),
         userinfo=normalize_userinfo(url_elements.userinfo),
-        host=normalize_host(url_elements.host, charset),
         query=normalize_query(
             url_elements.query,
             host=url_elements.host,

@@ -9,7 +9,7 @@ from dbt_bouncer.enums import Criteria
 from dbt_bouncer.utils import get_clean_model_name
 
 
-@check
+@check(code="MO028")
 def check_model_depends_on_macros(
     model,
     *,
@@ -54,29 +54,29 @@ def check_model_depends_on_macros(
         (".").join(m.split(".")[1:])
         for m in getattr(model.depends_on, "macros", []) or []
     ]
-    if criteria == Criteria.ANY:
-        if not any(macro in upstream_macros for macro in required_macros):
+    match criteria:
+        case Criteria.ANY:
+            if not any(macro in upstream_macros for macro in required_macros):
+                fail(
+                    f"`{get_clean_model_name(model.unique_id)}` does not depend on any of the required macros: {required_macros}."
+                )
+        case Criteria.ALL:
+            missing_macros = [
+                macro for macro in required_macros if macro not in upstream_macros
+            ]
+            if missing_macros:
+                fail(
+                    f"`{get_clean_model_name(model.unique_id)}` is missing required macros: {missing_macros}."
+                )
+        case Criteria.ONE if (
+            sum(macro in upstream_macros for macro in required_macros) != 1
+        ):
             fail(
-                f"`{get_clean_model_name(model.unique_id)}` does not depend on any of the required macros: {required_macros}."
+                f"`{get_clean_model_name(model.unique_id)}` must depend on exactly one of the required macros: {required_macros}."
             )
-    elif criteria == Criteria.ALL:
-        missing_macros = [
-            macro for macro in required_macros if macro not in upstream_macros
-        ]
-        if missing_macros:
-            fail(
-                f"`{get_clean_model_name(model.unique_id)}` is missing required macros: {missing_macros}."
-            )
-    elif (
-        criteria == Criteria.ONE
-        and sum(macro in upstream_macros for macro in required_macros) != 1
-    ):
-        fail(
-            f"`{get_clean_model_name(model.unique_id)}` must depend on exactly one of the required macros: {required_macros}."
-        )
 
 
-@check
+@check(code="MO029")
 def check_model_depends_on_multiple_sources(model):
     """Models cannot reference more than one source.
 
@@ -111,7 +111,96 @@ def check_model_depends_on_multiple_sources(model):
         )
 
 
-@check
+@check(code="MO048")
+def check_model_does_not_directly_join_to_source(model):
+    """Models cannot reference a source and a model at the same time.
+
+    !!! info "Rationale"
+
+        A model that joins raw source data directly to an already-transformed model mixes two levels of abstraction in one place. The source side bypasses the staging layer, so the renaming, casting, and cleaning applied to every other consumer of that source is silently skipped. Routing every source through a staging model first keeps raw-data handling in exactly one place and makes the lineage graph read consistently from raw to curated.
+
+    Receives:
+        model (ModelNode): The ModelNode object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
+        materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_model_does_not_directly_join_to_source
+        ```
+
+    """
+    # Only parents with a `model` resource type count as the curated side of the
+    # join, matching dbt-project-evaluator's `fct_direct_join_to_source`. Seed and
+    # snapshot parents are deliberately not counted.
+    upstream_nodes = getattr(model.depends_on, "nodes", []) or []
+    reffed_sources = [n for n in upstream_nodes if n.split(".")[0] == "source"]
+    reffed_models = [n for n in upstream_nodes if n.split(".")[0] == "model"]
+
+    if reffed_sources and reffed_models:
+        fail(
+            f"`{get_clean_model_name(model.unique_id)}` references both a source ({sorted(reffed_sources)}) and a model ({sorted(reffed_models)}), i.e. it joins directly to a source instead of via a staging model."
+        )
+
+
+@check(code="MO049")
+def check_model_does_not_rejoin_upstream_concepts(model, ctx):
+    """Models cannot join back to an upstream concept that one of their other parents already depends on.
+
+    !!! info "Rationale"
+
+        A rejoin happens when a model reads from both a parent `B` and one of `B`'s own parents `A`. If `B` exists only to feed this model, then `A`'s columns are being pulled in twice by two different routes, and the two paths can drift apart as the logic evolves. Collapsing `B` into its only consumer — or having that consumer read solely from `B` — keeps each concept entering the model exactly once and makes the lineage graph honest about what depends on what.
+
+    Receives:
+        model (ModelNode): The ModelNode object to check.
+        models (list[ModelNode]): List of ModelNode objects parsed from `manifest.json`.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
+        materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_model_does_not_rejoin_upstream_concepts
+        ```
+
+    """
+    models_by_id = (
+        ctx.models_by_unique_id
+        if ctx.models_by_unique_id
+        else {m.unique_id: m for m in ctx.models}
+    )
+
+    parents = set(getattr(model.depends_on, "nodes", []) or [])
+
+    for parent_id in sorted(parents):
+        parent = models_by_id.get(parent_id)
+        if parent is None:
+            continue
+
+        shared_ancestors = set(getattr(parent.depends_on, "nodes", []) or []) & parents
+        if not shared_ancestors:
+            continue
+
+        # Only a rejoin worth flagging when the intermediate parent exists solely
+        # to feed this model; if it has other consumers it is a shared concept.
+        if len(ctx.children_by_unique_id.get(parent_id, [])) == 1:
+            fail(
+                f"`{get_clean_model_name(model.unique_id)}` references `{get_clean_model_name(parent_id)}` and also references {sorted(get_clean_model_name(a) for a in shared_ancestors)}, which `{get_clean_model_name(parent_id)}` already depends on."
+            )
+
+
+@check(code="MO030")
 def check_model_has_exposure(model, ctx):
     """Models must have an exposure.
 
@@ -151,7 +240,7 @@ def check_model_has_exposure(model, ctx):
         )
 
 
-@check
+@check(code="MO031")
 def check_model_has_no_upstream_dependencies(model):
     """Identify if models have no upstream dependencies as this likely indicates hard-coded tables references.
 
@@ -186,7 +275,7 @@ def check_model_has_no_upstream_dependencies(model):
         )
 
 
-@check
+@check(code="MO032")
 def check_model_materialization_by_fanout(
     model,
     ctx,
@@ -247,12 +336,79 @@ def check_model_materialization_by_fanout(
         )
 
 
-@check
+def _upstream_model_ids(model_obj, pkg_name):
+    """Return the unique_ids of a model's upstream models in ``pkg_name``.
+
+    Returns:
+        list[str]: Upstream model unique_ids in the given package.
+
+    """
+    if model_obj is None or not model_obj.depends_on:
+        return []
+    upstream_nodes = list(getattr(model_obj.depends_on, "nodes", []) or [])
+    # Node ids have the form `model.<package>.<name>`; the trailing dot anchors
+    # the package boundary so `pkg` does not match `pkg_extra`.
+    prefix = f"model.{pkg_name}."
+    return [node_id for node_id in upstream_nodes if node_id.startswith(prefix)]
+
+
+def _is_view_model(model_obj, materializations):
+    """Return whether a model is materialized as one of ``materializations``.
+
+    Returns:
+        bool: True if the model's materialization is in ``materializations``.
+
+    """
+    return bool(
+        model_obj
+        and model_obj.config
+        and model_obj.config.materialized in materializations
+    )
+
+
+def _upstream_view_models(
+    models_by_id,
+    materializations,
+    max_views,
+    model_unique_ids_to_check,
+    pkg_name,
+    depth=0,
+):
+    """Return unique_ids of upstream models that are views, up to ``max_views`` deep.
+
+    Recurse one level per call. Stop at ``max_views`` depth, or when no upstream
+    view models remain.
+
+    Returns:
+        list[str]: Upstream model unique_ids that are views.
+
+    """
+    if depth == max_views or model_unique_ids_to_check == []:
+        return model_unique_ids_to_check
+
+    relevant_upstream_models = [
+        upstream_id
+        for model_id in model_unique_ids_to_check
+        for upstream_id in _upstream_model_ids(models_by_id.get(model_id), pkg_name)
+        if _is_view_model(models_by_id.get(upstream_id), materializations)
+    ]
+
+    return _upstream_view_models(
+        models_by_id=models_by_id,
+        materializations=materializations,
+        max_views=max_views,
+        model_unique_ids_to_check=relevant_upstream_models,
+        pkg_name=pkg_name,
+        depth=depth + 1,
+    )
+
+
+@check(code="MO033")
 def check_model_max_chained_views(
     model,
     ctx,
     *,
-    materializations_to_include: list[str] = ["ephemeral", "view"],  # noqa: B006
+    materializations_to_include: list[str] = ["ephemeral", "view"],  # ruff: ignore[mutable-argument-default]
     max_chained_views: Annotated[int, Field(gt=0)] = 3,
     package_name: str | None = None,
 ):
@@ -301,69 +457,20 @@ def check_model_max_chained_views(
         else {m.unique_id: m for m in ctx.models}
     )
 
-    def return_upstream_view_models(
-        materializations, max_views, model_unique_ids_to_check, pkg_name, depth=0
-    ):
-        """Recursive function to return model unique_id's of upstream models that are views.
-
-        Returns:
-            list[str]: List of model unique_id's of upstream models that are views.
-
-        """
-        if depth == max_views or model_unique_ids_to_check == []:
-            return model_unique_ids_to_check
-
-        relevant_upstream_models = []
-        for model_id in model_unique_ids_to_check:
-            model_obj = models_by_id.get(model_id)
-            if model_obj is None:
-                continue
-            upstream_nodes = (
-                list(getattr(model_obj.depends_on, "nodes", []) or [])
-                if model_obj.depends_on
-                else []
-            )
-            if upstream_nodes != []:
-                upstream_models = [
-                    m
-                    for m in upstream_nodes
-                    if m.split(".")[0] == "model" and m.split(".")[1] == pkg_name
-                ]
-                for i in upstream_models:
-                    upstream_obj = models_by_id.get(i)
-                    if (
-                        upstream_obj
-                        and upstream_obj.config
-                        and upstream_obj.config.materialized in materializations
-                    ):
-                        relevant_upstream_models.append(i)
-
-        depth += 1
-        return return_upstream_view_models(
-            materializations=materializations,
-            max_views=max_views,
-            model_unique_ids_to_check=relevant_upstream_models,
-            pkg_name=pkg_name,
-            depth=depth,
-        )
-
-    if (
-        len(
-            return_upstream_view_models(
-                materializations=materializations_to_include,
-                max_views=max_chained_views,
-                model_unique_ids_to_check=[model.unique_id],
-                pkg_name=(package_name or manifest_obj.manifest.metadata.project_name),
-            )
-        )
-        != 0
-    ):
+    chained_views = _upstream_view_models(
+        models_by_id=models_by_id,
+        materializations=materializations_to_include,
+        max_views=max_chained_views,
+        model_unique_ids_to_check=[model.unique_id],
+        pkg_name=(package_name or manifest_obj.manifest.metadata.project_name),
+    )
+    if chained_views:
         fail(
             f"`{get_clean_model_name(model.unique_id)}` has more than {max_chained_views} upstream dependents that are not tables."
         )
 
 
-@check
+@check(code="MO034")
 def check_model_max_fanout(
     model, ctx, *, max_downstream_models: Annotated[int, Field(gt=0)] = 3
 ):
@@ -403,7 +510,7 @@ def check_model_max_fanout(
         )
 
 
-@check
+@check(code="MO035")
 def check_model_max_upstream_dependencies(
     model,
     *,
@@ -462,4 +569,58 @@ def check_model_max_upstream_dependencies(
     if num_upstream_sources > max_upstream_sources:
         fail(
             f"`{get_clean_model_name(model.unique_id)}` has {num_upstream_sources} upstream sources, which is more than the permitted maximum of {max_upstream_sources}."
+        )
+
+
+@check(code="MO050")
+def check_model_min_downstream_models(
+    model, ctx, *, min_number_of_models: Annotated[int, Field(gt=0)] = 1
+):
+    """Models must be referenced by at least the specified number of downstream models.
+
+    !!! info "Rationale"
+
+        A model that nothing downstream references is dead weight: it still has to be built, tested, and understood on every run, but nothing consumes its output. Dead models usually accumulate after a mart is retired or a refactor leaves an intermediate model stranded. Flagging them prompts the team to either wire the model back into the lineage graph or delete it.
+
+        Downstream **models** and **snapshots** both count as consumers, since both build on top of the model. Tests and unit tests do not, as they do not make a model useful to anyone. The final layer of a project legitimately has no downstream models, so pair this check with `include`/`exclude` to scope it to the layers where a consumer is expected. To assert that final-layer models are consumed by something outside dbt, use `check_model_has_exposure` instead.
+
+    Parameters:
+        min_number_of_models (int): Minimum number of models and snapshots that must reference the model. Must be greater than 0.
+
+    Receives:
+        model (ModelNode): The ModelNode object to check.
+        models (list[ModelNode]): List of ModelNode objects parsed from `manifest.json`.
+        snapshots (list[SnapshotNode]): List of SnapshotNode objects parsed from `manifest.json`.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
+        materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_model_min_downstream_models
+              exclude: ^models/marts
+        ```
+        ```yaml
+        manifest_checks:
+            - name: check_model_min_downstream_models
+              include: ^models/staging
+              min_number_of_models: 2
+        ```
+
+    """
+    # children_by_unique_id is derived from ctx.models only, so snapshot consumers
+    # have to be counted separately or a model feeding only a snapshot reads as dead.
+    num_downstream = len(ctx.children_by_unique_id.get(model.unique_id, [])) + sum(
+        model.unique_id in (getattr(s.depends_on, "nodes", []) or [])
+        for s in ctx.snapshots
+    )
+
+    if num_downstream < min_number_of_models:
+        fail(
+            f"`{get_clean_model_name(model.unique_id)}` is referenced by {num_downstream} downstream model(s)/snapshot(s), fewer than the minimum of {min_number_of_models}."
         )

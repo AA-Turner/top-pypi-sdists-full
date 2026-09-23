@@ -48,6 +48,10 @@ class ReplicateImageGeneration(BaseMediaGeneration):
             "input": descriptor.build_input(unified_config, profile.controls),
         }
 
+    def image_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        descriptor = get_descriptor(unified_config.model or "")
+        return frozenset(descriptor.role_keys) if descriptor else frozenset()
+
     def _apply_minor_image_overrides(
         self, kwargs: dict[str, Any], unified_config: UnifiedConfig, profile: Any
     ) -> None:

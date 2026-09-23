@@ -27,15 +27,17 @@ from hatchling.builders.utils import get_reproducible_timestamp
 from packaging.requirements import Requirement
 
 if TYPE_CHECKING:
+    from email.message import Message
     from importlib.metadata import Distribution, PackageMetadata
 
     from hatchling.metadata.core import CoreMetadata
+    from packaging.specifiers import Specifier
 
 _ROOT: Final[Path] = Path(__file__).resolve().parent
 _EMBED: Final[Path] = _ROOT / "src" / "virtualenv" / "seed" / "wheels" / "embed"
 _REPOSITORY: Final[str] = "https://github.com/pypa/virtualenv"
-_SBOM_NAMESPACE: Final[uuid.UUID] = uuid.uuid5(uuid.NAMESPACE_URL, f"{_REPOSITORY}/sboms")
-_PYPA: Final[dict[str, Any]] = {"name": "Python Packaging Authority", "url": ["https://www.pypa.io"]}
+SBOM_NAMESPACE: Final[uuid.UUID] = uuid.uuid5(uuid.NAMESPACE_URL, f"{_REPOSITORY}/sboms")
+PYPA: Final[dict[str, Any]] = {"name": "Python Packaging Authority", "url": ["https://www.pypa.io"]}
 # the label normalization and mapping cyclonedx-py applies to Project-URL entries, plus "source", so the same
 # metadata yields the same reference types whichever generator produced the document
 _URL_LABEL_TO_REFERENCE_TYPE: Final[dict[str, str]] = {
@@ -82,10 +84,11 @@ class SbomBuildHook(BuildHookInterface):
     described from its own ``METADATA`` and ``RECORD`` and hashed from its bytes, so a wheel bump needs no separate SBOM
     update.
 
-    The document also records the build environment (interpreter, OS, every distribution in the isolated build env with
-    its files and the dependency graph between them), which PEP 770 calls out as what a third party needs to verify
-    build reproducibility, plus the source revision when known. Release attestations identify the CI run without
-    introducing run-specific values into the wheel.
+    The document also records the build toolchain (the Python version, every distribution in the isolated build env with
+    the files of the pure-Python ones, and the dependency graph between them), which PEP 770 calls out as what a third
+    party needs to verify build reproducibility, plus the source revision when known. Nothing about the build machine
+    goes in, so a rebuild with the same toolchain on another OS or architecture produces the same wheel; release
+    attestations identify the CI run and the builder instead.
 
     """
 
@@ -109,15 +112,15 @@ def _cyclonedx_document(core: CoreMetadata, version: str) -> dict[str, Any]:
     root = _root_component(core, version)
     bundled = [_bundled_component(wheel) for wheel in sorted(_EMBED.glob("*.whl"))]
     declared = [_declared_dependency(requirement) for requirement in core.dependencies]
-    tools, tool_dependencies = _build_tools(version)
+    tools, tool_dependencies = build_tools(version)
     body = {
         "metadata": {
-            "timestamp": _timestamp(),
+            "timestamp": timestamp(),
             "lifecycles": [{"phase": "build"}],
             "tools": {"components": tools},
-            "manufacturer": _PYPA,
+            "manufacturer": PYPA,
             "authors": _contacts(core.maintainers_data["name"], core.maintainers_data["email"]),
-            "supplier": _PYPA,
+            "supplier": PYPA,
             "component": root,
             "licenses": [{"expression": core.license_expression, "acknowledgement": "declared"}],
             "properties": [
@@ -132,6 +135,11 @@ def _cyclonedx_document(core: CoreMetadata, version: str) -> dict[str, Any]:
         "components": [*bundled, *declared],
         "dependencies": [
             {"ref": root["bom-ref"], "dependsOn": [component["bom-ref"] for component in [*bundled, *declared]]},
+            *(
+                {"ref": component["bom-ref"], "dependsOn": references}
+                for component in bundled
+                if (references := [child["bom-ref"] for child in component["components"] if child["type"] == "library"])
+            ),
             *tool_dependencies,
         ],
         # transitive runtime dependencies are unknown until install time
@@ -143,7 +151,7 @@ def _cyclonedx_document(core: CoreMetadata, version: str) -> dict[str, Any]:
         "bomFormat": "CycloneDX",
         "specVersion": "1.6",
         # derived from the content so identical documents share a serial and any difference gets a new one
-        "serialNumber": f"urn:uuid:{uuid.uuid5(_SBOM_NAMESPACE, json.dumps(body, sort_keys=True))}",
+        "serialNumber": f"urn:uuid:{uuid.uuid5(SBOM_NAMESPACE, json.dumps(body, sort_keys=True))}",
         "version": 1,
         **body,
     }
@@ -173,7 +181,7 @@ def _root_component(core: CoreMetadata, version: str) -> dict[str, Any]:
     return {
         "type": "application",
         "bom-ref": purl,
-        "supplier": _PYPA,
+        "supplier": PYPA,
         "authors": _contacts(core.maintainers_data["name"], core.maintainers_data["email"]),
         "name": core.name,
         "version": version,
@@ -213,12 +221,36 @@ def _contacts(names: list[str], addresses: list[str]) -> list[dict[str, str]]:
 
 def _bundled_component(wheel: Path) -> dict[str, Any]:
     with zipfile.ZipFile(wheel) as archive:
-        metadata_name = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
+        members: Final[list[str]] = sorted(archive.namelist())
+        metadata_name: Final[str] = next(
+            name for name in members if name.count("/") == 1 and name.endswith(".dist-info/METADATA")
+        )
         metadata = Parser().parsestr(archive.read(metadata_name).decode("utf-8"))
         record = archive.read(metadata_name.replace("METADATA", "RECORD")).decode("utf-8")
-    component = _component_from_metadata(metadata, "library")
+        vendored_metadata: Final[list[tuple[str, Message]]] = []
+        for name in members:
+            if not name.endswith("/_vendor/vendor.txt"):
+                continue
+            for line in archive.read(name).decode("utf-8").splitlines():
+                if not (requirement := line.partition("#")[0].strip()):
+                    continue
+                parsed: Final[Requirement] = Requirement(requirement)
+                pins: Final[list[Specifier]] = list(parsed.specifier)
+                if len(pins) != 1 or pins[0].operator != "==" or "*" in pins[0].version:
+                    msg: Final[str] = f"Unpinned vendored dependency in {wheel.name}:{name}: {requirement}"
+                    raise ValueError(msg)
+                vendored_metadata.append((
+                    name,
+                    Parser().parsestr(f"Name: {parsed.name}\nVersion: {pins[0].version}\n"),
+                ))
+        vendored_metadata.extend(
+            (name, Parser().parsestr(archive.read(name).decode("utf-8")))
+            for name in members
+            if "/_vendor/" in name and name.endswith(".dist-info/METADATA")
+        )
+    component = component_from_metadata(metadata, "library")
     if any(reference["url"].startswith("https://github.com/pypa/") for reference in component["externalReferences"]):
-        component["supplier"] = _PYPA
+        component["supplier"] = PYPA
     sha256 = hashlib.sha256(wheel.read_bytes()).hexdigest()
     component["hashes"] = [{"alg": "SHA-256", "content": sha256}]
     component["externalReferences"].append(
@@ -252,10 +284,26 @@ def _bundled_component(wheel: Path) -> dict[str, Any]:
         for path, digest, size in (row for row in csv.reader(StringIO(record, newline="")) if row)
         if digest
     ]
+    vendored_components: Final[dict[str, dict[str, Any]]] = {}
+    for source, vendored in vendored_metadata:
+        child: Final[dict[str, Any]] = component_from_metadata(vendored, "library")
+        child["bom-ref"] = f"{component['bom-ref']}#vendored/{child['purl']}"
+        child["properties"].append({"name": "virtualenv:vendored-manifest", "value": source})
+        child["evidence"] = {
+            "identity": [
+                {
+                    "field": "purl",
+                    "confidence": 1,
+                    "methods": [{"technique": "manifest-analysis", "confidence": 1, "value": source}],
+                }
+            ],
+        }
+        vendored_components[child["purl"]] = child
+    component["components"].extend(vendored_components[key] for key in sorted(vendored_components))
     return component
 
 
-def _component_from_metadata(metadata: PackageMetadata, component_type: str) -> dict[str, Any]:
+def component_from_metadata(metadata: PackageMetadata, component_type: str) -> dict[str, Any]:
     name, version = metadata["Name"], metadata["Version"]
     purl = _purl(name, version)
     component: dict[str, Any] = {
@@ -339,7 +387,7 @@ def _declared_dependency(requirement: str) -> dict[str, Any]:
     return component
 
 
-def _build_tools(package_version: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def build_tools(package_version: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     hook = Path(__file__)
     interpreter = f"pkg:generic/{sys.implementation.name}@{platform.python_version()}"
     tools = [
@@ -356,57 +404,36 @@ def _build_tools(package_version: str) -> tuple[list[dict[str, Any]], list[dict[
             "bom-ref": f"tool:{interpreter}",
             "name": sys.implementation.name,
             "version": platform.python_version(),
-            "description": sys.version,
             "purl": interpreter,
-            "properties": [
-                {"name": "python:implementation", "value": platform.python_implementation()},
-                {"name": "python:compiler", "value": platform.python_compiler()},
-                # GraalPy may omit the build date instead of returning an empty string.
-                {"name": "python:build", "value": " ".join(part for part in platform.python_build() if part)},
-            ],
+            "properties": [{"name": "python:implementation", "value": platform.python_implementation()}],
         },
-        _operating_system(),
     ]
     # bom-refs are prefixed because the same distribution can be both a build tool and a bundled component
     installed = {_purl(distribution.metadata["Name"]): distribution for distribution in distributions()}
     tool_dependencies = []
     for distribution in (installed[key] for key in sorted(installed)):
-        component = _component_from_metadata(distribution.metadata, "library")
+        component = component_from_metadata(distribution.metadata, "library")
         component["bom-ref"] = f"tool:{component['purl']}"
-        component["components"] = [
-            _file_component(
-                component["bom-ref"], file.as_posix(), f"{file.hash.mode}={file.hash.value}", str(file.size)
-            )
-            for file in distribution.files or []
-            # console-script launchers live outside site-packages and embed the build env's interpreter path in
-            # their shebang, so their hash differs on every build and says nothing about the distribution
-            if file.hash is not None and not file.as_posix().startswith("../")
-        ]
+        # a platform wheel installs files built for the build machine's OS and architecture, so listing them would
+        # tie the document to that machine
+        if Parser().parsestr(distribution.read_text("WHEEL") or "")["Root-Is-Purelib"] == "true":
+            component["components"] = [
+                _file_component(
+                    component["bom-ref"], file.as_posix(), f"{file.hash.mode}={file.hash.value}", str(file.size)
+                )
+                for file in distribution.files or []
+                # console-script launchers live outside site-packages and embed the build env's interpreter path in
+                # their shebang, so their hash differs on every build and says nothing about the distribution; the
+                # installer metadata names the build frontend that set up the env rather than the distribution
+                if file.hash is not None
+                and not file.as_posix().startswith("../")
+                and not (
+                    file.parent.suffix == ".dist-info" and file.name in {"INSTALLER", "REQUESTED", "direct_url.json"}
+                )
+            ]
         tools.append(component)
         tool_dependencies.append({"ref": component["bom-ref"], "dependsOn": _depends_on(distribution, installed)})
     return tools, tool_dependencies
-
-
-def _operating_system() -> dict[str, Any]:
-    component: dict[str, Any] = {
-        "type": "operating-system",
-        "bom-ref": f"tool:os:{platform.system()}@{platform.release()}",
-        "name": platform.system(),
-        "version": platform.release(),
-        "description": platform.platform(),
-        "properties": [
-            {"name": "machine", "value": platform.machine()},
-            {"name": "kernel-version", "value": platform.version()},
-        ],
-    }
-    try:
-        os_release = platform.freedesktop_os_release()
-    except OSError:  # not a freedesktop system, e.g. macOS or Windows
-        return component
-    component["properties"] += [
-        {"name": f"os-release:{key}", "value": value} for key, value in sorted(os_release.items())
-    ]
-    return component
 
 
 def _depends_on(distribution: Distribution, installed: dict[str, Distribution]) -> list[str]:
@@ -434,5 +461,14 @@ def _workflow(root: dict[str, Any], tools: list[dict[str, Any]]) -> dict[str, An
     return workflow
 
 
-def _timestamp() -> str:
+def timestamp() -> str:
     return datetime.fromtimestamp(get_reproducible_timestamp(), tz=timezone.utc).isoformat()
+
+
+__all__ = [
+    "PYPA",
+    "SBOM_NAMESPACE",
+    "build_tools",
+    "component_from_metadata",
+    "timestamp",
+]

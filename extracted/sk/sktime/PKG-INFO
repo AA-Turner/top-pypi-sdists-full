@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sktime
-Version: 1.1.0
+Version: 1.2.0
 Summary: A unified framework for machine learning with time series
 Author-email: sktime developers <sktime.toolbox@gmail.com>
 Maintainer: Felix Hirwa Nshuti, Franz Király, Marc Rovira, Ugochukwu Onyeka
@@ -63,66 +63,62 @@ Classifier: Topic :: Software Development
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: joblib<1.6,>=1.2.0
-Requires-Dist: numpy<2.5,>=1.21
+Requires-Dist: joblib<1.7,>=1.2.0
+Requires-Dist: numpy<2.6,>=1.21
 Requires-Dist: packaging
-Requires-Dist: pandas<3.0.0,>=1.1
-Requires-Dist: scikit-base<1.1.0,>=1.0.0
-Requires-Dist: scikit-learn<1.8.0,>=0.24
+Requires-Dist: pandas<3.1.0,>=1.5
+Requires-Dist: scikit-base<1.2.0,>=1.0.0
+Requires-Dist: scikit-learn<1.10.0,>=0.24
 Requires-Dist: scipy<2.0.0,>=1.2
 Provides-Extra: all-extras
 Requires-Dist: cloudpickle; extra == "all-extras"
 Requires-Dist: holidays; extra == "all-extras"
 Requires-Dist: matplotlib!=3.9.1,>=3.3.2; extra == "all-extras"
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "all-extras"
+Requires-Dist: numba<0.68,>=0.53; extra == "all-extras"
 Requires-Dist: polars[pandas]<2.0,>=0.20; extra == "all-extras"
 Requires-Dist: seaborn>=0.11; extra == "all-extras"
-Requires-Dist: skpro<2.15.0,>=2; extra == "all-extras"
+Requires-Dist: skpro<2.16.0,>=2; extra == "all-extras"
 Requires-Dist: statsmodels>=0.12.1; extra == "all-extras"
 Provides-Extra: alignment
-Requires-Dist: dtaidistance<2.4; python_version < "3.13" and extra == "alignment"
-Requires-Dist: dtw-python<1.6,>=1.3; python_version < "3.13" and extra == "alignment"
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "alignment"
-Provides-Extra: annotation
-Requires-Dist: hmmlearn<0.4,>=0.2.7; python_version < "3.13" and extra == "annotation"
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "annotation"
-Requires-Dist: pyod<1.2,>=0.8; python_version < "3.12" and extra == "annotation"
+Requires-Dist: dtaidistance<2.5; python_version < "3.13" and extra == "alignment"
+Requires-Dist: dtw-python<1.8,>=1.3; python_version < "3.13" and extra == "alignment"
+Requires-Dist: numba<0.68,>=0.53; extra == "alignment"
 Provides-Extra: classification
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "classification"
+Requires-Dist: numba<0.68,>=0.53; extra == "classification"
 Requires-Dist: tensorflow<2.20,>=2.15; python_version < "3.13" and extra == "classification"
-Requires-Dist: tsfresh<0.21,>=0.17; python_version < "3.12" and extra == "classification"
+Requires-Dist: tsfresh<0.22,>=0.17; python_version < "3.12" and extra == "classification"
 Provides-Extra: clustering
 Requires-Dist: networkx<3.7; extra == "clustering"
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "clustering"
+Requires-Dist: numba<0.68,>=0.53; extra == "clustering"
 Requires-Dist: tslearn!=0.6.0,<0.7.0,>=0.5.2; python_version < "3.12" and extra == "clustering"
 Requires-Dist: ts2vg<1.3; (python_version < "3.13" and platform_machine != "aarch64") and extra == "clustering"
 Provides-Extra: detection
 Requires-Dist: hmmlearn<0.4,>=0.2.7; python_version < "3.13" and extra == "detection"
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "detection"
+Requires-Dist: numba<0.68,>=0.53; extra == "detection"
 Requires-Dist: pyod<1.2,>=0.8; python_version < "3.12" and extra == "detection"
 Provides-Extra: forecasting
-Requires-Dist: arch<7.1,>=5.6; python_version < "3.13" and extra == "forecasting"
+Requires-Dist: arch<9.1,>=5.6; python_version < "3.13" and extra == "forecasting"
 Requires-Dist: pmdarima!=1.8.1,<2.2,>=1.8; extra == "forecasting"
 Requires-Dist: prophet<1.4,>=1.2; python_version < "3.13" and extra == "forecasting"
 Requires-Dist: skforecast<0.19,>=0.12.1; python_version < "3.14" and extra == "forecasting"
-Requires-Dist: skpro<2.15.0,>=2; extra == "forecasting"
+Requires-Dist: skpro<2.16.0,>=2; extra == "forecasting"
 Requires-Dist: statsforecast<2.1.0,>=1.0.0; python_version < "3.13" and extra == "forecasting"
-Requires-Dist: statsmodels<0.15,>=0.12.1; python_version < "3.13" and extra == "forecasting"
+Requires-Dist: statsmodels<0.16,>=0.12.1; python_version < "3.15" and extra == "forecasting"
 Provides-Extra: networks
 Requires-Dist: tensorflow<2.20,>=2.15; python_version < "3.13" and extra == "networks"
 Provides-Extra: param-est
 Requires-Dist: seasonal<0.4,>=0.3.1; python_version < "3.13" and extra == "param-est"
-Requires-Dist: statsmodels<0.15,>=0.12.1; python_version < "3.13" and extra == "param-est"
+Requires-Dist: statsmodels<0.16,>=0.12.1; python_version < "3.15" and extra == "param-est"
 Provides-Extra: regression
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "regression"
+Requires-Dist: numba<0.68,>=0.53; extra == "regression"
 Requires-Dist: tensorflow<2.20,>=2.15; python_version < "3.13" and extra == "regression"
 Provides-Extra: transformations
 Requires-Dist: holidays<0.59,>=0.29; python_version < "3.13" and extra == "transformations"
-Requires-Dist: numba<0.63,>=0.53; python_version < "3.14" and extra == "transformations"
+Requires-Dist: numba<0.68,>=0.53; extra == "transformations"
 Requires-Dist: pycatch22<0.4.6,>=0.4; python_version < "3.13" and extra == "transformations"
 Requires-Dist: simdkalman; extra == "transformations"
-Requires-Dist: statsmodels<0.15,>=0.12.1; python_version < "3.13" and extra == "transformations"
-Requires-Dist: tsfresh<0.21,>=0.17; python_version < "3.12" and extra == "transformations"
+Requires-Dist: statsmodels<0.16,>=0.12.1; python_version < "3.15" and extra == "transformations"
+Requires-Dist: tsfresh<0.22,>=0.17; python_version < "3.12" and extra == "transformations"
 Provides-Extra: dev
 Requires-Dist: backoff; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
@@ -146,7 +142,7 @@ Requires-Dist: sphinx-issues<7.0.0; extra == "docs"
 Requires-Dist: tabulate; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: pytest<9.2,>=7.4; extra == "tests"
-Requires-Dist: pytest-randomly<4.2,>=3.15; extra == "tests"
+Requires-Dist: pytest-randomly<5.1,>=3.15; extra == "tests"
 Requires-Dist: pytest-timeout<2.5,>=2.1; extra == "tests"
 Requires-Dist: pytest-xdist<3.9,>=3.3; extra == "tests"
 Provides-Extra: binder
@@ -165,7 +161,7 @@ Requires-Dist: peft<0.14.0,>=0.10.0; python_version < "3.12" and extra == "dl"
 Requires-Dist: tensorflow<2.20,>=2.15; python_version < "3.13" and extra == "dl"
 Requires-Dist: torch; (sys_platform != "darwin" or python_version < "3.13") and extra == "dl"
 Requires-Dist: transformers[torch]<4.41.0; python_version < "3.13" and extra == "dl"
-Requires-Dist: pytorch-forecasting<1.6.0,>=1.0.0; ((sys_platform != "darwin" or python_version != "3.13") and python_version < "3.14") and extra == "dl"
+Requires-Dist: pytorch-forecasting>=1.8.0; ((sys_platform != "darwin" or python_version != "3.13") and python_version < "3.14") and extra == "dl"
 Requires-Dist: lightning<2.7,>=2.0; (sys_platform != "darwin" or python_version < "3.13") and extra == "dl"
 Requires-Dist: gluonts>=0.14.3; python_version < "3.12" and extra == "dl"
 Requires-Dist: einops>0.7.0; python_version < "3.12" and extra == "dl"
@@ -185,25 +181,22 @@ Requires-Dist: mlflow<4.0; extra == "mlflow-tests"
 Requires-Dist: moto; extra == "mlflow-tests"
 Provides-Extra: notebooks
 Requires-Dist: matplotlib; extra == "notebooks"
-Requires-Dist: numpy<2; extra == "notebooks"
-Requires-Dist: scipy<1.16; extra == "notebooks"
 Requires-Dist: pmdarima; extra == "notebooks"
 Requires-Dist: seaborn; extra == "notebooks"
-Requires-Dist: tbats; extra == "notebooks"
 Requires-Dist: dtw-python; extra == "notebooks"
 Requires-Dist: prophet; extra == "notebooks"
 Requires-Dist: pytorch-forecasting; extra == "notebooks"
 Requires-Dist: torch; extra == "notebooks"
 Requires-Dist: lightning<2.7,>=2.0; extra == "notebooks"
-Requires-Dist: skpro; extra == "notebooks"
+Requires-Dist: skpro>=2; extra == "notebooks"
 Requires-Dist: statsforecast; extra == "notebooks"
-Requires-Dist: numba<0.63; python_version < "3.14" and extra == "notebooks"
+Requires-Dist: numba<0.68; extra == "notebooks"
 Provides-Extra: numpy1
 Requires-Dist: numpy<2.0.0; extra == "numpy1"
 Provides-Extra: pandas1
 Requires-Dist: pandas<2.0.0; extra == "pandas1"
 Provides-Extra: skpro
-Requires-Dist: skpro; extra == "skpro"
+Requires-Dist: skpro>=2; extra == "skpro"
 Provides-Extra: compatibility-tests
 Requires-Dist: catboost; python_version < "3.13" and extra == "compatibility-tests"
 Dynamic: license-file
@@ -215,7 +208,7 @@ Dynamic: license-file
 
 > A unified interface for machine learning with time series
 
-:rocket: **Version 1.1.0 out now!** [Check out the release notes here](https://www.sktime.net/en/latest/changelog.html).
+:rocket: **Version 1.2.0 out now!** [Check out the release notes here](https://www.sktime.net/en/latest/changelog.html).
 
 sktime is a library for time series analysis in Python. It provides a unified interface for multiple time series learning tasks. Currently, this includes forecasting, time series classification, clustering, anomaly/changepoint detection, and other tasks. It comes with [time series algorithms](https://www.sktime.net/en/stable/estimator_overview.html) and [scikit-learn] compatible tools to build, tune, and validate time series models.
 

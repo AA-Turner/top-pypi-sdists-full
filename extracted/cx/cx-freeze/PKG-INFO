@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cx_Freeze
-Version: 8.7.0
+Version: 8.7.1
 Summary: Create standalone executables from Python scripts
 Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>, Anthony Tuininga <anthony.tuininga@gmail.com>
 License-Expression: PSF-2.0
@@ -31,7 +31,8 @@ Classifier: Topic :: Utilities
 Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: freeze-core>=0.6.1
+Requires-Dist: freeze-core>=0.6.1; python_version < "3.15"
+Requires-Dist: freeze-core>=0.7.5; python_version > "3.14"
 Requires-Dist: packaging>=25.0
 Requires-Dist: setuptools<85.0,>=78.1.1
 Requires-Dist: filelock>=3.20.3; sys_platform == "linux"

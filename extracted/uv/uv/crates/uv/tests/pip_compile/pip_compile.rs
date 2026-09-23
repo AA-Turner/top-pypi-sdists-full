@@ -1981,7 +1981,6 @@ fn compile_python_37() -> Result<()> {
             "warning: The requested Python version 3.7 is not available; .* will be used to build dependencies instead.\n",
             "",
         ),
-        (r"warning: uv is only compatible with Python 3\.8\+, found Python 3\.7.*\n", "")
     ]
         .into_iter()
         .chain(context.filters())
@@ -15795,9 +15794,6 @@ matplotlib
         // In any case, we filter `tzdata` out of the snapshot entirely
         // on all platforms for this reason.
         (r"( ?[-+~] ?)?tzdata==\d+(\.\d+)+(\s+[-+~]?\s+# via .*)?\n", ""),
-        // And because tzdata is omitted on Windows, the number of deps
-        // is different too. So filter that out too.
-        (r"Resolved 19 packages", "Resolved [NUM] packages"),
     ]
         .into_iter()
         .chain(context.filters())
@@ -16141,7 +16137,7 @@ fn compile_derivation_chain() -> Result<()> {
     ----- stderr -----
     error: Failed to build `wsgiref==0.1.2`
       cause: The build backend returned an error
-      cause: Call to `setuptools.build_meta:__legacy__.build_wheel` failed (exit status: 1)
+      cause: Call to `setuptools.build_meta:__legacy__.get_requires_for_build_wheel` failed (exit status: 1)
 
              [stderr]
              Traceback (most recent call last):
@@ -19688,7 +19684,7 @@ async fn compile_missing_python_download_error_warning() {
         .arg("--python-version").arg("3.10")
         .env("ALL_PROXY", server.uri())
         .env(EnvVars::UV_HTTP_RETRIES, "0")
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true")
+        .env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true")
         .arg("requirements.in"), @"
     exit_code: 2 (failure)
     ----- stderr -----
@@ -19711,7 +19707,7 @@ async fn compile_missing_python_download_error_warning() {
         .arg("--python-version").arg("3.10")
         .env("ALL_PROXY", server.uri())
         .env(EnvVars::UV_HTTP_RETRIES, "0")
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true")
+        .env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true")
         .arg("requirements.in"), @"
     exit_code: 2 (failure)
     ----- stderr -----
@@ -19727,7 +19723,7 @@ async fn compile_missing_python_download_error_warning() {
         .arg("--python-version").arg("3.10.99")
         .env("ALL_PROXY", server.uri())
         .env(EnvVars::UV_HTTP_RETRIES, "0")
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true")
+        .env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true")
         .arg("requirements.in"), @"
     exit_code: 2 (failure)
     ----- stderr -----
@@ -19749,7 +19745,7 @@ async fn compile_missing_python_download_error_warning() {
         .arg("--python-version").arg("3.10.19")
         .env("ALL_PROXY", server.uri())
         .env(EnvVars::UV_HTTP_RETRIES, "0")
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true")
+        .env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true")
         .arg("requirements.in"), @"
     exit_code: 2 (failure)
     ----- stderr -----

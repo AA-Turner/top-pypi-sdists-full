@@ -1776,6 +1776,28 @@ class InsightResponse(QuantConnect.Api.RestResponse):
         ...
 
 
+class BacktestLog(QuantConnect.Api.RestResponse):
+    """Logs from a backtest"""
+
+    @property
+    def logs(self) -> typing.List[str]:
+        """List of log lines from the backtest"""
+        ...
+
+    @logs.setter
+    def logs(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def length(self) -> int:
+        """Total number of log lines in the backtest"""
+        ...
+
+    @length.setter
+    def length(self, value: int) -> None:
+        ...
+
+
 class BaseLiveAlgorithm(QuantConnect.Api.RestResponse):
     """Class representing the REST response from QC API when creating or reading a live algorithm"""
 
@@ -2100,7 +2122,7 @@ class LiveLog(QuantConnect.Api.RestResponse):
 
     @property
     def length(self) -> int:
-        """Total amount of rows in the logs"""
+        """Total amount of rows in the logs across all the live deployments of the project"""
         ...
 
     @length.setter
@@ -2109,7 +2131,7 @@ class LiveLog(QuantConnect.Api.RestResponse):
 
     @property
     def deployment_offset(self) -> int:
-        """Amount of log rows before the current deployment"""
+        """Amount of log rows before the deployment requested through the algorithm id"""
         ...
 
     @deployment_offset.setter
@@ -3456,20 +3478,37 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         :param project_id: Id of the project from which to read the backtest
         :param backtest_id: Backtest id from which we want to get the insights
         :param start: Starting index of the insights to be fetched
-        :param end: Last index of the insights to be fetched. Note that end - start must be less than 100
+        :param end: Last index of the insights to be fetched. Note that end - start must not exceed 100.
+        Defaults to a full window starting at start
         :returns: InsightResponse.
         """
         ...
 
-    def read_backtest_orders(self, project_id: int, backtest_id: str, start: int = 0, end: int = 100) -> typing.List[QuantConnect.Orders.ApiOrderResponse]:
+    def read_backtest_log(self, project_id: int, backtest_id: str, start: int = 0, end: int = 0, query: str = None) -> QuantConnect.Api.BacktestLog:
+        """
+        Gets the logs of a specific backtest
+        
+        :param project_id: Id of the project from which to read the backtest
+        :param backtest_id: Id of the backtest from which to read the logs
+        :param start: Start line (inclusive) of logs to read
+        :param end: End line (exclusive) of logs to read. Note that end - start must not exceed 200.
+        Defaults to a full window starting at start
+        :param query: Optional keyword to filter the log lines, null to return every line.
+        For example, "Error" returns only the lines containing that word
+        :returns: BacktestLog with the requested log lines and the total log line count.
+        """
+        ...
+
+    def read_backtest_orders(self, project_id: int, backtest_id: str, start: int = 0, end: int = 0) -> QuantConnect.Orders.OrdersResponseWrapper:
         """
         Returns the orders of the specified backtest and project id.
         
         :param project_id: Id of the project from which to read the orders
         :param backtest_id: Id of the backtest from which to read the orders
-        :param start: Starting index of the orders to be fetched. Required if end > 100
-        :param end: Last index of the orders to be fetched. Note that end - start must be less than 100
-        :returns: The list of Order.
+        :param start: Starting index of the orders to be fetched
+        :param end: Last index of the orders to be fetched. Note that end - start must not exceed 100.
+        Defaults to a full window starting at start
+        :returns: The OrdersResponseWrapper with the requested orders and the total order count.
         """
         ...
 
@@ -3544,31 +3583,38 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         
         :param project_id: Id of the project from which to read the live algorithm
         :param start: Starting index of the insights to be fetched
-        :param end: Last index of the insights to be fetched. Note that end - start must be less than 100
+        :param end: Last index of the insights to be fetched. Note that end - start must not exceed 100.
+        Defaults to a full window starting at start
         :returns: InsightResponse.
         """
         ...
 
-    def read_live_logs(self, project_id: int, algorithm_id: str, start_line: int, end_line: int) -> QuantConnect.Api.LiveLog:
+    def read_live_logs(self, project_id: int, algorithm_id: str, start_line: int = 0, end_line: int = 0, query: str = None, deployment_logs: bool = False) -> QuantConnect.Api.LiveLog:
         """
         Gets the logs of a specific live algorithm
         
         :param project_id: Project Id of the live running algorithm
         :param algorithm_id: Algorithm Id of the live running algorithm
-        :param start_line: Start line of logs to read
-        :param end_line: End line of logs to read
+        :param start_line: Start line (inclusive) of logs to read
+        :param end_line: End line (exclusive) of logs to read. Note that end_line - start_line must not exceed 200.
+        Defaults to a full window starting at start_line
+        :param query: Optional keyword to filter the log lines, null to return every line.
+        For example, "Error" returns only the lines containing that word
+        :param deployment_logs: Whether only the logs of the given algorithm_id deployment should be returned
         :returns: LiveLog List of strings that represent the logs of the algorithm.
         """
         ...
 
-    def read_live_orders(self, project_id: int, start: int = 0, end: int = 100) -> typing.List[QuantConnect.Orders.ApiOrderResponse]:
+    def read_live_orders(self, project_id: int, algorithm_id: str = None, start: int = 0, end: int = 0) -> QuantConnect.Orders.OrdersResponseWrapper:
         """
         Returns the orders of the specified project id live algorithm.
         
         :param project_id: Id of the project from which to read the live orders
-        :param start: Starting index of the orders to be fetched. Required if end > 100
-        :param end: Last index of the orders to be fetched. Note that end - start must be less than 100
-        :returns: The list of Order.
+        :param algorithm_id: Deploy id (algorithm id) of the live running algorithm, null for the latest deployment of the project
+        :param start: Starting index of the orders to be fetched
+        :param end: Last index of the orders to be fetched. Note that end - start must not exceed 100.
+        Defaults to a full window starting at start
+        :returns: The OrdersResponseWrapper with the requested orders and the total order count.
         """
         ...
 

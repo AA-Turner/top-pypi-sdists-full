@@ -180,10 +180,10 @@ def test_agreeing_calendar_scores_as_agreement(archive):
     outcome = pipeline.run_region(_context(), row, _settings(archive))
 
     assert outcome.scored, outcome.row.get("skip_reason")
-    assert outcome.row["Assessment"] == score.ALGO_WORKS
-    assert abs(outcome.row["delta_midgreenup"]) <= 45
-    assert abs(outcome.row["delta_midgreendown"]) <= 45
-    assert outcome.row["Peak_in_2ndStage"] is True
+    assert outcome.row["within_tolerance"] == score.ALGO_WORKS
+    assert abs(outcome.row["midgreenup_diff_days"]) <= 45
+    assert abs(outcome.row["midgreendown_diff_days"]) <= 45
+    assert outcome.row["peak_in_calendar_stage2"] is True
 
 
 def test_calendar_two_months_out_of_step_is_flagged(archive):
@@ -192,19 +192,22 @@ def test_calendar_two_months_out_of_step_is_flagged(archive):
     shifted = pipeline.run_region(_context(), _calendar_row(_codes_for_season(3)), _settings(archive))
 
     assert shifted.scored, shifted.row.get("skip_reason")
-    assert abs(shifted.row["delta_midgreenup"]) > abs(aligned.row["delta_midgreenup"])
-    assert np.isnan(shifted.row["Assessment"])
+    assert abs(shifted.row["midgreenup_diff_days"]) > abs(aligned.row["midgreenup_diff_days"])
+    # Outside tolerance is an explicit 0 now, not a NaN that reads as "unknown".
+    assert shifted.row["within_tolerance"] == 0
 
 
-def test_outcome_carries_a_feature_row_with_both_targets(archive):
+def test_outcome_carries_a_feature_row_with_all_four_targets(archive):
     outcome = pipeline.run_region(_context(), _calendar_row(_codes_for_season(9)), _settings(archive))
     row = outcome.feature_row
     assert row is not None
+    assert features.TARGETS == ("planting", "midgreenup", "midgreendown", "harvest")
     for target in features.TARGETS:
         assert np.isfinite(row[f"target_{target}"])
         assert np.isfinite(row[f"target_{target}_sin"])
+        assert np.isfinite(row[f"target_{target}_anchored"])
     # The rule-based answer rides along so the baseline needs no recomputation.
-    assert np.isfinite(row["rule_midgreenup"])
+    assert np.isfinite(row[features.BASELINE_COLUMNS["midgreenup"]])
     assert row["doy_peak"] == pytest.approx(PEAK_DOY, abs=5)
 
 

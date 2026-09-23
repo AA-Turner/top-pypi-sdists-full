@@ -739,3 +739,41 @@ def get_section_relevance_decider() -> Any:
 def get_gate_verdict_recorder() -> Any:
     """Return the host-injected gate-verdict recorder, or None when unset."""
     return _registry.get(_GATE_VERDICT_RECORDER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Conversation history window (how far back a continuation reads)
+# ---------------------------------------------------------------------------
+#
+# The host (aidream) injects a callable that may BOUND the persisted history a
+# continuation replays. matrx-ai has never had a bound of any kind: a
+# continuation loads the whole rebuilt message list, forever, which is right for
+# an ordinary chat somebody opens and closes, and wrong for a conversation that
+# by construction never ends — a person's Personal Staff thread, continued by
+# every text, every call and the app itself. The SIZE of the window is an
+# opinion, so it is a host-side setting (``personal_staff.thread_context_turns``)
+# and not a constant here.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured → ``get_conversation_history_window()`` returns
+#     None and nothing is bounded (matrx-ai stays standalone).
+#   * AWAITED once per resolution, inside ``ConversationResolver._finish`` — the
+#     ONE exit every resolution path takes (cache hit, cold DB load, responder /
+#     Holder re-resolution), BEFORE this turn's user input is appended and
+#     BEFORE the send boundary. So the window covers the persisted history only,
+#     it is identical on every door, and it is not a mutation between the
+#     resolver and the provider (see ``config/send_boundary.py``).
+#   * The host MUST return None for a conversation it has no opinion about —
+#     which is nearly all of them — and MUST make that answer cheap.
+#   * IT MAY RAISE, and a raise is NOT swallowed here. A host that HAS an
+#     opinion but cannot read it must fail the turn rather than let the run
+#     silently use a window nobody chose.
+#   * Signature: ``async window(*, conversation_id: str, messages: list) ->
+#     list | None`` — the bounded message list, or None to leave it alone.
+
+_CONVERSATION_HISTORY_WINDOW_KEY = "conversation_history_window"
+
+
+def get_conversation_history_window() -> Any:
+    """Return the host-injected conversation history window, or None when unset."""
+    return _registry.get(_CONVERSATION_HISTORY_WINDOW_KEY)

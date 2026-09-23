@@ -145,6 +145,7 @@ from .literals import (
     StartingPositionType,
     StatementStateType,
     StatisticEvaluationLevelType,
+    SubObjectSourceTypeType,
     TableAttributesType,
     TableOptimizerEventTypeType,
     TableOptimizerTypeType,
@@ -1345,6 +1346,7 @@ __all__ = (
     "StorageDescriptorUnionTypeDef",
     "StreamingDataPreviewOptionsTypeDef",
     "StringColumnStatisticsDataTypeDef",
+    "SubObjectStatisticsTypeDef",
     "SupportedDialectTypeDef",
     "TableErrorTypeDef",
     "TableIdentifierTypeDef",
@@ -4458,6 +4460,14 @@ class StopWorkflowRunRequestTypeDef(TypedDict):
     RunId: str
 
 
+class SubObjectStatisticsTypeDef(TypedDict):
+    SourceType: NotRequired[SubObjectSourceTypeType]
+    GlueVersionId: NotRequired[str]
+    PartitionCount: NotRequired[int]
+    FileCount: NotRequired[int]
+    TotalFileBytes: NotRequired[int]
+
+
 class TableIdentifierTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     DatabaseName: NotRequired[str]
@@ -7358,6 +7368,8 @@ class ViewDefinitionInputTypeDef(TypedDict):
     LastRefreshType: NotRequired[LastRefreshTypeType]
     SubObjects: NotRequired[Sequence[str]]
     SubObjectVersionIds: NotRequired[Sequence[int]]
+    SubObjectsStatistics: NotRequired[Sequence[SubObjectStatisticsTypeDef]]
+    SparkPipelineInfo: NotRequired[Mapping[str, str]]
 
 
 class ViewDefinitionTypeDef(TypedDict):
@@ -7369,7 +7381,9 @@ class ViewDefinitionTypeDef(TypedDict):
     LastRefreshType: NotRequired[LastRefreshTypeType]
     SubObjects: NotRequired[list[str]]
     SubObjectVersionIds: NotRequired[list[int]]
+    SubObjectsStatistics: NotRequired[list[SubObjectStatisticsTypeDef]]
     Representations: NotRequired[list[ViewRepresentationTypeDef]]
+    SparkPipelineInfo: NotRequired[dict[str, str]]
 
 
 ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]

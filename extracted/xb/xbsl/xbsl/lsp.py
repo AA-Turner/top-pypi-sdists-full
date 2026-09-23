@@ -43,7 +43,7 @@ except ImportError:  # pragma: no cover - the extra is not installed
     LanguageServer = None
 
 from xbsl import (
-    __version__, baseline, bindingcomplete, cijob, dataset, docs, engine, environment,
+    __version__, baseline, bindingcomplete, cijob, dataset, doccomments, docs, engine, environment,
     formedits, formhandlers, formmodel, formsearch, i18n, indexer, metamodel, scaffold,
     templates, terms, uischema,
 )
@@ -1818,6 +1818,26 @@ def _make_server() -> "LanguageServer":
         except (scaffold.ScaffoldError, OSError) as exc:
             return {"error": str(exc)}
 
+    @server.feature("xbsl/docComment")
+    def _doc_comment(params: object) -> dict:
+        """Read or plan a documentation comment edit against the current editor buffer."""
+        try:
+            if _param(params, "offsetEncoding") != "unicode-codepoint":
+                return {"error": "documentation comment offsets must be Unicode code points"}
+            path = _form_path(params)
+            text = _form_reader(path)
+            offset = int(_param(params, "offset", 0) or 0)
+            if str(_param(params, "op", "get") or "get") == "get":
+                return doccomments.inspect(text, offset).as_dict()
+            if str(_param(params, "op", "")) == "set":
+                return doccomments.plan(
+                    text, offset, str(_param(params, "text", "") or ""),
+                    str(_param(params, "expected")) if _param(params, "expected") is not None else None,
+                )
+            return {"error": "unknown documentation comment operation"}
+        except (OSError, ValueError, scaffold.ScaffoldError) as exc:
+            return {"error": str(exc)}
+
     # --- form designer (the structure view is a thin client of these methods) ------------
     #
     # Like the meta* family, the server only computes; the editor applies the edits via
@@ -1920,8 +1940,8 @@ def _make_server() -> "LanguageServer":
     @server.feature("xbsl/bindingComplete")
     def _binding_complete(params: object) -> dict:
         # Component-reference completions for the form binding editor (flat params
-        # {uri, prefix}): =Компоненты.<part> –> the form's components, =Компоненты.<comp>.<part>
-        # –> members of that component's TYPE. The other binding contexts (=Объект.<attr>,
+        # {uri, prefix}): =Components.<part> -> the form's components, =Components.<comp>.<part>
+        # -> members of that component's TYPE. The other binding contexts (=Object.<attr>,
         # enum values, bindings already used in the form) are the editor's own. The form is
         # taken from the uri stem, the components from the project index and the members from
         # the stdlib dataset. Never raises: any failure degrades to an empty list, like the

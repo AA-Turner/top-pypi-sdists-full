@@ -75,10 +75,11 @@ func testInstallPython(version string) string {
 COPY --from=ghcr.io/astral-sh/uv:`+UVVersion+` /uv /uvx /usr/local/bin/
 ENV UV_SYSTEM_PYTHON=true
 RUN uv python install %s && \
-	ln -sf $(uv python find %s) /usr/bin/python3
+	ln -sf $(uv python find %s) /usr/bin/python3 && \
+	ln -sf $(uv python find %s) /usr/local/bin/python
 ENV UV_PYTHON=%s
 ENV PATH="/usr/local/bin:$PATH"
-`, version, version, version)
+`, version, version, version, version)
 }
 
 func TestGenerateEmptyCPU(t *testing.T) {
@@ -584,6 +585,42 @@ predict: predict.py:Predictor
 	require.Contains(t, actual, `uv run pip install --break-system-packages --cache-dir /root/.cache/pip -r /tmp/requirements.txt`)
 	// Cog SDK install must also use --break-system-packages
 	require.Contains(t, actual, `uv pip install --break-system-packages --no-cache cog`)
+}
+
+// CUDA 13+ Cog base images install Python with uv, so their Python environment
+// is externally managed regardless of whether the config also sets gpu: true.
+func TestGPUCogBasePathIncludesBreakSystemPackages(t *testing.T) {
+	for _, gpu := range []bool{true, false} {
+		t.Run(fmt.Sprintf("gpu=%t", gpu), func(t *testing.T) {
+			tmpDir := t.TempDir()
+			yaml := fmt.Sprintf(`
+build:
+  gpu: %t
+  cuda: "13.0"
+  python_version: "3.13"
+  python_packages:
+    - torch==2.11.0
+    - pandas==2.0.3
+predict: predict.py:Predictor
+`, gpu)
+			conf, err := config.FromYAML([]byte(yaml))
+			require.NoError(t, err)
+			require.NoError(t, conf.Complete(""))
+			command := dockertest.NewMockCommand()
+			client := registrytest.NewMockRegistryClient()
+			client.AddMockImage(BaseImageName("13.0", "3.13", "2.11.0"))
+			gen, err := NewStandardGenerator(conf, tmpDir, t.TempDir(), "", command, client, true)
+			require.NoError(t, err)
+			gen.SetUseCogBaseImage(true)
+			pypiWheels(gen)
+			_, actual, _, err := gen.GenerateModelBaseWithSeparateWeights(t.Context(), "r8.im/replicate/cog-test")
+			require.NoError(t, err)
+
+			require.Contains(t, actual, `uv run pip install --break-system-packages --cache-dir /root/.cache/pip -r /tmp/requirements.txt`)
+			require.Contains(t, actual, `uv pip install --break-system-packages --no-cache cog`)
+			require.Contains(t, actual, `RUN ln -sf /usr/bin/python3 /usr/local/bin/python`)
+		})
+	}
 }
 
 // CPU builds use python:X-slim where Python is not uv-managed,
@@ -1481,4 +1518,30 @@ predict: predict.py:Predictor
 	require.Contains(t, dockerfile, "uv pip install --pre --no-cache cog")
 	// Must NOT contain a version pin
 	require.NotContains(t, dockerfile, "cog==")
+}
+
+func TestObservabilityConfigUsesStagedPath(t *testing.T) {
+	gen := &StandardGenerator{Config: &config.Config{Observability: &config.Observability{
+		Config: "nested/telemetry.py",
+		Traces: &config.Tracing{Enabled: true, Sampler: "parentbased_always_off"},
+	}}}
+
+	require.Equal(t, "COPY --from=cog_build telemetry.py /.cog/telemetry.py", gen.observabilityConfigCopy())
+	require.Contains(t, gen.cogEnvVars(), `ENV COG_OBSERVABILITY_CONFIG="/.cog/telemetry.py"`)
+}
+
+func TestPythonTracingDependenciesAreOptIn(t *testing.T) {
+	disabled := &StandardGenerator{Config: &config.Config{Build: &config.Build{}}}
+	require.Empty(t, disabled.installPythonTracingDependencies())
+
+	enabled := &StandardGenerator{Config: &config.Config{
+		Build: &config.Build{},
+		Observability: &config.Observability{
+			Traces: &config.Tracing{Enabled: true},
+		},
+	}}
+	require.Contains(t, enabled.installPythonTracingDependencies(), PythonTracingRequirements)
+
+	enabled.strip = true
+	require.Contains(t, enabled.installPythonTracingDependencies(), StripDebugSymbolsCommand)
 }

@@ -204,7 +204,11 @@ class AnthropicTranslator(BaseTranslator):
             "messages": messages,
         }
 
-        system_text = self.get_system_text(config)
+        # The system channel is sent in TWO parts so the per-turn context block
+        # can ride it without costing a prompt cache: the stable instruction
+        # carries the cache breakpoint, the per-turn block follows it uncached.
+        system_text = self.get_stable_system_text(config)
+        turn_context_text = self.get_turn_context_text(config)
         all_tools = self.build_provider_tools(config, "anthropic")
         if config.internal_web_search and not any(
             isinstance(tool, dict) and tool.get("type") == "web_search_20250305"
@@ -240,13 +244,19 @@ class AnthropicTranslator(BaseTranslator):
             if system_text:
                 # System must be a block array (not a bare string) to carry
                 # cache_control. This breakpoint caches tools + system.
-                anthropic_request["system"] = [
+                system_blocks: list[dict[str, Any]] = [
                     {
                         "type": "text",
                         "text": system_text,
                         "cache_control": {"type": "ephemeral"},
                     }
                 ]
+                if turn_context_text:
+                    # AFTER the breakpoint, deliberately uncached: this block is
+                    # rebuilt every turn, so caching it would invalidate the
+                    # prefix on every single call.
+                    system_blocks.append({"type": "text", "text": turn_context_text})
+                anthropic_request["system"] = system_blocks
                 if all_tools:
                     anthropic_request["tools"] = all_tools
             elif all_tools:
@@ -254,11 +264,14 @@ class AnthropicTranslator(BaseTranslator):
                 # last tool so the tools block still caches.
                 all_tools = self._mark_last_tool_cacheable(all_tools)
                 anthropic_request["tools"] = all_tools
+            if not system_text and turn_context_text:
+                anthropic_request["system"] = [{"type": "text", "text": turn_context_text}]
             # Rolling breakpoint on the last message → incremental history cache.
             self._mark_last_message_cacheable(messages)
         else:
-            if system_text:
-                anthropic_request["system"] = system_text
+            joined_system = "\n\n".join(p for p in (system_text, turn_context_text) if p)
+            if joined_system:
+                anthropic_request["system"] = joined_system
             if all_tools:
                 anthropic_request["tools"] = all_tools
 

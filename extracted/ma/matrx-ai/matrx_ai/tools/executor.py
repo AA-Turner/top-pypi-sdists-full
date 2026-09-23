@@ -2449,15 +2449,18 @@ class ToolExecutor:
             b == "matrx-local" or b.startswith("matrx-local.")
             for b in self.registry.bindings_for_tool(tool_def.name)
         )
-        await self.execution_logger.log_delegated(
-            row_id, expires_at=expires_at, allow_desktop_target=is_desktop_bound
+        # (1)+(2)+(3) are ONE call now: `delegate_durably` queues the flip onto
+        # the coordinator that owns the row, finalizes, and READS THE ROW BACK.
+        # A park that cannot be proven on disk raises `DelegationNotDurable`
+        # here instead of emitting `tool_delegated` over a ledger that does not
+        # say 'delegated' — the 2026-09-22 `ask_person` failure, fixed for every
+        # delegated tool at once.
+        await self.execution_logger.delegate_durably(
+            row_id,
+            expires_at=expires_at,
+            allow_desktop_target=is_desktop_bound,
+            reason="tool_delegation",
         )
-
-        from matrx_ai.persistence.queue_helpers import get_coordinator
-
-        _coord = get_coordinator()
-        if _coord is not None:
-            await _coord.finalize(reason="pre_client_delegation_commit")
 
         emitter = ctx.emitter
         if emitter is not None:

@@ -1,7 +1,6 @@
-from tests.dialects.test_dialect import Validator
-
-from sqlglot import exp
+from sqlglot import UnsupportedError, exp
 from sqlglot.helper import logger as helper_logger
+from tests.dialects.test_dialect import Validator
 
 
 class TestSQLite(Validator):
@@ -24,6 +23,30 @@ class TestSQLite(Validator):
         self.validate_identity("SELECT match FROM t")
         self.validate_identity("SELECT rowid FROM t1 WHERE t1 MATCH 'lorem'")
         self.validate_identity("SELECT * FROM t WHERE a REGEXP 'x'")
+        self.validate_identity("SELECT GROUP_CONCAT(x ORDER BY y)")
+        self.validate_identity("SELECT GROUP_CONCAT(x, ',' ORDER BY y)")
+        self.validate_identity("SELECT GROUP_CONCAT(DISTINCT x ORDER BY y DESC)")
+        self.validate_identity("SELECT GROUP_CONCAT(x, ',') OVER (PARTITION BY z ORDER BY y)")
+        self.validate_all(
+            "SELECT GROUP_CONCAT(x, ',' ORDER BY y)",
+            write={
+                "mysql": "SELECT GROUP_CONCAT(x ORDER BY y SEPARATOR ',')",
+                "tsql": "SELECT STRING_AGG(x, ',') WITHIN GROUP (ORDER BY y)",
+            },
+        )
+        self.validate_all(
+            "SELECT GROUP_CONCAT(x, ',' ORDER BY y) OVER (PARTITION BY z)",
+            write={"sqlite": UnsupportedError},
+        )
+        self.validate_all(
+            "SELECT GROUP_CONCAT(x, ',') FILTER(WHERE y > 0) OVER (PARTITION BY z)",
+            read={
+                "duckdb": "SELECT STRING_AGG(x, ',' ORDER BY y) FILTER (WHERE y > 0) OVER (PARTITION BY z)",
+            },
+        )
+        self.validate_identity(
+            "SELECT SUM(z) OVER (PARTITION BY GROUP_CONCAT(x ORDER BY y)) FROM t GROUP BY z"
+        )
         self.validate_identity("SELECT RANK() OVER (RANGE CURRENT ROW) FROM tbl")
         self.validate_identity(
             "SELECT RANK() OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM tbl"
@@ -41,6 +64,36 @@ class TestSQLite(Validator):
             "SELECT DATE(d, '1 DAY') FROM t",
             read={
                 "duckdb": "SELECT DATE_ADD(d, INTERVAL 1 DAY) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE(d, '-1 DAY') FROM t",
+            read={
+                "duckdb": "SELECT DATE_ADD(d, INTERVAL (-1) DAY) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE(d, (n) || ' DAY') FROM t",
+            read={
+                "duckdb": "SELECT DATE_ADD(d, INTERVAL (n) DAY) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE(d, (n + 1) || ' DAY') FROM t",
+            read={
+                "duckdb": "SELECT DATE_ADD(d, INTERVAL (n + 1) DAY) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE(d, (-n) || ' MONTH') FROM t",
+            read={
+                "duckdb": "SELECT DATE_ADD(d, INTERVAL (-n) MONTH) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT DATE(d, (NULL) || ' DAY') FROM t",
+            read={
+                "duckdb": "SELECT DATE_ADD(d, INTERVAL (NULL) DAY) FROM t",
             },
         )
         self.validate_identity("SELECT DATETIME(1092941466, 'unixepoch')")
@@ -127,35 +180,96 @@ class TestSQLite(Validator):
         self.validate_all(
             "SELECT MIN(a, b) FROM t",
             read={
-                "postgres": "SELECT LEAST(a, b) FROM t",
                 "sqlite": "SELECT MIN(a, b) FROM t",
             },
         )
         self.validate_all(
             "SELECT MAX(a, b) FROM t",
             read={
-                "postgres": "SELECT GREATEST(a, b) FROM t",
                 "sqlite": "SELECT MAX(a, b) FROM t",
             },
         )
-        # CONCAT skips NULL args in these dialects, but || propagates it, so the
-        # operands have to keep the COALESCE wrapping the other targets get.
+        # GREATEST/LEAST ignore NULL args in Postgres/DuckDB, but SQLite's
+        # multi-arg MAX/MIN return NULL if any argument is NULL, so the args
+        # are rewrapped as a rotation of COALESCEs to keep that behavior.
         self.validate_all(
-            "SELECT COALESCE(a, '') || COALESCE(b, '') FROM t",
+            "SELECT MAX(COALESCE(a, b), COALESCE(b, a)) FROM t",
+            read={"postgres": "SELECT GREATEST(a, b) FROM t"},
+        )
+        self.validate_all(
+            "SELECT MIN(COALESCE(a, b), COALESCE(b, a)) FROM t",
+            read={"postgres": "SELECT LEAST(a, b) FROM t"},
+        )
+        self.validate_all(
+            "SELECT MAX(COALESCE(a, b, c), COALESCE(b, c, a), COALESCE(c, a, b)) FROM t",
+            read={"duckdb": "SELECT GREATEST(a, b, c) FROM t"},
+        )
+        self.validate_all(
+            "SELECT MIN(COALESCE(a, b, c), COALESCE(b, c, a), COALESCE(c, a, b)) FROM t",
+            read={"postgres": "SELECT LEAST(a, b, c) FROM t"},
+        )
+        # Literal NULLs exercise the ignore-NULLs semantics: a NULL anywhere in
+        # the arguments must be skipped and only an all-NULL input returns NULL.
+        self.validate_all(
+            "SELECT MAX(COALESCE(NULL, 1), COALESCE(1, NULL))",
+            read={"postgres": "SELECT GREATEST(NULL, 1)"},
+        )
+        self.validate_all(
+            "SELECT MIN(COALESCE(3, NULL, 1), COALESCE(NULL, 1, 3), COALESCE(1, 3, NULL))",
+            read={"postgres": "SELECT LEAST(3, NULL, 1)"},
+        )
+        # MySQL GREATEST/LEAST propagate NULLs (same as SQLite), so no COALESCE
+        # rotation is needed -- just rename to MAX/MIN.
+        self.validate_all(
+            "SELECT MAX(a, b) FROM t",
+            read={"mysql": "SELECT GREATEST(a, b) FROM t"},
+        )
+        self.validate_all(
+            "SELECT MIN(a, b) FROM t",
+            read={"mysql": "SELECT LEAST(a, b) FROM t"},
+        )
+        # CONCAT and CONCAT_WS skip NULL args in SQLite, like in these dialects
+        self.validate_all(
+            "SELECT CONCAT(a, b) FROM t",
             read={
                 "duckdb": "SELECT CONCAT(a, b) FROM t",
                 "postgres": "SELECT CONCAT(a, b) FROM t",
                 "tsql": "SELECT CONCAT(a, b) FROM t",
             },
+            write={
+                "duckdb": "SELECT CONCAT(a, b) FROM t",
+                "mysql": "SELECT CONCAT(COALESCE(a, ''), COALESCE(b, '')) FROM t",
+                "postgres": "SELECT CONCAT(a, b) FROM t",
+                "snowflake": "SELECT CONCAT(COALESCE(a, ''), COALESCE(b, '')) FROM t",
+                "sqlite": "SELECT CONCAT(a, b) FROM t",
+            },
         )
-        # CONCAT propagates NULL in these dialects, so || already matches and the
-        # operands are left alone.
+        self.validate_all(
+            "SELECT CONCAT_WS(',', a, b) FROM t",
+            read={
+                "duckdb": "SELECT CONCAT_WS(',', a, b) FROM t",
+                "mysql": "SELECT CONCAT_WS(',', a, b) FROM t",
+                "postgres": "SELECT CONCAT_WS(',', a, b) FROM t",
+            },
+            write={
+                "duckdb": "SELECT CONCAT_WS(',', a, b) FROM t",
+                "mysql": "SELECT CONCAT_WS(',', a, b) FROM t",
+                "postgres": "SELECT CONCAT_WS(',', a, b) FROM t",
+                "snowflake": "SELECT CONCAT_WS(',', COALESCE(a, ''), COALESCE(b, '')) FROM t",
+                "sqlite": "SELECT CONCAT_WS(',', a, b) FROM t",
+            },
+        )
+        # CONCAT propagates NULL in these dialects, so || already matches
         self.validate_all(
             "SELECT a || b FROM t",
             read={
                 "mysql": "SELECT CONCAT(a, b) FROM t",
                 "snowflake": "SELECT CONCAT(a, b) FROM t",
             },
+        )
+        self.validate_all(
+            "SELECT CASE WHEN ',' IS NULL OR a IS NULL OR b IS NULL THEN NULL ELSE CONCAT_WS(',', a, b) END FROM t",
+            read={"snowflake": "SELECT CONCAT_WS(',', a, b) FROM t"},
         )
         self.validate_all(
             "SELECT JSON_GROUP_ARRAY(name) FROM t",
@@ -358,6 +472,17 @@ class TestSQLite(Validator):
         self.validate_all(
             "DATEDIFF(a, b, 'year')",
             write={"sqlite": "CAST((JULIANDAY(a) - JULIANDAY(b)) / 365.0 AS INTEGER)"},
+        )
+        self.validate_all(
+            "DATEDIFF(a, b, 'nanosecond')",
+            write={"sqlite": "CAST((JULIANDAY(a) - JULIANDAY(b)) * 86400000000000.0 AS INTEGER)"},
+        )
+        self.validate_all(
+            "CAST((JULIANDAY(a) - JULIANDAY(b)) * 86400000000000.0 AS INTEGER)",
+            read={
+                "snowflake": "DATEDIFF(NANOSECOND, b, a)",
+                "tsql": "DATEDIFF_BIG(NANOSECOND, b, a)",
+            },
         )
 
     def test_hexadecimal_literal(self):

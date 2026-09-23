@@ -60,6 +60,7 @@ struct mjtEnableBit {
     std::make_pair("mjENBL_INVDISCRETE", ::mjtEnableBit::mjENBL_INVDISCRETE),
     std::make_pair("mjENBL_SLEEP", ::mjtEnableBit::mjENBL_SLEEP),
     std::make_pair("mjENBL_DIAGEXACT", ::mjtEnableBit::mjENBL_DIAGEXACT),
+    std::make_pair("mjENBL_IPC", ::mjtEnableBit::mjENBL_IPC),
     std::make_pair("mjNENABLE", ::mjtEnableBit::mjNENABLE)};
 };
 

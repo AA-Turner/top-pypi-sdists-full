@@ -33,14 +33,13 @@ class JobQueueArgs:
         """
         The set of arguments for constructing a JobQueue resource.
 
-        :param pulumi.Input[_builtins.int] priority: The priority of the job queue. Job queues with a higher priority
-               are evaluated first when associated with the same compute environment.
-        :param pulumi.Input[_builtins.str] state: The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
-        :param pulumi.Input[Sequence[pulumi.Input['JobQueueComputeEnvironmentOrderArgs']]] compute_environment_orders: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
-        :param pulumi.Input[Sequence[pulumi.Input['JobQueueJobStateTimeLimitActionArgs']]] job_state_time_limit_actions: The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
-        :param pulumi.Input[_builtins.str] name: Specifies the name of the job queue.
+        :param pulumi.Input[_builtins.int] priority: Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
+        :param pulumi.Input[_builtins.str] state: State of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        :param pulumi.Input[Sequence[pulumi.Input['JobQueueComputeEnvironmentOrderArgs']]] compute_environment_orders: Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        :param pulumi.Input[Sequence[pulumi.Input['JobQueueJobStateTimeLimitActionArgs']]] job_state_time_limit_actions: Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        :param pulumi.Input[_builtins.str] name: Name of the job queue.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input[_builtins.str] scheduling_policy_arn: The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        :param pulumi.Input[_builtins.str] scheduling_policy_arn: ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         pulumi.set(__self__, "priority", priority)
@@ -64,8 +63,7 @@ class JobQueueArgs:
     @pulumi.getter
     def priority(self) -> pulumi.Input[_builtins.int]:
         """
-        The priority of the job queue. Job queues with a higher priority
-        are evaluated first when associated with the same compute environment.
+        Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
         """
         return pulumi.get(self, "priority")
 
@@ -77,7 +75,7 @@ class JobQueueArgs:
     @pulumi.getter
     def state(self) -> pulumi.Input[_builtins.str]:
         """
-        The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        State of the job queue. Must be one of: `ENABLED` or `DISABLED`
         """
         return pulumi.get(self, "state")
 
@@ -89,7 +87,7 @@ class JobQueueArgs:
     @pulumi.getter(name="computeEnvironmentOrders")
     def compute_environment_orders(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['JobQueueComputeEnvironmentOrderArgs']]]]:
         """
-        The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
         """
         return pulumi.get(self, "compute_environment_orders")
 
@@ -101,7 +99,7 @@ class JobQueueArgs:
     @pulumi.getter(name="jobStateTimeLimitActions")
     def job_state_time_limit_actions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['JobQueueJobStateTimeLimitActionArgs']]]]:
         """
-        The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
         """
         return pulumi.get(self, "job_state_time_limit_actions")
 
@@ -113,7 +111,7 @@ class JobQueueArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies the name of the job queue.
+        Name of the job queue.
         """
         return pulumi.get(self, "name")
 
@@ -137,7 +135,7 @@ class JobQueueArgs:
     @pulumi.getter(name="schedulingPolicyArn")
     def scheduling_policy_arn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
         """
         return pulumi.get(self, "scheduling_policy_arn")
 
@@ -185,16 +183,15 @@ class _JobQueueState:
         Input properties used for looking up and filtering JobQueue resources.
 
         :param pulumi.Input[_builtins.str] arn: ARN of the job queue.
-        :param pulumi.Input[Sequence[pulumi.Input['JobQueueComputeEnvironmentOrderArgs']]] compute_environment_orders: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
-        :param pulumi.Input[Sequence[pulumi.Input['JobQueueJobStateTimeLimitActionArgs']]] job_state_time_limit_actions: The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
-        :param pulumi.Input[_builtins.str] name: Specifies the name of the job queue.
-        :param pulumi.Input[_builtins.int] priority: The priority of the job queue. Job queues with a higher priority
-               are evaluated first when associated with the same compute environment.
+        :param pulumi.Input[Sequence[pulumi.Input['JobQueueComputeEnvironmentOrderArgs']]] compute_environment_orders: Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        :param pulumi.Input[Sequence[pulumi.Input['JobQueueJobStateTimeLimitActionArgs']]] job_state_time_limit_actions: Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        :param pulumi.Input[_builtins.str] name: Name of the job queue.
+        :param pulumi.Input[_builtins.int] priority: Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input[_builtins.str] scheduling_policy_arn: The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
-        :param pulumi.Input[_builtins.str] state: The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        :param pulumi.Input[_builtins.str] scheduling_policy_arn: ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        :param pulumi.Input[_builtins.str] state: State of the job queue. Must be one of: `ENABLED` or `DISABLED`
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         """
         if arn is not None:
             pulumi.set(__self__, "arn", arn)
@@ -235,7 +232,7 @@ class _JobQueueState:
     @pulumi.getter(name="computeEnvironmentOrders")
     def compute_environment_orders(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['JobQueueComputeEnvironmentOrderArgs']]]]:
         """
-        The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
         """
         return pulumi.get(self, "compute_environment_orders")
 
@@ -247,7 +244,7 @@ class _JobQueueState:
     @pulumi.getter(name="jobStateTimeLimitActions")
     def job_state_time_limit_actions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['JobQueueJobStateTimeLimitActionArgs']]]]:
         """
-        The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
         """
         return pulumi.get(self, "job_state_time_limit_actions")
 
@@ -259,7 +256,7 @@ class _JobQueueState:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies the name of the job queue.
+        Name of the job queue.
         """
         return pulumi.get(self, "name")
 
@@ -271,8 +268,7 @@ class _JobQueueState:
     @pulumi.getter
     def priority(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
-        The priority of the job queue. Job queues with a higher priority
-        are evaluated first when associated with the same compute environment.
+        Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
         """
         return pulumi.get(self, "priority")
 
@@ -296,7 +292,7 @@ class _JobQueueState:
     @pulumi.getter(name="schedulingPolicyArn")
     def scheduling_policy_arn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
         """
         return pulumi.get(self, "scheduling_policy_arn")
 
@@ -308,7 +304,7 @@ class _JobQueueState:
     @pulumi.getter
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        State of the job queue. Must be one of: `ENABLED` or `DISABLED`
         """
         return pulumi.get(self, "state")
 
@@ -332,7 +328,7 @@ class _JobQueueState:
     @pulumi.getter(name="tagsAll")
     def tags_all(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
-        A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         """
         return pulumi.get(self, "tags_all")
 
@@ -356,15 +352,15 @@ class JobQueue(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 compute_environment_orders: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict']]]]] = None,
-                 job_state_time_limit_actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict']]]]] = None,
+                 compute_environment_orders: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict', 'outputs.JobQueueComputeEnvironmentOrder']]]]] = None,
+                 job_state_time_limit_actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict', 'outputs.JobQueueJobStateTimeLimitAction']]]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  priority: pulumi.Input[Optional[_builtins.int]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  scheduling_policy_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['JobQueueTimeoutsArgs', 'JobQueueTimeoutsArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['JobQueueTimeoutsArgs', 'JobQueueTimeoutsArgsDict', 'outputs.JobQueueTimeouts']]] = None,
                  __props__=None):
         """
         Provides a Batch Job Queue resource.
@@ -443,14 +439,13 @@ class JobQueue(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict']]]] compute_environment_orders: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict']]]] job_state_time_limit_actions: The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
-        :param pulumi.Input[_builtins.str] name: Specifies the name of the job queue.
-        :param pulumi.Input[_builtins.int] priority: The priority of the job queue. Job queues with a higher priority
-               are evaluated first when associated with the same compute environment.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict', 'outputs.JobQueueComputeEnvironmentOrder']]]] compute_environment_orders: Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict', 'outputs.JobQueueJobStateTimeLimitAction']]]] job_state_time_limit_actions: Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        :param pulumi.Input[_builtins.str] name: Name of the job queue.
+        :param pulumi.Input[_builtins.int] priority: Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input[_builtins.str] scheduling_policy_arn: The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
-        :param pulumi.Input[_builtins.str] state: The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        :param pulumi.Input[_builtins.str] scheduling_policy_arn: ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        :param pulumi.Input[_builtins.str] state: State of the job queue. Must be one of: `ENABLED` or `DISABLED`
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         ...
@@ -549,15 +544,15 @@ class JobQueue(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 compute_environment_orders: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict']]]]] = None,
-                 job_state_time_limit_actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict']]]]] = None,
+                 compute_environment_orders: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict', 'outputs.JobQueueComputeEnvironmentOrder']]]]] = None,
+                 job_state_time_limit_actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict', 'outputs.JobQueueJobStateTimeLimitAction']]]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  priority: pulumi.Input[Optional[_builtins.int]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  scheduling_policy_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['JobQueueTimeoutsArgs', 'JobQueueTimeoutsArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['JobQueueTimeoutsArgs', 'JobQueueTimeoutsArgsDict', 'outputs.JobQueueTimeouts']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -593,8 +588,8 @@ class JobQueue(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             arn: pulumi.Input[Optional[_builtins.str]] = None,
-            compute_environment_orders: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict']]]]] = None,
-            job_state_time_limit_actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict']]]]] = None,
+            compute_environment_orders: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict', 'outputs.JobQueueComputeEnvironmentOrder']]]]] = None,
+            job_state_time_limit_actions: pulumi.Input[Optional[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict', 'outputs.JobQueueJobStateTimeLimitAction']]]]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
             priority: pulumi.Input[Optional[_builtins.int]] = None,
             region: pulumi.Input[Optional[_builtins.str]] = None,
@@ -602,7 +597,7 @@ class JobQueue(pulumi.CustomResource):
             state: pulumi.Input[Optional[_builtins.str]] = None,
             tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            timeouts: pulumi.Input[Optional[Union['JobQueueTimeoutsArgs', 'JobQueueTimeoutsArgsDict']]] = None) -> 'JobQueue':
+            timeouts: pulumi.Input[Optional[Union['JobQueueTimeoutsArgs', 'JobQueueTimeoutsArgsDict', 'outputs.JobQueueTimeouts']]] = None) -> 'JobQueue':
         """
         Get an existing JobQueue resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -611,16 +606,15 @@ class JobQueue(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] arn: ARN of the job queue.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict']]]] compute_environment_orders: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict']]]] job_state_time_limit_actions: The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
-        :param pulumi.Input[_builtins.str] name: Specifies the name of the job queue.
-        :param pulumi.Input[_builtins.int] priority: The priority of the job queue. Job queues with a higher priority
-               are evaluated first when associated with the same compute environment.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueComputeEnvironmentOrderArgs', 'JobQueueComputeEnvironmentOrderArgsDict', 'outputs.JobQueueComputeEnvironmentOrder']]]] compute_environment_orders: Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['JobQueueJobStateTimeLimitActionArgs', 'JobQueueJobStateTimeLimitActionArgsDict', 'outputs.JobQueueJobStateTimeLimitAction']]]] job_state_time_limit_actions: Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        :param pulumi.Input[_builtins.str] name: Name of the job queue.
+        :param pulumi.Input[_builtins.int] priority: Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input[_builtins.str] scheduling_policy_arn: The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
-        :param pulumi.Input[_builtins.str] state: The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        :param pulumi.Input[_builtins.str] scheduling_policy_arn: ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        :param pulumi.Input[_builtins.str] state: State of the job queue. Must be one of: `ENABLED` or `DISABLED`
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -651,7 +645,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter(name="computeEnvironmentOrders")
     def compute_environment_orders(self) -> pulumi.Output[Optional[Sequence['outputs.JobQueueComputeEnvironmentOrder']]]:
         """
-        The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
+        Set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the VALID state before you can associate them with a job queue. You can associate up to three compute environments with a job queue.
         """
         return pulumi.get(self, "compute_environment_orders")
 
@@ -659,7 +653,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter(name="jobStateTimeLimitActions")
     def job_state_time_limit_actions(self) -> pulumi.Output[Optional[Sequence['outputs.JobQueueJobStateTimeLimitAction']]]:
         """
-        The set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
+        Set of job state time limit actions mapped to a job queue. Specifies an action that AWS Batch will take after the job has remained at the head of the queue in the specified state for longer than the specified time.
         """
         return pulumi.get(self, "job_state_time_limit_actions")
 
@@ -667,7 +661,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
-        Specifies the name of the job queue.
+        Name of the job queue.
         """
         return pulumi.get(self, "name")
 
@@ -675,8 +669,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter
     def priority(self) -> pulumi.Output[_builtins.int]:
         """
-        The priority of the job queue. Job queues with a higher priority
-        are evaluated first when associated with the same compute environment.
+        Priority of the job queue. Job queues with a higher priority are evaluated first when associated with the same compute environment.
         """
         return pulumi.get(self, "priority")
 
@@ -692,7 +685,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter(name="schedulingPolicyArn")
     def scheduling_policy_arn(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
+        ARN of the fair share scheduling policy. If this parameter is specified, the job queue uses a fair share scheduling policy. If this parameter isn't specified, the job queue uses a first in, first out (FIFO) scheduling policy. After a job queue is created, you can replace but can't remove the fair share scheduling policy.
         """
         return pulumi.get(self, "scheduling_policy_arn")
 
@@ -700,7 +693,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter
     def state(self) -> pulumi.Output[_builtins.str]:
         """
-        The state of the job queue. Must be one of: `ENABLED` or `DISABLED`
+        State of the job queue. Must be one of: `ENABLED` or `DISABLED`
         """
         return pulumi.get(self, "state")
 
@@ -716,7 +709,7 @@ class JobQueue(pulumi.CustomResource):
     @pulumi.getter(name="tagsAll")
     def tags_all(self) -> pulumi.Output[Mapping[str, _builtins.str]]:
         """
-        A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         """
         return pulumi.get(self, "tags_all")
 

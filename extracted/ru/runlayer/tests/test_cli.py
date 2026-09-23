@@ -1244,9 +1244,19 @@ def _scan_result(
 
 def _scan_submission_client(**methods):
     return SimpleNamespace(
+        base_url="http://localhost:3000",
         submit_scan_manifest=Mock(return_value={"reconciled": 0}),
+        submit_aiwatch_checkin_batch=Mock(return_value={"results": []}),
         **methods,
     )
+
+
+def _assert_detect_checkin_built_for(mock_detect: Mock, client, scan_result) -> None:
+    """The scan check-in builders write into a collector bound to the client."""
+    mock_detect.assert_called_once()
+    submitter, result_arg = mock_detect.call_args.args
+    assert submitter.base_url == client.base_url
+    assert result_arg is scan_result
 
 
 def test_scan_with_servers_finishes_with_container_health_detect_checkin(
@@ -1268,6 +1278,7 @@ def test_scan_with_servers_finishes_with_container_health_detect_checkin(
             },
             unsupported=[],
             failed_submissions=[],
+            backend_incomplete=[],
             exit_code=0,
         )
 
@@ -1296,7 +1307,7 @@ def test_scan_with_servers_finishes_with_container_health_detect_checkin(
 
     assert result.exit_code == 0, result.output
     assert "Scan complete" in strip_ansi(result.output)
-    mock_detect.assert_called_once_with(client, scan_result)
+    _assert_detect_checkin_built_for(mock_detect, client, scan_result)
     assert calls == ["mcp", "detect"]
 
 
@@ -1326,7 +1337,7 @@ def test_scan_empty_submission_uses_detect_checkin_for_liveness(tmp_path: Path):
         "No AI clients, MCP servers, skills, plugins, agents, processes, "
         "or containers found." in strip_ansi(result.output)
     )
-    mock_detect.assert_called_once_with(client, scan_result)
+    _assert_detect_checkin_built_for(mock_detect, client, scan_result)
 
 
 def test_scan_artifact_only_submission_uses_detect_checkin_fallback(tmp_path: Path):
@@ -1356,7 +1367,7 @@ def test_scan_artifact_only_submission_uses_detect_checkin_fallback(tmp_path: Pa
 
     assert result.exit_code == 0, result.output
     assert "Scan complete" in strip_ansi(result.output)
-    mock_detect.assert_called_once_with(client, scan_result)
+    _assert_detect_checkin_built_for(mock_detect, client, scan_result)
 
 
 def test_scan_continues_when_enforce_validation_checkin_fails(tmp_path: Path):

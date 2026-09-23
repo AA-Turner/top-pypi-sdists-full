@@ -6,8 +6,6 @@ from typing import Any, Generic, Sequence, overload
 import numpy as np
 
 from mistral_common.exceptions import (
-    InvalidAssistantMessageException,
-    InvalidMessageStructureException,
     InvalidRequestException,
     TokenizerException,
 )
@@ -24,7 +22,7 @@ from mistral_common.protocol.instruct.chunk import (
 from mistral_common.protocol.instruct.messages import (
     UATS,
     AssistantMessage,
-    AssistantMessageType,
+    ChatMessage,
     SystemMessage,
     ToolMessage,
     UserMessage,
@@ -49,10 +47,12 @@ from mistral_common.tokens.tokenizers.image import ImageEncoder
 from mistral_common.tokens.tokenizers.tekken import Tekkenizer
 
 
-class InstructTokenizerBase(
-    InstructTokenizer, Generic[InstructRequestType, FIMRequestType, TokenizedType, AssistantMessageType]
-):
-    r"""Base instruct tokenizer."""
+class InstructTokenizerBase(InstructTokenizer, Generic[InstructRequestType, FIMRequestType, TokenizedType]):
+    r"""Base instruct tokenizer implementing version-independent encoding.
+
+    Concrete versioned tokenizers (V1, V2, ...) inherit from this class and
+    implement the version-specific message encodings.
+    """
 
     def __init__(
         self,
@@ -63,9 +63,11 @@ class InstructTokenizerBase(
         r"""Initialize the instruct tokenizer.
 
         Args:
-            tokenizer: The tokenizer to use.
-            image_encoder: The image encoder to use if any.
-            audio_encoder: The audio encoder to use.
+            tokenizer: The text tokenizer to use.
+            image_encoder: The image encoder to use, or `None` if image support is
+                not configured.
+            audio_encoder: The audio encoder to use, or `None` if audio support is
+                not configured.
         """
         self.tokenizer = tokenizer
         self.image_encoder = image_encoder
@@ -74,13 +76,22 @@ class InstructTokenizerBase(
 
     @property
     def mm_encoder(self) -> ImageEncoder | None:
+        r"""Deprecated alias for `image_encoder`.
+
+        Returns:
+            The image encoder, or `None` if image support is not configured.
+        """
         # this funtion is deprecated, use image_encoder instead
         # TODO(Patrick) - throw a deprecation warning once
         # changes applied to vllm and transformers
         return self.image_encoder
 
     def start(self) -> list[int]:
-        r"""Return the start tokens."""
+        r"""Return the start tokens of every encoded request.
+
+        Returns:
+            The token IDs prepended to every encoded conversation (the BOS token).
+        """
         return [self.tokenizer.bos_id]
 
     @staticmethod
@@ -91,7 +102,9 @@ class InstructTokenizerBase(
             request: The request to search for user messages.
 
         Returns:
-            The index of the first and last user message.
+            A tuple of (`first_user_idx`, `last_user_idx`), the message indexes of
+            the first and last UserMessage. Both are -1 if the request has no
+            user messages.
         """
         last_user_idx = -1
         first_user_idx = -1
@@ -108,16 +121,31 @@ class InstructTokenizerBase(
     ) -> tuple[list[int], list[np.ndarray], list[Audio]]:
         r"""Encode a tool message.
 
+        Args:
+            message: The tool message to encode.
+            is_before_last_user_message: `True` if this message comes before the
+                last user message of the conversation.
+
+        Returns:
+            A tuple of (tokens, images, audios): the encoded token IDs, images,
+            and audio for this message.
+
         Raises:
             NotImplementedError: The tool message is not implemented for the base tokenizer.
         """
         raise NotImplementedError("Tool message not implemented")
 
     @abstractmethod
-    def encode_assistant_message(
-        self, message: AssistantMessageType, is_before_last_user_message: bool, continue_message: bool
-    ) -> list[int]:
+    def encode_assistant_message(self, message: AssistantMessage, is_before_last_user_message: bool) -> list[int]:
         r"""Encode an assistant message.
+
+        Args:
+            message: The assistant message to encode.
+            is_before_last_user_message: `True` if this message comes before the
+                last user message of the conversation.
+
+        Returns:
+            The encoded token IDs for this message.
 
         Raises:
             NotImplementedError: The assistant message is not implemented for the base tokenizer.
@@ -128,6 +156,12 @@ class InstructTokenizerBase(
     def encode_think(self, chunk: ThinkChunk) -> list[int]:
         r"""Encode a think chunk.
 
+        Args:
+            chunk: The think chunk to encode.
+
+        Returns:
+            The encoded token IDs for this chunk.
+
         Raises:
             NotImplementedError: The think chunk is not implemented for the base tokenizer.
         """
@@ -136,7 +170,7 @@ class InstructTokenizerBase(
     def _truncate_for_max_tokens(
         self,
         tokenized: list[list[int] | None],
-        messages: list[AssistantMessageType],
+        messages: list[ChatMessage],
         max_tokens: int,
         last_user_message_index: int,
     ) -> None:
@@ -145,20 +179,36 @@ class InstructTokenizerBase(
 
     @classmethod
     def validate_messages(cls, messages: list[UATS]) -> None:
+        r"""Validate messages before tokenization.
+
+        No-op for this tokenizer version; message validation starts at v7.
+
+        Args:
+            messages: The messages that were validated.
+        """
         # We start validating messages for v7
         return
 
     def encode_instruct(
         self,
-        request: InstructRequest[AssistantMessageType, Tool],
+        request: InstructRequest[ChatMessage, Tool],
     ) -> Tokenized:
         r"""Encode an instruct request.
+
+        Walks the message list, encoding each message with its version-specific
+        encoder, and aggregates the resulting tokens, images, and audio into a
+        single Tokenized object. Applies truncation when
+        `request.truncate_at_max_tokens` is set.
 
         Args:
             request: The request to encode.
 
         Returns:
-            The encoded tokens.
+            The tokenized request, with all images and audio collected across
+            the messages.
+
+        Raises:
+            TokenizerException: If a message has an unknown type.
         """
         # init at bos
         images: list[np.ndarray] = []
@@ -172,14 +222,6 @@ class InstructTokenizerBase(
         # find last user message
         first_user_idx, last_user_idx = self.find_first_last_user(request)
         for msg_idx, msg in enumerate(request.messages):
-            if (
-                request.continue_final_message
-                and (msg_idx == len(request.messages) - 1)
-                and not isinstance(msg, AssistantMessage)
-            ):
-                raise InvalidMessageStructureException(
-                    "Cannot continue final message if it is not an assistant message"
-                )
             if isinstance(msg, UserMessage):
                 new_tokens, new_images, new_audios = self.encode_user_message(
                     msg,
@@ -197,12 +239,11 @@ class InstructTokenizerBase(
                 images.extend(new_images)
                 audios.extend(new_audios)
             elif isinstance(msg, AssistantMessage):
-                continue_message = request.continue_final_message and (msg_idx == len(request.messages) - 1)
-
                 new_tokens = self.encode_assistant_message(
-                    msg, msg_idx < last_user_idx, continue_message=continue_message
+                    message=msg, is_before_last_user_message=msg_idx < last_user_idx
                 )
-                if msg_idx == len(request.messages) - 1:
+                if msg.prefix:
+                    assert msg_idx == len(request.messages) - 1
                     prefix_ids = new_tokens
             elif isinstance(msg, SystemMessage):
                 new_tokens, new_audios = self.encode_system_message(msg)
@@ -225,20 +266,23 @@ class InstructTokenizerBase(
             if tok is not None:
                 tokens.extend(tok)
 
-        return Tokenized(
+        tokenized = Tokenized(
             tokens=tokens,
-            text=self.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP),
             prefix_ids=prefix_ids,
             images=images,
             audios=audios,
         )
+        # TODO: remove once 1.13.0 lands.
+        tokenized._text = self.decode(tokens=tokens, special_token_policy=SpecialTokenPolicy.KEEP)
+        return tokenized
 
     def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy = SpecialTokenPolicy.IGNORE) -> str:
         r"""Decode tokens to a string.
 
         Args:
-            tokens: The tokens to decode.
-            special_token_policy: The policy to use for special tokens.
+            tokens: The token IDs to decode.
+            special_token_policy: The policy to use for special tokens
+                (IGNORE, KEEP, or RAISE).
 
         Returns:
             The decoded string.
@@ -249,12 +293,12 @@ class InstructTokenizerBase(
         return self.tokenizer._to_string(tokens)
 
 
-class InstructTokenizerV1(
-    InstructTokenizerBase, Generic[InstructRequestType, FIMRequestType, TokenizedType, AssistantMessageType]
-):
+class InstructTokenizerV1(InstructTokenizerBase, Generic[InstructRequestType, FIMRequestType, TokenizedType]):
     r"""Instruct tokenizer V1.
 
-    This tokenizer has basic for messages. It does not support tools or image inputs.
+    Basic message encoding wrapping content in [INST]/[/INST] markers. Does not
+    support tools, images, audio, FIM, or system messages as separate messages
+    (the system prompt is merged into the first user message).
     """
 
     def encode_user_message(
@@ -276,6 +320,7 @@ class InstructTokenizerV1(
             is_first: Whether the message is the first one.
             system_prompt: The system prompt.
             force_img_first: Not used.
+            settings: Not used.
 
         Returns:
             The encoded tokens and empty list.
@@ -294,6 +339,11 @@ class InstructTokenizerV1(
         return curr_tokens, image, audio
 
     def encode_system_message(self, message: SystemMessage) -> tuple[list[int], list[Audio]]:
+        r"""Encode a system message.
+
+        Raises:
+            NotImplementedError: Always; system messages are not supported by this version.
+        """
         raise NotImplementedError(f"System message encoding not implemented for {self.__class__.__name__}")
 
     def encode_user_content(
@@ -332,33 +382,24 @@ class InstructTokenizerV1(
         """
         raise TokenizerException("Tools not implemented for tokenizer V1")
 
-    def encode_assistant_message(
-        self, message: AssistantMessageType, is_before_last_user_message: bool, continue_message: bool
-    ) -> list[int]:
+    def encode_assistant_message(self, message: AssistantMessage, is_before_last_user_message: bool) -> list[int]:
         r"""Encode an assistant message.
 
         Args:
             message: The message to encode.
             is_before_last_user_message: Not used.
-            continue_message: Whether to continue the message generation.
-                Only use this if the assistant message is the last message.
-
         Returns:
             The encoded tokens.
         """
         assert isinstance(message, AssistantMessage), message
         if message.tool_calls is not None and len(message.tool_calls) > 0:
             raise TokenizerException("Tools not implemented for tokenizer V1")
-        if continue_message and message.prefix:
-            raise InvalidAssistantMessageException(
-                "`continue_message` is only supported for assistant messages that have `prefix=False`."
-            )
         elif message.content:
             assert isinstance(message.content, str), "Message content must be a string for tokenizer < V13"
             curr_tokens = self.tokenizer.encode(message.content, bos=False, eos=False)
         else:
             raise TokenizerException(f"{message.content} // {message.tool_calls}")
-        if not message.prefix and not continue_message:
+        if not message.prefix:
             curr_tokens.append(self.tokenizer.eos_id)
         return curr_tokens
 
@@ -379,18 +420,27 @@ class InstructTokenizerV1(
         raise TokenizerException(f"FIM not available for {self.tokenizer.version}")
 
     def encode_transcription(self, request: TranscriptionRequest) -> Tokenized:
+        r"""Encode a transcription request.
+
+        Raises:
+            TokenizerException: Always; transcription is not supported by this version.
+        """
         raise TokenizerException(f"Transcription not available for {self.tokenizer.version}")
 
     def encode_speech_request(self, request: SpeechRequest) -> Tokenized:
+        r"""Encode a speech synthesis request.
+
+        Raises:
+            TokenizerException: Always; speech requests are not supported by this version.
+        """
         raise TokenizerException(f"Speech request not available for tokenizer {self.tokenizer.version.value}")
 
 
-class InstructTokenizerV2(
-    InstructTokenizerV1, Generic[InstructRequestType, FIMRequestType, TokenizedType, AssistantMessageType]
-):
+class InstructTokenizerV2(InstructTokenizerV1, Generic[InstructRequestType, FIMRequestType, TokenizedType]):
     r"""Instruct tokenizer V2.
 
-    This tokenizer adds supports to images, tools and FIM requests.
+    Adds support for images, tools, and FIM requests on top of V1. Tool
+    definitions are encoded in the last user message.
     """
 
     _message_position_to_encode_tools_settings = UserMessagePosition.last
@@ -439,6 +489,7 @@ class InstructTokenizerV2(
             is_first: Not used.
             system_prompt: The system prompt.
             force_img_first: Whether to force the image to be first.
+            settings: Not used.
 
         Returns:
             The encoded tokens and the list of images.
@@ -537,12 +588,12 @@ class InstructTokenizerV2(
             "arguments": self._parse_json_content(tool_call.function.arguments),
         }
 
-    def _encode_normal_content_assistant_message(self, message: AssistantMessageType) -> list[int]:
+    def _encode_normal_content_assistant_message(self, message: AssistantMessage) -> list[int]:
         assert message.content, f"Assistant message must have content. Got {message}"
         assert isinstance(message.content, str), "Message content must be a string for tokenizer < V7"
         return self.tokenizer.encode(message.content.rstrip(" "), bos=False, eos=False)
 
-    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessageType) -> list[int]:
+    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessage) -> list[int]:
         assert message.tool_calls, f"Assistant message must have tool calls. Got {message}"
         prepared_tool_calls = []
         for tool_call in message.tool_calls:
@@ -562,28 +613,18 @@ class InstructTokenizerV2(
         assert self.tokenizer.model_settings_builder is None, "`model_settings_builder` not supported for this version."
         return []
 
-    def encode_assistant_message(
-        self, message: AssistantMessageType, is_before_last_user_message: bool, continue_message: bool
-    ) -> list[int]:
+    def encode_assistant_message(self, message: AssistantMessage, is_before_last_user_message: bool) -> list[int]:
         r"""Encode an assistant message.
 
         Args:
             message: The message to encode.
             is_before_last_user_message: Whether the message is before the last user message. If has tools and true, the
                 message is not encoded.
-            continue_message: Whether to continue the message generation.
-                Only use this if the assistant message is the last message.
-
         Returns:
             The encoded tokens.
         """
         if message.tool_calls and message.content:
             raise ValueError(f"Cannot have tool calls and content defined in the same assistant message {message}")
-        if continue_message and message.prefix:
-            raise InvalidAssistantMessageException(
-                "`continue_message` is only supported for assistant messages that have `prefix=False`."
-            )
-
         if message.tool_calls:
             if is_before_last_user_message:
                 # don't tokenize tool call before last user message
@@ -594,7 +635,7 @@ class InstructTokenizerV2(
             curr_tokens = self._encode_normal_content_assistant_message(message)
         else:
             raise TokenizerException(f"Invalid assistant message: {message.content}")
-        if not message.prefix and not continue_message:
+        if not message.prefix:
             curr_tokens.append(self.tokenizer.eos_id)
         return curr_tokens
 
@@ -621,12 +662,13 @@ class InstructTokenizerV2(
             self.PREFIX,
             *prefix_tokens,
         ]
-        return Tokenized(tokens=tokens, text=self.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP))
+        tokenized = Tokenized(tokens=tokens)
+        # TODO: remove once 1.13.0 lands.
+        tokenized._text = self.decode(tokens=tokens, special_token_policy=SpecialTokenPolicy.KEEP)
+        return tokenized
 
 
-class InstructTokenizerV3(
-    InstructTokenizerV2, Generic[InstructRequestType, FIMRequestType, TokenizedType, AssistantMessageType]
-):
+class InstructTokenizerV3(InstructTokenizerV2, Generic[InstructRequestType, FIMRequestType, TokenizedType]):
     r"""Instruct tokenizer V3.
 
     The only difference with V2 tokenizer is that it encodes the tool messages differently.
@@ -691,16 +733,12 @@ class InstructTokenizerV3(
         ]
         return curr_tokens, [], []
 
-    def encode_assistant_message(
-        self, message: AssistantMessageType, is_before_last_user_message: bool, continue_message: bool
-    ) -> list[int]:
+    def encode_assistant_message(self, message: AssistantMessage, is_before_last_user_message: bool) -> list[int]:
         r"""Encode an assistant message.
 
         Note:
             Same as [V2][mistral_common.tokens.tokenizers.instruct.InstructTokenizerV2.encode_assistant_message] but
             always encode the tool history.
-            continue_message: Whether to continue the message generation.
-                Only use this if the assistant message is the last message.
 
         Args:
             message: The message to encode.
@@ -709,7 +747,7 @@ class InstructTokenizerV3(
         Returns:
             The encoded tokens.
         """
-        return super().encode_assistant_message(message, False, continue_message)
+        return super().encode_assistant_message(message=message, is_before_last_user_message=False)
 
     @overload
     def _encode_content_chunk(self, chunk: str | TextChunk | ThinkChunk) -> tuple[list[int], None, None]: ...
@@ -860,7 +898,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
     def _truncate_for_max_tokens(
         self,
         tokenized_messages: list[list[int] | None],
-        messages: list[AssistantMessageType],
+        messages: list[ChatMessage],
         max_tokens: int,
         last_user_message_index: int,
     ) -> None:
@@ -964,6 +1002,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
             is_first: Whether the message is the first one.
             system_prompt: Not used.
             force_img_first: Whether to force the image to be first.
+            settings: Not used.
 
         Returns:
             The encoded tokens and the list of images.
@@ -1029,7 +1068,13 @@ class InstructTokenizerV7(InstructTokenizerV3):
             tokens += self.tokenizer.encode(language_string, bos=False, eos=False)
 
         tokens.append(self.TRANSCRIBE)
-        return Tokenized(tokens=tokens, text=self.tokenizer._to_string(tokens), audios=audio)
+        tokenized = Tokenized(
+            tokens=tokens,
+            audios=audio,
+        )
+        # TODO: remove once 1.13.0 lands.
+        tokenized._text = self.decode(tokens=tokens, special_token_policy=SpecialTokenPolicy.KEEP)
+        return tokenized
 
     def _encode_audio(self, audio: str | bytes, transcription_delay_ms: float | None = None) -> Tokenized:
         assert self.audio_encoder is not None, (
@@ -1090,15 +1135,24 @@ class InstructTokenizerV7(InstructTokenizerV3):
         else:
             raise ValueError(f"Request must be in streaming mode, got {request.streaming=}")
 
-        return Tokenized(
+        tokenized = Tokenized(
             tokens=tokens,
-            text=self.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP),
             audios=audios,
         )
+        # TODO: remove once 1.13.0 lands.
+        tokenized._text = self.decode(tokens=tokens, special_token_policy=SpecialTokenPolicy.KEEP)
+        return tokenized
 
     @classmethod
     def validate_messages(cls, messages: list[UATS]) -> None:
-        r"""Validates that system prompts and audio chunks are not used together in v7."""
+        r"""Validate that system prompts and audio chunks are not used together in v7.
+
+        Args:
+            messages: The messages to validate.
+
+        Raises:
+            ValueError: If audio chunks are present alongside a system message.
+        """
         if cls._has_audio(messages):
             if any(isinstance(message, SystemMessage) for message in messages):
                 raise ValueError("System messages are not yet allowed when audio is present")
@@ -1145,27 +1199,17 @@ class InstructTokenizerV7(InstructTokenizerV3):
         ]
         return curr_tokens, [], []
 
-    def encode_assistant_message(
-        self, message: AssistantMessageType, is_before_last_user_message: bool, continue_message: bool
-    ) -> list[int]:
+    def encode_assistant_message(self, message: AssistantMessage, is_before_last_user_message: bool) -> list[int]:
         r"""Encode an assistant message.
 
         Args:
             message: The message to encode.
             is_before_last_user_message: Not used.
-            continue_message: Whether to continue the message generation.
-                Only use this if the assistant message is the last message.
-
         Returns:
             The encoded tokens.
         """
         if not message.content and not message.tool_calls:
             raise TokenizerException(f"Invalid assistant message: {message}")
-        if continue_message and message.prefix:
-            raise InvalidAssistantMessageException(
-                "`continue_message` is only supported for assistant messages that have `prefix=False`."
-            )
-
         curr_tokens: list = []
         if message.content:
             if isinstance(message.content, str):
@@ -1179,7 +1223,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
                 curr_tokens += content_tokens
         if message.tool_calls:
             curr_tokens += self._encode_tool_calls_in_assistant_message(message)
-        if not message.prefix and not continue_message:
+        if not message.prefix:
             curr_tokens.append(self.tokenizer.eos_id)
 
         return curr_tokens
@@ -1188,8 +1232,8 @@ class InstructTokenizerV7(InstructTokenizerV3):
         r"""Encode reference audio or voice preset into a Tokenized object.
 
         Args:
-            ref_audio: Base64-encoded string or raw bytes of reference audio, or None.
-            voice: Preset voice name, or None.
+            ref_audio: Base64-encoded string or raw bytes of reference audio, or `None`.
+            voice: Preset voice name, or `None`.
 
         Returns:
             Tokenized object with audio tokens and optional audio data.
@@ -1213,7 +1257,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
     def encode_speech_request(self, request: SpeechRequest) -> Tokenized:
         r"""Encode a speech synthesis request into a tokenized sequence.
 
-        Produces: [BOS] + audio_tokens + [TEXT_TO_AUDIO] + text_tokens + [AUDIO_TO_TEXT] + [BEGIN_AUDIO].
+        Produces: [BOS] + `audio_tokens` + [TEXT_TO_AUDIO] + `text_tokens` + [AUDIO_TO_TEXT] + [BEGIN_AUDIO].
 
         Args:
             request: The speech request containing input text and voice/audio data.
@@ -1244,7 +1288,7 @@ class InstructTokenizerV11(InstructTokenizerV7):
 
     The difference with V7 tokenizer is that it encodes tool calls differently:
     Tool call results are encoded as :
-    - [begin tool call] call_name_tokens [call id] call_id_tokens [args] content tokens
+    - [begin tool call] `call_name_tokens` [call id] `call_id_tokens` [args] content tokens
     """
 
     def __init__(
@@ -1257,7 +1301,7 @@ class InstructTokenizerV11(InstructTokenizerV7):
         self.ARGS = self.tokenizer.get_special_token(SpecialTokens.args.value)
         self.CALL_ID = self.tokenizer.get_special_token(SpecialTokens.call_id.value)
 
-    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessageType) -> list[int]:
+    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessage) -> list[int]:
         assert message.tool_calls, f"Assistant message must have tool calls. Got {message}"
         curr_tokens = []
         for tool_call in message.tool_calls:
@@ -1305,7 +1349,7 @@ class InstructTokenizerV13(InstructTokenizerV11):
             self.BEGIN_THINK = None
             self.END_THINK = None
 
-    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessageType) -> list[int]:
+    def _encode_tool_calls_in_assistant_message(self, message: AssistantMessage) -> list[int]:
         assert message.tool_calls, f"Assistant message must have tool calls. Got {message}"
         curr_tokens = []
         for tool_call in message.tool_calls:
@@ -1365,7 +1409,14 @@ class InstructTokenizerV13(InstructTokenizerV11):
 
     @classmethod
     def validate_messages(cls, messages: list[UATS]) -> None:
-        r"""Allows system prompts and audio chunks to coexist in v13."""
+        r"""Validate messages before tokenization.
+
+        No-op: unlike v7, this version allows system prompts and audio chunks
+        to coexist.
+
+        Args:
+            messages: The messages that were validated.
+        """
         return
 
 

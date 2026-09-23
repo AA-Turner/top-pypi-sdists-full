@@ -117,6 +117,9 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 #     bounded recovery path for temporary relation-lock or database-load
 #     contention; a persistent failure reaches the existing five-attempt
 #     quarantine boundary.
+#   * LockNotAvailableError — PostgreSQL refused the statement before it could
+#     acquire the required relation lock. The transaction is rolled back and
+#     the complete operation is safe to retry on a fresh connection.
 RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "ForeignKeyViolationError",
     "InterfaceError: cannot perform operation: another operation is in progress",
@@ -125,6 +128,7 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     IMMUTABLE_WRITE_PRESERVED_MARKER,
     "commit hard-deadline",
     "QueryTimeoutError",
+    "LockNotAvailableError",
 )
 
 
@@ -540,6 +544,16 @@ _LEGACY_UNAMBIGUOUS_FIELD_RENAMES: dict[str, dict[str, str]] = {
     "workbench.notes": {"name": "label"},
 }
 
+_LEGACY_UNAMBIGUOUS_VALUE_REWRITES: dict[str, dict[str, dict[Any, Any]]] = {
+    # The media-catalog producer used the provider name as the transcript's
+    # source category before e46f9fb95f. The database has always accepted the
+    # media category (audio|video|meeting|interview|other), while the provider
+    # already lives in metadata.media.adapter. A YouTube upload is therefore
+    # unambiguously a video; changing only this value restores the preserved
+    # payload without discarding any provider provenance.
+    "transcripts.transcripts": {"source_type": {"youtube": "video"}},
+}
+
 
 async def _upgrade_legacy_payloads(rows: Sequence[Any]) -> list[dict[str, Any]]:
     """Upgrade durable payloads whose pre-normalization spelling is unambiguous.
@@ -554,12 +568,15 @@ async def _upgrade_legacy_payloads(rows: Sequence[Any]) -> list[dict[str, Any]]:
     upgraded = await _upgrade_legacy_chat_payloads(rows)
     for row in upgraded:
         renames = _LEGACY_UNAMBIGUOUS_FIELD_RENAMES.get(str(row["table_target"]))
-        if not renames:
-            continue
         payload = row["payload"]
-        for legacy_name, canonical_name in renames.items():
+        for legacy_name, canonical_name in (renames or {}).items():
             if legacy_name in payload and canonical_name not in payload:
                 payload[canonical_name] = payload.pop(legacy_name)
+        rewrites = _LEGACY_UNAMBIGUOUS_VALUE_REWRITES.get(str(row["table_target"]))
+        for field_name, values in (rewrites or {}).items():
+            current = payload.get(field_name)
+            if current in values:
+                payload[field_name] = values[current]
     return upgraded
 
 

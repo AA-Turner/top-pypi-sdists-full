@@ -3,9 +3,10 @@ import operator
 import os
 from functools import lru_cache, reduce
 from pathlib import Path
+from types import GenericAlias
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator
 from typing_extensions import Annotated
 
 from dbt_bouncer.enums import CheckCategory
@@ -32,7 +33,7 @@ def get_check_types(
     check_type: str,
     custom_checks_dir: Path | None = None,
     check_objects: list[Any] | None = None,
-) -> list[Any]:
+) -> GenericAlias:
     """Get the check types from the check categories.
 
     Args:
@@ -42,7 +43,8 @@ def get_check_types(
             expensive ``get_check_objects()`` call.
 
     Returns:
-        list[str]: The check types.
+        GenericAlias: A parametrised ``list[...]`` type (not a list instance) for
+            use as a Pydantic field annotation.
 
     """
     source = (
@@ -52,9 +54,9 @@ def get_check_types(
     )
     filtered_classes = [x for x in source if _get_category(x) == check_type]
     if not filtered_classes:
-        return list[Any]  # type: ignore[return-value]
+        return list[Any]
 
-    return list[  # type: ignore[misc, return-value]
+    return list[
         Annotated[
             reduce(operator.or_, filtered_classes),  # type: ignore
             Field(discriminator="name"),
@@ -89,10 +91,30 @@ class DbtBouncerConfBase(BaseModel):
     package_name: str | None = Field(
         default=None, description="If you want to run `dbt-bouncer` against a package."
     )
+    selector: str | None = Field(
+        default=None,
+        description="dbt-style node selector applied to all checks that do not set their own.",
+    )
     severity: Literal["error", "warn"] | None = Field(
         default=None,
         description="Severity of the check, one of 'error' or 'warn'.",
     )
+
+    @field_validator("selector")
+    @classmethod
+    def _validate_selector(cls, value: str | None) -> str | None:
+        """Reject syntactically invalid global selectors at config-validation time.
+
+        Mirrors the validator on ``BaseCheck.selector`` so a typo in the
+        global ``selector`` fails fast instead of at manifest-resolution time.
+
+        Returns:
+            str | None: The validated selector string.
+
+        """
+        from dbt_bouncer.selectors import validate_selector_field
+
+        return validate_selector_field(value)
 
 
 @lru_cache(maxsize=None)
@@ -154,7 +176,7 @@ def _create_conf_class(
             resolved_type = list[Any]
         fields[category] = (resolved_type, Field(default=[]))
 
-    return create_model(  # type: ignore[call-overload]
+    return create_model(  # ty: ignore[no-matching-overload]
         "DbtBouncerConf",
         __base__=DbtBouncerConfBase,
         **fields,

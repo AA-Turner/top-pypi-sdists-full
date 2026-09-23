@@ -15,6 +15,8 @@ use std::collections::{HashMap, HashSet};
 use chematic::core::Element;
 use serde::Serialize;
 
+use crate::bridge::AtomMappingReceipt;
+use crate::bridge::forward::ForwardNotEvaluableReason;
 use crate::bridge::route_graph::{ParseOutcome, RouteDocument, RouteNode, RouteSource};
 use crate::chem_env::{RetroRule, mol_from_smiles};
 use crate::synthesizability::heavy_atom_counts;
@@ -54,10 +56,8 @@ pub enum AuditFindingCode {
     /// product didn't reproduce the recorded parent molecule.
     ForwardReactionNotReproduced,
     /// RENKIN Bridge PR4: a step's forward validation couldn't reach a
-    /// pass/fail verdict -- see the step's own `forward_validation.reason`
-    /// on [`AuditedStep`] for which of the six not-evaluable causes applied;
-    /// this finding code stays generic on purpose (the specific reason
-    /// already lives there, not duplicated into six finding codes).
+    /// pass/fail verdict. The generic code preserves the stable finding
+    /// taxonomy; [`AuditFinding::reason`] identifies the specific cause.
     ForwardValidationNotEvaluable,
 }
 
@@ -98,6 +98,27 @@ pub struct AuditFinding {
     /// `MultipleOrZeroRoots`) have none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node: Option<String>,
+    /// Zero-based child indices from the route root to the affected node.
+    /// This is an occurrence identity, not a molecule identity: repeated
+    /// intermediates can share canonical SMILES while occupying different
+    /// positions in a route tree. Absent only when parsing failed before a
+    /// normalized tree existed, or when the finding is route-wide.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occurrence_path: Option<Vec<usize>>,
+    /// Preorder index into [`AuditReport::steps`], when the finding concerns
+    /// one decomposing node. The index and `occurrence_path` deliberately
+    /// coexist: the first is convenient for a flat report consumer, while the
+    /// second remains stable when two nodes have the same target SMILES.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_index: Option<usize>,
+    /// Specific non-evaluable cause, present only for
+    /// [`AuditFindingCode::ForwardValidationNotEvaluable`]. It mirrors the
+    /// corresponding [`AuditedStep::forward_validation`] result so a flat
+    /// finding consumer never has to join it back to `steps` merely to tell
+    /// missing evidence from unsupported input. It is never inferred for
+    /// other finding kinds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<ForwardNotEvaluableReason>,
 }
 
 impl AuditFinding {
@@ -106,15 +127,31 @@ impl AuditFinding {
             code,
             severity: code.severity(),
             node: None,
+            occurrence_path: None,
+            step_index: None,
+            reason: None,
         }
     }
 
-    fn at(code: AuditFindingCode, node: impl Into<String>) -> Self {
+    fn at_occurrence(
+        code: AuditFindingCode,
+        node: impl Into<String>,
+        occurrence_path: Vec<usize>,
+        step_index: Option<usize>,
+    ) -> Self {
         Self {
             code,
             severity: code.severity(),
             node: Some(node.into()),
+            occurrence_path: Some(occurrence_path),
+            step_index,
+            reason: None,
         }
+    }
+
+    fn with_forward_reason(mut self, reason: Option<ForwardNotEvaluableReason>) -> Self {
+        self.reason = reason;
+        self
     }
 }
 
@@ -255,16 +292,23 @@ pub struct StockValidationResult {
 /// exactly: `{"target": ..., "precursors": [...], "forward_validation":
 /// {"status": ..., "method": ..., "evidence_basis": ..., "reason": ...}}`
 /// (`evidence_basis`/`reason` both additive/optional -- see
-/// `bridge::forward::ForwardValidationResult`'s own doc comment).
+/// `bridge::forward::ForwardValidationResult`'s own doc comment). Its
+/// additive `atom_mapping` receipt is diagnostic-only and never changes this
+/// report's existing route status.
 #[derive(Debug, Clone, Serialize)]
 pub struct AuditedStep {
     pub target: String,
     pub precursors: Vec<String>,
+    /// Zero-based child indices from the route root to this decomposing
+    /// occurrence. Unlike a finding location, every serialized audited step
+    /// has one because `steps` is derived only from a normalized tree.
+    pub occurrence_path: Vec<usize>,
     /// Kept out of the legacy audit JSON; exported by the canonical
     /// evidence-carrying interchange schema when requested.
     #[serde(skip)]
     pub reaction_evidence: Option<crate::bridge::route_graph::ReactionEvidence>,
     pub forward_validation: crate::bridge::forward::ForwardValidationResult,
+    pub atom_mapping: AtomMappingReceipt,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -357,25 +401,33 @@ fn validate_stock_leaves(
     let mut findings = Vec::new();
     let mut all_ok = true;
 
-    fn iter_leaves<'a>(node: &'a RouteNode, out: &mut Vec<&'a RouteNode>) {
+    fn iter_leaves<'a>(
+        node: &'a RouteNode,
+        occurrence_path: &mut Vec<usize>,
+        out: &mut Vec<(&'a RouteNode, Vec<usize>)>,
+    ) {
         if node.children.is_empty() {
-            out.push(node);
+            out.push((node, occurrence_path.clone()));
         } else {
-            for c in &node.children {
-                iter_leaves(c, out);
+            for (child_index, child) in node.children.iter().enumerate() {
+                occurrence_path.push(child_index);
+                iter_leaves(child, occurrence_path, out);
+                occurrence_path.pop();
             }
         }
     }
     let mut leaves = Vec::new();
-    iter_leaves(root, &mut leaves);
+    iter_leaves(root, &mut Vec::new(), &mut leaves);
 
-    for leaf in leaves {
+    for (leaf, occurrence_path) in leaves {
         match leaf.is_stock_leaf {
             Some(true) => {
                 if !configured_stock.contains(&leaf.canonical_smiles) {
-                    findings.push(AuditFinding::at(
+                    findings.push(AuditFinding::at_occurrence(
                         AuditFindingCode::LeafClaimedStockNotMatched,
                         leaf.canonical_smiles.clone(),
+                        occurrence_path,
+                        None,
                     ));
                     all_ok = false;
                 }
@@ -385,9 +437,11 @@ fn validate_stock_leaves(
                 // failed `route_tree_parseable` upstream; treated
                 // defensively as unresolved if ever reached here anyway,
                 // matching `compare_validation.py`'s own comment.
-                findings.push(AuditFinding::at(
+                findings.push(AuditFinding::at_occurrence(
                     AuditFindingCode::LeafUnresolved,
                     leaf.canonical_smiles.clone(),
+                    occurrence_path,
+                    None,
                 ));
                 all_ok = false;
             }
@@ -430,10 +484,17 @@ fn target_element_accounting(
 
     fn walk(
         node: &RouteNode,
+        occurrence_path: &mut Vec<usize>,
+        next_step_index: &mut usize,
         any_evaluated: &mut bool,
         unaccounted: &mut bool,
         findings: &mut Vec<AuditFinding>,
     ) {
+        let step_index = (!node.children.is_empty()).then(|| {
+            let index = *next_step_index;
+            *next_step_index += 1;
+            index
+        });
         if !node.children.is_empty()
             && let Some(target_counts) = heavy_atom_counts(&node.canonical_smiles)
         {
@@ -456,9 +517,11 @@ fn target_element_accounting(
                     .any(|(el, n)| *n > precursor_counts.get(el).copied().unwrap_or(0));
                 if elements_in_excess {
                     *unaccounted = true;
-                    findings.push(AuditFinding::at(
+                    findings.push(AuditFinding::at_occurrence(
                         AuditFindingCode::UnaccountedTargetElement,
                         node.canonical_smiles.clone(),
+                        occurrence_path.clone(),
+                        step_index,
                     ));
                 }
 
@@ -469,9 +532,11 @@ fn target_element_accounting(
                     .map(|c| net_charge(&c.canonical_smiles).unwrap_or(0))
                     .sum();
                 if target_charge.is_some_and(|t| t != precursor_charge) {
-                    findings.push(AuditFinding::at(
+                    findings.push(AuditFinding::at_occurrence(
                         AuditFindingCode::ChargeImbalance,
                         node.canonical_smiles.clone(),
+                        occurrence_path.clone(),
+                        step_index,
                     ));
                 }
 
@@ -482,18 +547,36 @@ fn target_element_accounting(
                     .map(|c| stereo_center_count(&c.canonical_smiles).unwrap_or(0))
                     .sum();
                 if target_stereo.is_some_and(|t| t != precursor_stereo) {
-                    findings.push(AuditFinding::at(
+                    findings.push(AuditFinding::at_occurrence(
                         AuditFindingCode::StereoCenterCountMismatch,
                         node.canonical_smiles.clone(),
+                        occurrence_path.clone(),
+                        step_index,
                     ));
                 }
             }
         }
-        for c in &node.children {
-            walk(c, any_evaluated, unaccounted, findings);
+        for (child_index, child) in node.children.iter().enumerate() {
+            occurrence_path.push(child_index);
+            walk(
+                child,
+                occurrence_path,
+                next_step_index,
+                any_evaluated,
+                unaccounted,
+                findings,
+            );
+            occurrence_path.pop();
         }
     }
-    walk(root, &mut any_evaluated, &mut unaccounted, &mut findings);
+    walk(
+        root,
+        &mut Vec::new(),
+        &mut 0,
+        &mut any_evaluated,
+        &mut unaccounted,
+        &mut findings,
+    );
 
     let status = if !any_evaluated {
         ElementAccountingStatus::NotEvaluable
@@ -503,6 +586,27 @@ fn target_element_accounting(
         ElementAccountingStatus::Accounted
     };
     (status, findings)
+}
+
+/// Returns route-node paths in the exact preorder used by
+/// [`RouteDocument::steps`]. Keeping this beside the audit walkers makes the
+/// serialized `step_index` a checked part of the audit contract instead of a
+/// second, subtly different traversal owned by a caller.
+fn decomposing_occurrence_paths(root: &RouteNode) -> Vec<Vec<usize>> {
+    fn walk(node: &RouteNode, occurrence_path: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        if !node.children.is_empty() {
+            out.push(occurrence_path.clone());
+        }
+        for (child_index, child) in node.children.iter().enumerate() {
+            occurrence_path.push(child_index);
+            walk(child, occurrence_path, out);
+            occurrence_path.pop();
+        }
+    }
+
+    let mut paths = Vec::new();
+    walk(root, &mut Vec::new(), &mut paths);
+    paths
 }
 
 /// Audits an already-normalized route. Takes a [`ParseOutcome`] (not a raw
@@ -610,10 +714,48 @@ pub fn audit_document_with_policy(
     // proportional to step count, not `steps * rules`.
     let rules_by_template_id =
         rules.and_then(|rs| crate::candidate::index_rules_by_template_id(rs).ok());
-    let steps: Vec<AuditedStep> = document
-        .steps()
-        .into_iter()
+    let step_paths = decomposing_occurrence_paths(&document.root);
+    let route_steps = document.steps();
+    debug_assert_eq!(step_paths.len(), route_steps.len());
+    let mut mapping_inspections: Vec<_> = route_steps
+        .iter()
         .map(|step| {
+            crate::bridge::atom_mapping::inspect_step_mapping(
+                step.reaction_evidence.as_ref(),
+                rules_by_template_id.as_ref(),
+            )
+        })
+        .collect();
+    let step_index_by_path: HashMap<Vec<usize>, usize> = step_paths
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(step_index, path)| (path, step_index))
+        .collect();
+    for (producer_step_index, path) in step_paths.iter().enumerate() {
+        let Some((_, parent_path)) = path.split_last() else {
+            continue;
+        };
+        let consumer_step_index = *step_index_by_path
+            .get(parent_path)
+            .expect("a decomposing occurrence's parent must also decompose");
+        let consumer = mapping_inspections[consumer_step_index].clone();
+        crate::bridge::atom_mapping::attach_producer_consumer_receipt(
+            &mut mapping_inspections[producer_step_index],
+            &consumer,
+            consumer_step_index,
+            &route_steps[producer_step_index].target,
+        );
+    }
+    let steps: Vec<AuditedStep> = route_steps
+        .into_iter()
+        .zip(mapping_inspections)
+        .enumerate()
+        .map(|(step_index, (step, mapping_inspection))| {
+            let occurrence_path = step_paths
+                .get(step_index)
+                .cloned()
+                .expect("route step traversal must produce a location");
             let forward_validation = crate::bridge::forward::validate_step_forward(
                 &step.target,
                 &step.precursors,
@@ -621,21 +763,30 @@ pub fn audit_document_with_policy(
                 rules_by_template_id.as_ref(),
             );
             match forward_validation.status {
-                CheckStatus::Fail => findings.push(AuditFinding::at(
+                CheckStatus::Fail => findings.push(AuditFinding::at_occurrence(
                     AuditFindingCode::ForwardReactionNotReproduced,
                     step.target.clone(),
+                    occurrence_path.clone(),
+                    Some(step_index),
                 )),
-                CheckStatus::NotEvaluable => findings.push(AuditFinding::at(
-                    AuditFindingCode::ForwardValidationNotEvaluable,
-                    step.target.clone(),
-                )),
+                CheckStatus::NotEvaluable => findings.push(
+                    AuditFinding::at_occurrence(
+                        AuditFindingCode::ForwardValidationNotEvaluable,
+                        step.target.clone(),
+                        occurrence_path.clone(),
+                        Some(step_index),
+                    )
+                    .with_forward_reason(forward_validation.reason),
+                ),
                 CheckStatus::Pass => {}
             }
             AuditedStep {
                 target: step.target,
                 precursors: step.precursors,
+                occurrence_path,
                 reaction_evidence: step.reaction_evidence,
                 forward_validation,
+                atom_mapping: mapping_inspection.receipt,
             }
         })
         .collect();
@@ -772,13 +923,14 @@ mod tests {
             report.stock_validation.as_ref().map(|s| s.status),
             Some(CheckStatus::Fail)
         );
-        assert!(
-            report
-                .findings
-                .iter()
-                .any(|f| f.code == AuditFindingCode::LeafClaimedStockNotMatched
-                    && f.node.as_deref() == Some(canon(BENZOIC_ACID).as_str()))
-        );
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == AuditFindingCode::LeafClaimedStockNotMatched)
+            .expect("missing stock finding");
+        assert_eq!(finding.node.as_deref(), Some(canon(BENZOIC_ACID).as_str()));
+        assert_eq!(finding.occurrence_path.as_deref(), Some(&[1][..]));
+        assert_eq!(finding.step_index, None, "leaves are not steps");
     }
 
     #[test]
@@ -808,12 +960,14 @@ mod tests {
             report.target_element_accounting_status,
             Some(ElementAccountingStatus::UnaccountedTargetElement)
         );
-        assert!(
-            report
-                .findings
-                .iter()
-                .any(|f| f.code == AuditFindingCode::UnaccountedTargetElement)
-        );
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == AuditFindingCode::UnaccountedTargetElement)
+            .expect("missing element-accounting finding");
+        assert_eq!(finding.occurrence_path.as_deref(), Some(&[][..]));
+        assert_eq!(finding.step_index, Some(0));
+        assert_eq!(finding.reason, None);
     }
 
     #[test]
@@ -998,6 +1152,15 @@ mod tests {
             "{report:?}"
         );
         assert_eq!(report.steps[0].forward_validation.status, CheckStatus::Fail);
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == AuditFindingCode::ForwardReactionNotReproduced)
+            .expect("a failed forward replay must name its step");
+        assert_eq!(finding.occurrence_path.as_deref(), Some(&[][..]));
+        assert_eq!(finding.step_index, Some(0));
+        assert_eq!(finding.reason, None);
+        assert_eq!(report.steps[0].occurrence_path, Vec::<usize>::new());
         assert_eq!(
             report.status,
             AuditStatus::Fail,
@@ -1038,6 +1201,18 @@ mod tests {
             report.steps[0].forward_validation.status,
             CheckStatus::NotEvaluable
         );
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == AuditFindingCode::ForwardValidationNotEvaluable)
+            .expect("a non-evaluable forward check must name its step");
+        assert_eq!(finding.occurrence_path.as_deref(), Some(&[][..]));
+        assert_eq!(finding.step_index, Some(0));
+        assert_eq!(
+            finding.reason,
+            Some(ForwardNotEvaluableReason::MissingReactionRepresentation)
+        );
+        assert_eq!(report.steps[0].occurrence_path, Vec::<usize>::new());
         assert_eq!(
             report.status,
             AuditStatus::Partial,

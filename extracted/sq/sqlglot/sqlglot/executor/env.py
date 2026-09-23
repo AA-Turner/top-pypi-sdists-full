@@ -204,6 +204,10 @@ def interval(this, unit):
     return datetime.timedelta(**{unit.lower(): float(this)})
 
 
+def zip_not_null(*args):
+    return (row for row in zip(*args) if all(v is not None for v in row))
+
+
 @null_if_any
 def arrayconcat(*args):
     result = []
@@ -241,6 +245,7 @@ ENV = {
     "ARRAYUNIQUEAGG": filter_nulls(lambda acc: list(set(acc))),
     "AVG": filter_nulls(statistics.fmean if PYTHON_VERSION >= (3, 8) else statistics.mean),  # type: ignore
     "COUNT": filter_nulls(lambda acc: sum(1 for _ in acc), False),
+    "FIRST": lambda acc: next(iter(acc), None),
     "MAX": filter_nulls(max),
     "MIN": filter_nulls(min),
     "SUM": filter_nulls(sum),
@@ -299,6 +304,7 @@ ENV = {
     "SUBSTRING": substring,
     "TIMESTRTOTIME": null_if_any(lambda arg: datetime.datetime.fromisoformat(arg)),
     "UPPER": null_if_any(lambda arg: arg.upper()),
+    "ZIPNOTNULL": zip_not_null,
     "YEAR": null_if_any(lambda arg: arg.year),
     "MONTH": null_if_any(lambda arg: arg.month),
     "DAY": null_if_any(lambda arg: arg.day),

@@ -18,6 +18,16 @@ from matrx_ai.agent_runners._checkpoint import (
 )
 
 
+#: These tests are about DURABILITY, not tenancy. `RunCheckpointer.start` gained
+#: an organization hold on 2026-09-20 (`agent_run.organization_id` is NOT NULL,
+#: and a missing organization is HELD rather than defaulted), which since then
+#: refused both calls below before they could ever reach the broken-database
+#: path they exist to exercise — two reds on main that said nothing about what
+#: they were guarding. The organization is now supplied explicitly, which is
+#: what every real durable caller does.
+ORG_ID = "5dc930e9-bd65-44a1-8369-af773f6e1a5b"
+
+
 class _BrokenRuns:
     async def create_item(self, **_kwargs: object) -> object:
         raise RuntimeError('no partition of relation "row_versions" found for row')
@@ -43,6 +53,7 @@ async def test_require_durable_refuses_instead_of_degrading(broken_db: None) -> 
             user_id="u1",
             request={},
             require_durable=True,
+            organization_id=ORG_ID,
         )
 
     # The refusal must say what happened and that nothing was charged.
@@ -58,7 +69,11 @@ async def test_refusal_carries_a_named_error_info_for_the_stream(broken_db: None
     that cannot possibly help when the database is down."""
     with pytest.raises(DurableRunUnavailable) as excinfo:
         await RunCheckpointer.start(
-            kind="podcast", user_id="u1", request={}, require_durable=True
+            kind="podcast",
+            user_id="u1",
+            request={},
+            require_durable=True,
+            organization_id=ORG_ID,
         )
 
     info = excinfo.value.error_info

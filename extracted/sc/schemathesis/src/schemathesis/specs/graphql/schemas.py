@@ -26,6 +26,7 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.timing import Instant
+from schemathesis.core.transport import CallOutcome
 from schemathesis.filters import FilterUsage
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
@@ -49,6 +50,7 @@ from schemathesis.schemas import (
 )
 from schemathesis.transport.prepare import prepare_path
 
+from .dictionaries import resolve_bindings, substitute_dictionaries
 from .extra_data_source import GraphQLResourcePool
 from .inference import RootType
 from .scalars import CUSTOM_SCALARS, UnknownScalar, get_extra_scalar_strategies, unsupported_scalar_name
@@ -68,6 +70,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.link_calibration import LinkCalibrationState
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.run import Phase
+    from schemathesis.generation.dictionaries import DictionaryDraw
     from schemathesis.generation.stateful.state_machine import APIStateMachine
     from schemathesis.python._constants.pool import ConstantDraw, ConstantsPool
     from schemathesis.resources import ExtraDataSource, ResourcePool
@@ -425,20 +428,38 @@ class GraphQLSchema(BaseSchema):
         return None
 
     @override
+    def classify_call_outcome(self, response: Response) -> CallOutcome:
+        """Decide what the API did with a positive case, from the body rather than the status code.
+
+        A GraphQL server answers the same status whether it served the query or refused it, and an
+        `errors` entry means the operation was not carried out in full.
+        """
+        from schemathesis.specs.graphql.validation import parse_payload
+
+        if response.status_code in (401, 403) or response.status_code >= 500:
+            return CallOutcome.UNINFORMATIVE
+        try:
+            payload = parse_payload(response)
+        except ValueError:
+            # Not a GraphQL response at all; it says nothing about the data that was sent.
+            return CallOutcome.UNINFORMATIVE
+        if not isinstance(payload, dict):
+            return CallOutcome.UNINFORMATIVE
+        if payload.get("errors"):
+            return CallOutcome.REJECTED
+        # `data` is absent when the request was refused before execution, and `null` when execution
+        # began but nothing survived it.
+        return CallOutcome.ACCEPTED if payload.get("data") is not None else CallOutcome.REJECTED
+
+    @override
     def evaluate_server_error(self, case: Case, response: Response) -> None:
         from schemathesis.core.failures import AcceptedNegativeData, MalformedJson
-        from schemathesis.core.transport import load_json_lossy
         from schemathesis.graphql.checks import GraphQLClientError
-        from schemathesis.specs.graphql.validation import is_client_error, validate_graphql_response
+        from schemathesis.specs.graphql.validation import is_client_error, parse_payload, validate_graphql_response
 
         is_negative_mode = case.meta is not None and case.meta.generation.mode.is_negative
         try:
-            try:
-                data = response.json()
-            except (LookupError, ValueError):
-                # A response lying about its charset must not abort the check; re-parse from raw bytes.
-                # Malformed JSON lands here too and re-raises from the lossy re-parse below.
-                data = load_json_lossy(response.content, response.encoding)
+            data = parse_payload(response)
             if is_negative_mode:
                 errors = data.get("errors")
                 if errors is None or len(errors) == 0:
@@ -572,6 +593,7 @@ def graphql_cases(
         None,
     )
     constants_draws: tuple[ConstantDraw, ...] = ()
+    dictionary_draws: tuple[DictionaryDraw, ...] = ()
     if operation_node is not None:
         # A captured identifier would overwrite the argument the negative strategy deliberately
         # corrupted, turning the query valid and making the server's acceptance look like a bug.
@@ -585,6 +607,20 @@ def graphql_cases(
                     random=random_source,
                     schema_index=operation.schema.analysis.schema_index,
                 )
+        # A dictionary entry is explicit user intent, so it overwrites whatever the resource pool
+        # put in the same argument - and a harvested constant does not overwrite it in turn.
+        if effective_mode.is_positive:
+            dictionary_bindings = resolve_bindings(operation, generation)
+            if not dictionary_bindings.is_empty:
+                dictionary_draws = tuple(
+                    substitute_dictionaries(
+                        operation_node=operation_node,
+                        client_schema=operation.schema.client_schema,
+                        bindings=dictionary_bindings,
+                        operation_label=operation.label,
+                        random=draw(st.randoms()),
+                    )
+                )
         if constants_value_source is not None and effective_mode.is_positive:
             constants_draws = tuple(
                 substitute_constants(
@@ -592,6 +628,11 @@ def graphql_cases(
                     client_schema=operation.schema.client_schema,
                     pool=constants_value_source,
                     random=draw(st.randoms()),
+                    skip=frozenset(
+                        tuple(draw_.body_path.lstrip("/").split("/"))
+                        for draw_ in dictionary_draws
+                        if draw_.body_path is not None
+                    ),
                 )
             )
         if mutate_ast is not None:
@@ -651,6 +692,7 @@ def graphql_cases(
                 if value is not NOT_SET
             },
             constants_draws=constants_draws,
+            dictionary_draws=dictionary_draws,
         ),
         media_type=media_type or "application/json",
     )

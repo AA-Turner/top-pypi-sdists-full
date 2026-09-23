@@ -28,6 +28,9 @@ from .post_processing_config_client import is_null_object_id, is_resolvable_loca
 from .post_processing_config_client import is_null_object_id, is_resolvable_location_id, looks_like_object_id, normalize_location_id
 from .post_processing_config_client import is_resolvable_location_id, normalize_location_id
 from .public_ip import resolve_public_ip_once
+from .speed_geometry_utils import DEFAULT_MAX_F_SENSITIVITY_PCT, assess, focal_from_vps
+from .speed_geometry_utils import RoadPlane
+from .speed_paint_utils import paint_mask, road_mask_from_points, segments_from_paint, split_by_vp1
 from .stream_time_utils import force_wallclock_stream_time, wallclock_incident_stream_time
 from .visualization_utils import bbox_dict_to_xyxy
 from .weapon_person_fusion_v1 import _norm_cat, _xyxy_from_det, coerce_frame_detections, iou_positive_or_centroid_inside
@@ -42,6 +45,7 @@ CANONICAL_COLOR_RGB: Dict[Any, Any] = ...  # From color_utils
 XKCD_COLORS: Any = ...  # From color_utils
 logger: Any = ...  # From color_utils
 logger: Any = ...  # From filter_utils
+CLOSE_SEVERITY: str = ...  # From incident_manager_utils
 DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 LOITERING_DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
 OVERCROWDING_DEFAULT_THRESHOLDS: List[Any] = ...  # From incident_manager_utils
@@ -54,6 +58,11 @@ logger: Any = ...  # From legacy_analytics_bridge
 GEOMETRY_RETRY_INTERVAL: int = ...  # From post_processing_config_client
 ENV_SKIP_PUBLIC_IP: str = ...  # From public_ip
 logger: Any = ...  # From smoothing_utils
+DEFAULT_MAX_F_SENSITIVITY_PCT: float = ...  # From speed_geometry_utils
+DEFAULT_MAX_VP2_DIAGONALS: float = ...  # From speed_geometry_utils
+Point: Any = ...  # From speed_geometry_utils
+Vec3: Any = ...  # From speed_geometry_utils
+logger: Any = ...  # From speed_paint_calibration_utils
 ENV_FLAG: str = ...  # From stream_time_utils
 FIRE_TIMESTAMP_FMT: str = ...  # From stream_time_utils
 INCIDENT_STREAM_TIME_FMT: str = ...  # From stream_time_utils
@@ -1091,6 +1100,177 @@ def create_default_smoothing_config(**overrides: Any) -> Any:
     
     Returns:
         BBoxSmoothingConfig: Configuration instance
+    """
+    ...
+
+# From speed_fit_utils
+def baseline_slope(window: List[List[float]], min_seconds: float) -> Optional[float]:
+    """
+    Median along-road speed, in metres per second, over long-enough baselines.
+    """
+    ...
+
+# From speed_fit_utils
+def over_limit_pct(measured: float, limit: float) -> float:
+    """
+    How far above the posted limit, as a percentage. ``0.0`` when at or under.
+    """
+    ...
+
+# From speed_fit_utils
+def severity_for(over_pct: float) -> str:
+    """
+    Grade an overage. Round numbers: a starting policy, not a measurement.
+    """
+    ...
+
+# From speed_fit_utils
+def uncertainty_pct(window: List[List[float]], pixel: Tuple[float, float], plane: Any, jitter_px: float) -> float:
+    """
+    Foot-point jitter as a percentage of the baseline the speed was fitted over.
+    
+        Converted to ground metres at this vehicle's own pixel, because the same wobble is
+        worth far more ground near the horizon than near the camera. Two endpoints each carry
+        it, so it enters the difference 1.414x.
+    
+        Deliberately excludes any scale term: a wrong ``camera_height_m`` biases every reading
+        in the deployment equally, and folding a guess at it in here would imply the two
+        errors are the same kind. They are not -- this one shrinks as the baseline grows and
+        that one never shrinks at all.
+    """
+    ...
+
+# From speed_geometry_utils
+def assess(vp1: Any, vp2: Any, pp: Any, width: float, height: float, max_vp2_diagonals: float = DEFAULT_MAX_VP2_DIAGONALS, max_f_sensitivity_pct: float = DEFAULT_MAX_F_SENSITIVITY_PCT) -> Any:
+    """
+    Grade a vanishing-point pair. Nothing here measures anything; it only judges.
+    """
+    ...
+
+# From speed_geometry_utils
+def focal_from_vps(vp1: Any, vp2: Any, pp: Any) -> Optional[float]:
+    """
+    ``f = sqrt(-(U-P).(V-P))``, or ``None`` if the pair cannot be perpendicular rays.
+    
+        ``None`` rather than a NaN, and it is not a failure to swallow: a non-negative dot
+        product means the two vanishing points fall on the SAME side of the principal point,
+        which no pair of perpendicular world directions can do. It is the cheapest possible
+        test that a VP2 candidate is geometrically admissible, and the calibrator's search
+        leans on exactly that.
+    """
+    ...
+
+# From speed_geometry_utils
+def road_normal(vp1: Any, vp2: Any, pp: Any, focal: float) -> Any:
+    """
+    Unit normal of the road plane, in camera coordinates.
+    
+        The vertical vanishing direction is perpendicular to both road directions, so it is
+        their cross product -- and the vertical direction of a road IS that road's normal.
+    
+        A vanishing point cannot tell a direction from its opposite, so the cross product
+        arrives with an arbitrary sign. It is oriented against a pixel that is certainly
+        road: low in the frame, well below the horizon. Get this wrong and every ray meets
+        the plane BEHIND the camera, so :meth:`RoadPlane.project` returns ``None`` for the
+        entire image -- a silent, total failure rather than a wrong number.
+    """
+    ...
+
+# From speed_paint_calibration_utils
+def solve_vp2(segs: Any.Any, vp1: Any.Any, pp: Any.Any, iters: int = 20000) -> Optional[Tuple[Any.Any, Any.Any]]:
+    """
+    VP2 from the transverse segments, constrained to calibrate against VP1.
+    
+        Every candidate that does not yield a real focal length against VP1 is rejected
+        outright -- that single test is what stops the fit landing on the wrong side of the
+        principal point, which is where an unconstrained fit reliably goes.
+    """
+    ...
+
+# From speed_paint_calibration_utils
+def track_chords(tracks: Dict[int, List[Tuple[float, float]]], min_points: int = 6, min_length_px: float = 40.0) -> Any.Any:
+    """
+    One chord per track: first observed ground point to last, in pixels.
+    
+        A chord rather than every consecutive pair. Consecutive points are a few pixels apart
+        and their direction is mostly jitter; the chord of a whole track is a long baseline
+        whose direction is the direction the vehicle actually travelled. Short tracks and
+        short chords are dropped for the same reason -- they are id noise, and they vote.
+    """
+    ...
+
+# From speed_paint_calibration_utils
+def vp2_on_horizon(segs: Any.Any, horizon_y: float, pp: Any.Any, vp1: Any.Any) -> Optional[Tuple[Any.Any, int]]:
+    """
+    VP2 constrained to the road's vanishing line. One free parameter, not two.
+    
+        VP1 and VP2 are both directions ON the road, so both lie on the road's vanishing
+        line -- and with no camera roll, which every method in this family assumes, that line
+        is the image row through VP1. Fitting VP2 freely in 2D ignores that and spends its
+        second degree of freedom on noise: measured on a synthetic camera with known truth,
+        the free fit put VP2 118 px off the horizon that VP1 defines and the focal length came
+        out 22 % high.
+    
+        Here each transverse segment is intersected with the horizon row, giving one candidate
+        ``x`` apiece, and the median is taken. A median because a single mis-classified
+        along-road segment is nearly parallel to the horizon and intersects it absurdly far
+        away -- exactly the outlier a mean would chase.
+    """
+    ...
+
+# From speed_paint_calibration_utils
+def vp_ransac(segs: Any.Any, angle_tol_deg: float = 2.0, iters: int = 20000, seed: int = 0) -> Tuple[Optional[Any.Any], Any.Any]:
+    """
+    Vanishing point of a family of segments. Returns ``(vp, inlier mask)``.
+    
+        Scored by the ANGLE between each segment and the direction from its midpoint to the
+        candidate, never by point-line distance. For a vanishing point near infinity -- the
+        normal case for a road receding from the camera -- distance is enormous for every
+        candidate and carries no information, while the angle stays meaningful throughout.
+    """
+    ...
+
+# From speed_paint_utils
+def paint_mask(background: Any.Any, tophat: int = 35, tophat_thresh: int = 22, roi_top: float = 0.3, road: Optional[Any.Any] = None) -> Any.Any:
+    """
+    Thin, bright, white-or-yellow structure below the horizon.
+    
+        ``tophat`` must be wider than the widest marking and narrower than a lane: a kernel
+        wider than a lane stops treating the lane as background, and the whole carriageway
+        starts to respond.
+    """
+    ...
+
+# From speed_paint_utils
+def road_mask_from_points(points: List[Tuple[float, float]], width: int, height: int, dilate: int = 25, box_px: int = 24) -> Any.Any:
+    """
+    Where vehicles have been seen is road. Cheap, and better than any colour rule.
+    
+        A sunlit tree is thin, bright and unsaturated in places, so it survives every colour
+        test ever written. What it is not is a place cars drive. ``points`` are the ground
+        contact points of tracked vehicles, in pixels.
+    """
+    ...
+
+# From speed_paint_utils
+def segments_from_paint(mask: Any.Any, min_len: int = 30, max_gap: int = 4) -> Any.Any:
+    """
+    Straight segments along the edges of the painted regions.
+    """
+    ...
+
+# From speed_paint_utils
+def split_by_vp1(segs: Any.Any, vp1: Any.Any, vp1_reject_deg: float = 12.0, vertical_reject_deg: float = 25.0) -> Tuple[Any.Any, Any.Any, int]:
+    """
+    Split paint segments into ``(transverse, along_road, n_vertical)``.
+    
+        The along-road family is RETURNED rather than discarded, because it is free and
+        independent evidence about VP1: those markings converge where VP1 says they do, or
+        one of the two is wrong.
+    
+        Near-vertical segments are dropped outright. They are the sides of kerbs, poles and
+        sign posts; they belong to the vertical vanishing direction rather than to either
+        road direction, and they are numerous enough to dominate a fit if left in.
     """
     ...
 
@@ -2421,6 +2601,121 @@ class BBoxSmoothingTracker:
         ...
 
 
+# From speed_geometry_utils
+class CalibrationQuality:
+    # What a vanishing-point pair is worth, before anything is measured with it.
+    #
+    #     Two numbers, both cheap, and between them the difference between a speed and a
+    #     plausible-looking fiction:
+    #
+    #     ``vp2_distance_px``
+    #         How far VP2 sits from the principal point. Past roughly 20 image diagonals it is
+    #         an ideal point in all but name, and the focal length drawn from it is noise.
+    #
+    #     ``f_sensitivity_pct``
+    #         Since ``f^2 = -(U-P).(V-P)``, one pixel of error in VP1 moves ``f`` by
+    #         ``|V-P| / (2 f^2)``. As a percentage this is the honest error bar on every speed
+    #         that follows, because speed is linear in ``f``.
+    #
+    #     ``ok`` is the conjunction. ``reason`` is empty exactly when ``ok`` is true, and is
+    #     written for whoever has to fix the camera rather than for whoever wrote this.
+
+    def __init__(self: Any, focal: Optional[float], vp2_distance_px: float, diagonal_px: float, max_vp2_diagonals: float, max_f_sensitivity_pct: float) -> None: ...
+
+
+# From speed_geometry_utils
+class RoadPlane:
+    # Maps a pixel to a point on the road, in metres, and measures distance along it.
+    #
+    #     The plane is ``n.X = 1`` in camera coordinates. A pixel ``q`` becomes the ray
+    #     ``qhat = (qx - px, qy - py, f)``; where that ray meets the plane is
+    #     ``qhat / (n . qhat)``, and multiplying by ``lam`` turns road units into metres --
+    #     ``lam`` being exactly the camera's perpendicular height above the road surface.
+    #
+    #     The in-plane basis is oriented so ``e1`` runs ALONG the traffic direction (towards
+    #     VP1) and ``e2`` across it. That split is not cosmetic: speed is the rate of change of
+    #     the ``e1`` coordinate, and keeping the two axes named means a lateral wobble cannot
+    #     be mistaken for forward motion.
+
+    def __init__(self: Any, pp: Any, focal: float, vp1: Any, vp2: Any, lam: float) -> None: ...
+
+    def horizon_y(self: Any, x: float) -> Optional[float]:
+        """
+        Image row where the road plane vanishes, at image column ``x``.
+        """
+        ...
+
+    def metres_per_pixel(self: Any, x: float, y: float, pixels: float) -> float:
+        """
+        Ground metres spanned by ``pixels`` of vertical wobble at this image point.
+        
+                Vertical because foot-point noise is dominated by the box's bottom edge, and
+                because the ground scale changes far faster down the image than across it.
+        """
+        ...
+
+    def project(self: Any, x: float, y: float) -> Optional[Tuple[float, float]]:
+        """
+        Pixel -> ``(along, across)`` on the road in METRES, or ``None`` above the horizon.
+        
+                ``None`` is a real answer, not an error: a box whose bottom edge sits at or above
+                the horizon has no intersection with the road ahead of the camera. In practice
+                that is a bad detection, or a vehicle on a flyover. Returning a distance there
+                would invent one, and it would be a large one.
+        """
+        ...
+
+
+# From speed_paint_calibration_utils
+class CalibrationResult:
+    # The outcome of one calibration attempt: either a camera, or why there isn't one.
+
+    def __init__(self: Any, vp1: Optional[Tuple[float, float]] = None, vp2: Optional[Tuple[float, float]] = None, focal: Optional[float] = None, reason: str = '', permanent: bool = False, diagnostics: Optional[Dict[str, float]] = None) -> None: ...
+
+    def ok(self: Any) -> bool: ...
+
+
+# From speed_paint_calibration_utils
+class SelfCalibrator:
+    # Accumulates a background plate and vehicle tracks, then recovers the camera.
+    #
+    #     Deliberately stateful and per camera. It holds one background model and a bounded
+    #     number of track chords, and nothing else -- no frames are retained, which is what
+    #     makes it affordable to run one of these per stream.
+
+    def __init__(self: Any, min_frames: int = 150, min_tracks: int = 25, max_tracks: int = 400, retry_interval_frames: int = 300, max_attempts: int = 5, tophat: int = 35, tophat_thresh: int = 22, roi_top: float = 0.3, min_len: int = 30, vp1_reject_deg: float = 12.0, max_vp2_diagonals: float = 20.0, max_f_sensitivity_pct: float = DEFAULT_MAX_F_SENSITIVITY_PCT) -> None: ...
+
+    def attempt(self: Any, width: int, height: int) -> Any:
+        """
+        Try once to recover the camera. Expensive; call only when :meth:`ready`.
+        """
+        ...
+
+    def done(self: Any) -> bool:
+        """
+        True once there is a camera, or once it is established there will not be one.
+        """
+        ...
+
+    def observe_frame(self: Any, frame: Any.Any) -> None:
+        """
+        Feed one frame into the background model. Cheap; safe to call per frame.
+        """
+        ...
+
+    def observe_track(self: Any, track_id: int, x: float, y: float) -> None:
+        """
+        Record one vehicle ground point, in pixels, for the VP1 fit.
+        """
+        ...
+
+    def ready(self: Any) -> bool:
+        """
+        Is there enough evidence to be worth attempting a calibration?
+        """
+        ...
+
+
 # From tailgating_utils
 class AccessEvent:
     # One authorization window for a single (access_line, direction) pair.
@@ -2534,4 +2829,4 @@ class WrongWayState:
     WRONG_WAY: str
 
 
-from . import advanced_counting_utils, advanced_helper_utils, agnostic_nms, alert_instance_utils, alerting_utils, business_metrics_aggregation_utils, business_metrics_manager_utils, bytetrack_utils, category_mapping_utils, color_utils, counting_utils, filter_utils, format_utils, geometry_utils, incident_manager_utils, incident_res_format, legacy_analytics_bridge, location_name_cache, parking_analytics_tracker, post_processing_config_client, public_ip, smoothing_utils, stream_time_utils, tailgating_utils, tracking_utils, visualization_utils, weapon_human_filter, weapon_person_fusion_v1, wrong_way_tracker
+from . import advanced_counting_utils, advanced_helper_utils, agnostic_nms, alert_instance_utils, alerting_utils, business_metrics_aggregation_utils, business_metrics_manager_utils, bytetrack_utils, category_mapping_utils, color_utils, counting_utils, filter_utils, format_utils, geometry_utils, incident_manager_utils, incident_res_format, legacy_analytics_bridge, location_name_cache, parking_analytics_tracker, post_processing_config_client, public_ip, smoothing_utils, speed_fit_utils, speed_geometry_utils, speed_paint_calibration_utils, speed_paint_utils, stream_time_utils, tailgating_utils, tracking_utils, visualization_utils, weapon_human_filter, weapon_person_fusion_v1, wrong_way_tracker

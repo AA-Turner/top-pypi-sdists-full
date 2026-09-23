@@ -115,6 +115,7 @@ commands = [
 
 [env.readme]
 description = "check that the long description, wheel contents and embedded SBOM are valid"
+base_python = [ "3.14" ]
 skip_install = true
 dependency_groups = [ "pkg-meta" ]
 commands = [
@@ -184,6 +185,16 @@ deps = [ "gitpython>=3.1.44", "packaging>=25", "pre-commit-uv>=4.1.4", "towncrie
 change_dir = "{tox_root}{/}tasks"
 commands = [ [ "python", "release.py", { replace = "posargs", extend = true } ] ]
 
+[env.spdx]
+description = "render the CycloneDX SBOM extracted from a wheel as SPDX 2.3 and validate it"
+base_python = [ "3.14" ]
+skip_install = true
+dependency_groups = [ "sbom" ]
+commands = [
+  [ "python", "{tox_root}{/}tasks{/}cyclonedx_to_spdx.py", "virtualenv.cdx.json", "virtualenv.spdx.json" ],
+  [ "pyspdxtools", "--infile", "virtualenv.spdx.json" ],
+]
+
 [env."type-3.9"]
 description = "run type checker (ty) against Python 3.9"
 commands = [ [ "python", "-m", "ty", "check", "src/virtualenv", "--python-version", "3.9" ] ]
@@ -199,8 +210,16 @@ commands = [ [ "python", "upgrade_wheels.py" ] ]
 uv_seed = true
 
 [env.zipapp]
-description = "generate a zipapp"
+description = "generate a zipapp, embed its SBOM and validate the SBOM"
+base_python = [ "3.14" ]
 skip_install = true
-deps = [ "packaging>=25" ]
-commands = [ [ "python", "tasks/make_zipapp.py" ] ]
+deps = [ "hatchling>=1.28", "packaging>=25" ]
+dependency_groups = [ "sbom" ]
+pass_env = [ "SOURCE_DATE_EPOCH" ]
+set_env.PYTHONPATH = "{tox_root}"
+commands = [
+  [ "python", "tasks/make_zipapp.py" ],
+  [ "python", "tasks/zipapp_sbom.py", "virtualenv.pyz", "virtualenv.pyz.cdx.json" ],
+  [ "python", "tasks/validate_sbom.py", "virtualenv.pyz" ],
+]
 uv_seed = true

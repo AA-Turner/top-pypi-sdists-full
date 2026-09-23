@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.2.0
+Version: 1.2.1
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@entropy-data.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@entropy-data.com>
 License-Expression: MIT
@@ -53,7 +53,7 @@ Requires-Dist: avro==1.12.2; extra == "avro"
 Provides-Extra: bigquery
 Requires-Dist: ibis-framework[bigquery]<13.0.0,>=10.0.0; extra == "bigquery"
 Provides-Extra: csv
-Requires-Dist: pandas>=2.0.0; extra == "csv"
+Requires-Dist: datacontract-cli[duckdb]; extra == "csv"
 Provides-Extra: excel
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "excel"
 Provides-Extra: dataframe
@@ -66,8 +66,8 @@ Requires-Dist: pyarrow-hotfix>=0.4; extra == "dataframe"
 Requires-Dist: rich>=12.4.4; extra == "dataframe"
 Provides-Extra: databricks
 Requires-Dist: ibis-framework[databricks]<13.0.0,>=10.0.0; extra == "databricks"
-Requires-Dist: databricks-sql-connector<4.5.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.136.0; extra == "databricks"
+Requires-Dist: databricks-sql-connector<4.6.0,>=3.7.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.140.0; extra == "databricks"
 Requires-Dist: packaging<27.0,>=21.3; extra == "databricks"
 Provides-Extra: databricks-runtime
 Requires-Dist: datacontract-cli[databricks]; extra == "databricks-runtime"
@@ -112,6 +112,13 @@ Requires-Dist: packaging<27.0,>=21.3; extra == "oracle"
 Provides-Extra: athena
 Requires-Dist: ibis-framework[athena]<13.0.0,>=10.0.0; extra == "athena"
 Requires-Dist: packaging<27.0,>=21.3; extra == "athena"
+Provides-Extra: hana
+Requires-Dist: hdbcli<3.0.0,>=2.20.0; extra == "hana"
+Provides-Extra: exasol
+Requires-Dist: ibis-framework[exasol]<13.0.0,>=10.0.0; extra == "exasol"
+Requires-Dist: pyexasol>=1.1.0; extra == "exasol"
+Requires-Dist: packaging<27.0,>=21.3; extra == "exasol"
+Requires-Dist: sqlglot>=26.31.0; extra == "exasol"
 Provides-Extra: trino
 Requires-Dist: ibis-framework[trino]<13.0.0,>=10.0.0; extra == "trino"
 Requires-Dist: packaging<27.0,>=21.3; extra == "trino"
@@ -129,11 +136,11 @@ Provides-Extra: rdf
 Requires-Dist: rdflib==7.6.0; extra == "rdf"
 Provides-Extra: api
 Requires-Dist: fastapi<0.142.0,>=0.115.0; extra == "api"
-Requires-Dist: uvicorn<0.53.0,>=0.44.0; extra == "api"
+Requires-Dist: uvicorn<0.54.0,>=0.44.0; extra == "api"
 Provides-Extra: protobuf
 Requires-Dist: proto-schema-parser<3.0,>=1.0; extra == "protobuf"
 Provides-Extra: all
-Requires-Dist: datacontract-cli[api,athena,avro,azure,bigquery,csv,databricks,dataframe,dbml,duckdb,excel,gcs,iceberg,impala,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,redshift,s3,snowflake,sqlserver,trino]; extra == "all"
+Requires-Dist: datacontract-cli[api,athena,avro,azure,bigquery,csv,databricks,dataframe,dbml,duckdb,exasol,excel,gcs,iceberg,impala,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,redshift,s3,snowflake,sqlserver,trino]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: datacontract-cli[all]; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
@@ -146,10 +153,10 @@ Requires-Dist: pre-commit<4.7.0,>=3.7.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pymssql==2.4.0; extra == "dev"
+Requires-Dist: pymssql==2.4.1; extra == "dev"
 Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
 Requires-Dist: mysql-connector-python<26.8.0,>=8.0.30; extra == "dev"
-Requires-Dist: ruff==0.16.6; extra == "dev"
+Requires-Dist: ruff==0.16.8; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.15.0; extra == "dev"
 Requires-Dist: trino==0.339.0; extra == "dev"
 Dynamic: license-file
@@ -412,7 +419,7 @@ Released images are signed with [cosign](https://docs.sigstore.dev/cosign/signin
 ## Optional Dependencies (Extras)
 
 The CLI tool defines several optional dependencies (also known as extras) that can be installed for using with specific servers types.
-With _all_, all server dependencies are included.
+With _all_, all server dependencies except `hana` are included.
 
 ```bash
 uv tool install --python python3.11 --upgrade 'datacontract-cli[all]'
@@ -420,35 +427,35 @@ uv tool install --python python3.11 --upgrade 'datacontract-cli[all]'
 
 A list of available extras:
 
-| Dependency                               | Installation Command                       |
-|------------------------------------------|--------------------------------------------|
-| Amazon Athena                            | `pip install datacontract-cli[athena]`     |
-| Avro Support                             | `pip install datacontract-cli[avro]`       |
-| Azure Integration                        | `pip install datacontract-cli[azure]`      |
-| Google BigQuery                          | `pip install datacontract-cli[bigquery]`   |
-| CSV                                      | `pip install datacontract-cli[csv]`        |
-| Databricks Integration                   | `pip install datacontract-cli[databricks]` |
-| Databricks Runtime                       | `pip install datacontract-cli[databricks]` (also inside Databricks, using the cluster's own Spark session) |
-| DataFrame (Spark)                        | `pip install datacontract-cli[dataframe]` (PySpark not included — you supply the Spark session) |
-| DBML                                     | `pip install datacontract-cli[dbml]`       |
-| DuckDB (local/S3/GCS/Azure file testing) | `pip install datacontract-cli[duckdb]`     |
-| Excel                                    | `pip install datacontract-cli[excel]`      |
-| GCS Integration                          | `pip install datacontract-cli[gcs]`        |
-| Iceberg                                  | `pip install datacontract-cli[iceberg]`    |
-| Impala                                   | `pip install datacontract-cli[impala]`     |
-| Kafka Integration                        | `pip install datacontract-cli[kafka]`      |
-| MySQL Integration                        | `pip install datacontract-cli[mysql]`      |
-| Oracle                                   | `pip install datacontract-cli[oracle]`     |
-| Parquet                                  | `pip install datacontract-cli[parquet]`    |
-| PostgreSQL Integration                   | `pip install datacontract-cli[postgres]`   |
-| protobuf                                 | `pip install datacontract-cli[protobuf]`   |
-| RDF                                      | `pip install datacontract-cli[rdf]`        |
-| Amazon Redshift                          | `pip install datacontract-cli[redshift]`   |
-| S3 Integration                           | `pip install datacontract-cli[s3]`         |
-| Snowflake Integration                    | `pip install datacontract-cli[snowflake]`  |
-| Microsoft SQL Server                     | `pip install datacontract-cli[sqlserver]`  |
-| Trino                                    | `pip install datacontract-cli[trino]`      |
-| API (run as web server)                  | `pip install datacontract-cli[api]`        |
+| Dependency | Installation command |
+|---|---|
+| API (run as web server) | `pip install datacontract-cli[api]` |
+| Amazon Athena | `pip install datacontract-cli[athena]` |
+| Avro | `pip install datacontract-cli[avro]` |
+| Azure | `pip install datacontract-cli[azure]` |
+| Google BigQuery | `pip install datacontract-cli[bigquery]` |
+| Databricks | `pip install datacontract-cli[databricks]` (also inside a Databricks Runtime, using the cluster's own Spark session) |
+| DataFrame (Spark) | `pip install datacontract-cli[dataframe]` (PySpark not included — you supply the Spark session) |
+| DBML | `pip install datacontract-cli[dbml]` |
+| DuckDB (local file, CSV import and API response testing) | `pip install datacontract-cli[duckdb]` |
+| Exasol | `pip install datacontract-cli[exasol]` |
+| Excel | `pip install datacontract-cli[excel]` |
+| GCS | `pip install datacontract-cli[gcs]` |
+| SAP HANA / Datasphere | `pip install datacontract-cli[hana]` (not part of `all`: `hdbcli` is proprietary) |
+| Apache Iceberg (schema import and export, REST catalog testing) | `pip install datacontract-cli[iceberg]` |
+| Impala | `pip install datacontract-cli[impala]` |
+| Kafka | `pip install datacontract-cli[kafka]` |
+| MySQL | `pip install datacontract-cli[mysql]` |
+| Oracle | `pip install datacontract-cli[oracle]` |
+| Parquet | `pip install datacontract-cli[parquet]` |
+| PostgreSQL | `pip install datacontract-cli[postgres]` |
+| Protobuf | `pip install datacontract-cli[protobuf]` |
+| RDF | `pip install datacontract-cli[rdf]` |
+| Amazon Redshift | `pip install datacontract-cli[redshift]` |
+| S3 | `pip install datacontract-cli[s3]` |
+| Snowflake | `pip install datacontract-cli[snowflake]` |
+| Microsoft SQL Server | `pip install datacontract-cli[sqlserver]` |
+| Trino | `pip install datacontract-cli[trino]` |
 
 
 ## Documentation

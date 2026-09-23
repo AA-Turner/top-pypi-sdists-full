@@ -34,7 +34,7 @@ Example usage:
 # the server, so it must exist on the partially-initialized module. Also the
 # version source for hatch (`[tool.hatch.version]` in pyproject.toml) and
 # the release-tag guard in `.github/workflows/river-client-release.yml`.
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 from river_client.images import ImageHandle
 from river_client.client import (
@@ -66,7 +66,6 @@ from river_client.types import (
     PolicyVersion,
     PendingOp,
     PendingSample,
-    PromotedStreamingReplica,
     RiverConnectionError,
     RiverError,
     SessionHeartbeatError,
@@ -111,7 +110,6 @@ __all__ = [
     "PendingSamplingBatch",
     "SamplingCompletion",
     "SamplingResultCollector",
-    "PromotedStreamingReplica",
     "RiverConnectionError",
     "RiverError",
     "SessionHeartbeatError",

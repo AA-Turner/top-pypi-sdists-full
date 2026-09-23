@@ -19,6 +19,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from matrx_ai.media.image_reference_roles import normalize_limits
 from matrx_ai.providers.capability_vocabulary import (
     INTERACTION_MODES,
     VOCABULARY_FILE,
@@ -88,6 +89,9 @@ class ResolvedModelCapabilities(BaseModel):
     # features drift, found by census rather than by a report.
     interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
     multilingual: bool
+    # Image-generation reference roles this model takes: {role: max, "total": n}.
+    # Empty = no roled reference image is accepted (the gate refuses).
+    image_reference_limits: dict[str, int] = {}
 
 
 class _DeclaredCapabilities(BaseModel):
@@ -98,6 +102,7 @@ class _DeclaredCapabilities(BaseModel):
     features: frozenset[str]
     interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
     multilingual: bool
+    image_reference_limits: dict[str, int] = {}
 
 
 def _str_set(value: Any) -> frozenset[str]:
@@ -153,6 +158,7 @@ def _parse_declared(raw: Any, model_name: str = "") -> _DeclaredCapabilities:
         features=_str_set(normalized.get("features")),
         interaction=interaction,
         multilingual=bool(normalized.get("multilingual", False)),
+        image_reference_limits=normalize_limits(normalized.get("image_reference_roles")),
     )
 
 
@@ -198,6 +204,7 @@ def resolve_model_capabilities(
         structured_output_mode=_structured_mode(declared.features),
         interaction=declared.interaction,
         multilingual=declared.multilingual,
+        image_reference_limits=dict(declared.image_reference_limits),
     )
 
 

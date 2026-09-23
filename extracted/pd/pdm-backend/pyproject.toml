@@ -30,7 +30,7 @@ classifiers = [
 dependencies = [
     "importlib-metadata>=3.6; python_version < \"3.10\"",
 ]
-version = "2.4.9"
+version = "2.4.10"
 
 [project.urls]
 Homepage = "https://github.com/pdm-project/pdm-backend"
@@ -61,6 +61,10 @@ extend-select = [
     "YTT",
     "UP",
     "FA",
+]
+ignore = [
+    "PLC0414",
+    "PYI019",
 ]
 
 [tool.ruff.lint.mccabe]

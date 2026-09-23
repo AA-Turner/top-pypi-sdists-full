@@ -7,6 +7,7 @@ Provides a clean, minimal API for building MCP servers with lazy initialization.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import re
 import subprocess
@@ -17,6 +18,7 @@ from typing import Any, Callable, Literal, ParamSpec, TypeVar, cast
 
 from arcade_core.catalog import MaterializedTool, ToolCatalog, ToolDefinitionError
 from arcade_core.metadata import ToolMetadata
+from arcade_core.resources import ResourceDeclaration
 from arcade_core.subprocess_utils import (
     get_windows_no_window_creationflags,
     graceful_terminate_process,
@@ -36,6 +38,7 @@ from arcade_mcp_server._validation import normalize_version
 from arcade_mcp_server.decorators import tool as tool_decorator
 from arcade_mcp_server.exceptions import ServerError
 from arcade_mcp_server.logging_utils import intercept_standard_logging
+from arcade_mcp_server.managers.prompt import PromptHandlerFunc
 from arcade_mcp_server.managers.resource import (
     _is_template_uri,
     make_file_handler,
@@ -47,7 +50,6 @@ from arcade_mcp_server.settings import MCPSettings, ServerSettings, find_env_fil
 from arcade_mcp_server.types import (
     Annotations,
     Prompt,
-    PromptMessage,
     Resource,
     ResourceTemplate,
     ToolExecution,
@@ -156,6 +158,13 @@ class MCPApp:
         # Tool collection (build-time)
         self._catalog = ToolCatalog()
         self._toolkit_name = name
+
+        # Where a @resource declaration would be written, so run() has somewhere
+        # to look for one it never registered.
+        frame = inspect.currentframe()
+        self._defining_module = (
+            frame.f_back.f_globals.get("__name__") if frame and frame.f_back else None
+        )
 
         # Resource collection (build-time)
         self._initial_resources: list[
@@ -304,6 +313,7 @@ class MCPApp:
         adapters: list[ErrorAdapter] | None = None,
         metadata: ToolMetadata | None = None,
         meta: dict[str, Any] | None = None,
+        ui: ResourceDeclaration | None = None,
         execution: ToolExecution | None = None,
     ) -> Callable[P, T]:
         """Add a tool for build-time materialization (pre-server).
@@ -328,14 +338,17 @@ class MCPApp:
                 requires_metadata=requires_metadata,
                 adapters=adapters,
                 metadata=metadata,
+                ui=ui,
                 execution=execution,
             )
-        elif execution is not None:
-            # Pre-decorated tool with an explicit ``execution=`` at registration
-            # time: write the dunder directly. The catalog reads it off the
-            # decorated callable (`MCPServer._handle_call_tool` and
-            # `convert.create_mcp_tool` both `getattr(..., "__tool_execution__")`).
-            func.__tool_execution__ = execution  # type: ignore[attr-defined]
+        else:
+            # A pre-decorated tool with ``execution=`` or ``ui=`` given here as
+            # well: write the dunders directly. The catalog reads both off the
+            # decorated callable.
+            if execution is not None:
+                func.__tool_execution__ = execution  # type: ignore[attr-defined]
+            if ui is not None:
+                func.__tool_ui__ = ui  # type: ignore[attr-defined]
         try:
             self._catalog.add_tool(
                 func,
@@ -489,6 +502,7 @@ class MCPApp:
         adapters: list[ErrorAdapter] | None = None,
         metadata: ToolMetadata | None = None,
         meta: dict[str, Any] | None = None,
+        ui: ResourceDeclaration | None = None,
         execution: ToolExecution | None = None,
     ) -> Callable[[Callable[P, T]], Callable[P, T]] | Callable[P, T]:
         """Decorator for adding tools with optional parameters.
@@ -508,6 +522,7 @@ class MCPApp:
                 requires_metadata=requires_metadata,
                 adapters=adapters,
                 metadata=metadata,
+                ui=ui,
                 meta=meta,
                 execution=execution,
             )
@@ -515,6 +530,39 @@ class MCPApp:
         if func is not None:
             return decorator(func)
         return decorator
+
+    def _warn_unregistered_resource_declarations(self) -> None:
+        """Report @resource declarations this app never registered.
+
+        A declaration is registered when a toolkit is added to the catalog or
+        when a tool names it as its ``ui``. An app assembled from @app.tool
+        alone, with declarations no tool names, never gets there, so without
+        this the decorator imports, runs and registers nothing.
+        """
+        if len(self._catalog.resources) > 0:
+            return
+
+        module_name = self._defining_module
+        if not module_name:
+            return
+        module = sys.modules.get(module_name)
+        if module is None:
+            return
+
+        declared = [
+            name for name, value in vars(module).items() if isinstance(value, ResourceDeclaration)
+        ]
+        if not declared:
+            return
+
+        where = Path(getattr(module, "__file__", None) or module_name).name
+        logger.warning(
+            f"{where} declares {len(declared)} resource(s) "
+            f"({', '.join(declared)}) that this app does not register. "
+            f"A declaration is registered when a toolkit is added to the catalog or when a "
+            f"tool names it as its ui. Pass it to a tool as ui=, use "
+            f"app.add_tools_from_module(...), or use @app.resource to register one directly."
+        )
 
     def run(
         self,
@@ -529,6 +577,8 @@ class MCPApp:
                 "No tools or resources added. Use @app.tool, app.add_tool(), @app.resource, or app.add_resource()."
             )
             sys.exit(1)
+
+        self._warn_unregistered_resource_declarations()
 
         host, port, transport, reload = MCPApp._get_configuration_overrides(
             host, port, transport, reload
@@ -773,9 +823,7 @@ class _PromptsAPI:
     def __init__(self, app: MCPApp) -> None:
         self._app = app
 
-    async def add(
-        self, prompt: Prompt, handler: Callable[[dict[str, str]], list[PromptMessage]] | None = None
-    ) -> None:
+    async def add(self, prompt: Prompt, handler: PromptHandlerFunc | None = None) -> None:
         if self._app.server is None:
             raise ServerError("No server bound to app. Set app.server to use runtime prompts API.")
         await self._app.server.prompts.add_prompt(prompt, handler)

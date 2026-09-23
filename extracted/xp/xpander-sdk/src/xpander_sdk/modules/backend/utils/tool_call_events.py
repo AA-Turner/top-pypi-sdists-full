@@ -119,7 +119,7 @@ TOOL_CALL_SUMMARY_PRESET = "tool_call_analysis"
 
 
 def is_agent_gateway_task(task: Optional["Task"]) -> bool:
-    """Return True when the task was dispatched by the agent gateway.
+    """Return True when the task was dispatched by the agent gateway (router era).
 
     The gateway tags child executions with
     ``payload_extension={"headers": {"x-is-from-agent-gateway": "true"}}``.
@@ -131,6 +131,17 @@ def is_agent_gateway_task(task: Optional["Task"]) -> bool:
     if not isinstance(headers, dict):
         return False
     return str(headers.get("x-is-from-agent-gateway", "")).strip().lower() == "true"
+
+
+def is_chat_turn_task(task: Optional["Task"]) -> bool:
+    """A chat turn: one task of a direct conversation, or a router-era gateway child.
+
+    Drives the chat-only extras (the tool-call summary pre-warm, the L1 summary
+    append); the gateway-only exclusions keep reading ``is_agent_gateway_task``.
+    """
+    if getattr(task, "conversation_id", None):
+        return True
+    return is_agent_gateway_task(task)
 
 
 def _unwrap_payload_envelope(request: Any) -> Any:
@@ -802,7 +813,7 @@ async def report_tool_call_result(
         if (
             TOOL_CALL_SUMMARY_PREWARM_ENABLED
             and not should_skip_tool_report(tool_name or operation_id)
-            and is_agent_gateway_task(task)
+            and is_chat_turn_task(task)
         ):
             asyncio.create_task(
                 _prewarm_tool_call_summary(

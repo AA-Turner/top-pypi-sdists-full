@@ -322,13 +322,39 @@ def publish_image(
         console.print("\n[dim]Docker image digest unchanged - :latest already points at it, skipping prefetch[/dim]")
         return
 
+    prefetch_then_promote(
+        kind, package_name=package_name, version=version, api_key=api_key, promote_latest=promote_latest
+    )
+
+
+def prefetch_then_promote(
+    kind: PublishKind,
+    *,
+    package_name: str,
+    version: str,
+    api_key: str | None,
+    promote_latest: bool,
+) -> None:
+    """Boot ``:<version>`` once, then (release publishes only) retag it as ``:latest``.
+
+    Shared by a rebuild and by ``--wheel-only``, which re-runs exactly this step
+    after a publish whose prefetch or promote failed. Both failures leave the
+    pushed ``:<version>`` in place, so the recovery is ``--wheel-only`` — a plain
+    re-run would bump the version again.
+    """
+    short_name = kind.short_name(package_name)
+    repository = kind.repository(package_name)
+    version_image = f"{ECR_REGISTRY}/{repository}:{version}"
+    latest_image = f"{ECR_REGISTRY}/{repository}:latest"
+
     console.print()
     console.print("[bold]Prefetching image...[/bold]")
     if not prefetch_image(version_image, short_name):
         console.print(
             f"[red]Prefetch failed: {version_image} is pushed but has not booted"
             + (" and :latest was NOT moved" if promote_latest else "")
-            + ". Fix the boot failure and re-run the publish.[/red]"
+            + ". Fix the boot failure (or, for a transient scheduling error, just retry) and re-run the publish "
+            "with --wheel-only - it prefetches the pushed image without rebuilding or bumping.[/red]"
         )
         raise typer.Exit(1)
 
@@ -343,7 +369,7 @@ def publish_image(
     if not retag(kind, package_name, version, "latest", api_key):
         console.print(
             f"[red]Failed to promote {version_image} to :latest (prefetch succeeded; "
-            ":latest was NOT moved). Re-run the publish.[/red]"
+            ":latest was NOT moved). Re-run the publish with --wheel-only.[/red]"
         )
         raise typer.Exit(1)
     console.print(f"[green]Promoted:[/green] {latest_image}")
@@ -412,9 +438,13 @@ def publish_image_then_wheel(
 ) -> None:
     """Image (if the package has a Dockerfile), then the wheel. See the module docstring.
 
-    ``wheel_only`` is the re-run after a failed upload (index conflict,
-    CodeArtifact hiccup): the image step already succeeded, so skip it — but
-    only if ``:<version>`` really is in ECR, because the wheel pins that tag.
+    ``wheel_only`` is the re-run after a publish that pushed ``:<version>`` but
+    failed later — prefetch (e.g. a VM demand that was never scheduled), promote,
+    or upload (index conflict, CodeArtifact hiccup). It never rebuilds, and only
+    proceeds if ``:<version>`` really is in ECR, because the wheel pins that tag.
+    Unless ``:latest`` already points at that digest (the earlier run got through
+    promotion), it redoes :func:`prefetch_then_promote` before the upload, so the
+    gate holds: nothing reaches the index until its image has booted.
     """
     has_dockerfile = (pkg_path / "Dockerfile").exists()
     if wheel_only and has_dockerfile:
@@ -441,6 +471,12 @@ def publish_image_then_wheel(
                 )
                 raise typer.Exit(1)
             console.print(f"\n[green]Image already published:[/green] {version_image} ({digest})")
+            if _image_digest_or_none(kind, package_name, "latest", api_key) == digest:
+                console.print("[dim]:latest already points at it - already booted and promoted[/dim]")
+            else:
+                prefetch_then_promote(
+                    kind, package_name=package_name, version=version, api_key=api_key, promote_latest=promote_latest
+                )
     elif has_dockerfile:
         console.print()
         publish_image(

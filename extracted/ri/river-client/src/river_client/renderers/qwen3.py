@@ -390,9 +390,13 @@ class Qwen35Renderer(Renderer):
             text = text[: -len(_IM_END)]
 
         # The generation prompt prefills the opening "<think>\n", so sampled
-        # text starts inside the reasoning block. Restore the tag so the
-        # think block parses into a ThinkingPart.
-        if "<think>" not in text and "</think>" in text:
+        # text starts inside the reasoning block. Restore the tag whenever the
+        # sample carries no opening tag of its own, closed or not: an unclosed
+        # block then parses as a ThinkingPart, so an answer committed inside
+        # unfinished reasoning stays out of the answer channel (the Kimi K2
+        # prefill fix, #6215). Only the thinking prefill can be restored; the
+        # disable-thinking prefill is a complete empty block.
+        if self.thinking and "<think>" not in text:
             text = "<think>\n" + text
 
         message: Message = {"role": "assistant", "content": text}

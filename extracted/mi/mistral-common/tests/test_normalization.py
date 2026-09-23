@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from typing_extensions import assert_type
 
 from mistral_common.protocol.instruct.chunk import (
     AudioChunk,
@@ -395,15 +396,13 @@ class TestChatCompletionRequestNormalization:
         parsed_request = normalizer.from_chat_completion_request(chat_completion_request)
         assert parsed_request == InstructRequest[ChatMessage, Tool](messages=[UserMessage(content="B")])
 
-    def test_continue_final_message_forwarded(self, normalizer: InstructRequestNormalizer) -> None:
+    def test_preserves_assistant_prefix_without_continuation_state(self, normalizer: InstructRequestNormalizer) -> None:
         request = ChatCompletionRequest[ChatMessage](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
         )
         result = normalizer.from_chat_completion_request(request)
         assert result == InstructRequest[ChatMessage, Tool](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
         )
 
     def test_json_normalizes_tool_content(self, normalizer: InstructRequestNormalizer) -> None:
@@ -537,15 +536,15 @@ class TestChatCompletionRequestNormalizationV7:
         )
         assert parsed_request == InstructRequest[ChatMessage, Tool](messages=[UserMessage(content="B")])
 
-    def test_continue_final_message_forwarded(self, normalizer_v7: InstructRequestNormalizerV7) -> None:
+    def test_preserves_assistant_prefix_without_continuation_state(
+        self, normalizer_v7: InstructRequestNormalizerV7
+    ) -> None:
         request = ChatCompletionRequest[ChatMessage](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
         )
         result: InstructRequest[ChatMessage, Tool] = normalizer_v7.from_chat_completion_request(request)
         assert result == InstructRequest[ChatMessage, Tool](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
         )
 
     @pytest.mark.parametrize("num_empty", [0, 1, 2])
@@ -732,6 +731,23 @@ class TestFineTuningNormalizer:
         )
         normalized = normalizer.from_chat_completion_request(request)
         assert normalized == expected
+
+    def test_return_type_matches_configured_request_class(self) -> None:
+        normalizer: InstructRequestNormalizer[
+            UserMessage,
+            FinetuningAssistantMessage,
+            ToolMessage,
+            SystemMessage,
+            InstructRequest[FinetuningMessage, Tool],
+        ] = InstructRequestNormalizer(
+            UserMessage, FinetuningAssistantMessage, ToolMessage, SystemMessage, InstructRequest, None
+        )
+        request = ChatCompletionRequest[FinetuningMessage](messages=[UserMessage(content="a")])
+
+        result = normalizer.from_chat_completion_request(request)
+
+        assert_type(result, InstructRequest[FinetuningMessage, Tool])
+        assert result == InstructRequest[FinetuningMessage, Tool](messages=[UserMessage(content="a")])
 
 
 class TestChatCompletionRequestNormalizationV13:
@@ -1030,15 +1046,15 @@ class TestChatCompletionRequestNormalizationV13:
         )
         assert parsed_request == InstructRequest[ChatMessage, Tool](messages=[UserMessage(content="B")])
 
-    def test_continue_final_message_forwarded(self, normalizer_v13: InstructRequestNormalizerV13) -> None:
+    def test_preserves_assistant_prefix_without_continuation_state(
+        self, normalizer_v13: InstructRequestNormalizerV13
+    ) -> None:
         request = ChatCompletionRequest[ChatMessage](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
         )
         result: InstructRequest[ChatMessage, Tool] = normalizer_v13.from_chat_completion_request(request)
         assert result == InstructRequest[ChatMessage, Tool](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
         )
 
     def test_accepts_text_and_think_chunks(self, normalizer_v13: InstructRequestNormalizerV13) -> None:
@@ -1191,16 +1207,16 @@ class TestChatCompletionRequestNormalizationV15:
             settings=ModelSettings(reasoning_effort=reasoning_effort),
         )
 
-    def test_continue_final_message_forwarded(self, normalizer_v15: InstructRequestNormalizerV15) -> None:
+    def test_preserves_assistant_prefix_without_continuation_state(
+        self, normalizer_v15: InstructRequestNormalizerV15
+    ) -> None:
         request = ChatCompletionRequest[ChatMessage](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
             reasoning_effort=ReasoningEffort.high,
         )
         result: InstructRequest[ChatMessage, Tool] = normalizer_v15.from_chat_completion_request(request)
         assert result == InstructRequest[ChatMessage, Tool](
-            messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-            continue_final_message=True,
+            messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
             settings=ModelSettings(reasoning_effort=ReasoningEffort.high),
         )
 

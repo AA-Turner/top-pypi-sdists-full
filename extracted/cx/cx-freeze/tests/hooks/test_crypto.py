@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from cx_Freeze._compat import ABI_THREAD, IS_MINGW
+from cx_Freeze._compat import (
+    ABI_THREAD,
+    IS_ARM_64,
+    IS_MACOS,
+    IS_MINGW,
+    IS_WINDOWS,
+    IS_X86_64,
+)
 
 if TYPE_CHECKING:
     from tests.conftest import TempPackage
@@ -44,6 +51,15 @@ pyproject.toml
 """
 
 
+@pytest.mark.xfail(
+    IS_MACOS
+    and IS_X86_64
+    and sys.version_info[:2] >= (3, 15)
+    and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="argon2-cffi-bindings does not support Python 3.15t macOS Intel",
+    strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
+)
 @pytest.mark.venv
 @zip_packages
 def test_argon2(
@@ -96,7 +112,7 @@ pyproject.toml
     reason="bcrypt does not support Python 3.15t yet",
     strict=not bool(int(os.getenv("PYTEST_LAX_XFAIL", "0"))),
 )
-@pytest.mark.venv
+@pytest.mark.venv(install_dependencies=False)
 @zip_packages
 def test_bcrypt(
     tmp_package: TempPackage, zip_packages: pytest.MarkDecorator
@@ -108,6 +124,10 @@ def test_bcrypt(
         buf = pyproject.read_bytes().decode().splitlines()
         buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
         pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    if IS_WINDOWS and IS_ARM_64:
+        tmp_package.install("bcrypt")
+    else:
+        tmp_package.install_dependencies()
     tmp_package.freeze()
     executable = tmp_package.executable("test_bcrypt")
     assert executable.is_file()

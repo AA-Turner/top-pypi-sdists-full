@@ -42,7 +42,10 @@ def perform_open_save(iterations, image_path):
 @pytest.mark.skipif(sys.executable.lower().find("pypy") != -1, reason="Disabled on PyPy.")
 @pytest.mark.skipif(not helpers.hevc_enc(), reason="Requires HEVC encoder.")
 @pytest.mark.skipif(helpers.RELEASE_TESTS_FLAG, reason="Skip when building release.")
-@pytest.mark.parametrize("image", (Path("images/heif/zPug_3.heic"), Path("images/heif_other/pug.heic")))
+@pytest.mark.parametrize(
+    "image",
+    (Path("images/heif/zPug_3.heic"), Path("images/heif_other/pug.heic"), Path("images/heif_other/stereo_pair.heic")),
+)
 def test_open_save_objects_leaks(image):
     from pympler import summary, tracker
 
@@ -126,6 +129,20 @@ def test_open_to_numpy_mem_leaks():
         np.asarray(heif_file[0])
 
     _assert_no_mem_growth(iteration, warmup=100, block=1000)
+
+
+@requires_rss
+@requires_refcounting
+def test_thumbnail_decode_mem_leaks():
+    image_path = Path("images/heif_other/arrow.heic")
+
+    def iteration():
+        pillow_heif.open_heif(image_path)[0].get_thumbnail(0).load()
+        im = Image.open(image_path)
+        im.draft(None, (100, 100))
+        im.load()
+
+    _assert_no_mem_growth(iteration, warmup=20, block=200)
 
 
 @requires_rss

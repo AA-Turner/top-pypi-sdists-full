@@ -180,24 +180,34 @@ fn report_hash_atom_unsupported(rules: &[chem_env::RetroRule]) {
 #[allow(clippy::needless_update)]
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    if let Some(result) = dispatch_subcommand(&args) {
+        return result;
+    }
+    run_search_cli(&args)
+}
 
-    // Subcommand dispatch
-    if args.get(1).map(|s| s.as_str()) == Some("stock") {
-        return run_stock(&args[2..]);
-    }
-    if args.get(1).map(|s| s.as_str()) == Some("template") {
-        return run_template(&args[2..]);
-    }
-    if args.get(1).map(|s| s.as_str()) == Some("evidence") {
-        return run_evidence(&args[2..]);
-    }
-    if args.get(1).map(|s| s.as_str()) == Some("audit-route") {
-        return run_audit_route(&args[2..]);
-    }
-    if args.get(1).map(|s| s.as_str()) == Some("doctor") {
-        return run_doctor(&args[2..]);
-    }
+/// Dispatch command-specific surfaces before parsing the backward-compatible
+/// root search flags. `None` deliberately means "use root search", not an
+/// unknown subcommand: root search retains its historical unknown-option
+/// error for all other first arguments.
+fn dispatch_subcommand(args: &[String]) -> Option<Result<()>> {
+    let command_args = args.get(2..).unwrap_or_default();
+    let result = match args.get(1).map(String::as_str) {
+        Some("stock") => run_stock(command_args),
+        Some("template") => run_template(command_args),
+        Some("evidence") => run_evidence(command_args),
+        Some("audit-route") => run_audit_route(command_args),
+        Some("doctor") => run_doctor(command_args),
+        Some("capabilities") => run_capabilities(command_args),
+        _ => return None,
+    };
+    Some(result)
+}
 
+/// Parse and execute the legacy root search command. Subcommands are
+/// dispatched in [`main`] so this function has one coherent public grammar.
+#[allow(clippy::needless_update)]
+fn run_search_cli(args: &[String]) -> Result<()> {
     let mut target: Option<String> = None;
     let mut max_depth: u32 = 5;
     let mut bb_path: Option<String> = None;
@@ -254,59 +264,58 @@ fn main() -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "--target" | "-t" => {
-                target = Some(required_flag_value(&args, &mut i, "--target")?.to_owned());
+                target = Some(required_flag_value(args, &mut i, "--target")?.to_owned());
             }
             "--depth" | "-d" => {
-                let value = required_flag_value(&args, &mut i, "--depth")?;
+                let value = required_flag_value(args, &mut i, "--depth")?;
                 max_depth = value.parse().map_err(|_| {
                     anyhow::anyhow!("--depth value must be a non-negative integer, got {value:?}")
                 })?;
             }
             "--building-blocks" | "-b" => {
-                bb_path = Some(required_flag_value(&args, &mut i, "--building-blocks")?.to_owned());
+                bb_path = Some(required_flag_value(args, &mut i, "--building-blocks")?.to_owned());
             }
             "--templates" => {
-                templates_path =
-                    Some(required_flag_value(&args, &mut i, "--templates")?.to_owned());
+                templates_path = Some(required_flag_value(args, &mut i, "--templates")?.to_owned());
             }
             "--template-policy-manifest" => {
                 template_policy_manifest_path = Some(
-                    required_flag_value(&args, &mut i, "--template-policy-manifest")?.to_owned(),
+                    required_flag_value(args, &mut i, "--template-policy-manifest")?.to_owned(),
                 );
             }
             "--template-policy-artifact" => {
                 template_policy_artifact_path = Some(
-                    required_flag_value(&args, &mut i, "--template-policy-artifact")?.to_owned(),
+                    required_flag_value(args, &mut i, "--template-policy-artifact")?.to_owned(),
                 );
             }
             "--value-model-manifest" => {
                 value_model_manifest_path =
-                    Some(required_flag_value(&args, &mut i, "--value-model-manifest")?.to_owned());
+                    Some(required_flag_value(args, &mut i, "--value-model-manifest")?.to_owned());
             }
             "--value-model-artifact" => {
                 value_model_artifact_path =
-                    Some(required_flag_value(&args, &mut i, "--value-model-artifact")?.to_owned());
+                    Some(required_flag_value(args, &mut i, "--value-model-artifact")?.to_owned());
             }
             "--retro-generator-manifest" => {
                 retro_generator_manifest_path = Some(
-                    required_flag_value(&args, &mut i, "--retro-generator-manifest")?.to_owned(),
+                    required_flag_value(args, &mut i, "--retro-generator-manifest")?.to_owned(),
                 );
             }
             "--retro-generator-artifact" => {
                 retro_generator_artifact_path = Some(
-                    required_flag_value(&args, &mut i, "--retro-generator-artifact")?.to_owned(),
+                    required_flag_value(args, &mut i, "--retro-generator-artifact")?.to_owned(),
                 );
             }
             "--retro-generator-slots" => {
                 retro_generator_slots_arg =
-                    Some(required_flag_value(&args, &mut i, "--retro-generator-slots")?.to_owned());
+                    Some(required_flag_value(args, &mut i, "--retro-generator-slots")?.to_owned());
             }
             "--template-metadata" => {
                 template_metadata_path =
-                    Some(required_flag_value(&args, &mut i, "--template-metadata")?.to_owned());
+                    Some(required_flag_value(args, &mut i, "--template-metadata")?.to_owned());
             }
             "--top-templates" => {
-                let value = required_flag_value(&args, &mut i, "--top-templates")?;
+                let value = required_flag_value(args, &mut i, "--top-templates")?;
                 top_templates = Some(value.parse().map_err(|_| {
                     anyhow::anyhow!(
                         "--top-templates value must be a non-negative integer, got {value:?}"
@@ -314,7 +323,7 @@ fn main() -> Result<()> {
                 })?);
             }
             "--max-routes" | "-n" => {
-                let value = required_flag_value(&args, &mut i, "--max-routes")?;
+                let value = required_flag_value(args, &mut i, "--max-routes")?;
                 max_routes = value.parse().map_err(|_| {
                     anyhow::anyhow!(
                         "--max-routes value must be a non-negative integer, got {value:?}"
@@ -322,7 +331,7 @@ fn main() -> Result<()> {
                 })?;
             }
             "--beam-width" | "-w" => {
-                let value = required_flag_value(&args, &mut i, "--beam-width")?;
+                let value = required_flag_value(args, &mut i, "--beam-width")?;
                 beam_width = value.parse().map_err(|_| {
                     anyhow::anyhow!(
                         "--beam-width value must be a non-negative integer, got {value:?}"
@@ -330,14 +339,14 @@ fn main() -> Result<()> {
                 })?;
             }
             "--format" | "-f" => {
-                format = required_flag_value(&args, &mut i, "--format")?.to_owned();
+                format = required_flag_value(args, &mut i, "--format")?.to_owned();
             }
             "--avoid-elements" | "-e" => {
-                avoid_elements = required_flag_value(&args, &mut i, "--avoid-elements")?.to_owned();
+                avoid_elements = required_flag_value(args, &mut i, "--avoid-elements")?.to_owned();
             }
             "--require-elements" | "-r" => {
                 require_elements =
-                    required_flag_value(&args, &mut i, "--require-elements")?.to_owned();
+                    required_flag_value(args, &mut i, "--require-elements")?.to_owned();
             }
             "--verbose" | "-v" => {
                 verbose = true;
@@ -507,22 +516,21 @@ fn main() -> Result<()> {
                 recovery_stage_policy_arg = Some(v.clone());
             }
             "--bb-prices" => {
-                bb_prices_path =
-                    Some(required_flag_value(&args, &mut i, "--bb-prices")?.to_owned());
+                bb_prices_path = Some(required_flag_value(args, &mut i, "--bb-prices")?.to_owned());
             }
             "--stock" => {
-                stock_path = Some(required_flag_value(&args, &mut i, "--stock")?.to_owned());
+                stock_path = Some(required_flag_value(args, &mut i, "--stock")?.to_owned());
             }
             "--objectives" => {
-                objectives_spec = required_flag_value(&args, &mut i, "--objectives")?.to_owned();
+                objectives_spec = required_flag_value(args, &mut i, "--objectives")?.to_owned();
             }
             "--constraints" => {
                 constraints_path =
-                    Some(required_flag_value(&args, &mut i, "--constraints")?.to_owned());
+                    Some(required_flag_value(args, &mut i, "--constraints")?.to_owned());
             }
             #[cfg(all(not(target_arch = "wasm32"), feature = "nn-scoring"))]
             "--scorer" => {
-                scorer_path = Some(required_flag_value(&args, &mut i, "--scorer")?.to_owned());
+                scorer_path = Some(required_flag_value(args, &mut i, "--scorer")?.to_owned());
             }
             #[cfg(all(not(target_arch = "wasm32"), feature = "nn-scoring"))]
             "--scorer-ordering-only" => {
@@ -530,7 +538,7 @@ fn main() -> Result<()> {
             }
             #[cfg(all(not(target_arch = "wasm32"), feature = "nn-scoring"))]
             "--scorer-ordering-blend" => {
-                let value = required_flag_value(&args, &mut i, "--scorer-ordering-blend")?;
+                let value = required_flag_value(args, &mut i, "--scorer-ordering-blend")?;
                 scorer_ordering_blend = value.parse::<f64>().map_err(|_| {
                     anyhow::anyhow!("--scorer-ordering-blend must be a number in [0,1]")
                 })?;
@@ -1732,6 +1740,65 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Print the root CLI's machine-readable capability and resource contract.
+///
+/// This intentionally describes the `renkin` executable rather than the
+/// separate `renkin-forward`, `renkin-mcp`, Python, or WASM surfaces. It is
+/// a static contract: callers still validate every supplied local path and
+/// option at invocation time.
+fn run_capabilities(args: &[String]) -> Result<()> {
+    if args.len() == 1 && args[0] == "--help" {
+        println!("Usage: renkin capabilities [--output json]");
+        println!("Print the root CLI's machine-readable capability and resource contract.");
+        return Ok(());
+    }
+    if !args.is_empty() && !(args.len() == 2 && args[0] == "--output" && args[1] == "json") {
+        bail!("renkin capabilities: only --output json is supported");
+    }
+
+    let payload = serde_json::json!({
+        "schema_version": 1,
+        "surface": "cli",
+        "version": env!("CARGO_PKG_VERSION"),
+        "network": "never",
+        "filesystem": {
+            "reads_caller_paths": true,
+            "writes": "command_specific",
+        },
+        "search": {
+            "stability": "stable",
+            "max_target_smiles_bytes": search::MAX_TARGET_SMILES_BYTES,
+            "max_depth": search::MAX_SEARCH_DEPTH,
+            "max_routes": search::MAX_ROUTES,
+            "max_beam_width": search::MAX_BEAM_WIDTH,
+            "max_candidate_trace": search::MAX_CANDIDATE_TRACE,
+            "search_modes": ["standard", "coverage", "recovery"],
+            "cooperative_cancel": false,
+            "coverage_stage2_timeout": true,
+        },
+        "audit": {
+            "stability": "stable",
+            "max_compressed_input_bytes": MAX_AUDIT_INPUT_BYTES,
+            "max_decompressed_input_bytes": MAX_AUDIT_INPUT_BYTES,
+            "max_stock_text_bytes": bridge::audit_route::MAX_AUDIT_STOCK_TEXT_BYTES,
+            "max_stock_line_bytes": bridge::audit_route::MAX_AUDIT_STOCK_LINE_BYTES,
+            "max_json_depth": bridge::audit_route::MAX_AUDIT_JSON_DEPTH,
+            "max_json_tokens": bridge::audit_route::MAX_AUDIT_JSON_TOKENS,
+            "gzip_input": true,
+            "accepted_formats": ["auto", "renkin", "interchange", "aizynthfinder", "syntheseus", "synplanner"],
+            "policies": ["informational", "standard", "strict"],
+            "cooperative_cancel": false,
+        },
+        "mcp": {
+            "stability": "stable",
+            "discovery": "tools/list",
+            "arbitrary_external_route_import": false,
+        },
+    });
+    println!("{}", serde_json::to_string_pretty(&payload)?);
+    Ok(())
+}
+
 // ── Constraint DSL ────────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize, Default)]
@@ -2079,29 +2146,15 @@ const MAX_AUDIT_INPUT_BYTES: u64 = 64 * 1024 * 1024;
 fn read_maybe_gzip(path: &str) -> Result<String> {
     use std::io::Read;
 
-    let file = std::fs::File::open(path).with_context(|| format!("failed to read {path}"))?;
-    let metadata = file
-        .metadata()
-        .with_context(|| format!("failed to inspect {path}"))?;
-    if !metadata.is_file() {
-        bail!("audit input {path:?} is not a regular file");
-    }
-    if metadata.len() > MAX_AUDIT_INPUT_BYTES {
-        bail!(
-            "resource_exhausted: audit input exceeds {} bytes",
-            MAX_AUDIT_INPUT_BYTES
-        );
-    }
-    let mut bytes = Vec::with_capacity(metadata.len() as usize);
-    file.take(MAX_AUDIT_INPUT_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .with_context(|| format!("failed to read {path}"))?;
-    if bytes.len() as u64 > MAX_AUDIT_INPUT_BYTES {
-        bail!(
-            "resource_exhausted: audit input exceeds {} bytes",
-            MAX_AUDIT_INPUT_BYTES
-        );
-    }
+    // Audit-route accepts external artifacts, so its compressed input must
+    // use the same regular-file, no-symlink, descriptor-bounded boundary as
+    // stock, template, and sidecar inputs. Gzip only changes the decoding
+    // step below; it must not weaken path validation.
+    let bytes = renkin::io_limits::read_bounded_bytes_path_with_limit(
+        path,
+        "audit input",
+        MAX_AUDIT_INPUT_BYTES,
+    )?;
     if bytes.starts_with(&[0x1f, 0x8b]) {
         let decoder = flate2::read::GzDecoder::new(&bytes[..]);
         let mut decompressed = Vec::new();

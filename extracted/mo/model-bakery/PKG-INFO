@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-bakery
-Version: 1.24.0
+Version: 1.24.1
 Summary: Smart object creation facility for Django.
 Keywords: django,factory,python,testing
 Author: berin, amureki
@@ -11,6 +11,7 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -108,9 +109,18 @@ on how to set up your local environment.
 - [Rustem Saiargaliev](https://github.com/amureki/)
 - [Tim Klein](https://github.com/timjklein36)
 
-## Creator
+## Contributors
 
-- [Vanderson Mota](https://github.com/vandersonmota/)
+Model Bakery is built by its community. See the
+[full list of contributors](https://github.com/model-bakers/model_bakery/graphs/contributors).
+
+## Project history
+
+Model Bakery was originally created by
+[Vanderson Mota](https://github.com/vandersonmota/) as Model Mommy.
+The project was previously maintained in the
+[berinhard/model_mommy](https://github.com/berinhard/model_mommy) repository
+before being renamed and moved here.
 
 ## Sponsors
 

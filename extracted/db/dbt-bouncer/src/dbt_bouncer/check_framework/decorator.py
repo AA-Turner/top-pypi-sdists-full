@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, overload
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -51,8 +51,12 @@ from dbt_bouncer.check_framework.exceptions import DbtBouncerFailedCheckError
 _RESERVED_PARAMS = frozenset({"ctx"})
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     """Raise a check failure with the given message.
+
+    ``NoReturn`` is load-bearing, not decoration: checks routinely guard on a
+    value then call ``fail()``, and without it a type checker still treats the
+    value as possibly-``None`` on the following line.
 
     Args:
         message: Human-readable description of what went wrong.
@@ -64,44 +68,65 @@ def fail(message: str) -> None:
     raise DbtBouncerFailedCheckError(message)
 
 
+@overload
+def check(fn: Callable[..., None]) -> type[BaseCheck]: ...
+
+
+@overload
+def check(
+    fn: None = None, *, code: str | None = None
+) -> Callable[[Callable[..., None]], type[BaseCheck]]: ...
+
+
 def check(
     fn: Callable[..., None] | None = None,
+    *,
+    code: str | None = None,
 ) -> type[BaseCheck] | Callable[[Callable[..., None]], type[BaseCheck]]:
     """Generate a ``BaseCheck`` subclass from a plain function.
 
     Everything is inferred from the function signature:
 
+    - **code** — optional rule code (e.g. ``"MO001"``).
     - **name** — ``fn.__name__`` (must match YAML config ``name:`` value).
     - **iterate_over** — the first positional parameter that isn't ``ctx``.
       If there are none, the check is global (runs once with context only).
     - **params** — keyword-only arguments become Pydantic fields.
     - **ctx** — injected when the function declares it.
 
-    Supports both ``@check`` and ``@check()`` usage.
+    Supports ``@check``, ``@check()``, and ``@check(code="MO001")`` usage.
 
     Returns:
         The generated ``BaseCheck`` subclass (or a decorator if called with parens).
 
     """
     if fn is None:
-        # Called as @check() with parens — return decorator.
+        # Called as @check() or @check(code="MO001") — return decorator.
         def wrapper(f: Callable[..., None]) -> type[BaseCheck]:
-            return _build_check_class(f)
+            return _build_check_class(f, code=code)
 
         return wrapper
 
     # Called as bare @check — fn is the decorated function.
-    return _build_check_class(fn)
+    return _build_check_class(fn, code=code)
 
 
-def _build_check_class(fn: Callable[..., None]) -> type[BaseCheck]:
+def _build_check_class(
+    fn: Callable[..., None], code: str | None = None
+) -> type[BaseCheck]:
     """Build a BaseCheck subclass from the decorated function.
+
+    Args:
+        fn: The decorated check function.
+        code: Optional rule code for the check.
 
     Returns:
         The generated ``BaseCheck`` subclass.
 
     """
-    name = fn.__name__  # type: ignore[union-attr]
+    # `Callable` has no `__name__` in the type system, but every decorated
+    # check is a real function.
+    name = fn.__name__  # ty: ignore[unresolved-attribute]
     sig = inspect.signature(fn)
     fn_params = sig.parameters
 
@@ -116,13 +141,17 @@ def _build_check_class(fn: Callable[..., None]) -> type[BaseCheck]:
         and p.name not in _RESERVED_PARAMS
     ]
     iterate_over: str | None = positional_names[0] if positional_names else None
-    has_resource_param = iterate_over is not None
 
     # Extract keyword-only params → become Pydantic fields.
     param_names: list[str] = []
     fields: dict[str, Any] = {
-        "name": (Literal[name], Field(default=name)),  # type: ignore[valid-type]
+        # `Literal[<runtime str>]` is exactly the dynamism this factory exists for.
+        "name": (Literal[name], Field(default=name)),  # ty: ignore[invalid-type-form]
     }
+    if code is not None:
+        # Not optional: the code is part of the check's identity, so config must
+        # not be able to null it out.
+        fields["code"] = (Literal[code], Field(default=code))  # ty: ignore[invalid-type-form]
 
     # Resource field for iterate_over detection by the runner.
     if iterate_over is not None:
@@ -147,8 +176,10 @@ def _build_check_class(fn: Callable[..., None]) -> type[BaseCheck]:
     def execute(self: BaseCheck) -> None:
         kwargs: dict[str, Any] = {p: getattr(self, p) for p in param_names}
         args: list[Any] = []
-        if has_resource_param:
-            args.append(getattr(self, iterate_over))  # type: ignore[arg-type]
+        # Testing `iterate_over` rather than `has_resource_param` (the same
+        # condition) lets a type checker narrow away the `None`.
+        if iterate_over is not None:
+            args.append(getattr(self, iterate_over))
         if wants_ctx:
             args.append(self._ctx)
         fn(*args, **kwargs)
@@ -162,11 +193,13 @@ def _build_check_class(fn: Callable[..., None]) -> type[BaseCheck]:
         **fields,
     )
 
-    # Attach the execute method.
-    cls.execute = execute  # type: ignore[attr-defined]
-
-    # Store iterate_over as a ClassVar for explicit runner lookup.
-    cls.iterate_over = iterate_over  # type: ignore[attr-defined]
+    # Attach the execute method and class-level metadata.
+    cls.execute = execute  # ty: ignore[unresolved-attribute]
+    # Load-bearing despite the Pydantic `code` field above: Pydantic does not
+    # expose field defaults as class attributes, and the registry, `list` CLI
+    # and docs generator all read the code off the class via getattr.
+    cls.code = code
+    cls.iterate_over = iterate_over
 
     # Preserve metadata.
     cls.__module__ = fn.__module__

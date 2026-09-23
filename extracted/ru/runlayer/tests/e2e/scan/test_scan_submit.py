@@ -566,6 +566,56 @@ def test_scan_server_network_error_exits_3(runner, scan_home, httpserver, monkey
     assert "Could not submit servers and clients; scan may be incomplete" in out
 
 
+# ── 200 + backend incomplete_surfaces: persisted, not a submit failure ──
+
+
+def test_scan_backend_incomplete_surface_exits_0_with_warning(
+    runner, scan_home, httpserver, tmp_path
+):
+    httpserver.expect_request("/api/v1/ai-watch/scan", method="POST").respond_with_json(
+        {
+            **SCAN_RESPONSE,
+            "incomplete_surfaces": [
+                {
+                    "category": "mcp",
+                    "surface": "wsl",
+                    "reason": "wsl_parent_attribution_failed",
+                }
+            ],
+        }
+    )
+    httpserver.expect_request(
+        "/api/v1/ai-watch/skills/lookup", method="POST"
+    ).respond_with_json({"known": True})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/skills/submit", method="POST"
+    ).respond_with_json({})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/plugins/lookup", method="POST"
+    ).respond_with_json({"known": True})
+    httpserver.expect_request(
+        "/api/v1/ai-watch/plugins/submit", method="POST"
+    ).respond_with_json({"plugin_id": "x", "created": False})
+
+    result = _invoke_scan(runner, httpserver)
+    out = strip_ansi(result.output)
+
+    assert result.exit_code == 0, out
+    assert (
+        "Submitted; server marked surfaces incomplete: "
+        "mcp/wsl (wsl_parent_attribution_failed)"
+    ) in out
+    assert "Could not submit" not in out
+    assert "Scan complete" in out
+
+    log_text = "".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (tmp_path / ".runlayer" / "logs").glob("*.log")
+    )
+    assert "mcp_watch_scan_backend_surface_incomplete" in log_text
+    assert "wsl_parent_attribution_failed" in log_text
+
+
 # ── Submit 5xx (HTTP status error) must fail, not silent-green ───────
 
 

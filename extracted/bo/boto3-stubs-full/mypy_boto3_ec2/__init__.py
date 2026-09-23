@@ -27,6 +27,7 @@ Usage::
         DescribeCapacityBlocksPaginator,
         DescribeCapacityManagerDataExportsPaginator,
         DescribeCapacityReservationBillingRequestsPaginator,
+        DescribeCapacityReservationDateChangeQuotesPaginator,
         DescribeCapacityReservationFleetsPaginator,
         DescribeCapacityReservationsPaginator,
         DescribeCarrierGatewaysPaginator,
@@ -291,6 +292,7 @@ Usage::
     describe_capacity_blocks_paginator: DescribeCapacityBlocksPaginator = client.get_paginator("describe_capacity_blocks")
     describe_capacity_manager_data_exports_paginator: DescribeCapacityManagerDataExportsPaginator = client.get_paginator("describe_capacity_manager_data_exports")
     describe_capacity_reservation_billing_requests_paginator: DescribeCapacityReservationBillingRequestsPaginator = client.get_paginator("describe_capacity_reservation_billing_requests")
+    describe_capacity_reservation_date_change_quotes_paginator: DescribeCapacityReservationDateChangeQuotesPaginator = client.get_paginator("describe_capacity_reservation_date_change_quotes")
     describe_capacity_reservation_fleets_paginator: DescribeCapacityReservationFleetsPaginator = client.get_paginator("describe_capacity_reservation_fleets")
     describe_capacity_reservations_paginator: DescribeCapacityReservationsPaginator = client.get_paginator("describe_capacity_reservations")
     describe_carrier_gateways_paginator: DescribeCarrierGatewaysPaginator = client.get_paginator("describe_carrier_gateways")
@@ -468,6 +470,7 @@ from .paginator import (
     DescribeCapacityBlockStatusPaginator,
     DescribeCapacityManagerDataExportsPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
+    DescribeCapacityReservationDateChangeQuotesPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
     DescribeCarrierGatewaysPaginator,
@@ -706,6 +709,7 @@ __all__ = (
     "DescribeCapacityBlocksPaginator",
     "DescribeCapacityManagerDataExportsPaginator",
     "DescribeCapacityReservationBillingRequestsPaginator",
+    "DescribeCapacityReservationDateChangeQuotesPaginator",
     "DescribeCapacityReservationFleetsPaginator",
     "DescribeCapacityReservationsPaginator",
     "DescribeCarrierGatewaysPaginator",

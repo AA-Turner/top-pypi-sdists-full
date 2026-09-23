@@ -54,6 +54,7 @@ use crate::commands::pip::loggers::{
     DefaultInstallLogger, DefaultResolveLogger, SummaryResolveLogger,
 };
 use crate::commands::pip::operations::Modifications;
+use crate::commands::project::edit::ProjectEdit;
 use crate::commands::project::install_target::InstallTarget;
 use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
@@ -542,7 +543,20 @@ pub(crate) async fn add(
     }
 
     // Store the content prior to any modifications.
-    let snapshot = target.snapshot().await?;
+    let paths = match &target {
+        AddTarget::Script(script, _) => vec![script.path.clone()],
+        AddTarget::Project(project, _) => vec![
+            project.root().join("pyproject.toml"),
+            project.workspace().install_path().join("pyproject.toml"),
+        ],
+    };
+    let edit = ProjectEdit::new(
+        paths.into_iter().chain(
+            frozen
+                .is_none()
+                .then(|| LockTarget::from(&target).lock_path()),
+        ),
+    )?;
 
     // If the user provides a single, named index, pin all requirements to that index.
     let index = indexes
@@ -553,9 +567,6 @@ pub(crate) async fn add(
         .inspect(|index| {
             debug!("Pinning all requirements to index: `{index}`");
         });
-
-    // Track modification status, for reverts.
-    let mut modified = false;
 
     // Determine whether to use workspace mode.
     let use_workspace = match workspace {
@@ -586,6 +597,7 @@ pub(crate) async fn add(
     // If workspace mode is enabled, add any members to the `workspace` section of the
     // `pyproject.toml` file.
     if use_workspace {
+        let mut modified = false;
         let AddTarget::Project(project, python_target) = target else {
             unreachable!("`--workspace` and `--script` are conflicting options");
         };
@@ -737,11 +749,12 @@ pub(crate) async fn add(
     let content = toml.to_string();
 
     // Save the modified `pyproject.toml` or script.
-    modified |= target.write(&content)?;
+    target.write(&content)?;
 
     // If `--frozen`, exit early. There's no reason to lock and sync, since we don't need a `uv.lock`
     // to exist at all.
     if frozen.is_some() {
+        edit.commit();
         return Ok(ExitStatus::Success);
     }
 
@@ -756,23 +769,6 @@ pub(crate) async fn add(
 
     // Update the `pypackage.toml` in-memory.
     let target = target.update(&content, &WorkspaceCache::default())?;
-
-    // Set the Ctrl-C handler to revert changes on exit.
-    let _ = ctrlc::set_handler({
-        let snapshot = snapshot.clone();
-        move || {
-            if modified {
-                let _ = snapshot.revert();
-            }
-
-            #[expect(clippy::exit, clippy::cast_possible_wrap)]
-            std::process::exit(if cfg!(windows) {
-                0xC000_013A_u32 as i32
-            } else {
-                130
-            });
-        }
-    });
 
     // Use separate state for locking and syncing.
     let lock_state = state.fork();
@@ -811,28 +807,25 @@ pub(crate) async fn add(
     ))
     .await
     {
-        Ok(()) => Ok(ExitStatus::Success),
-        Err(err) => {
-            if modified {
-                let _ = snapshot.revert();
-            }
-            match err {
-                ProjectError::Operation(err) => {
-                    let standard_library_package =
-                        standard_library_package(&err, &edits, python_minor);
-                    Err(UvError::from(err)
-                        .map_user(|cause| {
-                            AddDependencyError {
-                                cause,
-                                standard_library_package,
-                            }
-                            .into()
-                        })
-                        .into())
-                }
-                err => Err(UvError::from(err).into()),
-            }
+        Ok(()) => {
+            edit.commit();
+            Ok(ExitStatus::Success)
         }
+        Err(err) => match err {
+            ProjectError::Operation(err) => {
+                let standard_library_package = standard_library_package(&err, &edits, python_minor);
+                Err(UvError::from(err)
+                    .map_user(|cause| {
+                        AddDependencyError {
+                            cause,
+                            standard_library_package,
+                        }
+                        .into()
+                    })
+                    .into())
+            }
+            err => Err(UvError::from(err).into()),
+        },
     }
 }
 
@@ -1456,86 +1449,6 @@ impl AddTarget {
                     )?
                     .ok_or(ProjectError::PyprojectTomlUpdate)?;
                 Ok(Self::Project(project, venv))
-            }
-        }
-    }
-
-    /// Take a snapshot of the target.
-    async fn snapshot(&self) -> Result<AddTargetSnapshot, io::Error> {
-        // Read the lockfile into memory.
-        let target = match self {
-            Self::Script(script, _) => LockTarget::from(script),
-            Self::Project(project, _) => LockTarget::Workspace(project.workspace()),
-        };
-        let lock = target.read_bytes().await?;
-
-        // Obtain a detached a copy of the old structure so we can revert to it without
-        // breaking the assumption that the workspace cache is only used by the modifying code
-        // when changing it.
-        match self {
-            Self::Script(script, _) => Ok(AddTargetSnapshot::Script(script.clone(), lock)),
-            Self::Project(project, _) => {
-                Ok(AddTargetSnapshot::Project(project.clone_detach(), lock))
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[expect(clippy::large_enum_variant)]
-enum AddTargetSnapshot {
-    Script(Pep723Script, Option<Vec<u8>>),
-    Project(VirtualProject, Option<Vec<u8>>),
-}
-
-impl AddTargetSnapshot {
-    /// Write the snapshot back to disk (e.g., to a `pyproject.toml` and `uv.lock`).
-    fn revert(&self) -> Result<(), io::Error> {
-        match self {
-            Self::Script(script, lock) => {
-                // Write the PEP 723 script back to disk.
-                debug!("Reverting changes to PEP 723 script block");
-                script.write(&script.metadata.raw)?;
-
-                // Write the lockfile back to disk.
-                let target = LockTarget::from(script);
-                if let Some(lock) = lock {
-                    debug!("Reverting changes to `uv.lock`");
-                    fs_err::write(target.lock_path(), lock)?;
-                } else {
-                    debug!("Removing `uv.lock`");
-                    fs_err::remove_file(target.lock_path())?;
-                }
-                Ok(())
-            }
-            Self::Project(project, lock) => {
-                // Write the workspace `pyproject.toml` back to disk.
-                let workspace = project.workspace();
-                if workspace.install_path() != project.root() {
-                    debug!("Reverting changes to workspace `pyproject.toml`");
-                    fs_err::write(
-                        workspace.install_path().join("pyproject.toml"),
-                        workspace.pyproject_toml().as_ref(),
-                    )?;
-                }
-
-                // Write the `pyproject.toml` back to disk.
-                debug!("Reverting changes to `pyproject.toml`");
-                fs_err::write(
-                    project.root().join("pyproject.toml"),
-                    project.pyproject_toml().as_ref(),
-                )?;
-
-                // Write the lockfile back to disk.
-                let target = LockTarget::from(project.workspace());
-                if let Some(lock) = lock {
-                    debug!("Reverting changes to `uv.lock`");
-                    fs_err::write(target.lock_path(), lock)?;
-                } else {
-                    debug!("Removing `uv.lock`");
-                    fs_err::remove_file(target.lock_path())?;
-                }
-                Ok(())
             }
         }
     }

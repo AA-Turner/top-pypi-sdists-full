@@ -82,6 +82,7 @@ from .utils import (
     check_node_availability_for_in_message,
     convert_sint64_values_in_dict_to_uint64,
     convert_uint64_values_in_dict_to_sint64,
+    create_user_prompt_message,
     dict_to_message,
     generate_rand_int_from_bytes,
     message_to_dict,
@@ -184,14 +185,16 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
                 federation_id: str = run_row["federation_id"]
 
                 # Validate destination node ID
+                dst_node_id = message.metadata.dst_node_id
                 node_id = session.scalar(
                     select(NodeModel.node_id).where(
                         NodeModel.node_id == data[0]["dst_node_id"],
                         NodeModel.status.in_([NodeStatus.ONLINE, NodeStatus.OFFLINE]),
                     )
                 )
-                if node_id is None or not self.federation_manager.has_node(
-                    message.metadata.dst_node_id, federation_id
+                if dst_node_id != SUPERLINK_NODE_ID and (
+                    node_id is None
+                    or not self.federation_manager.has_node(dst_node_id, federation_id)
                 ):
                     log(
                         ERROR,
@@ -299,27 +302,30 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
                 src_node_id = int64_to_uint64(cast(int, message_model.src_node_id))
                 dst_node_id = int64_to_uint64(cast(int, message_model.dst_node_id))
 
-                # Filter nodes to check if they're in the federation
-                filtered = self.federation_manager.filter_nodes(
-                    {src_node_id, dst_node_id}, federation_id
-                )
-                if len(filtered) != 2:  # Not both nodes are in the federation
-                    invalid_msg_ids.add(msg_id)
+                if src_node_id != dst_node_id:
+                    # Filter nodes to check if they're in the federation
+                    filtered = self.federation_manager.filter_nodes(
+                        {src_node_id, dst_node_id}, federation_id
+                    )
+                    if len(filtered) != 2:  # Not both nodes are in the federation
+                        invalid_msg_ids.add(msg_id)
 
             # Delete all invalid messages
             self.delete_messages(invalid_msg_ids)
 
-    def get_message_ins(self, node_id: int, limit: int | None) -> list[Message]:
+    def get_message_ins(
+        self,
+        node_id: int,
+        limit: int | None,
+        *,
+        run_id: int | None = None,
+    ) -> list[Message]:
         """Get all Messages that have not been delivered yet."""
         if limit is not None and limit < 1:
             raise AssertionError("`limit` must be >= 1")
 
-        if node_id == SUPERLINK_NODE_ID:
-            msg = f"`node_id` must be != {SUPERLINK_NODE_ID}"
-            raise AssertionError(msg)
-
         with self.session():
-            rows = self._claim_message_ins_rows(node_id, limit)
+            rows = self._claim_message_ins_rows(node_id, limit, run_id)
             message_ids: set[str] = {row["message_id"] for row in rows}
             self._check_stored_messages(message_ids)
 
@@ -339,15 +345,20 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
         return result
 
     def _claim_message_ins_rows(
-        self, node_id: int, limit: int | None
+        self,
+        node_id: int,
+        limit: int | None,
+        run_id: int | None = None,
     ) -> list[dict[str, Any]]:
         """Atomically claim eligible instruction Messages for a node."""
         current_time = now()
-        common_conditions = (
+        common_conditions = [
             MessageInsModel.dst_node_id == uint64_to_int64(node_id),
             MessageInsModel.delivered_at == "",
             MessageInsModel.created_at + MessageInsModel.ttl > current_time.timestamp(),
-        )
+        ]
+        if run_id is not None:
+            common_conditions.append(MessageInsModel.run_id == uint64_to_int64(run_id))
         stmt = update(MessageInsModel).where(*common_conditions)
         if limit is not None:
             # Materialize limited candidates before updating. Some backends can
@@ -522,6 +533,7 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
             ret = verify_message_ids(
                 inquired_message_ids=message_ids,
                 found_message_ins_dict=found_message_ins_dict,
+                run_id=run_id,
                 current_time=current,
             )
 
@@ -555,6 +567,8 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
 
             # Return accumulated replies if no IDs remain to avoid generating `IN ()`
             if not message_ids:
+                for message in ret.values():
+                    self._store_generated_message(message)
                 return list(ret.values())
 
             # Atomically claim all eligible reply Messages
@@ -575,13 +589,21 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
                 convert_sint64_values_in_dict_to_uint64(
                     row, ["run_id", "src_node_id", "dst_node_id"]
                 )
+            found_message_res_list = [dict_to_message(row) for row in rows]
+            found_message_res_ids = {
+                message.metadata.message_id for message in found_message_res_list
+            }
             tmp_ret_dict = verify_found_message_replies(
                 inquired_message_ids=message_ids,
                 found_message_ins_dict=found_message_ins_dict,
-                found_message_res_list=[dict_to_message(row) for row in rows],
+                found_message_res_list=found_message_res_list,
                 current_time=current,
             )
             ret.update(tmp_ret_dict)
+
+            for message in ret.values():
+                if message.metadata.message_id not in found_message_res_ids:
+                    self._store_generated_message(message)
 
         return list(ret.values())
 
@@ -662,12 +684,15 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
         self.cleanup_run(run_id)
         return True
 
-    def create_node(
+    def create_node(  # pylint: disable=too-many-arguments
         self,
         owner_aid: str,
         owner_name: str,
         public_key: bytes,
         heartbeat_interval: float,
+        *,
+        location: str | None = None,
+        name: str | None = None,
     ) -> int:
         """Create, store in the link state, and return `node_id`."""
         # Sample a random uint64 as node_id
@@ -694,6 +719,8 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
                         online_until=None,  # initialized with offline status
                         heartbeat_interval=heartbeat_interval,
                         public_key=public_key,
+                        location=location,
+                        name=name,
                     )
                 )
         except IntegrityError as e:
@@ -924,6 +951,7 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
         series_description: str | None = None,
         connector_refs: Sequence[str] = (),
         initial_task_event: TaskEvent | None = None,
+        user_prompt: str | None = None,
     ) -> int:
         """Create a new run."""
         if isinstance(connector_refs, str) or any(
@@ -1002,6 +1030,10 @@ class SqlLinkState(LinkState, SqlCoreState):  # pylint: disable=R0904
                         details="",
                     )
                 )
+                if primary_task_type == TaskType.AGENT_APP and user_prompt is not None:
+                    message = create_user_prompt_message(run_id, user_prompt)
+                    self.store_message_ins(message)
+                    self._store_generated_message(message)
                 if initial_task_event is not None:
                     initial_task_event.run_id = run_id
                     initial_task_event.task_id = task_id
@@ -1378,6 +1410,8 @@ def _node_info_from_model(model: NodeModel) -> NodeInfo:
         online_until=model.online_until,
         heartbeat_interval=cast(float, model.heartbeat_interval),
         public_key=cast(bytes, model.public_key),
+        location=model.location,
+        name=model.name,
     )
 
 

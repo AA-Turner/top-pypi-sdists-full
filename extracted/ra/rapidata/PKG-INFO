@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rapidata
-Version: 3.25.2
+Version: 3.25.5
 Summary: Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way.
 Author-email: Rapidata AG <info@rapidata.ai>
 License-Expression: Apache-2.0
@@ -31,3 +31,14 @@ Description-Content-Type: text/markdown
 Python client to interface with the Rapidata API.
 
 Docs: https://docs.rapidata.ai/
+
+## Using a coding agent?
+
+Point it at the maintained skill instead of letting it read the installed source:
+
+```bash
+python -m rapidata skill            # print the guide
+python -m rapidata skill --install  # install it into the current project
+```
+
+Details and per-agent install commands: https://docs.rapidata.ai/ai_agents/

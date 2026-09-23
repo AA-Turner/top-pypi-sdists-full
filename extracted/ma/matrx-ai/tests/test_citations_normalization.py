@@ -926,7 +926,7 @@ async def test_run_agent_system_run_disables_citations():
         {"model": "test-model", "messages": [{"role": "user", "content": "derive"}]}
     )
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output="ok",
             assistant_response=None,
@@ -972,7 +972,7 @@ async def test_run_agent_system_run_respects_explicit_force_enable():
     )
     config.metadata["citations_enabled"] = True  # explicit force-enable wins
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output="ok",
             assistant_response=None,

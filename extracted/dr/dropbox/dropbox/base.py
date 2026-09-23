@@ -33,7 +33,9 @@ class DropboxBase(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def request(self, route, namespace, request_arg, request_binary, timeout=None):
+    def request(
+        self, route, namespace, request_arg, request_binary, timeout=None, extra_headers=None
+    ):
         pass
 
     # ------------------------------------------
@@ -671,13 +673,7 @@ class DropboxBase(object):
         return r
 
     def file_requests_create(
-        self,
-        title,
-        destination,
-        deadline=None,
-        open=True,
-        description=None,
-        video_project_id=None,
+        self, title, destination, deadline=None, open=True, description=None, video_project_id=None
     ):
         """
         Creates a file request for this user.
@@ -970,7 +966,9 @@ class DropboxBase(object):
         :param bytes f: Contents to upload.
         :param content_hash: A hash of the file content uploaded in this call.
             If provided and the uploaded content does not match this hash, an
-            error will be returned. For more information see our `Content hash
+            error will be returned. Optional, but recommended to avoid
+            committing data corrupted in transit. For more information see our
+            `Content hash
             <https://www.dropbox.com/developers/reference/content-hash>`_ page.
         :type content_hash: Nullable[str]
         :rtype: :class:`dropbox.files.FileMetadata`
@@ -1037,11 +1035,7 @@ class DropboxBase(object):
             DeprecationWarning,
         )
         arg = files.RelocationArg(
-            from_path,
-            to_path,
-            allow_shared_folder,
-            autorename,
-            allow_ownership_transfer,
+            from_path, to_path, allow_shared_folder, autorename, allow_ownership_transfer
         )
         r = self.request(
             files.copy,
@@ -1083,11 +1077,7 @@ class DropboxBase(object):
             :class:`dropbox.files.RelocationError`
         """
         arg = files.RelocationArg(
-            from_path,
-            to_path,
-            allow_shared_folder,
-            autorename,
-            allow_ownership_transfer,
+            from_path, to_path, allow_shared_folder, autorename, allow_ownership_transfer
         )
         r = self.request(
             files.copy_v2,
@@ -1098,11 +1088,7 @@ class DropboxBase(object):
         return r
 
     def files_copy_batch(
-        self,
-        entries,
-        autorename=False,
-        allow_shared_folder=False,
-        allow_ownership_transfer=False,
+        self, entries, autorename=False, allow_shared_folder=False, allow_ownership_transfer=False
     ):
         """
         Copy multiple files or folders to different locations at once in the
@@ -1509,13 +1495,14 @@ class DropboxBase(object):
         )
         return r
 
-    def files_download(self, path, rev=None):
+    def files_download(self, path, rev=None, extra_headers=None):
         """
         Download a file from a user's Dropbox.
 
         Route attributes:
             scope: files.content.read
 
+        :param object extra_headers: Additional HTTP headers for this request.
         :param path: The path of the file to download.
         :type path: str
         :param rev: Field is deprecated. Please specify revision in ``path``
@@ -1535,15 +1522,24 @@ class DropboxBase(object):
         context manager to ensure this.
         """
         arg = files.DownloadArg(path, rev)
-        r = self.request(
-            files.download,
-            "files",
-            arg,
-            None,
-        )
+        if extra_headers is None:
+            r = self.request(
+                files.download,
+                "files",
+                arg,
+                None,
+            )
+        else:
+            r = self.request(
+                files.download,
+                "files",
+                arg,
+                None,
+                extra_headers=extra_headers,
+            )
         return r
 
-    def files_download_to_file(self, download_path, path, rev=None):
+    def files_download_to_file(self, download_path, path, rev=None, extra_headers=None):
         """
         Download a file from a user's Dropbox.
 
@@ -1551,6 +1547,7 @@ class DropboxBase(object):
             scope: files.content.read
 
         :param str download_path: Path on local machine to save file.
+        :param object extra_headers: Additional HTTP headers for this request.
         :param path: The path of the file to download.
         :type path: str
         :param rev: Field is deprecated. Please specify revision in ``path``
@@ -1563,12 +1560,21 @@ class DropboxBase(object):
             :class:`dropbox.files.DownloadError`
         """
         arg = files.DownloadArg(path, rev)
-        r = self.request(
-            files.download,
-            "files",
-            arg,
-            None,
-        )
+        if extra_headers is None:
+            r = self.request(
+                files.download,
+                "files",
+                arg,
+                None,
+            )
+        else:
+            r = self.request(
+                files.download,
+                "files",
+                arg,
+                None,
+                extra_headers=extra_headers,
+            )
         self._save_body_to_file(download_path, r[1])
         return r[0]
 
@@ -1905,8 +1911,7 @@ class DropboxBase(object):
         exist for a specific upload path at any given time.  The POST request on
         the temporary upload link must have its Content-Type set to
         "application/octet-stream".  Example temporary upload link consumption
-        request:  curl -X POST
-        https://content.dropboxapi.com/apitul/1/bNi2uIYF51cVBND --header
+        request:  curl -X POST <temporary_upload_link_url> --header
         "Content-Type: application/octet-stream" --data-binary @local_file.txt
         A successful temporary upload link consumption request returns the
         content hash of the uploaded data in JSON format. Example successful
@@ -1949,7 +1954,6 @@ class DropboxBase(object):
         format=files.ThumbnailFormat.jpeg,
         size=files.ThumbnailSize.w64h64,
         mode=files.ThumbnailMode.strict,
-        quality=files.ThumbnailQuality.quality_80,
         exclude_media_info=None,
     ):
         """
@@ -1973,9 +1977,6 @@ class DropboxBase(object):
         :param mode: How to resize and crop the image to achieve the desired
             size.
         :type mode: :class:`dropbox.files.ThumbnailMode`
-        :param quality: Field is only returned for "internal" callers. Quality
-            of the thumbnail image.
-        :type quality: :class:`dropbox.files.ThumbnailQuality`
         :param exclude_media_info: Normally, ``FileMetadata.media_info`` is set
             for photo and video. When this flag is true,
             ``FileMetadata.media_info`` is not populated. This improves latency
@@ -1994,7 +1995,7 @@ class DropboxBase(object):
         <https://docs.python.org/2/library/contextlib.html#contextlib.closing>`_
         context manager to ensure this.
         """
-        arg = files.ThumbnailArg(path, format, size, mode, quality, exclude_media_info)
+        arg = files.ThumbnailArg(path, format, size, mode, exclude_media_info)
         r = self.request(
             files.get_thumbnail,
             "files",
@@ -2010,7 +2011,6 @@ class DropboxBase(object):
         format=files.ThumbnailFormat.jpeg,
         size=files.ThumbnailSize.w64h64,
         mode=files.ThumbnailMode.strict,
-        quality=files.ThumbnailQuality.quality_80,
         exclude_media_info=None,
     ):
         """
@@ -2035,9 +2035,6 @@ class DropboxBase(object):
         :param mode: How to resize and crop the image to achieve the desired
             size.
         :type mode: :class:`dropbox.files.ThumbnailMode`
-        :param quality: Field is only returned for "internal" callers. Quality
-            of the thumbnail image.
-        :type quality: :class:`dropbox.files.ThumbnailQuality`
         :param exclude_media_info: Normally, ``FileMetadata.media_info`` is set
             for photo and video. When this flag is true,
             ``FileMetadata.media_info`` is not populated. This improves latency
@@ -2049,7 +2046,7 @@ class DropboxBase(object):
         If this raises, ApiError will contain:
             :class:`dropbox.files.ThumbnailError`
         """
-        arg = files.ThumbnailArg(path, format, size, mode, quality, exclude_media_info)
+        arg = files.ThumbnailArg(path, format, size, mode, exclude_media_info)
         r = self.request(
             files.get_thumbnail,
             "files",
@@ -2065,8 +2062,8 @@ class DropboxBase(object):
         format=files.ThumbnailFormat.jpeg,
         size=files.ThumbnailSize.w64h64,
         mode=files.ThumbnailMode.strict,
-        quality=files.ThumbnailQuality.quality_80,
         exclude_media_info=None,
+        preserve_transparency=False,
     ):
         """
         Get a thumbnail for an image. This method currently supports files with
@@ -2091,14 +2088,16 @@ class DropboxBase(object):
         :param mode: How to resize and crop the image to achieve the desired
             size.
         :type mode: :class:`dropbox.files.ThumbnailMode`
-        :param quality: Field is only returned for "internal" callers. Quality
-            of the thumbnail image.
-        :type quality: :class:`dropbox.files.ThumbnailQuality`
         :param exclude_media_info: Normally, ``FileMetadata.media_info`` is set
             for photo and video. When this flag is true,
             ``FileMetadata.media_info`` is not populated. This improves latency
             for use cases where `media_info` is not needed.
         :type exclude_media_info: Nullable[bool]
+        :param preserve_transparency: Whether to preserve the original image's
+            transparency in the thumbnail. This is supported only when the
+            output format is PNG or WebP. Requests that set this flag with JPEG
+            output return an error.
+        :type preserve_transparency: bool
         :rtype: (:class:`dropbox.files.PreviewResult`,
                  :class:`requests.models.Response`)
         :raises: :class:`.exceptions.ApiError`
@@ -2112,7 +2111,9 @@ class DropboxBase(object):
         <https://docs.python.org/2/library/contextlib.html#contextlib.closing>`_
         context manager to ensure this.
         """
-        arg = files.ThumbnailV2Arg(resource, format, size, mode, quality, exclude_media_info)
+        arg = files.ThumbnailV2Arg(
+            resource, format, size, mode, exclude_media_info, preserve_transparency
+        )
         r = self.request(
             files.get_thumbnail_v2,
             "files",
@@ -2128,8 +2129,8 @@ class DropboxBase(object):
         format=files.ThumbnailFormat.jpeg,
         size=files.ThumbnailSize.w64h64,
         mode=files.ThumbnailMode.strict,
-        quality=files.ThumbnailQuality.quality_80,
         exclude_media_info=None,
+        preserve_transparency=False,
     ):
         """
         Get a thumbnail for an image. This method currently supports files with
@@ -2155,21 +2156,25 @@ class DropboxBase(object):
         :param mode: How to resize and crop the image to achieve the desired
             size.
         :type mode: :class:`dropbox.files.ThumbnailMode`
-        :param quality: Field is only returned for "internal" callers. Quality
-            of the thumbnail image.
-        :type quality: :class:`dropbox.files.ThumbnailQuality`
         :param exclude_media_info: Normally, ``FileMetadata.media_info`` is set
             for photo and video. When this flag is true,
             ``FileMetadata.media_info`` is not populated. This improves latency
             for use cases where `media_info` is not needed.
         :type exclude_media_info: Nullable[bool]
+        :param preserve_transparency: Whether to preserve the original image's
+            transparency in the thumbnail. This is supported only when the
+            output format is PNG or WebP. Requests that set this flag with JPEG
+            output return an error.
+        :type preserve_transparency: bool
         :rtype: :class:`dropbox.files.PreviewResult`
         :raises: :class:`.exceptions.ApiError`
 
         If this raises, ApiError will contain:
             :class:`dropbox.files.ThumbnailV2Error`
         """
-        arg = files.ThumbnailV2Arg(resource, format, size, mode, quality, exclude_media_info)
+        arg = files.ThumbnailV2Arg(
+            resource, format, size, mode, exclude_media_info, preserve_transparency
+        )
         r = self.request(
             files.get_thumbnail_v2,
             "files",
@@ -2597,11 +2602,7 @@ class DropboxBase(object):
             DeprecationWarning,
         )
         arg = files.RelocationArg(
-            from_path,
-            to_path,
-            allow_shared_folder,
-            autorename,
-            allow_ownership_transfer,
+            from_path, to_path, allow_shared_folder, autorename, allow_ownership_transfer
         )
         r = self.request(
             files.move,
@@ -2644,11 +2645,7 @@ class DropboxBase(object):
             :class:`dropbox.files.RelocationError`
         """
         arg = files.RelocationArg(
-            from_path,
-            to_path,
-            allow_shared_folder,
-            autorename,
-            allow_ownership_transfer,
+            from_path, to_path, allow_shared_folder, autorename, allow_ownership_transfer
         )
         r = self.request(
             files.move_v2,
@@ -2659,11 +2656,7 @@ class DropboxBase(object):
         return r
 
     def files_move_batch(
-        self,
-        entries,
-        autorename=False,
-        allow_shared_folder=False,
-        allow_ownership_transfer=False,
+        self, entries, autorename=False, allow_shared_folder=False, allow_ownership_transfer=False
     ):
         """
         Move multiple files or folders to different locations at once in the
@@ -3307,7 +3300,9 @@ class DropboxBase(object):
         :param bytes f: Contents to upload.
         :param content_hash: A hash of the file content uploaded in this call.
             If provided and the uploaded content does not match this hash, an
-            error will be returned. For more information see our `Content hash
+            error will be returned. Optional, but recommended to avoid
+            committing data corrupted in transit. For more information see our
+            `Content hash
             <https://www.dropbox.com/developers/reference/content-hash>`_ page.
         :type content_hash: Nullable[str]
         :rtype: :class:`dropbox.files.FileMetadata`
@@ -3398,7 +3393,9 @@ class DropboxBase(object):
         :type close: bool
         :param content_hash: A hash of the file content uploaded in this call.
             If provided and the uploaded content does not match this hash, an
-            error will be returned. For more information see our `Content hash
+            error will be returned. Optional, but recommended to avoid
+            committing data corrupted in transit. For more information see our
+            `Content hash
             <https://www.dropbox.com/developers/reference/content-hash>`_ page.
         :type content_hash: Nullable[str]
         :rtype: None
@@ -3436,10 +3433,11 @@ class DropboxBase(object):
         :param bytes f: Contents to upload.
         :param entries: Append information for each file in the batch.
         :type entries: List[:class:`dropbox.files.UploadSessionAppendBatchArgEntry`]
-        :param content_hash: A hash of the entire request body which is all the
-            concatenated pieces of file content that were uploaded in this call.
-            If provided and the uploaded content does not match this hash, an
-            error will be returned. For more information see our `Content hash
+        :param content_hash: A single hash of all the concatenated file contents
+            uploaded in this call. If provided and the uploaded content does not
+            match this hash, an error will be returned. Optional, but
+            recommended to avoid committing data corrupted in transit. For more
+            information see our `Content hash
             <https://www.dropbox.com/developers/reference/content-hash>`_ page.
         :type content_hash: Nullable[str]
         :rtype: :class:`dropbox.files.UploadSessionAppendBatchResult`
@@ -3479,7 +3477,9 @@ class DropboxBase(object):
         :type commit: :class:`dropbox.files.CommitInfo`
         :param content_hash: A hash of the file content uploaded in this call.
             If provided and the uploaded content does not match this hash, an
-            error will be returned. For more information see our `Content hash
+            error will be returned. Optional, but recommended to avoid
+            committing data corrupted in transit. For more information see our
+            `Content hash
             <https://www.dropbox.com/developers/reference/content-hash>`_ page.
         :type content_hash: Nullable[str]
         :rtype: :class:`dropbox.files.FileMetadata`
@@ -3661,7 +3661,9 @@ class DropboxBase(object):
         :type session_type: Nullable[:class:`dropbox.files.UploadSessionType`]
         :param content_hash: A hash of the file content uploaded in this call.
             If provided and the uploaded content does not match this hash, an
-            error will be returned. For more information see our `Content hash
+            error will be returned. Optional, but recommended to avoid
+            committing data corrupted in transit. For more information see our
+            `Content hash
             <https://www.dropbox.com/developers/reference/content-hash>`_ page.
         :type content_hash: Nullable[str]
         :rtype: :class:`dropbox.files.UploadSessionStartResult`
@@ -4503,30 +4505,106 @@ class DropboxBase(object):
     # ------------------------------------------
     # Routes in riviera namespace
 
+    def riviera_get_keyframes_async(
+        self, file_id_or_url=None, scene_change_threshold=0.0, include_images=False
+    ):
+        """
+        Asynchronous scene-change keyframe extraction for video files. Detects
+        scene changes in the source video and returns one representative
+        keyframe per detected scene, each tagged with its timestamp (seconds
+        from the start of the video) and scene-change score. Set `include_images
+        = true` to also receive each frame as a base64-encoded JPEG; when the
+        field is omitted the response carries keyframe metadata only. Supported
+        video formats: .3gp, .3gpp, .3gpp2, .asf, .avi, .dv, .flv, .m2t, .m2ts,
+        .m4v, .mkv, .mov, .mp4, .mpeg, .mpg, .mts, .mxf, .oggtheora, .ogv, .rm,
+        .ts, .vob, .webm, .wmv. Unsupported formats return an
+        `unsupported_format_error`. Limits: the source file must be at most 10
+        GB. To keep responses within service limits the number of keyframes and
+        the total image payload are bounded; requests that would exceed these
+        limits return a `limit_exceeded_error` -- raise `scene_change_threshold`
+        or set `include_images = false` to stay within bounds.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param file_id_or_url: Identifier of the video file to extract keyframes
+            from. Callers must set exactly one of the `FileIdOrUrl` variants.
+            Keyframe extraction is supported for video files only; see the route
+            description for the supported formats. Requests against unsupported
+            formats return `unsupported_format_error`.
+        :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
+        :param scene_change_threshold: Sensitivity of scene-change detection. A
+            keyframe is emitted whenever the frame-to-frame scene score crosses
+            this threshold, so a LOWER value yields MORE keyframes. Valid range
+            is (0.0, 1.0]. When omitted (0.0) the service uses a default of 0.3,
+            which is a good starting point for most videos.
+        :type scene_change_threshold: float
+        :param include_images: When true, each returned keyframe includes the
+            JPEG image bytes, base64-encoded, in `ApiKeyframe.image_base64`.
+            When false, the response contains only per-keyframe metadata
+            (timestamp and scene score) and `image_base64` is left empty --
+            useful when you only need the scene boundaries and want a small
+            response. NOTE: because the field defaults to false in proto3,
+            callers who want images must set this explicitly to true.
+        :type include_images: bool
+        :rtype: :class:`dropbox.async_.LaunchResultBase`
+        """
+        arg = riviera.GetKeyframesArgs(file_id_or_url, scene_change_threshold, include_images)
+        r = self.request(
+            riviera.get_keyframes_async,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
+    def riviera_get_keyframes_async_check(self, async_job_id):
+        """
+        Returns the status or result of specified get_keyframes_async task.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param async_job_id: Id of the asynchronous job. This is the value of a
+            response returned from the method that launched the job.
+        :type async_job_id: str
+        :rtype: :class:`dropbox.riviera.GetKeyframesAsyncCheckResult`
+        :raises: :class:`.exceptions.ApiError`
+
+        If this raises, ApiError will contain:
+            :class:`dropbox.async_.PollError`
+        """
+        arg = async_.PollArg(async_job_id)
+        r = self.request(
+            riviera.get_keyframes_async_check,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
     def riviera_get_markdown_async(self, file_id_or_url=None, enable_ocr=False, embed_images=False):
         """
         Asynchronous document-to-markdown conversion for supported file formats.
+        Supported formats: .binder, .docx, .html, .paper, .papert, .pptx, .xlsx,
+        .gsheet, .ods, .pdf. Files in other formats fail with
+        ``MarkdownConversionApiV2Error.user_error``. Size limit: the source file
+        must be at most 50 MB. Larger files fail with
+        ``MarkdownConversionApiV2Error.user_error``. The markdown is not
+        returned by this route. Poll :meth:`riviera_get_markdown_async_check`
+        with the returned async job ID until it reports
+        ``GetMarkdownAsyncCheckResult.complete`` or
+        ``GetMarkdownAsyncCheckResult.failed``.
 
         Route attributes:
             scope: files.content.read
 
         :param file_id_or_url: Identifier of the document to convert. Callers
-            must set exactly one of the oneof variants: - file_id: a
-            Dropbox-issued file id (format: "id:<id>") for a file the
-            authenticated user has access to. - path: an absolute Dropbox path,
-            e.g. "/folder/report.docx". - url: either a Dropbox shared link
-            (www.dropbox.com) or an external HTTPS URL pointing to a supported
-            document file. - Dropbox shared links are resolved internally using
-            the caller's authenticated identity and the link's visibility /
-            download settings. They therefore require an authenticated user
-            context (anonymous `url` requests against Dropbox links are rejected
-            with an `ACCESS_ERROR`). Links protected by a password are rejected
-            with `shared_link_password_protected`; links with downloads disabled
-            are rejected with `link_download_disabled_error`. - External URLs
-            are fetched over HTTPS through the backend's egress proxy and must
-            point at a supported document file extension. The referenced file
-            must be a document in a supported format; requests against
-            unsupported formats return `unsupported_format_error`.
+            must set exactly one of the :class:`dropbox.riviera.FileIdOrUrl`
+            variants. The referenced file must be a document in a supported
+            format (see the route description for the list); requests against
+            unsupported formats fail with
+            ``MarkdownConversionApiV2Error.user_error``.
         :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
         :param enable_ocr: Enable OCR for PDF documents. Processing is slower
             when enabled.
@@ -4572,31 +4650,39 @@ class DropboxBase(object):
 
     def riviera_get_metadata_async(self, file_id_or_url=None):
         """
-        Asynchronous file metadata extraction for supported file formats.
+        Asynchronous file metadata extraction for supported file formats. The
+        kind of metadata returned depends on the file type: - Image (EXIF)
+        formats: .3fr, .arw, .avif, .bmp, .cr2, .cr3, .crw, .dcr, .dcs, .dng,
+        .erf, .gif, .heic, .j2c, .j2k, .jp2, .jpc, .jpeg, .jpf, .jpg, .jpg2,
+        .jpm, .jpx, .kdc, .mef, .mos, .mrw, .nef, .nrw, .orf, .pef, .png, .ppm,
+        .r3d, .raf, .rw2, .rwl, .sr2, .tga, .tif, .tiff, .wbmp, .web, .webp,
+        .x3f. - Audio/video (media) formats: .aac, .aif, .aiff, .flac, .m4a,
+        .m4r, .mp3, .oga, .ogg, .wav, .wma, .3gp, .3gpp, .3gpp2, .asf, .avi,
+        .dv, .flv, .m2t, .m2ts, .m4v, .mkv, .mov, .mp4, .mpeg, .mpg, .mts, .mxf,
+        .oggtheora, .ogv, .rm, .ts, .vob, .webm, .wmv. - PDF format: .pdf. - MS
+        Office formats: .docx, .pptx, .xlsx. Files in other formats fail with
+        ``MetadataExtractionApiV2Error.user_error``. Size limits depend on the
+        kind of metadata being extracted: at most 200 MB for image (EXIF) files,
+        100 GB for audio/video files, 500 MB for PDFs, and 288 MB for MS Office
+        files. Files over the limit for their kind fail with
+        ``MetadataExtractionApiV2Error.user_error``. The metadata is not
+        returned by this route. Poll :meth:`riviera_get_metadata_async_check`
+        with the returned async job ID until it reports
+        ``GetMetadataAsyncCheckResult.complete`` or
+        ``GetMetadataAsyncCheckResult.failed``.
 
         Route attributes:
             scope: files.content.read
 
         :param file_id_or_url: Identifier of the file to extract metadata from.
-            Callers must set exactly one of the oneof variants: - file_id: a
-            Dropbox-issued file id (format: "id:<id>") for a file the
-            authenticated user has access to. - path: an absolute Dropbox path,
-            e.g. "/folder/photo.jpg". - url: either a Dropbox shared link
-            (www.dropbox.com) or an external HTTPS URL pointing to a supported
-            file. - Dropbox shared links are resolved internally using the
-            caller's authenticated identity and the link's visibility / download
-            settings. They therefore require an authenticated user context
-            (anonymous `url` requests against Dropbox links are rejected with an
-            `ACCESS_ERROR`). Links protected by a password are rejected with
-            `shared_link_password_protected`; links with downloads disabled are
-            rejected with `link_download_disabled_error`. - External URLs are
-            fetched over HTTPS through the backend's egress proxy and must point
-            at a supported file extension. The kind of metadata returned is
-            determined by the file type: image files return EXIF metadata,
-            audio/video files return media metadata, PDFs return PDF metadata,
-            and MS Office documents (docx, pptx, xlsx) return Office metadata.
-            Requests against unsupported formats return
-            `unsupported_format_error`.
+            Callers must set exactly one of the
+            :class:`dropbox.riviera.FileIdOrUrl` variants. The kind of metadata
+            returned is determined by the file type: image files return EXIF
+            metadata, audio/video files return media metadata, PDFs return PDF
+            metadata, and MS Office documents (docx, pptx, xlsx) return Office
+            metadata. See the route description for the supported formats.
+            Requests against unsupported formats fail with
+            ``MetadataExtractionApiV2Error.user_error``.
         :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
@@ -4634,53 +4720,174 @@ class DropboxBase(object):
         )
         return r
 
+    def riviera_get_ocr_async(self, file_id_or_url=None):
+        """
+        Asynchronous OCR (optical character recognition) text extraction for
+        images and PDFs, including scanned / non-text PDFs. Supported formats: -
+        Image formats: .bmp, .gif, .heic, .jpeg, .jpg, .png, .tif, .tiff, .webp.
+        - PDF format: .pdf. Unsupported formats return an
+        `unsupported_format_error`. For the `url` variant only Dropbox shared
+        links are supported; external URLs return `unsupported_format_error`.
+        Text-based PDFs already carry a text layer, so OCR is not run against
+        them and the result is empty; use `get_text_async` to read the embedded
+        text layer of such a PDF. The result carries the extracted words as
+        plain text, plus the same content as hOCR with per-word coordinates.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param file_id_or_url: Identifier of the file to run OCR on. Callers
+            must set exactly one of the `FileIdOrUrl` variants. OCR is supported
+            for image files and PDFs, including scanned / non-text PDFs; see the
+            route description for the supported formats. Requests against
+            unsupported formats return `unsupported_format_error`. NOTE: for the
+            `url` variant, only Dropbox shared links (www.dropbox.com) are
+            supported. External (non-Dropbox) URLs are not supported and return
+            `unsupported_format_error`; import the file into Dropbox and
+            reference it by `file_id` or `path` instead.
+        :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
+        :rtype: :class:`dropbox.async_.LaunchResultBase`
+        """
+        arg = riviera.GetOcrArgs(file_id_or_url)
+        r = self.request(
+            riviera.get_ocr_async,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
+    def riviera_get_ocr_async_check(self, async_job_id):
+        """
+        Returns the status or result of specified get_ocr_async task.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param async_job_id: Id of the asynchronous job. This is the value of a
+            response returned from the method that launched the job.
+        :type async_job_id: str
+        :rtype: :class:`dropbox.riviera.GetOcrAsyncCheckResult`
+        :raises: :class:`.exceptions.ApiError`
+
+        If this raises, ApiError will contain:
+            :class:`dropbox.async_.PollError`
+        """
+        arg = async_.PollArg(async_job_id)
+        r = self.request(
+            riviera.get_ocr_async_check,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
+    def riviera_get_text_async(self, file_id_or_url=None):
+        """
+        Asynchronous plain-text extraction from documents. Supported formats
+        include: - Word processing: .doc, .docx, .docm, .rtf. - Presentations:
+        .ppt, .pptx, .pptm. - Spreadsheets: .xls, .xlsx, .xlsm. - PDF: .pdf. -
+        Dropbox document types: .paper, .papert, .binder, .gdoc, .gsheet,
+        .gslides. - Plain text / subtitles: .txt, .vtt. Unsupported formats
+        return an `unsupported_format_error`. For the `url` variant only Dropbox
+        shared links are supported; external URLs return
+        `unsupported_format_error`.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param file_id_or_url: Identifier of the document to extract text from.
+            Callers must set exactly one of the `FileIdOrUrl` variants. Text
+            extraction is supported for common document formats (Word,
+            PowerPoint, Excel, PDF, RTF, and Dropbox document types); see the
+            route description for the supported formats. Requests against
+            unsupported formats return `unsupported_format_error`. NOTE: for the
+            `url` variant, only Dropbox shared links (www.dropbox.com) are
+            supported. External (non-Dropbox) URLs are not supported and return
+            `unsupported_format_error`; import the file into Dropbox and
+            reference it by `file_id` or `path` instead.
+        :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
+        :rtype: :class:`dropbox.async_.LaunchResultBase`
+        """
+        arg = riviera.GetTextArgs(file_id_or_url)
+        r = self.request(
+            riviera.get_text_async,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
+    def riviera_get_text_async_check(self, async_job_id):
+        """
+        Returns the status or result of specified get_text_async task.
+
+        Route attributes:
+            scope: files.content.read
+
+        :param async_job_id: Id of the asynchronous job. This is the value of a
+            response returned from the method that launched the job.
+        :type async_job_id: str
+        :rtype: :class:`dropbox.riviera.GetTextAsyncCheckResult`
+        :raises: :class:`.exceptions.ApiError`
+
+        If this raises, ApiError will contain:
+            :class:`dropbox.async_.PollError`
+        """
+        arg = async_.PollArg(async_job_id)
+        r = self.request(
+            riviera.get_text_async_check,
+            "riviera",
+            arg,
+            None,
+        )
+        return r
+
     def riviera_get_transcript_async(
         self,
         file_id_or_url=None,
-        timestamp_level=riviera.TimestampLevel.unknown,
+        timestamp_level=riviera.TimestampLevel.sentence,
         included_special_words="",
         audio_language="",
     ):
         """
-        Asynchronous transcript generation for audio and video files.
+        Asynchronous transcript generation for audio and video files. Supported
+        audio formats: .aac, .aif, .aiff, .flac, .m4a, .m4r, .mp3, .oga, .ogg,
+        .wav, .wma. Supported video formats: .3gp, .3gpp, .3gpp2, .asf, .avi,
+        .dv, .flv, .m2t, .m2ts, .m4v, .mkv, .mov, .mp4, .mpeg, .mpg, .mts, .mxf,
+        .oggtheora, .ogv, .rm, .ts, .vob, .webm, .wmv. Files in other formats
+        fail with ``ContentApiV2Error.user_error``. Size limits: the source file
+        must be at most 10 GB and its audio track at most 1 hour in duration.
+        Files exceeding either limit fail with ``ContentApiV2Error.user_error``.
+        The transcript is not returned by this route. Poll
+        :meth:`riviera_get_transcript_async_check` with the returned async job
+        ID until it reports ``GetTranscriptAsyncCheckResult.complete`` or
+        ``GetTranscriptAsyncCheckResult.failed``.
 
         Route attributes:
             scope: files.content.read
 
         :param file_id_or_url: Identifier of the media asset to transcribe.
-            Callers must set exactly one of the oneof variants: - file_id: a
-            Dropbox-issued file id (format: "id:<id>") for a file the
-            authenticated user has access to. - path: an absolute Dropbox path,
-            e.g. "/folder/recording.mp4". - url: either a Dropbox shared link
-            (www.dropbox.com) or an external HTTPS URL pointing to a supported
-            audio/video file. - Dropbox shared links are resolved internally
-            using the caller's authenticated identity and the link's visibility
-            / download settings. They therefore require an authenticated user
-            context (anonymous `url` requests against Dropbox links are rejected
-            with an `ACCESS_ERROR`). Links protected by a password are rejected
-            with `shared_link_password_protected`; links with downloads disabled
-            are rejected with `link_download_disabled_error`. - External URLs
-            are fetched over HTTPS through the backend's egress proxy and must
-            point at a supported audio/video file extension. The referenced
-            asset must be an audio or video file in a supported format; requests
-            against files with no audio track return a `no_audio_error`.
+            Callers must set exactly one of the
+            :class:`dropbox.riviera.FileIdOrUrl` variants. The referenced asset
+            must be an audio or video file in a supported format (see the route
+            description for the list); requests against files with no audio
+            track fail with ``ContentApiV2Error.no_audio_error``.
         :type file_id_or_url: Nullable[:class:`dropbox.riviera.FileIdOrUrl`]
         :param timestamp_level: Granularity of the time offsets returned for
-            each transcript segment. Defaults to `SENTENCE. - SENTENCE: one
-            segment per spoken sentence (recommended). - WORD: one segment per
-            word, useful for fine-grained alignment such as captioning or
-            highlight-as-you-listen experiences.
+            each transcript segment. Defaults to ``TimestampLevel.sentence``
+            when the field is omitted.
         :type timestamp_level: :class:`dropbox.riviera.TimestampLevel`
         :param included_special_words: Comma-delimited list of non-lexical
             filler words to preserve in the transcript output, e.g. `"uh, ah,
             uhm"`. By default these fillers are stripped. Unrecognized tokens
             are ignored. Leave empty to use the default filtering behavior.
         :type included_special_words: str
-        :param audio_language: Optional ISO 639-1 two-letter language code
-            hinting the spoken language of the source audio (e.g. "en", "ja").
-            When empty, the service auto-detects the language; supplying a hint
-            improves accuracy and latency for short or ambiguous clips.
-            Unsupported languages fall back to auto-detection.
+        :param audio_language: Hint for the spoken language of the source audio,
+            as an ISO 639-1 code (e.g. "en", "ja"). When empty, the service
+            auto-detects the language; supplying a hint improves accuracy and
+            latency for short or ambiguous clips. Languages the service does not
+            support fall back to auto-detection.
         :type audio_language: str
         :rtype: :class:`dropbox.async_.LaunchResultBase`
         """
@@ -4731,7 +4938,6 @@ class DropboxBase(object):
         quiet=False,
         access_level=None,
         add_message_as_comment=False,
-        fp_sealed_result=None,
     ):
         """
         Adds specified members to a file.
@@ -4757,9 +4963,6 @@ class DropboxBase(object):
         :param add_message_as_comment: If the custom message should be added as
             a comment on the file. Only meant for Paper files.
         :type add_message_as_comment: bool
-        :param fp_sealed_result: Field is only returned for "internal" callers.
-            The FingerprintJS Sealed Client Result value
-        :type fp_sealed_result: Nullable[str]
         :rtype: List[:class:`dropbox.sharing.FileMemberActionResult`]
         :raises: :class:`.exceptions.ApiError`
 
@@ -4767,13 +4970,7 @@ class DropboxBase(object):
             :class:`dropbox.sharing.AddFileMemberError`
         """
         arg = sharing.AddFileMemberArgs(
-            file,
-            members,
-            custom_message,
-            quiet,
-            access_level,
-            add_message_as_comment,
-            fp_sealed_result,
+            file, members, custom_message, quiet, access_level, add_message_as_comment
         )
         r = self.request(
             sharing.add_file_member,
@@ -4784,12 +4981,7 @@ class DropboxBase(object):
         return r
 
     def sharing_add_folder_member(
-        self,
-        shared_folder_id,
-        members,
-        quiet=False,
-        custom_message=None,
-        fp_sealed_result=None,
+        self, shared_folder_id, members, quiet=False, custom_message=None
     ):
         """
         Allows an owner or editor (if the ACL update policy allows) of a shared
@@ -4811,18 +5003,13 @@ class DropboxBase(object):
         :param custom_message: Optional message to display to added members in
             their invitation.
         :type custom_message: Nullable[str]
-        :param fp_sealed_result: Field is only returned for "internal" callers.
-            The FingerprintJS Sealed Client Result value
-        :type fp_sealed_result: Nullable[str]
         :rtype: None
         :raises: :class:`.exceptions.ApiError`
 
         If this raises, ApiError will contain:
             :class:`dropbox.sharing.AddFolderMemberError`
         """
-        arg = sharing.AddFolderMemberArg(
-            shared_folder_id, members, quiet, custom_message, fp_sealed_result
-        )
+        arg = sharing.AddFolderMemberArg(shared_folder_id, members, quiet, custom_message)
         r = self.request(
             sharing.add_folder_member,
             "sharing",

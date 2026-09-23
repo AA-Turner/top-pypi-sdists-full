@@ -15,7 +15,7 @@ Main Components:
 For more information, visit: https://xpander.ai
 """
 
-__version__ = "2.0.522"
+__version__ = "2.0.524"
 
 # Backend-related imports
 from .modules.backend.backend_module import Backend
@@ -29,6 +29,7 @@ from .modules.agents.models.agent import AgentDeploymentType
 from .modules.tasks.tasks_module import Tasks, Task, TasksListItem, AgentExecutionStatus
 from .modules.tasks.sub_modules.task import TaskUpdateEvent
 from .models.events import TaskUpdateEventType
+from .modules.events.events_module import Events
 from xpander_sdk.modules.events.decorators.on_task import on_task
 from xpander_sdk.modules.events.decorators.on_boot import on_boot
 from xpander_sdk.modules.events.decorators.on_shutdown import on_shutdown
@@ -49,6 +50,7 @@ from xpander_sdk.modules.tools_repository.models.mcp import (
     MCPServerDetails,
     MCPServerType,
     MCPServerAuthType,
+    MCPServerTransport,
 )
 
 # Knowledge base imports
@@ -84,6 +86,7 @@ __all__ = [
     "TasksListItem",
     "TaskUpdateEvent",
     "TaskUpdateEventType",
+    "Events",
     "on_task",
     "on_boot",
     "on_shutdown",
@@ -94,6 +97,7 @@ __all__ = [
     "MCPServerDetails",
     "MCPServerType",
     "MCPServerAuthType",
+    "MCPServerTransport",
     "register_tool",
     "build_model_from_schema",
     "on_tool_before",

@@ -1,11 +1,11 @@
 """The machine-readable report shape, shared by the CLI (--format json), the MCP server and editors.
 
-One contract for structured output – a list of diagnostics plus a summary – so that the CLI and the
+One contract for structured output - a list of diagnostics plus a summary - so that the CLI and the
 MCP adapter cannot drift apart. Editors (the VS Code extension) consume the same JSON. The summary
 carries the counts by rule, by file and by severity (breakdown()); rule_table() turns them into the
 rows of the text `--summary` (rundiff.py). compact() omits the per-file map
 and keeps the error-level findings whole; up to COMPACT_FINDINGS_LIMIT it also lists the findings
-themselves, one line each, and past that limit only says how many there are – what a reader wants
+themselves, one line each, and past that limit only says how many there are - what a reader wants
 when the list is too long to carry.
 
 CI integration lives here too: codeclimate() renders the diagnostics as a GitLab Code Quality
@@ -125,8 +125,7 @@ def compact(payload: dict, *, as_ci_full: bool = False) -> dict:
     environment, the baseline record) stays as it was.
     """
     out = dict(payload)
-    out["summary"] = {key: value for key, value in payload["summary"].items()
-                      if key != "by_file"}
+    out["summary"] = compact_summary(payload["summary"], as_ci_full=as_ci_full)
     findings = out.pop("diagnostics", [])
     out["errors"] = [d for d in findings if d["severity"] == "error"]
     if len(findings) <= COMPACT_FINDINGS_LIMIT:
@@ -135,9 +134,19 @@ def compact(payload: dict, *, as_ci_full: bool = False) -> dict:
         out["findings_hint"] = i18n.t(
             "report.findings-hint", count=len(findings), limit=COMPACT_FINDINGS_LIMIT,
         )
-    as_ci = out["summary"].get("as_ci")
+    return out
+
+
+def compact_summary(summary: dict, *, as_ci_full: bool = False) -> dict:
+    """The summary of a compact answer: without the per-file map, `as_ci` as one line.
+
+    compact() builds its summary here, and so does the comparison answer of `lint_paths`,
+    which carries the changes in place of the findings.
+    """
+    out = {key: value for key, value in summary.items() if key != "by_file"}
+    as_ci = out.get("as_ci")
     if as_ci is not None and not as_ci_full:
-        out["summary"]["as_ci"] = _compact_as_ci(as_ci)
+        out["as_ci"] = _compact_as_ci(as_ci)
     return out
 
 
@@ -196,7 +205,7 @@ def _compact_as_ci(job: dict) -> dict:
 # --- GitLab Code Quality (Code Climate issues) ----------------------------------------
 
 # GitLab accepts info, minor, major, critical, blocker. Linter errors are broken conventions,
-# not broken builds – major, not critical/blocker.
+# not broken builds - major, not critical/blocker.
 _CODECLIMATE_SEVERITY = {
     "error": "major",
     "warning": "minor",
@@ -209,7 +218,7 @@ def _relative_posix(path: str, root: Path) -> str:
 
     GitLab matches location.path against the paths of the merge request diff, which are
     repository-relative POSIX paths without a './' prefix. A path outside the root cannot be
-    expressed that way – it is kept whole (POSIX-normalized), which at worst loses the widget
+    expressed that way - it is kept whole (POSIX-normalized), which at worst loses the widget
     link but keeps the report valid.
     """
     p = Path(path)
@@ -224,7 +233,7 @@ def codeclimate(diags: list[Diagnostic], base: Path | None = None) -> list[dict]
 
     Only the fields GitLab requires: description, check_name, fingerprint, severity,
     location.path, location.lines.begin. The fingerprint is an md5 over path, rule, line and
-    message – stable across runs; exact duplicates get an occurrence counter so every issue
+    message - stable across runs; exact duplicates get an occurrence counter so every issue
     in the report stays unique. `base` is the run root the paths are made relative to
     (default: the current directory).
     """

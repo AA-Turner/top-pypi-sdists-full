@@ -17,6 +17,7 @@ from tplinkrouterc6u.common.dataclass import (
     ServingCell,
     VPNStatus)
 from tplinkrouterc6u.common.exception import ClientException, ClientError
+from tplinkrouterc6u.common.encryption import EncryptionWrapperMRGCMOAEP
 from tplinkrouterc6u.client.mr import TPLinkMRClientBase, TPLinkMRClientBaseGCM
 
 
@@ -109,7 +110,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
         ]
         _, values = self.req_act(acts)
 
-        if not values:
+        if not values or not values[0]:
             raise ValueError('No firmware information received.')
 
         firmware = Firmware(
@@ -135,20 +136,24 @@ class TPLinkEXClient(TPLinkMRClientBase):
 
         _, values = self.req_act(acts)
 
+        if not values or not values[0]:
+            raise ClientError('TplinkRouter - EX - DEV2_ADT_LAN returned no data')
+
         if values[0].__class__ == list:
             values[0] = values[0][0]
 
         status._lan_macaddr = get_mac(values[0]['MACAddress'])
         status._lan_ipv4_addr = get_ip(values[0]['IPAddress'])
 
-        for item in values[1]:
-            if int(item['enable']) == 0 and values[1].__class__ == list:
+        wan = values[1] if len(values) > 1 else None
+        for item in self._to_list(wan):
+            if int(item['enable']) == 0 and wan.__class__ == list:
                 continue
             status._wan_macaddr = get_mac(item['MACAddr']) if item.get('MACAddr') else None
             status._wan_ipv4_addr = get_ip(item['connIPv4Address']) if item.get('connIPv4Address') else None
             status._wan_ipv4_gateway = get_ip(item['connIPv4Gateway']) if item.get('connIPv4Address') else None
 
-        if values[2]:
+        if len(values) > 2 and values[2]:
             networks = values[2] if values[2].__class__ == list else [values[2]]
 
             if len(networks) > 0:
@@ -204,7 +209,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
                 )
 
         devices = {}
-        for val in self._to_list(values[3]):
+        for val in self._to_list(values[3] if len(values) > 3 else None):
             if int(val['active']) == 0:
                 continue
             conn = self.CLIENT_TYPES.get(int(val['X_TP_LanConnType']), Connection.UNKNOWN)
@@ -227,11 +232,15 @@ class TPLinkEXClient(TPLinkMRClientBase):
                                                  get_ip(val['IPAddress']),
                                                  val['hostName'])
 
-        total = int(values[4]['total'])
-        free = int(values[4]["free"])
-        status.mem_usage = ((total - free) / total)
+        # Some firmwares (e.g. EX920) leave DEV2_MEM_STATUS / DEV2_PROC_STATUS
+        # empty (success with no data); slots stay None so indexes do not shift.
+        if len(values) > 4 and values[4]:
+            total = int(values[4]['total'])
+            free = int(values[4]['free'])
+            status.mem_usage = ((total - free) / total)
 
-        status.cpu_usage = int(values[5]['CPUUsage']) / 100
+        if len(values) > 5 and values[5]:
+            status.cpu_usage = int(values[5]['CPUUsage']) / 100
 
         status.devices = list(devices.values())
         status.clients_total = (
@@ -250,7 +259,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
         _, values = self.req_act(acts)
 
         ipv4_reservations = []
-        for item in values[0]:
+        for item in self._to_list(values[0] if values else None):
             ipv4_reservations.append(
                 IPv4Reservation(
                     get_mac(item['chaddr']),
@@ -269,7 +278,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
         _, values = self.req_act(acts)
 
         dhcp_leases = []
-        for item in values[0]:
+        for item in self._to_list(values[0] if values else None):
             lease_time = item['leaseTimeRemaining']
             dhcp_leases.append(
                 IPv4DHCPLease(
@@ -292,7 +301,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
         ]
         _, values = self.req_act(acts)
 
-        if values[0].__class__ == list and len(values[0]) > 0:
+        if values and values[0] and values[0].__class__ == list and len(values[0]) > 0:
             values[0] = values[0][0]
 
         ipv4_status = IPv4Status()
@@ -301,8 +310,9 @@ class TPLinkEXClient(TPLinkMRClientBase):
         ipv4_status._lan_ipv4_netmask = get_ip(get_value(values, [0, 'IPSubnetMask'], '0.0.0.0'))
         ipv4_status.lan_ipv4_dhcp_enable = bool(int(get_value(values, [0, 'DHCPv4Enable'], '0')))
 
-        for item in values[1]:
-            if int(item['enable']) == 0 and values[1].__class__ == list:
+        wan = values[1] if values and len(values) > 1 else None
+        for item in self._to_list(wan):
+            if int(item['enable']) == 0 and wan.__class__ == list:
                 continue
             ipv4_status._wan_macaddr = get_mac(get_value(item, ['MACAddr'], '00:00:00:00:00:00'))
             ipv4_status._wan_ipv4_ipaddr = get_ip(get_value(item, ['connIPv4Address'], '0.0.0.0'))
@@ -373,7 +383,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
 
             # Each entry in serving_cell_info_list is one RAT. Match on active networkType.
             active_serving_cell = next(
-                (c for c in values[0]
+                (c for c in self._to_list(values[0] if values else None)
                  if int(c.get('networkType', -1)) == status.network_type),
                 None,
             )
@@ -408,7 +418,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
         ]
         _, values = self.req_act(acts)
 
-        total_number = int(values[0]['totalNumber']) if values else 0
+        total_number = int(values[0]['totalNumber']) if values and values[0] else 0
         if total_number == 0:
             return []
 
@@ -427,7 +437,9 @@ class TPLinkEXClient(TPLinkMRClientBase):
             ]
             _, values = self.req_act(acts)
 
-            for item in self._to_list(values[0]):
+            # Slot 0 is SET (often no data → None); slot 1 is the GL entry list.
+            entry_data = values[1] if len(values) > 1 else (values[0] if values else None)
+            for item in self._to_list(entry_data):
                 entries.append((page, item))
 
         return entries
@@ -505,10 +517,15 @@ class TPLinkEXClient(TPLinkMRClientBase):
                 raise ClientError(error)
 
             try:
-                if len(response):
-                    json_data = loads(response)
-                    if 'data' in json_data:
-                        all_responses.append(json_data['data'])
+                if not response:
+                    # Keep one slot per act so callers can index by request order.
+                    all_responses.append(None)
+                    continue
+                json_data = loads(response)
+                # Firmwares such as EX920 may return success with no "data" key;
+                # dropping those replies used to shift positional indexes (HA #393).
+                all_responses.append(
+                    json_data.get('data') if isinstance(json_data, dict) else None)
             except ValueError:
                 raise ClientError(f"Error trying to convert response to JSON: {response}")
 
@@ -522,7 +539,9 @@ class TPLinkEXClient(TPLinkMRClientBase):
         )
 
         sign, data = self._prepare_data(login_data, True)
-        assert len(sign) == 256
+        # One RSA block = len(nn) hex chars; no-padding uses 2 blocks (256),
+        # OAEP on a 512-bit key uses 5 (640). Accept any whole-block length.
+        assert self._nn and len(sign) % len(self._nn) == 0
 
         request_data = f"sign={sign}\r\ndata={data}\r\n"
 
@@ -556,14 +575,15 @@ class TPLinkEXClient(TPLinkMRClientBase):
         ]
         _, values = self.req_act(acts)
 
-        status.openvpn_enable = values[0]['enable'] == '1'
-        status.pptpvpn_enable = values[1]['enable'] == '1'
+        status.openvpn_enable = bool(values and values[0] and values[0].get('enable') == '1')
+        status.pptpvpn_enable = bool(
+            values and len(values) > 1 and values[1] and values[1].get('enable') == '1')
 
-        for item in values[2]:
+        for item in self._to_list(values[2] if values and len(values) > 2 else None):
             if item['connAct'] == '1':
                 status.openvpn_clients_total += 1
 
-        for item in values[3]:
+        for item in self._to_list(values[3] if values and len(values) > 3 else None):
             if item['connAct'] == '1':
                 status.pptpvpn_clients_total += 1
 
@@ -582,7 +602,7 @@ class TPLinkEXClient(TPLinkMRClientBase):
             'downlinkModType', 'uplinkModType', 'CQI', 'RI', 'numRbs', 'RSRP', 'RSRQ',
         ])]
         _, values = self.req_act(acts)
-        raw_cells = values[0] if values else []
+        raw_cells = self._to_list(values[0] if values else None)
 
         def clean_int(raw: str | None) -> int | None:
             if raw is None or raw == '' or raw == '268435455':
@@ -622,7 +642,9 @@ class TPLinkEXClientGCM(TPLinkMRClientBaseGCM, TPLinkEXClient):
         )
 
         sign, data, tag = self._prepare_data(login_data, True)
-        assert len(sign) == 256
+        # One RSA block = len(nn) hex chars; no-padding uses 2 blocks (256),
+        # OAEP on a 512-bit key uses 5 (640). Accept any whole-block length.
+        assert self._nn and len(sign) % len(self._nn) == 0
 
         request_data = f"sign={sign}\r\ndata={data}\r\ntag={tag}\r\n"
 
@@ -645,3 +667,18 @@ class TPLinkEXClientGCM(TPLinkMRClientBaseGCM, TPLinkEXClient):
             if self._logger:
                 self._logger.debug(error)
             raise ClientException(error)
+
+
+# Class for EX series routers with AES-GCM and RSA-OAEP signatures (e.g. EX920)
+class TPLinkEXClientGCMOAEP(TPLinkEXClientGCM):
+    """
+    EX GCM client for firmwares that sign with RSA-OAEP instead of raw RSA
+    (HA #393 / EX920). Session AES-GCM is unchanged; only the login/request
+    signature padding differs. Default username remains ``user`` (password-only
+    UI on these models).
+    """
+
+    def __init__(self, host: str, password: str, username: str = 'user', logger: Logger = None,
+                 verify_ssl: bool = True, timeout: int = 30) -> None:
+        super().__init__(host, password, username, logger, verify_ssl, timeout)
+        self._encryption = EncryptionWrapperMRGCMOAEP()

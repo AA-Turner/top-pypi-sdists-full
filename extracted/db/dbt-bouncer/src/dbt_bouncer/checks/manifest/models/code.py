@@ -1,8 +1,15 @@
 """Checks related to model source code content and structure."""
 
 import re
+from typing import TYPE_CHECKING
 
-from sqlglot import exp
+if TYPE_CHECKING:
+    # Runtime uses a function-local ``from sqlglot import exp`` in the four
+    # functions below, so importing sqlglot (~65ms) is deferred until a check
+    # actually walks the AST. This import exists so a type checker still
+    # resolves the ``exp.Select`` / ``exp.Expression`` annotations to their real
+    # types rather than silently degrading them to ``Any``.
+    from sqlglot import exp
 
 from dbt_bouncer.artifact_types import ModelNode
 from dbt_bouncer.check_framework.decorator import check, fail
@@ -15,6 +22,7 @@ from dbt_bouncer.utils import compile_pattern, get_clean_model_name
 _JINJA_PATTERN = re.compile(r"\{[{%].*?[%}]\}", re.DOTALL)
 _HARD_CODED_REF_PATTERN = re.compile(r"\b(?:FROM|JOIN)\s+\w+\.\w+", re.IGNORECASE)
 _SELECT_STAR_PATTERN = re.compile(r"(?i)select\s+(?:all\s+|distinct\s+)?\*")
+_CROSS_JOIN_PATTERN = re.compile(r"\bCROSS\s+JOIN\b", re.IGNORECASE)
 
 # Patterns used to strip comment forms before the select-star regex fallback.
 # The Jinja-comment pattern is shared with ``sql_utils`` to keep a single source
@@ -45,6 +53,42 @@ def _strip_sql_comments(code: str) -> str:
     return code
 
 
+def _constant_join_condition(on_clause: "exp.Expression") -> tuple[bool, str]:
+    """Determine whether a join's ``ON`` condition is a constant.
+
+    A constant condition (``ON TRUE``, ``ON 1``, ``ON 1=1``) constrains nothing,
+    so the join produces a Cartesian product. ``on_clause`` is the condition
+    expression itself, so both operands of a comparison must be inspected -
+    looking only at ``on_clause.this`` would treat ``ON 1 = b.id`` as constant
+    while letting the equivalent ``ON b.id = 1`` through.
+
+    Args:
+        on_clause: The expression held in a join's ``on`` argument.
+
+    Returns:
+        tuple[bool, str]: Whether the condition is constant, and the condition
+        rendered back to SQL for use in the failure message.
+
+    """
+    from sqlglot import exp
+
+    cond_str = on_clause.sql()
+
+    # `ON TRUE` / `ON FALSE` parse to exp.Boolean; a bare `ON 1` to exp.Literal.
+    if isinstance(on_clause, (exp.Boolean, exp.Literal)):
+        return True, cond_str
+
+    # `ON 1 = 1` and `ON 'x' = 'x'`: constant only when *both* operands are
+    # literals. `ON NULL` is an exp.Null rather than a literal and matches no
+    # rows, so it is degenerate rather than Cartesian and is not flagged.
+    if isinstance(on_clause, exp.EQ) and isinstance(
+        on_clause.this, (exp.Literal, exp.Boolean)
+    ):
+        return isinstance(on_clause.expression, (exp.Literal, exp.Boolean)), cond_str
+
+    return False, cond_str
+
+
 def _is_sql_model(model: ModelNode) -> bool:
     """Determine whether a model is a SQL model (non-SQL models are skipped).
 
@@ -55,7 +99,7 @@ def _is_sql_model(model: ModelNode) -> bool:
     return (getattr(model, "language", None) or "sql") == "sql"
 
 
-def _select_uses_star(select: exp.Select) -> bool:
+def _select_uses_star(select: "exp.Select") -> bool:
     """Determine whether a ``SELECT`` projects a star.
 
     Returns:
@@ -63,6 +107,8 @@ def _select_uses_star(select: exp.Select) -> bool:
         (``t.*``) star, ``False`` otherwise.
 
     """
+    from sqlglot import exp
+
     for projection in select.expressions:
         if isinstance(projection, exp.Star):
             return True
@@ -71,7 +117,7 @@ def _select_uses_star(select: exp.Select) -> bool:
     return False
 
 
-def _hard_coded_tables(statements: tuple[exp.Expression, ...]) -> list[str]:
+def _hard_coded_tables(statements: "tuple[exp.Expression, ...]") -> list[str]:
     """Find schema/catalog-qualified table references in parsed SQL.
 
     Returns:
@@ -79,6 +125,8 @@ def _hard_coded_tables(statements: tuple[exp.Expression, ...]) -> list[str]:
         order and de-duplicated.
 
     """
+    from sqlglot import exp
+
     seen: set[str] = set()
     tables: list[str] = []
     for statement in statements:
@@ -91,7 +139,7 @@ def _hard_coded_tables(statements: tuple[exp.Expression, ...]) -> list[str]:
     return tables
 
 
-@check
+@check(code="MO007")
 def check_model_code_does_not_contain_regexp_pattern(model, *, regexp_pattern: str):
     """The raw code for a model must not match the specified regexp pattern.
 
@@ -128,7 +176,117 @@ def check_model_code_does_not_contain_regexp_pattern(model, *, regexp_pattern: s
         )
 
 
-@check
+def _cartesian_join_failure(
+    join: "exp.Join", model_name: str, allow_explicit_cross_join: bool
+) -> str | None:
+    """Return a failure message if ``join`` is a Cartesian join, else ``None``.
+
+    Returns:
+        str | None: The failure reason, or ``None`` if the join is constrained.
+
+    """
+    is_cross = (join.kind or "").upper() == "CROSS"
+    on_clause = join.args.get("on")
+    using_clause = join.args.get("using")
+    # A `NATURAL JOIN` joins on the columns the two relations share, so it
+    # constrains the join despite carrying no `ON`/`USING` clause.
+    is_natural = (join.args.get("method") or "").upper() == "NATURAL"
+
+    if is_cross:
+        if not allow_explicit_cross_join:
+            return f"`{model_name}` uses an explicit `CROSS JOIN`."
+        return None
+
+    if not on_clause and not using_clause and not is_natural:
+        return f"`{model_name}` uses a `JOIN` without an `ON` or `USING` clause."
+
+    if on_clause is not None:
+        is_constant, cond_str = _constant_join_condition(on_clause)
+        if is_constant and not allow_explicit_cross_join:
+            return f"`{model_name}` uses a `JOIN` with a constant condition (`ON {cond_str}`)."
+
+    return None
+
+
+@check(code="MO052")
+def check_model_does_not_use_cartesian_join(
+    model, *, allow_explicit_cross_join: bool = False
+):
+    """Models must not perform Cartesian or CROSS JOINs.
+
+    !!! info "Rationale"
+
+        Cartesian joins (or CROSS JOINs) join every row of one table to every row
+        of another, leading to exponential row explosion, massive warehouse credit
+        consumption, and potential query timeouts. Catching unintended cross joins
+        at lint time prevents costly query execution errors in production.
+
+    Parameters:
+        allow_explicit_cross_join (bool): Whether to allow intentional Cartesian joins. When `True`, both explicit `CROSS JOIN` statements and constant-`ON` conditions (e.g. `ON 1=1`, `ON TRUE`) are permitted; a `JOIN` with no `ON`/`USING` clause still fails, as an omitted clause is more likely accidental. Default: `False`.
+
+    Receives:
+        model (ModelNode): The ModelNode object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | list[str] | None): Regex pattern(s) to match the model path. Model paths that match any pattern will not be checked.
+        include (str | list[str] | None): Regex pattern(s) to match the model path. Only model paths that match any pattern will be checked.
+        materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    !!! info
+
+        Analysis is AST-based (via sqlglot) and flags explicit `CROSS JOIN` keywords,
+        missing `ON`/`USING` clauses, and constant `ON` conditions (e.g. `ON 1=1`,
+        `ON TRUE`). A condition is constant only when every operand is a literal,
+        so a genuine predicate is not flagged whichever side its literal sits on
+        (`ON 1 = b.id` and `ON b.id = 1` both pass). `NATURAL JOIN` is not flagged,
+        as it joins on the columns the two relations share. Non-SQL (e.g. Python)
+        models are skipped.
+
+    !!! warning
+
+        Models that sqlglot cannot parse (e.g. heavy `{% ... %}` control flow)
+        fall back to a best-effort regular-expression scan.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_model_does_not_use_cartesian_join
+        ```
+        ```yaml
+        manifest_checks:
+            - name: check_model_does_not_use_cartesian_join
+              allow_explicit_cross_join: true
+        ```
+
+    """
+    if not _is_sql_model(model):
+        return
+
+    parsed = parse_sql(neutralize_jinja(model.raw_code or ""))
+    if parsed is None:
+        # Fallback: best-effort regex on Jinja-stripped raw code.
+        cleaned = _strip_sql_comments(model.raw_code or "")
+        if not allow_explicit_cross_join and _CROSS_JOIN_PATTERN.search(cleaned):
+            fail(
+                f"`{get_clean_model_name(model.unique_id)}` uses a Cartesian or `CROSS JOIN`."
+            )
+        return
+
+    from sqlglot import exp
+
+    model_name = get_clean_model_name(model.unique_id)
+    for statement in parsed:
+        for join in statement.find_all(exp.Join):
+            message = _cartesian_join_failure(
+                join, model_name, allow_explicit_cross_join
+            )
+            if message is not None:
+                fail(message)
+
+
+@check(code="MO008")
 def check_model_does_not_use_select_star(model):
     """Models must not use `SELECT *`.
 
@@ -181,6 +339,8 @@ def check_model_does_not_use_select_star(model):
             )
         return
 
+    from sqlglot import exp
+
     for statement in parsed:
         for select in statement.find_all(exp.Select):
             if _select_uses_star(select):
@@ -189,7 +349,7 @@ def check_model_does_not_use_select_star(model):
                 )
 
 
-@check
+@check(code="MO009")
 def check_model_hard_coded_references(model):
     """A model must not contain hard-coded table references; use ref() or source() instead.
 
@@ -256,7 +416,7 @@ def check_model_hard_coded_references(model):
         )
 
 
-@check
+@check(code="MO010")
 def check_model_has_semi_colon(model):
     """Model may not end with a semi-colon (`;`).
 
@@ -289,7 +449,7 @@ def check_model_has_semi_colon(model):
         )
 
 
-@check
+@check(code="MO011")
 def check_model_incremental_has_unique_key(model):
     """Incremental models must declare a `unique_key`.
 
@@ -329,7 +489,7 @@ def check_model_incremental_has_unique_key(model):
         )
 
 
-@check
+@check(code="MO012")
 def check_model_materialization_permitted(
     model, *, permitted_materializations: list[Materialization]
 ):
@@ -376,7 +536,7 @@ def check_model_materialization_permitted(
         )
 
 
-@check
+@check(code="MO013")
 def check_model_max_number_of_lines(model, *, max_number_of_lines: int = 100):
     """Models may not have more than the specified number of lines.
 

@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -10,7 +10,6 @@
 
 import copy
 import pickle
-import sys
 import unittest
 from unittest import mock
 
@@ -134,50 +133,34 @@ class TestTraitDict(unittest.TestCase):
             str(python_e.exception),
         )
 
-    if sys.version_info >= (3, 9):
-        # The |= operation on dictionaries was introduced in Python 3.9
+    def test_ior(self):
+        td = TraitDict(
+            {"a": 1, "b": 2},
+            key_validator=str_validator,
+            value_validator=int_validator,
+            notifiers=[self.notification_handler],
+        )
+        td |= {"a": 3, "d": 5}
 
-        def test_ior(self):
-            td = TraitDict(
-                {"a": 1, "b": 2},
-                key_validator=str_validator,
-                value_validator=int_validator,
-                notifiers=[self.notification_handler],
-            )
-            td |= {"a": 3, "d": 5}
+        self.assertEqual(td, {"a": 3, "b": 2, "d": 5})
+        self.assertEqual(self.added, {"d": 5})
+        self.assertEqual(self.changed, {"a": 1})
+        self.assertEqual(self.removed, {})
 
-            self.assertEqual(td, {"a": 3, "b": 2, "d": 5})
-            self.assertEqual(self.added, {"d": 5})
-            self.assertEqual(self.changed, {"a": 1})
-            self.assertEqual(self.removed, {})
+    def test_ior_is_quiet_if_no_change(self):
+        td = TraitDict(
+            {"a": 1, "b": 2},
+            key_validator=str_validator,
+            value_validator=int_validator,
+            notifiers=[self.notification_handler],
+        )
 
-        def test_ior_is_quiet_if_no_change(self):
-            td = TraitDict(
-                {"a": 1, "b": 2},
-                key_validator=str_validator,
-                value_validator=int_validator,
-                notifiers=[self.notification_handler],
-            )
+        td |= []
 
-            td |= []
-
-            self.assertEqual(td, {"a": 1, "b": 2})
-            self.assertIsNone(self.added)
-            self.assertIsNone(self.removed)
-            self.assertIsNone(self.changed)
-
-    else:
-        # Python versions earlier than 3.9 should still raise TypeError.
-
-        def test_ior(self):
-            td = TraitDict(
-                {"a": 1, "b": 2},
-                key_validator=str_validator,
-                value_validator=int_validator,
-                notifiers=[self.notification_handler],
-            )
-            with self.assertRaises(TypeError):
-                td |= {"a": 3, "d": 5}
+        self.assertEqual(td, {"a": 1, "b": 2})
+        self.assertIsNone(self.added)
+        self.assertIsNone(self.removed)
+        self.assertIsNone(self.changed)
 
     def test_update(self):
         td = TraitDict({"a": 1, "b": 2}, key_validator=str_validator,

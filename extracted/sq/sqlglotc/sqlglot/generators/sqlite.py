@@ -6,8 +6,8 @@ from sqlglot import exp, generator, transforms
 from sqlglot.dialects.dialect import (
     any_value_to_max_sql,
     arrow_json_extract_sql,
-    concat_to_dpipe_sql,
     count_if_to_sum,
+    groupconcat_sql,
     no_ilike_sql,
     no_pivot_sql,
     no_tablesample_sql,
@@ -16,7 +16,6 @@ from sqlglot.dialects.dialect import (
     strposition_sql,
 )
 from sqlglot.generator import unsupported_args
-from sqlglot.optimizer.scope import find_in_scope
 from sqlglot.tokens import TokenType
 
 
@@ -102,6 +101,7 @@ class SQLiteGenerator(generator.Generator):
     TRY_SUPPORTED = False
     SUPPORTS_UESCAPE = False
     SUPPORTS_DECODE_CASE = False
+    SET_OP_PARENTHESIZED_OPERANDS = False
 
     AFTER_HAVING_MODIFIER_TRANSFORMS = generator.AFTER_HAVING_MODIFIER_TRANSFORMS
 
@@ -151,7 +151,6 @@ class SQLiteGenerator(generator.Generator):
         **generator.Generator.TRANSFORMS,
         exp.AnyValue: any_value_to_max_sql,
         exp.Chr: rename_func("CHAR"),
-        exp.Concat: concat_to_dpipe_sql,
         exp.CountIf: count_if_to_sum,
         exp.Create: transforms.preprocess([_transform_create]),
         exp.CurrentDate: lambda *_: "CURRENT_DATE",
@@ -246,6 +245,21 @@ class SQLiteGenerator(generator.Generator):
         if isinstance(modifier, exp.Interval):
             unit = unit or modifier.unit
             modifier = modifier.this
+
+        modifier = modifier.unnest()
+        if (
+            unit
+            and not isinstance(modifier, exp.Literal)
+            and not (isinstance(modifier, exp.Neg) and modifier.this.is_number)
+        ):
+            return self.func(
+                "DATE",
+                expression.this,
+                exp.DPipe(
+                    this=exp.paren(modifier),
+                    expression=exp.Literal.string(f" {unit.name}"),
+                ),
+            )
         modifier = modifier.name if modifier.is_string else self.sql(modifier)
         modifier = f"'{modifier} {unit.name}'" if unit else f"'{modifier}'"
         return self.func("DATE", expression.this, modifier)
@@ -313,42 +327,55 @@ class SQLiteGenerator(generator.Generator):
         elif unit == "MICROSECOND":
             sql = f"{sql} * 86400000000.0"
         elif unit == "NANOSECOND":
-            sql = f"{sql} * 8640000000000.0"
+            sql = f"{sql} * 86400000000000.0"
         else:
             self.unsupported(f"DATEDIFF unsupported for '{unit}'.")
 
         return f"CAST({sql} AS INTEGER)"
 
-    # https://www.sqlite.org/lang_aggfunc.html#group_concat
     def groupconcat_sql(self, expression: exp.GroupConcat) -> str:
-        this = expression.this
-        distinct = find_in_scope(expression, exp.Distinct)
+        node = expression.parent if isinstance(expression.parent, exp.Filter) else expression
+        window = node.parent
 
-        if distinct:
-            this = distinct.expressions[0]
-            distinct_sql = "DISTINCT "
-        else:
-            distinct_sql = ""
+        if (
+            isinstance(expression.this, exp.Order)
+            and isinstance(window, exp.Window)
+            and window.this is node
+        ):
+            self.unsupported(
+                "SQLite GROUP_CONCAT window functions do not support argument ORDER BY"
+            )
+            expression.set("this", expression.this.this)
 
-        if isinstance(expression.this, exp.Order):
-            self.unsupported("SQLite GROUP_CONCAT doesn't support ORDER BY.")
-            if expression.this.this and not distinct:
-                this = expression.this.this
+        return groupconcat_sql(
+            self, expression, func_name="GROUP_CONCAT", sep=None, within_group=False
+        )
 
-        separator = expression.args.get("separator")
-        return f"GROUP_CONCAT({distinct_sql}{self.format_args(this, separator)})"
+    def _greatest_least_sql(self, expression: exp.Greatest | exp.Least) -> str:
+        if not expression.expressions:
+            return self.sql(expression, "this")
 
-    def least_sql(self, expression: exp.Least) -> str:
-        if expression.expressions:
-            return rename_func("MIN")(self, expression)
+        name = "MAX" if isinstance(expression, exp.Greatest) else "MIN"
 
-        return self.sql(expression, "this")
+        if not expression.args.get("ignore_nulls"):
+            return rename_func(name)(self, expression)
+
+        # SQLite's multi-argument MAX/MIN return NULL if any argument is NULL.
+        # GREATEST(a, b, c) -> MAX(COALESCE(a, b, c), COALESCE(b, c, a), COALESCE(c, a, b)).
+        args = [expression.this, *expression.expressions]
+
+        coalesces = []
+        for i in range(len(args)):
+            rotated = args[i:] + args[:i]
+            coalesces.append(exp.Coalesce(this=rotated[0], expressions=rotated[1:]))
+
+        return self.func(name, *coalesces)
 
     def greatest_sql(self, expression: exp.Greatest) -> str:
-        if expression.expressions:
-            return rename_func("MAX")(self, expression)
+        return self._greatest_least_sql(expression)
 
-        return self.sql(expression, "this")
+    def least_sql(self, expression: exp.Least) -> str:
+        return self._greatest_least_sql(expression)
 
     def transaction_sql(self, expression: exp.Transaction) -> str:
         this = expression.this

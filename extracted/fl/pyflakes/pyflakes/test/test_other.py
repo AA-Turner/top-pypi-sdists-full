@@ -49,6 +49,10 @@ class Test(TestCase):
             pass
         (1 for a, b in [(1, 2)])
         ''')
+        self.flakes('''
+            a = 1
+            (1 for b in range(5) for a in range(5))
+        ''')
 
     def test_redefinedInSetComprehension(self):
         """
@@ -1665,7 +1669,7 @@ class TestUnusedAssignment(TestCase):
         ''', m.UnusedVariable)
 
     @skipIf(version_info < (3, 11), 'new in Python 3.11')
-    def test_exception_unused_in_except_star(self):
+    def test_exception_unused_in_except_star(self):  # pragma: >=3.11 cover
         self.flakes('''
             try:
                 pass
@@ -1767,7 +1771,7 @@ class TestUnusedAssignment(TestCase):
         ''')
 
     @skipIf(version_info < (3, 14), 'new in Python 3.14')
-    def test_t_string(self):
+    def test_t_string(self):  # pragma: >=3.14 cover
         self.flakes('''
             baz = 0
             tmpl = t'hello {baz}'
@@ -1810,6 +1814,23 @@ class TestUnusedAssignment(TestCase):
             print(z)
         ''')
 
+    def test_dict_key_value_ordering_assignment_expressions(self):
+        # https://docs.python.org/3/reference/expressions.html#dictionary-displays
+        self.flakes('''
+        {
+            '1': (y := 2),
+            y: '3',
+        }
+        ''')
+
+    @skipIf(version_info < (3, 15), 'new in Python 3.15')
+    def test_reassigned_in_comprehension_unpacking(self):  # pragma: >=3.15 cover
+        self.flakes('''
+        x = 1
+        y = {*x for x in []}
+        z = {**x for x in []}
+        ''')
+
 
 class TestStringFormatting(TestCase):
 
@@ -1845,7 +1866,7 @@ class TestStringFormatting(TestCase):
         ''')
 
     @skipIf(version_info < (3, 14), 'new in Python 3.14')
-    def test_t_string_missing_placeholders(self):
+    def test_t_string_missing_placeholders(self):  # pragma: >=3.14 cover
         self.flakes("t'foo'", m.TStringMissingPlaceholders)
         # make sure this does not trigger the f-string placeholder error
         self.flakes('''
@@ -1858,13 +1879,22 @@ class TestStringFormatting(TestCase):
             '{'.format(1)
         ''', m.StringDotFormatInvalidFormat)
         self.flakes('''
+            '{0:{a[x}}'.format(1)
+        ''', m.StringDotFormatInvalidFormat)
+        self.flakes('''
             '{} {1}'.format(1, 2)
         ''', m.StringDotFormatMixingAutomatic)
         self.flakes('''
             '{0} {}'.format(1, 2)
         ''', m.StringDotFormatMixingAutomatic)
         self.flakes('''
+            '{:{0}}'.format(1, 2)
+        ''', m.StringDotFormatMixingAutomatic)
+        self.flakes('''
             '{}'.format(1, 2)
+        ''', m.StringDotFormatExtraPositionalArguments)
+        self.flakes('''
+            'contents'.format(1)
         ''', m.StringDotFormatExtraPositionalArguments)
         self.flakes('''
             '{}'.format(1, bar=2)
@@ -1910,6 +1940,9 @@ class TestStringFormatting(TestCase):
     def test_invalid_percent_format_calls(self):
         self.flakes('''
             '%(foo)' % {'foo': 'bar'}
+        ''', m.PercentFormatInvalidFormat)
+        self.flakes('''
+            '%' % (1,)
         ''', m.PercentFormatInvalidFormat)
         self.flakes('''
             '%s %(foo)s' % {'foo': 'bar'}
@@ -1968,6 +2001,12 @@ class TestStringFormatting(TestCase):
         self.flakes('''
             k = {}
             '%(k)s' % {**k}
+        ''')
+
+    def test_percent_format_additional_text(self):
+        self.flakes('''
+            x = 1
+            '%s after' % (x,)
         ''')
 
 

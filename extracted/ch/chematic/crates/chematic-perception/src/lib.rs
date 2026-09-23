@@ -22,7 +22,7 @@ pub use aromaticity::{
     AromaticityAlgorithm, AromaticityModel, AtomElectronTrace, ConjugatedComponent,
     ContributionDecision, ContributionReason, PiEligibility, RingAromaticity, RingElectronTrace,
     all_ring_list, apply_aromaticity, apply_aromaticity_authoritative_experimental,
-    apply_aromaticity_ex, aromatic_ring_list, assign_aromaticity,
+    apply_aromaticity_ex, aromatic_ring_list, aromatic_ring_list_preperceived, assign_aromaticity,
     assign_aromaticity_authoritative_experimental, assign_aromaticity_ex, augmented_ring_set,
     build_conjugated_components, count_aromatic_rings, evaluate_atom_pi_contribution,
     exhaustive_aromaticity_oracle, ring_bonds_all_aromatic, trace_ring_pi_electrons,
@@ -53,7 +53,7 @@ pub use sssr::{
     find_smallest_rings_bfs_with_blocked_bonds, find_smallest_rings_bfs_with_rdkit_tree,
     find_smallest_rings_bfs_with_trimmed_bonds, find_sssr, find_symmetrized_sssr,
     find_symmetrized_sssr_with_diagnostics, find_symmetrized_sssr_with_diagnostics_bounded,
-    ring_atom_flags, select_rdkit_d2_roots, trim_ring_bonds,
+    ring_atom_flags, ring_bond_flags, select_rdkit_d2_roots, trim_ring_bonds,
 };
 pub use stereo_validation::{
     StereoCompleteness, StereoError, StereoErrorKind, stereo_centers, stereo_completeness,

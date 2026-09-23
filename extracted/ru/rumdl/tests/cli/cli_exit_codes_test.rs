@@ -16,11 +16,12 @@ fn rumdl() -> Command {
 const TOOL_ERROR: i32 = 2;
 
 #[test]
-fn invalid_utf8_file_is_a_tool_error() {
+fn invalid_utf8_markdown_is_a_violation_not_a_tool_error() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("bad.md");
-    // Not valid UTF-8: lone continuation bytes.
-    std::fs::write(&path, [b'#', b' ', 0xff, 0xfe, b'\n']).unwrap();
+    // Not valid UTF-8: lone continuation bytes. The file is readable, so it is
+    // linted and MD094 reports the bytes.
+    std::fs::write(&path, [b'#', b' ', b'x', 0xff, 0xfe, b'\n']).unwrap();
 
     let status = rumdl()
         .args(["check", "--no-cache"])
@@ -29,8 +30,8 @@ fn invalid_utf8_file_is_a_tool_error() {
         .expect("run rumdl check");
     assert_eq!(
         status.code(),
-        Some(TOOL_ERROR),
-        "an unreadable (invalid UTF-8) file must exit with the tool-error code, not report success"
+        Some(1),
+        "invalid UTF-8 must fail the run as a lint finding"
     );
 }
 

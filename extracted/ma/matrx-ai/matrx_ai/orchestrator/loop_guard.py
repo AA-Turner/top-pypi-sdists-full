@@ -43,7 +43,7 @@ class LoopHealth:
 # module constants, no row, no org scope, and the one production caller passed
 # no override. They live as ROWS now — ``platform.feature_knob`` feature
 # ``orchestration.loop_guard``, org-scoped and admin-editable (migration
-# ``db/migrations/0972_loop_guard_thresholds_become_knobs.sql``).
+# ``db/migrations/0985_loop_guard_thresholds_become_knobs.sql``).
 #
 # What remains here is ONLY the declared default of each row, which is also what
 # matrx-ai answers with when it runs standalone (the package must never import

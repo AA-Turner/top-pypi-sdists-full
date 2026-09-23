@@ -124,8 +124,61 @@ class Authenticator:
         if tier_from_vnii:
             return tier_from_vnii
         if self._has_api_key():
+            tier_from_server = self._check_server_tier()
+            if tier_from_server:
+                log.debug(f"Got tier from server: {tier_from_server}")
+                return tier_from_server
+            self._warn_tier_downgrade()
             return "free"
         return "guest"
+
+    def _read_api_key(self) -> Optional[str]:
+        env_key = os.getenv('VNSTOCK_API_KEY')
+        if env_key and env_key.strip():
+            return env_key.strip()
+        if self.api_key_file.exists():
+            try:
+                with open(self.api_key_file, 'r') as f:
+                    api_key = json.load(f).get('api_key', '').strip()
+                    return api_key or None
+            except Exception as e:
+                log.debug(f"Failed to read API key: {e}")
+        return None
+
+    def _check_server_tier(self) -> Optional[str]:
+        api_key = self._read_api_key()
+        if not api_key:
+            return None
+        try:
+            import requests
+            from vnai.scope.profile import inspector
+            device_id = (inspector.examine() or {}).get('machine_id') or 'vnai-tier-check'
+            resp = requests.get(
+                'https://vnstocks.com/api/vnstock/license/verify',
+                params={'device_id': device_id},
+                headers={'Authorization': f'Bearer {api_key}'},
+                timeout=5,
+            )
+            if not resp.ok:
+                log.debug(f"Server tier check returned HTTP {resp.status_code}")
+                return None
+            tier = str(((resp.json() or {}).get('subscription') or {}).get('tier') or '').strip().lower()
+            return tier if tier in self.TIER_LIMITS else None
+        except Exception as e:
+            log.debug(f"Không hỏi được cấp từ máy chủ: {e}")
+            return None
+
+    def _warn_tier_downgrade(self) -> None:
+        if getattr(self, '_downgrade_warned', False):
+            return
+        self._downgrade_warned = True
+        log.warning(
+            "Không xác định được gói tài trợ nên tạm áp hạn mức cấp Cộng đồng "
+            "(60 lượt/phút). Nếu bạn đang tài trợ, nguyên nhân thường là gói `vnii` "
+            "chưa cài được hoặc còn ở bản cũ — chạy "
+            "`pip install -U --extra-index-url https://vnstocks.com/api/simple vnii` "
+            "rồi thử lại."
+        )
 
     def _check_vnii_tier(self) -> Optional[str]:
         try:

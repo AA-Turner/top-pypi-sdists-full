@@ -151,23 +151,20 @@ def simplify_parens(expression: exp.Expr, dialect: DialectType) -> exp.Expr:
     ):
         return expression
 
-    if isinstance(this, exp.Predicate) and (
-        not (
+    if isinstance(this, (exp.Predicate, exp.Not)):
+        if (
             parent_is_predicate
             # unary operators that bind tighter than the predicate, unlike NOT
             or isinstance(parent, (exp.Neg, exp.BitwiseNot))
             or (isinstance(parent, exp.Binary) and not isinstance(parent, exp.Connector))
-        )
-    ):
+        ):
+            return expression
         return this
 
     if (
         not isinstance(parent, (exp.Condition, exp.Binary))
         or isinstance(parent, exp.Paren)
-        or (
-            not isinstance(this, exp.Binary)
-            and not (isinstance(this, (exp.Not, exp.Is)) and parent_is_predicate)
-        )
+        or not isinstance(this, exp.Binary)
         or (isinstance(this, exp.Add) and isinstance(parent, exp.Add))
         or (isinstance(this, exp.Mul) and isinstance(parent, exp.Mul))
         or (isinstance(this, exp.Mul) and isinstance(parent, (exp.Add, exp.Sub)))
@@ -199,7 +196,13 @@ def propagate_constants(expression, root=True):
 
                 # TODO: create a helper that can be used to detect nested literal expressions such
                 # as CAST(123456 AS BIGINT), since we usually want to treat those as literals too
-                if isinstance(l, exp.Column) and isinstance(r, exp.Literal):
+                # Substituting the constant is only an identity when the column can't be NULL:
+                # for a NULL x, `x = 1 AND x + 1 = 0` is NULL, not FALSE
+                if (
+                    isinstance(l, exp.Column)
+                    and isinstance(r, exp.Literal)
+                    and l.meta_get("nonnull") is True
+                ):
                     constant_mapping[l] = (id(l), r)
 
         if constant_mapping:
@@ -388,7 +391,7 @@ def cast_as_datetime(
         return None
 
 
-def cast_value(value: datetime | date | str, to: exp.DataType) -> date | date | None:
+def cast_value(value: datetime | date | str, to: exp.DataType) -> date | None:
     if not value:
         return None
     if to.is_type(exp.DType.DATE):
@@ -398,7 +401,7 @@ def cast_value(value: datetime | date | str, to: exp.DataType) -> date | date | 
     return None
 
 
-def extract_date(cast: exp.Expr) -> date | date | None:
+def extract_date(cast: exp.Expr) -> date | None:
     if isinstance(cast, exp.Cast):
         to = cast.to
     elif isinstance(cast, exp.TsOrDsToDate) and not cast.args.get("format"):
@@ -426,6 +429,26 @@ def extract_interval(expression: exp.Expr) -> relativedelta | None:
         return interval(unit, n)
     except (UnsupportedUnit, ModuleNotFoundError, ValueError):
         return None
+
+
+def _is_exact_interval_move(op: exp.Expr, literal: exp.Expr, interval: exp.Interval) -> bool:
+    delta = extract_interval(interval)
+    value = extract_date(literal)
+
+    if delta is None or value is None:
+        return False
+
+    if not (delta.months or delta.years):
+        return True
+
+    if isinstance(op, (exp.Sub, exp.DateSub, exp.DatetimeSub)):
+        delta = -delta
+
+    moved = value - delta
+
+    # Exact iff `moved` is the only x with x + delta = value: it must map back onto `value`, and the
+    # next day must not, since clamping folds the last days of a longer month onto the same date
+    return moved + delta == value and moved + timedelta(days=1) + delta != value
 
 
 def extract_type(*expressions: exp.Expr):
@@ -629,16 +652,6 @@ class Simplifier:
 
     SAFE_CONNECTOR_ELIMINATION_RESULT: t.ClassVar = (exp.Connector, exp.Boolean)
 
-    # CROSS joins result in an empty table if the right table is empty.
-    # So we can only simplify certain types of joins to CROSS.
-    # Or in other words, LEFT JOIN x ON TRUE != CROSS JOIN x
-    JOINS: t.ClassVar = {
-        ("", ""),
-        ("", "INNER"),
-        ("RIGHT", ""),
-        ("RIGHT", "OUTER"),
-    }
-
     def simplify(
         self,
         expression: exp.Expr,
@@ -697,11 +710,16 @@ class Simplifier:
             if always_true(where.this):
                 where.pop()
         for join in joins:
+            # Only an inner join can become a CROSS JOIN: a cross join is empty as soon as either
+            # side is empty, whereas an outer join keeps the rows of its outer side and pads them
+            # with NULLs (`x LEFT JOIN y ON TRUE` returns x's rows when y is empty, `x RIGHT JOIN y
+            # ON TRUE` returns y's rows when x is empty).
             if (
                 always_true(join.args.get("on"))
                 and not join.args.get("using")
                 and not join.args.get("method")
-                and (join.side, join.kind) in self.JOINS
+                and not join.side
+                and join.kind in ("", "INNER")
             ):
                 join.args["on"].pop()
                 join.set("side", None)
@@ -962,31 +980,36 @@ class Simplifier:
                     # python won't compare date and datetime, but many engines will upcast
                     l, r = cast_as_datetime(l), cast_as_datetime(r)
 
+                false = (
+                    exp.false()
+                    if left.meta_get("nonnull") is True and right.meta_get("nonnull") is True
+                    else None
+                )
+
                 for (a, av), (b, bv) in itertools.permutations(((left, l), (right, r))):
                     if isinstance(a, self.LT_LTE) and isinstance(b, self.LT_LTE):
                         return left if (av > bv if or_ else av <= bv) else right
                     if isinstance(a, self.GT_GTE) and isinstance(b, self.GT_GTE):
                         return left if (av < bv if or_ else av >= bv) else right
 
-                    # we can't ever shortcut to true because the column could be null
                     if not or_:
                         if isinstance(a, exp.LT) and isinstance(b, self.GT_GTE):
                             if av <= bv:
-                                return exp.false()
+                                return false
                         elif isinstance(a, exp.GT) and isinstance(b, self.LT_LTE):
                             if av >= bv:
-                                return exp.false()
+                                return false
                         elif isinstance(a, exp.EQ):
                             if isinstance(b, exp.LT):
-                                return exp.false() if av >= bv else a
+                                return false if av >= bv else a
                             if isinstance(b, exp.LTE):
-                                return exp.false() if av > bv else a
+                                return false if av > bv else a
                             if isinstance(b, exp.GT):
-                                return exp.false() if av <= bv else a
+                                return false if av <= bv else a
                             if isinstance(b, exp.GTE):
-                                return exp.false() if av < bv else a
+                                return false if av < bv else a
                             if isinstance(b, exp.NEQ):
-                                return exp.false() if av == bv else a
+                                return false if av == bv else a
         return None
 
     @annotate_types_on_change
@@ -1179,6 +1202,9 @@ class Simplifier:
             else:
                 return expression
 
+            if isinstance(b, exp.Interval) and not _is_exact_interval_move(l, r, b):
+                return expression
+
             return expression.__class__(
                 this=a, expression=self.INVERSE_OPS[l.__class__](this=r, expression=b)
             )
@@ -1331,9 +1357,9 @@ class Simplifier:
         if not _is_constant(other):
             return expression
 
-        # Find the first constant arg
+        # Find the first non-NULL constant arg
         for arg_index, arg in enumerate(coalesce.expressions):
-            if _is_constant(arg):
+            if _is_nonnull_constant(arg):
                 break
         else:
             return expression
@@ -1344,6 +1370,10 @@ class Simplifier:
         # since we already remove COALESCE at the top of this function.
         this: exp.Expr = coalesce if coalesce.expressions else coalesce.this
 
+        # The constant takes the COALESCE's side of the comparison
+        substituted = expression.copy()
+        substituted.set("this" if coalesce is expression.left else "expression", arg.copy())
+
         # This expression is more complex than when we started, but it will get simplified further
         return exp.paren(
             exp.or_(
@@ -1352,11 +1382,7 @@ class Simplifier:
                     expression.copy(),
                     copy=False,
                 ),
-                exp.and_(
-                    this.is_(exp.null()),
-                    type(expression)(this=arg.copy(), expression=other.copy()),
-                    copy=False,
-                ),
+                exp.and_(this.is_(exp.null()), substituted, copy=False),
                 copy=False,
             ),
             copy=False,
@@ -1387,7 +1413,7 @@ class Simplifier:
 
         new_args = []
         for is_string_group, group in itertools.groupby(
-            expressions or expression.flatten(), lambda e: e.is_string
+            expressions or expression.flatten(unnest=False), lambda e: e.is_string
         ):
             if is_string_group:
                 new_args.append(exp.Literal.string(sep.join(string.name for string in group)))
@@ -1416,17 +1442,17 @@ class Simplifier:
                     cond = cond.replace(this.pop().eq(cond))
 
                 if always_true(cond):
-                    return case.args["true"]
+                    return exp.paren(case.args["true"], copy=False)
 
                 if always_false(cond):
                     case.pop()
                     if not expression.args["ifs"]:
-                        return expression.args.get("default") or exp.null()
+                        return exp.paren(expression.args.get("default") or exp.null(), copy=False)
         elif isinstance(expression, exp.If) and not isinstance(expression.parent, exp.Case):
             if always_true(expression.this):
-                return expression.args["true"]
+                return exp.paren(expression.args["true"], copy=False)
             if always_false(expression.this):
-                return expression.args.get("false") or exp.null()
+                return exp.paren(expression.args.get("false") or exp.null(), copy=False)
 
         return expression
 
@@ -1461,7 +1487,11 @@ class Simplifier:
 
         if isinstance(expression, self.DATETRUNCS):
             this = expression.this
-            trunc_type = extract_type(this)
+            trunc_type = (
+                expression.type
+                if expression.is_type(*exp.DataType.TEMPORAL_TYPES)
+                else extract_type(this)
+            )
             date = extract_date(this)
             if date and expression.unit:
                 return date_literal(

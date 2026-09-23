@@ -12,19 +12,24 @@ if TYPE_CHECKING:
 
 def parse_number(self: "JSONParser") -> JSONReturnType:
     # <number> is a valid real number expressed in one of a number of given formats
+    number_start_index = self.index
     number_str = ""
     char = self.get_char_at()
     is_array = self.context.current == ContextValues.ARRAY
-    while char and char in NUMBER_CHARS and (not is_array or char != ","):
+    while (
+        char
+        and (char in NUMBER_CHARS or (char == "+" and number_str.endswith(("e", "E"))))
+        and (not is_array or char != ",")
+    ):
         if char != "_":
             number_str += char
         self.index += 1
         char = self.get_char_at()
     if (self.get_char_at() or "").isalpha():
         # this was a string instead, sorry
-        self.index -= len(number_str)
+        self.index = number_start_index
         return self.parse_string()
-    if number_str and number_str[-1] in "-eE/,":
+    if number_str and number_str[-1] in "+-eE/,":
         # The number ends with a non valid character for a number/currency, rolling back one
         number_str = number_str[:-1]
         self.index -= 1

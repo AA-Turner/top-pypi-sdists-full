@@ -42,6 +42,19 @@ CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS = 120.0
 BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS = 45.0
 BOOTSTRAP_PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS = 5.0
 
+# 🚨 THE COMMAND CEILING. One browser command may hold the worker's command lock
+# for at most this long, whatever it is doing. It MUST stay strictly below the
+# aidream client's per-operation HTTP deadline (65 s — the ``httpx.Timeout`` in
+# ``aidream/services/cloud_browser/worker_client.py``), so a command that runs
+# long comes back as a typed ``command_deadline_exceeded`` naming the stage it
+# died in, instead of as a transport timeout that tells the caller nothing.
+# Why it exists: the humanised keystroke loop is O(len(text)) with no ceiling of
+# its own (~138 ms/char on real Chromium), so a 1078-character ``type_text``
+# held the lock for 149 s and every other command on that browser queued behind
+# a lock nobody could take. Pinned by
+# ``tests/test_cloud_browser_command_deadline.py``.
+COMMAND_TOTAL_TIMEOUT_SECONDS = 55.0
+
 # ── Controller & handoff enums (S2 §10.1, §12.3) ──
 ControllerStateName = Literal[
     "provisioning",

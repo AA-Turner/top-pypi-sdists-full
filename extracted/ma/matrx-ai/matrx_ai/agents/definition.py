@@ -295,6 +295,13 @@ class Agent:
 
         begin_turn()
 
+        # Controls as first-class variables: resolve variable-bound controls before the
+        # provider call (platform default bindable policy — hosts with a knob register
+        # resolve the org's policy on their own paths).
+        from matrx_ai.agents.control_bindings import resolve_control_bindings
+
+        resolve_control_bindings(self.config, self.variable_defaults, final_values)
+
         # Use UnifiedConfig's replace_variables method
         self.config.replace_variables(final_values)
 
@@ -452,9 +459,19 @@ class Agent:
         return self
 
     async def execute(
-        self, user_input: str | list[dict[str, Any]] | None = None
+        self,
+        user_input: str | list[dict[str, Any]] | None = None,
+        *,
+        max_iterations: int | None = None,
     ) -> AgentExecuteResult:
         """Execute the agent with optional user input.
+
+        ``max_iterations`` is the SUBTREE ITERATION CEILING: the number of
+        tool-use rounds this one run may take, independent of the library
+        default every other run takes. Passed by a caller that is bounding a
+        child desk (``agent_call``'s ``max_iterations``); the loop exits at the
+        ceiling through its existing graceful ``max_iterations_exceeded`` path,
+        keeping everything it produced. None = the funnel's own default.
 
         Applies variables on first execution, appends user_input if provided,
         then delegates entirely to execute_ai_request() which reads all context
@@ -553,6 +570,7 @@ class Agent:
         completed = await execute_ai_request(
             self.config,
             metadata=self.request_metadata,
+            **({"max_iterations": int(max_iterations)} if max_iterations else {}),
         )
         return self._clean_up_response(completed)
 

@@ -2598,11 +2598,7 @@ class FileLockMetadata(bb.Struct):
     _has_required_fields = False
 
     def __init__(
-        self,
-        is_lockholder=None,
-        lockholder_name=None,
-        lockholder_account_id=None,
-        created=None,
+        self, is_lockholder=None, lockholder_name=None, lockholder_account_id=None, created=None
     ):
         self._is_lockholder_value = bb.NOT_SET
         self._lockholder_name_value = bb.NOT_SET
@@ -4490,12 +4486,7 @@ class ListRevisionsArg(bb.Struct):
     _has_required_fields = True
 
     def __init__(
-        self,
-        path=None,
-        mode=None,
-        limit=None,
-        before_rev=None,
-        include_restorable_info=None,
+        self, path=None, mode=None, limit=None, before_rev=None, include_restorable_info=None
     ):
         self._path_value = bb.NOT_SET
         self._mode_value = bb.NOT_SET
@@ -6581,11 +6572,7 @@ class RelocationBatchArg(RelocationBatchArgBase):
     _has_required_fields = True
 
     def __init__(
-        self,
-        entries=None,
-        autorename=None,
-        allow_shared_folder=None,
-        allow_ownership_transfer=None,
+        self, entries=None, autorename=None, allow_shared_folder=None, allow_ownership_transfer=None
     ):
         super(RelocationBatchArg, self).__init__(entries, autorename)
         self._allow_shared_folder_value = bb.NOT_SET
@@ -6648,6 +6635,10 @@ class RelocationError(bb.Union):
         Some content cannot be moved into the Family Room folder under certain
         circumstances, see detailed error.
     :vartype RelocationError.cant_move_into_family: MoveIntoFamilyError
+    :ivar RelocationError.team_folder_insufficient_quota:
+        The destination team folder has reached its storage limit.
+    :ivar RelocationError.member_folder_insufficient_quota:
+        The user's member folder has reached its storage limit.
     """
 
     _catch_all = "other"
@@ -6669,6 +6660,10 @@ class RelocationError(bb.Union):
     internal_error = None
     # Attribute is overwritten below the class definition
     cant_move_shared_folder = None
+    # Attribute is overwritten below the class definition
+    team_folder_insufficient_quota = None
+    # Attribute is overwritten below the class definition
+    member_folder_insufficient_quota = None
     # Attribute is overwritten below the class definition
     other = None
 
@@ -6838,6 +6833,22 @@ class RelocationError(bb.Union):
         :rtype: bool
         """
         return self._tag == "cant_move_into_family"
+
+    def is_team_folder_insufficient_quota(self):
+        """
+        Check if the union tag is ``team_folder_insufficient_quota``.
+
+        :rtype: bool
+        """
+        return self._tag == "team_folder_insufficient_quota"
+
+    def is_member_folder_insufficient_quota(self):
+        """
+        Check if the union tag is ``member_folder_insufficient_quota``.
+
+        :rtype: bool
+        """
+        return self._tag == "member_folder_insufficient_quota"
 
     def is_other(self):
         """
@@ -8856,13 +8867,7 @@ class SearchV2Arg(bb.Struct):
 
     _has_required_fields = True
 
-    def __init__(
-        self,
-        query=None,
-        options=None,
-        match_field_options=None,
-        include_highlights=None,
-    ):
+    def __init__(self, query=None, options=None, match_field_options=None, include_highlights=None):
         self._query_value = bb.NOT_SET
         self._options_value = bb.NOT_SET
         self._match_field_options_value = bb.NOT_SET
@@ -9419,9 +9424,6 @@ class ThumbnailArg(bb.Struct):
         The size for the thumbnail image.
     :ivar ThumbnailArg.mode:
         How to resize and crop the image to achieve the desired size.
-    :ivar ThumbnailArg.quality:
-        Field is only returned for "internal" callers. Quality of the thumbnail
-        image.
     :ivar ThumbnailArg.exclude_media_info:
         Normally, ``FileMetadata.media_info`` is set for photo and video. When
         this flag is true, ``FileMetadata.media_info`` is not populated. This
@@ -9433,26 +9435,16 @@ class ThumbnailArg(bb.Struct):
         "_format_value",
         "_size_value",
         "_mode_value",
-        "_quality_value",
         "_exclude_media_info_value",
     ]
 
     _has_required_fields = True
 
-    def __init__(
-        self,
-        path=None,
-        format=None,
-        size=None,
-        mode=None,
-        quality=None,
-        exclude_media_info=None,
-    ):
+    def __init__(self, path=None, format=None, size=None, mode=None, exclude_media_info=None):
         self._path_value = bb.NOT_SET
         self._format_value = bb.NOT_SET
         self._size_value = bb.NOT_SET
         self._mode_value = bb.NOT_SET
-        self._quality_value = bb.NOT_SET
         self._exclude_media_info_value = bb.NOT_SET
         if path is not None:
             self.path = path
@@ -9462,8 +9454,6 @@ class ThumbnailArg(bb.Struct):
             self.size = size
         if mode is not None:
             self.mode = mode
-        if quality is not None:
-            self.quality = quality
         if exclude_media_info is not None:
             self.exclude_media_info = exclude_media_info
 
@@ -9478,9 +9468,6 @@ class ThumbnailArg(bb.Struct):
 
     # Instance attribute type: ThumbnailMode (validator is set below)
     mode = bb.Attribute("mode", user_defined=True)
-
-    # Instance attribute type: ThumbnailQuality (validator is set below)
-    quality = bb.Attribute("quality", user_defined=True)
 
     # Instance attribute type: bool (validator is set below)
     exclude_media_info = bb.Attribute("exclude_media_info", nullable=True)
@@ -9778,8 +9765,6 @@ class ThumbnailSize(bb.Union):
         1024 by 768 px.
     :ivar ThumbnailSize.w2048h1536:
         2048 by 1536 px.
-    :ivar ThumbnailSize.w3200h2400:
-        Field is only returned for "internal" callers. 3200 by 2400 px.
     """
 
     _catch_all = None
@@ -9801,8 +9786,6 @@ class ThumbnailSize(bb.Union):
     w1024h768 = None
     # Attribute is overwritten below the class definition
     w2048h1536 = None
-    # Attribute is overwritten below the class definition
-    w3200h2400 = None
 
     def is_w32h32(self):
         """
@@ -9876,14 +9859,6 @@ class ThumbnailSize(bb.Union):
         """
         return self._tag == "w2048h1536"
 
-    def is_w3200h2400(self):
-        """
-        Check if the union tag is ``w3200h2400``.
-
-        :rtype: bool
-        """
-        return self._tag == "w3200h2400"
-
     def _process_custom_annotations(self, annotation_type, field_path, processor):
         super(ThumbnailSize, self)._process_custom_annotations(
             annotation_type, field_path, processor
@@ -9907,13 +9882,14 @@ class ThumbnailV2Arg(bb.Struct):
         The size for the thumbnail image.
     :ivar ThumbnailV2Arg.mode:
         How to resize and crop the image to achieve the desired size.
-    :ivar ThumbnailV2Arg.quality:
-        Field is only returned for "internal" callers. Quality of the thumbnail
-        image.
     :ivar ThumbnailV2Arg.exclude_media_info:
         Normally, ``FileMetadata.media_info`` is set for photo and video. When
         this flag is true, ``FileMetadata.media_info`` is not populated. This
         improves latency for use cases where `media_info` is not needed.
+    :ivar ThumbnailV2Arg.preserve_transparency:
+        Whether to preserve the original image's transparency in the thumbnail.
+        This is supported only when the output format is PNG or WebP. Requests
+        that set this flag with JPEG output return an error.
     """
 
     __slots__ = [
@@ -9921,8 +9897,8 @@ class ThumbnailV2Arg(bb.Struct):
         "_format_value",
         "_size_value",
         "_mode_value",
-        "_quality_value",
         "_exclude_media_info_value",
+        "_preserve_transparency_value",
     ]
 
     _has_required_fields = True
@@ -9933,15 +9909,15 @@ class ThumbnailV2Arg(bb.Struct):
         format=None,
         size=None,
         mode=None,
-        quality=None,
         exclude_media_info=None,
+        preserve_transparency=None,
     ):
         self._resource_value = bb.NOT_SET
         self._format_value = bb.NOT_SET
         self._size_value = bb.NOT_SET
         self._mode_value = bb.NOT_SET
-        self._quality_value = bb.NOT_SET
         self._exclude_media_info_value = bb.NOT_SET
+        self._preserve_transparency_value = bb.NOT_SET
         if resource is not None:
             self.resource = resource
         if format is not None:
@@ -9950,10 +9926,10 @@ class ThumbnailV2Arg(bb.Struct):
             self.size = size
         if mode is not None:
             self.mode = mode
-        if quality is not None:
-            self.quality = quality
         if exclude_media_info is not None:
             self.exclude_media_info = exclude_media_info
+        if preserve_transparency is not None:
+            self.preserve_transparency = preserve_transparency
 
     # Instance attribute type: PathOrLink (validator is set below)
     resource = bb.Attribute("resource", user_defined=True)
@@ -9967,11 +9943,11 @@ class ThumbnailV2Arg(bb.Struct):
     # Instance attribute type: ThumbnailMode (validator is set below)
     mode = bb.Attribute("mode", user_defined=True)
 
-    # Instance attribute type: ThumbnailQuality (validator is set below)
-    quality = bb.Attribute("quality", user_defined=True)
-
     # Instance attribute type: bool (validator is set below)
     exclude_media_info = bb.Attribute("exclude_media_info", nullable=True)
+
+    # Instance attribute type: bool (validator is set below)
+    preserve_transparency = bb.Attribute("preserve_transparency")
 
     def _process_custom_annotations(self, annotation_type, field_path, processor):
         super(ThumbnailV2Arg, self)._process_custom_annotations(
@@ -10003,6 +9979,8 @@ class ThumbnailV2Error(bb.Union):
         Access to this shared link is forbidden.
     :ivar ThumbnailV2Error.not_found:
         The shared link does not exist.
+    :ivar ThumbnailV2Error.unsupported_output_format:
+        Transparency preservation is supported only for PNG and WebP output.
     """
 
     _catch_all = "other"
@@ -10018,6 +9996,8 @@ class ThumbnailV2Error(bb.Union):
     access_denied = None
     # Attribute is overwritten below the class definition
     not_found = None
+    # Attribute is overwritten below the class definition
+    unsupported_output_format = None
     # Attribute is overwritten below the class definition
     other = None
 
@@ -10087,6 +10067,14 @@ class ThumbnailV2Error(bb.Union):
         :rtype: bool
         """
         return self._tag == "not_found"
+
+    def is_unsupported_output_format(self):
+        """
+        Check if the union tag is ``unsupported_output_format``.
+
+        :rtype: bool
+        """
+        return self._tag == "unsupported_output_format"
 
     def is_other(self):
         """
@@ -10182,6 +10170,7 @@ class UploadArg(CommitInfo):
     :ivar UploadArg.content_hash:
         A hash of the file content uploaded in this call. If provided and the
         uploaded content does not match this hash, an error will be returned.
+        Optional, but recommended to avoid committing data corrupted in transit.
         For more information see our `Content hash
         <https://www.dropbox.com/developers/reference/content-hash>`_ page.
     """
@@ -10204,13 +10193,7 @@ class UploadArg(CommitInfo):
         content_hash=None,
     ):
         super(UploadArg, self).__init__(
-            path,
-            mode,
-            autorename,
-            client_modified,
-            mute,
-            property_groups,
-            strict_conflict,
+            path, mode, autorename, client_modified, mute, property_groups, strict_conflict
         )
         self._content_hash_value = bb.NOT_SET
         if content_hash is not None:
@@ -10373,6 +10356,7 @@ class UploadSessionAppendArg(bb.Struct):
     :ivar UploadSessionAppendArg.content_hash:
         A hash of the file content uploaded in this call. If provided and the
         uploaded content does not match this hash, an error will be returned.
+        Optional, but recommended to avoid committing data corrupted in transit.
         For more information see our `Content hash
         <https://www.dropbox.com/developers/reference/content-hash>`_ page.
     """
@@ -10419,10 +10403,10 @@ class UploadSessionAppendBatchArg(bb.Struct):
     :ivar UploadSessionAppendBatchArg.entries:
         Append information for each file in the batch.
     :ivar UploadSessionAppendBatchArg.content_hash:
-        A hash of the entire request body which is all the concatenated pieces
-        of file content that were uploaded in this call. If provided and the
-        uploaded content does not match this hash, an error will be returned.
-        For more information see our `Content hash
+        A single hash of all the concatenated file contents uploaded in this
+        call. If provided and the uploaded content does not match this hash, an
+        error will be returned. Optional, but recommended to avoid committing
+        data corrupted in transit. For more information see our `Content hash
         <https://www.dropbox.com/developers/reference/content-hash>`_ page.
     """
 
@@ -11007,6 +10991,7 @@ class UploadSessionFinishArg(bb.Struct):
     :ivar UploadSessionFinishArg.content_hash:
         A hash of the file content uploaded in this call. If provided and the
         uploaded content does not match this hash, an error will be returned.
+        Optional, but recommended to avoid committing data corrupted in transit.
         For more information see our `Content hash
         <https://www.dropbox.com/developers/reference/content-hash>`_ page.
     """
@@ -11739,6 +11724,7 @@ class UploadSessionStartArg(bb.Struct):
     :ivar UploadSessionStartArg.content_hash:
         A hash of the file content uploaded in this call. If provided and the
         uploaded content does not match this hash, an error will be returned.
+        Optional, but recommended to avoid committing data corrupted in transit.
         For more information see our `Content hash
         <https://www.dropbox.com/developers/reference/content-hash>`_ page.
     """
@@ -12208,6 +12194,12 @@ class WriteError(bb.Union):
     :ivar WriteError.access_restricted:
         The user doesn't have permission to perform the action due to
         restrictions set by a team administrator
+    :ivar WriteError.team_folder_insufficient_space:
+        The destination team folder has reached its storage limit.
+    :ivar WriteError.member_folder_insufficient_space:
+        The user's member folder has reached its storage limit.
+    :ivar WriteError.upload_traffic_limit_reached:
+        The user has reached their monthly upload traffic limit.
     """
 
     _catch_all = "other"
@@ -12225,6 +12217,12 @@ class WriteError(bb.Union):
     too_many_write_operations = None
     # Attribute is overwritten below the class definition
     access_restricted = None
+    # Attribute is overwritten below the class definition
+    team_folder_insufficient_space = None
+    # Attribute is overwritten below the class definition
+    member_folder_insufficient_space = None
+    # Attribute is overwritten below the class definition
+    upload_traffic_limit_reached = None
     # Attribute is overwritten below the class definition
     other = None
 
@@ -12321,6 +12319,30 @@ class WriteError(bb.Union):
         :rtype: bool
         """
         return self._tag == "access_restricted"
+
+    def is_team_folder_insufficient_space(self):
+        """
+        Check if the union tag is ``team_folder_insufficient_space``.
+
+        :rtype: bool
+        """
+        return self._tag == "team_folder_insufficient_space"
+
+    def is_member_folder_insufficient_space(self):
+        """
+        Check if the union tag is ``member_folder_insufficient_space``.
+
+        :rtype: bool
+        """
+        return self._tag == "member_folder_insufficient_space"
+
+    def is_upload_traffic_limit_reached(self):
+        """
+        Check if the union tag is ``upload_traffic_limit_reached``.
+
+        :rtype: bool
+        """
+        return self._tag == "upload_traffic_limit_reached"
 
     def is_other(self):
         """
@@ -12552,10 +12574,7 @@ AlphaGetMetadataArg._all_field_names_ = GetMetadataArg._all_field_names_.union(
     set(["include_property_templates"])
 )
 AlphaGetMetadataArg._all_fields_ = GetMetadataArg._all_fields_ + [
-    (
-        "include_property_templates",
-        AlphaGetMetadataArg.include_property_templates.validator,
-    )
+    ("include_property_templates", AlphaGetMetadataArg.include_property_templates.validator)
 ]
 
 GetMetadataError._path_validator = LookupError_validator
@@ -13410,10 +13429,7 @@ ListFolderArg._all_fields_ = [
     ("limit", ListFolderArg.limit.validator),
     ("shared_link", ListFolderArg.shared_link.validator),
     ("include_property_groups", ListFolderArg.include_property_groups.validator),
-    (
-        "include_non_downloadable_files",
-        ListFolderArg.include_non_downloadable_files.validator,
-    ),
+    ("include_non_downloadable_files", ListFolderArg.include_non_downloadable_files.validator),
     ("include_restorable_info", ListFolderArg.include_restorable_info.validator),
 ]
 
@@ -14029,6 +14045,8 @@ RelocationError._internal_error_validator = bv.Void()
 RelocationError._cant_move_shared_folder_validator = bv.Void()
 RelocationError._cant_move_into_vault_validator = MoveIntoVaultError_validator
 RelocationError._cant_move_into_family_validator = MoveIntoFamilyError_validator
+RelocationError._team_folder_insufficient_quota_validator = bv.Void()
+RelocationError._member_folder_insufficient_quota_validator = bv.Void()
 RelocationError._other_validator = bv.Void()
 RelocationError._tagmap = {
     "from_lookup": RelocationError._from_lookup_validator,
@@ -14045,6 +14063,8 @@ RelocationError._tagmap = {
     "cant_move_shared_folder": RelocationError._cant_move_shared_folder_validator,
     "cant_move_into_vault": RelocationError._cant_move_into_vault_validator,
     "cant_move_into_family": RelocationError._cant_move_into_family_validator,
+    "team_folder_insufficient_quota": RelocationError._team_folder_insufficient_quota_validator,
+    "member_folder_insufficient_quota": RelocationError._member_folder_insufficient_quota_validator,
     "other": RelocationError._other_validator,
 }
 
@@ -14057,6 +14077,10 @@ RelocationError.cant_transfer_ownership = RelocationError("cant_transfer_ownersh
 RelocationError.insufficient_quota = RelocationError("insufficient_quota")
 RelocationError.internal_error = RelocationError("internal_error")
 RelocationError.cant_move_shared_folder = RelocationError("cant_move_shared_folder")
+RelocationError.team_folder_insufficient_quota = RelocationError("team_folder_insufficient_quota")
+RelocationError.member_folder_insufficient_quota = RelocationError(
+    "member_folder_insufficient_quota"
+)
 RelocationError.other = RelocationError("other")
 
 RelocationBatchError._too_many_write_operations_validator = bv.Void()
@@ -14607,7 +14631,6 @@ ThumbnailArg.path.validator = ReadPath_validator
 ThumbnailArg.format.validator = ThumbnailFormat_validator
 ThumbnailArg.size.validator = ThumbnailSize_validator
 ThumbnailArg.mode.validator = ThumbnailMode_validator
-ThumbnailArg.quality.validator = ThumbnailQuality_validator
 ThumbnailArg.exclude_media_info.validator = bv.Nullable(bv.Boolean())
 ThumbnailArg._all_field_names_ = set(
     [
@@ -14625,8 +14648,6 @@ ThumbnailArg._all_fields_ = [
     ("mode", ThumbnailArg.mode.validator),
     ("exclude_media_info", ThumbnailArg.exclude_media_info.validator),
 ]
-ThumbnailArg._all_internal_field_names_ = set(["quality"])
-ThumbnailArg._all_internal_fields_ = [("quality", ThumbnailArg.quality.validator)]
 
 ThumbnailError._path_validator = LookupError_validator
 ThumbnailError._unsupported_extension_validator = bv.Void()
@@ -14694,8 +14715,6 @@ ThumbnailSize._w640h480_validator = bv.Void()
 ThumbnailSize._w960h640_validator = bv.Void()
 ThumbnailSize._w1024h768_validator = bv.Void()
 ThumbnailSize._w2048h1536_validator = bv.Void()
-ThumbnailSize._w3200h2400_validator = bv.Void()
-ThumbnailSize._permissioned_tagmaps = {"internal"}
 ThumbnailSize._tagmap = {
     "w32h32": ThumbnailSize._w32h32_validator,
     "w64h64": ThumbnailSize._w64h64_validator,
@@ -14707,9 +14726,6 @@ ThumbnailSize._tagmap = {
     "w1024h768": ThumbnailSize._w1024h768_validator,
     "w2048h1536": ThumbnailSize._w2048h1536_validator,
 }
-ThumbnailSize._internal_tagmap = {
-    "w3200h2400": ThumbnailSize._w3200h2400_validator,
-}
 
 ThumbnailSize.w32h32 = ThumbnailSize("w32h32")
 ThumbnailSize.w64h64 = ThumbnailSize("w64h64")
@@ -14720,14 +14736,13 @@ ThumbnailSize.w640h480 = ThumbnailSize("w640h480")
 ThumbnailSize.w960h640 = ThumbnailSize("w960h640")
 ThumbnailSize.w1024h768 = ThumbnailSize("w1024h768")
 ThumbnailSize.w2048h1536 = ThumbnailSize("w2048h1536")
-ThumbnailSize.w3200h2400 = ThumbnailSize("w3200h2400")
 
 ThumbnailV2Arg.resource.validator = PathOrLink_validator
 ThumbnailV2Arg.format.validator = ThumbnailFormat_validator
 ThumbnailV2Arg.size.validator = ThumbnailSize_validator
 ThumbnailV2Arg.mode.validator = ThumbnailMode_validator
-ThumbnailV2Arg.quality.validator = ThumbnailQuality_validator
 ThumbnailV2Arg.exclude_media_info.validator = bv.Nullable(bv.Boolean())
+ThumbnailV2Arg.preserve_transparency.validator = bv.Boolean()
 ThumbnailV2Arg._all_field_names_ = set(
     [
         "resource",
@@ -14735,6 +14750,7 @@ ThumbnailV2Arg._all_field_names_ = set(
         "size",
         "mode",
         "exclude_media_info",
+        "preserve_transparency",
     ]
 )
 ThumbnailV2Arg._all_fields_ = [
@@ -14743,9 +14759,8 @@ ThumbnailV2Arg._all_fields_ = [
     ("size", ThumbnailV2Arg.size.validator),
     ("mode", ThumbnailV2Arg.mode.validator),
     ("exclude_media_info", ThumbnailV2Arg.exclude_media_info.validator),
+    ("preserve_transparency", ThumbnailV2Arg.preserve_transparency.validator),
 ]
-ThumbnailV2Arg._all_internal_field_names_ = set(["quality"])
-ThumbnailV2Arg._all_internal_fields_ = [("quality", ThumbnailV2Arg.quality.validator)]
 
 ThumbnailV2Error._path_validator = LookupError_validator
 ThumbnailV2Error._unsupported_extension_validator = bv.Void()
@@ -14754,6 +14769,7 @@ ThumbnailV2Error._encrypted_content_validator = bv.Void()
 ThumbnailV2Error._conversion_error_validator = bv.Void()
 ThumbnailV2Error._access_denied_validator = bv.Void()
 ThumbnailV2Error._not_found_validator = bv.Void()
+ThumbnailV2Error._unsupported_output_format_validator = bv.Void()
 ThumbnailV2Error._other_validator = bv.Void()
 ThumbnailV2Error._tagmap = {
     "path": ThumbnailV2Error._path_validator,
@@ -14763,6 +14779,7 @@ ThumbnailV2Error._tagmap = {
     "conversion_error": ThumbnailV2Error._conversion_error_validator,
     "access_denied": ThumbnailV2Error._access_denied_validator,
     "not_found": ThumbnailV2Error._not_found_validator,
+    "unsupported_output_format": ThumbnailV2Error._unsupported_output_format_validator,
     "other": ThumbnailV2Error._other_validator,
 }
 
@@ -14772,6 +14789,7 @@ ThumbnailV2Error.encrypted_content = ThumbnailV2Error("encrypted_content")
 ThumbnailV2Error.conversion_error = ThumbnailV2Error("conversion_error")
 ThumbnailV2Error.access_denied = ThumbnailV2Error("access_denied")
 ThumbnailV2Error.not_found = ThumbnailV2Error("not_found")
+ThumbnailV2Error.unsupported_output_format = ThumbnailV2Error("unsupported_output_format")
 ThumbnailV2Error.other = ThumbnailV2Error("other")
 
 UnlockFileArg.path.validator = WritePathOrId_validator
@@ -14825,7 +14843,7 @@ UploadSessionAppendArg._all_fields_ = [
 ]
 
 UploadSessionAppendBatchArg.entries.validator = bv.List(
-    UploadSessionAppendBatchArgEntry_validator, max_items=1000
+    UploadSessionAppendBatchArgEntry_validator, max_items=500
 )
 UploadSessionAppendBatchArg.content_hash.validator = bv.Nullable(Sha256HexHash_validator)
 UploadSessionAppendBatchArg._all_field_names_ = set(
@@ -15238,6 +15256,9 @@ WriteError._team_folder_validator = bv.Void()
 WriteError._operation_suppressed_validator = bv.Void()
 WriteError._too_many_write_operations_validator = bv.Void()
 WriteError._access_restricted_validator = bv.Void()
+WriteError._team_folder_insufficient_space_validator = bv.Void()
+WriteError._member_folder_insufficient_space_validator = bv.Void()
+WriteError._upload_traffic_limit_reached_validator = bv.Void()
 WriteError._other_validator = bv.Void()
 WriteError._tagmap = {
     "malformed_path": WriteError._malformed_path_validator,
@@ -15249,6 +15270,9 @@ WriteError._tagmap = {
     "operation_suppressed": WriteError._operation_suppressed_validator,
     "too_many_write_operations": WriteError._too_many_write_operations_validator,
     "access_restricted": WriteError._access_restricted_validator,
+    "team_folder_insufficient_space": WriteError._team_folder_insufficient_space_validator,
+    "member_folder_insufficient_space": WriteError._member_folder_insufficient_space_validator,
+    "upload_traffic_limit_reached": WriteError._upload_traffic_limit_reached_validator,
     "other": WriteError._other_validator,
 }
 
@@ -15259,6 +15283,9 @@ WriteError.team_folder = WriteError("team_folder")
 WriteError.operation_suppressed = WriteError("operation_suppressed")
 WriteError.too_many_write_operations = WriteError("too_many_write_operations")
 WriteError.access_restricted = WriteError("access_restricted")
+WriteError.team_folder_insufficient_space = WriteError("team_folder_insufficient_space")
+WriteError.member_folder_insufficient_space = WriteError("member_folder_insufficient_space")
+WriteError.upload_traffic_limit_reached = WriteError("upload_traffic_limit_reached")
 WriteError.other = WriteError("other")
 
 WriteMode._add_validator = bv.Void()
@@ -15315,11 +15342,10 @@ SearchOptions.filename_only.default = False
 ThumbnailArg.format.default = ThumbnailFormat.jpeg
 ThumbnailArg.size.default = ThumbnailSize.w64h64
 ThumbnailArg.mode.default = ThumbnailMode.strict
-ThumbnailArg.quality.default = ThumbnailQuality.quality_80
 ThumbnailV2Arg.format.default = ThumbnailFormat.jpeg
 ThumbnailV2Arg.size.default = ThumbnailSize.w64h64
 ThumbnailV2Arg.mode.default = ThumbnailMode.strict
-ThumbnailV2Arg.quality.default = ThumbnailQuality.quality_80
+ThumbnailV2Arg.preserve_transparency.default = False
 UploadSessionAppendArg.close.default = False
 UploadSessionAppendBatchArgEntry.close.default = False
 UploadSessionStartArg.close.default = False

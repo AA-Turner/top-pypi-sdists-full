@@ -1097,6 +1097,22 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             user_message=user_message,
         )
 
+    # A speech script this model cannot perform (speaker cap exceeded, a voice
+    # the model does not have, an unfilled voice variable) is refused before
+    # any provider call. Retrying the same script cannot change the answer, and
+    # "an unexpected error occurred" would hide the remedy the refusal names.
+    from matrx_ai.speech.compile import SpeechScriptRefusal
+
+    if isinstance(exception, SpeechScriptRefusal):
+        message = str(exception) or type(exception).__name__
+        return RetryableError(
+            error_type="speech_script_refused",
+            message=message,
+            is_retryable=False,
+            details={"exception": type(exception).__qualname__, "provider": provider},
+            user_message=message,
+        )
+
     # Catalog routing fails before a provider request can start. It is a
     # deterministic platform configuration error, so retrying cannot help and
     # calling it an ``unknown_error`` hides the exact model/offering defect.

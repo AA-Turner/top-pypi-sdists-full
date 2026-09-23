@@ -339,7 +339,7 @@ def _relay_daemon_response(response: "HookResult") -> NoReturn:
 
 def _run_hook_daemon_first() -> None:
     """Use daemon IPC when gated on; preserve consumed stdin for inline fallback."""
-    from runlayer_cli.hook import daemon_client  # noqa: PLC0415 - stdlib-only
+    from runlayer_cli.hook import daemon_client, hook_io  # noqa: PLC0415 - stdlib-only
 
     client_start_ms = _client_start_ms()
     stdin_text: str | None = None
@@ -351,7 +351,7 @@ def _run_hook_daemon_first() -> None:
         daemon_enabled = False
     if daemon_enabled:
         try:
-            stdin_text = sys.stdin.read()
+            stdin_text = hook_io.read_process_stdin()
         except Exception as exc:
             stdin_error = exc
         else:
@@ -365,7 +365,6 @@ def _run_hook_daemon_first() -> None:
         _relay_daemon_response(response)
 
     _inject_truststore()
-    from runlayer_cli.hook import hook_io  # noqa: PLC0415
     from runlayer_cli.hook.dispatch import run_hook  # noqa: PLC0415
 
     if stdin_text is None and stdin_error is None:

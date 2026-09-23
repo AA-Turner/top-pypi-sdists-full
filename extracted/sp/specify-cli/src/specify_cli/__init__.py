@@ -70,10 +70,10 @@ from ._utils import (
 )
 from ._version import (
     GITHUB_API_LATEST as GITHUB_API_LATEST,
-    self_app as _self_app,
-    self_check as self_check,
-    self_upgrade as self_upgrade,
 )
+from .selfs import self_app as _self_app
+from .selfs import self_check as self_check
+from .selfs import self_upgrade as self_upgrade
 from ._agent_config import (
     AGENT_CONFIG as AGENT_CONFIG,
     DEFAULT_INIT_INTEGRATION as DEFAULT_INIT_INTEGRATION,
@@ -498,6 +498,18 @@ def version(
     info_table.add_row("Platform", platform.system())
     info_table.add_row("Architecture", platform.machine())
     info_table.add_row("OS Version", platform.version())
+    # The OpenSSL runtime the interpreter actually loaded. HTTPS failure
+    # reports (#4433) hinge on which OpenSSL is in play, and on Windows it is
+    # not obvious from the outside, so surface it here. An interpreter built
+    # without the ssl extension skips the row rather than failing the command.
+    try:
+        import ssl
+
+        openssl_version = getattr(ssl, "OPENSSL_VERSION", "")
+    except ImportError:
+        openssl_version = ""
+    if openssl_version:
+        info_table.add_row("OpenSSL", openssl_version)
 
     panel = Panel(
         info_table,
@@ -527,7 +539,7 @@ _register_integration_cmds(app)
 
 
 # ===== Event Commands =====
-from .commands.event import register as _register_event_cmds  # noqa: E402
+from .events import register as _register_event_cmds  # noqa: E402
 _register_event_cmds(app)
 
 # Re-export selected helpers to preserve the public import surface.
@@ -578,8 +590,8 @@ _register_artifact_cmds(app)
 
 # ===== Bundle Commands =====
 
-# Bundler subcommand group (specify bundle ...) — see commands/bundle/.
-from .commands.bundle import register as _register_bundle_cmds  # noqa: E402
+# Bundle subcommand group (specify bundle ...) — see bundles/_commands.py.
+from .bundles._commands import register as _register_bundle_cmds  # noqa: E402
 _register_bundle_cmds(app)
 
 
@@ -592,12 +604,11 @@ _register_workflow_cmds(app)
 # Re-exported at the package root because bundler primitives import these
 # handlers via ``from specify_cli import workflow_*`` (and tests monkeypatch
 # ``specify_cli.workflow_add``). Keep these names resolvable from the root.
-from .workflows._commands import (  # noqa: E402,F401
-    workflow_add,
-    workflow_remove,
-    workflow_step_add,
-    workflow_step_remove,
-)
+from .workflows.command_add import workflow_add  # noqa: E402,F401
+from .workflows.command_remove import workflow_remove  # noqa: E402,F401
+from .workflows.step.command_add import workflow_step_add  # noqa: E402,F401
+from .workflows.step.command_remove import workflow_step_remove  # noqa: E402,F401
+
 
 def main():
     # On Windows the default stdout/stderr code page (e.g. cp1252) cannot encode

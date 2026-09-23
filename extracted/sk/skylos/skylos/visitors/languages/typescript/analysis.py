@@ -13,7 +13,9 @@ import tree_sitter_typescript as tsts
 from tree_sitter import Language, Parser
 
 from skylos.core.file_discovery import should_exclude_path
+from skylos.core.js_ast import is_type_only, iter_import_clause_bindings
 
+from .esbuild_static import EsbuildStaticOptions, esbuild_entry_values
 from .nextjs import (
     NEXTJS_CONVENTION_EXPORTS,
     NEXTJS_CONVENTION_FILES,
@@ -37,6 +39,7 @@ _NEXTJS_CONVENTION_EXPORTS = NEXTJS_CONVENTION_EXPORTS
 _NEXTJS_CONVENTION_FILES = NEXTJS_CONVENTION_FILES
 _is_nextjs_convention_file = is_nextjs_convention_file
 _TS_JS_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs")
+_TYPESCRIPT_SOURCE_EXTENSIONS = (".ts", ".tsx", ".mts", ".cts")
 _TS_JS_ENTRY_SUFFIXES = (
     ".ts",
     ".tsx",
@@ -365,7 +368,7 @@ def demote_unconsumed_ts_exports(defs, consumed_exports, lifecycle_entry_points=
             continue
 
         consumed = consumed_exports.get(str(defn.filename), set())
-        if defn.simple_name not in consumed:
+        if defn.simple_name not in consumed and defn.name not in consumed:
             defn.is_exported = False
             demoted.append(defn)
     return demoted
@@ -1015,51 +1018,28 @@ def _esbuild_import_bindings(source: bytes, root_node) -> tuple[set[str], set[st
     """Return immutable named-call and namespace bindings imported from esbuild."""
     direct: set[str] = set()
     namespaces: set[str] = set()
-
     for statement in root_node.named_children:
-        if statement.type != "import_statement":
+        if statement.type != "import_statement" or is_type_only(statement):
             continue
-        source_node = statement.child_by_field_name("source")
-        if _string_node_value(source, source_node) != "esbuild":
+        if (
+            _string_node_value(source, statement.child_by_field_name("source"))
+            != "esbuild"
+        ):
             continue
-        statement_text = _node_text(source, statement).lstrip()
-        if statement_text.startswith("import type "):
-            continue
-
-        for child in statement.named_children:
-            if child.type != "import_clause":
+        for clause in statement.named_children:
+            if clause.type != "import_clause":
                 continue
-            for binding in _iter_ts_nodes(child):
-                if binding.type == "import_specifier":
-                    if _node_text(source, binding).lstrip().startswith("type "):
-                        continue
-                    imported = binding.child_by_field_name("name")
-                    alias = binding.child_by_field_name("alias")
-                    imported_name = _node_text(source, imported) if imported else ""
-                    if imported_name in _ESBUILD_BUILD_METHODS:
-                        direct.add(_node_text(source, alias or imported))
-                elif binding.type == "namespace_import":
-                    identifiers = [
-                        node
-                        for node in binding.named_children
-                        if node.type == "identifier"
-                    ]
-                    if identifiers:
-                        namespaces.add(_node_text(source, identifiers[-1]))
-
+            for binding in iter_import_clause_bindings(source, clause):
+                if binding.type_only:
+                    continue
+                if binding.kind == "namespace":
+                    namespaces.add(binding.local)
+                elif (
+                    binding.kind == "named"
+                    and binding.imported in _ESBUILD_BUILD_METHODS
+                ):
+                    direct.add(binding.local)
     return direct, namespaces
-
-
-def _unwrap_esbuild_static_expression(node):
-    while node is not None and node.type in {
-        "as_expression",
-        "parenthesized_expression",
-        "satisfies_expression",
-    }:
-        node = node.child_by_field_name("expression") or (
-            node.named_children[0] if node.named_children else None
-        )
-    return node
 
 
 def _is_top_level_esbuild_call(source: bytes, call_node) -> bool:
@@ -1145,90 +1125,6 @@ def _is_esbuild_call(
     )
 
 
-def _static_esbuild_string(source: bytes, node) -> str | None:
-    node = _unwrap_esbuild_static_expression(node)
-    if node is None:
-        return None
-    if node.type == "string":
-        return _string_node_value(source, node)
-    if node.type != "template_string" or any(
-        child.type == "template_substitution" for child in node.named_children
-    ):
-        return None
-    text = _node_text(source, node)
-    return text[1:-1] if len(text) >= 2 else None
-
-
-def _static_esbuild_object(source: bytes, node) -> dict[str, object] | None:
-    node = _unwrap_esbuild_static_expression(node)
-    if node is None or node.type != "object":
-        return None
-
-    properties: dict[str, object] = {}
-    for child in node.named_children:
-        if child.type == "comment":
-            continue
-        if child.type != "pair":
-            return None
-        key = _pair_key_text(source, child)
-        value = _pair_value_node(child)
-        if key is None or value is None:
-            return None
-        properties[key] = value
-    return properties
-
-
-def _static_esbuild_entries(source: bytes, node) -> list[str] | None:
-    node = _unwrap_esbuild_static_expression(node)
-    if node is None:
-        return None
-
-    if node.type == "array":
-        entries: list[str] = []
-        expecting_value = True
-        saw_value = False
-        for child in node.children:
-            if child.type in {"[", "]", "comment"}:
-                continue
-            if child.type == ",":
-                if expecting_value:
-                    return None
-                expecting_value = True
-                continue
-            if not expecting_value:
-                return None
-            saw_value = True
-            expecting_value = False
-            if child.type == "comment":
-                continue
-            value = _static_esbuild_string(source, child)
-            if value is not None:
-                entries.append(value)
-                continue
-            advanced = _static_esbuild_object(source, child)
-            if advanced is None or set(advanced) != {"in", "out"}:
-                return None
-            input_path = _static_esbuild_string(source, advanced.get("in"))
-            output_path = _static_esbuild_string(source, advanced.get("out"))
-            if input_path is None or output_path is None:
-                return None
-            entries.append(input_path)
-        if not saw_value:
-            return []
-        return entries
-
-    entry_map = _static_esbuild_object(source, node)
-    if entry_map is None:
-        return None
-    entries = []
-    for value_node in entry_map.values():
-        value = _static_esbuild_string(source, value_node)
-        if value is None:
-            return None
-        entries.append(value)
-    return entries
-
-
 def _discover_esbuild_config_entries(
     config_path: str, ts_files: set[str], default_base_dir: str
 ) -> set[str]:
@@ -1236,9 +1132,11 @@ def _discover_esbuild_config_entries(
     suffix = Path(config_path).suffix.lower()
     if suffix in {".cjs", ".cts"}:
         return set()
-    if suffix in {".js", ".jsx"} and _read_json_file(
-        os.path.join(default_base_dir, "package.json")
-    ).get("type") != "module":
+    if (
+        suffix in {".js", ".jsx"}
+        and _read_json_file(os.path.join(default_base_dir, "package.json")).get("type")
+        != "module"
+    ):
         return set()
     source, root_node = _load_entry_config_ast(config_path)
     if source is None or root_node is None or root_node.has_error:
@@ -1247,6 +1145,18 @@ def _discover_esbuild_config_entries(
     direct_bindings, namespace_bindings = _esbuild_import_bindings(source, root_node)
     if not direct_bindings and not namespace_bindings:
         return set()
+    static_options = EsbuildStaticOptions(
+        source,
+        root_node,
+        config_path,
+        default_base_dir,
+        direct_bindings,
+        namespace_bindings,
+    )
+    if static_options.working_directory_changed:
+        return set()
+    direct_bindings = direct_bindings - static_options.unsafe
+    namespace_bindings = namespace_bindings - static_options.unsafe
 
     matches: set[str] = set()
     glob_requests: set[tuple[str, str]] = set()
@@ -1258,21 +1168,21 @@ def _discover_esbuild_config_entries(
         arguments = node.child_by_field_name("arguments")
         if arguments is None or not arguments.named_children:
             continue
-        options = _static_esbuild_object(source, arguments.named_children[0])
-        if options is None or "entryPoints" not in options:
+        options = static_options.evaluate(arguments.named_children[0])
+        if not isinstance(options, dict) or "entryPoints" not in options:
             continue
 
         base_dir = default_base_dir
         if "absWorkingDir" in options:
-            working_dir = _static_esbuild_string(source, options["absWorkingDir"])
-            if working_dir is None:
+            working_dir = options["absWorkingDir"]
+            if not isinstance(working_dir, str):
                 continue
             resolved_base = resolve_bounded_base(default_base_dir, working_dir)
             if resolved_base is None:
                 continue
             base_dir = resolved_base
 
-        entry_values = _static_esbuild_entries(source, options["entryPoints"])
+        entry_values = esbuild_entry_values(options["entryPoints"])
         if entry_values is None:
             continue
         for entry in dict.fromkeys(entry_values):
@@ -1678,9 +1588,7 @@ def _iter_entry_discoveries(
         elif tool == "playwright":
             entry_files = _discover_playwright_config_entries(config_path, ts_files)
         elif tool == "tsup":
-            entry_files = _discover_tsup_config_entries(
-                config_path, ts_files, base_dir
-            )
+            entry_files = _discover_tsup_config_entries(config_path, ts_files, base_dir)
         else:
             entry_files = _discover_vite_config_entries(config_path, ts_files, base_dir)
         for entry_file in sorted(entry_files):
@@ -1710,23 +1618,27 @@ def _iter_package_entry_targets(entry):
             yield from _iter_package_entry_targets(value)
 
 
-def _discover_package_entry_files(package_root: str) -> set[str]:
+_TS_PACKAGE_API_FIELDS = (
+    "main",
+    "module",
+    "types",
+    "typings",
+    "source",
+    "exports",
+)
+_TS_PACKAGE_ENTRY_FIELDS = (*_TS_PACKAGE_API_FIELDS, "browser", "bin")
+
+
+def _discover_package_entry_files(
+    package_root: str, *, fields=_TS_PACKAGE_ENTRY_FIELDS
+) -> set[str]:
     data = _read_json_file(os.path.join(package_root, "package.json"))
     if not data:
         return set()
 
     targets: list[str] = []
     seen_targets: set[str] = set()
-    for field in (
-        "main",
-        "module",
-        "types",
-        "typings",
-        "source",
-        "browser",
-        "bin",
-        "exports",
-    ):
+    for field in fields:
         for target in _iter_package_entry_targets(data.get(field)):
             if target in seen_targets:
                 continue
@@ -1864,6 +1776,194 @@ def _discover_ts_reachability_entry_files(
         if discovery.file in ts_files
         and (include_dev_roots or discovery.scope == "prod")
     }
+
+
+def mark_package_api_ts_exports_consumed(
+    defs,
+    consumed_exports,
+    files,
+    *,
+    project_root: str | None = None,
+    workspace_inventory=None,
+    exclude_folders=None,
+) -> set[tuple[str, str]]:
+    """Keep definitions exposed by package entry points from being demoted.
+
+    The import graph only propagates wildcard exports after another module
+    imports a concrete name.  Package entry points are consumed externally,
+    so their public API needs to be resolved before unused-export demotion.
+    Reuse the JS API-surface resolver here to retain exact ``export *``
+    semantics, including default-export exclusion and ambiguity handling.
+    """
+    if not defs or not project_root:
+        return set()
+
+    root = Path(project_root)
+    try:
+        root = root.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return set()
+    if not root.is_dir():
+        return set()
+
+    exclude_root = _resolve_exclude_root(files, project_root)
+    ts_files = {
+        os.path.realpath(str(file_path))
+        for file_path in files
+        if str(file_path).endswith(_TYPESCRIPT_SOURCE_EXTENSIONS)
+        and not _is_excluded_path(str(file_path), exclude_folders, exclude_root)
+    }
+    if not ts_files:
+        return set()
+
+    package_roots = set(_workspace_package_roots(workspace_inventory))
+    if workspace_inventory is None or not workspace_inventory.is_monorepo:
+        package_roots.update(
+            _discover_package_roots_from_files(
+                list(ts_files),
+                project_root,
+                exclude_folders=exclude_folders,
+            )
+        )
+    if project_root and workspace_inventory is not None:
+        package_roots.update(
+            _discover_referenced_package_roots(
+                list(ts_files),
+                project_root,
+                workspace_inventory,
+                exclude_folders=exclude_folders,
+            )
+        )
+
+    from skylos.core.js_api_surface_utils import (
+        MAX_JS_API_ENTRYPOINTS_PER_PACKAGE,
+        MAX_JS_API_PACKAGES,
+        MAX_JS_API_REEXPORT_DEPTH,
+    )
+
+    package_entries: set[str] = set()
+    for package_root in sorted(package_roots, key=str)[:MAX_JS_API_PACKAGES]:
+        package_data = _read_json_file(os.path.join(str(package_root), "package.json"))
+        if _has_vscode_extension_metadata(package_data):
+            continue
+        entry_files = _discover_package_entry_files(
+            str(package_root), fields=_TS_PACKAGE_API_FIELDS
+        )
+        browser_entry = package_data.get("browser")
+        if isinstance(browser_entry, str):
+            resolved_browser_entry = _resolve_path_target(
+                str(package_root), browser_entry
+            )
+            if resolved_browser_entry:
+                entry_files.add(os.path.realpath(resolved_browser_entry))
+        for entry_file in sorted(entry_files)[:MAX_JS_API_ENTRYPOINTS_PER_PACKAGE]:
+            if entry_file in ts_files:
+                package_entries.add(entry_file)
+    if not package_entries:
+        return set()
+
+    definitions_by_name = defaultdict(list)
+    definitions_by_line = defaultdict(list)
+    methods_by_class = defaultdict(list)
+    for defn in defs.values():
+        if not defn.is_exported or defn.type == "import":
+            continue
+        filename = os.path.realpath(str(defn.filename))
+        if not filename.endswith(_TYPESCRIPT_SOURCE_EXTENSIONS):
+            continue
+        if defn.type == "method":
+            class_name, separator, _method_name = defn.name.rpartition(".")
+            if separator:
+                methods_by_class[(filename, class_name)].append(defn)
+            continue
+        definitions_by_name[(filename, defn.simple_name)].append(defn)
+        definitions_by_line[(filename, defn.line)].append(defn)
+
+    from skylos.core.js_api_surface import inspect_js_file_api_surface
+
+    marked: set[tuple[str, str]] = set()
+    inspected_surfaces: set[str] = set()
+    surface_budget = MAX_JS_API_PACKAGES * MAX_JS_API_ENTRYPOINTS_PER_PACKAGE
+
+    def consume_definition(defn) -> None:
+        consumed_name = defn.name if defn.type == "method" else defn.simple_name
+        consumed_exports.setdefault(str(defn.filename), set()).add(consumed_name)
+        marked.add((str(defn.filename), consumed_name))
+
+        if defn.type != "class":
+            return
+        filename = os.path.realpath(str(defn.filename))
+        for method in methods_by_class.get((filename, defn.name), ()):
+            consume_definition(method)
+
+    def consume_surface(entry_file: str, depth: int = 0) -> None:
+        entry_file = os.path.realpath(entry_file)
+        if (
+            depth > MAX_JS_API_REEXPORT_DEPTH
+            or entry_file in inspected_surfaces
+            or len(inspected_surfaces) >= surface_budget
+        ):
+            return
+        inspected_surfaces.add(entry_file)
+
+        surface = inspect_js_file_api_surface(root, entry_file)
+        if not isinstance(surface, dict):
+            return
+        metadata = surface.get("metadata")
+        complete = isinstance(metadata, dict) and metadata.get("complete") is True
+        members = surface.get("members")
+        if not isinstance(members, dict):
+            return
+
+        for exported_name, member in members.items():
+            if not isinstance(exported_name, str) or not isinstance(member, dict):
+                continue
+            source = member.get("source")
+            if source == "star_reexport" and not complete:
+                continue
+            if source in {"commonjs_default_facade", "named_reexport"}:
+                continue
+
+            source_path = member.get("source_path")
+            if not isinstance(source_path, str) or not source_path:
+                continue
+            try:
+                resolved_source = (root / source_path).resolve(strict=False)
+                resolved_source.relative_to(root)
+            except (OSError, RuntimeError, ValueError):
+                continue
+
+            if source == "namespace_reexport":
+                target = member.get("target")
+                if not isinstance(target, str):
+                    continue
+                namespace_source = resolve_ts_module(target, str(resolved_source))
+                if namespace_source is not None:
+                    namespace_source = os.path.realpath(namespace_source)
+                    if namespace_source in ts_files:
+                        consume_surface(namespace_source, depth + 1)
+                continue
+
+            filename = os.path.realpath(str(resolved_source))
+
+            if source == "default_export":
+                line = member.get("line")
+                line_candidates = (
+                    tuple(definitions_by_line.get((filename, line), ()))
+                    if isinstance(line, int) and not isinstance(line, bool)
+                    else ()
+                )
+                candidates = line_candidates if len(line_candidates) == 1 else ()
+            else:
+                candidates = definitions_by_name.get((filename, exported_name), ())
+
+            for defn in candidates:
+                consume_definition(defn)
+
+    for entry_file in sorted(package_entries):
+        consume_surface(entry_file)
+
+    return marked
 
 
 def _has_vscode_extension_metadata(data: dict) -> bool:

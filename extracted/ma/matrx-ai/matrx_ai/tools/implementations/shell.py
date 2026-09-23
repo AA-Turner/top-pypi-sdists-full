@@ -327,6 +327,24 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     # ephemeral real-disk host. A sandbox always wins (real container) via the branch below.
     from matrx_ai.tools.vfs.workspace import has_durable_backend
 
+    # 🚨 "NO BOX ATTACHED" AND "THEIR BOX IS DOWN" ARE DIFFERENT ANSWERS, and
+    # only the host can tell them apart.
+    #
+    # Below this line there are exactly two things that can happen without a
+    # binding: the durable-VFS emulator (~50 coreutils over the person's code
+    # library) or a real shell on the AIDREAM SERVER (`backend="host"`). With
+    # no box attached either is honest — nobody attached a machine, so there is
+    # no machine to be down. With an outage stamped on this run the person HAS
+    # a machine, it is supposed to be up right now, and letting them believe a
+    # command ran on it is the silent degrade the sandbox hard-gate exists to
+    # prevent. The check sits ABOVE both branches so neither can be the one
+    # that lies.
+    if not sandbox_mode_active() and get_active_sandbox() is None:
+        from matrx_ai.tools.workspace_outage import refuse_if_workspace_is_down
+
+        if (refusal := refuse_if_workspace_is_down("shell_execute", ctx)) is not None:
+            return refusal
+
     if not sandbox_mode_active() and get_active_sandbox() is None and has_durable_backend():
         from matrx_ai.tools.implementations import vfs_shell
 
@@ -559,6 +577,20 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = ShellPythonArgs(**args)
+
+    # 🚨 THE SAME LIE, IN A DIFFERENT LANGUAGE. With no binding this tool falls
+    # through to running the script on the SERVER (`backend="host"`), against
+    # the server's filesystem and the server's environment. For a person whose
+    # machine is supposed to be up, presenting that as "I ran your script" is
+    # worse than the shell case, not better: a script reads and writes files.
+    # The check sits above the sandbox branch's `if` rather than inside a
+    # fallback because there is no durable-VFS middle ground here — it is the
+    # container or the server.
+    if get_active_sandbox() is None:
+        from matrx_ai.tools.workspace_outage import refuse_if_workspace_is_down
+
+        if (refusal := refuse_if_workspace_is_down("shell_python", ctx)) is not None:
+            return refusal
 
     # Sandbox-bound: run the script via /exec inside the container so
     # imports / fs access / environment match what the user's actual code

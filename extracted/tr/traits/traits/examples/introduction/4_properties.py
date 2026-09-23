@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -90,6 +90,9 @@ the property depend on changes::
                 density=True,
             )
             return hist
+
+(Note that this is the `cached_property` importable from `traits.api`, and is
+distinct from the standard library's `functools.cached_property`.)
 
 This has the trade-off that the result of the computation is being stored
 in memory, but in this case the memory is only a few hundred bytes, and so

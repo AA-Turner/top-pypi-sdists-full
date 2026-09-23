@@ -329,6 +329,8 @@ class ResponseCreate(TypedDict, total=False):
     model: Union[
         Literal[
             "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6-luna",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
@@ -433,6 +435,7 @@ class ResponseCreate(TypedDict, total=False):
             "gpt-daybreak-blue-latest",
             "gpt-daybreak-red-latest",
             "gpt-5.6-cyber",
+            "gpt-rosalind-research",
         ],
         str,
     ]

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Generic, TypeVar, final
+from typing import Generic, TypeVar, final
 
 from pydantic import model_validator
 
@@ -18,10 +18,11 @@ class ValidatorType(str, Enum):
     ENUM = "enum"
 
 
-T = TypeVar("T")
+InputT = TypeVar("InputT")
+OutputT = TypeVar("OutputT")
 
 
-class FieldBuilder(MistralBase, Generic[T]):
+class FieldBuilder(MistralBase, Generic[InputT, OutputT]):
     r"""Base class for field builders.
 
     This class serves as the base for all field builders in the validation framework.
@@ -30,45 +31,68 @@ class FieldBuilder(MistralBase, Generic[T]):
 
     Attributes:
         type: The type of validator (e.g., ENUM).
-        accepts_none: Whether the field accepts None as a valid value in the request.
-        default: The default value to use when the field is None, if accepts_none is True.
+        accepts_none: Whether the field accepts `None` as a valid value in the request.
+        default: The default value to use when the field is `None`, if `accepts_none` is `True`.
     """
 
     type: ValidatorType
     accepts_none: bool
-    default: T | None
+    default: OutputT | None
 
     @model_validator(mode="after")
     def validate_default_accept_none(self) -> "FieldBuilder":
-        r"""Ensure a default value is only set when accepts_none is True."""
+        r"""Ensure a default value is only set when `accepts_none` is `True`."""
         if not self.accepts_none and self.default is not None:
             raise ValueError(
                 f"Default values can only be defined for accepts_none fields {self.accepts_none=} {self.default=}"
             )
         return self
 
-    def _validate_built_value(self, field_name: str, value: Any) -> None:
-        r"""Validate a non-None built value. Must be implemented by subclasses."""
-        raise NotImplementedError(f"{field_name} is not supported")
+    def _validate_built_value(self, field_name: str, value: OutputT) -> None:
+        r"""Validate a non-`None` built value. Must be implemented by subclasses.
 
-    def _build_from_optional(self, field_name: str, value: T | None) -> T | None:
-        r"""Resolve an optional value, substituting the default if value is None.
+        Args:
+            field_name: Name of the field being validated, used in errors.
+            value: The built value to validate.
 
         Raises:
-            InvalidRequestException: If value is None and the field does not accept None.
+            NotImplementedError: Always, as this is an abstract method.
+        """
+        raise NotImplementedError(f"{field_name} is not supported")
+
+    def _convert(self, input_value: InputT) -> OutputT:
+        r"""Convert an input value into its built value.
+
+        Returns:
+            The converted value.
+
+        Raises:
+            NotImplementedError: Always, as this is an abstract method.
+        """
+        raise NotImplementedError
+
+    def _build_from_optional(self, field_name: str, value: InputT | None) -> OutputT | None:
+        r"""Resolve an optional value, substituting the default if value is `None`.
+
+        Returns:
+            The converted value, or the field's default when the value is `None`
+            and the field accepts `None`.
+
+        Raises:
+            InvalidRequestException: If value is `None` and the field does not accept `None`.
         """
         if value is None:
             if not self.accepts_none:
                 raise InvalidRequestException(f"{field_name} should be set for this model.")
             return self.default
-        return value
+        return self._convert(input_value=value)
 
     @final
-    def validate_built_value(self, field_name: str, value: Any) -> None:
-        r"""Validate a fully built value, including None checks.
+    def validate_built_value(self, field_name: str, value: OutputT | None) -> None:
+        r"""Validate a fully built value, including `None` checks.
 
         Raises:
-            InvalidRequestException: If value is None when not permitted, or fails subclass validation.
+            InvalidRequestException: If value is `None` when not permitted, or fails subclass validation.
         """
         if value is None:
             if not (self.accepts_none and self.default is None):
@@ -77,26 +101,30 @@ class FieldBuilder(MistralBase, Generic[T]):
             self._validate_built_value(field_name, value)
 
     @final
-    def build_value(self, field_name: str, value: T | None) -> T | None:
+    def build_value(self, field_name: str, value: InputT | None) -> OutputT | None:
         r"""Resolve and validate a field value, returning the final built result.
+
+        Returns:
+            The resolved, validated value, or None when the field accepts None and
+            the input was None.
 
         Raises:
             InvalidRequestException: If the value is invalid or missing when required.
         """
-        value = self._build_from_optional(field_name, value)
-        self.validate_built_value(field_name, value)
-        return value
+        built_value = self._build_from_optional(field_name, value)
+        self.validate_built_value(field_name, built_value)
+        return built_value
 
 
 E = TypeVar("E", bound=Enum)
 
 
-class EnumBuilder(FieldBuilder[E]):
+class EnumBuilder(FieldBuilder[E, E]):
     r"""Builder for enum fields.
 
     This class validates that enum fields contain only authorized values.
     It rejects duplicate values during initialization and ensures the
-    allowed values list is non-empty when None is not accepted.
+    allowed values list is non-empty when `None` is not accepted.
 
     Attributes:
         type: The type of validator (always ENUM for this class).
@@ -105,6 +133,9 @@ class EnumBuilder(FieldBuilder[E]):
 
     type: ValidatorType = ValidatorType.ENUM
     values: list[E]
+
+    def _convert(self, input_value: E) -> E:
+        return input_value
 
     @model_validator(mode="after")
     def validate_unique_values(self) -> "EnumBuilder":
@@ -115,7 +146,7 @@ class EnumBuilder(FieldBuilder[E]):
 
     @model_validator(mode="after")
     def validate_empty_list(self) -> "EnumBuilder":
-        r"""Ensure the allowed values list is non-empty when None is not accepted."""
+        r"""Ensure the allowed values list is non-empty when `None` is not accepted."""
         if len(self.values) == 0 and not self.accepts_none:
             raise ValueError(f"Empty list of values for {self.values=} while not accepts_none.")
         return self
@@ -127,7 +158,7 @@ class EnumBuilder(FieldBuilder[E]):
             raise ValueError(f"Default value {self.default=} is not in {self.values=}.")
         return self
 
-    def _validate_built_value(self, field_name: str, value: Any) -> None:
+    def _validate_built_value(self, field_name: str, value: E) -> None:
         r"""Check that value is one of the allowed enum values.
 
         Raises:
@@ -150,14 +181,21 @@ class ModelSettingsBuilder(MistralBase):
     - Clear error messages are provided for field mismatches.
 
     Attributes:
-        reasoning_effort: Builder for the allowed ReasoningEffort values, or None if unsupported.
+        reasoning_effort: Builder for the allowed ReasoningEffort values, or `None` if unsupported.
     """
 
     reasoning_effort: EnumBuilder[ReasoningEffort] | None = None
 
     @staticmethod
     def none() -> "ModelSettingsBuilder":
-        r"""Return a ModelSettingsBuilder with no field builders configured."""
+        r"""Return a ModelSettingsBuilder with no field builders configured.
+
+        Any model settings field set on a request will be rejected by a builder
+        returned from this method.
+
+        Returns:
+            A builder with all field builders set to `None`.
+        """
         return ModelSettingsBuilder()
 
     def build_settings(self, request: ChatCompletionRequest) -> ModelSettings:

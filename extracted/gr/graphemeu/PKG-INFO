@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: graphemeu
-Version: 0.10.0
+Version: 0.11.0
 Summary: Unicode grapheme helpers
 Project-URL: Homepage, https://github.com/timendum/grapheme
 Project-URL: Documentation, https://graphemeu.readthedocs.io/
 Author-email: Alvin Lindstam <alvin.lindstam@gmail.com>
 Maintainer: Timendum
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Keywords: grapheme,unicode
 Classifier: Development Status :: 4 - Beta
@@ -16,6 +16,7 @@ Requires-Python: >=3.10
 Provides-Extra: dev
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autobuild; extra == 'docs'
@@ -36,7 +37,7 @@ groups (graphemes) as defined by the `Unicode Standard Annex #29 <http://unicode
 
 Or similar.
 
-The currently supported version of Unicode: 17.0.0.
+The currently supported version of Unicode: 18.0.0.
 
 This package is a fork of `grapheme <https://github.com/alvinlindstam/grapheme>`_ by Alvin Lindstam.
 

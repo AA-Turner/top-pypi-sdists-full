@@ -47,6 +47,47 @@ class DecisionQuestionsContent:
             result["metadata"] = {**self.metadata}
         return result
 
+    def replace_variables(self, variables: dict[str, Any]) -> bool:
+        """Substitute ``{{variable_name}}`` in every author-written string.
+
+        Every string an author writes into a question is a slot (typed-messages
+        FEATURE.md: "Any string field is a slot"): the ``instructions``, every
+        ``criteria`` meaning (a noul/choice mapping's values, a score's level
+        labels). Identifiers are NOT slots — ``name`` is the output field, a
+        choice's option keys are the answer vocabulary, ``type`` is the
+        contract — so a variable can never rename what comes back.
+
+        Values pass through ``prompt_safe_value``, the same door text parts
+        use, so a question reads exactly what the text beside it reads.
+        Never drops the part: returns False always.
+        """
+        if not variables:
+            return False
+        from matrx_ai.config.prompt_values import prompt_safe_value
+
+        rendered = {name: prompt_safe_value(value) for name, value in variables.items()}
+
+        def fill(text: str) -> str:
+            for name, value in rendered.items():
+                text = text.replace(f"{{{{{name}}}}}", value)
+            return text
+
+        filled: list[dict[str, Any]] = []
+        for question in self.questions:
+            q = dict(question)
+            if isinstance(q.get("instructions"), str):
+                q["instructions"] = fill(q["instructions"])
+            criteria = q.get("criteria")
+            if isinstance(criteria, dict):
+                q["criteria"] = {k: fill(v) if isinstance(v, str) else v for k, v in criteria.items()}
+            elif isinstance(criteria, list):
+                q["criteria"] = [fill(v) if isinstance(v, str) else v for v in criteria]
+            elif isinstance(criteria, str):
+                q["criteria"] = fill(criteria)
+            filled.append(q)
+        self.questions = filled
+        return False
+
     def get_output(self) -> str:
         """Nothing. A question is what was ASKED, never what came back.
 

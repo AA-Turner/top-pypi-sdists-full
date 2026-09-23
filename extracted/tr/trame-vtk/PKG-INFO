@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: trame-vtk
-Version: 2.11.16
+Version: 2.11.17
 Summary: VTK widgets for trame
 Author: Kitware Inc.
 License: BSD License
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
-Requires-Dist: trame-client<4,>=3.4
+Requires-Dist: trame-client<5,>=3.4
 Provides-Extra: dev
 Requires-Dist: coverage; extra == 'dev'
 Requires-Dist: nox; extra == 'dev'
@@ -31,7 +31,7 @@ Requires-Dist: trame-vuetify; extra == 'dev'
 Requires-Dist: vtk; extra == 'dev'
 Description-Content-Type: text/x-rst
 
-.. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-vtk
+.. |pypi_download| image:: https://kitware.github.io/trame/downloads/trame-vtk.svg
 
 VTK/ParaView widgets for trame |pypi_download|
 ===========================================================

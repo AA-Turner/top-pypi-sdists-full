@@ -443,6 +443,85 @@ class TestExecutor(unittest.TestCase):
             with self.subTest(sql):
                 self.assertEqual(execute(sql, schema, tables=tables).rows, expected)
 
+    def test_distinct_order_by(self):
+        schema = {"x": {"a": "int", "b": "int"}, "n": {"a": "int"}}
+        tables = {
+            "x": [{"a": 1, "b": 5}, {"a": 3, "b": 6}, {"a": 2, "b": 7}, {"a": 3, "b": 6}],
+            "n": [{"a": 1}, {"a": None}, {"a": 3}, {"a": None}],
+        }
+
+        for sql, expected in (
+            ("SELECT DISTINCT a FROM x ORDER BY a", [(1,), (2,), (3,)]),
+            ("SELECT DISTINCT a FROM x ORDER BY a DESC", [(3,), (2,), (1,)]),
+            ("SELECT DISTINCT a FROM x ORDER BY a DESC LIMIT 1", [(3,)]),
+            ("SELECT DISTINCT a FROM x ORDER BY a DESC LIMIT 1 OFFSET 1", [(2,)]),
+            ("SELECT DISTINCT a, b FROM x ORDER BY b DESC", [(2, 7), (3, 6), (1, 5)]),
+            ("SELECT DISTINCT a + 1 AS c FROM x ORDER BY c DESC", [(4,), (3,), (2,)]),
+            (
+                "SELECT DISTINCT a, SUM(b) AS s FROM x GROUP BY a ORDER BY a DESC",
+                [(3, 12), (2, 7), (1, 5)],
+            ),
+            ("SELECT DISTINCT a FROM n ORDER BY a NULLS FIRST", [(None,), (1,), (3,)]),
+            ("SELECT DISTINCT a FROM n ORDER BY a DESC NULLS LAST", [(3,), (1,), (None,)]),
+        ):
+            with self.subTest(sql):
+                self.assertEqual(execute(sql, schema, tables=tables).rows, expected)
+
+    def test_distinct_order_by_column_outside_select_list(self):
+        # duckdb/sqlite pick an arbitrary row's value here instead of rejecting like postgres
+        schema = {"x": {"a": "int", "b": "int"}}
+        tables = {"x": [{"a": 5, "b": 10}, {"a": 1, "b": 10}, {"a": 3, "b": 20}]}
+
+        for sql, expected in (
+            ("SELECT DISTINCT b FROM x ORDER BY a", [(20,), (10,)]),
+            ("SELECT DISTINCT b FROM x ORDER BY a DESC", [(10,), (20,)]),
+        ):
+            with self.subTest(sql):
+                self.assertEqual(execute(sql, schema, tables=tables).rows, expected)
+
+    def test_distinct_order_by_computed_expression(self):
+        tables = {"x": [{"a": 1}, {"a": 3}, {"a": 2}, {"a": 3}]}
+        sql = "SELECT DISTINCT a FROM x ORDER BY a + 1 DESC"
+        self.assertEqual(execute(sql, tables=tables).rows, [(3,), (2,), (1,)])
+
+    def test_distinct_group_by_order_by_aggregate(self):
+        tables = {
+            "x": [
+                {"a": 1, "b": 10},
+                {"a": 2, "b": 20},
+                {"a": 3, "b": 28},
+                {"a": 2, "b": 25},
+                {"a": 1, "b": 40},
+            ]
+        }
+        sql = "SELECT DISTINCT a FROM x GROUP BY a ORDER BY AVG(b)"
+        self.assertEqual(execute(sql, tables=tables).rows, [(2,), (1,), (3,)])
+
+    def test_distinct_order_by_column_from_different_table(self):
+        schema = {"x": {"a": "int", "id": "int"}, "y": {"a": "int", "id": "int"}}
+        tables = {
+            "x": [{"a": 1, "id": 1}, {"a": 2, "id": 2}],
+            "y": [{"a": 100, "id": 1}, {"a": 50, "id": 2}],
+        }
+        sql = "SELECT DISTINCT x.a FROM x JOIN y ON x.id = y.id ORDER BY y.a"
+        self.assertEqual(execute(sql, schema, tables=tables).rows, [(2,), (1,)])
+
+    def test_distinct_order_by_aliased_projection(self):
+        tables = {"x": [{"a": 1}, {"a": 3}, {"a": 2}, {"a": 3}]}
+
+        for sql, expected in (
+            ("SELECT DISTINCT a AS z FROM x ORDER BY a DESC", [(3,), (2,), (1,)]),
+            ("SELECT DISTINCT a AS z FROM x ORDER BY x.a DESC", [(3,), (2,), (1,)]),
+            ("SELECT DISTINCT a + 1 AS z FROM x ORDER BY a + 1 DESC", [(4,), (3,), (2,)]),
+        ):
+            with self.subTest(sql):
+                self.assertEqual(execute(sql, tables=tables).rows, expected)
+
+    def test_distinct_order_by_unaliased_projection(self):
+        tables = {"x": [{"c": "a"}, {"c": "c"}, {"c": "b"}, {"c": "c"}]}
+        sql = "SELECT DISTINCT UPPER(c) FROM x ORDER BY UPPER(c) DESC"
+        self.assertEqual(execute(sql, tables=tables).rows, [("C",), ("B",), ("A",)])
+
     def test_offset_order_by(self):
         schema = {"x": {"a": "int"}, "y": {"b": "int"}}
         tables = {"x": [{"a": a} for a in (3, 1, 5, 2, 4)], "y": [{"b": 7}, {"b": 6}]}
@@ -862,6 +941,110 @@ class TestExecutor(unittest.TestCase):
             ],
         )
 
+    def test_correlated_exists_over_scalar_aggregate(self):
+        tables = {"x": [{"a": 1}, {"a": 2}, {"a": None}], "y": [{"b": 2}, {"b": 3}]}
+        schema = {"x": {"a": "int"}, "y": {"b": "int"}}
+        all_rows = [1, 2, None]
+
+        for sql, expected in (
+            ("SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) FROM y WHERE b = x.a)", all_rows),
+            ("SELECT a FROM x WHERE NOT EXISTS (SELECT COUNT(*) FROM y WHERE b = x.a)", []),
+            ("SELECT a FROM x WHERE EXISTS (SELECT SUM(b) FROM y WHERE b = x.a)", all_rows),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT MAX(b) FROM y WHERE b = x.a AND 1 = 2)",
+                all_rows,
+            ),
+            ("SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) FROM y WHERE b > x.a)", all_rows),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT DISTINCT COUNT(*) FROM y WHERE b = x.a)",
+                all_rows,
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT (SELECT COUNT(*) FROM y) FROM y WHERE b = x.a)",
+                [2],
+            ),
+            ("SELECT a FROM x WHERE EXISTS (SELECT 1, COUNT(*) FROM y WHERE b = x.a)", all_rows),
+            ("SELECT a FROM x WHERE EXISTS (SELECT 1, 2 FROM y WHERE b = x.a)", [2]),
+            ("SELECT a FROM x WHERE NOT EXISTS (SELECT 1, 2 FROM y WHERE b = x.a)", [1, None]),
+            ("SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) OVER () FROM y WHERE b = x.a)", [2]),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT RANK() OVER (ORDER BY SUM(b)) FROM y WHERE b = x.a)",
+                all_rows,
+            ),
+            ("SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) FROM y WHERE b = x.a GROUP BY b)", [2]),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT RANK() OVER (ORDER BY (SUM(b))) FROM y WHERE b = x.a)",
+                all_rows,
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT LAG(SUM(b)) OVER (ORDER BY 1) FROM y WHERE b = x.a)",
+                all_rows,
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT SUM(b) FILTER (WHERE b > 1) OVER () FROM y WHERE b = x.a)",
+                [2],
+            ),
+            # a HAVING is declined, so the executor evaluates the subquery per outer row
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) FROM y WHERE b = x.a HAVING COUNT(*) = 0)",
+                [1, None],
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) FROM y WHERE b = x.a HAVING COUNT(*) > 0)",
+                [2],
+            ),
+        ):
+            with self.subTest(sql):
+                self.assertEqual(
+                    sorted(
+                        (row[0] for row in execute(sql, tables=tables, schema=schema).rows), key=str
+                    ),
+                    sorted(expected, key=str),
+                )
+
+    def test_correlated_exists_over_a_nested_scalar_aggregate(self):
+        # the aggregate belongs to a nested query, so the EXISTS is still conditional
+        tables = {
+            "x": [{"a": 1}, {"a": 2}, {"a": None}],
+            "y": [{"a": 2, "b": 20}, {"a": 3, "b": 30}],
+            "z": [{"a": 1}],
+        }
+        schema = {"x": {"a": "int"}, "y": {"a": "int", "b": "int"}, "z": {"a": "int"}}
+
+        for sql, expected in (
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT * FROM (SELECT COUNT(*) AS c FROM y WHERE y.a = x.a) AS t WHERE t.c > 5)",
+                [],
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (WITH t AS (SELECT COUNT(*) AS c FROM y WHERE y.a = x.a) SELECT t.c AS c FROM t WHERE t.c > 5)",
+                [],
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT COUNT(*) AS c FROM y WHERE y.a = x.a INTERSECT SELECT z.a AS a FROM z)",
+                [2],
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS (SELECT y.a AS a FROM y WHERE y.a = x.a INTERSECT SELECT z.a AS a FROM z)",
+                [],
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS ((SELECT COUNT(*) AS c FROM y WHERE y.a = x.a) INTERSECT (SELECT z.a AS a FROM z))",
+                [2],
+            ),
+            (
+                "SELECT a FROM x WHERE EXISTS ((SELECT y.a AS a FROM y WHERE y.a = x.a) EXCEPT (SELECT z.a AS a FROM z))",
+                [2],
+            ),
+        ):
+            with self.subTest(sql):
+                self.assertEqual(
+                    sorted(
+                        (row[0] for row in execute(sql, tables=tables, schema=schema).rows), key=str
+                    ),
+                    sorted(expected, key=str),
+                )
+
     def test_table_depth_mismatch(self):
         tables = {"table": []}
         schema = {"db": {"table": {"col": "VARCHAR"}}}
@@ -1101,6 +1284,16 @@ class TestExecutor(unittest.TestCase):
         result = execute("SELECT SUM(x) FROM t", tables={"t": [{"x": 1}, {"x": 2}]})
         self.assertEqual(result.columns, ("_col_0",))
         self.assertEqual(result.rows, [(3,)])
+
+    def test_first(self):
+        tables = {"t": [{"g": 1, "a": 5}, {"g": 1, "a": 1}, {"g": 2, "a": 3}]}
+
+        for sql, rows in (
+            ("SELECT FIRST(a) FROM t", [(5,)]),
+            ("SELECT g, FIRST(a) FROM t GROUP BY g", [(1, 5), (2, 3)]),
+        ):
+            with self.subTest(sql):
+                self.assertEqual(execute(sql, tables=tables, dialect="hive").rows, rows)
 
     def test_in_any_subquery_without_a_from(self):
         tables = {"x": [{"a": 1}, {"a": 2}, {"a": None}]}
@@ -1505,3 +1698,33 @@ class TestExecutor(unittest.TestCase):
             {"id": 2, "product": "Shoes", "price": 60.0},
         ]
         self.assertEqual(table.to_pylist(), expected)
+
+    def test_count_distinct(self):
+        rows = [{"a": "x", "v": 1}, {"a": "x", "v": 1}, {"a": "x", "v": 2}, {"a": "y", "v": None}]
+        schema = {"t": {"a": "VARCHAR", "v": "INT"}}
+
+        for sql, expected in (
+            ("SELECT COUNT(DISTINCT v) AS c FROM t", [(2,)]),
+            ("SELECT COUNT(v) AS c FROM t", [(3,)]),
+            ("SELECT COUNT(*) AS c FROM t", [(4,)]),
+            ("SELECT SUM(DISTINCT v) AS c FROM t", [(3,)]),
+            ("SELECT a, COUNT(DISTINCT v) AS c FROM t GROUP BY a", [("x", 2), ("y", 0)]),
+        ):
+            with self.subTest(sql):
+                result = execute(sql, schema=schema, tables={"t": rows})
+                self.assertEqual(sorted(result.rows), sorted(expected))
+
+    def test_count_distinct_multiple_columns(self):
+        rows = [
+            {"a": "x", "b": 1},
+            {"a": "x", "b": 1},
+            {"a": "x", "b": 2},
+            {"a": None, "b": 1},
+            {"a": "y", "b": None},
+        ]
+        schema = {"t": {"a": "VARCHAR", "b": "INT"}}
+
+        result = execute(
+            "SELECT COUNT(DISTINCT a, b) AS c FROM t", schema=schema, tables={"t": rows}
+        )
+        self.assertEqual(result.rows, [(2,)])

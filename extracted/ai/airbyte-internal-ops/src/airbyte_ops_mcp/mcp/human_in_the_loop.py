@@ -30,6 +30,8 @@ from airbyte_ops_mcp.github_actions import (
 )
 from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
 from airbyte_ops_mcp.human_in_the_loop import (
+    HITL_REPO_NAME,
+    HITL_REPO_OWNER,
     HITL_SLACK_CHANNEL_URL,
     dispatch_escalation,
 )
@@ -231,6 +233,17 @@ _REQUEST_TYPE_HEADERS: dict[RequestType, tuple[str, str]] = {
 }
 
 
+def _format_failure_details(run_status: WorkflowRunStatus) -> str:
+    """Build a human-readable summary of failed jobs from a workflow run."""
+    if not run_status.jobs:
+        return ""
+    failed_jobs = [j for j in run_status.jobs if j.conclusion == "failure"]
+    if not failed_jobs:
+        return ""
+    job_summaries = [f"  - {j.name} (job_id={j.job_id})" for j in failed_jobs]
+    return " Failed jobs:\n" + "\n".join(job_summaries)
+
+
 class EscalateToHumanResponse(BaseModel):
     """Response from the human-in-the-loop escalation tool."""
 
@@ -274,7 +287,10 @@ def escalate_to_human(
         "The message body to deliver to the human. Format using Slack mrkdwn: "
         "*bold*, _italic_, `code`, ```code blocks```, > blockquotes, "
         "- bullet lists, and <url|label> links. Should clearly explain "
-        "what you need help with or what decision is required.",
+        "what you need help with or what decision is required. "
+        "MUST be at most 3000 characters; over-limit inputs are rejected "
+        "at call time. For longer content, move detail behind "
+        "approval_request_detail_url or split into multiple escalations.",
     ],
     agent_session_url: Annotated[
         str,
@@ -381,6 +397,59 @@ def escalate_to_human(
     )
 
     view_url = result.run_url or result.workflow_url
+
+    if result.run_id is None:
+        return EscalateToHumanResponse(
+            success=True,
+            message=(
+                f"Escalation sent to '{target_person}' via #human-in-the-loop "
+                f"({HITL_SLACK_CHANNEL_URL}). "
+                f"View progress at: {view_url}"
+            ),
+            workflow_url=result.workflow_url,
+            run_id=result.run_id,
+            run_url=result.run_url,
+        )
+
+    run_status = wait_for_workflow_completion(
+        owner=HITL_REPO_OWNER,
+        repo=HITL_REPO_NAME,
+        run_id=result.run_id,
+        token=resolve_ci_trigger_github_token(),
+        poll_interval_seconds=5.0,
+        max_wait_seconds=120.0,
+    )
+
+    if run_status.failed:
+        return EscalateToHumanResponse(
+            success=False,
+            message=(
+                f"Escalation workflow FAILED (conclusion={run_status.conclusion}) "
+                f"— the Slack message was NOT posted. "
+                f"Run: {run_status.run_url or view_url}"
+                f"{_format_failure_details(run_status)}"
+            ),
+            workflow_url=result.workflow_url,
+            run_id=result.run_id,
+            run_url=run_status.run_url or result.run_url,
+        )
+
+    if not run_status.succeeded:
+        return EscalateToHumanResponse(
+            success=True,
+            message=(
+                f"Escalation run dispatched to '{target_person}' via "
+                f"#human-in-the-loop ({HITL_SLACK_CHANNEL_URL}) and is still "
+                f"in progress (status={run_status.status}, "
+                f"conclusion={run_status.conclusion}). "
+                f"Run: {run_status.run_url or view_url}. "
+                "Confirm delivery with `check_ci_workflow_status`."
+            ),
+            workflow_url=result.workflow_url,
+            run_id=result.run_id,
+            run_url=run_status.run_url or result.run_url,
+        )
+
     return EscalateToHumanResponse(
         success=True,
         message=(
@@ -459,17 +528,6 @@ class PostToSlackChannelResponse(BaseModel):
         default=None,
         description="Direct URL to the GitHub Actions workflow run",
     )
-
-
-def _format_failure_details(run_status: WorkflowRunStatus) -> str:
-    """Build a human-readable summary of failed jobs from a workflow run."""
-    if not run_status.jobs:
-        return ""
-    failed_jobs = [j for j in run_status.jobs if j.conclusion == "failure"]
-    if not failed_jobs:
-        return ""
-    job_summaries = [f"  - {j.name} (job_id={j.job_id})" for j in failed_jobs]
-    return " Failed jobs:\n" + "\n".join(job_summaries)
 
 
 @mcp_tool(

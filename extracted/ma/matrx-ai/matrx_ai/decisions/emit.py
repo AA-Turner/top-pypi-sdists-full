@@ -24,12 +24,13 @@ The part still rides the response and still persists.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from matrx_ai.decisions.kinds import DecisionAnswers
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["decision_answers_event", "emit_decision_answers"]
+__all__ = ["VerbalizedDecisionTextGate", "decision_answers_event", "emit_decision_answers"]
 
 
 def decision_answers_event(answers: DecisionAnswers):
@@ -67,3 +68,53 @@ async def emit_decision_answers(answers: DecisionAnswers) -> None:
             answers.method,
             exc_info=True,
         )
+
+
+_REASONING_OPEN = "<reasoning>"
+_REASONING_CLOSE = "</reasoning>"
+
+
+class VerbalizedDecisionTextGate:
+    """Emitter wrapper for a text model answering decision questions.
+
+    A verbalized decision's answer TEXT is the raw structured reply the
+    finalizer turns into the ``decision_answers`` part; it is never content.
+    Streamed as chunks, it rendered live as a JSON block ABOVE the answers
+    card, and vanished on reload because the stored message holds only the
+    part (2026-09-22, "Feedback triage (Sonnet)" in chat). The surface must
+    show live exactly what it shows after reload, so for the duration of the
+    dispatch this gate drops answer text and forwards everything else:
+    reasoning spans (markers intact, so the thinking panel still streams),
+    data events, phases, errors, end. Every provider reads
+    ``get_app_context().emitter`` at call time, which is why installing it on
+    the context is enough.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+        self._in_reasoning = False
+        self.dropped_chars = 0
+
+    async def send_chunk(self, text: str) -> None:
+        remaining = text
+        while remaining:
+            if self._in_reasoning:
+                close = remaining.find(_REASONING_CLOSE)
+                if close == -1:
+                    await self._inner.send_chunk(remaining)
+                    return
+                end = close + len(_REASONING_CLOSE)
+                await self._inner.send_chunk(remaining[:end])
+                remaining = remaining[end:]
+                self._in_reasoning = False
+            else:
+                opened = remaining.find(_REASONING_OPEN)
+                if opened == -1:
+                    self.dropped_chars += len(remaining)
+                    return
+                self.dropped_chars += len(remaining[:opened])
+                remaining = remaining[opened:]
+                self._in_reasoning = True
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)

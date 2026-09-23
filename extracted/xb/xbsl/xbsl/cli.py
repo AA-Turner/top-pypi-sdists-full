@@ -327,7 +327,7 @@ _META_COMMANDS = (
     "set-field-property",
     "rename-object", "delete-object", "move-object", "rename-package",
     "move-resource", "rename-resource-folder", "delete-resource-folder", "set-access",
-    "object-info", "project-info", "resource-references",
+    "object-info", "project-info", "resource-references", "unused-resources",
     "localization-info", "form-tree", "form-edit", "form-handlers",
 )
 
@@ -736,6 +736,13 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
     p.add_argument("resource_path", help=i18n.t("cli.help.scaf.mr-path"))
 
+    p = command("unused-resources")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("--include-protected", action="store_true",
+                   help=i18n.t("cli.help.scaf.unused-resources-protected"))
+    p.add_argument("--limit", type=int, default=100,
+                   help=i18n.t("cli.help.scaf.unused-resources-limit"))
+
     p = command("project-info")
     p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
     p.add_argument("--kind", help=i18n.t("cli.help.scaf.project-info-kind"))
@@ -806,7 +813,7 @@ def _scaffold_parser() -> argparse.ArgumentParser:
         # set-localization carries its own --dry-run above: a summary by key, not whole
         # files - the blanket help text below would misdescribe it.
         if name.endswith("-info") or name in (
-            "form-tree", "resource-references", "set-localization",
+            "form-tree", "resource-references", "unused-resources", "set-localization",
         ):
             continue
         sp.add_argument("--dry-run", action="store_true", help=i18n.t("cli.help.scaf.dry-run"))
@@ -1251,6 +1258,18 @@ def _scaffold_main(argv: list[str]) -> int:
                 ensure_ascii=False,
             ))
             return 0
+        elif args.command == "unused-resources":
+            from xbsl import resource_usage
+
+            print(json.dumps(
+                resource_usage.compact(
+                    resource_usage.analyze(Path(args.root)),
+                    include_protected=args.include_protected,
+                    limit=args.limit,
+                ),
+                ensure_ascii=False,
+            ))
+            return 0
         else:  # project-info
             print(json.dumps(
                 scaffold.project_info(Path(args.root), kind=args.kind,
@@ -1561,7 +1580,7 @@ def _check_main(argv: list[str]) -> int:
             files = requested  # the counters below speak of what was asked for
 
     if args.write_baseline:
-        # Freeze mode: the findings become the baseline instead of a report. Deliberate debt –
+        # Freeze mode: the findings become the baseline instead of a report. Deliberate debt -
         # the run itself succeeds regardless of severities.
         target = Path(args.write_baseline)
         data = baseline.write(target, diagnostics)
@@ -1666,7 +1685,7 @@ def _check_main(argv: list[str]) -> int:
         _emit_report(json.dumps(payload, ensure_ascii=False), args.out)
     elif args.format == "codeclimate":
         # GitLab Code Quality report: the issue array on stdout, nothing on stderr.
-        # Paths are made relative to the current directory – run from the repository root.
+        # Paths are made relative to the current directory - run from the repository root.
         _emit_report(json.dumps(report.codeclimate(diagnostics), ensure_ascii=False), args.out)
     else:
         if args.out:

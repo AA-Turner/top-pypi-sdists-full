@@ -1,17 +1,14 @@
 """Checks related to unit test coverage and formats."""
 
-import logging
 from typing import Annotated
 
 from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
-from dbt_bouncer.utils import get_package_version_number, object_in_path
-
-_DBT_VERSION_1_8_0 = "1.8.0"
+from dbt_bouncer.utils import object_in_path
 
 
-@check
+@check(code="UT001")
 def check_unit_test_coverage(
     ctx,
     *,
@@ -24,12 +21,8 @@ def check_unit_test_coverage(
 
         Unit tests validate that a model's SQL logic produces the correct output for a given set of inputs, independently of live data. Tracking coverage across the project ensures that critical business logic is not left untested, which reduces the risk of silent regressions when models are refactored or when source data shapes change unexpectedly.
 
-    !!! warning
-
-        This check is only supported for dbt **1.8.0** and above.
-
     Parameters:
-        min_unit_test_coverage_pct (float): The minimum percentage of models that must have a unit test.
+        min_unit_test_coverage_pct (int): The minimum percentage of models that must have a unit test.
 
     Receives:
         models (list[ModelNode]): List of ModelNode objects parsed from `manifest.json`.
@@ -48,53 +41,42 @@ def check_unit_test_coverage(
         ```
 
     """
-    manifest_obj = ctx.manifest_obj
-    if get_package_version_number(
-        manifest_obj.manifest.metadata.dbt_version or "0.0.0"
-    ) >= get_package_version_number(_DBT_VERSION_1_8_0):
-        relevant_models = [
-            m.unique_id
-            for m in ctx.models
-            if object_in_path(include, m.original_file_path)
-        ]
-        models_with_unit_test = []
-        for unit_test in ctx.unit_tests:
-            if unit_test.depends_on and unit_test.depends_on.nodes:
-                for node in unit_test.depends_on.nodes:
-                    if node in relevant_models:
-                        models_with_unit_test.append(node)
+    relevant_models = [
+        m.unique_id for m in ctx.models if object_in_path(include, m.original_file_path)
+    ]
+    if not relevant_models:
+        # No matching models means nothing is left untested, so coverage is
+        # vacuously complete. Returning early also avoids dividing by zero.
+        return
 
-        num_models_with_unit_tests = len(set(models_with_unit_test))
-        unit_test_coverage_pct = (
-            num_models_with_unit_tests / len(relevant_models)
-        ) * 100
+    models_with_unit_test = []
+    for unit_test in ctx.unit_tests:
+        if unit_test.depends_on and unit_test.depends_on.nodes:
+            for node in unit_test.depends_on.nodes:
+                if node in relevant_models:
+                    models_with_unit_test.append(node)
 
-        if unit_test_coverage_pct < min_unit_test_coverage_pct:
-            fail(
-                f"Only {unit_test_coverage_pct}% of models have a unit test, this is less than the permitted minimum of {min_unit_test_coverage_pct}%."
-            )
-    else:
-        logging.warning(
-            "The `check_unit_test_expect_format` check is only supported for dbt 1.8.0 and above."
+    num_models_with_unit_tests = len(set(models_with_unit_test))
+    unit_test_coverage_pct = (num_models_with_unit_tests / len(relevant_models)) * 100
+
+    if unit_test_coverage_pct < min_unit_test_coverage_pct:
+        fail(
+            f"Only {unit_test_coverage_pct}% of models have a unit test, this is less than the permitted minimum of {min_unit_test_coverage_pct}%."
         )
 
 
-@check
+@check(code="UT002")
 def check_unit_test_expect_format(
     unit_test,
     ctx,
     *,
-    permitted_formats: list[str] = ["csv", "dict", "sql"],  # noqa: B006
+    permitted_formats: list[str] = ["csv", "dict", "sql"],  # ruff: ignore[mutable-argument-default]
 ):
     """Unit tests can only use the specified formats.
 
     !!! info "Rationale"
 
         dbt unit tests support multiple `expect` formats — `csv`, `dict`, and `sql` — each with different trade-offs in readability, portability, and maintenance overhead. Restricting permitted formats enforces a project-wide standard that keeps unit tests consistent and readable, and avoids formats that may be harder for the team to maintain (e.g. raw SQL expectations that are difficult to diff).
-
-    !!! warning
-
-        This check is only supported for dbt **1.8.0** and above.
 
     Parameters:
         permitted_formats (list[Literal["csv", "dict", "sql"]] | None): A list of formats that are allowed to be used for `expect` input in a unit test.
@@ -118,48 +100,34 @@ def check_unit_test_expect_format(
         ```
 
     """
-    manifest_obj = ctx.manifest_obj
-    if get_package_version_number(
-        manifest_obj.manifest.metadata.dbt_version or "0.0.0"
-    ) >= get_package_version_number(_DBT_VERSION_1_8_0):
-        if unit_test.expect.format is None:
-            fail(
-                f"Unit test `{unit_test.name}` does not have an `expect` format defined. "
-                f"Permitted formats are: {permitted_formats}."
-            )
-
-        format_value = (
-            unit_test.expect.format.value if unit_test.expect.format else None
+    if unit_test.expect.format is None:
+        fail(
+            f"Unit test `{unit_test.name}` does not have an `expect` format defined. "
+            f"Permitted formats are: {permitted_formats}."
         )
 
-        if format_value not in permitted_formats:
-            fail(
-                f"Unit test `{unit_test.name}` has an `expect` format that is not permitted. "
-                f"Permitted formats are: {permitted_formats}. "
-                f"Found: {format_value}"
-            )
-    else:
-        logging.warning(
-            "The `check_unit_test_expect_format` check is only supported for dbt 1.8.0 and above."
+    format_value = unit_test.expect.format.value if unit_test.expect.format else None
+
+    if format_value not in permitted_formats:
+        fail(
+            f"Unit test `{unit_test.name}` has an `expect` format that is not permitted. "
+            f"Permitted formats are: {permitted_formats}. "
+            f"Found: {format_value}"
         )
 
 
-@check
+@check(code="UT003")
 def check_unit_test_given_formats(
     unit_test,
     ctx,
     *,
-    permitted_formats: list[str] = ["csv", "dict", "sql"],  # noqa: B006
+    permitted_formats: list[str] = ["csv", "dict", "sql"],  # ruff: ignore[mutable-argument-default]
 ):
     """Unit tests can only use the specified formats.
 
     !!! info "Rationale"
 
         The `given` section of a dbt unit test defines the mock input data for the test. Standardising the format across all `given` inputs (e.g. requiring `csv` for human-readable diffs in code review) keeps tests consistent and ensures that engineers reviewing test changes can quickly assess whether the input data is correct without needing to parse unfamiliar formats.
-
-    !!! warning
-
-        This check is only supported for dbt **1.8.0** and above.
 
     Parameters:
         permitted_formats (list[Literal["csv", "dict", "sql"]] | None): A list of formats that are allowed to be used for `expect` input in a unit test.
@@ -183,18 +151,8 @@ def check_unit_test_given_formats(
         ```
 
     """
-    manifest_obj = ctx.manifest_obj
-    if get_package_version_number(
-        manifest_obj.manifest.metadata.dbt_version or "0.0.0"
-    ) >= get_package_version_number(_DBT_VERSION_1_8_0):
-        given_formats = [
-            i.format.value for i in unit_test.given if i.format is not None
-        ]
-        if not all(e in permitted_formats for e in given_formats):
-            fail(
-                f"Unit test `{unit_test.name}` has given formats which are not permitted. Permitted formats are: {permitted_formats}."
-            )
-    else:
-        logging.warning(
-            "The `check_unit_test_given_formats` check is only supported for dbt 1.8.0 and above."
+    given_formats = [i.format.value for i in unit_test.given if i.format is not None]
+    if not all(e in permitted_formats for e in given_formats):
+        fail(
+            f"Unit test `{unit_test.name}` has given formats which are not permitted. Permitted formats are: {permitted_formats}."
         )

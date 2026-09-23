@@ -17106,9 +17106,6 @@ class AssetMetaData(bpy_struct):
     use_preferred_import_method: bool
     """ When "Follow Asset or Preferences" is selected for the import method in the Asset Browser, use the preferred import method of this asset (default False)"""
 
-    webpage: str
-    """ WebpageWeb-address to a page with more information about this asset (default "", never None)"""
-
     @classmethod
     def bl_rna_get_subclass(
         cls,

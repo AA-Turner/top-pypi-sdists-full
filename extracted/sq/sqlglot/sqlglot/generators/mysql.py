@@ -17,6 +17,7 @@ from sqlglot.dialects.dialect import (
     no_pivot_sql,
     no_tablesample_sql,
     no_trycast_sql,
+    if_sql,
     remove_ts_or_ds_to_date,
     rename_func,
     strposition_sql,
@@ -165,6 +166,8 @@ class MySQLGenerator(generator.Generator):
             f"""GROUP_CONCAT({self.sql(e, "this")} SEPARATOR {self.sql(e, "separator") or "','"})"""
         ),
         exp.ILike: no_ilike_sql,
+        # https://dev.mysql.com/doc/refman/9.7/en/flow-control-functions.html#function_if
+        exp.If: if_sql(false_value="NULL"),
         exp.JSONExtractScalar: arrow_json_extract_sql,
         exp.Length: length_or_char_length_sql,
         exp.LogicalOr: rename_func("MAX"),
@@ -692,6 +695,15 @@ class MySQLGenerator(generator.Generator):
         global_ = " GLOBAL" if expression.args.get("global_") else ""
 
         target = self.sql(expression, "target")
+
+        # SHOW CREATE ... takes a possibly qualified name, it has no FROM clause
+        # https://dev.mysql.com/doc/refman/8.4/en/show-create-table.html
+        if expression.name.startswith("CREATE") and (db_id := self.sql(expression, "db")):
+            target = f"{db_id}.{target}"
+            db = ""
+        else:
+            db = self._prefixed_sql("FROM", expression, "db")
+
         target = f" {target}" if target else ""
         if expression.name in ("COLUMNS", "INDEX"):
             target = f" FROM{target}"
@@ -701,8 +713,6 @@ class MySQLGenerator(generator.Generator):
             target = f" ON{target}" if target else ""
         elif expression.name == "PROJECTIONS":
             target = f" ON TABLE{target}" if target else ""
-
-        db = self._prefixed_sql("FROM", expression, "db")
 
         like = self._prefixed_sql("LIKE", expression, "like")
         where = self.sql(expression, "where")

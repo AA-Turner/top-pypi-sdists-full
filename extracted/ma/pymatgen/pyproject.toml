@@ -4,7 +4,8 @@ requires = [
     # Building against NPY2 will support both NPY1 and NPY2
     # https://numpy.org/devdocs/dev/depending_on_numpy.html#build-time-dependency
     "numpy>=2.1.0",
-    "setuptools>=65.0.0",
+    "setuptools>=77.0.0",
+    "setuptools-scm>=8",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -13,18 +14,13 @@ build-backend = "setuptools.build_meta"
 name = "pymatgen"
 authors = [{ name = "Pymatgen Development Team", email = "shyue@nus.edu.sg" }]
 maintainers = [
-    { name = "Matthew Horton", email = "m.k.horton@gmail.com" },
     { name = "Shyue Ping Ong", email = "shyue@nus.edu.sg" },
 ]
-description = """
-Python Materials Genomics is a robust materials analysis code that defines core object representations for structures
-and molecules with support for many electronic structure codes. It is currently the core analysis code powering the
-Materials Project (https://materialsproject.org)."""
+description = "Python Materials Genomics is a robust materials analysis code that defines core object representations for structures and molecules with support for many electronic structure codes. It is currently the core analysis code powering the Materials Project (https://materialsproject.org)."
 readme = "README.md"
 requires-python = ">=3.11"
 keywords = [
-    "ABINIT",
-    "VASP",
+    "abinit",
     "analysis",
     "crystal",
     "diagrams",
@@ -37,12 +33,13 @@ keywords = [
     "qchem",
     "science",
     "structure",
+    "vasp",
 ]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -55,9 +52,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pymatgen-core>=2026.4.16"
+    "pymatgen-core>=2026.9.23"
 ]
-version = "2026.5.4"
+dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://pymatgen.org"
@@ -68,14 +65,19 @@ Pypi = "https://pypi.org/project/pymatgen"
 
 [project.optional-dependencies]
 abinit = ["netcdf4>=1.7.2"]
-ase = ["ase>=3.23.0"]
+ase = ["ase>=3.27.0"]
 matcalc = [
-    "matcalc>=0.4.0; python_version<'3.13'",
-    "matgl>=2.0.4; python_version<'3.13'",
+    "matcalc>=0.5.0; python_version<'3.13'",
+    "matgl>=4.0.1; python_version<'3.13'",
 ]
-mlp = ["matgl>=2.0.4 ; python_version<'3.13'"]
+mlp = ["matgl>=4.0.1 ; python_version<'3.13'"]
 numba = ["numba>=0.55"]
-numpy-v1 = ["numpy>=1.25.0,<2; python_version<'3.13'"] # Test NP1 on Windows (quite buggy ATM)
+numpy-v1 = [
+    # NumPy 1.x has no wheels for Python 3.13, so this extra is a no-op there
+    # (deferring to pymatgen-core's numpy>=2.1.0 constraint).
+    "numpy>=1.25.0,<2; python_version<'3.13'",
+    "numpy>=2.1.0,<3; python_version>='3.13'",
+] # Test NP1 on Windows (quite buggy ATM)
 optional = [
     "pymatgen[abinit,ase,matcalc,mlp,tblite,zeopp]",
     "beautifulsoup4",
@@ -88,7 +90,7 @@ optional = [
     "h5py>=3.11.0",
     "hiphive>=1.3.1",
     "jarvis-tools>=2020.7.14",
-    "phonopy>=2.33.3",
+    "phonopy>=4.0.0",
     "seekpath>=2.0.1",
 ]
 prototypes = ["pyxtal>=1.0", "pymatgen[symmetry]"]
@@ -108,6 +110,10 @@ get_environment = "pymatgen.cli.get_environment:main"
 
 [tool.setuptools]
 include-package-data = false
+
+[tool.setuptools_scm]
+tag_regex = '^v(?P<version>\d{4}\.\d{1,2}\.\d{1,2})$'
+version_scheme = "no-guess-dev"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -179,6 +185,7 @@ ignore = [
     "PLR0912", # Too many branches
     "PLR0913", # Too many arguments
     "PLR0915", # Too many statements
+    "PLR0917", # Too many positional arguments (>5)
     "PLR1702", # Too many nested blocks
     "PLR2004", # Magic-value-comparison TODO: fix this
     "PLW1641", # eq-without-hash TODO: fix this
@@ -268,6 +275,7 @@ ist, nd, ot, ontop, CoO
 # https://github.com/codespell-project/codespell/issues/3381
 skip = """*.json,
 src/pymatgen/analysis/chemenv/coordination_environments/coordination_geometries_files/allcg.txt,
+dev_scripts/periodic_table_resources/elemental_properties.yaml,
 """
 check-filenames = true
 
@@ -281,7 +289,8 @@ reportInvalidTypeForm = false
 exclude = ["**/tests"]
 
 [tool.uv]
-default-groups = ["dev", "test", "lint"]
+# TODO: remove `docs` once doc generation is automated
+default-groups = ["dev", "test", "lint", "docs"]
 
 [dependency-groups]
 dev = [

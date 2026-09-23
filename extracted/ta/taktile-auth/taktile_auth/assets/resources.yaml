@@ -166,6 +166,10 @@ workspace_connection_execution:
   org_id: wildcard
   ws_id: wildcard
   env: wildcard
+workspace_integration_builder:
+  # write: can author and promote integrations in the integration builder
+  org_id: wildcard
+  ws_id: wildcard
 workspace_agent_management:
   # read: can view agents and agent versions
   # write: can create and update agents and agent versions

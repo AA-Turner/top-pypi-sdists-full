@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Mako
-Version: 1.4.1
+Version: 1.4.3
 Summary: A super-fast templating language that borrows the best ideas from the existing templating languages.
 Author-email: Mike Bayer <mike@zzzcomputing.com>
 License-Expression: MIT

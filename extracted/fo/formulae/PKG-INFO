@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: formulae
-Version: 0.7.0
+Version: 0.9.0
 Summary: Formulas for mixed-effects models in Python
 Maintainer-email: Tomás Capretto <tomicapretto@gmail.com>
 License: MIT License
@@ -28,7 +28,7 @@ License: MIT License
 Project-URL: homepage, https://bambinos.github.io/formulae
 Project-URL: documentation, https://bambinos.github.io/formulae
 Project-URL: repository, https://github.com/bambinos/formulae
-Project-URL: changelog, https://github.com/bambinos/formulae/blob/main/docs/CHANGELOG.md
+Project-URL: changelog, https://github.com/bambinos/formulae/blob/master/CHANGELOG.md
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE

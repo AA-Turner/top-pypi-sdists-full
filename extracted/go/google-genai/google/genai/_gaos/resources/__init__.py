@@ -22,6 +22,7 @@ from . import credentials
 from . import environments
 from . import interactions
 from . import triggers
+from . import voices
 from . import webhooks
 
 __all__ = [
@@ -30,5 +31,6 @@ __all__ = [
     "environments",
     "interactions",
     "triggers",
+    "voices",
     "webhooks",
 ]

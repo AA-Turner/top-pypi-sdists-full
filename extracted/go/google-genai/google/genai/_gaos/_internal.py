@@ -60,7 +60,7 @@ class Internal(BaseSDK):
         :param path: The relative destination path inside the environment workspace.
         :param x_goog_upload_header_content_length: Total number of file bytes that will be uploaded to the session URL.
         :param x_goog_upload_header_content_type: MIME type of the file that will be uploaded to the session URL.
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param extract: Optional. If true, treats the uploaded file as a tar/tar.gz archive and unpacks it into `path`.
         :param overwrite: Optional. Whether to overwrite the destination file if it already exists.
         :param extra_headers: Additional headers to set or replace on requests.
@@ -157,15 +157,7 @@ class Internal(BaseSDK):
                 self.sdk_configuration.security, types.Security
             ),
             tags=None,
-            extensions={
-                "x-codeSamples": [
-                    {
-                        "label": "start_upload",
-                        "lang": "sh",
-                        "source": "curl -i -X PUT \\\n  'https://generativelanguage.googleapis.com/upload/v1beta/environments/env_abc123/files/main.py?overwrite=true' \\\n  -H \"x-goog-api-key: $GEMINI_API_KEY\" \\\n  -H 'X-Goog-Upload-Protocol: resumable' \\\n  -H 'X-Goog-Upload-Command: start' \\\n  -H \"X-Goog-Upload-Header-Content-Length: $(wc -c < main.py)\" \\\n  -H 'X-Goog-Upload-Header-Content-Type: text/x-python'\n",
-                    }
-                ]
-            },
+            extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="sync"),
         )
         http_res = self.do_request(
@@ -264,7 +256,7 @@ class AsyncInternal(AsyncBaseSDK):
         :param path: The relative destination path inside the environment workspace.
         :param x_goog_upload_header_content_length: Total number of file bytes that will be uploaded to the session URL.
         :param x_goog_upload_header_content_type: MIME type of the file that will be uploaded to the session URL.
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param extract: Optional. If true, treats the uploaded file as a tar/tar.gz archive and unpacks it into `path`.
         :param overwrite: Optional. Whether to overwrite the destination file if it already exists.
         :param extra_headers: Additional headers to set or replace on requests.
@@ -361,15 +353,7 @@ class AsyncInternal(AsyncBaseSDK):
                 self.sdk_configuration.security, types.Security
             ),
             tags=None,
-            extensions={
-                "x-codeSamples": [
-                    {
-                        "label": "start_upload",
-                        "lang": "sh",
-                        "source": "curl -i -X PUT \\\n  'https://generativelanguage.googleapis.com/upload/v1beta/environments/env_abc123/files/main.py?overwrite=true' \\\n  -H \"x-goog-api-key: $GEMINI_API_KEY\" \\\n  -H 'X-Goog-Upload-Protocol: resumable' \\\n  -H 'X-Goog-Upload-Command: start' \\\n  -H \"X-Goog-Upload-Header-Content-Length: $(wc -c < main.py)\" \\\n  -H 'X-Goog-Upload-Header-Content-Type: text/x-python'\n",
-                    }
-                ]
-            },
+            extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="async"),
         )
         http_res = await self.do_request_async(

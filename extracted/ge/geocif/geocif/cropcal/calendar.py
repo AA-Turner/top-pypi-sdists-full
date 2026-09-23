@@ -139,6 +139,11 @@ class StageDates:
     len_stage2_bins: int
     len_stage3_bins: int
     wraps_year: bool
+    #: No off-season bin at all. The parser then defines planting as "the bin
+    #: after harvest" (see :func:`stage_bins`), so the planting and harvest
+    #: days of such a row are an artefact of the parser, not a calendar
+    #: assertion. Carried so the model evaluation can exclude them.
+    wall_to_wall: bool = False
 
 
 def stage_bins(codes: np.ndarray) -> StageDates:
@@ -218,6 +223,7 @@ def stage_bins(codes: np.ndarray) -> StageDates:
         len_stage3_bins=int(np.count_nonzero(codes == CODE_STAGE_3)),
         wraps_year=bool(codes[first_col] in (CODE_STAGE_1, CODE_STAGE_2, CODE_STAGE_3)
                         and codes[last_col] in (CODE_STAGE_1, CODE_STAGE_2, CODE_STAGE_3)),
+        wall_to_wall=bool(first_0 is None),
     )
     return bins
 

@@ -42,6 +42,9 @@ HITL_SLACK_CHANNEL_URL = "https://airbytehq-team.slack.com/archives/C0AEXV81Q7N"
 # prepends `"> "` (2 chars) as a blockquote prefix.
 APPROVAL_REQUEST_SUMMARY_MAX_LENGTH = 280
 
+# Slack Block Kit `section.text` caps at 3000 chars.
+HITL_MESSAGE_MAX_LENGTH = 3000
+
 
 _SLACK_ID_PATTERN = re.compile(r"^U[A-Z0-9]{8,}$")
 _SLACK_USERGROUP_ID_PATTERN = re.compile(r"^S[A-Z0-9]{8,}$")
@@ -156,6 +159,23 @@ def validate_approval_request_summary(summary: str | None) -> None:
         )
 
 
+def validate_hitl_message(message: str) -> None:
+    """Validate that `message` fits in a single Slack section block.
+
+    Raises:
+        ValueError: If `message` exceeds `HITL_MESSAGE_MAX_LENGTH`.
+    """
+    if len(message) > HITL_MESSAGE_MAX_LENGTH:
+        raise ValueError(
+            f"message is {len(message)} characters but must be at most "
+            f"{HITL_MESSAGE_MAX_LENGTH} characters to fit in a single Slack "
+            "section block. Shorten the message (e.g. fewer/shorter bullets, "
+            "drop redundant context) or move detail behind "
+            "approval_request_detail_url; split the request into multiple "
+            "escalations if the content genuinely cannot be shortened."
+        )
+
+
 def normalize_person_id(identifier: str) -> str:
     """Normalize a person identifier for workflow input.
 
@@ -203,7 +223,8 @@ def dispatch_escalation(
 
     Raises:
         ValueError: If `target_person` or any `cc` entry is not a
-            recognized person or Slack usergroup identifier format, or if
+            recognized person or Slack usergroup identifier format, if
+            `message` exceeds `HITL_MESSAGE_MAX_LENGTH`, or if
             `approval_request_summary` violates Slack confirm-dialog
             constraints.
     """
@@ -211,6 +232,7 @@ def dispatch_escalation(
     if cc:
         for person in cc:
             validate_person_id(person)
+    validate_hitl_message(message)
     if approval_requested:
         validate_approval_request_summary(approval_request_summary)
 

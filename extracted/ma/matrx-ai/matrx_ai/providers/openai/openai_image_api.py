@@ -62,6 +62,10 @@ class OpenAIImageGeneration(BaseMediaGeneration):
         # promotes the call to the images.edit endpoint.
         if unified_config.image_input or unified_config.image_inputs:
             return True
+        from matrx_ai.media.image_reference_roles import collect_role_images
+
+        if collect_role_images(unified_config.messages):
+            return True
         if pick_image_by_role(unified_config.messages, "start_image") is not None:
             return True
         if pick_image_by_role(unified_config.messages, None) is not None:
@@ -95,10 +99,31 @@ class OpenAIImageGeneration(BaseMediaGeneration):
             return kwargs
 
         # Edit endpoint — multipart image inputs. Collect in stable order:
-        # user-message-tagged images (start_image first, then references, then
-        # any un-tagged image), fall back to settings image_input/image_inputs.
+        # typed reference roles first (edit target = image 1, then subject /
+        # character / style, the prompt carrying a legend naming each), then
+        # legacy metadata-tagged images (start_image, references, un-tagged),
+        # fall back to settings image_input/image_inputs.
+        from matrx_ai.media.image_reference_roles import (
+            collect_role_images,
+            ordered_role_images,
+            with_legend,
+        )
+
         kwargs["_is_edit"] = True
-        inputs: list[Any] = []
+        role_images = collect_role_images(unified_config.messages)
+        ordered = ordered_role_images(
+            role_images, ("edit_target", "subject", "character", "style")
+        )
+        if ordered:
+            kwargs["prompt"] = with_legend(prompt, ordered)
+        if (role_images.get("subject") or role_images.get("character")) and (
+            self._takes_input_fidelity(unified_config.model)
+        ):
+            # Identity-preserving references: gpt-image-1.x processes inputs at
+            # low fidelity unless asked. gpt-image-2+ is always high fidelity
+            # and the API guide says to omit the parameter there.
+            kwargs["input_fidelity"] = "high"
+        inputs: list[Any] = [content for _role, content in ordered]
         start = pick_image_by_role(unified_config.messages, "start_image")
         if start is None:
             start = pick_image_by_role(unified_config.messages, None)
@@ -115,18 +140,41 @@ class OpenAIImageGeneration(BaseMediaGeneration):
             raise ValueError("openai image edit called with no image_input/image_inputs")
 
         image_files = [self.translator._mediaref_to_file_tuple(r) for r in inputs if r is not None]
+        for index, (role, _content) in enumerate(ordered):
+            if image_files[index] is None:
+                raise ValueError(
+                    f"Reference image {index + 1} ({role}) could not be read. Re-upload "
+                    "it and run again."
+                )
         image_files = [f for f in image_files if f is not None]
         if not image_files:
             raise ValueError("All image inputs failed to resolve to bytes.")
         kwargs["image"] = image_files if len(image_files) > 1 else image_files[0]
 
-        # Mask for inpainting. Role-tagged user-message mask wins.
+        # Mask for inpainting — applies to image 1 (the edit target). The typed
+        # Mask role and the legacy metadata role both resolve through
+        # pick_image_by_role("mask"); the settings mask is the fallback.
         mask_ref = pick_image_by_role(unified_config.messages, "mask") or unified_config.mask
         if mask_ref is not None:
             mask_file = self.translator._mediaref_to_file_tuple(mask_ref)
             if mask_file is not None:
                 kwargs["mask"] = mask_file
         return kwargs
+
+    #: Roles the images.edit endpoint carries: the base image(s) + references
+    #: in the multipart ``image`` list, the mask in ``mask``. No control-image
+    #: transport exists, so composition_control is refused by name.
+    ROLE_TRANSPORT: frozenset[str] = frozenset(
+        {"edit_target", "subject", "character", "style", "mask"}
+    )
+
+    def image_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        return self.ROLE_TRANSPORT
+
+    @staticmethod
+    def _takes_input_fidelity(model: str | None) -> bool:
+        name = (model or "").lower()
+        return name.startswith("gpt-image-1") and "mini" not in name
 
     def _apply_minor_image_overrides(
         self, kwargs: dict[str, Any], unified_config: UnifiedConfig, profile: Any
@@ -338,6 +386,7 @@ class OpenAIImageGeneration(BaseMediaGeneration):
         # the user into the streaming path.
         if not unified_config.partial_images or unified_config.partial_images <= 0:
             return await super().execute(unified_config, profile, debug)
+        self.enforce_image_reference_roles(unified_config, profile)
 
         return await self._await_paid_completion(
             self._execute_streaming(unified_config, profile, debug)

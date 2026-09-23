@@ -99,6 +99,22 @@ def warm_pricing():
                 )
             ],
         ),
+        # Gemini image-native, priced the way Google meters it (ai_090):
+        # input $0.50/1M, text+thinking output $3/1M, image output $60/1M.
+        "gemini-3.1-flash-image": ModelPricing(
+            "gemini-3.1-flash-image",
+            "google",
+            [
+                PricingTier(
+                    None,
+                    input_price=0.5,
+                    output_price=3,
+                    cached_input_price=0.05,
+                    usage_basis=None,
+                    component_prices={"output.image": 60},
+                )
+            ],
+        ),
         # character-billed TTS ($/1M chars)
         "tts-1": ModelPricing(
             "tts-1",
@@ -302,8 +318,78 @@ def test_gemini_native_token_priced_bills_real_usage(warm_pricing):
     assert usage.calculate_cost() == pytest.approx(15 * 0.3 / 1e6 + 1290 * 30 / 1e6)
 
 
-def test_gemini_per_image_tier_bills_per_image(warm_pricing):
-    """gemini-3-pro carries usage_basis=image_output → flat $0.134/image."""
+def _recorded_gemini_image_response(name: str):
+    """A real provider response's usage, rebuilt through the google-genai SDK type
+    so modality enums parse exactly as they do on the live path."""
+    import json
+    from pathlib import Path
+
+    from google.genai import types as genai_types
+
+    data = json.loads(
+        (Path(__file__).parent / "fixtures" / "gemini_image_usage" / name).read_text()
+    )
+    return types.SimpleNamespace(
+        usage_metadata=genai_types.GenerateContentResponseUsageMetadata.model_validate(
+            data["usage_metadata"]
+        )
+    )
+
+
+def test_gemini_image_native_records_real_usage_and_prices_image_tokens(warm_pricing):
+    """Recorded real gemini-3.1-flash-image response: 648 prompt tokens (132 text +
+    516 reference image), 1,433 output tokens of which 1,120 are the 1K image.
+
+    Before the fix this recorded input 0 / output 1,000,000 at a flat $0.067
+    whatever the resolution (a 0.5K image is 747 tokens = $0.045 at Google)."""
+
+    class _GemNative(GoogleImageGeneration):
+        def __init__(self):
+            self._is_imagen_call = False
+
+    raw = _recorded_gemini_image_response("gemini_3_1_flash_image_edit_1k.json")
+    usage = _GemNative()._build_usage(
+        _cfg("gemini-3.1-flash-image"), {}, raw, [GeneratedAsset(data=b"x")]
+    )
+    assert usage.metadata["billing_kind"] == "provider_tokens"
+    assert usage.input_tokens == 648
+    assert usage.output_tokens == 1433
+    assert usage.billing_components == {"output.image": 1120}
+    expected = 648 * 0.5 / 1e6 + 1120 * 60 / 1e6 + (1433 - 1120) * 3 / 1e6
+    assert usage.calculate_cost() == pytest.approx(expected)
+    assert usage.calculate_cost() == pytest.approx(0.068463)
+
+
+def test_gemini_image_thoughts_bill_as_output_and_cache_splits_out(warm_pricing):
+    class _GemNative(GoogleImageGeneration):
+        def __init__(self):
+            self._is_imagen_call = False
+
+    raw = types.SimpleNamespace(
+        usage_metadata=types.SimpleNamespace(
+            prompt_token_count=1000,
+            cached_content_token_count=400,
+            candidates_token_count=800,
+            thoughts_token_count=200,
+            candidates_tokens_details=[
+                types.SimpleNamespace(modality="IMAGE", token_count=747)
+            ],
+        )
+    )
+    usage = _GemNative()._build_usage(
+        _cfg("gemini-3.1-flash-image"), {}, raw, [GeneratedAsset(data=b"x")]
+    )
+    assert (usage.input_tokens, usage.output_tokens, usage.cached_input_tokens) == (
+        600,
+        1000,
+        400,
+    )
+    assert usage.billing_components == {"output.image": 747}
+
+
+def test_unit_basis_that_discards_provider_tokens_screams(warm_pricing, capsys):
+    """A per-image tier on a provider that METERS tokens is a catalog defect: the
+    call still bills per unit (the tier's price is $/image) but must say so."""
 
     class _GemNative(GoogleImageGeneration):
         def __init__(self):
@@ -318,7 +404,9 @@ def test_gemini_per_image_tier_bills_per_image(warm_pricing):
         _cfg("gemini-3-pro-image-preview"), {}, raw, [GeneratedAsset(data=b"x")]
     )
     assert usage.metadata["billing_kind"] == "synthetic:image_output"
-    assert usage.calculate_cost() == pytest.approx(0.134)
+    assert any(
+        "provider reported real token usage" in key for key in uc._billing_warned
+    ), uc._billing_warned
 
 
 def test_token_priced_without_usage_fails_loud_not_overcharge(warm_pricing):

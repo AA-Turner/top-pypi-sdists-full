@@ -16,7 +16,7 @@ from dbt_bouncer.utils import (
 )
 
 
-@check
+@check(code="MO019")
 def check_column_descriptions_are_consistent(ctx):
     """The same column name must not have conflicting descriptions across models.
 
@@ -49,8 +49,8 @@ def check_column_descriptions_are_consistent(ctx):
         fail(f"Columns have conflicting descriptions across models: {conflicts}.")
 
 
-@check
-def check_model_description_contains_regex_pattern(model, *, regexp_pattern: str):
+@check(code="MO020")
+def check_model_description_contains_regexp_pattern(model, *, regexp_pattern: str):
     """Models must have a description that matches the provided pattern.
 
     !!! info "Rationale"
@@ -73,7 +73,7 @@ def check_model_description_contains_regex_pattern(model, *, regexp_pattern: str
     Example(s):
         ```yaml
         manifest_checks:
-            - name: check_model_description_contains_regex_pattern
+            - name: check_model_description_contains_regexp_pattern
               regexp_pattern: .*pattern_to_match.*
         ```
 
@@ -85,7 +85,7 @@ def check_model_description_contains_regex_pattern(model, *, regexp_pattern: str
         )
 
 
-@check
+@check(code="MO021")
 def check_model_description_populated(
     model, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
@@ -128,7 +128,7 @@ def check_model_description_populated(
         )
 
 
-@check
+@check(code="MO022")
 def check_model_documentation_coverage(
     ctx,
     *,
@@ -141,7 +141,7 @@ def check_model_documentation_coverage(
         Rather than requiring every single model to be documented immediately, this check allows teams to set a realistic target and enforce it incrementally. It prevents documentation coverage from silently regressing as new models are added, nudging teams towards full documentation over time.
 
     Parameters:
-        min_model_documentation_coverage_pct (float): The minimum percentage of models that must have a populated description.
+        min_model_documentation_coverage_pct (int): The minimum percentage of models that must have a populated description.
 
     Receives:
         models (list[ModelNode]): List of ModelNode objects parsed from `manifest.json`.
@@ -150,20 +150,24 @@ def check_model_documentation_coverage(
         description (str | None): Description of what the check does and why it is implemented.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
+    !!! info
+
+        A project with no models passes, as there is nothing left undocumented.
+
     Example(s):
         ```yaml
         manifest_checks:
             - name: check_model_documentation_coverage
               min_model_documentation_coverage_pct: 90
         ```
-        ```yaml
-        manifest_checks:
-            - name: check_model_documentation_coverage
-              min_description_length: 25 # Setting a stricter requirement for description length
-        ```
 
     """
     num_models = len(ctx.models)
+    if num_models == 0:
+        # No models means nothing is left undocumented, so coverage is vacuously
+        # complete. Returning early also avoids dividing by zero.
+        return
+
     models_with_description = []
     for model in ctx.models:
         if is_description_populated(
@@ -180,7 +184,7 @@ def check_model_documentation_coverage(
         )
 
 
-@check
+@check(code="MO023")
 def check_model_documented_in_same_directory(model):
     """Models must be documented in the same directory where they are defined (i.e. `.yml` and `.sql` files are in the same directory).
 
@@ -198,6 +202,10 @@ def check_model_documented_in_same_directory(model):
         materialization (Literal["ephemeral", "incremental", "table", "view"] | None): Limit check to models with the specified materialization.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
+    !!! info
+
+        A model with no properties file at all is reported as not documented.
+
     Example(s):
         ```yaml
         manifest_checks:
@@ -209,13 +217,12 @@ def check_model_documented_in_same_directory(model):
     model_sql_path = Path(clean_path_str(model.original_file_path))
     model_sql_dir = model_sql_path.parent.parts
 
-    if not (
-        hasattr(model, "patch_path")
-        and clean_path_str(model.patch_path or "") is not None
-    ):
+    # A model with no patch_path has no properties file, so there is no
+    # documentation directory to compare against.
+    patch_path_str = clean_path_str(getattr(model, "patch_path", None) or "")
+    if not patch_path_str:
         fail(f"`{get_clean_model_name(model.unique_id)}` is not documented.")
 
-    patch_path_str = clean_path_str(model.patch_path or "")
     start_idx = patch_path_str.find("models")
     if start_idx != -1:
         patch_path_str = patch_path_str[start_idx:]

@@ -506,101 +506,55 @@ from .find_collect import (
     get_filename,
     find_files,
 )
+# ── search functionality delegated (lazily) to the standalone abstract_search ─
+# abstract_search is the single source of truth for string search / filters /
+# readers; file_utils keeps the historical public names and re-exports but no
+# longer maintains its own copy. abstract_search is imported lazily (only when a
+# search actually runs), matching this package's no-core-third-party policy —
+# install it via the ``search`` extra: ``pip install abstract_utilities[search]``.
+_ABSTRACT_SEARCH = None
+
+def _search_mod():
+    global _ABSTRACT_SEARCH
+    if _ABSTRACT_SEARCH is None:
+        from abstract_search import find_content as _fc
+        _ABSTRACT_SEARCH = _fc
+    return _ABSTRACT_SEARCH
+
+# Kept for backward-compatible re-export; the live stop flag now lives in
+# abstract_search and is toggled through the delegating functions below.
 STOP_SEARCH = False
 
 def request_find_console_stop():
-    global STOP_SEARCH
-    STOP_SEARCH = True
+    return _search_mod().request_find_console_stop()
 
 def reset_find_console_stop():
-    global STOP_SEARCH
-    STOP_SEARCH = False
+    return _search_mod().reset_find_console_stop()
 
-def get_contents(
-    full_path=None,
-    parse_lines=False,
-    content=None
-    ):
-    if full_path:
-        content = content or read_any_file(full_path)
-    if content:
-        if parse_lines:
-            content = str(content).split('\n')
-        return make_list(content,commaparse=False)
-    return []
+def get_contents(full_path=None, parse_lines=False, content=None):
+    return _search_mod().get_contents(
+        full_path=full_path, parse_lines=parse_lines, content=content
+    )
 
-def _normalize(s: str, strip_comments=True, collapse_ws=True, lower=True):
-    if s is None:
-        return ""
-    if strip_comments:
-        s = s.split('//', 1)[0]
-    if collapse_ws:
-        s = re.sub(r'\s+', ' ', s)
-    if lower:
-        s = s.lower()
-    return s.strip()
+def stringInContent(content, strings, total_strings=False, normalize=False, **kwargs):
+    return _search_mod().stringInContent(
+        content, strings, total_strings=total_strings, normalize=normalize, **kwargs
+    )
 
-def stringInContent(content, strings, total_strings=False, normalize=False):
-    if not content:
-        return False
-    if normalize:
-        c = _normalize(str(content))
-        
-        found = [s for s in strings if _normalize(s) and _normalize(s) in c]
-    else:
-        c = str(content)
-        found = [s for s in strings if s and s in c]
-    if not found:
-        return False
-    return len(found) == len(strings) if total_strings else True
 def find_file(content, spec_line, strings, total_strings=False):
-    lines = content.split('\n')
-    if 1 <= spec_line <= len(lines):
-        return stringInContent(lines[spec_line - 1], strings, total_strings=total_strings)
-    return False
-def find_lines(content, strings, total_strings=False, normalize=True, any_per_line=True):
-    lines = content.split('\n')
-    hits = []
-    for i, line in enumerate(lines):
-        # match one line either if ANY string matches or if ALL match (configurable)
-        if any_per_line:
-            match = stringInContent(line, strings, total_strings=False, normalize=normalize)
-        else:
-            match = stringInContent(line, strings, total_strings=True,  normalize=normalize)
-        if match:
-            hits.append({"line": i+1, "content": line})
-    return hits
+    return _search_mod().find_file(
+        content, spec_line, strings, total_strings=total_strings
+    )
+
+def find_lines(content, strings, total_strings=False, normalize=True,
+               any_per_line=True, **kwargs):
+    return _search_mod().find_lines(
+        content, strings, total_strings=total_strings, normalize=normalize,
+        any_per_line=any_per_line, **kwargs
+    )
+
 def getPaths(files, strings):
-    tot_strings = strings
-    nu_files, found_paths = [], []
-    if isinstance(strings,list):
-        if len(strings) >1:
-            tot_strings = '\n'.join(strings)
-        else:
-            if len(strings) == 0:
-                return nu_files, found_paths
-            tot_strings = strings[0]
-    
-    
-    for file_path in files:
-        try:
-            og_content = read_any_file(file_path)
-            if tot_strings not in og_content:
-                continue
-            if file_path not in nu_files:
-                nu_files.append(file_path)
-            ogLines = og_content.split('\n')
-            # find all occurrences of the block
-            for m in re.finditer(re.escape(tot_strings), og_content):
-                start_line = og_content[:m.start()].count('\n') + 1  # 1-based
-                curr = {'file_path': file_path, 'lines': []}
-                for j in range(len(strings)):
-                    ln = start_line + j
-                    curr['lines'].append({'line': ln, 'content': ogLines[ln - 1]})
-                found_paths.append(curr)
-        except Exception as e:
-            print(f"{e}")
-    return nu_files, found_paths
+    return _search_mod().getPaths(files, strings)
 
 def findContent(
     *args,
@@ -610,55 +564,22 @@ def findContent(
     spec_line=False,
     get_lines=True,
     diffs=False,
+    structured=False,
+    regex=False,
     **kwargs
 ):
-    global STOP_SEARCH
-    kwargs["directories"] = ensure_directories(*args,**kwargs)
-
-    found_paths = []
-
-    dirs, files = get_files_and_dirs(
+    # legacy ``diffs`` maps to abstract_search's ``structured`` (exact-match locations)
+    return _search_mod().findContent(
+        *args,
+        strings=strings,
+        total_strings=total_strings,
+        parse_lines=parse_lines,
+        spec_line=spec_line,
+        get_lines=get_lines,
+        structured=structured or diffs,
+        regex=regex,
         **kwargs
     )
-    nu_files, found_paths = getPaths(files, strings)
-
-    if diffs and found_paths:
-        return found_paths
-
-    for file_path in nu_files:
-        if STOP_SEARCH:
-            return found_paths   # early exit
-
-        if file_path:
-            og_content = read_any_file(file_path)
-            contents = get_contents(
-                file_path,
-                parse_lines=parse_lines,
-                content=og_content
-            )
-            found = False
-            for content in contents:
-                if STOP_SEARCH:
-                    return found_paths  # bail out cleanly
-
-                if stringInContent(content, strings, total_strings=True, normalize=True):
-                    found = True
-                    if spec_line:
-                        found = find_file(og_content, spec_line, strings, total_strings=True)
-                    if found:
-                        if get_lines:
-                            lines = find_lines(
-                                og_content,
-                                strings=strings,
-                                total_strings=False,
-                                normalize=True,
-                                any_per_line=True
-                            )
-                            if lines:
-                                file_path = {"file_path": file_path, "lines": lines}
-                        found_paths.append(file_path)
-                        break
-    return found_paths
 def return_function(start_dir=None,preferred_dir=None,basenames=None,functionName=None):
     if basenames:
         basenames = make_list(basenames,commaparse=False)

@@ -23,13 +23,73 @@ class BackNavigationResult:
 BACK_NAVIGATION = BackNavigationResult()
 
 
+class _Descending:
+    """Wraps a string so it compares in reverse, the way -int reverses digits."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _Descending):
+            return NotImplemented
+        return self.value == other.value
+
+    def __lt__(self, other: _Descending) -> bool:
+        return other.value < self.value
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"_Descending({self.value!r})"
+
+
+def _browse_sort_key(name: str) -> tuple[tuple[int, object], ...]:
+    """Order one level of the tree: versions newest first, plain names A-Z.
+
+    The assets API returns each level in plain lexicographic order, which puts
+    3.1.10 before 3.1.7 and wedges 3.2.10 between 3.2.1 and 3.2.2. Splitting a
+    name into digit and text runs fixes that: digit runs compare as *negated*
+    integers so versions descend, while text runs compare normally so category
+    folders (ida-pro, installers, ...) stay alphabetical. The leading tag keeps
+    runs of different kinds comparable and sorts versions above names; the
+    sentinel appended at the end outranks every ordinary run, keeping a
+    suffixed version above its base (9.0sp1 above 9.0).
+
+    A SemVer prerelease is the one suffix that means *older*: 1.0.0-beta.10
+    precedes 1.0.0. A hyphen opening a text run that follows a version number
+    marks one, and everything from there on is tagged above the sentinel so the
+    whole prerelease drops below its base release. Prerelease text compares
+    descending as well, so precedence (rc, beta, alpha) beats the alphabet.
+    Requiring the hyphen to follow a digit run is what keeps hyphenated
+    category names (ida-pro, sdk-and-utilities) on the plain A-Z path.
+    """
+    key: list[tuple[int, object]] = []
+    saw_digit = False
+    prerelease = False
+    for part in re.split(r"(\d+)", name.lower()):
+        if part.isdigit():
+            key.append((0, -int(part)))
+            saw_digit = True
+        elif part:
+            prerelease = prerelease or (saw_digit and part.startswith("-"))
+            key.append((3, _Descending(part)) if prerelease else (1, part))
+    key.append((2, ""))
+    return tuple(key)
+
+
 async def select_asset(nodes: list[TreeNode], current_path: str = "") -> Asset | None:
     """Alternative traverse using questionary.select with hierarchical navigation."""
 
     async def _traverse_recursive(current_nodes: list[TreeNode], path_stack: list[str]) -> Asset | None:
-        # Get folders and files at current level
-        folders = [node for node in current_nodes if node.type == "folder" and node.children]
-        files = [node for node in current_nodes if node.type == "file"]
+        # Get folders and files at current level, newest version first
+        folders = sorted(
+            (node for node in current_nodes if node.type == "folder" and node.children),
+            key=lambda node: _browse_sort_key(node.name),
+        )
+        files = sorted(
+            (node for node in current_nodes if node.type == "file"),
+            key=lambda node: _browse_sort_key(node.name),
+        )
 
         # Build choices using questionary Choice objects
         choices = []

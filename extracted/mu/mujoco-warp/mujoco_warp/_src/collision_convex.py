@@ -1000,7 +1000,14 @@ def ccd_kernel_builder(
       )
 
   # runs convex collision on a set of geom pairs to recover contact info (non-heightfield)
-  @wp.kernel(module="unique", enable_backward=False, grid_stride=False, launch_bounds=(block_dim, _CCD_MIN_BLOCKS))
+  # Compile occupancy queries and launches with the same block dimension.
+  @wp.kernel(
+    module="unique",
+    module_options={"block_dim": block_dim},
+    enable_backward=False,
+    grid_stride=False,
+    launch_bounds=(block_dim, _CCD_MIN_BLOCKS),
+  )
   def ccd_kernel(
     # Model:
     opt_ccd_tolerance: wp.array[float],
@@ -1249,7 +1256,7 @@ def convex_narrowphase(m: Model, d: Data, ctx: CollisionContext, collision_table
   epa_iterations = 16 if nboxbox == ncollision else m.opt.ccd_iterations
 
   # set to true to enable multiccd
-  use_multiccd = m.opt.disableflags & DisableBit.MULTICCD == 0
+  use_multiccd = (m.opt.disableflags & DisableBit.MULTICCD) == 0
 
   # note: box<->box multicontact is independent of the use_multiccd flag
   # need at least 4 (square sides) if there's a box collision needing multiccd

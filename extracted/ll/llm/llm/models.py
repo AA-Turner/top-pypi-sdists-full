@@ -31,11 +31,11 @@ from typing import (
 
 import httpx2
 
-from .errors import NeedsKeyException
+from .errors import ConversationNotSupported, NeedsKeyException
 from .serialization import ResponseDict
 
 if TYPE_CHECKING:
-    from .parts import StreamEvent
+    from .parts import Message, StreamEvent
 import inspect
 import json
 from abc import ABC, abstractmethod
@@ -467,7 +467,7 @@ class PauseChain(Exception):
     calls.
     """
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super().__init__(*args)
         self.tool_call: ToolCall | None = None
         self.tool_results: list[ToolResult] = []
@@ -480,7 +480,7 @@ class Prompt:
     _prompt: str | None
     model: "Model"
     fragments: list[str | Fragment] | None
-    attachments: list[Attachment] | None
+    attachments: list[Attachment]
     _system: str | None
     system_fragments: list[str | Fragment] | None
     prompt_json: str | None
@@ -519,7 +519,7 @@ class Prompt:
         self.schema = schema
         self.tools = _wrap_tools(tools or [])
         self.tool_results = tool_results or []
-        self.options = options or {}
+        self.options = options or model.Options()
         self.hide_reasoning = hide_reasoning
         # Explicit messages= list, if the caller supplied one. Copied so
         # later mutation by the caller doesn't alter the Prompt.
@@ -536,7 +536,7 @@ class Prompt:
         return _combine_system(self._system, self.system_fragments)
 
     @property
-    def messages(self):
+    def messages(self) -> list["Message"]:
         """Canonical list of Message objects for this prompt.
 
         **Invariant:** this property returns exactly what the model
@@ -1110,6 +1110,7 @@ class _BaseResponse:
 
     id: str
     prompt: "Prompt"
+    _loaded_messages: list["Message"]
     stream: bool
     resolved_model: str | None = None
     conversation: Optional["_BaseConversation"] = None
@@ -1169,6 +1170,13 @@ class _BaseResponse:
 
         if self.prompt.schema and not self.model.supports_schema:
             raise ValueError(f"{self.model} does not support schemas")
+
+        if not self.model.supports_conversation and any(
+            message.role in ("assistant", "tool") for message in self.prompt.messages
+        ):
+            raise ConversationNotSupported(
+                f"{self.model} does not support conversations"
+            )
 
         function_tools, _ = _partition_tools(self.model, self.prompt.tools)
         if function_tools and not self.model.supports_tools:
@@ -2139,6 +2147,19 @@ class AsyncResponse(_BaseResponse):
     model: "AsyncModel"
     conversation: Optional["AsyncConversation"] = None
 
+    def log_to_db(self, db):
+        """Record this completed response in a log database.
+
+        Call this after awaiting the response, for example with
+        ``await response.text()``. Like the synchronous response API, this
+        performs the database write immediately.
+        """
+        if not self._done:
+            raise ValueError(
+                "Response not yet awaited — call `await response` before log_to_db()"
+            )
+        self._to_sync_response().log_to_db(db)
+
     async def reply(
         self,
         prompt: str | None = None,
@@ -2561,7 +2582,8 @@ class AsyncResponse(_BaseResponse):
                 self._process_chunk(chunk)
                 yield self._stream_events[-1]
         finally:
-            pass
+            if not self._done:
+                await self._generator.aclose()
 
     async def messages(self) -> list[Any]:
         """List of Message objects produced by this response.
@@ -2630,6 +2652,9 @@ class AsyncResponse(_BaseResponse):
 
     async def to_sync_response(self) -> Response:
         await self._force()
+        return self._to_sync_response()
+
+    def _to_sync_response(self) -> Response:
         # This conversion might be tricky if the model is AsyncModel,
         # as Response expects a sync Model. For simplicity, we'll assume
         # the primary use case is data transfer after completion.
@@ -2669,6 +2694,10 @@ class AsyncResponse(_BaseResponse):
         # part's provider_metadata are lost. The CLI converts before
         # logging, so that loss would apply to every async response.
         response._stream_events = list(self._stream_events)
+        # Deserialized responses keep their structured output here instead
+        # of reconstructing it from stream events.
+        if hasattr(self, "_loaded_messages"):
+            response._loaded_messages = list(self._loaded_messages)
         response.attachments = list(self.attachments)
         response.resolved_model = self.resolved_model
         return response
@@ -3211,6 +3240,7 @@ class _BaseModel(ABC, _get_key_mixin):
 
     supports_schema = False
     supports_tools = False
+    supports_conversation = True
 
     @property
     def supported_server_side_tools(self) -> tuple[type[ServerSideTool], ...]:
@@ -3649,16 +3679,15 @@ def _ensure_dict_schema(schema):
 
 
 def _remove_titles_recursively(obj):
-    """Recursively remove all 'title' fields from a nested dictionary."""
+    """Recursively remove JSON Schema 'title' annotations from a nested dictionary."""
     if isinstance(obj, dict):
-        # Remove title if present
-        obj.pop("title", None)
-
-        # Recursively process all values
+        # JSON Schema "title" is a string. A property or $defs entry named
+        # "title" has an object value and must be kept.
+        if isinstance(obj.get("title"), str):
+            obj.pop("title")
         for value in obj.values():
             _remove_titles_recursively(value)
     elif isinstance(obj, list):
-        # Process each item in lists
         for item in obj:
             _remove_titles_recursively(item)
 

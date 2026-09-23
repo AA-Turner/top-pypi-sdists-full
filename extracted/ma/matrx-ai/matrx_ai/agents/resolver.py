@@ -99,6 +99,8 @@ class ConversationResolver:
         config_overrides: LLMParams | None = None,
         responder_agent_id: str | None = None,
         responder_is_version: bool = False,
+        responder_mandate_key: str | None = None,
+        responder_variables: dict[str, Any] | None = None,
     ) -> UnifiedConfig:
         """Return a UnifiedConfig ready for execution.
 
@@ -120,14 +122,37 @@ class ConversationResolver:
         and the process cache is deliberately NOT primed with it, so a later
         change to that choice takes effect on the very next turn.
 
+        🚨 ``responder_variables`` — THE FRAMING A LIVE STRUCTURE IS RESOLVED
+        WITH. A mandate-held conversation re-resolves its Holder on EVERY turn,
+        and until 2026-09-22 it did so with ``variables={}``: the Holder's
+        declared defaults, every time. So a door that recomputes the person's
+        clock, channel and standing file each turn delivered them on turn ONE
+        and never again — the personal staff Chief of Staff was told "nobody
+        knows what timezone they are in" on every message after the first,
+        while the door beside it had just read the answer. Only values the
+        caller DECLARED as per-turn framing
+        (``AgentStartRequest.per_turn_variables``) arrive here; a resource
+        variable still belongs to turn one and is still fenced by the
+        continuation binding witness.
+
         Raises HTTPException(404) if the conversation cannot be found.
         """
 
         if responder_agent_id:
             responder = await Agent.from_agent(
-                responder_agent_id, is_version=responder_is_version, variables={}
+                responder_agent_id,
+                is_version=responder_is_version,
+                variables=dict(responder_variables or {}),
             )
             config = deepcopy(responder.config)
+            # THE TURN CARRIES THE MARKER TOO. The row is the primary record
+            # that this conversation is mandate-held; this is the second layer,
+            # for the moment persistence cannot read the row (see
+            # `unified_config.responder_mandate_key`). Only the mandate path
+            # sets it — an ordinary responder turn (a mirrored coding session)
+            # is not mandate-held and must keep freezing normally.
+            if responder_mandate_key:
+                config.responder_mandate_key = str(responder_mandate_key)
             try:
                 persisted_messages = await _load_persisted_messages(conversation_id)
             except Exception as exc:
@@ -268,6 +293,8 @@ class ConversationResolver:
                     config_overrides=config_overrides,
                     responder_agent_id=live_agent,
                     responder_is_version=live_is_version,
+                    responder_mandate_key=source.mandate_key,
+                    responder_variables=responder_variables,
                 )
             vcprint(
                 f"[ConversationResolver] {conversation_id} is marked mandate-held but "
@@ -310,6 +337,7 @@ class ConversationResolver:
                     config_overrides=config_overrides,
                     responder_agent_id=named,
                     responder_is_version=named_is_version,
+                    responder_variables=responder_variables,
                 )
 
         return await ConversationResolver._finish(
@@ -329,6 +357,37 @@ class ConversationResolver:
     ) -> UnifiedConfig:
         """Overrides, the new user turn, and THE SEND BOUNDARY — for every source
         of the structural config, so a responder turn can never skip them."""
+
+        # ── HOW FAR BACK THIS CONVERSATION READS ────────────────────────────
+        # Loading a continuation has never had a bound: the whole rebuilt
+        # message list, forever. Right for a chat somebody opens and closes;
+        # wrong for a conversation that by construction never ends — a person's
+        # Personal Staff thread, continued by every text, every call and the
+        # app. The host decides the window (a setting, never a constant here)
+        # and answers None for every conversation it has no opinion about.
+        # Deliberately BEFORE the user turn is appended — the message the person
+        # just sent is not one of the turns a window may drop — and before the
+        # send boundary, so this is not a mutation between the resolver and the
+        # provider. A raise here is the host saying it could not read its own
+        # setting, and it takes the turn down rather than picking a window
+        # nobody chose; see matrx_ai/_ext.py for the contract.
+        from matrx_ai._ext import get_conversation_history_window
+
+        history_window = get_conversation_history_window()
+        if history_window is not None and config.messages:
+            bounded = await history_window(
+                conversation_id=conversation_id, messages=list(config.messages)
+            )
+            if bounded is not None and len(bounded) != len(config.messages):
+                vcprint(
+                    f"[ConversationResolver] {conversation_id}: the host bounded this "
+                    f"continuation's history to {len(bounded)} of "
+                    f"{len(config.messages)} persisted messages.",
+                    color="yellow",
+                )
+                config.messages.clear()
+                config.messages.extend(bounded)
+
         if config_overrides is not None:
             config.apply_overrides(config_overrides)
 

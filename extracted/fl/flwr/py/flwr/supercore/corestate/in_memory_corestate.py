@@ -50,7 +50,11 @@ from flwr.proto.task_pb2 import (  # pylint: disable=E0611
     TaskUsage,
 )
 from flwr.supercore import log
-from flwr.supercore.constant import OBJECT_PUSH_SESSION_TTL_SECONDS, AutomationStatus
+from flwr.supercore.constant import (
+    FLOWER_AGENT_APP_ID,
+    OBJECT_PUSH_SESSION_TTL_SECONDS,
+    AutomationStatus,
+)
 from flwr.supercore.date import now
 from flwr.supercore.fab import Fab
 from flwr.supercore.typing import ConnectorOAuthSessionRecord, ConnectorRecord
@@ -101,6 +105,9 @@ class FederationAppRecord:  # pylint: disable=too-many-instance-attributes
     fab_hash: str
     app_type: str
     is_hub_app: bool
+    display_name: str | None
+    description: str | None
+    color: str | None
     added_by: str
     added_at: datetime
     updated_at: datetime
@@ -338,6 +345,9 @@ class InMemoryCoreState(
         app_type: str,
         added_by: str,
         is_hub_app: bool = False,
+        display_name: str | None = None,
+        description: str | None = None,
+        color: str | None = None,
     ) -> str:
         """Store a FAB and associate its app with a federation."""
         if not all((federation_id, app_id, app_type, added_by)):
@@ -366,6 +376,9 @@ class InMemoryCoreState(
                 fab_hash=fab_hash,
                 app_type=app_type,
                 is_hub_app=is_hub_app,
+                display_name=display_name,
+                description=description,
+                color=color,
                 added_by=existing.added_by if existing else added_by,
                 added_at=existing.added_at if existing else current_time,
                 updated_at=current_time,
@@ -463,8 +476,27 @@ class InMemoryCoreState(
                     fab_hash=record.fab_hash,
                     app_type=record.app_type,
                     is_hub_app=record.is_hub_app,
+                    display_name=record.display_name or "",
+                    description=record.description or "",
+                    color=record.color or "",
                 )
                 for record in records
+            ]
+
+    def list_app_associations(
+        self, app_id: str, federation_ids: Sequence[str]
+    ) -> Sequence[str]:
+        """List the provided federation IDs associated with an app."""
+        if not app_id or not federation_ids:
+            return []
+        if app_id == FLOWER_AGENT_APP_ID:
+            return list(federation_ids)
+        federation_id_set = set(federation_ids)
+        with self.lock_federation_app_store:
+            return [
+                record.federation_id
+                for record in self.federation_app_store.values()
+                if record.app_id == app_id and record.federation_id in federation_id_set
             ]
 
     def delete_app(self, federation_id: str, app_id: str) -> bool:

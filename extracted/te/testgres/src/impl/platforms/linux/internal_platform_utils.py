@@ -113,7 +113,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             __class__.C_BASH_EXE,
             "-c",
             "ps -ewwo \"pid=,ppid=,args=\" | grep -E " + shlex.quote(regexp),
-           ]
+        ]
 
         exec_r = os_ops.run(
             cmd=cmd,
@@ -246,6 +246,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             pid_to_ppid,
         )
 
+    # --------------------------------------------------------------------
     def ProcessIsZombi_soft_check(
         self,
         os_ops: OsOperations,
@@ -316,7 +317,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
     ) -> typing.NoReturn:
         assert type(lines) is list
         assert type(i_line) is int
-        assert type(hint) is int
+        assert type(hint) is str
 
         error_lines: typing.List[str] = []
         error_lines.append(

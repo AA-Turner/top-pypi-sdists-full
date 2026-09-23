@@ -313,6 +313,70 @@ class SMatrix_SELL(SMatrix):
                 rows_in_slice = np.arange(s * C, s * C + C, dtype=np.int32)
                 self.sell_rowinds[base:base + length * C] = np.tile(rows_in_slice, length)
 
+    def save_sparse_matrix(self, filepath):
+        """ 
+        Saves the complete SELL matrix to an uncompressed .npz file.
+        To be executed on the local machine (e.g., BIOST052) after generation.
+        """        
+        # Retrieve data (from CPU or GPU depending on where it was generated)
+        values = self.sell_values if self.sell_values is not None else cp.asnumpy(self.sell_values_gpu)
+        colinds = self.sell_colinds if self.sell_colinds is not None else cp.asnumpy(self.sell_colinds_gpu)
+        slice_ptr = self.slice_ptr if self.slice_ptr is not None else cp.asnumpy(self.slice_ptr_gpu)
+        slice_len = self.slice_len if self.slice_len is not None else cp.asnumpy(self.slice_len_gpu)
+        
+        # Vital metadata to reconstruct the geometry
+        metadata = np.array([self.N, self.T, self.Z, self.X, self.slice_height, self.total_storage, self.total_nnz, int(self.isComplexSMatrix)])
+
+        # Optimized save without compression (ultra-fast read access)
+        np.savez(
+            filepath,
+            values=values,
+            colinds=colinds,
+            slice_ptr=slice_ptr,
+            slice_len=slice_len,
+            row_perm=self.row_perm,
+            inv_row_perm=self.inv_row_perm,
+            norm_factor_inv=getattr(self, 'norm_factor_inv', np.array([])),
+            metadata=metadata
+        )
+        print(f"[AOT-biomaps] SELL SMatrix successfully saved ({self.total_storage} elements) to: {filepath}")
+
+
+    def load_sparse_matrix_gpu(self, filepath):
+        """ 
+        Loads the arrays directly from the .npz file into the GPU VRAM.
+        To be executed on the compute node (e.g., H100) before run().
+        """       
+        print(f"[AOT-biomaps] Direct-to-GPU loading of SMatrix from {filepath}...")
+        data = np.load(filepath)
+        
+        # 1. Restore metadata
+        meta = data['metadata']
+        self.N, self.T, self.Z, self.X, self.slice_height, self.total_storage, self.total_nnz = map(int, meta[:7])
+        self.isComplexSMatrix = bool(meta[7])
+
+        # 2. Direct push of arrays into GPU VRAM
+        with cp.cuda.Device(self.gpu_index):
+            self.sell_values_gpu = cp.asarray(data['values'])
+            self.sell_colinds_gpu = cp.asarray(data['colinds'])
+            self.slice_ptr_gpu = cp.asarray(data['slice_ptr'])
+            self.slice_len_gpu = cp.asarray(data['slice_len'])
+            
+            self.row_perm_gpu = cp.asarray(data['row_perm'])
+            self.inv_row_perm_gpu = cp.asarray(data['inv_row_perm'])
+            
+            if data['norm_factor_inv'].size > 0:
+                self.norm_factor_inv_gpu = cp.asarray(data['norm_factor_inv'])
+                self.norm_factor_inv = data['norm_factor_inv']
+
+        # 3. Restore vital CPU pointers for class logic
+        self.slice_ptr = data['slice_ptr']
+        self.slice_len = data['slice_len']
+        self.row_perm = data['row_perm']
+        self.inv_row_perm = data['inv_row_perm']
+
+        print(f"[AOT-biomaps] SELL SMatrix loaded into VRAM. Density restored.")
+
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """Perform forward projection: q = P^-1 * (A_sell * theta)."""
         dtype = self._get_dtype()

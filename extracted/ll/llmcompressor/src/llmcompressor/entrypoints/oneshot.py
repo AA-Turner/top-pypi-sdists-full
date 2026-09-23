@@ -23,7 +23,12 @@ from compressed_tensors.base import (
 from compressed_tensors.utils import getattr_chain
 from loguru import logger
 from torch.utils.data import DataLoader
-from transformers import PreTrainedModel, PreTrainedTokenizerBase, ProcessorMixin
+from transformers import (
+    AutoConfig,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    ProcessorMixin,
+)
 
 from llmcompressor.args import parse_args
 from llmcompressor.core.session_functions import active_session
@@ -254,8 +259,6 @@ class Oneshot:
                 sequential_targets=self.dataset_args.sequential_targets,
             )
 
-            session.state.enable_compile = self.dataset_args.enable_compile
-
             user_pipeline = self.dataset_args.pipeline
             pipeline = CalibrationPipeline.from_modifiers(
                 session.lifecycle.recipe.modifiers, user=user_pipeline
@@ -269,28 +272,35 @@ class Oneshot:
 
         session.finalize()
 
-    @staticmethod
-    def validate_model(model: PreTrainedModel):
+    def validate_model(self, model: PreTrainedModel):
         """
         Validate that oneshot can be applied to model.
         Raise warning if model is quantized with compressed-tensors quant method.
         Raise error if model is quantized with any other quant method.
         """
-        quant_method_key = (
-            f"config.{QUANTIZATION_CONFIG_NAME}.{QUANTIZATION_METHOD_NAME}"
+        # Check on-disk config first because decompressed models
+        # no longer retain quantization_config in memory
+        config = AutoConfig.from_pretrained(
+            model.config.name_or_path,
+            trust_remote_code=self.model_args.trust_remote_code_model,
         )
-        quant_method = getattr_chain(model, quant_method_key, None)
+        qconfig = getattr_chain(config, QUANTIZATION_CONFIG_NAME, None)
+        quant_method = (
+            qconfig.get(QUANTIZATION_METHOD_NAME, None) if qconfig is not None else None
+        )
 
-        if quant_method is None:
-            return
-
+        # Fall back to in-memory config for models with
+        # quantization_config set programmatically
         resolution = (
             "To resolve, load a full-precision checkpoint instead, or dequantize the "
             "checkpoint first with the compressed-tensors convert_checkpoint entrypoint"
             " -- https://github.com/vllm-project/compressed-tensors/blob/"
             "main/examples/convert_checkpoint/kimi_k26_example.py"
         )
-        if quant_method == QUANTIZATION_METHOD:
+        if quant_method is None:
+            return
+
+        elif quant_method == QUANTIZATION_METHOD:
             logger.warning(
                 "oneshot has limited support for models already quantized in the "
                 "`compressed-tensors` format. If the recipe targets layers that have "
@@ -329,7 +339,7 @@ def oneshot(
     num_calibration_samples: int = 512,
     shuffle_calibration_samples: bool = True,
     max_seq_length: int | None = None,
-    pad_to_max_length: bool = True,
+    pad_to_max_length: bool = False,
     text_column: str = "text",
     concatenate_data: bool = False,
     streaming: bool = False,
@@ -352,6 +362,7 @@ def oneshot(
         "_prepare_4d_causal_attention_mask_with_cache_position",
         "_update_linear_attn_mask",
         "project_per_layer_inputs",
+        "_apply_attn_res",
     ],
     sequential_targets: list[str] | None = None,
     sequential_offload_device: str = "cpu",
@@ -360,7 +371,6 @@ def oneshot(
     # Miscellaneous arguments
     output_dir: str | None = None,
     log_dir: str | None = None,
-    enable_compile: bool = False,
     **kwargs,
 ) -> PreTrainedModel:
     """
@@ -455,9 +465,6 @@ def oneshot(
         Nothing is saved if None.
     :param log_dir: Path to save logs during oneshot run.
         Nothing is logged to file if None.
-    :param enable_compile: If True, use torch.compiled MSE observer inner loop
-        for faster calibration. Default False.
-
     :return: The calibrated PreTrainedModel
     """
 

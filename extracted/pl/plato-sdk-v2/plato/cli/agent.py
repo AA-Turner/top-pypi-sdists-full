@@ -373,7 +373,7 @@ def agent_publish(
     wheel_only: bool = typer.Option(
         False,
         "--wheel-only",
-        help="Upload only the wheel; the image :<version> must already be in ECR. For re-running a publish whose image step succeeded but whose upload failed",
+        help="Re-run a publish whose image :<version> is already in ECR: no rebuild or version bump; prefetches and (release publishes) promotes :<version> to :latest unless :latest already points at it, then uploads the wheel. For recovering from a failed prefetch, promote, or upload",
     ),
     no_skip_docker: bool = typer.Option(
         False,

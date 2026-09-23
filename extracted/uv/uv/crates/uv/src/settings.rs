@@ -16,12 +16,13 @@ use uv_cli::comma::CommaSeparatedRequirements;
 use uv_cli::{
     AddArgs, AuditArgs, AuditCommonArgs, AuditOutputFormat, AuthLoginArgs, AuthLogoutArgs,
     AuthTokenArgs, ColorChoice, ExternalCommand, GlobalArgs, InitArgs, ListFormat, LockArgs, Maybe,
-    MetadataArgs, PipCheckArgs, PipCompileArgs, PipFreezeArgs, PipInstallArgs, PipListArgs,
-    PipShowArgs, PipSyncArgs, PipTreeArgs, PipUninstallArgs, ProjectDependencyGroupsArgs,
-    PythonFindArgs, PythonInstallArgs, PythonListArgs, PythonListFormat, PythonPinArgs,
-    PythonUninstallArgs, PythonUpgradeArgs, RemoveArgs, RunArgs, SyncArgs, SyncFormat,
-    ToolAuditArgs, ToolDirArgs, ToolInstallArgs, ToolListArgs, ToolRunArgs, ToolUninstallArgs,
-    TreeArgs, TreeFormat, UpgradeArgs, VenvArgs, VersionArgs, VersionBumpSpec, VersionFormat,
+    MetadataArgs, PipCheckArgs, PipCompileArgs, PipFreezeArgs, PipInstallArgs, PipInstallFormat,
+    PipListArgs, PipShowArgs, PipSyncArgs, PipTreeArgs, PipUninstallArgs,
+    ProjectDependencyGroupsArgs, PythonFindArgs, PythonInstallArgs, PythonListArgs,
+    PythonListFormat, PythonPinArgs, PythonUninstallArgs, PythonUpgradeArgs, RemoveArgs, RunArgs,
+    SyncArgs, SyncFormat, ToolAuditArgs, ToolDirArgs, ToolInstallArgs, ToolListArgs, ToolRunArgs,
+    ToolUninstallArgs, TreeArgs, TreeFormat, UpgradeArgs, VenvArgs, VersionArgs, VersionBumpSpec,
+    VersionFormat,
 };
 use uv_cli::{
     AuthorFrom, BuildArgs, BuildOptionsArgs, CheckArgs, ExcludeNewerArgs, ExportArgs, FormatArgs,
@@ -3692,6 +3693,7 @@ pub(crate) struct PipSyncSettings {
     pub(crate) constraints: Vec<RequirementsInput>,
     pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) dry_run: DryRun,
+    pub(crate) output_format: PipInstallFormat,
     pub(crate) refresh: Refresh,
     pub(crate) settings: PipSettings,
 }
@@ -3738,8 +3740,10 @@ impl PipSyncSettings {
             strict,
             no_strict,
             dry_run,
+            output_format,
             torch_backend,
             compat_args: _,
+            check,
         } = *args;
 
         Ok(Self {
@@ -3752,7 +3756,12 @@ impl PipSyncSettings {
                 .into_iter()
                 .filter_map(Maybe::into_option)
                 .collect(),
-            dry_run: DryRun::from_args(dry_run),
+            dry_run: if check {
+                DryRun::Check
+            } else {
+                DryRun::from_args(dry_run)
+            },
+            output_format,
             refresh: Refresh::try_from(refresh)?,
             settings: PipSettings::combine(
                 PipOptions {
@@ -3803,6 +3812,7 @@ pub(crate) struct PipInstallSettings {
     pub(crate) excludes: Vec<RequirementsInput>,
     pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) dry_run: DryRun,
+    pub(crate) output_format: PipInstallFormat,
     pub(crate) constraints_from_workspace: Vec<Requirement>,
     pub(crate) overrides_from_workspace: Vec<Override<Requirement>>,
     pub(crate) excludes_from_workspace: Vec<ExcludeDependency>,
@@ -3862,8 +3872,10 @@ impl PipInstallSettings {
             strict,
             no_strict,
             dry_run,
+            output_format,
             torch_backend,
             compat_args: _,
+            check,
         } = args;
 
         let constraints_from_workspace = if let Some(configuration) = &filesystem {
@@ -3931,7 +3943,12 @@ impl PipInstallSettings {
                 .into_iter()
                 .filter_map(Maybe::into_option)
                 .collect(),
-            dry_run: DryRun::from_args(dry_run),
+            dry_run: if check {
+                DryRun::Check
+            } else {
+                DryRun::from_args(dry_run)
+            },
+            output_format,
             constraints_from_workspace,
             overrides_from_workspace,
             excludes_from_workspace,
@@ -4286,6 +4303,7 @@ impl PipCheckSettings {
 /// The resolved settings to use for a `build` invocation.
 #[derive(Debug, Clone)]
 pub(crate) struct BuildSettings {
+    pub(crate) skip_dependency_check: bool,
     pub(crate) src: Option<PathBuf>,
     pub(crate) package: Option<PackageName>,
     pub(crate) all_packages: bool,
@@ -4314,6 +4332,7 @@ impl BuildSettings {
         environment: EnvironmentOptions,
     ) -> anyhow::Result<Self> {
         let BuildArgs {
+            skip_dependency_check,
             src,
             out_dir,
             package,
@@ -4365,6 +4384,7 @@ impl BuildSettings {
         };
 
         Ok(Self {
+            skip_dependency_check,
             src,
             package,
             all_packages,

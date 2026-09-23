@@ -402,6 +402,7 @@ class GainType(enum.IntEnum):
   MUSCLE = mujoco.mjtGain.mjGAIN_MUSCLE
   USER = mujoco.mjtGain.mjGAIN_USER
   DCMOTOR = mujoco.mjtGain.mjGAIN_DCMOTOR
+  SO3 = mujoco.mjtGain.mjGAIN_SO3
 
 
 class BiasType(enum.IntEnum):
@@ -438,6 +439,18 @@ class CtrlInput(enum.IntFlag):
   FF = mujoco.mjtCtrlInput.mjINPUT_FF
   VOLTAGE = mujoco.mjtCtrlInput.mjINPUT_VOLTAGE
   NONE = mujoco.mjtCtrlInput.mjINPUT_NONE
+
+
+class CtrlChart(enum.IntEnum):
+  """Orientation chart type for SO(3) actuators.
+
+  Attributes:
+    EXPMAP: exponential-map orientation target (3 controls)
+    QUAT: quaternion orientation target (4 controls)
+  """
+
+  EXPMAP = mujoco.mjtCtrlChart.mjCHART_EXPMAP
+  QUAT = mujoco.mjtCtrlChart.mjCHART_QUAT
 
 
 class JointType(enum.IntEnum):
@@ -1298,6 +1311,7 @@ class Model:
     hfield_adr: start address in hfield_data                 (nhfield,)
     hfield_data: elevation data                              (nhfielddata,)
     mat_texid: texture id for rendering                      (*, nmat, mjNTEXROLE)
+    mat_texuniform: texture uniform flag (spatial scaling)   (*, nmat)
     mat_texrepeat: texture repeat for rendering              (*, nmat, 2)
     mat_emission: emission scalar (self-illumination)        (*, nmat)
     mat_specular: specular reflection scalar                 (*, nmat)
@@ -1800,6 +1814,7 @@ class Model:
   hfield_adr: array("nhfield", int)
   hfield_data: array("nhfielddata", float)
   mat_texid: array("*", "nmat", 10, int)
+  mat_texuniform: array("*", "nmat", bool)
   mat_texrepeat: array("*", "nmat", wp.vec2)
   mat_emission: array("*", "nmat", float)
   mat_specular: array("*", "nmat", float)
@@ -2557,6 +2572,7 @@ class RenderContext:
     seg_adr: segmentation addresses
     render_seg: per-camera segmentation render flags
     znear: near plane distance
+    zfar: far plane distance
     total_rays: total number of rays
     render_skybox: whether to shade missed rays with a MuJoCo skybox texture
     skybox_tex_id: per-world indices into textures of the skybox
@@ -2673,6 +2689,7 @@ class RenderContext:
   seg_adr: array("ncam", int)
   render_seg: array("ncam", bool)
   znear: float
+  zfar: float
   total_rays: int
   enable_backface_culling: bool
   shadow_light_fraction: float

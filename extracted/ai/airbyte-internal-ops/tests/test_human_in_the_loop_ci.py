@@ -12,10 +12,12 @@ import pytest
 from airbyte_ops_mcp import slack_posting
 from airbyte_ops_mcp.human_in_the_loop import (
     APPROVAL_REQUEST_SUMMARY_MAX_LENGTH,
+    HITL_MESSAGE_MAX_LENGTH,
     classify_person_id,
     dispatch_escalation,
     normalize_person_id,
     validate_approval_request_summary,
+    validate_hitl_message,
     validate_person_id,
 )
 from airbyte_ops_mcp.mcp.human_in_the_loop import (
@@ -474,9 +476,13 @@ def test_newsletter_channel_resolution() -> None:
         pytest.param(RequestType.BLOCKED, "🚫", "Still Blocked", id="blocked"),
     ],
 )
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.wait_for_workflow_completion")
 @patch("airbyte_ops_mcp.mcp.human_in_the_loop.dispatch_escalation")
 def test_request_type_resolves_header(
     mock_dispatch: MagicMock,
+    mock_wait: MagicMock,
+    mock_token: MagicMock,
     request_type: RequestType,
     expected_emoji: str,
     expected_label: str,
@@ -488,6 +494,8 @@ def test_request_type_resolves_header(
     mock_result.workflow_url = "https://github.com/actions/workflows/1"
     mock_result.run_id = 1
     mock_dispatch.return_value = mock_result
+    mock_wait.return_value.failed = False
+    mock_wait.return_value.succeeded = True
 
     escalate_to_human(
         target_person="aj@airbyte.io",
@@ -926,6 +934,7 @@ def test_escalate_to_human_rejects_bare_handle(mock_dispatch: MagicMock) -> None
     mock_dispatch.side_effect = ValueError(
         "Identifier 'aldo.gonzalez' is not a recognized format."
     )
+    # dispatch raises before any run is dispatched
     with pytest.raises(ValueError, match="not a recognized format"):
         escalate_to_human(
             target_person="aldo.gonzalez",
@@ -935,14 +944,22 @@ def test_escalate_to_human_rejects_bare_handle(mock_dispatch: MagicMock) -> None
 
 
 @pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.wait_for_workflow_completion")
 @patch("airbyte_ops_mcp.mcp.human_in_the_loop.dispatch_escalation")
-def test_request_type_none_passes_none_headers(mock_dispatch: MagicMock) -> None:
+def test_request_type_none_passes_none_headers(
+    mock_dispatch: MagicMock,
+    mock_wait: MagicMock,
+    mock_token: MagicMock,
+) -> None:
     """When request_type is omitted, header_emoji and header_label are None (backend defaults)."""
     mock_result = MagicMock()
     mock_result.run_url = "https://github.com/actions/runs/1"
     mock_result.workflow_url = "https://github.com/actions/workflows/1"
     mock_result.run_id = 1
     mock_dispatch.return_value = mock_result
+    mock_wait.return_value.failed = False
+    mock_wait.return_value.succeeded = True
 
     escalate_to_human(
         target_person="aj@airbyte.io",
@@ -1178,3 +1195,135 @@ def test_post_slack_newsletter_rejects_bad_session_url() -> None:
     )
 
     assert result.success is False
+
+
+# ---------------------------------------------------------------------------
+# validate_hitl_message / message-length handling
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_validate_hitl_message_accepts_at_limit() -> None:
+    """A message of exactly the max length passes validation."""
+    validate_hitl_message("a" * HITL_MESSAGE_MAX_LENGTH)  # should not raise
+
+
+@pytest.mark.unit
+def test_validate_hitl_message_rejects_over_limit() -> None:
+    """A message over the limit raises a length-specific error."""
+    with pytest.raises(ValueError, match="3000"):
+        validate_hitl_message("a" * (HITL_MESSAGE_MAX_LENGTH + 1))
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.human_in_the_loop.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+def test_dispatch_rejects_over_limit_message(
+    mock_token: MagicMock, mock_dispatch: MagicMock
+) -> None:
+    """dispatch_escalation raises before triggering the workflow when message is over-limit."""
+    mock_token.return_value = "fake-token"
+
+    with pytest.raises(ValueError, match="3000"):
+        dispatch_escalation(
+            target_person="aj@airbyte.io",
+            message="a" * (HITL_MESSAGE_MAX_LENGTH + 1),
+            agent_session_url="https://app.devin.ai/sessions/abc",
+        )
+    mock_dispatch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# escalate_to_human workflow completion check
+# ---------------------------------------------------------------------------
+
+
+def _mock_dispatch_result() -> MagicMock:
+    """Build a WorkflowDispatchResult-like mock with a discovered run."""
+    mock_result = MagicMock()
+    mock_result.run_url = "https://github.com/actions/runs/1"
+    mock_result.workflow_url = "https://github.com/actions/workflows/1"
+    mock_result.run_id = 1
+    return mock_result
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.wait_for_workflow_completion")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.dispatch_escalation")
+def test_escalate_to_human_reports_failed_run(
+    mock_dispatch: MagicMock,
+    mock_wait: MagicMock,
+    mock_token: MagicMock,
+) -> None:
+    """A failed escalation workflow run returns success=False mentioning the failed post."""
+    mock_dispatch.return_value = _mock_dispatch_result()
+    mock_wait.return_value.failed = True
+    mock_wait.return_value.succeeded = False
+    mock_wait.return_value.conclusion = "failure"
+    mock_wait.return_value.run_url = "https://github.com/actions/runs/1"
+    mock_wait.return_value.jobs = []
+
+    result = escalate_to_human(
+        target_person="aj@airbyte.io",
+        message="Test message.",
+        agent_session_url="https://app.devin.ai/sessions/abc",
+    )
+
+    assert result.success is False
+    assert "NOT posted" in result.message
+    assert "failure" in result.message
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.wait_for_workflow_completion")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.dispatch_escalation")
+def test_escalate_to_human_reports_succeeded_run(
+    mock_dispatch: MagicMock,
+    mock_wait: MagicMock,
+    mock_token: MagicMock,
+) -> None:
+    """A successful escalation workflow run returns success=True."""
+    mock_dispatch.return_value = _mock_dispatch_result()
+    mock_wait.return_value.failed = False
+    mock_wait.return_value.succeeded = True
+    mock_wait.return_value.conclusion = "success"
+    mock_wait.return_value.run_url = "https://github.com/actions/runs/1"
+
+    result = escalate_to_human(
+        target_person="aj@airbyte.io",
+        message="Test message.",
+        agent_session_url="https://app.devin.ai/sessions/abc",
+    )
+
+    assert result.success is True
+    assert "Escalation sent" in result.message
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.wait_for_workflow_completion")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.dispatch_escalation")
+def test_escalate_to_human_reports_in_progress_run(
+    mock_dispatch: MagicMock,
+    mock_wait: MagicMock,
+    mock_token: MagicMock,
+) -> None:
+    """A run still in progress after the wait returns success with a check-CI hint."""
+    mock_dispatch.return_value = _mock_dispatch_result()
+    mock_wait.return_value.failed = False
+    mock_wait.return_value.succeeded = False
+    mock_wait.return_value.status = "in_progress"
+    mock_wait.return_value.conclusion = None
+    mock_wait.return_value.run_url = "https://github.com/actions/runs/1"
+
+    result = escalate_to_human(
+        target_person="aj@airbyte.io",
+        message="Test message.",
+        agent_session_url="https://app.devin.ai/sessions/abc",
+    )
+
+    assert result.success is True
+    assert "in progress" in result.message
+    assert "check_ci_workflow_status" in result.message

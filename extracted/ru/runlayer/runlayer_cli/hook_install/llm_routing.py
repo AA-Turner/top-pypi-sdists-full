@@ -5,15 +5,20 @@ from __future__ import annotations
 import enum
 import errno
 import hashlib
+import http.client
 import ipaddress
 import json
 import platform
-from collections.abc import Mapping
+import socket
+import urllib.error
+import urllib.request
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TypedDict, cast
 from urllib.parse import urlsplit
 
+from runlayer_cli import __version__
 from runlayer_cli.aiwatch_credential import (
     CLIENT_REFRESH_INTERVAL_SECONDS,
     CREDENTIAL_RELATIVE_PATH,
@@ -321,6 +326,61 @@ class FetchDecision(Protocol):
     ) -> Mapping[str, object] | None: ...
 
 
+GATEWAY_PROBE_TIMEOUT_SECONDS = 5.0
+GATEWAY_PROBE_PATH = "/anthropic/v1/models"
+
+# None when the gateway answered (any status below 500), else a short reason.
+GatewayProbe = Callable[[str], str | None]
+
+
+def probe_gateway(
+    base_url: str,
+    *,
+    timeout: float = GATEWAY_PROBE_TIMEOUT_SECONDS,
+    urlopen: Callable[..., Any] | None = None,
+) -> str | None:
+    """One unauthenticated GET; a 401 proves the ALB-to-gateway path works.
+
+    No credential is sent, so the gateway rejects at its auth middleware without
+    touching a provider, and any 4xx is therefore an answer from the gateway.
+    A 5xx on this path can only be infrastructure in front of it — notably the
+    ALB's own 503 when zero targets are healthy — so it counts as unreachable
+    alongside transport failures (DNS, connect, TLS, timeout).
+    """
+    request = urllib.request.Request(
+        base_url.rstrip("/") + GATEWAY_PROBE_PATH,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": f"runlayer-aiwatch/{__version__}",
+        },
+        method="GET",
+    )
+    if urlopen is None:
+        # Built per call, never at import: a module-level opener would freeze a
+        # pre-truststore-injection SSL context (same reasoning as the credential
+        # helper's request path).
+        urlopen = urllib.request.build_opener().open
+    try:
+        with urlopen(request, timeout=timeout):
+            return None
+    except urllib.error.HTTPError as exc:
+        # Precedes URLError on purpose: HTTPError subclasses it. A 4xx is an
+        # answer from the gateway's auth middleware; a 5xx here is the ALB or
+        # another middlebox answering for a gateway that isn't.
+        if exc.code >= 500:
+            return f"HTTP {exc.code}"
+        return None
+    except (
+        urllib.error.URLError,
+        socket.timeout,
+        TimeoutError,
+        OSError,
+        http.client.HTTPException,
+    ) as exc:
+        reason = getattr(exc, "reason", None) or exc
+        return f"{type(exc).__name__}: {reason}"
+
+
 def _unroute_outcome(*, scope: InstallScope) -> RoutingOutcome:
     try:
         unroute(scope=scope)
@@ -391,6 +451,7 @@ def reconcile_routing(
     base_url: str,
     scope: InstallScope,
     fetch_decision: FetchDecision,
+    probe: GatewayProbe,
 ) -> RoutingOutcome | None:
     """Converge both clients on the backend's device-key decision.
 
@@ -401,6 +462,9 @@ def reconcile_routing(
     without a credential in hand.
     A missing or malformed credential asks the backend to rotate because a
     hash-less steady state would otherwise leave the device keyless forever.
+    Once routed, ``probe`` checks the gateway answers from this device. Routing
+    stays applied either way; an unreachable gateway only turns the check-in
+    into ``error`` so the fleet sees devices that are routed into a wall.
     """
     if not desired:
         return _unroute_outcome(scope=scope)
@@ -437,7 +501,24 @@ def reconcile_routing(
             "wrote": False,
             "steady": False,
         }
-    return _route_outcome(base_url, key, scope=scope, minted=minted is not None)
+    outcome = _route_outcome(base_url, key, scope=scope, minted=minted is not None)
+    if outcome["status"] == "error":
+        return outcome
+    unreachable = probe(base_url)
+    if unreachable is None:
+        return outcome
+    # Drift detail stays in front: the check-in caps the message at 500 chars,
+    # so a long transport reason truncates before the per-client breakdown does.
+    message = f"gateway unreachable: {unreachable}"
+    if outcome["error_message"]:
+        message = f"{outcome['error_message']}; {message}"
+    return {
+        "status": "error",
+        "error_message": message,
+        "key_hash": outcome["key_hash"],
+        "wrote": outcome["wrote"],
+        "steady": False,
+    }
 
 
 def route(base_url: str, *, scope: InstallScope) -> RouteResult:

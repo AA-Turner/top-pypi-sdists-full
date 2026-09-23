@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: mujoco
-Version: 3.13.0
+Version: 3.14.0
 Summary: MuJoCo Physics Simulator
 Author-email: Google DeepMind <mujoco@deepmind.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/google-deepmind/mujoco
-Project-URL: Documentation, https://mujoco.readthedocs.io/en/3.13.0
+Project-URL: Documentation, https://mujoco.readthedocs.io/en/3.14.0
 Project-URL: Repository, https://github.com/google-deepmind/mujoco
-Project-URL: Changelog, https://mujoco.readthedocs.io/en/3.13.0/changelog.html
+Project-URL: Changelog, https://mujoco.readthedocs.io/en/3.14.0/changelog.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -29,6 +29,7 @@ Requires-Dist: etils[epath]
 Requires-Dist: glfw
 Requires-Dist: numpy
 Requires-Dist: pyopengl
+Requires-Dist: websockets>=13
 Provides-Extra: sysid
 Requires-Dist: absl-py; extra == "sysid"
 Requires-Dist: colorama; extra == "sysid"

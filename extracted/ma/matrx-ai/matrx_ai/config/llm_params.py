@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from matrx_files.cloud_sync.media_ref import MediaRef
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from matrx_ai.config.custom_tool import CustomTool
 from matrx_ai.config.dictionary_config import DictionaryConfig
@@ -224,6 +224,11 @@ class LLMParams(BaseModel):
 
     tts_voice: TtsVoice | None = None
     audio_format: AudioFormat | None = None
+    # Free-text delivery direction ("warm, unhurried, a smile in the voice").
+    performance_direction: str | None = Field(default=None, max_length=2000)
+    speech_speed: float | None = Field(default=None, ge=0.25, le=4.0)
+    turn_pause_ms: int | None = Field(default=None, ge=0, le=10_000)
+    language_code: str | None = Field(default=None, max_length=16)
 
     duration_seconds: int | None = None
     resolution: MediaResolution | None = None

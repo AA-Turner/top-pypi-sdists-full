@@ -245,3 +245,33 @@ async def test_an_ordinary_conversation_still_runs_its_own_frozen_structure(
     config = await ConversationResolver.from_conversation_id(CONVERSATION_ID)
     assert config.tools == THE_FROZEN_BELT
     assert prompt_of(config) == "the instructions the Chief had yesterday"
+
+
+@pytest.mark.asyncio
+async def test_the_resolved_turn_carries_the_mandate_key_it_was_built_from(
+    staff_thread,
+) -> None:
+    """The second layer is only a layer if somebody fills it.
+
+    Persistence re-reads the conversation row to decide whether to freeze, and
+    that read can fail. When it does, the ONLY thing left that knows this turn
+    came from a mandate's live Holder is the turn itself — so the resolver
+    stamps it here, at the one place that has just established it. Without this
+    line `persist_completed_request` falls back to "not mandate-held", freezes
+    the belt onto the row, and the next turn reaches the provider with none of
+    the Holder's authored tools (measured live 2026-09-21).
+    """
+    config = await ConversationResolver.from_conversation_id(CONVERSATION_ID)
+    assert config.responder_mandate_key == "personal_staff.front_line"
+
+
+@pytest.mark.asyncio
+async def test_an_ordinary_responder_turn_is_not_marked_mandate_held(
+    staff_thread, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mirrored coding session uses the same responder path and is NOT
+    mandate-held — it must keep freezing normally."""
+    config = await ConversationResolver.from_conversation_id(
+        CONVERSATION_ID, responder_agent_id=TODAYS_HOLDER
+    )
+    assert config.responder_mandate_key is None

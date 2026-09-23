@@ -70,6 +70,7 @@ use crate::settings::{
 pub(crate) mod add;
 pub(crate) mod audit;
 pub(crate) mod check;
+mod edit;
 pub(crate) mod environment;
 pub(crate) mod export;
 pub(crate) mod format;
@@ -2967,6 +2968,7 @@ pub(crate) async fn update_environment(
             &overrides,
             &override_dependencies,
             &excludes,
+            dependency_metadata,
             DependencyMode::Transitive,
             InstallationStrategy::Permissive,
             &marker_env,

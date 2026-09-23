@@ -81,11 +81,13 @@ from .literals import (
     CapacityManagerDataExportStatusType,
     CapacityManagerMonitoredTagKeyStatusType,
     CapacityManagerStatusType,
+    CapacityReservationAdjustmentStatusType,
     CapacityReservationBillingRequestStatusType,
     CapacityReservationCancellationQuoteStateType,
     CapacityReservationDeliveryPreferenceType,
     CapacityReservationFleetStateType,
     CapacityReservationInstancePlatformType,
+    CapacityReservationModificationQuoteStateType,
     CapacityReservationPreferenceType,
     CapacityReservationStateType,
     CapacityReservationTenancyType,
@@ -684,6 +686,7 @@ __all__ = (
     "CapacityManagerDimensionTypeDef",
     "CapacityManagerMonitoredTagKeyTypeDef",
     "CapacityManagerTagDimensionTypeDef",
+    "CapacityReservationAdjustmentDetailsTypeDef",
     "CapacityReservationBillingRequestTypeDef",
     "CapacityReservationCancellationQuoteTypeDef",
     "CapacityReservationCommitmentInfoTypeDef",
@@ -692,6 +695,7 @@ __all__ = (
     "CapacityReservationFleetTypeDef",
     "CapacityReservationGroupTypeDef",
     "CapacityReservationInfoTypeDef",
+    "CapacityReservationModificationQuoteTypeDef",
     "CapacityReservationOptionsRequestTypeDef",
     "CapacityReservationOptionsTypeDef",
     "CapacityReservationSpecificationResponseTypeDef",
@@ -769,6 +773,8 @@ __all__ = (
     "CreateCapacityReservationBySplittingResultTypeDef",
     "CreateCapacityReservationCancellationQuoteRequestTypeDef",
     "CreateCapacityReservationCancellationQuoteResultTypeDef",
+    "CreateCapacityReservationDateChangeQuoteRequestTypeDef",
+    "CreateCapacityReservationDateChangeQuoteResultTypeDef",
     "CreateCapacityReservationFleetRequestTypeDef",
     "CreateCapacityReservationFleetResultTypeDef",
     "CreateCapacityReservationRequestTypeDef",
@@ -1296,6 +1302,9 @@ __all__ = (
     "DescribeCapacityReservationBillingRequestsResultTypeDef",
     "DescribeCapacityReservationCancellationQuotesRequestTypeDef",
     "DescribeCapacityReservationCancellationQuotesResultTypeDef",
+    "DescribeCapacityReservationDateChangeQuotesRequestPaginateTypeDef",
+    "DescribeCapacityReservationDateChangeQuotesRequestTypeDef",
+    "DescribeCapacityReservationDateChangeQuotesResultTypeDef",
     "DescribeCapacityReservationFleetsRequestPaginateTypeDef",
     "DescribeCapacityReservationFleetsRequestTypeDef",
     "DescribeCapacityReservationFleetsResultTypeDef",
@@ -2573,6 +2582,9 @@ __all__ = (
     "MetricDataResultTypeDef",
     "MetricPointTypeDef",
     "MetricValueTypeDef",
+    "ModificationQuoteCurrentConfigurationTypeDef",
+    "ModificationReservationUpdateTypeDef",
+    "ModificationTermsTypeDef",
     "ModifyAccountVpcEncryptionControlRequestTypeDef",
     "ModifyAccountVpcEncryptionControlResultTypeDef",
     "ModifyAddressAttributeRequestTypeDef",
@@ -4147,6 +4159,13 @@ class CapacityManagerMonitoredTagKeyTypeDef(TypedDict):
     CapacityManagerProvided: NotRequired[bool]
     EarliestDatapointTimestamp: NotRequired[datetime]
 
+class CapacityReservationAdjustmentDetailsTypeDef(TypedDict):
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    CommitmentEndDate: NotRequired[datetime]
+    EndDateType: NotRequired[str]
+    CommitmentDuration: NotRequired[int]
+
 class CapacityReservationInfoTypeDef(TypedDict):
     InstanceType: NotRequired[str]
     AvailabilityZone: NotRequired[str]
@@ -4160,6 +4179,7 @@ class CapacityReservationConfigurationTypeDef(TypedDict):
 class CapacityReservationCommitmentInfoTypeDef(TypedDict):
     CommittedInstanceCount: NotRequired[int]
     CommitmentEndDate: NotRequired[datetime]
+    CommitmentDuration: NotRequired[int]
 
 class FleetCapacityReservationTypeDef(TypedDict):
     CapacityReservationId: NotRequired[str]
@@ -4177,6 +4197,12 @@ class FleetCapacityReservationTypeDef(TypedDict):
 class CapacityReservationGroupTypeDef(TypedDict):
     GroupArn: NotRequired[str]
     OwnerId: NotRequired[str]
+
+class ModificationQuoteCurrentConfigurationTypeDef(TypedDict):
+    InstanceCount: NotRequired[int]
+    ReservationState: NotRequired[str]
+    StartDate: NotRequired[datetime]
+    OriginalStartDate: NotRequired[datetime]
 
 class CapacityReservationOptionsRequestTypeDef(TypedDict):
     UsageStrategy: NotRequired[Literal["use-capacity-reservations-first"]]
@@ -7445,6 +7471,11 @@ class MetricValueTypeDef(TypedDict):
     Metric: NotRequired[MetricType]
     Value: NotRequired[float]
 
+class ModificationReservationUpdateTypeDef(TypedDict):
+    NewCommitmentEndDate: NotRequired[datetime]
+    NewStartDate: NotRequired[datetime]
+    NewCommitmentDuration: NotRequired[int]
+
 class ModifyAccountVpcEncryptionControlRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     Mode: NotRequired[AccountVpcEncryptionControlModeType]
@@ -9388,10 +9419,6 @@ class ModifyCapacityReservationFleetResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ModifyCapacityReservationResultTypeDef(TypedDict):
-    Return: bool
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ModifyClientVpnEndpointResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10709,6 +10736,9 @@ class ModifyCapacityReservationRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     AdditionalInfo: NotRequired[str]
     InstanceMatchCriteria: NotRequired[InstanceMatchCriteriaType]
+    AcceptModificationTerms: NotRequired[bool]
+    StartDate: NotRequired[TimestampTypeDef]
+    QuoteId: NotRequired[str]
 
 class ModifyInstanceEventStartTimeRequestTypeDef(TypedDict):
     InstanceId: str
@@ -10991,6 +11021,12 @@ class GetCapacityManagerMonitoredTagKeysResultTypeDef(TypedDict):
 
 class UpdateCapacityManagerMonitoredTagKeysResultTypeDef(TypedDict):
     CapacityManagerTagKeys: list[CapacityManagerMonitoredTagKeyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyCapacityReservationResultTypeDef(TypedDict):
+    Return: bool
+    AdjustmentStatus: CapacityReservationAdjustmentStatusType
+    AdjustmentDetails: CapacityReservationAdjustmentDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CapacityReservationBillingRequestTypeDef(TypedDict):
@@ -11747,6 +11783,19 @@ class DescribeCapacityReservationBillingRequestsRequestTypeDef(TypedDict):
 
 class DescribeCapacityReservationCancellationQuotesRequestTypeDef(TypedDict):
     CapacityReservationCancellationQuoteIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+
+class DescribeCapacityReservationDateChangeQuotesRequestPaginateTypeDef(TypedDict):
+    CapacityReservationModificationQuoteIds: NotRequired[Sequence[str]]
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeCapacityReservationDateChangeQuotesRequestTypeDef(TypedDict):
+    CapacityReservationModificationQuoteIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     DryRun: NotRequired[bool]
@@ -15382,6 +15431,9 @@ class MediaDeviceInfoTypeDef(TypedDict):
     Manufacturer: NotRequired[str]
     MemoryInfo: NotRequired[MediaDeviceMemoryInfoTypeDef]
 
+class ModificationTermsTypeDef(TypedDict):
+    ReservationUpdate: NotRequired[ModificationReservationUpdateTypeDef]
+
 class ModifyIpamRequestTypeDef(TypedDict):
     IpamId: str
     DryRun: NotRequired[bool]
@@ -17162,6 +17214,9 @@ class CapacityReservationTypeDef(TypedDict):
     Interruptible: NotRequired[bool]
     InterruptibleCapacityAllocation: NotRequired[InterruptibleCapacityAllocationTypeDef]
     InterruptionInfo: NotRequired[InterruptionInfoTypeDef]
+    AdjustmentStatus: NotRequired[CapacityReservationAdjustmentStatusType]
+    AdjustmentDetails: NotRequired[CapacityReservationAdjustmentDetailsTypeDef]
+    OriginalStartDate: NotRequired[datetime]
     ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
 
 class DescribeCapacityBlockStatusResultTypeDef(TypedDict):
@@ -18296,6 +18351,16 @@ class MediaAcceleratorInfoTypeDef(TypedDict):
     Accelerators: NotRequired[list[MediaDeviceInfoTypeDef]]
     TotalMediaMemoryInMiB: NotRequired[int]
 
+class CapacityReservationModificationQuoteTypeDef(TypedDict):
+    CapacityReservationModificationQuoteId: NotRequired[str]
+    CapacityReservationId: NotRequired[str]
+    CreateTime: NotRequired[datetime]
+    ExpirationTime: NotRequired[datetime]
+    QuoteState: NotRequired[CapacityReservationModificationQuoteStateType]
+    CurrentConfiguration: NotRequired[ModificationQuoteCurrentConfigurationTypeDef]
+    ModificationTerms: NotRequired[ModificationTermsTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+
 class ReservedInstancesModificationTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     CreateDate: NotRequired[datetime]
@@ -19234,6 +19299,13 @@ class CreateCapacityReservationBySplittingRequestTypeDef(TypedDict):
 
 class CreateCapacityReservationCancellationQuoteRequestTypeDef(TypedDict):
     CapacityReservationId: str
+    ClientToken: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    DryRun: NotRequired[bool]
+
+class CreateCapacityReservationDateChangeQuoteRequestTypeDef(TypedDict):
+    CapacityReservationId: str
+    NewStartDate: TimestampTypeDef
     ClientToken: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     DryRun: NotRequired[bool]
@@ -20904,6 +20976,15 @@ class GetIpamPrefixListResolverRulesResultTypeDef(TypedDict):
 class GetIpamDiscoveredPublicAddressesResultTypeDef(TypedDict):
     IpamDiscoveredPublicAddresses: list[IpamDiscoveredPublicAddressTypeDef]
     OldestSampleTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateCapacityReservationDateChangeQuoteResultTypeDef(TypedDict):
+    CapacityReservationModificationQuote: CapacityReservationModificationQuoteTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCapacityReservationDateChangeQuotesResultTypeDef(TypedDict):
+    CapacityReservationModificationQuotes: list[CapacityReservationModificationQuoteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

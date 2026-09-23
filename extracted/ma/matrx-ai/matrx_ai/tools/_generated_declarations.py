@@ -59,6 +59,12 @@ class AgentCallArgs(ToolArgs):
     history_up_to_position: int | None = Field(default=None)
     remember: bool = Field(default=False)
     remember_visible_to_user: bool = Field(default=False)
+    # Per-subtree execution budget. Deliberately NOT inside ``settings``:
+    # that is ``LLMParams`` (extra="forbid") and describes ONE provider call,
+    # while these bound the child's whole loop. See
+    # ``matrx_ai.orchestrator.subtree_budget``.
+    time_budget_seconds: int | None = Field(default=None)
+    max_iterations: int | None = Field(default=None)
 
 
 class CodeExecutePythonArgs(ToolArgs):

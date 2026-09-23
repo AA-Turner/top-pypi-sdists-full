@@ -246,14 +246,26 @@ circular_peak_distance = True
 ; the original's overshoot. Run both to measure it.
 fix_gdd100_offset = False
 
-; Model comparison. Targets are the calendar's transition days; the rule-based
-; port is the zero-parameter baseline, so delta and prediction error are the
-; same quantity. Models are dispatched by geocif.ml.trainers.auto_train.
+; Model comparison. Targets are the calendar's FOUR transition days --
+; planting, midgreenup, midgreendown, harvest -- predicted from calendar-free
+; features of the NDVI, temperature, rainfall, ESI and soil-moisture
+; climatologies. Two references sit in every table: the rule-based port (the
+; two interior transitions only; there is no satellite rule for planting or
+; harvest) and an out-of-fold climatology null (all four). Models are
+; dispatched by geocif.ml.trainers.auto_train.
 run_models = True
 models = ['catboost', 'cubist', 'tabpfn', 'tabicl']
+; sincos   = regress sin and cos of the day, recombine with atan2 (resultant
+;            length reported: short means the model was torn between modes);
+; anchored = regress the signed offset from the NDVI steepest-rise day, which
+;            is unimodal across hemispheres. Both run; the table says which won.
+target_encodings = ['sincos', 'anchored']
 ; random = shuffled K-fold, LEAKY, reported as the optimistic reference;
-; country = leave-one-country-out; spatial_block = grouped K-fold over tiles.
-cv_schemes = ['random', 'country', 'spatial_block']
+; country = leave-one-country-out; spatial_block = grouped K-fold over tiles;
+; country_block = spatial_block with small countries held out whole, which
+; stops a national calendar row copied across zones from sitting on both sides
+; of a fold. cv_schemes.csv reports that duplicate rate per scheme.
+cv_schemes = ['random', 'country', 'spatial_block', 'country_block']
 n_splits = 5
 block_degrees = 10
 seed = 0

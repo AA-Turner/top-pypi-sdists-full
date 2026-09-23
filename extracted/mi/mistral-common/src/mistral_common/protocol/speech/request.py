@@ -3,6 +3,7 @@ from typing import Any
 
 from mistral_common.imports import assert_soundfile_installed, is_soundfile_installed
 from mistral_common.protocol.base import BaseCompletionRequest
+from mistral_common.protocol.instruct.chunk import _detect_audio_format
 from mistral_common.tokens.tokenizers.audio import Audio
 
 if is_soundfile_installed():
@@ -16,11 +17,14 @@ class SpeechRequest(BaseCompletionRequest):
 
     Attributes:
         id: Optional unique identifier for the speech request.
-        model: Optional model identifier for the speech synthesis.
-        input: Text input to be converted to speech.
-        voice: Optional preset voice identifier (e.g., 'Neutral Male', 'Neutral Female') to use for speech synthesis.
-        ref_audio: Optional reference audio for voice cloning, provided as a base64-encoded string or raw bytes.
-            Takes precedence over voice when both are provided.
+        model: Optional model identifier for the speech synthesis. If `None`, the
+            serving side default speech model is used.
+        input: Text to convert to speech.
+        voice: Optional preset voice identifier (e.g., 'Neutral Male', 'Neutral
+            Female'). Ignored when `ref_audio` is provided.
+        ref_audio: Optional reference audio for voice cloning, provided as a
+            base64-encoded string or raw bytes. Takes precedence over voice when
+            both are provided.
     """
 
     id: str | None = None
@@ -32,11 +36,17 @@ class SpeechRequest(BaseCompletionRequest):
     def to_openai(self, **kwargs: Any) -> dict[str, Any]:
         r"""Convert this SpeechRequest to an OpenAI-compatible request dictionary.
 
+        Reference audio is converted into an in-memory file buffer with the
+        correct format extension, and `random_seed` is renamed to "seed".
+
         Args:
-            **kwargs: Additional key-value pairs to include in the request dictionary.
+            **kwargs: Additional key-value pairs merged into the output.
 
         Returns:
             An OpenAI-compatible request dictionary.
+
+        Raises:
+            ImportError: If soundfile is not installed and `ref_audio` is provided.
         """
         openai_request: dict[str, Any] = self.model_dump(exclude={"ref_audio"})
 
@@ -45,13 +55,17 @@ class SpeechRequest(BaseCompletionRequest):
         if self.ref_audio is not None:
             if isinstance(self.ref_audio, bytes):
                 buffer = io.BytesIO(self.ref_audio)
+                fmt = _detect_audio_format(self.ref_audio)
             else:
                 audio = Audio.from_base64(self.ref_audio)
+                fmt = audio.format.lower()
 
                 buffer = io.BytesIO()
                 sf.write(buffer, audio.audio_array, audio.sampling_rate, format=audio.format)
                 buffer.seek(0)
 
+            # OpenAI's client uses the filename extension from .name to set the Content-Type.
+            buffer.name = f"audio.{fmt}"
             openai_request["ref_audio"] = buffer
 
         openai_request["seed"] = openai_request.pop("random_seed")
@@ -61,14 +75,22 @@ class SpeechRequest(BaseCompletionRequest):
 
     @classmethod
     def from_openai(cls, openai_request: dict[str, Any], strict: bool = False) -> "SpeechRequest":
-        r"""Create a SpeechRequest instance from an OpenAI-compatible request dictionary.
+        r"""Create a SpeechRequest from an OpenAI-compatible request dictionary.
+
+        Reference audio can be a BytesIO, a file-like object with a .file
+        attribute, raw bytes (decoded via Audio), or an already base64-encoded
+        string (used as-is). A dict voice ({"id": ...}) is normalized to a string.
 
         Args:
-            openai_request: The OpenAI request dictionary.
-            strict: A flag indicating whether to perform strict validation of the audio data.
+            openai_request: Dictionary matching OpenAI's speech request schema.
+            strict: If `True`, reference audio bytes are strictly validated during
+                decoding.
 
         Returns:
-            An instance of SpeechRequest.
+            A SpeechRequest instance with "seed" mapped to `random_seed`.
+
+        Raises:
+            AssertionError: If decoded reference audio has no detectable format.
         """
         seed = openai_request.get("seed")
         converted_dict: dict[str, Any] = {k: v for k, v in openai_request.items() if k in cls.model_fields}

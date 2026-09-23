@@ -18,7 +18,6 @@ import uuid
 import warnings
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
 from urllib.request import Request as _UrlRequest
 from urllib.request import urlopen as _urlopen
 
@@ -53,7 +52,6 @@ from river_client.types import (
     PolicyVersion,
     PendingOp,
     PendingSample,
-    PromotedStreamingReplica,
     RiverConnectionError,
     RiverError,
     RiverTimeoutError,
@@ -466,12 +464,6 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT_SECS = 86_400.0
 _SAMPLE_POLL_INTERVAL_SECS = 1.0
 _STREAM_READ_TIMEOUT_SECS = 60.0
-_STREAMING_REPLICA_READY = "ready"
-_STREAMING_REPLICA_DEGRADED = "degraded"
-_STREAMING_REPLICA_ROUTEABLE = {
-    _STREAMING_REPLICA_READY,
-    _STREAMING_REPLICA_DEGRADED,
-}
 
 
 def _warn_return_logprobs_ignored(return_logprobs: bool) -> None:
@@ -737,11 +729,16 @@ def _normalize_prompt_token_ids(
 
 
 # Placeholder token strings per multimodal family (mirrors
-# Qwen image_pad, Kimi media_pad, and GLM image;
+# Qwen image_pad, Kimi media_pad, GLM image, and DeepSeek V4.1 image;
 # duplicated here to keep client.py free of renderer imports).
 # ``_lower_model_input_chunks`` resolves them through the caller's
 # tokenizer — a given vocabulary exposes exactly one of these.
-_IMAGE_PAD_TOKEN_CANDIDATES = ("<|image_pad|>", "<|media_pad|>", "<|image|>")
+_IMAGE_PAD_TOKEN_CANDIDATES = (
+    "<|image_pad|>",
+    "<|media_pad|>",
+    "<|image|>",
+    "<｜deepseek_image｜>",
+)
 
 
 def _image_placeholder_token_id(tokenizer: Any) -> int:
@@ -886,9 +883,24 @@ def _resolve_model_input(
             "model_input is mutually exclusive with prompts, prompt_token_ids, "
             "and images"
         )
+    # Resolve the image placeholder only when an image chunk is present: a
+    # text-only model (e.g. Nemotron) has no such token, and every RL prompt
+    # goes through model_input whether or not it carries images.
+    chunk_lists = (
+        [model_input]
+        if model_input and isinstance(model_input[0], dict)
+        else model_input
+    )
+    has_image_chunks = any(
+        isinstance(chunk, dict) and chunk.get("type") == "image"
+        for chunks in chunk_lists
+        for chunk in (chunks if isinstance(chunks, list) else [])
+    )
     lowered_ids, lowered_images = _lower_model_input_chunks(
         model_input,
-        image_placeholder_token_id=_image_placeholder_token_id(tokenizer),
+        image_placeholder_token_id=(
+            _image_placeholder_token_id(tokenizer) if has_image_chunks else -1
+        ),
     )
     has_images = any(imgs for imgs in lowered_images)
     return None, lowered_ids, (lowered_images if has_images else None)
@@ -1103,7 +1115,7 @@ def _required_str_field(raw: dict[str, Any], field: str) -> str:
     value = raw.get(field)
     if not isinstance(value, str) or not value:
         raise RiverConnectionError(
-            f"Streaming replica discovery response missing string field {field!r}"
+            f"Deployment response missing string field {field!r}"
         )
     return value
 
@@ -1114,24 +1126,9 @@ def _optional_str_field(raw: dict[str, Any], field: str) -> str | None:
         return None
     if not isinstance(value, str):
         raise RiverConnectionError(
-            f"Streaming replica discovery response has non-string field {field!r}"
+            f"Deployment response has non-string field {field!r}"
         )
     return value
-
-
-def _promoted_streaming_replica_from_raw(
-    raw: dict[str, Any],
-) -> PromotedStreamingReplica:
-    return PromotedStreamingReplica(
-        checkpoint=_required_str_field(raw, "checkpoint"),
-        status=_required_str_field(raw, "status"),
-        base_url=_optional_str_field(raw, "base_url"),
-        replica_id=_optional_str_field(raw, "replica_id"),
-        model=_required_str_field(raw, "model"),
-        base_model=_required_str_field(raw, "base_model"),
-        updated_at=_required_str_field(raw, "updated_at"),
-        status_reason=_optional_str_field(raw, "status_reason"),
-    )
 
 
 def _deployment_from_raw(raw: dict[str, Any]) -> Deployment:
@@ -1191,112 +1188,6 @@ def _deployment_counts_body(
             raise ValueError(f"{name} must be an integer, got {value!r}")
         body[name] = value
     return body
-
-
-def _stream_chunk_from_blocking_response(response: dict[str, Any]) -> dict[str, Any]:
-    """Convert a non-streaming OpenAI chat response into one stream-shaped chunk."""
-    choices = []
-    for index, choice in enumerate(response.get("choices") or []):
-        if not isinstance(choice, dict):
-            continue
-        message = choice.get("message")
-        delta = dict(message) if isinstance(message, dict) else {}
-        stream_choice = {
-            "index": choice.get("index", index),
-            "delta": delta,
-            "finish_reason": choice.get("finish_reason"),
-        }
-        if "logprobs" in choice:
-            stream_choice["logprobs"] = choice.get("logprobs")
-        choices.append(stream_choice)
-
-    chunk: dict[str, Any] = {
-        "id": response.get("id", ""),
-        "object": "chat.completion.chunk",
-        "created": response.get("created"),
-        "model": response.get("model", ""),
-        "choices": choices,
-    }
-    if response.get("usage") is not None:
-        chunk["usage"] = response["usage"]
-    if response.get("system_fingerprint") is not None:
-        chunk["system_fingerprint"] = response["system_fingerprint"]
-    return chunk
-
-
-def _next_sse_frame(buffer: bytearray) -> tuple[int, int] | None:
-    lf = buffer.find(b"\n\n")
-    crlf = buffer.find(b"\r\n\r\n")
-    if lf == -1 and crlf == -1:
-        return None
-    if lf == -1:
-        return crlf, 4
-    if crlf == -1:
-        return lf, 2
-    return (crlf, 4) if crlf < lf else (lf, 2)
-
-
-def _parse_sse_payload(frame: bytes) -> str | None:
-    try:
-        text = frame.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise RiverError(f"stream emitted non-UTF-8 SSE data: {error}") from error
-
-    lines: list[str] = []
-    for raw_line in text.splitlines():
-        line = raw_line.rstrip("\r")
-        if line.startswith("data:"):
-            data = line[5:]
-            if data.startswith(" "):
-                data = data[1:]
-            lines.append(data)
-
-    if not lines:
-        return None
-    return "\n".join(lines)
-
-
-def _iter_sse_payloads(response) -> Iterator[str]:
-    """Yield SSE data payloads from a file-like HTTP response."""
-    buffer = bytearray()
-    while True:
-        chunk = (
-            response.read1(4096) if hasattr(response, "read1") else response.read(4096)
-        )
-        if not chunk:
-            break
-        buffer.extend(chunk)
-        while frame := _next_sse_frame(buffer):
-            frame_end, delimiter_len = frame
-            raw_frame = bytes(buffer[:frame_end])
-            del buffer[: frame_end + delimiter_len]
-            payload = _parse_sse_payload(raw_frame)
-            if payload is not None:
-                yield payload
-
-    if any(not chr(byte).isspace() for byte in buffer):
-        raise RiverError(f"stream ended with a partial SSE frame ({len(buffer)} bytes)")
-
-
-def _iter_openai_stream_events(response) -> Iterator[dict[str, Any]]:
-    """Decode OpenAI-compatible SSE events.
-
-    The caller should either exhaust this iterator or call ``close()`` on it
-    after breaking early so the underlying HTTP connection is released.
-    """
-    with response:
-        for event_payload in _iter_sse_payloads(response):
-            if event_payload == "[DONE]":
-                return
-            try:
-                raw = _json.loads(event_payload)
-            except _json.JSONDecodeError as error:
-                raise RiverError(f"stream emitted invalid JSON: {error}") from error
-            if not isinstance(raw, dict):
-                raise RiverError("stream emitted a non-object JSON payload")
-            yield raw
-            if "error" in raw:
-                return
 
 
 class Model:
@@ -2318,40 +2209,6 @@ class Model:
                 if expected_policy_id is not None
                 else {}
             ),
-        )
-
-    def promote_to_streaming(
-        self,
-        model: str,
-        checkpoint: str | Checkpoint | None = None,
-        checkpoint_name: str | None = None,
-        timeout: float | None = _DEFAULT_TIMEOUT_SECS,
-    ) -> PromotedStreamingReplica:
-        """Promote this model's current or saved checkpoint to a stream alias.
-
-        When ``checkpoint`` is omitted, this saves the current weights with
-        ``mode="inference"`` using ``checkpoint_name`` or a generated name,
-        then asks the control plane to promote that checkpoint asynchronously.
-        The ``timeout`` is applied separately to the save and promotion calls,
-        not as one end-to-end deadline. Omitted ``checkpoint_name`` values
-        create a new server-side inference checkpoint for each call.
-        """
-        if checkpoint is not None and checkpoint_name is not None:
-            raise ValueError("checkpoint_name is only valid when checkpoint is omitted")
-
-        if checkpoint is None:
-            save_timeout = _DEFAULT_TIMEOUT_SECS if timeout is None else timeout
-            name = checkpoint_name or f"streaming-{uuid.uuid4().hex}"
-            checkpoint = self.save_weights(
-                name,
-                mode="inference",
-                timeout=save_timeout,
-            )
-
-        return self._session._client.promote_streaming_replica(
-            checkpoint,
-            model,
-            timeout=timeout,
         )
 
     def load_weights(
@@ -5006,114 +4863,6 @@ class Client:
             },
         )
 
-    def get_streaming_replica(
-        self,
-        model: str,
-        *,
-        timeout: float | None = None,
-    ) -> PromotedStreamingReplica | None:
-        """Return promoted streaming metadata for ``model`` when available.
-
-        This reads server-owned routing metadata from the control plane.
-        Missing metadata returns ``None``; other HTTP/auth failures raise a
-        River client exception.
-        """
-        timeout = timeout if timeout is not None else _STREAM_READ_TIMEOUT_SECS
-        query = urlencode({"model": model})
-        request = _UrlRequest(
-            f"{self._http_base_url()}/api/v1/streaming/replicas?{query}",
-            headers={
-                **self._http_authorization_headers(),
-                "Accept": "application/json",
-            },
-            method="GET",
-        )
-
-        try:
-            with _urlopen(request, timeout=timeout) as response:
-                body = response.read()
-        except HTTPError as error:
-            body = error.read()
-            if error.code == 404:
-                return None
-            raise _http_error(error.code, body, "Streaming replica discovery") from None
-        except URLError as error:
-            raise RiverConnectionError(
-                f"Streaming replica discovery failed: {error}",
-                details=str(error),
-                original_error=error,
-            ) from None
-
-        try:
-            raw = _json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, _json.JSONDecodeError) as error:
-            raise RiverConnectionError(
-                f"Streaming replica discovery returned invalid JSON: {error}",
-                original_error=error,
-            ) from error
-        if not isinstance(raw, dict):
-            raise RiverConnectionError(
-                "Streaming replica discovery returned non-object JSON"
-            )
-
-        return _promoted_streaming_replica_from_raw(raw)
-
-    def promote_streaming_replica(
-        self,
-        checkpoint: str | Checkpoint,
-        model: str,
-        *,
-        timeout: float | None = None,
-    ) -> PromotedStreamingReplica:
-        """Request beta promotion of a checkpoint to a streaming model alias.
-
-        The request is asynchronous: the returned metadata is usually
-        ``status="provisioning"``. Poll :meth:`get_streaming_replica` until the
-        status is ``"ready"`` or ``"degraded"`` before using
-        :meth:`chat_complete_stream`.
-        """
-        read_timeout = timeout if timeout is not None else _STREAM_READ_TIMEOUT_SECS
-        checkpoint_path = (
-            checkpoint.path if isinstance(checkpoint, Checkpoint) else checkpoint
-        )
-        request_body = {"checkpoint": checkpoint_path, "model": model}
-        request = _UrlRequest(
-            f"{self._http_base_url()}/api/v1/streaming/promotions",
-            data=_json.dumps(request_body).encode("utf-8"),
-            headers={
-                **self._http_authorization_headers(),
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            with _urlopen(request, timeout=read_timeout) as response:
-                body = response.read()
-        except HTTPError as error:
-            body = error.read()
-            raise _http_error(error.code, body, "Streaming replica promotion") from None
-        except URLError as error:
-            raise RiverConnectionError(
-                f"Streaming replica promotion failed: {error}",
-                details=str(error),
-                original_error=error,
-            ) from None
-
-        try:
-            raw = _json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, _json.JSONDecodeError) as error:
-            raise RiverConnectionError(
-                f"Streaming replica promotion returned invalid JSON: {error}",
-                original_error=error,
-            ) from error
-        if not isinstance(raw, dict):
-            raise RiverConnectionError(
-                "Streaming replica promotion returned non-object JSON"
-            )
-        return _promoted_streaming_replica_from_raw(raw)
-
     # ------------------------------------------------------------------
     # Dedicated streaming deployments (gated; disabled by default)
     # ------------------------------------------------------------------
@@ -5187,8 +4936,9 @@ class Client:
 
     def create_deployment(
         self,
-        checkpoint: str | Checkpoint,
+        checkpoint: str | Checkpoint | None = None,
         *,
+        base_model: str | None = None,
         unified_replicas: int | None = None,
         prefill_replicas: int | None = None,
         decode_replicas: int | None = None,
@@ -5197,7 +4947,10 @@ class Client:
         wait_timeout: float = 1800.0,
         timeout: float | None = None,
     ) -> Deployment:
-        """Create a dedicated streaming deployment of ``checkpoint``.
+        """Create a dedicated deployment of a checkpoint or base model.
+
+        Supply exactly one of ``checkpoint`` or ``base_model``. Base-model
+        creation requires a server advertising ``base_model_creation``.
 
         This is a gated feature, disabled by default. Contact River to enable
         dedicated deployments for your team and the checkpoint's base model
@@ -5234,7 +4987,13 @@ class Client:
         checkpoint_path = (
             checkpoint.path if isinstance(checkpoint, Checkpoint) else checkpoint
         )
-        body: dict[str, Any] = {"checkpoint": checkpoint_path}
+        if (checkpoint_path is None) == (base_model is None):
+            raise ValueError("provide exactly one of checkpoint or base_model")
+        body: dict[str, Any] = (
+            {"base_model": base_model}
+            if base_model is not None
+            else {"checkpoint": checkpoint_path}
+        )
         body.update(
             _deployment_counts_body(unified_replicas, prefill_replicas, decode_replicas)
         )
@@ -5417,122 +5176,6 @@ class Client:
                 )
             time.sleep(poll_interval)
 
-    def chat_complete_stream(
-        self,
-        messages: list[dict],
-        *,
-        model: str,
-        timeout: float | None = None,
-        on_not_ready: str = "raise",
-        **kwargs,
-    ) -> Iterator[dict[str, Any]]:
-        """Stream OpenAI-compatible chat chunks from a promoted replica.
-
-        ``timeout`` is the socket read timeout for each blocking read, not an
-        end-to-end generation deadline. Let the iterator finish, or call
-        ``close()`` on it when breaking early, so the HTTP connection is closed.
-
-        Args:
-            messages: OpenAI-format messages list.
-            model: Product-facing promoted model alias.
-            timeout: Per-read HTTP timeout. Defaults to 60 seconds.
-            on_not_ready: ``"raise"`` (default) or ``"blocking"``. The blocking
-                fallback returns one stream-shaped chunk converted from the
-                existing blocking control-plane chat path when promoted metadata
-                is missing, unreachable, or not ready.
-            **kwargs: Extra OpenAI chat-completions request fields, such as
-                ``max_tokens``, ``temperature``, ``logprobs=True``, and
-                ``top_logprobs=N``.
-
-        Returns:
-            Iterator of decoded OpenAI streaming chunk dictionaries.
-        """
-        read_timeout = timeout if timeout is not None else _STREAM_READ_TIMEOUT_SECS
-        fallback = on_not_ready.lower()
-        if fallback not in {"raise", "blocking"}:
-            raise ValueError("on_not_ready must be 'raise' or 'blocking'")
-
-        try:
-            replica = self.get_streaming_replica(model, timeout=read_timeout)
-        except RiverConnectionError:
-            if fallback == "blocking":
-                return self._blocking_chat_fallback(
-                    messages, model, None, read_timeout, kwargs
-                )
-            raise
-        if (
-            replica is None
-            or replica.status not in _STREAMING_REPLICA_ROUTEABLE
-            or not replica.base_url
-        ):
-            if fallback == "blocking":
-                return self._blocking_chat_fallback(
-                    messages, model, replica, read_timeout, kwargs
-                )
-            status = "missing" if replica is None else replica.status
-            raise RiverError(
-                f"promoted streaming replica for model {model!r} is not ready ({status})"
-            )
-
-        request_body = {"model": model, "messages": messages, **kwargs, "stream": True}
-        url = f"{replica.base_url.rstrip('/')}/v1/chat/completions"
-        request = _UrlRequest(
-            url,
-            data=_json.dumps(request_body).encode("utf-8"),
-            headers={
-                **self._http_authorization_headers(),
-                "Accept": "text/event-stream",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            response = _urlopen(request, timeout=read_timeout)
-        except HTTPError as error:
-            body = error.read()
-            raise _http_error(error.code, body, "Streaming chat completion") from None
-        except URLError as error:
-            raise RiverConnectionError(
-                f"Streaming chat completion failed: {error}",
-                details=str(error),
-                original_error=error,
-            ) from None
-
-        return _iter_openai_stream_events(response)
-
-    def _blocking_chat_fallback(
-        self,
-        messages: list[dict],
-        model: str,
-        replica: PromotedStreamingReplica | None,
-        timeout: float,
-        kwargs: dict[str, Any],
-    ) -> Iterator[dict[str, Any]]:
-        request_kwargs = dict(kwargs)
-        request_kwargs.pop("stream", None)
-        request_kwargs.pop("stream_options", None)
-        if replica is not None:
-            result = self.chat_complete_from_checkpoint(
-                messages,
-                checkpoint_path=replica.checkpoint,
-                base_model=replica.base_model,
-                timeout=timeout,
-                **request_kwargs,
-            )
-        else:
-            result = self.chat_complete(
-                messages,
-                base_model=model,
-                timeout=timeout,
-                **request_kwargs,
-            )
-        result = cast(ChatCompleteResult, result)
-        response = _json.loads(result.response_json)
-        if not isinstance(response, dict):
-            raise RiverError("blocking chat fallback returned non-object JSON")
-        yield _stream_chunk_from_blocking_response(response)
-
     def chat_complete(
         self,
         messages: list[dict],
@@ -5540,7 +5183,7 @@ class Client:
         base_model: str,
         timeout: float | None = None,
         **kwargs,
-    ) -> ChatCompleteResult | Iterator[dict[str, Any]]:
+    ) -> ChatCompleteResult:
         """Chat completion from a base model (no LoRA).
 
         Builds an OpenAI-format request body and sends it through the
@@ -5558,14 +5201,10 @@ class Client:
         """
         import json
 
-        if kwargs.get("stream") is True:
-            stream_kwargs = dict(kwargs)
-            stream_kwargs.pop("stream", None)
-            return self.chat_complete_stream(
-                messages,
-                model=base_model,
-                timeout=timeout,
-                **stream_kwargs,
+        if kwargs.get("stream"):
+            raise ValueError(
+                "Queued chat does not support streaming. Use create_deployment() "
+                "and the OpenAI client with deployment.base_url."
             )
 
         timeout = timeout if timeout is not None else self._timeout
@@ -5616,6 +5255,12 @@ class Client:
         """
         import json
 
+        if kwargs.get("stream"):
+            raise ValueError(
+                "Queued chat does not support streaming. Use create_deployment() "
+                "and the OpenAI client with deployment.base_url."
+            )
+
         timeout = timeout if timeout is not None else self._timeout
         model = base_model or checkpoint_path
         request_body = {"model": model, "messages": messages, **kwargs}
@@ -5663,6 +5308,12 @@ class Client:
             ChatCompleteResult with response_json and status_code.
         """
         import json
+
+        if kwargs.get("stream"):
+            raise ValueError(
+                "Queued chat does not support streaming. Use create_deployment() "
+                "and the OpenAI client with deployment.base_url."
+            )
 
         timeout = timeout if timeout is not None else self._timeout
         request_body = {"model": model_id, "messages": messages, **kwargs}

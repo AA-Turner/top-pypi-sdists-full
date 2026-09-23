@@ -322,7 +322,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.18.1", features = ["git"] }
+//! bashkit = { version = "0.18.2", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -353,7 +353,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.18.1", features = ["python"] }
+//! bashkit = { version = "0.18.2", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -500,7 +500,7 @@ pub use fs::{
     InMemoryFs, LazyLoader, Metadata, MountableFs, NamespaceAccess, NamespaceFs,
     NamespaceFsBuilder, OverlayFs, PosixFs, ReadOnlyFs, SearchCapabilities, SearchCapable,
     SearchMatch, SearchProvider, SearchQuery, SearchResults, VfsEntry, VfsEntryKind, VfsSnapshot,
-    normalize_path, verify_filesystem_requirements,
+    normalize_path, verify_filesystem_requirements, vfs_join,
 };
 #[cfg(feature = "realfs")]
 pub use fs::{RealFs, RealFsMode};

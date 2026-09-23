@@ -2,12 +2,21 @@
 
 import copy
 from collections.abc import Mapping
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from ....models._validation import validate_config_keys
 from ..types.events import AudioChannel, AudioFormat
 
-__all__ = ["AudioConfig", "AudioStreamConfig", "BidiConnectionConfig", "BidiModelConfig"]
+__all__ = [
+    "AudioConfig",
+    "AudioStreamConfig",
+    "BedrockNovaSonicAudioConfig",
+    "BedrockNovaSonicAudioStreamConfig",
+    "ConnectionConfig",
+    "GoogleGeminiLiveAudioConfig",
+    "GoogleGeminiLiveAudioStreamConfig",
+    "ModelConfig",
+]
 
 
 class AudioStreamConfig(TypedDict):
@@ -39,7 +48,53 @@ class AudioConfig(TypedDict):
     output: AudioStreamConfig
 
 
-class BidiConnectionConfig(TypedDict, total=False):
+class BedrockNovaSonicAudioStreamConfig(TypedDict):
+    """Nova Sonic stream options. Audio uses mono PCM.
+
+    Attributes:
+        sample_rate: Sample rate in Hz.
+    """
+
+    sample_rate: Literal[8000, 16000, 24000]
+
+
+class BedrockNovaSonicAudioConfig(TypedDict, total=False):
+    """Nova Sonic input and output audio options.
+
+    Omitted streams use a sample rate of 16000 Hz.
+
+    Attributes:
+        input: Input stream options.
+        output: Output stream options.
+    """
+
+    input: BedrockNovaSonicAudioStreamConfig
+    output: BedrockNovaSonicAudioStreamConfig
+
+
+class GoogleGeminiLiveAudioStreamConfig(TypedDict):
+    """Gemini Live input stream options. Audio uses mono PCM.
+
+    Attributes:
+        sample_rate: Input sample rate in Hz.
+    """
+
+    sample_rate: int
+
+
+class GoogleGeminiLiveAudioConfig(TypedDict, total=False):
+    """Gemini Live audio options. Output is mono PCM at 24000 Hz.
+
+    Omitting the input stream uses a sample rate of 16000 Hz.
+
+    Attributes:
+        input: Input stream options.
+    """
+
+    input: GoogleGeminiLiveAudioStreamConfig
+
+
+class ConnectionConfig(TypedDict, total=False):
     """Declared reconnect timing for a bidirectional model.
 
     Providers declare this so the agent loop can reconnect proactively, before the provider
@@ -61,7 +116,7 @@ class BidiConnectionConfig(TypedDict, total=False):
     auto_reconnect: bool
 
 
-class BidiModelConfig(TypedDict, total=False):
+class ModelConfig(TypedDict, total=False):
     """Configuration shared by bidirectional model providers.
 
     Attributes:
@@ -72,13 +127,13 @@ class BidiModelConfig(TypedDict, total=False):
 
     model_id: str
     params: dict[str, Any] | None
-    connection: BidiConnectionConfig
+    connection: ConnectionConfig
 
 
 def _validate_model_config(config: Mapping[str, Any]) -> None:
     """Validate shared bidirectional model configuration."""
-    validate_config_keys(config, BidiModelConfig)
-    validate_config_keys(config.get("connection", {}), BidiConnectionConfig)
+    validate_config_keys(config, ModelConfig)
+    validate_config_keys(config.get("connection", {}), ConnectionConfig)
 
 
 def _validate_audio_config(config: AudioConfig) -> None:

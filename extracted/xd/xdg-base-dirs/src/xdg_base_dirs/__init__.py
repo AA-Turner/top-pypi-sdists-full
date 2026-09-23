@@ -16,23 +16,22 @@
 
 """XDG Base Directory Specification variables.
 
-xdg_cache_home(), xdg_config_home(), xdg_data_home(), and xdg_state_home()
-return pathlib.Path objects containing the value of the environment variable
-named XDG_CACHE_HOME, XDG_CONFIG_HOME, XDG_DATA_HOME, and XDG_STATE_HOME
-respectively, or the default defined in the specification if the environment
-variable is unset, empty, or contains a relative path rather than absolute
-path.
+`xdg_cache_home()`, `xdg_config_home()`, `xdg_data_home()`, and
+`xdg_state_home()` return `pathlib.Path` objects containing the value of the
+environment variable named `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`,
+and `XDG_STATE_HOME` respectively, or the default defined in the specification
+if the environment variable is unset, empty, or contains a relative path rather
+than absolute path.
 
-xdg_config_dirs() and xdg_data_dirs() return a list of pathlib.Path
-objects containing the value, split on colons, of the environment
-variable named XDG_CONFIG_DIRS and XDG_DATA_DIRS respectively, or the
-default defined in the specification if the environment variable is
-unset or empty. Relative paths are ignored, as per the specification.
+`xdg_config_dirs()` and `xdg_data_dirs()` return a list of `pathlib.Path`
+objects containing the value, split on colons, of the environment variable named
+`XDG_CONFIG_DIRS` and `XDG_DATA_DIRS` respectively, or the default defined in
+the specification if the environment variable is unset or empty. Relative paths
+are ignored, as per the specification.
 
-xdg_runtime_dir() returns a pathlib.Path object containing the value of
-the XDG_RUNTIME_DIR environment variable, or None if the environment
-variable is not set, or contains a relative path rather than absolute path.
-
+`xdg_runtime_dir()` returns a `pathlib.Path` object containing the value of the
+`XDG_RUNTIME_DIR` environment variable, or `None` if the environment variable is
+not set, or contains a relative path rather than absolute path.
 """
 
 import os
@@ -57,21 +56,15 @@ def _path_from_env(variable: str, default: Path) -> Path:
     set to the empty string, or is set to a relative rather than
     absolute path, the default value is returned.
 
-    Parameters
-    ----------
-    variable : str
-        Name of the environment variable.
-    default : Path
-        Default value.
+    Args:
+        variable: Name of the environment variable.
+        default: Default value.
 
-    Returns
-    -------
-    Path
+    Returns:
         Value from environment or default.
-
     """
     if (value := os.environ.get(variable)) and (path := Path(value)).is_absolute():
-        return path
+        return path  # ty: ignore[possibly-unresolved-reference]
     return default
 
 
@@ -84,18 +77,12 @@ def _paths_from_env(variable: str, default: list[Path]) -> list[Path]:
     default value is returned. Relative paths are ignored, as per the
     specification.
 
-    Parameters
-    ----------
-    variable : str
-        Name of the environment variable.
-    default : list[Path]
-        Default value.
+    Args:
+        variable: Name of the environment variable.
+        default: Default value.
 
-    Returns
-    -------
-    list[Path]
+    Returns:
         Value from environment or default.
-
     """
     if value := os.environ.get(variable):
         paths = [Path(path) for path in value.split(":") if Path(path).is_absolute()]
@@ -122,8 +109,7 @@ def xdg_config_home() -> Path:
 def xdg_data_dirs() -> list[Path]:
     """Return a list of Paths corresponding to XDG_DATA_DIRS."""
     return _paths_from_env(
-        "XDG_DATA_DIRS",
-        [Path(path) for path in "/usr/local/share/:/usr/share/".split(":")],
+        "XDG_DATA_DIRS", [Path("/usr/local/share/"), Path("/usr/share/")]
     )
 
 
@@ -135,12 +121,12 @@ def xdg_data_home() -> Path:
 def xdg_runtime_dir() -> Path | None:
     """Return a Path corresponding to XDG_RUNTIME_DIR.
 
-    If the XDG_RUNTIME_DIR environment variable is not set, None will be
-    returned as per the specification.
-
+    Returns:
+        A Path corresponding to the XDG_RUNTIME_DIR environment variable or
+        None if the variable is not set.
     """
     if (value := os.getenv("XDG_RUNTIME_DIR")) and (path := Path(value)).is_absolute():
-        return path
+        return path  # ty: ignore[possibly-unresolved-reference]
     return None
 
 

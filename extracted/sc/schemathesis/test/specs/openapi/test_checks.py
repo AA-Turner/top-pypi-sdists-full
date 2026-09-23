@@ -363,6 +363,48 @@ def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
     assert has_only_additional_properties_in_non_body_parameters(case) is True
 
 
+def _boolean_parameter_case(ctx, location, value):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "get": {
+                    "parameters": [
+                        {"in": location.value, "name": "flag", "required": True, "schema": {"type": "boolean"}},
+                    ]
+                }
+            }
+        }
+    )
+    return schema["/test"]["GET"].Case(
+        _meta=build_metadata(
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter_location=location,
+            mutations=(_mutation(OperatorKind.NEGATE_CONSTRAINTS, ("additionalProperties",), location=location),),
+            **{location.container_name: GenerationMode.NEGATIVE},
+        ),
+        **{location.container_name: {"flag": value, "unknown": "junk"}},
+    )
+
+
+_BOOLEAN_PARAMETER_LOCATIONS = [ParameterLocation.QUERY, ParameterLocation.HEADER, ParameterLocation.COOKIE]
+
+
+@pytest.mark.parametrize("location", _BOOLEAN_PARAMETER_LOCATIONS, ids=["query", "header", "cookie"])
+def test_negative_data_rejection_ignores_extras_next_to_boolean_wire_value(ctx, response_factory, location):
+    # Booleans reach the check already spelled as the wire sends them.
+    case = _boolean_parameter_case(ctx, location, "false")
+    assert has_only_additional_properties_in_non_body_parameters(case) is True
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+@pytest.mark.parametrize("location", _BOOLEAN_PARAMETER_LOCATIONS, ids=["query", "header", "cookie"])
+def test_negative_data_rejection_reports_invalid_boolean_next_to_extras(ctx, response_factory, location):
+    case = _boolean_parameter_case(ctx, location, "maybe")
+    assert has_only_additional_properties_in_non_body_parameters(case) is False
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
 def _opaque_rejection(response_factory):
     # A rejection with nothing to attribute, so the hint falls back to its schema-side reasoning.
     return Response.from_requests(response_factory.requests(status_code=400), verify=True)
@@ -1662,6 +1704,35 @@ def test_response_schema_conformance_with_surrogate_chars_in_response(response_f
     assert failure.position == 1
     assert failure.lineno == 1
     assert failure.colno == 2
+
+
+BODY_SCHEMA = {"type": "object", "properties": {"a": {"type": "integer"}}, "required": ["a"]}
+OPENAPI_3_RESPONSES = {"200": {"description": "OK", "content": {"application/json": {"schema": BODY_SCHEMA}}}}
+SWAGGER_2_RESPONSES = {"200": {"description": "OK", "schema": BODY_SCHEMA}}
+
+
+def _operation_with_json_response(ctx, method, version):
+    if version == "2.0":
+        definition = {"produces": ["application/json"], "responses": SWAGGER_2_RESPONSES}
+    else:
+        definition = {"responses": OPENAPI_3_RESPONSES}
+    schema = ctx.openapi.load_schema({"/x": {method: definition}}, version=version)
+    return schema["/x"][method.upper()]
+
+
+@pytest.mark.parametrize("version", ["3.0.2", "2.0"], ids=["openapi-3", "swagger-2"])
+def test_response_schema_conformance_skips_empty_head_body(ctx, response_factory, version):
+    case = _operation_with_json_response(ctx, "head", version).Case()
+    response = Response.from_requests(response_factory.requests(content=b"", method="HEAD"), True)
+    assert response_schema_conformance(check_context(), response, case) is None
+
+
+@pytest.mark.parametrize("version", ["3.0.2", "2.0"], ids=["openapi-3", "swagger-2"])
+def test_response_schema_conformance_rejects_empty_get_body(ctx, response_factory, version):
+    case = _operation_with_json_response(ctx, "get", version).Case()
+    response = Response.from_requests(response_factory.requests(content=b"", method="GET"), True)
+    with pytest.raises(MalformedJson, match="Expecting value"):
+        response_schema_conformance(check_context(), response, case)
 
 
 @pytest.mark.parametrize(

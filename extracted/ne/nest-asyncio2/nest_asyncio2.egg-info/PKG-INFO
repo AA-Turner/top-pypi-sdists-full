@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nest-asyncio2
-Version: 1.7.2
+Version: 1.7.3
 Summary: Patch asyncio to allow nested event loops
 Home-page: https://github.com/Chaoses-Ib/nest-asyncio2
 Author: Ewald R. de Wit
@@ -141,6 +141,14 @@ asyncio.run(..., loop_factory=asyncio.new_event_loop)
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
 - Support setting `run_close_loop` to avoid [leaked event loop](#leaked-event-loop).
+
+- Python 3.11 support
+  - Fix context may be re-entered and cause `RuntimeError: cannot enter context`
+    ([#4](https://github.com/Chaoses-Ib/nest-asyncio2/pull/4)).
+    
+    This, for example, would break `jupyter notebook` with `ipykernel` v7.
+    Though `ipython -c`, `jupyter execute` and VS Code work fine.
+
 - Python 3.12 support
   - `loop_factory` parameter support
 <!--
@@ -151,6 +159,10 @@ asyncio.run(..., loop_factory=asyncio.new_event_loop)
 - Python 3.14 support
   - Fix broken `asyncio.current_task()` and others
   - Fix `DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16`
+
+- Fix `call_soon()` callbacks not being called during `run()`
+  ([#3](https://github.com/Chaoses-Ib/nest-asyncio2/issues/3)).
+
 - To avoid potential bugs,
   `apply()` will warn if `asyncio` is already patched
   by `nest_asyncio` on Python 3.12+.

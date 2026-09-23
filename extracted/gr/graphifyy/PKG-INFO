@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.65
+Version: 0.9.66
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/Graphify-Labs/graphify
@@ -104,6 +104,14 @@ Provides-Extra: commonlisp
 Requires-Dist: tree-sitter-commonlisp; extra == "commonlisp"
 Provides-Extra: robot
 Requires-Dist: robotframework>=4.0; extra == "robot"
+Provides-Extra: vbnet
+Requires-Dist: tree-sitter-vb-dotnet==0.3.0; extra == "vbnet"
+Provides-Extra: r
+Requires-Dist: tree-sitter-language-pack==0.11.0; extra == "r"
+Provides-Extra: erlang
+Requires-Dist: tree-sitter-language-pack==0.11.0; extra == "erlang"
+Provides-Extra: solidity
+Requires-Dist: tree-sitter-solidity==1.2.13; extra == "solidity"
 Provides-Extra: all
 Requires-Dist: mcp<3,>=1; extra == "all"
 Requires-Dist: starlette<2,>=1.3.1; extra == "all"
@@ -135,6 +143,9 @@ Requires-Dist: tree-sitter-pascal; extra == "all"
 Requires-Dist: tree-sitter-ocaml; extra == "all"
 Requires-Dist: tree-sitter-commonlisp; extra == "all"
 Requires-Dist: robotframework>=4.0; extra == "all"
+Requires-Dist: tree-sitter-vb-dotnet==0.3.0; extra == "all"
+Requires-Dist: tree-sitter-language-pack==0.11.0; extra == "all"
+Requires-Dist: tree-sitter-solidity==1.2.13; extra == "all"
 Dynamic: license-file
 
 <p align="center">

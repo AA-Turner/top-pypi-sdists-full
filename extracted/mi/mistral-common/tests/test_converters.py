@@ -31,9 +31,10 @@ from openai.types.chat.chat_completion_tool_message_param import ChatCompletionT
 from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam as OpenAITool
 from openai.types.chat.chat_completion_user_message_param import ChatCompletionUserMessageParam as OpenAIUserMessage
 from PIL import Image
+from pydantic import ValidationError
 from pydantic_extra_types.language_code import LanguageAlpha2
 
-from mistral_common.exceptions import InvalidAssistantMessageException
+from mistral_common.exceptions import InvalidAssistantMessageException, InvalidMessageStructureException
 from mistral_common.protocol.instruct.chunk import (
     AudioChunk,
     AudioURL,
@@ -745,6 +746,87 @@ def test_request_to_openai_forwards_reasoning_field_format() -> None:
     assert assistant_msg == {"role": "assistant", "reasoning": "Let me think", "content": "Done"}
 
 
+def test_request_from_openai_maps_continuation_without_warning() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        request = ChatCompletionRequest.from_openai(
+            messages=[
+                {"role": "user", "content": "foo"},
+                {"role": "assistant", "content": "bar"},
+            ],
+            continue_final_message=True,
+        )
+
+    assert isinstance(request.messages[-1], AssistantMessage)
+    assert request.messages[-1].prefix is True
+
+
+@pytest.mark.parametrize(
+    ["legacy_value", "expected_prefix"],
+    [(1, True), ("true", True), (0, False), ("false", False)],
+)
+def test_request_from_openai_preserves_legacy_boolean_coercion(
+    legacy_value: bool | int | str, expected_prefix: bool
+) -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        request = ChatCompletionRequest.from_openai(
+            messages=[
+                {"role": "user", "content": "foo"},
+                {"role": "assistant", "content": "bar"},
+            ],
+            continue_final_message=legacy_value,  # type: ignore[arg-type]
+        )
+
+    assert caught == []
+    assert isinstance(request.messages[-1], AssistantMessage)
+    assert request.messages[-1].prefix is expected_prefix
+
+
+def test_request_from_openai_rejects_invalid_continuation_without_warning() -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValidationError, match="valid boolean"):
+            ChatCompletionRequest.from_openai(
+                messages=[{"role": "user", "content": "foo"}],
+                continue_final_message="not-a-bool",  # type: ignore[arg-type]
+            )
+
+    assert caught == []
+
+
+def test_request_from_openai_rejects_true_continuation_for_non_assistant_final() -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(InvalidMessageStructureException, match="requires final message to be an assistant"):
+            ChatCompletionRequest.from_openai(
+                messages=[
+                    {"role": "user", "content": "foo"},
+                    {"role": "user", "content": "bar"},
+                ],
+                continue_final_message=True,
+            )
+
+    assert caught == []
+
+
+@pytest.mark.parametrize(
+    ["messages", "expected"],
+    [
+        (
+            [UserMessage(content="foo"), AssistantMessage(content="bar", prefix=True)],
+            True,
+        ),
+        ([UserMessage(content="foo"), AssistantMessage(content="bar")], False),
+        ([UserMessage(content="foo")], False),
+    ],
+)
+def test_request_to_openai_derives_continuation_flag(messages: list[ChatMessage], expected: bool) -> None:
+    request = ChatCompletionRequest(messages=messages)
+
+    assert request.to_openai()["continue_final_message"] is expected
+
+
 @pytest.mark.parametrize(
     "reasoning_effort",
     [None, ReasoningEffort.none, ReasoningEffort.high],
@@ -1246,6 +1328,41 @@ def test_convert_speech_request_from_openai() -> None:
     }
     request_voice = SpeechRequest.from_openai(openai_dict_voice_obj)
     assert request_voice.voice == "custom-voice-123"
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_speech_to_openai_base64_ref_audio_filename(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    request = SpeechRequest(input="Hello world", ref_audio=audio.to_base64(fmt))
+
+    buffer = request.to_openai()["ref_audio"]
+
+    assert isinstance(buffer, io.BytesIO)
+    assert buffer.name == f"audio.{fmt}"
+
+    recovered = Audio.from_bytes(buffer.getvalue())
+    assert np.allclose(recovered.audio_array, audio.audio_array, atol=1e-3)
+
+
+@pytest.mark.parametrize("fmt", ["wav", "flac"])
+def test_speech_to_openai_bytes_ref_audio_filename(fmt: str) -> None:
+    audio = _make_fake_audio(0.5)
+    source = io.BytesIO()
+    sf.write(source, audio.audio_array, audio.sampling_rate, format=fmt)
+    request = SpeechRequest(input="Hello world", ref_audio=source.getvalue())
+
+    buffer = request.to_openai()["ref_audio"]
+
+    assert isinstance(buffer, io.BytesIO)
+    assert buffer.name == f"audio.{fmt}"
+
+
+def test_speech_to_openai_bytes_invalid_format() -> None:
+    """Verify that invalid reference audio bytes raise a ValueError."""
+    request = SpeechRequest(input="Hello world", ref_audio=b"not valid audio data")
+
+    with pytest.raises(ValueError, match="Failed to detect audio format"):
+        request.to_openai()
 
 
 @pytest.mark.parametrize(

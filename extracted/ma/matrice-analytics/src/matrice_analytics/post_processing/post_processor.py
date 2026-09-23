@@ -63,6 +63,7 @@ def _dispatch_classes() -> dict:
     from .usecases.lpr_surveillance import LicensePlateSurveillanceUseCase
     from .usecases.people_tracking import PeopleTrackingUseCase
     from .usecases.vehicle_color_detection import VehicleColorDetectionUseCase
+    from .usecases.vehicle_speed_estimation import VehicleSpeedEstimationUseCase
 
     return {
         "face_recognition": FaceRecognitionEmbeddingUseCase,
@@ -79,6 +80,9 @@ def _dispatch_classes() -> dict:
                 PeopleTrackingUseCase,
                 FaceRecognitionEmbeddingUseCase,
                 VehicleColorDetectionUseCase,
+                # Recovers the camera geometry from road markings, so it needs
+                # the frame and not only the boxes.
+                VehicleSpeedEstimationUseCase,
             }
         ),
         # Use cases whose process() is a coroutine.

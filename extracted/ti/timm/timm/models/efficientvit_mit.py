@@ -38,7 +38,7 @@ def val2tuple(x: list or tuple or any, min_len: int = 1, idx_repeat: int = -1):
     return tuple(x)
 
 
-def get_same_padding(kernel_size: int or tuple[int, ...]) -> int or tuple[int, ...]:
+def get_same_padding(kernel_size: Union[int, Tuple[int, ...]]) -> Union[int, Tuple[int, ...]]:
     if isinstance(kernel_size, tuple):
         return tuple([get_same_padding(ks) for ks in kernel_size])
     else:
@@ -379,9 +379,9 @@ class LiteMLA(nn.Module):
         # lightweight global attention
         q = self.kernel_func(q)
         k = self.kernel_func(k)
-        v = F.pad(v, (0, 1), mode="constant", value=1.)
+        v = F.pad(v, (0, 1), mode="constant", value=1.0)
 
-        if not torch.jit.is_scripting():
+        if not torch.jit.is_scripting() and v.device.type != 'meta':
             with torch.autocast(device_type=v.device.type, enabled=False):
                 out = self._attn(q, k, v)
         else:

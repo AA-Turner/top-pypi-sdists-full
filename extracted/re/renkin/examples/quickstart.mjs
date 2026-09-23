@@ -2,7 +2,75 @@
 // `wasm-pack build --target nodejs` output as part of CI (see
 // .github/workflows/ci.yml) so this example can never silently drift from
 // the real `find_routes`/`audit_route` API.
-import { find_routes, audit_route } from "../pkg/renkin.js";
+import assert from "node:assert/strict";
+import {
+  find_routes,
+  audit_route,
+  audit_route_v2,
+  capabilities,
+} from "../pkg/renkin.js";
+
+// The CI quickstart also locks the machine-readable browser boundary to the
+// functions that enforce it. These calls fail before chemistry/search work.
+const capability = JSON.parse(capabilities());
+assert.equal(capability.schema_version, 1);
+assert.equal(capability.surface, "wasm");
+assert.equal(capability.network, "never");
+assert.equal(capability.search.cooperative_cancel, false);
+assert.equal(capability.audit.cooperative_cancel, false);
+assert.deepEqual(capability.audit.accepted_formats, [
+  "auto",
+  "renkin",
+  "aizynthfinder",
+  "syntheseus",
+  "synplanner",
+]);
+assert.deepEqual(capability.audit.policies, [
+  "informational",
+  "standard",
+  "strict",
+]);
+
+for (const rejected of [
+  find_routes("CCO", capability.search.max_depth + 1, 1, 0),
+  find_routes("CCO", 1, capability.search.max_routes + 1, 0),
+  find_routes("CCO", 1, 1, capability.search.max_beam_width + 1),
+]) {
+  assert.match(JSON.parse(rejected).error, /^resource_exhausted:/);
+}
+
+const oversizedStockLine = "C".repeat(capability.audit.max_stock_line_bytes + 1);
+assert.match(
+  JSON.parse(audit_route_v2("{}", "auto", oversizedStockLine, "standard")).error,
+  /^resource_exhausted:/,
+);
+
+// A flat audit finding remains self-contained: callers can identify both the
+// normalized occurrence and why forward replay was not evaluable without
+// guessing from source-tool metadata or joining against `steps`.
+const nonEvaluableAudit = JSON.parse(audit_route_v2(JSON.stringify({
+  target: "CC(=O)Oc1ccccc1C(=O)O",
+  routes: [{
+    steps: [{
+      rule: "ester_cleavage",
+      target: "CC(=O)Oc1ccccc1C(=O)O",
+      precursors: ["C", "O"],
+      template_id: "rule:ester_cleavage",
+    }],
+    building_blocks: ["C", "O"],
+  }],
+}), "renkin", "C\nO\n", "standard"));
+const nonEvaluableFinding = nonEvaluableAudit.routes[0].findings.find(
+  (finding) => finding.code === "forward_validation_not_evaluable",
+);
+assert.deepEqual(nonEvaluableFinding.occurrence_path, []);
+assert.equal(nonEvaluableFinding.step_index, 0);
+assert.equal(nonEvaluableFinding.reason, "missing_reaction_representation");
+assert.deepEqual(nonEvaluableAudit.routes[0].steps[0].occurrence_path, []);
+assert.equal(nonEvaluableAudit.routes[0].steps[0].atom_mapping.status, "not_evaluable");
+assert.deepEqual(nonEvaluableAudit.routes[0].steps[0].atom_mapping.reasons, [
+  "missing_reaction_representation",
+]);
 
 const target = "CC(=O)Oc1ccccc1C(=O)O";
 const result = JSON.parse(find_routes(target, 5, 3, 0));

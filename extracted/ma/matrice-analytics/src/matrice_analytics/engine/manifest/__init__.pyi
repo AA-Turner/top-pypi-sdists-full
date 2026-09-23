@@ -625,11 +625,19 @@ class IdentityMatchConfig:
 
 # From models
 class IncidentLifecycle:
-    # When an incident opens, escalates and closes.
+    # When an incident opens, changes severity and closes.
     #
-    #     Two behaviours that surprise people and are not configurable: incidents cannot de-escalate (the
-    #     backend ignores a downward severity change), and only an end time closes one — which is what
-    #     ``close_after_empty_frames`` produces.
+    #     Severity changes are **symmetric**: a downward change is published exactly like an upward one,
+    #     gated by the same ``severity_confirm_frames``. This is a deliberate reversal of the up-only rule
+    #     this block used to document ("the backend ignores a downward severity change"), which the live
+    #     alert timeline contradicts — the UI renders ``Critical -> Medium`` transitions, and both legacy
+    #     incident machines have always published them (``incident_manager_utils.py:1271``,
+    #     ``incident_lifecycle.py:196``, neither of which checks direction).
+    #
+    #     Only an end time closes an incident — which is what ``close_after_empty_frames`` produces.
+    #     The closing message carries ``info`` as an end signal rather than the severity the incident
+    #     reached (``session.CLOSE_SEVERITY``, matching both legacy machines); the peak is published on
+    #     its own message before the close, so it is not lost.
 
     ...
 

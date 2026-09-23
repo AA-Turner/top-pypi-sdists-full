@@ -11,6 +11,11 @@ def test_coordinator_hard_deadline_is_auto_replayable() -> None:
     assert any("commit hard-deadline" in marker for marker in RECOVERABLE_RETRY_ERRORS)
 
 
+def test_lock_timeout_is_auto_replayable() -> None:
+    """A lock refusal rolls back before the preserved operation can commit."""
+    assert "LockNotAvailableError" in RECOVERABLE_RETRY_ERRORS
+
+
 def test_query_timeout_replays_the_operation_but_never_a_timed_out_capture() -> None:
     """The line moved on 2026-09-17, and it moved to a FINER place, not a laxer one.
 

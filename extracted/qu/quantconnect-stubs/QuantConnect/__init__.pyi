@@ -2757,16 +2757,6 @@ class DataFeedEndpoint(IntEnum):
     """Database (3)"""
 
 
-class StoragePermissions(IntEnum):
-    """Cloud storage permission options."""
-
-    PUBLIC = 0
-    """Public Storage Permissions (0)"""
-
-    AUTHENTICATED = 1
-    """Authenticated Read Storage Permissions (1)"""
-
-
 class DelistingType(IntEnum):
     """Specifies the type of QuantConnect.Data.Market.Delisting data"""
 

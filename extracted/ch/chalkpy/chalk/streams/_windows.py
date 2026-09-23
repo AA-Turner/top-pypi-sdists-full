@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
     from chalk.features._encoding.converter import TDecoder, TEncoder
     from chalk.features.feature_field import WindowConfigResolved
+    from chalk.features.resolver import Resolver
 
 
 class WindowedInstance(Generic[TRich]):
@@ -315,12 +316,24 @@ class MaterializationWindowConfig(TypedDict, total=False):
     backfill_schedule: CronTab | None
     """The schedule on which to automatically backfill the aggregation. For example, `"* * * * *"` or `"1h"`."""
 
+    backfill_resolver: str | Resolver | None
+    """The resolver to backfill the aggregation from. Defaults to the resolver an offline query would run."""
+
+    backfill_start_time: datetime | None
+    """The time to start backfilling from. Defaults to the earliest data `backfill_resolver` returns."""
+
+    backfill_lookback_duration: Duration | None
+    """How far before the previous backfill to re-read, sized to the latest-arriving data in the window."""
+
     backfill_tags: list[list[str]] | None
     """Optional resolver tags to use when running the scheduled aggregate backfill.
     Each inner list produces a separate scheduled backfill job that resolves data
     using resolvers matching those tags. For example, `[["tag1"], ["tag2", "tag3"]]` would
     create two scheduled backfill jobs, one for resolvers tagged "tag1" and one for "tag2, tag3".
     """
+
+    continuous_resolver: str | Resolver | None
+    """The resolver to apply continuous updates with. Defaults to the resolver an online query would run."""
 
     continuous_buffer_duration: Duration | None
     """The minimum period of time for which to sample data directly via online query, rather than from the backfilled aggregations."""

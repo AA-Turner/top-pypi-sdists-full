@@ -8,8 +8,8 @@ speech-to-text transcription using the Speechmatics Batch API.
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
+import time
 import uuid
 from typing import Any
 from typing import BinaryIO
@@ -18,10 +18,33 @@ from typing import Union
 
 from ._auth import AuthBase
 from ._auth import StaticKeyAuth
+from ._common import DEFAULT_TIMEOUT
+from ._common import MAX_TRANSIENT_POLL_FAILURES
+from ._common import PollingInterval
+from ._common import build_delete_job_params
+from ._common import build_fetch_data_multipart
+from ._common import build_file_multipart
+from ._common import build_job_config
+from ._common import build_list_jobs_params
+from ._common import build_processing_data_header
+from ._common import build_query_params
+from ._common import build_submit_query_params
+from ._common import clamp_wait
+from ._common import is_job_active
+from ._common import is_transient_poll_error
+from ._common import job_details_from_submit_response
+from ._common import raise_for_failed_status
+from ._common import request_timeout_for_wait
+from ._common import validate_audio_source
+from ._common import validate_wait
+from ._common import warn_deprecated_operating_point
 from ._exceptions import AuthenticationError
 from ._exceptions import BatchError
 from ._exceptions import JobError
+from ._exceptions import JobExpiredError
 from ._exceptions import TimeoutError
+from ._exceptions import TranscriptNotReadyError
+from ._exceptions import TransportError
 from ._helpers import prepare_audio_file
 from ._logging import get_logger
 from ._models import ConnectionConfig
@@ -29,10 +52,8 @@ from ._models import FormatType
 from ._models import JobConfig
 from ._models import JobDetails
 from ._models import JobStatus
-from ._models import JobType
 from ._models import Transcript
 from ._models import TranscriptionConfig
-from ._transport import PROCESSING_DATA_HEADER
 from ._transport import Transport
 
 
@@ -67,7 +88,7 @@ class AsyncClient:
             >>> async with AsyncClient(api_key="your-key") as client:
             ...     job = await client.submit_job("audio.wav")
             ...     result = await client.wait_for_completion(job.id)
-            ...     print(result.transcript)
+            ...     print(result.transcript_text)
 
         With JWT authentication:
             >>> from speechmatics.batch import JWTAuth
@@ -143,6 +164,8 @@ class AsyncClient:
         transcription_config: Optional[TranscriptionConfig] = None,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
+        wait: Optional[int] = None,
+        format_type: FormatType = FormatType.JSON,
     ) -> JobDetails:
         """
         Submit a new transcription job.
@@ -164,14 +187,30 @@ class AsyncClient:
             user_id: Optional user identifier to associate with this job.
                     Sent as ``{"user_id": "..."}`` in the ``X-SM-Processing-Data`` header.
                     This only applies when using the container onPrem on http batch mode.
+            wait: Seconds to let the server hold the request open waiting for the
+                job to finish (synchronous transcription, SaaS only). When the job
+                finishes in time, the returned JobDetails has status DONE and
+                carries the transcript in ``transcript``. Otherwise the job is
+                still running and must be polled as usual. Note that the server
+                caps this value, and that long-held connections may be closed
+                early by intermediate proxies.
+            format_type: Format of the transcript embedded in the response when
+                ``wait`` is used. Ignored otherwise.
 
         Returns:
-            JobDetails object containing the job ID and initial status.
+            JobDetails object containing the job ID and status, plus the transcript
+            if the server returned one.
 
         Raises:
             BatchError: If job submission fails.
             AuthenticationError: If API key is invalid.
             ConfigurationError: If configuration is invalid.
+
+        Note:
+            Submission is not idempotent: if a submission fails after the server
+            accepted it (for example a network timeout while waiting), resubmitting
+            creates a second billable job. Prefer listing jobs to recover the
+            original job over blind retries.
 
         Examples:
             Basic job submission:
@@ -186,44 +225,38 @@ class AsyncClient:
                 ...     )
                 ... )
                 >>> job = await client.submit_job("audio.wav", config=config)
+
+            Submit and get the transcript in one call:
+                >>> job = await client.submit_job("audio.wav", wait=60)
+                >>> if job.status == JobStatus.DONE:
+                ...     print(job.transcript.transcript_text)
         """
-        # Prepare job configuration
-        if config is None:
-            transcription_config = transcription_config or TranscriptionConfig()
-            config = JobConfig(type=JobType.TRANSCRIPTION, transcription_config=transcription_config)
+        validate_wait(wait)
+        config = build_job_config(config, transcription_config)
+        warn_deprecated_operating_point(config)
 
-        if config.transcription_config is not None and config.transcription_config.operating_point is not None:
-            logging.warning(
-                "TranscriptionConfig.operating_point is deprecated and will be removed in the future. Please use the model property instead."
-            )
-
-        # Check for fetch_data configuration
         config_dict = config.to_dict()
-        has_fetch_data = "fetch_data" in config_dict
-
-        # Validate input combination
-        if audio_file is not None and has_fetch_data:
-            raise ValueError("Cannot specify both audio_file and fetch_data")
-        if audio_file is None and not has_fetch_data:
-            raise ValueError("Must provide either audio_file or fetch_data in config")
+        has_fetch_data = validate_audio_source(audio_file, config_dict)
 
         try:
-            # Prepare multipart data based on strategy
             if has_fetch_data:
-                multipart_data, filename = await self._prepare_fetch_data_submission(config_dict)
-            else:
-                assert audio_file is not None  # for type checker; validated above
-                multipart_data, filename = await self._prepare_file_submission(audio_file, config_dict)
+                multipart_data, filename = build_fetch_data_multipart(config_dict)
+                return await self._submit(
+                    multipart_data, filename, config, parallel_engines, user_id, wait, format_type
+                )
 
-            return await self._submit_and_create_job_details(
-                multipart_data, filename, config, parallel_engines, user_id
-            )
+            assert audio_file is not None  # for type checker; validated above
+            async with prepare_audio_file(audio_file) as (filename, file_data):
+                multipart_data = build_file_multipart(config_dict, filename, file_data)
+                return await self._submit(
+                    multipart_data, filename, config, parallel_engines, user_id, wait, format_type
+                )
         except Exception as e:
             if isinstance(e, (AuthenticationError, BatchError)):
                 raise
             raise BatchError(f"Job submission failed: {e}") from e
 
-    async def get_job_info(self, job_id: str) -> JobDetails:
+    async def get_job_info(self, job_id: str, *, wait: Optional[int] = None) -> JobDetails:
         """
         Get information about a specific job.
 
@@ -231,11 +264,16 @@ class AsyncClient:
 
         Args:
             job_id: The unique job identifier.
+            wait: Seconds to let the server hold the request open until the job
+                reaches a terminal state (synchronous transcription, SaaS only).
+                The API applies a small default wait when this is omitted.
+                Pass 0 to return immediately.
 
         Returns:
             JobDetails object with current job status and metadata.
 
         Raises:
+            JobExpiredError: If the job's data has expired and been deleted.
             JobError: If job is not found or cannot be retrieved.
             AuthenticationError: If API key is invalid.
 
@@ -244,8 +282,12 @@ class AsyncClient:
             >>> print(f"Job status: {job_info.status}")
         """
         try:
-            self._logger.debug("Retrieving job info for job_id=%s", job_id)
-            response = await self._transport.get(f"/jobs/{job_id}")
+            self._logger.debug("Retrieving job info for job_id=%s (wait=%s)", job_id, wait)
+            response = await self._transport.get(
+                f"/jobs/{job_id}",
+                params=build_query_params(wait=wait),
+                timeout=request_timeout_for_wait(wait, self._conn_config),
+            )
             job = response.get("job")
             if job is None:
                 raise JobError(f"No job information found for job ID: {job_id}")
@@ -253,6 +295,8 @@ class AsyncClient:
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
+            if isinstance(e, TransportError) and e.status_code == 410:
+                raise JobExpiredError(f"Job {job_id} has expired and is no longer available") from e
             raise JobError(f"Failed to get job info: {e}") from e
 
     async def list_jobs(
@@ -282,17 +326,11 @@ class AsyncClient:
             >>> for job in jobs:
             ...     print(f"Job {job.id}: {job.status}")
         """
-        params = {}
-        if limit is not None:
-            params["limit"] = str(limit)
-        if created_before:
-            params["created_before"] = created_before
-        if created_after:
-            params["created_after"] = created_after
+        params = build_list_jobs_params(limit, created_before, created_after)
 
         try:
             self._logger.debug("Listing jobs (limit=%s)", limit)
-            response = await self._transport.get("/jobs", params=params or None)
+            response = await self._transport.get("/jobs", params=params)
             jobs_data = response.get("jobs", [])
             self._logger.debug("Jobs retrieved (%d jobs)", len(jobs_data))
             return [JobDetails.from_dict(job) for job in jobs_data]
@@ -301,7 +339,7 @@ class AsyncClient:
                 raise
             raise BatchError(f"Failed to list jobs: {e}") from e
 
-    async def delete_job(self, job_id: str) -> None:
+    async def delete_job(self, job_id: str, *, force: bool = False) -> None:
         """
         Delete a job and its results.
 
@@ -310,6 +348,8 @@ class AsyncClient:
 
         Args:
             job_id: The unique job identifier.
+            force: Delete the job even if it is still running. Without this the
+                API refuses to delete a running job.
 
         Raises:
             JobError: If job cannot be deleted.
@@ -320,80 +360,132 @@ class AsyncClient:
         """
         try:
             self._logger.debug("Deleting job_id=%s", job_id)
-            await self._transport.delete(f"/jobs/{job_id}")
+            await self._transport.delete(f"/jobs/{job_id}", params=build_delete_job_params(force))
             self._logger.debug("Job deleted successfully (job_id=%s)", job_id)
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
+            if isinstance(e, TransportError) and e.status_code == 423:
+                raise JobError(f"Job {job_id} is still running; pass force=True to delete it") from e
             raise JobError(f"Failed to delete job: {e}") from e
 
-    async def get_transcript(self, job_id: str, *, format_type: FormatType = FormatType.JSON) -> Union[Transcript, str]:
+    async def get_transcript(
+        self,
+        job_id: str,
+        *,
+        format_type: FormatType = FormatType.JSON,
+        wait: Optional[int] = None,
+    ) -> Union[Transcript, str]:
         """
         Get the transcript for a completed job.
 
         Args:
             job_id: The unique job identifier.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
+            wait: Seconds to let the server hold the request open until the
+                transcript is ready (synchronous transcription, SaaS only).
+                The API applies a small default wait when this is omitted.
+                Pass 0 to return immediately.
 
         Returns:
             Transcript object for JSON format, or string for text/SRT formats.
 
         Raises:
+            JobExpiredError: If the job's data has expired and been deleted.
+            TranscriptNotReadyError: If the transcript is not available yet (the
+                job may still be running, or the job ID may not exist).
             JobError: If transcript cannot be retrieved or job is not complete.
             AuthenticationError: If API key is invalid.
 
         Examples:
             >>> result = await client.get_transcript("12345")
-            >>> print(result.transcript)
+            >>> print(result.transcript_text)
 
             >>> # Get plain text transcript
             >>> text = await client.get_transcript("12345", format_type=FormatType.TXT)
             >>> print(text)
         """
-        params = {"format": format_type.value} if format_type != FormatType.JSON else None
-
         try:
             self._logger.debug("Retrieving transcript for job_id=%s (format=%s)", job_id, format_type.value)
-            response = await self._transport.get(f"/jobs/{job_id}/transcript", params=params)
+            response = await self._transport.get(
+                f"/jobs/{job_id}/transcript",
+                params=build_query_params(wait=wait, format_type=format_type),
+                timeout=request_timeout_for_wait(wait, self._conn_config),
+            )
 
             if format_type == FormatType.JSON:
                 return Transcript.from_dict(response)
-            else:
-                # Return plain text for other formats
-                return response.get("content", "")  # type: ignore[no-any-return]
+            return str(response.get("content", ""))
 
         except Exception as e:
             if isinstance(e, AuthenticationError):
                 raise
+            if isinstance(e, TransportError) and e.status_code == 410:
+                raise JobExpiredError(f"Transcript for job {job_id} has expired and is no longer available") from e
+            if isinstance(e, TransportError) and e.status_code == 404:
+                raise TranscriptNotReadyError(
+                    f"Transcript for job {job_id} is not available yet; retry the request "
+                    "(the job may still be running, or the job ID may not exist)"
+                ) from e
             raise JobError(f"Failed to get transcript: {e}") from e
 
-    async def _poll_job_status(self, job_id: str, polling_interval: float) -> None:
+    async def _poll_job_status(self, job_id: str, polling_interval: float, min_polling_interval: float) -> None:
         """Poll job status until completion or failure."""
-        self._logger.debug("Starting job status polling for job_id=%s (interval=%.1fs)", job_id, polling_interval)
+        self._logger.debug(
+            "Starting job status polling for job_id=%s (min_interval=%.1fs, max_interval=%.1fs)",
+            job_id,
+            min_polling_interval,
+            polling_interval,
+        )
+        started_at = time.monotonic()
+        interval = PollingInterval(min_polling_interval, polling_interval)
         poll_count = 0
         last_log_time = 0.0
-        import time
+        transient_failures = 0
 
         while True:
             poll_count += 1
-            job_info = await self.get_job_info(job_id)
-
-            if job_info.status == JobStatus.DONE:
-                self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
-                return
-            elif job_info.status == JobStatus.REJECTED:
-                self._logger.warning("Job was rejected (job_id=%s)", job_id)
-                raise JobError(f"Job {job_id} was rejected")
-            elif job_info.status == JobStatus.RUNNING:
-                # Log progress every 30 seconds
-                current_time: float = time.time()
-                if current_time - last_log_time >= 30.0:
-                    self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
-                    last_log_time = current_time
-                await asyncio.sleep(polling_interval)
+            try:
+                job_info = await self.get_job_info(job_id)
+            except Exception as e:
+                if not is_transient_poll_error(e):
+                    raise
+                transient_failures += 1
+                if transient_failures > MAX_TRANSIENT_POLL_FAILURES:
+                    raise JobError(
+                        f"Job {job_id} status could not be read after "
+                        f"{transient_failures} consecutive failures: {e}"
+                    ) from e
+                self._logger.warning(
+                    "Job status poll failed, retrying (job_id=%s, failure=%d/%d): %s",
+                    job_id,
+                    transient_failures,
+                    MAX_TRANSIENT_POLL_FAILURES,
+                    e,
+                )
             else:
-                self._logger.error("Job has unknown status (job_id=%s, status=%s)", job_id, job_info.status)
-                raise JobError(f"Job {job_id} has unknown status: {job_info.status}")
+                transient_failures = 0
+
+                if job_info.status == JobStatus.DONE:
+                    self._logger.info("Job completed (job_id=%s, polls=%d)", job_id, poll_count)
+                    self._logger.debug(
+                        "Job turnaround time: %.2fs (job_id=%s, polls=%d)",
+                        time.monotonic() - started_at,
+                        job_id,
+                        poll_count,
+                    )
+                    return
+                elif is_job_active(job_info.status):
+                    current_time: float = time.monotonic()
+                    if current_time - last_log_time >= 30.0:
+                        self._logger.debug("Job still running (job_id=%s, polls=%d)", job_id, poll_count)
+                        last_log_time = current_time
+                else:
+                    self._logger.warning("Job did not succeed (job_id=%s, status=%s)", job_id, job_info.status.value)
+                    raise_for_failed_status(job_id, job_info.status)
+                    raise JobError(f"Job {job_id} has unexpected status: {job_info.status.value}")
+
+            await asyncio.sleep(interval.next())
 
     async def wait_for_completion(
         self,
@@ -401,7 +493,8 @@ class AsyncClient:
         *,
         format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
-        timeout: Optional[float] = None,
+        min_polling_interval: float = 0.5,
+        timeout: Optional[float] = DEFAULT_TIMEOUT,
     ) -> Union[Transcript, str]:
         """
         Wait for a job to complete and return the result.
@@ -412,8 +505,16 @@ class AsyncClient:
         Args:
             job_id: The unique job identifier.
             format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
-            polling_interval: Time in seconds between status checks.
-            timeout: Maximum time in seconds to wait for completion.
+            polling_interval: Ceiling in seconds for the time between status
+                checks. Polling starts at ``min_polling_interval`` and backs off
+                towards this value, so short jobs are caught quickly while
+                long-running jobs settle into this interval. Up to 20% jitter is
+                applied so that concurrent clients do not synchronise, so an
+                individual wait can exceed this by that much. Must be greater than 0.
+            min_polling_interval: Initial time in seconds between status checks.
+                Must be greater than 0.
+            timeout: Maximum time in seconds to wait for completion, one hour
+                by default. Pass ``None`` to wait indefinitely.
 
         Returns:
             Transcript object for JSON format, or string for text/SRT formats.
@@ -426,7 +527,7 @@ class AsyncClient:
         Examples:
             >>> job = await client.submit_job("audio.wav")
             >>> result = await client.wait_for_completion(job.id)
-            >>> print(f"Transcript: {result.transcript}")
+            >>> print(f"Transcript: {result.transcript_text}")
 
             >>> # With custom timeout and format
             >>> result = await client.wait_for_completion(
@@ -437,7 +538,9 @@ class AsyncClient:
             ... )
         """
         try:
-            await asyncio.wait_for(self._poll_job_status(job_id, polling_interval), timeout=timeout)
+            await asyncio.wait_for(
+                self._poll_job_status(job_id, polling_interval, min_polling_interval), timeout=timeout
+            )
 
             return await self.get_transcript(job_id, format_type=format_type)
 
@@ -450,10 +553,13 @@ class AsyncClient:
         *,
         config: Optional[JobConfig] = None,
         transcription_config: Optional[TranscriptionConfig] = None,
+        format_type: FormatType = FormatType.JSON,
         polling_interval: float = 5.0,
-        timeout: Optional[float] = None,
+        min_polling_interval: float = 0.5,
+        timeout: Optional[float] = DEFAULT_TIMEOUT,
         parallel_engines: Optional[int] = None,
         user_id: Optional[str] = None,
+        wait: Optional[int] = None,
     ) -> Union[Transcript, str]:
         """
         Complete transcription workflow: submit job and wait for completion.
@@ -465,17 +571,30 @@ class AsyncClient:
             audio_file: Path to audio file or file-like object.
             config: Complete job configuration.
             transcription_config: Transcription-specific configuration.
-            polling_interval: Time in seconds between status checks.
-            timeout: Maximum time in seconds to wait for completion.
+            format_type: Output format (FormatType.JSON, FormatType.TXT, FormatType.SRT). Defaults to FormatType.JSON.
+            polling_interval: Ceiling in seconds for the time between status
+                checks. Polling starts at ``min_polling_interval`` and backs off
+                towards this value, so short jobs are caught quickly while
+                long-running jobs settle into this interval. Up to 20% jitter is
+                applied so that concurrent clients do not synchronise, so an
+                individual wait can exceed this by that much. Must be greater than 0.
+            min_polling_interval: Initial time in seconds between status checks.
+                Must be greater than 0.
+            timeout: Maximum time in seconds to wait for completion, one hour
+                by default. Pass ``None`` to wait indefinitely.
             parallel_engines: Optional number of parallel engines to request for this job.
                                Sent as ``{"parallel_engines": N}`` in the ``X-SM-Processing-Data`` header.
                                This only applies when using the container onPrem on http batch mode.
             user_id: Optional user identifier to associate with this job.
                     Sent as ``{"user_id": "..."}`` in the ``X-SM-Processing-Data`` header.
                     This only applies when using the container onPrem on http batch mode.
+            wait: Seconds to let the server hold the submit request open waiting
+                for the transcript (synchronous transcription, SaaS only). Short
+                audio then needs only one round trip; anything still running when
+                the wait elapses falls back to polling.
 
         Returns:
-            Transcript object containing the transcript and metadata.
+            Transcript object for JSON format, or string for text/SRT formats.
 
         Raises:
             BatchError: If job submission fails.
@@ -485,7 +604,7 @@ class AsyncClient:
 
         Examples:
             >>> result = await client.transcribe("audio.wav")
-            >>> print(f"Transcript: {result.transcript}")
+            >>> print(f"Transcript: {result.transcript_text}")
 
             >>> # With custom configuration
             >>> config = TranscriptionConfig(language="es", enable_entities=True)
@@ -494,7 +613,15 @@ class AsyncClient:
             ...     transcription_config=config,
             ...     timeout=300.0
             ... )
+
+            >>> # One round trip for short audio
+            >>> result = await client.transcribe("audio.wav", wait=60)
         """
+        started_at = time.monotonic()
+
+        # The server-side wait must not outlive the caller's own timeout.
+        wait = clamp_wait(wait, timeout)
+
         # Submit the job
         job = await self.submit_job(
             audio_file,
@@ -502,14 +629,26 @@ class AsyncClient:
             transcription_config=transcription_config,
             parallel_engines=parallel_engines,
             user_id=user_id,
+            wait=wait,
+            format_type=format_type,
         )
+
+        if job.status == JobStatus.DONE:
+            if job.transcript is not None:
+                self._logger.info("Transcription completed during submit (job_id=%s)", job.id)
+                return job.transcript
+            return await self.get_transcript(job.id, format_type=format_type)
+
+        remaining = None if timeout is None else max(0.0, timeout - (time.monotonic() - started_at))
 
         # Wait for completion and return result
         self._logger.debug("Waiting for job completion (job_id=%s)", job.id)
         result = await self.wait_for_completion(
             job.id,
+            format_type=format_type,
             polling_interval=polling_interval,
-            timeout=timeout,
+            min_polling_interval=min_polling_interval,
+            timeout=remaining,
         )
         self._logger.info("Transcription job completed successfully (job_id=%s)", job.id)
         return result
@@ -536,50 +675,24 @@ class AsyncClient:
         except Exception:
             pass  # Best effort cleanup
 
-    # ------------------------------------------------------------------
-    # Internal helpers for job submission strategies
-    # ------------------------------------------------------------------
-    async def _prepare_fetch_data_submission(self, config_dict: dict) -> tuple[dict, str]:
-        """Prepare multipart data for fetch_data submission."""
-        filename = config_dict["fetch_data"]["url"]
-        multipart_data = {"config": config_dict}
-        return multipart_data, filename
-
-    async def _prepare_file_submission(self, audio_file: Union[str, BinaryIO], config_dict: dict) -> tuple[dict, str]:
-        """Prepare multipart data for file upload submission."""
-        async with prepare_audio_file(audio_file) as (filename, file_data):
-            multipart_data = {
-                "config": config_dict,
-                "data_file": (filename, file_data, "audio/wav"),
-            }
-            return multipart_data, filename
-
-    async def _submit_and_create_job_details(
+    async def _submit(
         self,
-        multipart_data: dict,
+        multipart_data: dict[str, Any],
         filename: str,
         config: JobConfig,
-        parallel_engines: Optional[int] = None,
-        user_id: Optional[str] = None,
+        parallel_engines: Optional[int],
+        user_id: Optional[str],
+        wait: Optional[int],
+        format_type: FormatType,
     ) -> JobDetails:
-        """Submit job and create JobDetails response."""
-        extra_headers: Optional[dict[str, Any]] = None
-        processing_data: dict[str, Any] = {}
-        if parallel_engines is not None:
-            processing_data["parallel_engines"] = parallel_engines
-        if user_id is not None:
-            processing_data["user_id"] = user_id
-        if processing_data:
-            extra_headers = {PROCESSING_DATA_HEADER: processing_data}
-        response = await self._transport.post("/jobs", multipart_data=multipart_data, extra_headers=extra_headers)
-        job_id = response.get("id")
-        if not job_id:
-            raise BatchError("No job ID returned from server")
-        self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job_id, filename)
-        return JobDetails(
-            id=job_id,
-            status=JobStatus.RUNNING,
-            created_at=response.get("created_at", ""),
-            data_name=filename,
-            config=config,
+        """Submit the job and build its JobDetails."""
+        response = await self._transport.post(
+            "/jobs",
+            multipart_data=multipart_data,
+            extra_headers=build_processing_data_header(parallel_engines, user_id),
+            params=build_submit_query_params(wait, format_type),
+            timeout=request_timeout_for_wait(wait, self._conn_config),
         )
+        job = job_details_from_submit_response(response, config, filename, format_type)
+        self._logger.debug("Job submitted successfully (job_id=%s, filename=%s)", job.id, filename)
+        return job

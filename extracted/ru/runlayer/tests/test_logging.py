@@ -23,32 +23,7 @@ requires_nonroot_posix = pytest.mark.skipif(
 )
 
 
-@pytest.fixture
-def _reset_structlog():
-    """Reset structlog to unconfigured defaults around a test.
-
-    ``ensure_base_logging_configured`` / ``setup_logging`` mutate global structlog
-    config; reset so ``structlog.is_configured()`` starts False and the config
-    doesn't leak into other tests.
-    """
-    structlog.reset_defaults()
-    yield
-    structlog.reset_defaults()
-
-
-@pytest.fixture
-def _close_added_root_handlers():
-    original_handlers = tuple(logging.root.handlers)
-    yield
-    for handler in tuple(logging.root.handlers):
-        if handler not in original_handlers:
-            logging.root.removeHandler(handler)
-            handler.close()
-
-
-def test_ensure_base_logging_silences_debug_to_stderr(
-    capsys, monkeypatch, _reset_structlog
-):
+def test_ensure_base_logging_silences_debug_to_stderr(capsys, monkeypatch):
     """Default level: debug is filtered, info renders to stderr, stdout stays clean."""
     monkeypatch.delenv("LOG_LEVEL", raising=False)
 
@@ -64,9 +39,7 @@ def test_ensure_base_logging_silences_debug_to_stderr(
     assert "shown_info_line" in captured.err
 
 
-def test_ensure_base_logging_shows_debug_under_debug_level(
-    capsys, monkeypatch, _reset_structlog
-):
+def test_ensure_base_logging_shows_debug_under_debug_level(capsys, monkeypatch):
     """LOG_LEVEL=DEBUG surfaces the debug line (still on stderr, not stdout)."""
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 
@@ -78,7 +51,7 @@ def test_ensure_base_logging_shows_debug_under_debug_level(
     assert "visible_debug_line" in captured.err
 
 
-def test_ensure_base_logging_is_idempotent(_reset_structlog):
+def test_ensure_base_logging_is_idempotent():
     """A second call is a no-op once structlog is configured."""
     ensure_base_logging_configured()
     with patch("structlog.configure") as configure:
@@ -86,9 +59,7 @@ def test_ensure_base_logging_is_idempotent(_reset_structlog):
     configure.assert_not_called()
 
 
-def test_ensure_base_logging_does_not_clobber_setup_logging(
-    tmp_path, monkeypatch, _reset_structlog
-):
+def test_ensure_base_logging_does_not_clobber_setup_logging(tmp_path, monkeypatch):
     """When ``setup_logging`` already configured file logging, ensure is a no-op
     and file logging keeps working."""
     monkeypatch.setattr("runlayer_cli.logging.Path.home", lambda: tmp_path)
@@ -258,9 +229,7 @@ def test_setup_logging_sweeps_temp_fallback_independently(tmp_path, monkeypatch)
     assert not old_log.exists()
 
 
-def test_attach_system_scan_log_handler_rotates_oversized_log(
-    tmp_path, monkeypatch, _close_added_root_handlers
-):
+def test_attach_system_scan_log_handler_rotates_oversized_log(tmp_path, monkeypatch):
     log_path = tmp_path / "scheduled-task.log"
     backup_path = tmp_path / "scheduled-task.log.1"
     log_path.write_bytes(b"oversized")
@@ -278,7 +247,7 @@ def test_attach_system_scan_log_handler_rotates_oversized_log(
 
 
 def test_attach_system_scan_log_handler_does_not_rotate_at_threshold(
-    tmp_path, monkeypatch, _close_added_root_handlers
+    tmp_path, monkeypatch
 ):
     log_path = tmp_path / "scheduled-task.log"
     log_path.write_bytes(b"1234")
@@ -294,7 +263,7 @@ def test_attach_system_scan_log_handler_does_not_rotate_at_threshold(
 
 
 def test_attach_system_scan_log_handler_appends_when_rotation_fails(
-    tmp_path, monkeypatch, _close_added_root_handlers
+    tmp_path, monkeypatch
 ):
     log_path = tmp_path / "scheduled-task.log"
     log_path.write_bytes(b"oversized")
@@ -320,9 +289,7 @@ def test_attach_system_scan_log_handler_appends_when_rotation_fails(
     assert not (tmp_path / "scheduled-task.log.1").exists()
 
 
-def test_attach_system_scan_log_handler_tolerates_unwritable_log(
-    tmp_path, monkeypatch, _close_added_root_handlers
-):
+def test_attach_system_scan_log_handler_tolerates_unwritable_log(tmp_path, monkeypatch):
     log_path = tmp_path / "scheduled-task.log"
     monkeypatch.setattr("runlayer_cli.logging.sys.platform", "win32")
     monkeypatch.setattr("runlayer_cli.logging.SCHEDULED_TASK_LOG_PATH", log_path)

@@ -2,16 +2,29 @@
 
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.check_framework.exceptions import NestedDict
-from dbt_bouncer.utils import compile_pattern, find_missing_meta_keys
+from dbt_bouncer.enums import Criteria
+from dbt_bouncer.utils import (
+    compile_pattern,
+    find_meta_keys_criteria_failure,
+    find_missing_meta_keys,
+)
 
 
-@check
+@check(code="SO011")
 def check_source_has_labels_keys(source, *, keys: NestedDict):
     """The `labels` config for sources must have the specified keys.
 
     !!! info "Rationale"
 
         Labels are key-value pairs attached to warehouse resources (e.g. BigQuery table labels) that drive cost attribution, governance workflows, and access control. Requiring specific label keys on sources ensures that the same ownership and environment metadata required on models is also enforced at the ingestion boundary, giving a consistent labelling policy across the full data platform.
+
+    !!! note
+
+        dbt 2.0 (Fusion) does not permit `labels` as a top-level config on a source
+        table, so `labels` must be nested under `meta` (e.g. `config.meta.labels`).
+        This check looks in both locations — the legacy top-level `config.labels`
+        and `config.meta.labels` — so it works before and after a Fusion migration
+        (e.g. one applied by `dbt-autofix`).
 
     Parameters:
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
@@ -35,7 +48,15 @@ def check_source_has_labels_keys(source, *, keys: NestedDict):
         ```
 
     """
-    labels = getattr(source.config, "labels", None) or {}
+    # `labels` may live at the top level (`config.labels`, valid for models and
+    # source-level configs) or nested under `meta` (`config.meta.labels`, the only
+    # location dbt 2.0/Fusion allows on a source table). Union both so a required
+    # key present in either location satisfies the check; the Fusion location wins
+    # on any key clash.
+    top_level_labels = getattr(source.config, "labels", None) or {}
+    meta = getattr(source.config, "meta", None) or {}
+    meta_labels = (meta.get("labels") if isinstance(meta, dict) else None) or {}
+    labels = {**top_level_labels, **meta_labels}
     missing_keys = find_missing_meta_keys(
         meta_config=labels, required_keys=keys.model_dump()
     )
@@ -46,8 +67,10 @@ def check_source_has_labels_keys(source, *, keys: NestedDict):
         )
 
 
-@check
-def check_source_has_meta_keys(source, *, keys: NestedDict):
+@check(code="SO012")
+def check_source_has_meta_keys(
+    source, *, criteria: Criteria = Criteria.ALL, keys: NestedDict
+):
     """The `meta` config for sources must have the specified keys.
 
     !!! info "Rationale"
@@ -55,6 +78,7 @@ def check_source_has_meta_keys(source, *, keys: NestedDict):
         The `meta` config is a free-form dictionary that teams use to attach governance information to dbt nodes — things like data owner, sensitivity classification, SLA tier, or compliance labels. Without enforcing required keys, this metadata is applied inconsistently: some sources have an owner, others do not; some are labelled PII-sensitive, others are silently omitted. This check ensures that every source carries the minimum set of metadata keys needed to support data governance, access control automation, and operational runbooks.
 
     Parameters:
+        criteria (Literal["all", "any", "one"]): Whether the resource must have all, any, or exactly one of the specified keys. Default: `all`.
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
 
     Receives:
@@ -79,16 +103,12 @@ def check_source_has_meta_keys(source, *, keys: NestedDict):
 
     """
     display = f"{source.source_name}.{source.name}"
-    missing_keys = find_missing_meta_keys(
-        meta_config=source.meta, required_keys=keys.model_dump()
-    )
-    if missing_keys:
-        fail(
-            f"`{display}` is missing the following keys from the `meta` config: {[x.replace('>>', '') for x in missing_keys]}"
-        )
+    failure = find_meta_keys_criteria_failure(source.meta, keys.model_dump(), criteria)
+    if failure:
+        fail(f"`{display}` {failure}")
 
 
-@check
+@check(code="SO013")
 def check_source_pii_meta(source, *, column_name_pattern: str, meta_key: str):
     """Source columns matching a PII pattern must carry a governance meta key.
 

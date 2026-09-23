@@ -151,7 +151,7 @@ from _pydevd_bundle.pydevd_comm_constants import (
 MAX_IO_MSG_SIZE = 1000  #if the io is too big, we'll not send all (could make the debugger too non-responsive)
 #this number can be changed if there's need to do so
 
-VERSION_STRING = "263.4732.31"
+VERSION_STRING = "263.5153.49"
 
 from _pydev_bundle._pydev_filesystem_encoding import getfilesystemencoding
 file_system_encoding = getfilesystemencoding()
@@ -1975,9 +1975,13 @@ class AbstractGetValueAsyncThread(PyDBDaemonThread):
         xml.write("<xml>")
         for (var_obj, name) in self.var_objs:
             current_time = time.time()
-            if current_time - start > ASYNC_EVAL_TIMEOUT_SEC or self.cancel_event.is_set():
-                break
-            xml.write(pydevd_xml.var_to_xml(var_obj, name, evaluate_full_value=True, user_type_renderers=self.user_type_renderers))
+            give_up = current_time - start > ASYNC_EVAL_TIMEOUT_SEC or self.cancel_event.is_set()
+            # Every value asked for gets an entry, because the client matches the reply to the request by
+            # position: a value left out of the reply keeps the placeholder of its node until the session
+            # ends. One this thread can no longer afford to render is written as the short value it already
+            # has, which costs nothing, instead of being dropped.
+            xml.write(pydevd_xml.var_to_xml(var_obj, name, evaluate_full_value=not give_up,
+                                            user_type_renderers=self.user_type_renderers))
         xml.write("</xml>")
         self.send_result(xml)
         xml.close()

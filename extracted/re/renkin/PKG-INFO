@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: renkin
-Version: 1.0.8
+Version: 1.0.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Rust
 Requires-Dist: syntheseus>=0.7.2,<=0.8.0 ; extra == 'syntheseus'
 Provides-Extra: syntheseus
 License-File: LICENSE
-Summary: Local retrosynthesis route auditor and planning engine for AiZynthFinder, Syntheseus and RENKIN
-Keywords: retrosynthesis,route-audit,route-validation,aizynthfinder,syntheseus,casp,cheminformatics
+Summary: Local retrosynthesis route auditor and planning engine for AiZynthFinder, Syntheseus, SynPlanner and RENKIN
+Keywords: retrosynthesis,route-audit,route-validation,aizynthfinder,syntheseus,synplanner,casp,cheminformatics
 Home-Page: https://github.com/kent-tokyo/renkin
 License: MIT
 Requires-Python: >=3.8
@@ -44,7 +44,7 @@ RENKIN has two uses:
 Auditing is local and reproducible. Reports include structural checks, stock
 coverage, forward replay, provenance, and a verifiable audit manifest.
 
-Current release: **v1.0.8**. Public inputs are validated before execution;
+Current release: **v1.0.9**. Public inputs are validated before execution;
 WASM applies bounded search limits, and MCP numeric and element-filter
 arguments fail closed when invalid. Standard MCP search also accepts an
 optional cooperative `timeout_secs` budget.

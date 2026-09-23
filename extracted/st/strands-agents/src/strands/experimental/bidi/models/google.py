@@ -18,7 +18,7 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Any, TypedDict, cast
+from typing import Any, cast
 
 from google import genai
 from google.genai import types as genai_types
@@ -26,36 +26,37 @@ from google.genai.types import LiveConnectConfigOrDict, LiveServerContent, LiveS
 from typing_extensions import Unpack, override
 
 from ....models._validation import validate_config_keys
-from ....types._events import ToolResultEvent, ToolUseStreamEvent
-from ....types.content import Messages
-from ....types.tools import ToolResult, ToolSpec, ToolUse
+from ....types._events import ToolUseStreamEvent
+from ....types.content import Messages, TextBlock
+from ....types.media import ImageBlock
+from ....types.tools import ToolResultBlock, ToolSpec, ToolUse
 from .._async import stop_all
+from ..types.content import BidiContentBlock, BidiContentDelta
 from ..types.events import (
-    BidiAudioInputEvent,
     BidiAudioStreamEvent,
     BidiConnectionStartEvent,
-    BidiImageInputEvent,
-    BidiInputEvent,
     BidiInterruptionEvent,
     BidiOutputEvent,
     BidiResponseCompleteEvent,
     BidiResponseStartEvent,
-    BidiTextInputEvent,
     BidiTranscriptCompleteEvent,
     BidiTranscriptStreamEvent,
     BidiUsageEvent,
     ModalityUsage,
 )
+from ..types.media import AudioDelta
 from .configs import (
     AudioConfig,
     AudioStreamConfig,
-    BidiConnectionConfig,
-    BidiModelConfig,
+    ConnectionConfig,
+    GoogleGeminiLiveAudioConfig,
+    GoogleGeminiLiveAudioStreamConfig,
+    ModelConfig,
     _merge_config,
     _validate_audio_config,
     _validate_model_config,
 )
-from .model import AudioCapable, BidiModel, BidiModelTimeoutError
+from .model import AudioCapable, BidiModel, ConnectionTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -75,28 +76,6 @@ class _TurnState:
     output_transcript: str = ""
 
 
-class GoogleGeminiLiveAudioStreamConfig(TypedDict):
-    """Gemini Live input stream options. Audio uses mono PCM.
-
-    Attributes:
-        sample_rate: Input sample rate in Hz.
-    """
-
-    sample_rate: int
-
-
-class GoogleGeminiLiveAudioConfig(TypedDict, total=False):
-    """Gemini Live audio options. Output is mono PCM at 24000 Hz.
-
-    Omitting the input stream uses a sample rate of 16000 Hz.
-
-    Attributes:
-        input: Input stream options.
-    """
-
-    input: GoogleGeminiLiveAudioStreamConfig
-
-
 class GoogleGeminiLiveModel(BidiModel, AudioCapable):
     """Google Gemini Live implementation using the official Google GenAI SDK.
 
@@ -111,7 +90,7 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
         client_args: dict[str, Any] | None = None,
         audio: GoogleGeminiLiveAudioConfig | None = None,
         voice: str | None = None,
-        **model_config: Unpack[BidiModelConfig],
+        **model_config: Unpack[ModelConfig],
     ) -> None:
         """Initialize the Google Gemini Live bidirectional model.
 
@@ -125,15 +104,13 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
             ValueError: If the input sample rate is not positive.
         """
         _validate_model_config(model_config)
-        self._config = BidiModelConfig(**model_config)
+        self._config = ModelConfig(**model_config)
         self._config.setdefault("model_id", "gemini-2.5-flash-native-audio-preview-09-2025")
         self._config["params"] = dict(self._config.get("params") or {})
 
         # Gemini caps a single connection at ~10 min; reconnect before that, resuming the same
         # session via its handle. The GoAway message remains the reactive backstop.
-        self._config["connection"] = BidiConnectionConfig(
-            **{"restart_after_s": 540, **self._config.get("connection", {})}
-        )
+        self._config["connection"] = ConnectionConfig(**{"restart_after_s": 540, **self._config.get("connection", {})})
         # Gemini reports per-response token deltas, not cumulative session totals.
         self.usage_is_cumulative = False
 
@@ -150,7 +127,7 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
         self._connection_id: str | None = None
 
     @override
-    def update_config(self, **model_config: Unpack[BidiModelConfig]) -> None:  # type: ignore[override]
+    def update_config(self, **model_config: Unpack[ModelConfig]) -> None:  # type: ignore[override]
         """Update the model configuration with the provided arguments.
 
         Args:
@@ -160,7 +137,7 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
         self._config.update(model_config)
 
     @override
-    def get_config(self) -> BidiModelConfig:
+    def get_config(self) -> ModelConfig:
         """Return the model configuration by reference."""
         return self._config
 
@@ -297,10 +274,10 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
             List of event dicts (empty list if no events to emit).
 
         Raises:
-            BidiModelTimeoutError: If gemini responds with go away message.
+            ConnectionTimeoutError: If Gemini responds with a go-away message.
         """
         if message.go_away:
-            raise BidiModelTimeoutError(
+            raise ConnectionTimeoutError(
                 message.go_away.model_dump_json(), live_session_handle=self._live_session_handle
             )
 
@@ -510,42 +487,41 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
 
     async def send(
         self,
-        content: BidiInputEvent | ToolResultEvent,
+        content: BidiContentBlock | BidiContentDelta | ToolResultBlock,
     ) -> None:
         """Unified send method for all content types. Sends the given inputs to the Gemini Live API.
 
         Dispatches to appropriate internal handler based on content type.
 
         Args:
-            content: Typed event (BidiTextInputEvent, BidiAudioInputEvent, BidiImageInputEvent, or ToolResultEvent).
+            content: A TextBlock, AudioDelta, ImageBlock, or ToolResultBlock.
 
         Raises:
-            ValueError: If content type not supported (e.g., image content).
+            ValueError: If content type not supported.
         """
         if not self._connection_id:
             raise RuntimeError("model not started | call start before sending")
 
-        if isinstance(content, BidiTextInputEvent):
+        if isinstance(content, TextBlock):
             await self._send_text_content(content.text)
-        elif isinstance(content, BidiAudioInputEvent):
+        elif isinstance(content, AudioDelta):
             await self._send_audio_content(content)
-        elif isinstance(content, BidiImageInputEvent):
+        elif isinstance(content, ImageBlock):
             await self._send_image_content(content)
-        elif isinstance(content, ToolResultEvent):
-            tool_result = content.get("tool_result")
-            if tool_result:
-                await self._send_tool_result(tool_result)
+        elif isinstance(content, ToolResultBlock):
+            await self._send_tool_result(content)
         else:
             raise ValueError(f"content_type={type(content)} | content not supported")
 
-    async def _send_audio_content(self, audio_input: BidiAudioInputEvent) -> None:
+    async def _send_audio_content(self, audio_input: AudioDelta) -> None:
         """Internal: Send audio content using Gemini Live API.
 
         Gemini Live expects continuous audio streaming via send_realtime_input.
         This automatically triggers VAD and can interrupt ongoing responses.
         """
-        # Decode base64 audio to bytes for SDK
-        audio_bytes = base64.b64decode(audio_input.audio)
+        audio_bytes = audio_input.source.get("bytes")
+        if audio_bytes is None:
+            raise ValueError("audio source must contain bytes for Gemini Live")
 
         # Create audio blob for the SDK
         mime_type = f"audio/pcm;rate={self._audio_config['input']['sample_rate']}"
@@ -554,14 +530,19 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
         # Send real-time audio input - this automatically handles VAD and interruption
         await self._live_session.send_realtime_input(audio=audio_blob)
 
-    async def _send_image_content(self, image_input: BidiImageInputEvent) -> None:
+    async def _send_image_content(self, image_input: ImageBlock) -> None:
         """Internal: Send image content using Gemini Live API.
 
         Sends image frames following the same pattern as the GitHub example.
         Images are sent as base64-encoded data with MIME type.
         """
-        # Image is already base64 encoded in the event
-        msg = {"mime_type": image_input.mime_type, "data": image_input.image}
+        image_bytes = image_input.source.get("bytes")
+        if image_bytes is None:
+            raise ValueError("image source must contain bytes for Gemini Live")
+        msg = {
+            "mime_type": f"image/{image_input.format}",
+            "data": base64.b64encode(image_bytes).decode("utf-8"),
+        }
 
         # Send using the same method as the GitHub example
         await self._live_session.send(input=msg)
@@ -576,10 +557,10 @@ class GoogleGeminiLiveModel(BidiModel, AudioCapable):
         """
         await self._live_session.send_realtime_input(text=text)
 
-    async def _send_tool_result(self, tool_result: ToolResult) -> None:
+    async def _send_tool_result(self, tool_result: ToolResultBlock) -> None:
         """Internal: Send tool result using Gemini Live API."""
-        tool_use_id = tool_result.get("toolUseId")
-        content = tool_result.get("content", [])
+        tool_use_id = tool_result.tool_use_id
+        content = tool_result.content
 
         # Validate all content types are supported
         for block in content:

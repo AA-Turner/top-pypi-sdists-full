@@ -1,210 +1,489 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: django-ipware
-Version: 7.0.1
-Summary: A Django application to retrieve user's IP address
-Home-page: https://github.com/un33k/django-ipware
-Author: Val Neekman
-Author-email: info@neekware.com
-License: MIT
+Version: 8.0.0
+Summary: A Django application to retrieve a client's real IP address.
+Project-URL: Homepage, https://github.com/un33k/django-ipware
+Project-URL: Documentation, https://github.com/un33k/django-ipware#readme
+Project-URL: Repository, https://github.com/un33k/django-ipware
+Project-URL: Issues, https://github.com/un33k/django-ipware/issues
+Project-URL: Changelog, https://github.com/un33k/django-ipware/blob/master/CHANGELOG.md
+Author-email: Val Neekman <info@neekware.com>
+Maintainer-email: Val Neekman <info@neekware.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: client ip,django,ip,ipware,proxy,real ip,remote addr,x-forwarded-for
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
-Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: django>=5.2
+Requires-Dist: python-ipware<5,>=4.1.0
+Provides-Extra: dev
+Requires-Dist: build; extra == 'dev'
+Requires-Dist: coverage[toml]; extra == 'dev'
+Requires-Dist: ruff==0.16.8; extra == 'dev'
+Requires-Dist: twine; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: coverage[toml]; extra == 'test'
+Requires-Dist: ruff==0.16.8; extra == 'test'
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
-# Django IPware 
+# Django IPware
 
-**A Django application to retrieve client's IP address**
+Best-effort client IP detection for Django — one call, in any view or middleware.
 
 [![status-image]][status-link]
 [![version-image]][version-link]
 [![coverage-image]][coverage-link]
+[![maintained-image]][maintained-link]
 
-# Alternative package
+## Quickstart
 
-If you prefer a python only version that does not integrate with Django directly, but allows for more flexibility and advanced features, you can use the [python-ipware](https://github.com/un33k/python-ipware) package instead.  `django-ipware` is a wrapper using [python-ipware](https://github.com/un33k/python-ipware) under the hood staring from version `6.0.0`.
-
-# Overview
-
-**Best attempt** to get client's IP address while keeping it **DRY**.
-
-# Notice
-
-There is no perfect `out-of-the-box` solution against fake IP addresses, aka `IP Address Spoofing`.
-You are encouraged to read the ([Advanced users](README.md#advanced-users)) section of this page and
-use `trusted_proxies_ips` and/or `proxy_count` features to match your needs, especially `if` you are
-planning to include `ipware` in any authentication, security or `anti-fraud` related architecture.
-
-This is an open source project, with the source code visible to all. Therefore, it may be exploited through unimplemented, or improperly implemented features.
-
-Please use ipware `ONLY` as a complement to your `firewall` security measures!
-
-# How to install
-
-    1. easy_install django-ipware
-    2. pip install django-ipware
-    3. git clone http://github.com/un33k/django-ipware
-        a. cd django-ipware
-        b. run python setup.py install
-    4. wget https://github.com/un33k/django-ipware/zipball/master
-        a. unzip the downloaded file
-        b. cd into django-ipware-* directory
-        c. run python setup.py install
-
-# How to use
-
-```python
- # In a view or a middleware where the `request` object is available
-
- from ipware import get_client_ip
- client_ip, is_routable = get_client_ip(request)
- if client_ip is None:
-    # Unable to get the client's IP address
- else:
-     # We got the client's IP address
-     if is_routable:
-         # The client's IP address is publicly routable on the Internet
-     else:
-         # The client's IP address is private
-```
-
-# Advanced users:
-
-- ### Precedence Order
-
-  The default meta precedence order is top to bottom. You may customize the order
-  by providing your own `IPWARE_META_PRECEDENCE_ORDER` by adding it to your project's settings.py
-
-  ```python
-   # The default meta precedence order (update as needed)
-   IPWARE_META_PRECEDENCE_ORDER = (
-        "X_FORWARDED_FOR",  # Load balancers or proxies such as AWS ELB (default client is `left-most` [`<client>, <proxy1>, <proxy2>`])
-        "HTTP_X_FORWARDED_FOR",  # Similar to X_FORWARDED_TO
-        "HTTP_CLIENT_IP",  # Standard headers used by providers such as Amazon EC2, Heroku etc.
-        "HTTP_X_REAL_IP",  # Standard headers used by providers such as Amazon EC2, Heroku etc.
-        "HTTP_X_FORWARDED",  # Squid and others
-        "HTTP_X_CLUSTER_CLIENT_IP",  # Rackspace LB and Riverbed Stingray
-        "HTTP_FORWARDED_FOR",  # RFC 7239
-        "HTTP_FORWARDED",  # RFC 7239
-        "HTTP_CF_CONNECTING_IP",  # CloudFlare
-        "X-CLIENT-IP",  # Microsoft Azure
-        "X-REAL-IP",  # NGINX
-        "X-CLUSTER-CLIENT-IP",  # Rackspace Cloud Load Balancers
-        "X_FORWARDED",  # Squid
-        "FORWARDED_FOR",  # RFC 7239
-        "CF-CONNECTING-IP",  # CloudFlare
-        "TRUE-CLIENT-IP",  # CloudFlare Enterprise,
-        "FASTLY-CLIENT-IP",  # Firebase, Fastly
-        "FORWARDED",  # RFC 7239
-        "CLIENT-IP",  # Akamai and Cloudflare: True-Client-IP and Fastly: Fastly-Client-IP
-        "REMOTE_ADDR",  # Default
-    )
-  ```
-
-  **Alternatively**, you can provide your custom _request header meta precedence order_ when calling `get_client_ip()`.
-
-```python
-get_client_ip(request, request_header_order=['X_FORWARDED_FOR'])
-get_client_ip(request, request_header_order=['X_FORWARDED_FOR', 'HTTP_X_FORWARDED_FOR'])
-```
-
-- ### Proxy Count
-
-  The default meta proxy count is 0 unless explictly provided as an argument to `get_client_ip()`. You may customize the order
-  by providing your own `IPWARE_META_PROXY_COUNT` by adding it to your project's settings.py
-
-### Trusted Proxies
-
-If your Django server is behind one or more known proxy server(s), you can filter out unwanted requests
-by providing the `trusted` proxy list when calling `get_client_ip(request, proxy_trusted_ips=['177.139.233.133'])`.
-In the following example, your load balancer (LB) can be seen as a `trusted` proxy.
-
-```
- `Real` Client  <public> <---> <public> LB (Server) <private> <--------> <private> Django Server
-                                                                   ^
-                                                                   |
- `Fake` Client  <private> <---> <private> LB (Server) <private> ---^
+```sh
+python -m pip install --upgrade django-ipware
 ```
 
 ```python
-# In the above scenario, use your load balancer IP address as a way to filter out unwanted requests.
-client_ip, is_routable = get_client_ip(request, proxy_trusted_ips=['177.139.233.133'])
+from ipware import get_client_ip
 
-# If you have multiple proxies, simply add them to the list
-client_ip, is_routable = get_client_ip(request, proxy_trusted_ips=['177.139.233.133', '177.139.233.134'])
+client_ip, is_routable = get_client_ip(request)
 
-# For proxy servers with fixed sub-domain and dynamic IP, use the following pattern.
-client_ip, is_routable = get_client_ip(request, proxy_trusted_ips=['177.139.', '177.140'])
-client_ip, is_routable = get_client_ip(request, proxy_trusted_ips=['177.139.233.', '177.139.240'])
+if client_ip is None:
+    ...  # no usable IP in the request
+elif is_routable:
+    ...  # a public internet address
+else:
+    ...  # private, link-local or loopback (intranet, VPN, local dev)
 ```
 
-`Please note:` By default, the `right-most` proxy in the chain is the `trusted` proxy and that is the one your django
-server talks to. Therefore, `ipware` checks to see if the `right-most` proxy address starts with any ip pattern that was
-passed in via the `proxy_trusted_ips` list.
+`client_ip` is a string such as `"177.139.233.139"` or `"2606:4700::1"`, or `None`.
 
-### Proxy Count
+Python 3.10+ and Django 5.2+ are supported (tested on Python 3.10 – 3.14 with Django 5.2, 6.0 and 6.1).
+On older Python or Django versions, use `django-ipware<8`.
 
-If your Django server is behind a `known` number of proxy server(s), you can filter out unwanted requests
-by providing the `number` of proxies when calling `get_client_ip(request, proxy_count=1)`.
-In the following example, your load balancer (LB) can be seen as the `only` proxy.
+> **Not using Django, or want more control?** django-ipware is powered by
+> [python-ipware](https://github.com/un33k/python-ipware), and you can use it directly in Django, Flask,
+> FastAPI or any WSGI/ASGI app. It also returns a `trusted_route` flag and `ipaddress` objects.
 
+> **Legacy:** the frozen 7.x behavior is still available with `algorithm="legacy"` or
+> `IPWARE_ALGORITHM = "legacy"`. See [Upgrading from 7.x](#upgrading-from-7x).
+
+## What you get
+
+Messy, forgeable request headers in; one clean, ranked client IP out.
+
+```mermaid
+flowchart LR
+    subgraph IN["What arrives in request.META"]
+        H1["X-Forwarded-For:<br/>unknown, 10.0.0.1, 177.139.233.139:443"]
+        H2["Forwarded:<br/>for=&quot;[2001:db8::1]:4711&quot;"]
+        H3["CF-Connecting-IP, X-Real-IP,<br/>30+ CDN and proxy headers"]
+        H4["REMOTE_ADDR"]
+    end
+    IN --> W["get_client_ip(request)"]
+    W --> P["Parse: strip ports and brackets,<br/>unwrap IPv4-mapped and NAT64,<br/>reject malformed values"]
+    P --> V["Validate the chain against<br/>your trusted proxies and proxy count"]
+    V --> R["Rank: public > private ><br/>link-local > loopback"]
+    R --> OUT["('177.139.233.139', True)<br/>client_ip, is_routable"]
 ```
- `Real` Client  <public> <---> <public> LB (Server) <private> <--------> <private> Django Server
-                                                                   ^
-                                                                   |
-                                       `Fake` Client  <private> ---^
+
+## What it's used for
+
+```mermaid
+flowchart LR
+    R["Django request"] --> I["get_client_ip(request)"]
+    I --> RL["Rate limiting and throttling"]
+    I --> GEO["Geo-location and localization"]
+    I --> LOG["Audit and access logs"]
+    I --> FR["Abuse and fraud signals<br/>(configure trusted proxies)"]
+    I --> AUTH["Login anomaly checks<br/>(configure trusted proxies)"]
+```
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    REQ["request.META"] --> DJ["django-ipware<br/>get_client_ip()"]
+    SET["settings.py<br/>IPWARE_*"] --> DJ
+    ARG["Call arguments"] -->|"always win over settings"| DJ
+    DJ -->|"default"| MOD["python-ipware<br/>modern engine"]
+    DJ -->|"algorithm: legacy"| LEG["Frozen 7.x function<br/>(python-ipware v3 engine)"]
+    MOD --> OUT["(client_ip, is_routable)"]
+    LEG --> OUT
+```
+
+## Security notice
+
+> **Found a security issue?** Please email **info@neekware.com** privately — do not open a public
+> issue or pull request. See [SECURITY.md](https://github.com/un33k/django-ipware/blob/master/SECURITY.md).
+
+There is no perfect defense against IP address spoofing. Headers such as `X-Forwarded-For` are set by
+clients and proxies, and can be forged. If you use `django-ipware` for authentication, rate limiting,
+or anti-fraud, configure `proxy_trusted_ips` and/or `proxy_count` for your network topology and treat
+it as one layer alongside your firewall — never as the only defense.
+
+```mermaid
+sequenceDiagram
+    participant A as Attacker (real IP 8.8.8.8)
+    participant P as Your proxy chain
+    participant D as Django
+    A->>P: X-Forwarded-For: 1.2.3.4 (forged)
+    P->>D: X-Forwarded-For: 1.2.3.4, 8.8.8.8, 104.16.0.1, 34.120.0.1
+    Note over D: get_client_ip(request) returns 1.2.3.4 (spoofed)
+    Note over D: proxy_count=2, strict=False counts from the right and returns 8.8.8.8
+    Note over D: proxy_count=2 (strict by default) rejects the tampered header
+```
+
+## API
+
+```python
+get_client_ip(
+    request,
+    proxy_order="left-most",     # or "right-most"
+    proxy_count=None,            # expected number of proxies in front of Django
+    proxy_trusted_ips=None,      # trusted proxies: IPs, CIDR networks or prefixes
+    request_header_order=None,   # header keys to check, in order
+    strict=None,                 # strict chain validation; default True
+    algorithm=None,              # default "modern"; "legacy" for exact 7.x results
+)
+```
+
+| Argument | Description |
+| --- | --- |
+| `proxy_order` | `"left-most"` (default) follows the de-facto `client, proxy1, proxy2` order. Use `"right-most"` only for networks that put the client last. |
+| `proxy_count` | Number of proxies expected after the client. `0` is valid; `None` disables the check. |
+| `proxy_trusted_ips` | Trusted proxies nearest Django, one entry per hop. Each entry is a CIDR network (`"100.64.0.0/10"`), a complete IP matched exactly (`"198.84.193.157"`), or an IP prefix matched on whole octets (`"10.1."`). See [Trusted proxies](#trusted-proxies). |
+| `request_header_order` | Header keys to search, top to bottom. Defaults to the list below. |
+| `strict` | `True` (default): exactly `proxy_count` proxies, and any malformed entry rejects that header. `False`: at least that many, and bad entries are skipped. |
+| `algorithm` | `"modern"` (default) uses the modern engine; `"legacy"` runs the frozen 7.x function. |
+
+| Output | Description |
+| --- | --- |
+| `client_ip` | The client IP as a string, or `None` |
+| `is_routable` | `True` when `client_ip` is a publicly routable address |
+
+An invalid value raises `ValueError`: an unknown `proxy_order` or `algorithm`, a trusted proxy list
+passed as a bare string, an empty or non-IP entry, a negative `proxy_count`, and so on.
+
+### Settings
+
+Each setting applies only when the matching argument is not passed. **An explicit argument always wins.**
+
+| Setting | Argument | Default |
+| --- | --- | --- |
+| `IPWARE_ALGORITHM` | `algorithm` | `"modern"` |
+| `IPWARE_META_PRECEDENCE_ORDER` | `request_header_order` | the list below |
+| `IPWARE_META_PROXY_COUNT` | `proxy_count` | not enforced |
+| `IPWARE_STRICT` | `strict` | `True` |
+
+```mermaid
+flowchart LR
+    Q{"Argument passed?"} -->|yes| USE_ARG["Use the argument"]
+    Q -->|no| S{"Setting defined?"}
+    S -->|yes| USE_SET["Use the setting"]
+    S -->|no| USE_DEF["Use the default"]
+```
+
+### Selection rules
+
+Headers are checked in precedence order. Every address is ranked:
+
+| Rank | Addresses | `is_routable` |
+| --- | --- | --- |
+| 1. public | globally routable | `True` |
+| 2. private | RFC 1918, IPv6 ULA, CGNAT `100.64.0.0/10`, documentation ranges | `False` |
+| 3. link-local | `169.254.0.0/16`, `fe80::/10` | `False` |
+| 4. loopback | `127.0.0.0/8`, `::1` | `False` |
+| never returned | `0.0.0.0`, `::`, multicast, broadcast, reserved | — |
+
+The first **public** IP wins. If none is found, the best-ranked IP wins, and the earlier header wins a
+tie.
+
+Within one header, the client entry depends on your proxy settings:
+
+- **`proxy_count` / `proxy_trusted_ips` set:** the entry just before your trusted proxies.
+- **Neither set:** the first public entry in the chain, not only the first entry. So
+  `10.0.0.1, 177.139.233.139` yields `177.139.233.139`. That entry may be an upstream proxy rather than
+  the client. If you need to identify private clients (intranet, VPN), set `proxy_count` or
+  `proxy_trusted_ips` so the client position is fixed.
+
+```mermaid
+flowchart TD
+    A["request.META"] --> B["Take the next header in precedence order"]
+    B --> C{"Header present?"}
+    C -->|no| B
+    C -->|yes| D["Split the chain: client, proxy1, proxy2"]
+    D --> E{"Matches proxy_count and proxy_trusted_ips?"}
+    E -->|no| B
+    E -->|yes| F["Pick the client entry"]
+    F --> G{"Public IP?"}
+    G -->|yes| H["Return (ip, True)"]
+    G -->|no| I["Keep if it outranks the current fallback"]
+    I --> B
+    B -->|no headers left| J["Return (best fallback, False), else (None, False)"]
+```
+
+Ports are stripped (`1.2.3.4:8080`, `[2001:db8::1]:443`). IPv4-mapped (`::ffff:1.2.3.4`) and NAT64
+well-known-prefix (`64:ff9b::1.2.3.4`) addresses are returned as plain IPv4. RFC 7239 `Forwarded`
+elements are read by their `for=` value (`for="[2001:db8::1]:4711";proto=https`). Malformed tokens such
+as `[::1`, `[::1]junk`, or `1.2.3.4:abc` are rejected rather than truncated.
+
+## Default header precedence
+
+```python
+(
+    "X_FORWARDED_FOR",           # load balancers / proxies (AWS ELB, etc.)
+    "HTTP_X_FORWARDED_FOR",
+    "HTTP_CLIENT_IP",            # Amazon EC2, Heroku
+    "HTTP_X_REAL_IP",
+    "HTTP_X_FORWARDED",          # Squid
+    "HTTP_X_CLUSTER_CLIENT_IP",  # Rackspace LB, Riverbed Stingray
+    "HTTP_FORWARDED_FOR",        # de facto variant
+    "HTTP_FORWARDED",            # RFC 7239
+    "HTTP_CF_CONNECTING_IP",     # Cloudflare
+    "HTTP_TRUE_CLIENT_IP",       # Cloudflare Enterprise, Akamai
+    "HTTP_FASTLY_CLIENT_IP",     # Fastly, Firebase
+    "HTTP_FLY_CLIENT_IP",        # Fly.io
+    "HTTP_X_APPENGINE_USER_IP",  # Google App Engine
+    "X-CLIENT-IP",               # Microsoft Azure
+    "X-REAL-IP",                 # NGINX
+    "X-CLUSTER-CLIENT-IP",       # Rackspace Cloud Load Balancers
+    "X_FORWARDED",
+    "FORWARDED_FOR",
+    "CF-CONNECTING-IP",
+    "TRUE-CLIENT-IP",
+    "FASTLY-CLIENT-IP",
+    "FLY-CLIENT-IP",
+    "FORWARDED",
+    "CLIENT-IP",
+    "HTTP_X_CLIENT_IP",          # Microsoft Azure (Django/WSGI form)
+    "X-APPENGINE-USER-IP",       # Google App Engine (raw form)
+    "HTTP_X_AZURE_CLIENTIP",     # Azure Front Door
+    "X-AZURE-CLIENTIP",
+    "HTTP_DO_CONNECTING_IP",     # DigitalOcean App Platform
+    "DO-CONNECTING-IP",
+    "HTTP_X_ENVOY_EXTERNAL_ADDRESS",  # Envoy / Istio
+    "X-ENVOY-EXTERNAL-ADDRESS",
+    "REMOTE_ADDR",               # direct connection
+)
+```
+
+This list comes from python-ipware. Headers released earlier never move, so an upgrade can never let a
+new header outrank one that already resolved your requests.
+
+Narrow it to what your infrastructure actually sets:
+
+```python
+# settings.py
+IPWARE_META_PRECEDENCE_ORDER = ("HTTP_X_FORWARDED_FOR", "REMOTE_ADDR")
+```
+
+If **all** your traffic comes through a CDN, put its header first. Only do this when Django is not
+reachable directly, because clients can send these headers themselves:
+
+```python
+# settings.py: behind Cloudflare only
+IPWARE_META_PRECEDENCE_ORDER = ("HTTP_CF_CONNECTING_IP", "HTTP_X_FORWARDED_FOR", "REMOTE_ADDR")
+```
+
+## Trusted proxies
+
+If Django sits behind known proxies, pass them. Requests that did not come through them are rejected.
+
+Each entry can be:
+
+- **a complete IP**, matched exactly: `"198.84.193.157"` never matches `198.84.193.15x`, and IPv6
+  spelling (case, leading zeros) does not matter;
+- **a CIDR network** (IPv4 or IPv6), matched by membership. This is the recommended form for IPv6;
+- **an IP prefix**, matched on whole octets or groups: `"10.1"` and `"10.1."` match `10.1.x.x` but not
+  `10.100.x.x`.
+
+```python
+get_client_ip(request, proxy_trusted_ips=["198.84.193.157"])                    # one proxy
+get_client_ip(request, proxy_trusted_ips=["198.84.193.157", "198.84.193.158"])  # two proxies
+get_client_ip(request, proxy_trusted_ips=["177.139.", "177.140"])               # prefixes for dynamic IPs
+get_client_ip(request, proxy_trusted_ips=["100.64.0.0/10"])                     # CIDR network
+
+# strict (default): X-Forwarded-For must be exactly <client>, <proxy1>, <proxy2>
+# non-strict:       X-Forwarded-For may be <fake>, <client>, <proxy1>, <proxy2>
+get_client_ip(request, proxy_trusted_ips=["198.84.193.157"], strict=False)
+```
+
+```mermaid
+flowchart LR
+    RC["Real client<br/>8.8.8.8"] --> LB["Trusted proxy<br/>198.84.193.157"]
+    LB -->|"XFF: 8.8.8.8, 198.84.193.157"| APP["Django<br/>proxy_trusted_ips: 198.84.193.157"]
+    FC["Fake client<br/>5.6.7.8"] -->|"bypasses the proxy<br/>XFF: 1.2.3.4 (forged)"| APP
+    APP --> OK["Real request: ('8.8.8.8', True)"]
+    APP --> NO["Fake request: (None, False)"]
+```
+
+## Proxy count
+
+If you know how many proxies are in front of Django but not their IPs (for example, across providers):
+
+```python
+get_client_ip(request, proxy_count=2)                # strict (default): exactly 2 proxies
+get_client_ip(request, proxy_count=2, strict=False)  # at least 2 proxies
+```
+
+Or for the whole project:
+
+```python
+# settings.py
+IPWARE_META_PROXY_COUNT = 2
+```
+
+```mermaid
+flowchart LR
+    C["Client<br/>8.8.8.8"] --> P1["Proxy 1<br/>104.16.0.1"] --> P2["Proxy 2<br/>34.120.0.1"] --> APP["Django<br/>proxy_count=2"]
+    APP --> H1["XFF: 8.8.8.8, 104.16.0.1, 34.120.0.1<br/>returns ('8.8.8.8', True)"]
+    APP --> H2["XFF: 1.2.3.4, 8.8.8.8, 104.16.0.1, 34.120.0.1<br/>strict (default): (None, False)<br/>strict=False: ('8.8.8.8', True)"]
+```
+
+Combine both for the tightest check:
+
+```python
+get_client_ip(request, proxy_count=1, proxy_trusted_ips=["198.84.193.157"])
+```
+
+## Strict mode
+
+By default, a malformed entry anywhere in a header (for example `unknown, 177.139.233.139`) makes that
+header untrusted, and the next header is checked. Pass `strict=False`, or set `IPWARE_STRICT = False`,
+to skip bad entries instead.
+
+## Right-most client networks
+
+The [de-facto standard](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For) puts
+the originating client left-most. For the rare network that puts it right-most:
+
+```python
+get_client_ip(request, proxy_order="right-most")
+```
+
+```mermaid
+flowchart LR
+    S["Standard: client, proxy1, proxy2"] -->|"left-most (default)"| A["client = first entry"]
+    R["Reversed: proxy2, proxy1, client"] -->|"right-most"| B["client = last entry"]
+```
+
+See [docs/nginx.md](https://github.com/un33k/django-ipware/blob/master/docs/nginx.md) for an NGINX
+configuration example.
+
+## Middleware
+
+Resolve the IP once per request and attach it:
+
+```python
+# yourapp/middleware.py
+from ipware import get_client_ip
+
+
+class ClientIPMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.client_ip, request.client_ip_routable = get_client_ip(request)
+        return self.get_response(request)
 ```
 
 ```python
-# In the above scenario, the total number of proxies can be used as a way to filter out unwanted requests.
-client_ip, is_routable = get_client_ip(request, proxy_count=1)
-
-# The above may be very useful in cases where your proxy server's IP address is assigned dynamically.
-# However, If you have the proxy IP address, you can use it in combination to the proxy count.
-client_ip, is_routable = get_client_ip(request, proxy_count=1, proxy_trusted_ips=['177.139.233.133'])
+# settings.py
+MIDDLEWARE = [
+    # ...
+    "yourapp.middleware.ClientIPMiddleware",
+]
 ```
 
-### Originating Request
+## Upgrading from 7.x
 
-If your proxy server is configured such that the right-most IP address is that of the originating client, you
-can indicate `right-most` as your `proxy_order` when calling `get_client_ip(request, proxy_order="right-most")`.
-Please note that the [de-facto](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For) standard
-for the originating client IP address is the `left-most` as per `<client>, <proxy1>, <proxy2>`.
+Upgrade and pass nothing: you get the modern engine. If anything changes in a way you don't want,
+add one setting and you're back on the exact 7.x results — while still getting the 8.x package,
+Django 6 support and fixes.
 
-# Running the tests
+```mermaid
+flowchart TD
+    U["pip install --upgrade django-ipware"] --> D["Default: modern engine<br/>(no code changes)"]
+    D --> T{"Your tests and results look right?"}
+    T -->|"yes (most projects)"| M["Done. Enjoy the better IP selection"]
+    T -->|"no, something changed"| L["settings.py:<br/>IPWARE_ALGORITHM = 'legacy'"]
+    L --> F["Exact 7.x results, frozen,<br/>on the 8.x package"]
+    F -.->|"when you're ready"| D
+```
 
-To run the tests against the current environment:
+The legacy algorithm is frozen and takes no further changes. Use it for the whole project, or per call:
 
-    python manage.py test
+```python
+# settings.py: the whole project
+IPWARE_ALGORITHM = "legacy"
+```
 
-# License
+```python
+get_client_ip(request, algorithm="legacy")
+```
 
-Released under a ([MIT](LICENSE)) license.
+Where the default differs from 7.x, it is always toward a better answer:
 
-# Version
+| Request | Modern (default) | Legacy (7.x) |
+| --- | --- | --- |
+| `XFF: 10.0.0.1, 177.139.233.139` | `('177.139.233.139', True)` | `('10.0.0.1', False)` |
+| `XFF: 224.0.0.1`, `REMOTE_ADDR: 10.0.0.5` | `('10.0.0.5', False)` | `('224.0.0.1', True)` (multicast) |
+| `Forwarded: for="[2001:4860::17]:4711"` | `('2001:4860::17', True)` | `(None, False)` |
+| `REMOTE_ADDR: 8.8.8.8:abc` | `(None, False)` | `('8.8.8.8', True)` |
+| `proxy_trusted_ips=["198.84.193.15"]`, proxy `198.84.193.157` | rejected (exact match) | accepted (prefix match) |
 
-X.Y.Z Version
+Legacy also keeps 7.x's settings quirks: `IPWARE_META_PRECEDENCE_ORDER` and `IPWARE_STRICT` override
+the matching arguments, and `IPWARE_META_PROXY_COUNT` is ignored.
 
-    `MAJOR` version -- when you make incompatible API changes,
-    `MINOR` version -- when you add functionality in a backwards-compatible manner, and
-    `PATCH` version -- when you make backwards-compatible bug fixes.
+## Development
+
+```sh
+python -m pip install -e '.[dev]'
+ruff check .
+python manage.py test                              # modern, legacy, router, and the 7.x suite on both
+python -m build && python -m twine check dist/*
+```
+
+## License
+
+Released under the [MIT](https://github.com/un33k/django-ipware/blob/master/LICENSE) license.
+
+## Maintenance
+
+`django-ipware` is actively maintained with [Dojo](https://heydojo.ai) ⛩️. The legacy algorithm is frozen
+for backward compatibility; all improvements target the modern engine. Need support? Reach
+[Neekware Inc.](https://neekware.com) at info@neekware.com.
+
+## Sponsors
+
+[Neekware Inc.](https://neekware.com) — creator of [Dojo Workspace](https://heydojo.ai), your AI workspace for building, learning, and getting things done.
+
+🚀 Created with [Dojo](https://heydojo.ai) ⛩️
 
 [status-image]: https://github.com/un33k/django-ipware/actions/workflows/ci.yml/badge.svg
 [status-link]: https://github.com/un33k/django-ipware/actions/workflows/ci.yml
 [version-image]: https://img.shields.io/pypi/v/django-ipware.svg
-[version-link]: https://pypi.python.org/pypi/django-ipware
-[coverage-image]: https://coveralls.io/repos/un33k/django-ipware/badge.svg
-[coverage-link]: https://coveralls.io/r/un33k/django-ipware
-
-# Sponsors
-
-[Neekware Inc.](http://neekware.com)
+[version-link]: https://pypi.org/project/django-ipware/
+[coverage-image]: https://coveralls.io/repos/github/un33k/django-ipware/badge.svg?branch=master
+[coverage-link]: https://coveralls.io/github/un33k/django-ipware?branch=master
+[maintained-image]: https://img.shields.io/badge/maintained%20with-Dojo%20%E2%9B%A9%EF%B8%8F-1f2937
+[maintained-link]: https://heydojo.ai

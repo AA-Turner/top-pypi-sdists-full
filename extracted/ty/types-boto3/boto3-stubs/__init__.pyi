@@ -97,6 +97,7 @@ from types_boto3_cloudtrail.client import CloudTrailClient
 from types_boto3_cloudtrail_data.client import CloudTrailDataServiceClient
 from types_boto3_cloudwatch.client import CloudWatchClient
 from types_boto3_cloudwatch.service_resource import CloudWatchServiceResource
+from types_boto3_cloudwatchomni.client import CloudWatchOmniClient
 from types_boto3_codeartifact.client import CodeArtifactClient
 from types_boto3_codebuild.client import CodeBuildClient
 from types_boto3_codecatalyst.client import CodeCatalystClient
@@ -1911,6 +1912,24 @@ def client(
 ) -> CloudWatchClient:
     """
     Create client for CloudWatch service.
+    """
+
+@overload
+def client(
+    service_name: Literal["cloudwatchomni"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> CloudWatchOmniClient:
+    """
+    Create client for CloudWatchOmni service.
     """
 
 @overload

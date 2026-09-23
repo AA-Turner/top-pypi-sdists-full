@@ -44,6 +44,9 @@ IDS = [old.__name__ for old, _ in PAIRS]
 STORED_KEYS = {
     "kind", "type", "mime_type", "metadata", "origin", "size_bytes", "file_id",
     "url", "width", "height", "file_uri", "duration_ms", "base64_data", "external_url",
+    # 2026-09-22: the image-generation reference role (ImageContent.role) is a
+    # deliberately persisted key — it is what the image part MEANS.
+    "role",
 }
 
 
@@ -84,12 +87,12 @@ def test_both_refuse_an_unknown_field(old, new):
 
 
 def test_the_stored_surface_is_narrower_than_the_declared_one():
-    """14 keys are persisted against 73 declared field slots. If a future field
+    """15 keys are persisted against 74 declared field slots. If a future field
     starts being stored, this is where the mismatch becomes visible instead of
     silently widening the wire contract."""
     declared = sum(len(dataclasses.fields(old)) for old, _ in PAIRS)
-    assert declared == 73
-    assert len(STORED_KEYS) == 14
+    assert declared == 74
+    assert len(STORED_KEYS) == 15
 
 
 def test_size_bytes_and_origin_have_no_field_and_that_is_correct():

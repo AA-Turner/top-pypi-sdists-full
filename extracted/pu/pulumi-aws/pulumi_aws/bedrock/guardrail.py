@@ -40,18 +40,19 @@ class GuardrailArgs:
 
         :param pulumi.Input[_builtins.str] blocked_input_messaging: Message to return when the guardrail blocks a prompt.
         :param pulumi.Input[_builtins.str] blocked_outputs_messaging: Message to return when the guardrail blocks a model response.
-        :param pulumi.Input['GuardrailContentPolicyConfigArgs'] content_policy_config: Content policy config for a guardrail. See Content Policy Config for more information.
-        :param pulumi.Input['GuardrailContextualGroundingPolicyConfigArgs'] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        :param pulumi.Input['GuardrailContentPolicyConfigArgs'] content_policy_config: Content policy config for a guardrail. See `content_policy_config` Block for more information.
+        :param pulumi.Input['GuardrailContextualGroundingPolicyConfigArgs'] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
+        :param pulumi.Input['GuardrailCrossRegionConfigArgs'] cross_region_config: Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
         :param pulumi.Input[_builtins.str] description: Description of the guardrail or its version.
-        :param pulumi.Input[_builtins.str] kms_key_arn: The KMS key with which the guardrail was encrypted at rest.
+        :param pulumi.Input[_builtins.str] kms_key_arn: KMS key with which the guardrail was encrypted at rest.
         :param pulumi.Input[_builtins.str] name: Name of the guardrail.
                
                The following arguments are optional:
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input['GuardrailSensitiveInformationPolicyConfigArgs'] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        :param pulumi.Input['GuardrailSensitiveInformationPolicyConfigArgs'] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input['GuardrailTopicPolicyConfigArgs'] topic_policy_config: Topic policy config for a guardrail. See Topic Policy Config for more information.
-        :param pulumi.Input['GuardrailWordPolicyConfigArgs'] word_policy_config: Word policy config for a guardrail. See Word Policy Config for more information.
+        :param pulumi.Input['GuardrailTopicPolicyConfigArgs'] topic_policy_config: Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
+        :param pulumi.Input['GuardrailWordPolicyConfigArgs'] word_policy_config: Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         pulumi.set(__self__, "blocked_input_messaging", blocked_input_messaging)
         pulumi.set(__self__, "blocked_outputs_messaging", blocked_outputs_messaging)
@@ -108,7 +109,7 @@ class GuardrailArgs:
     @pulumi.getter(name="contentPolicyConfig")
     def content_policy_config(self) -> pulumi.Input[Optional['GuardrailContentPolicyConfigArgs']]:
         """
-        Content policy config for a guardrail. See Content Policy Config for more information.
+        Content policy config for a guardrail. See `content_policy_config` Block for more information.
         """
         return pulumi.get(self, "content_policy_config")
 
@@ -120,7 +121,7 @@ class GuardrailArgs:
     @pulumi.getter(name="contextualGroundingPolicyConfig")
     def contextual_grounding_policy_config(self) -> pulumi.Input[Optional['GuardrailContextualGroundingPolicyConfigArgs']]:
         """
-        Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
         """
         return pulumi.get(self, "contextual_grounding_policy_config")
 
@@ -131,6 +132,9 @@ class GuardrailArgs:
     @_builtins.property
     @pulumi.getter(name="crossRegionConfig")
     def cross_region_config(self) -> pulumi.Input[Optional['GuardrailCrossRegionConfigArgs']]:
+        """
+        Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
+        """
         return pulumi.get(self, "cross_region_config")
 
     @cross_region_config.setter
@@ -153,7 +157,7 @@ class GuardrailArgs:
     @pulumi.getter(name="kmsKeyArn")
     def kms_key_arn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The KMS key with which the guardrail was encrypted at rest.
+        KMS key with which the guardrail was encrypted at rest.
         """
         return pulumi.get(self, "kms_key_arn")
 
@@ -191,7 +195,7 @@ class GuardrailArgs:
     @pulumi.getter(name="sensitiveInformationPolicyConfig")
     def sensitive_information_policy_config(self) -> pulumi.Input[Optional['GuardrailSensitiveInformationPolicyConfigArgs']]:
         """
-        Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         """
         return pulumi.get(self, "sensitive_information_policy_config")
 
@@ -224,7 +228,7 @@ class GuardrailArgs:
     @pulumi.getter(name="topicPolicyConfig")
     def topic_policy_config(self) -> pulumi.Input[Optional['GuardrailTopicPolicyConfigArgs']]:
         """
-        Topic policy config for a guardrail. See Topic Policy Config for more information.
+        Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
         """
         return pulumi.get(self, "topic_policy_config")
 
@@ -236,7 +240,7 @@ class GuardrailArgs:
     @pulumi.getter(name="wordPolicyConfig")
     def word_policy_config(self) -> pulumi.Input[Optional['GuardrailWordPolicyConfigArgs']]:
         """
-        Word policy config for a guardrail. See Word Policy Config for more information.
+        Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         return pulumi.get(self, "word_policy_config")
 
@@ -274,24 +278,25 @@ class _GuardrailState:
 
         :param pulumi.Input[_builtins.str] blocked_input_messaging: Message to return when the guardrail blocks a prompt.
         :param pulumi.Input[_builtins.str] blocked_outputs_messaging: Message to return when the guardrail blocks a model response.
-        :param pulumi.Input['GuardrailContentPolicyConfigArgs'] content_policy_config: Content policy config for a guardrail. See Content Policy Config for more information.
-        :param pulumi.Input['GuardrailContextualGroundingPolicyConfigArgs'] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        :param pulumi.Input['GuardrailContentPolicyConfigArgs'] content_policy_config: Content policy config for a guardrail. See `content_policy_config` Block for more information.
+        :param pulumi.Input['GuardrailContextualGroundingPolicyConfigArgs'] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
         :param pulumi.Input[_builtins.str] created_at: Unix epoch timestamp in seconds for when the Guardrail was created.
+        :param pulumi.Input['GuardrailCrossRegionConfigArgs'] cross_region_config: Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
         :param pulumi.Input[_builtins.str] description: Description of the guardrail or its version.
         :param pulumi.Input[_builtins.str] guardrail_arn: ARN of the Guardrail.
         :param pulumi.Input[_builtins.str] guardrail_id: ID of the Guardrail.
-        :param pulumi.Input[_builtins.str] kms_key_arn: The KMS key with which the guardrail was encrypted at rest.
+        :param pulumi.Input[_builtins.str] kms_key_arn: KMS key with which the guardrail was encrypted at rest.
         :param pulumi.Input[_builtins.str] name: Name of the guardrail.
                
                The following arguments are optional:
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input['GuardrailSensitiveInformationPolicyConfigArgs'] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        :param pulumi.Input['GuardrailSensitiveInformationPolicyConfigArgs'] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         :param pulumi.Input[_builtins.str] status: Status of the Bedrock Guardrail. One of `READY`, `FAILED`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input['GuardrailTopicPolicyConfigArgs'] topic_policy_config: Topic policy config for a guardrail. See Topic Policy Config for more information.
+        :param pulumi.Input['GuardrailTopicPolicyConfigArgs'] topic_policy_config: Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
         :param pulumi.Input[_builtins.str] updated_at: Date and time that the Guardrail list was last updated.
         :param pulumi.Input[_builtins.str] version: Version of the Guardrail.
-        :param pulumi.Input['GuardrailWordPolicyConfigArgs'] word_policy_config: Word policy config for a guardrail. See Word Policy Config for more information.
+        :param pulumi.Input['GuardrailWordPolicyConfigArgs'] word_policy_config: Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         if blocked_input_messaging is not None:
             pulumi.set(__self__, "blocked_input_messaging", blocked_input_messaging)
@@ -364,7 +369,7 @@ class _GuardrailState:
     @pulumi.getter(name="contentPolicyConfig")
     def content_policy_config(self) -> pulumi.Input[Optional['GuardrailContentPolicyConfigArgs']]:
         """
-        Content policy config for a guardrail. See Content Policy Config for more information.
+        Content policy config for a guardrail. See `content_policy_config` Block for more information.
         """
         return pulumi.get(self, "content_policy_config")
 
@@ -376,7 +381,7 @@ class _GuardrailState:
     @pulumi.getter(name="contextualGroundingPolicyConfig")
     def contextual_grounding_policy_config(self) -> pulumi.Input[Optional['GuardrailContextualGroundingPolicyConfigArgs']]:
         """
-        Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
         """
         return pulumi.get(self, "contextual_grounding_policy_config")
 
@@ -399,6 +404,9 @@ class _GuardrailState:
     @_builtins.property
     @pulumi.getter(name="crossRegionConfig")
     def cross_region_config(self) -> pulumi.Input[Optional['GuardrailCrossRegionConfigArgs']]:
+        """
+        Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
+        """
         return pulumi.get(self, "cross_region_config")
 
     @cross_region_config.setter
@@ -445,7 +453,7 @@ class _GuardrailState:
     @pulumi.getter(name="kmsKeyArn")
     def kms_key_arn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The KMS key with which the guardrail was encrypted at rest.
+        KMS key with which the guardrail was encrypted at rest.
         """
         return pulumi.get(self, "kms_key_arn")
 
@@ -483,7 +491,7 @@ class _GuardrailState:
     @pulumi.getter(name="sensitiveInformationPolicyConfig")
     def sensitive_information_policy_config(self) -> pulumi.Input[Optional['GuardrailSensitiveInformationPolicyConfigArgs']]:
         """
-        Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         """
         return pulumi.get(self, "sensitive_information_policy_config")
 
@@ -537,7 +545,7 @@ class _GuardrailState:
     @pulumi.getter(name="topicPolicyConfig")
     def topic_policy_config(self) -> pulumi.Input[Optional['GuardrailTopicPolicyConfigArgs']]:
         """
-        Topic policy config for a guardrail. See Topic Policy Config for more information.
+        Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
         """
         return pulumi.get(self, "topic_policy_config")
 
@@ -573,7 +581,7 @@ class _GuardrailState:
     @pulumi.getter(name="wordPolicyConfig")
     def word_policy_config(self) -> pulumi.Input[Optional['GuardrailWordPolicyConfigArgs']]:
         """
-        Word policy config for a guardrail. See Word Policy Config for more information.
+        Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         return pulumi.get(self, "word_policy_config")
 
@@ -590,18 +598,18 @@ class Guardrail(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  blocked_input_messaging: pulumi.Input[Optional[_builtins.str]] = None,
                  blocked_outputs_messaging: pulumi.Input[Optional[_builtins.str]] = None,
-                 content_policy_config: pulumi.Input[Optional[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict']]] = None,
-                 contextual_grounding_policy_config: pulumi.Input[Optional[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict']]] = None,
-                 cross_region_config: pulumi.Input[Optional[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict']]] = None,
+                 content_policy_config: pulumi.Input[Optional[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict', 'outputs.GuardrailContentPolicyConfig']]] = None,
+                 contextual_grounding_policy_config: pulumi.Input[Optional[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict', 'outputs.GuardrailContextualGroundingPolicyConfig']]] = None,
+                 cross_region_config: pulumi.Input[Optional[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict', 'outputs.GuardrailCrossRegionConfig']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  kms_key_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
-                 sensitive_information_policy_config: pulumi.Input[Optional[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict']]] = None,
+                 sensitive_information_policy_config: pulumi.Input[Optional[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict', 'outputs.GuardrailSensitiveInformationPolicyConfig']]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['GuardrailTimeoutsArgs', 'GuardrailTimeoutsArgsDict']]] = None,
-                 topic_policy_config: pulumi.Input[Optional[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict']]] = None,
-                 word_policy_config: pulumi.Input[Optional[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['GuardrailTimeoutsArgs', 'GuardrailTimeoutsArgsDict', 'outputs.GuardrailTimeouts']]] = None,
+                 topic_policy_config: pulumi.Input[Optional[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict', 'outputs.GuardrailTopicPolicyConfig']]] = None,
+                 word_policy_config: pulumi.Input[Optional[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict', 'outputs.GuardrailWordPolicyConfig']]] = None,
                  __props__=None):
         """
         Resource for managing an Amazon Bedrock Guardrail.
@@ -683,18 +691,19 @@ class Guardrail(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] blocked_input_messaging: Message to return when the guardrail blocks a prompt.
         :param pulumi.Input[_builtins.str] blocked_outputs_messaging: Message to return when the guardrail blocks a model response.
-        :param pulumi.Input[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict']] content_policy_config: Content policy config for a guardrail. See Content Policy Config for more information.
-        :param pulumi.Input[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict']] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict', 'outputs.GuardrailContentPolicyConfig']] content_policy_config: Content policy config for a guardrail. See `content_policy_config` Block for more information.
+        :param pulumi.Input[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict', 'outputs.GuardrailContextualGroundingPolicyConfig']] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
+        :param pulumi.Input[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict', 'outputs.GuardrailCrossRegionConfig']] cross_region_config: Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
         :param pulumi.Input[_builtins.str] description: Description of the guardrail or its version.
-        :param pulumi.Input[_builtins.str] kms_key_arn: The KMS key with which the guardrail was encrypted at rest.
+        :param pulumi.Input[_builtins.str] kms_key_arn: KMS key with which the guardrail was encrypted at rest.
         :param pulumi.Input[_builtins.str] name: Name of the guardrail.
                
                The following arguments are optional:
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict']] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict', 'outputs.GuardrailSensitiveInformationPolicyConfig']] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict']] topic_policy_config: Topic policy config for a guardrail. See Topic Policy Config for more information.
-        :param pulumi.Input[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict']] word_policy_config: Word policy config for a guardrail. See Word Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict', 'outputs.GuardrailTopicPolicyConfig']] topic_policy_config: Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
+        :param pulumi.Input[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict', 'outputs.GuardrailWordPolicyConfig']] word_policy_config: Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         ...
     @overload
@@ -795,18 +804,18 @@ class Guardrail(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  blocked_input_messaging: pulumi.Input[Optional[_builtins.str]] = None,
                  blocked_outputs_messaging: pulumi.Input[Optional[_builtins.str]] = None,
-                 content_policy_config: pulumi.Input[Optional[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict']]] = None,
-                 contextual_grounding_policy_config: pulumi.Input[Optional[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict']]] = None,
-                 cross_region_config: pulumi.Input[Optional[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict']]] = None,
+                 content_policy_config: pulumi.Input[Optional[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict', 'outputs.GuardrailContentPolicyConfig']]] = None,
+                 contextual_grounding_policy_config: pulumi.Input[Optional[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict', 'outputs.GuardrailContextualGroundingPolicyConfig']]] = None,
+                 cross_region_config: pulumi.Input[Optional[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict', 'outputs.GuardrailCrossRegionConfig']]] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
                  kms_key_arn: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
-                 sensitive_information_policy_config: pulumi.Input[Optional[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict']]] = None,
+                 sensitive_information_policy_config: pulumi.Input[Optional[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict', 'outputs.GuardrailSensitiveInformationPolicyConfig']]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['GuardrailTimeoutsArgs', 'GuardrailTimeoutsArgsDict']]] = None,
-                 topic_policy_config: pulumi.Input[Optional[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict']]] = None,
-                 word_policy_config: pulumi.Input[Optional[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['GuardrailTimeoutsArgs', 'GuardrailTimeoutsArgsDict', 'outputs.GuardrailTimeouts']]] = None,
+                 topic_policy_config: pulumi.Input[Optional[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict', 'outputs.GuardrailTopicPolicyConfig']]] = None,
+                 word_policy_config: pulumi.Input[Optional[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict', 'outputs.GuardrailWordPolicyConfig']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -853,25 +862,25 @@ class Guardrail(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             blocked_input_messaging: pulumi.Input[Optional[_builtins.str]] = None,
             blocked_outputs_messaging: pulumi.Input[Optional[_builtins.str]] = None,
-            content_policy_config: pulumi.Input[Optional[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict']]] = None,
-            contextual_grounding_policy_config: pulumi.Input[Optional[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict']]] = None,
+            content_policy_config: pulumi.Input[Optional[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict', 'outputs.GuardrailContentPolicyConfig']]] = None,
+            contextual_grounding_policy_config: pulumi.Input[Optional[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict', 'outputs.GuardrailContextualGroundingPolicyConfig']]] = None,
             created_at: pulumi.Input[Optional[_builtins.str]] = None,
-            cross_region_config: pulumi.Input[Optional[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict']]] = None,
+            cross_region_config: pulumi.Input[Optional[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict', 'outputs.GuardrailCrossRegionConfig']]] = None,
             description: pulumi.Input[Optional[_builtins.str]] = None,
             guardrail_arn: pulumi.Input[Optional[_builtins.str]] = None,
             guardrail_id: pulumi.Input[Optional[_builtins.str]] = None,
             kms_key_arn: pulumi.Input[Optional[_builtins.str]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
             region: pulumi.Input[Optional[_builtins.str]] = None,
-            sensitive_information_policy_config: pulumi.Input[Optional[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict']]] = None,
+            sensitive_information_policy_config: pulumi.Input[Optional[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict', 'outputs.GuardrailSensitiveInformationPolicyConfig']]] = None,
             status: pulumi.Input[Optional[_builtins.str]] = None,
             tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            timeouts: pulumi.Input[Optional[Union['GuardrailTimeoutsArgs', 'GuardrailTimeoutsArgsDict']]] = None,
-            topic_policy_config: pulumi.Input[Optional[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict']]] = None,
+            timeouts: pulumi.Input[Optional[Union['GuardrailTimeoutsArgs', 'GuardrailTimeoutsArgsDict', 'outputs.GuardrailTimeouts']]] = None,
+            topic_policy_config: pulumi.Input[Optional[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict', 'outputs.GuardrailTopicPolicyConfig']]] = None,
             updated_at: pulumi.Input[Optional[_builtins.str]] = None,
             version: pulumi.Input[Optional[_builtins.str]] = None,
-            word_policy_config: pulumi.Input[Optional[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict']]] = None) -> 'Guardrail':
+            word_policy_config: pulumi.Input[Optional[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict', 'outputs.GuardrailWordPolicyConfig']]] = None) -> 'Guardrail':
         """
         Get an existing Guardrail resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -881,24 +890,25 @@ class Guardrail(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] blocked_input_messaging: Message to return when the guardrail blocks a prompt.
         :param pulumi.Input[_builtins.str] blocked_outputs_messaging: Message to return when the guardrail blocks a model response.
-        :param pulumi.Input[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict']] content_policy_config: Content policy config for a guardrail. See Content Policy Config for more information.
-        :param pulumi.Input[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict']] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailContentPolicyConfigArgs', 'GuardrailContentPolicyConfigArgsDict', 'outputs.GuardrailContentPolicyConfig']] content_policy_config: Content policy config for a guardrail. See `content_policy_config` Block for more information.
+        :param pulumi.Input[Union['GuardrailContextualGroundingPolicyConfigArgs', 'GuardrailContextualGroundingPolicyConfigArgsDict', 'outputs.GuardrailContextualGroundingPolicyConfig']] contextual_grounding_policy_config: Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
         :param pulumi.Input[_builtins.str] created_at: Unix epoch timestamp in seconds for when the Guardrail was created.
+        :param pulumi.Input[Union['GuardrailCrossRegionConfigArgs', 'GuardrailCrossRegionConfigArgsDict', 'outputs.GuardrailCrossRegionConfig']] cross_region_config: Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
         :param pulumi.Input[_builtins.str] description: Description of the guardrail or its version.
         :param pulumi.Input[_builtins.str] guardrail_arn: ARN of the Guardrail.
         :param pulumi.Input[_builtins.str] guardrail_id: ID of the Guardrail.
-        :param pulumi.Input[_builtins.str] kms_key_arn: The KMS key with which the guardrail was encrypted at rest.
+        :param pulumi.Input[_builtins.str] kms_key_arn: KMS key with which the guardrail was encrypted at rest.
         :param pulumi.Input[_builtins.str] name: Name of the guardrail.
                
                The following arguments are optional:
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict']] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailSensitiveInformationPolicyConfigArgs', 'GuardrailSensitiveInformationPolicyConfigArgsDict', 'outputs.GuardrailSensitiveInformationPolicyConfig']] sensitive_information_policy_config: Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         :param pulumi.Input[_builtins.str] status: Status of the Bedrock Guardrail. One of `READY`, `FAILED`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict']] topic_policy_config: Topic policy config for a guardrail. See Topic Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailTopicPolicyConfigArgs', 'GuardrailTopicPolicyConfigArgsDict', 'outputs.GuardrailTopicPolicyConfig']] topic_policy_config: Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
         :param pulumi.Input[_builtins.str] updated_at: Date and time that the Guardrail list was last updated.
         :param pulumi.Input[_builtins.str] version: Version of the Guardrail.
-        :param pulumi.Input[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict']] word_policy_config: Word policy config for a guardrail. See Word Policy Config for more information.
+        :param pulumi.Input[Union['GuardrailWordPolicyConfigArgs', 'GuardrailWordPolicyConfigArgsDict', 'outputs.GuardrailWordPolicyConfig']] word_policy_config: Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -947,7 +957,7 @@ class Guardrail(pulumi.CustomResource):
     @pulumi.getter(name="contentPolicyConfig")
     def content_policy_config(self) -> pulumi.Output[Optional['outputs.GuardrailContentPolicyConfig']]:
         """
-        Content policy config for a guardrail. See Content Policy Config for more information.
+        Content policy config for a guardrail. See `content_policy_config` Block for more information.
         """
         return pulumi.get(self, "content_policy_config")
 
@@ -955,7 +965,7 @@ class Guardrail(pulumi.CustomResource):
     @pulumi.getter(name="contextualGroundingPolicyConfig")
     def contextual_grounding_policy_config(self) -> pulumi.Output[Optional['outputs.GuardrailContextualGroundingPolicyConfig']]:
         """
-        Contextual grounding policy config for a guardrail. See Contextual Grounding Policy Config for more information.
+        Contextual grounding policy config for a guardrail. See `contextual_grounding_policy_config` Block for more information.
         """
         return pulumi.get(self, "contextual_grounding_policy_config")
 
@@ -970,6 +980,9 @@ class Guardrail(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="crossRegionConfig")
     def cross_region_config(self) -> pulumi.Output[Optional['outputs.GuardrailCrossRegionConfig']]:
+        """
+        Configuration block to enable cross-region routing for bedrock guardrails. See `cross_region_config` Block for more information. Note see [available regions](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html) here.
+        """
         return pulumi.get(self, "cross_region_config")
 
     @_builtins.property
@@ -1000,7 +1013,7 @@ class Guardrail(pulumi.CustomResource):
     @pulumi.getter(name="kmsKeyArn")
     def kms_key_arn(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        The KMS key with which the guardrail was encrypted at rest.
+        KMS key with which the guardrail was encrypted at rest.
         """
         return pulumi.get(self, "kms_key_arn")
 
@@ -1026,7 +1039,7 @@ class Guardrail(pulumi.CustomResource):
     @pulumi.getter(name="sensitiveInformationPolicyConfig")
     def sensitive_information_policy_config(self) -> pulumi.Output[Optional['outputs.GuardrailSensitiveInformationPolicyConfig']]:
         """
-        Sensitive information policy config for a guardrail. See Sensitive Information Policy Config for more information.
+        Sensitive information policy config for a guardrail. See `sensitive_information_policy_config` Block for more information.
         """
         return pulumi.get(self, "sensitive_information_policy_config")
 
@@ -1060,7 +1073,7 @@ class Guardrail(pulumi.CustomResource):
     @pulumi.getter(name="topicPolicyConfig")
     def topic_policy_config(self) -> pulumi.Output[Optional['outputs.GuardrailTopicPolicyConfig']]:
         """
-        Topic policy config for a guardrail. See Topic Policy Config for more information.
+        Topic policy config for a guardrail. See `topic_policy_config` Block for more information.
         """
         return pulumi.get(self, "topic_policy_config")
 
@@ -1084,7 +1097,7 @@ class Guardrail(pulumi.CustomResource):
     @pulumi.getter(name="wordPolicyConfig")
     def word_policy_config(self) -> pulumi.Output[Optional['outputs.GuardrailWordPolicyConfig']]:
         """
-        Word policy config for a guardrail. See Word Policy Config for more information.
+        Word policy config for a guardrail. See `word_policy_config` Block for more information.
         """
         return pulumi.get(self, "word_policy_config")
 

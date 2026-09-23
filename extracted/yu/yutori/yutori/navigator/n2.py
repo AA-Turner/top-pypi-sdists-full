@@ -54,7 +54,7 @@ from typing import Any, Protocol
 
 from .macos.process_lifecycle import race_against_cancellation
 from .macos.sanitize import sanitize_command_preview
-from .macos.types import N2Observation, N2Presentation
+from .macos.types import MacOSAppState, N2Observation, N2Presentation
 from .models import NAVIGATOR_N2_MODEL, TOOL_SET_COMPUTER_USE_LATEST
 from .n2_actions import (
     BASH_TOOL_NAME,
@@ -822,7 +822,9 @@ async def execute_n2_computer_call(
 
     async def finish_with_error(message: str, observation: Any = None) -> list[dict[str, Any]]:
         output: Any = f"[ERROR] {message}"
-        if observation is not None:
+        if isinstance(observation, MacOSAppState):
+            output = f"[ERROR] {message}\n{observation.text}"
+        elif observation is not None:
             try:
                 data_url, _, _, raw_base64 = _observation_data(observation)
                 output = {"type": "input_image", "image_url": data_url, "result": f"[ERROR] {message}"}
@@ -915,6 +917,15 @@ async def execute_n2_computer_call(
                     held_keys.remove(key)
         return first_error
 
+    async def release_or_raise(keys: list[str]) -> None:
+        cleanup_error = await release_keys(keys)
+        if cleanup_error is not None:
+            raise RuntimeError(f"Failed to release held key: {cleanup_error}")
+
+    def raise_if_action_failed(action_result: Any) -> None:
+        if isinstance(action_result, dict) and action_result.get("success") is False:
+            raise RuntimeError(str(action_result.get("error") or action_result))
+
     batch_presentation = None
     if isinstance(batch_actions, list):
         members = [
@@ -988,9 +999,7 @@ async def execute_n2_computer_call(
                 await computer.key_down(action_args["key"])
                 held_keys.append(action_args["key"])
                 release_after_next_action[:] = [action_args["key"]]
-                cleanup_error = await release_keys(previous_keys)
-                if cleanup_error is not None:
-                    raise RuntimeError(f"Failed to release held key: {cleanup_error}")
+                await release_or_raise(previous_keys)
             elif action_type == "screenshot":
                 if isinstance(batch_actions, list):
                     if isinstance(batch_index, int):
@@ -1022,8 +1031,7 @@ async def execute_n2_computer_call(
                     computer, BROWSER_ACTION_HANDLERS, action_type, _browser_not_supported_error
                 )
                 action_result = await browser_method(**action_args)
-                if isinstance(action_result, dict) and action_result.get("success") is False:
-                    raise RuntimeError(str(action_result.get("error") or action_result))
+                raise_if_action_failed(action_result)
             elif (
                 action_type == "wait"
                 and not isinstance(batch_actions, list)
@@ -1047,15 +1055,12 @@ async def execute_n2_computer_call(
                     action_result = await computer_method(**action_args, model_action=model_action)
                 else:
                     action_result = await computer_method(**action_args)
-                if isinstance(action_result, dict) and action_result.get("success") is False:
-                    raise RuntimeError(str(action_result.get("error") or action_result))
+                raise_if_action_failed(action_result)
 
             if action_type != "hold_key_until_next_action" and release_after_next_action:
                 keys = list(release_after_next_action)
                 release_after_next_action.clear()
-                cleanup_error = await release_keys(keys)
-                if cleanup_error is not None:
-                    raise RuntimeError(f"Failed to release held key: {cleanup_error}")
+                await release_or_raise(keys)
 
             member_index = _resolved_batch_index(batch_index)
             action_counts[member_index] = action_counts.get(member_index, 1) - 1
@@ -1167,6 +1172,11 @@ async def execute_n2_computer_call(
             reference_observation,
             screenshot_observation,
         )
+    if isinstance(screenshot_observation, MacOSAppState):
+        return await finish(
+            result_text() + "\n\n" + screenshot_observation.text,
+            {"type": "action_done", "call_id": call_id, "batch_complete": isinstance(batch_actions, list)},
+        )
     try:
         data_url, _, _, raw_base64 = _observation_data(screenshot_observation)
     except Exception as error:
@@ -1179,7 +1189,12 @@ async def execute_n2_computer_call(
 
     # The frame rides with the call's text (a late failure such as the screenshot
     # callback must not discard output from a command that already ran).
-    output: dict[str, Any] = {"type": "input_image", "image_url": data_url, "result": result_text()}
+    observation_text = screenshot_observation.text if isinstance(screenshot_observation, N2Observation) else ""
+    output: dict[str, Any] = {
+        "type": "input_image",
+        "image_url": data_url,
+        "result": result_text() + ("\n\n" + observation_text if observation_text else ""),
+    }
     return await finish(
         output,
         {"type": "action_done", "call_id": call_id, "batch_complete": isinstance(batch_actions, list)},

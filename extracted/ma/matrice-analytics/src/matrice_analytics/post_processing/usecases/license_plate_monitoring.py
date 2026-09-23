@@ -381,7 +381,12 @@ class LicensePlateMonitorConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.5
+    # 0.37, not the 0.5 this used to declare: ``process`` overwrote the field with a
+    # literal 0.37 on every call, so 0.37 -- not 0.5 -- is what every LPR deployment has
+    # actually been running. The override is gone (the value is configurable now), and
+    # the default carries that effective value forward so a config that omits the field
+    # behaves exactly as it did before.
+    confidence_threshold: float = 0.37
     frame_skip: int = 1
     fps: float | None = None
     bbox_format: str = "auto"
@@ -2597,6 +2602,11 @@ def _preferred_ocr_providers() -> tuple:
 # Min seconds between repeated "OCR degraded to CPU" error logs (periodic, not one-shot).
 _CPU_DEGRADE_WARN_INTERVAL_S = 60.0
 
+# Min seconds between repeated "no frame pixels delivered" warnings. Periodic rather than
+# one-shot: the condition persists for the life of the deployment, and an operator reading
+# a log tail hours after startup must still see it.
+_NO_FRAME_WARN_INTERVAL_S = 60.0
+
 
 class LicensePlateMonitorUseCase(BaseProcessor):
     CATEGORY_DISPLAY = {"license_plate": "license_plate"}
@@ -3923,11 +3933,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         so a config that predates these fields (or any non-LPR config that
         reaches here) reproduces the old behaviour exactly.
 
-        Note ``confidence_threshold`` is deliberately NOT bound here: ``process``
-        overwrites it with a literal 0.37 a few lines above, so a per-profile
-        value would be silently discarded. Differentiating on it needs that
-        override removed first, which changes live detector behaviour and is out
-        of scope for the split.
+        ``confidence_threshold`` is not bound here either, but for the opposite
+        reason it used to be: ``process`` no longer overwrites it and the detector
+        gate is read straight off ``config``, so a per-profile value in the
+        deployment config now takes effect without any binding.
         """
         self._min_plate_len = int(getattr(config, "min_plate_len", 3) or 3)
         self._max_plate_len = int(getattr(config, "max_plate_len", 10) or 10)
@@ -3941,6 +3950,66 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         if smoother is not None:
             smoother._hold_frames = int(getattr(config, "smoother_hold_frames", 3) or 3)
             smoother._iou_threshold = float(getattr(config, "smoother_iou_threshold", 0.3))
+
+    def _warn_no_frame_pixels(self, input_bytes: Any) -> None:
+        """Loud, throttled, and counted -- the guard above this call rejects EVERY frame.
+
+        ``create_error_result`` logs nothing, so a host that delivers no pixels (a
+        frame-bytes allowlist that does not recognise this profile's app name, or a
+        decoupled analytics node that carries none) presented as "OCR silently
+        stopped": no plate text, no errors, no clue.
+
+        Throttled rather than one-shot because the condition persists for the life
+        of the deployment and an operator reading a log tail hours after startup
+        must still see it; counted because a running total makes a 100% rejection
+        rate visible instead of something to infer from absent plates. WARNING, not
+        INFO: the deploy containers configure this logger at WARNING.
+        """
+        self._no_frame_rejects = getattr(self, "_no_frame_rejects", 0) + 1
+        now = time.monotonic()
+        if now - getattr(self, "_no_frame_warned_at", 0.0) < _NO_FRAME_WARN_INTERVAL_S:
+            return
+        self._no_frame_warned_at = now
+        self.logger.warning(
+            "[LPR] No frame pixels delivered for usecase=%s (input_bytes=%s): "
+            "OCR cannot run, so every plate label falls back to the detection "
+            "category. %d frame(s) rejected so far -- the host is not passing "
+            "input_bytes for this app.",
+            self.name,
+            type(input_bytes).__name__,
+            self._no_frame_rejects,
+        )
+
+    def _resolve_confidence_gate(
+        self, config: LicensePlateMonitorConfig, context: ProcessingContext
+    ) -> None:
+        """Bind the detection gate onto the context, and record it once.
+
+        ``process`` used to assign ``config.confidence_threshold = 0.37`` here, on
+        every call, above the detection filter -- so whatever a deployment set was
+        overwritten before it was ever read, and the gate that decides which boxes
+        reach OCR was not configurable at all. The assignment is gone; the value
+        comes from the config like every other setting.
+
+        Binding and logging live together because they are one concern: the number
+        the detector will use, and the record of what that number turned out to be.
+        Nothing recorded it before, so "the gate is 0.9" and "the gate is what I
+        assumed" were indistinguishable from outside the process.
+
+        WARNING rather than INFO on purpose: this logger is configured to WARNING
+        in the deploy containers, so an INFO line here would never be emitted --
+        the same "the diagnostic is silent" trap that hid the missing-frame-bytes
+        bug. ``[LP_LOGGING] Plate sync starting`` is a WARNING for this reason too.
+        """
+        context.confidence_threshold = config.confidence_threshold
+        if self._total_frame_counter != 0:
+            return
+        self.logger.warning(
+            "[LPR] usecase=%s effective confidence_threshold=%s ocr_confidence_threshold=%s",
+            self.name,
+            config.confidence_threshold,
+            getattr(config, "ocr_confidence_threshold", None),
+        )
 
     def _log_frame_diagnostics(
         self,
@@ -4032,6 +4101,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 context = ProcessingContext()
 
             if input_bytes is None or (hasattr(input_bytes, "__len__") and len(input_bytes) == 0):
+                self._warn_no_frame_pixels(input_bytes)
                 return self.create_error_result(
                     "input_bytes (video/image) is required for license plate monitoring",
                     usecase=self.name,
@@ -4086,8 +4156,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
             input_format = match_results_structure(data)
             context.input_format = input_format
-            config.confidence_threshold = 0.37
-            context.confidence_threshold = config.confidence_threshold
+            self._resolve_confidence_gate(config, context)
             self._ocr_mode = config.ocr_mode
             if hasattr(config, "ocr_model_name") and config.ocr_model_name:
                 self._ocr_model_name = config.ocr_model_name

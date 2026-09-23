@@ -1692,6 +1692,37 @@ export function parseIconName(iconName, dflt = "") {
   }
 }
 
+/**
+ * Normalizes an icon variant to the suffix expected by parseIconName/render_icon.
+ *
+ * Accepts both the user facing spelling (e.g. "outlined") and the internal
+ * suffix spelling (e.g. "-outlined").
+ *
+ * @param {string} variant - Variant name or suffix
+ * @returns {string} - Variant suffix, e.g. "-outlined" or "" for filled icons
+ */
+function normalize_icon_variant(variant) {
+  if (variant == null || typeof variant !== "string") {
+    return ""
+  }
+  const normalized = variant.trim().toLowerCase().replace(/^[-_]/, "")
+  switch (normalized) {
+    case "":
+    case "filled":
+      return ""
+    case "outlined":
+    case "outline":
+      return "-outlined"
+    case "rounded":
+    case "round":
+      return "-round"
+    case "sharp":
+      return "-sharp"
+    default:
+      return ""
+  }
+}
+
 export function render_icon(icon, color, size, icon_size, variant, sx) {
   const standard_size = ["small", "medium", "large"].includes(size)
   const font_size = standard_size ? icon_size : size
@@ -1710,70 +1741,340 @@ export function render_icon(icon, color, size, icon_size, variant, sx) {
     }}
     />
   ) : (() => {
-    const iconData = parseIconName(icon, variant || "")
+    const iconData = parseIconName(icon, normalize_icon_variant(variant))
     return <Icon baseClassName={iconData.baseClassName} color={color || undefined} fontSize={icon_font_size} sx={sx} style={standard_icon_size ? {} : {fontSize: icon_size}}>{iconData.iconName}</Icon>
   })()
 }
 
+// Matches :material/<icon>: tokens with an optional @key=value,key=value suffix.
+// Icon names are restricted to the characters Material Icons actually uses so
+// that malformed tokens are left untouched.
+const ICON_TOKEN_PATTERN = /:material\/([a-zA-Z0-9_]+)(?:@([^:]*))?:/g
+
+const ICON_TOKEN_OPTIONS = ["color", "size", "icon_size", "variant"]
+
+const STANDARD_SIZES = ["small", "medium", "large"]
+
+function parse_icon_options(option_string) {
+  const options = {}
+  if (!option_string) {
+    return options
+  }
+  for (const pair of option_string.split(",")) {
+    const [key, ...rest] = pair.split("=")
+    if (!key) {
+      continue
+    }
+    const name = key.trim()
+    if (!ICON_TOKEN_OPTIONS.includes(name)) {
+      continue
+    }
+    const value = rest.join("=").trim()
+    options[name] = name === "variant" ? normalize_icon_variant(value) : value
+  }
+  return options
+}
+
+/**
+ * Splits text containing :material/<icon>: tokens into typed segments.
+ *
+ * Returns an array of segments, each either {type: "text", text} or
+ * {type: "icon", icon, options}. Plain text without any token yields a single
+ * text segment, so callers can always iterate over the result. Malformed
+ * tokens are preserved as text.
+ *
+ * @param {string} text - The text to parse
+ * @param {object} defaults - Default icon options merged into each token
+ * @returns {Array<object>} - Array of text and icon segments
+ *
+ * @example
+ * parse_icon_text("Zoom :material/search:")
+ * // [{type: "text", text: "Zoom "}, {type: "icon", icon: "search", options: {}}]
+ */
+export function parse_icon_text(text, defaults = {}) {
+  if (text == null || typeof text !== "string" || text === "") {
+    return []
+  }
+  const pattern = new RegExp(ICON_TOKEN_PATTERN.source, "g")
+  const segments = []
+  let match = null
+  let lastIndex = 0
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({type: "text", text: text.slice(lastIndex, match.index)})
+    }
+    segments.push({
+      type: "icon",
+      icon: match[1],
+      options: {...defaults, ...parse_icon_options(match[2])}
+    })
+    lastIndex = pattern.lastIndex
+  }
+  if (lastIndex < text.length) {
+    segments.push({type: "text", text: text.slice(lastIndex)})
+  }
+  return segments
+}
+
+function render_icon_segment(segment, iconProps = {}) {
+  const merged = {...iconProps, ...segment.options}
+  let {size, icon_size} = merged
+  if (icon_size == null && size != null && !STANDARD_SIZES.includes(size)) {
+    icon_size = size
+    size = undefined
+  }
+  if (icon_size == null && size == null) {
+    icon_size = "1em"
+  }
+  return render_icon(segment.icon, merged.color, size, icon_size, merged.variant, merged.sx)
+}
+
+/**
+ * Renders text containing :material/<icon>: tokens as a React tree.
+ *
+ * Plain strings (and non-string values) are returned unchanged so that MUI
+ * props which only accept strings keep working.
+ *
+ * @param {string} text - The text to render
+ * @param {object} iconProps - Default icon options (color, size, icon_size, variant, sx)
+ * @returns {*} - The original value or a React node
+ */
 export function render_icon_text(text, iconProps = {}) {
   if (text == null || typeof text !== "string") {
     return text
   }
 
-  const pattern = /:material\/([^:@]+)(?:@([^:]+))?:/g
-  let match = null
-  let lastIndex = 0
-  const parts = []
-
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index))
-    }
-    const options = {}
-    if (match[2]) {
-      for (const pair of match[2].split(",")) {
-        const [key, ...rest] = pair.split("=")
-        const value = rest.join("=")
-        if (!key) {
-          continue
-        }
-        if (["color", "size", "icon_size", "variant"].includes(key)) {
-          options[key] = value
-        }
-      }
-    }
-    parts.push({icon: match[1], options})
-    lastIndex = pattern.lastIndex
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex))
-  }
-
-  if (parts.length === 0 || parts.every((part) => typeof part === "string")) {
+  const segments = parse_icon_text(text)
+  if (!segments.some((segment) => segment.type === "icon")) {
     return text
   }
 
   return (
     <span style={{display: "inline-flex", alignItems: "center", gap: "0.25em"}}>
-      {parts.map((part, idx) => {
-        if (typeof part === "string") {
-          return <span key={`icon-text-${idx}`}>{part}</span>
+      {segments.map((segment, idx) => {
+        if (segment.type === "text") {
+          return <span key={`icon-text-${idx}`}>{segment.text}</span>
         }
-        const mergedProps = {...iconProps, ...part.options}
         return (
           <span key={`icon-text-${idx}`} style={{display: "inline-flex", alignItems: "center"}}>
-            {render_icon(
-              part.icon,
-              mergedProps.color,
-              mergedProps.size,
-              mergedProps.icon_size ?? "1em",
-              mergedProps.variant,
-              mergedProps.sx
-            )}
+            {render_icon_segment(segment, iconProps)}
           </span>
         )
       })}
     </span>
   )
+}
+
+/**
+ * Renders text that may contain both HTML and :material/<icon>: tokens.
+ *
+ * Used by components which have always rendered their titles as HTML. The HTML
+ * segments are inserted as HTML, the tokens are rendered as React icon nodes,
+ * so user input is never concatenated into a mixed HTML/React string.
+ *
+ * @param {string} text - The text to render
+ * @param {object} iconProps - Default icon options
+ * @returns {*} - The original value or an array of React nodes
+ */
+export function render_html_icon_text(text, iconProps = {}) {
+  if (text == null || typeof text !== "string") {
+    return text
+  }
+  const segments = parse_icon_text(text)
+  if (segments.length === 0) {
+    return null
+  }
+  return segments.map((segment, idx) => {
+    if (segment.type === "text") {
+      return <span key={`icon-html-${idx}`} dangerouslySetInnerHTML={{__html: segment.text}} />
+    }
+    return (
+      <span key={`icon-html-${idx}`} style={{display: "inline-flex", alignItems: "center"}}>
+        {render_icon_segment(segment, iconProps)}
+      </span>
+    )
+  })
+}
+
+/**
+ * Converts text containing :material/<icon>: tokens into readable plain text.
+ *
+ * Intended for aria-label, native title, alt and other string-only consumers
+ * which cannot render React nodes. Tokens are stripped; if the text consists
+ * only of tokens the humanized icon names are used so the value is never empty.
+ *
+ * @param {string} text - The text to convert
+ * @returns {*} - The original value or the token-stripped text
+ */
+export function render_icon_text_as_string(text) {
+  if (text == null || typeof text !== "string") {
+    return text
+  }
+  const segments = parse_icon_text(text)
+  if (!segments.some((segment) => segment.type === "icon")) {
+    return text
+  }
+  const stripped = segments
+    .filter((segment) => segment.type === "text")
+    .map((segment) => segment.text)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (stripped) {
+    return stripped
+  }
+  return segments
+    .filter((segment) => segment.type === "icon")
+    .map((segment) => parseIconName(segment.icon).iconName.replace(/_/g, " "))
+    .join(" ")
+}
+
+export const MUI_SIZE = (size) => size
+
+// Switch's own root `padding` is independent of its switchBase/thumb, which
+// are pinned flush with the root's outer edge regardless of that padding
+// (only the track fills the root's content box, i.e. root size minus 2x this
+// padding). MUI's native switchBase padding is 9px at every non-"small" size,
+// so setting the root's own padding to that same 9px makes the track exactly
+// as tall as the thumb (0 overhang, matching the small variant's proportions)
+// and exactly twice the thumb's width (so the native translateX(20) checked
+// transform lands the thumb flush with the track's right edge). Anything
+// else (the previous 6px) leaves the track taller/wider than the thumb needs,
+// which reads as an inflated, disproportionate track.
+const SWITCH_MEDIUM_PADDING = "9px"
+
+// MUI's `.MuiSwitch-track` has a hardcoded `borderRadius: 14 / 2` (7px) in
+// its base styles, sized for MUI's own native (non-dense) track height of
+// 14px. Our root/switchBase padding above changes the track's *rendered*
+// height (e.g. ~20px at medium), so that fixed 7px radius is no longer at
+// least half the track's height and the pill ends look flattened/squarish
+// instead of fully rounded. A percentage-based radius doesn't reliably fix
+// this for a flexbox-fragile pill shape, so use an oversized fixed value
+// that's guaranteed to exceed half the height at every size we use, which
+// still resolves to a true stadium/pill regardless of exact padding/height
+// tweaks made later. This only needs to be set where our padding override
+// changes the rendered track height away from MUI's native default (i.e.
+// not at "small", which keeps MUI's own native small-track proportions and
+// already renders a correct pill with the native 7px radius).
+const SWITCH_TRACK_SX = {"& .MuiSwitch-track": {borderRadius: "999px"}}
+
+export const DENSE_CONTROL_SX = {
+  small: {
+    "& .MuiInputBase-input": {py: "6px"},
+    "& .MuiInputLabel-root": {fontSize: "0.875rem"},
+    "&.MuiCheckbox-root, &.MuiRadio-root": {p: "4px"},
+    "& .MuiCheckbox-root, & .MuiRadio-root": {p: "4px"},
+    "&.MuiSwitch-root, & .MuiSwitch-root": {p: "4px"},
+    "& .MuiFormControlLabel-root": {ml: "-4px", mr: "8px", lineHeight: 1.25},
+    "& .MuiFormControlLabel-label": {lineHeight: 1.25},
+  },
+  medium: {
+    "&.MuiCheckbox-root, &.MuiRadio-root": {p: "6px"},
+    "& .MuiCheckbox-root, & .MuiRadio-root": {p: "6px"},
+    "&.MuiSwitch-root, & .MuiSwitch-root": {p: SWITCH_MEDIUM_PADDING},
+    ...SWITCH_TRACK_SX,
+  },
+  large: {
+    // MUI's OutlinedInput/InputBase has no native size="large" variant at
+    // all (only 'small' gets a styled variant; 'large' silently falls back
+    // to the same, un-varied "medium" 16.5px padding while still stamping
+    // an inert `MuiInputBase-sizeLarge` class with zero backing CSS). A flat
+    // `py` smaller than that native 16.5px (e.g. the previous 10px) makes
+    // "large" render *shorter* than "medium", which is backwards. Use a
+    // `py` clearly above 16.5px so `small (6px) < medium (16.5px native) <
+    // large` holds for every single-line input that pulls in this rule
+    // (Select, TextInput-family, date/time pickers). 22px keeps the control
+    // comfortably, visibly taller than medium (roughly +11px/+20% overall
+    // height) without ballooning it.
+    "& .MuiInputBase-input": {py: "22px"},
+    // @mui/x-date-pickers' sectioned field UI (TimePicker/DatePicker/
+    // DateTimePicker) does not render a plain `<input class="MuiInputBase-
+    // input">` at all -- its editable content lives in a
+    // `.MuiPickersInputBase-sectionsContainer` with its own, separate
+    // native padding (`16.5px 0` medium / `8.5px 0` small, again with no
+    // "large" variant), so the rule above never reaches it. Harmless no-op
+    // for every other `denseSx` consumer that lacks this class.
+    "& .MuiPickersInputBase-sectionsContainer": {padding: "22px 0"},
+    "& .MuiInputLabel-root": {fontSize: "1.1rem"},
+    // MUI has no native size="large" Switch variant (it silently falls back
+    // to plain, un-dense "medium" geometry), so start from the same coherent
+    // 9px-padding geometry used at medium and scale the whole control up.
+    // transformOrigin pins the left edge so it grows to the right/vertically
+    // centered instead of shifting left into preceding content, and the
+    // added `mr` reserves the ~14.5px (58px * 0.25) the scale adds to the
+    // control's painted width so it doesn't crowd/overlap the label text,
+    // which sits in an unscaled sibling node right after the control's
+    // (unscaled) layout box.
+    "&.MuiSwitch-root, & .MuiSwitch-root": {
+      p: SWITCH_MEDIUM_PADDING,
+      transform: "scale(1.25)",
+      transformOrigin: "left center",
+      mr: "16px",
+    },
+    // `large`'s track/thumb are the same unscaled DOM/geometry as `medium`
+    // painted through a CSS `transform: scale(1.25)` on the root, which
+    // preserves radius:height *proportions* under uniform scaling but does
+    // NOT pull in `medium`'s own sx overrides (each size bucket here is a
+    // fully separate sx object, never merged), so the fixed 7px native
+    // radius bug is present here independently and needs the same explicit
+    // override, not just because `medium` has it.
+    ...SWITCH_TRACK_SX,
+  },
+}
+
+// `Select`'s <InputLabel> is rendered as a *sibling* of <Select> under the
+// same <FormControl> (not a descendant), so the `& .MuiInputLabel-root`
+// selectors nested inside DENSE_CONTROL_SX above (passed to <Select>'s own
+// sx) can never reach it. This gives InputLabel its own size-driven sx to
+// apply directly, reusing the same font-size values as DENSE_CONTROL_SX so
+// Select's label matches the sizing intent of every other dense control.
+const DENSE_INPUT_LABEL_SX = {
+  small: {fontSize: "0.875rem"},
+  large: {fontSize: "1.1rem"},
+}
+
+export const denseInputLabelSx = (size, sx) => {
+  const base = DENSE_INPUT_LABEL_SX[size]
+  if (!base) { return sx }
+  return sx ? [base, sx] : base
+}
+
+const CHECKBOX_LABEL_SX = {
+  small: {
+    ml: "-4px",
+    mr: "8px",
+    lineHeight: 1.25,
+    "& .MuiFormControlLabel-label": {lineHeight: 1.25},
+  },
+  medium: {
+    ml: "-6px",
+    mr: "16px",
+  },
+}
+
+// Switch's own root padding (see SWITCH_MEDIUM_PADDING above) differs from
+// Checkbox/Radio's at "medium" (9px vs 6px), so the label-margin cancellation
+// that keeps the visible control flush with the widget's host edge has to
+// differ too; `kind="switch"` opts into these instead of the shared defaults
+// above, which remain exactly as before for Checkbox/Radio/CheckBoxGroup/
+// RadioBoxGroup.
+const SWITCH_LABEL_SX = {
+  small: CHECKBOX_LABEL_SX.small,
+  medium: {
+    ml: `-${SWITCH_MEDIUM_PADDING}`,
+    mr: "16px",
+  },
+  large: {
+    ml: `-${SWITCH_MEDIUM_PADDING}`,
+  },
+}
+
+export const denseLabelSx = (size, kind) => {
+  const table = kind === "switch" ? SWITCH_LABEL_SX : CHECKBOX_LABEL_SX
+  return table[size]
+}
+
+export const denseSx = (size, sx) => {
+  const base = DENSE_CONTROL_SX[size] || DENSE_CONTROL_SX.medium
+  return sx ? [base, sx] : base
 }

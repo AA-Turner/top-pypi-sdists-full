@@ -68,6 +68,7 @@ ws_admin/org_id,ws_id:
     - agent_deployer/org_id,ws_id
     - agent_execute_live/org_id,ws_id
     - connection_editor/org_id,ws_id
+    - integration_builder/org_id,ws_id
     - flow_deployer/org_id,ws_id,*
     - flow_execute_live/org_id,ws_id,*
     - w:workspace_endpoint/org_id,ws_id
@@ -96,7 +97,6 @@ flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
     - r:jobs/org_id,ws_id,flow_folder_id
     - r:job_run/org_id,ws_id,flow_folder_id,{env=*}
-    - dh_viewer_sandbox/org_id,ws_id
     - file_viewer_sandbox/org_id,ws_id
 flow_execute_sandbox/org_id,ws_id,flow_folder_id:
     - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
@@ -156,6 +156,9 @@ connection_editor/org_id,ws_id:
     - r+d:workspace_connection_resource/org_id,ws_id
     - r+w+d:workspace_connection_tenant/org_id,ws_id
     - w:workspace_connection_secret/org_id,ws_id
+integration_builder/org_id,ws_id:
+    - connection_editor/org_id,ws_id
+    - w:workspace_integration_builder/org_id,ws_id
 
 # P141c decision-history roles, carved verbatim from ws_editor (capability-neutral)
 dh_viewer_sandbox/org_id,ws_id:

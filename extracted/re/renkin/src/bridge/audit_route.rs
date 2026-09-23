@@ -1134,12 +1134,31 @@ mod tests {
     }
 
     #[test]
+    fn audit_text_input_limits_accept_declared_inclusive_boundaries() {
+        let route = "x".repeat(MAX_AUDIT_ROUTE_TEXT_BYTES);
+        validate_audit_text_inputs(&route, "").expect("route byte maximum is inclusive");
+
+        let stock = format!("{}\n", "C".repeat(MAX_AUDIT_STOCK_LINE_BYTES));
+        validate_audit_text_inputs("{}", &stock).expect("stock line maximum is inclusive");
+    }
+
+    #[test]
     fn audit_json_structure_limits_ignore_brackets_in_strings() {
         validate_json_structure(r#"{"text":"[[[["}"#).expect("string content is safe");
     }
 
     #[test]
     fn audit_json_structure_limits_reject_depth_and_token_storms() {
+        let at_depth_limit = format!(
+            "{}{}",
+            "[".repeat(MAX_AUDIT_JSON_DEPTH),
+            "]".repeat(MAX_AUDIT_JSON_DEPTH)
+        );
+        validate_json_structure(&at_depth_limit).expect("JSON depth maximum is inclusive");
+
+        let at_token_limit = "[]".repeat(MAX_AUDIT_JSON_TOKENS / 2);
+        validate_json_structure(&at_token_limit).expect("JSON token maximum is inclusive");
+
         let deeply_nested = "[".repeat(MAX_AUDIT_JSON_DEPTH + 1);
         let err = validate_json_structure(&deeply_nested).unwrap_err();
         assert!(err.to_string().contains("nesting"));
@@ -1176,6 +1195,34 @@ mod tests {
                 .iter()
                 .all(|step| step.reaction_provenance.reaction_evidence.is_some())
         );
+    }
+
+    #[test]
+    fn synplanner_real_fixture_reports_map_and_boundary_receipts_without_status_change() {
+        let content = load_synplanner_fixture("real_planning_route_2step.json");
+        let rules: Vec<RetroRule> = Vec::new();
+        let report =
+            build_audit_route_report(&content, "synplanner", None, &rules).expect("audits");
+        let route = &report.routes[0];
+        // No configured stock keeps the established route verdict partial;
+        // mapping diagnostics are evidence only and must not harden it.
+        assert_eq!(route.status, crate::bridge::audit::AuditStatus::Partial);
+        assert_eq!(route.steps.len(), 2);
+        assert!(route.steps.iter().all(|step| {
+            step.atom_mapping.status == crate::bridge::atom_mapping::AtomMappingStatus::Valid
+                && step.atom_mapping.reasons.is_empty()
+        }));
+        assert_eq!(
+            route.steps[1].atom_mapping.producer_consumer,
+            Some(
+                crate::bridge::atom_mapping::ProducerConsumerMappingReceipt {
+                    consumer_step_index: 0,
+                    status: crate::bridge::atom_mapping::AtomMappingStatus::Valid,
+                    reasons: vec![],
+                }
+            )
+        );
+        assert!(route.steps[0].atom_mapping.producer_consumer.is_none());
     }
 
     #[test]

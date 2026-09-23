@@ -113,6 +113,7 @@ class GoogleImageGeneration(BaseMediaGeneration):
         from matrx_ai.providers.google.translator import _LOWEST_SAFETY_SETTINGS
 
         contents_parts: list[Any] = [prompt] if prompt else []
+        contents_parts.extend(self._native_image_parts(unified_config))
         for ref in self.translator._iter_image_refs(unified_config):
             part = self.translator._mediaref_to_genai_image(ref)
             if part is not None:
@@ -130,6 +131,75 @@ class GoogleImageGeneration(BaseMediaGeneration):
             "contents": contents_parts or [prompt],
             "config": types.GenerateContentConfig(**gen_config_kwargs),
         }
+
+    #: Gemini native image models take reference images as interleaved
+    #: content parts; the role travels as the text label immediately before
+    #: each image (Google's documented multi-reference pattern). Mask and
+    #: composition control have no native transport here.
+    NATIVE_ROLE_TRANSPORT: frozenset[str] = frozenset(
+        {"subject", "character", "style", "edit_target"}
+    )
+
+    def image_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        # Imagen's generate_images endpoint is text-only on this route (its
+        # referenceType SUBJECT/STYLE/MASK API is Vertex edit_image, which no
+        # offering here serves) — every role is refused by name.
+        if self._is_imagen(unified_config):
+            return frozenset()
+        return self.NATIVE_ROLE_TRANSPORT
+
+    @staticmethod
+    def _image_content_part(content: Any) -> Any | None:
+        """A user-message ImageContent -> ``types.Part`` (bytes resolved at the
+        AI Dream boundary; gs:// rides as a URI)."""
+        import base64
+
+        from google.genai import types
+
+        mime = getattr(content, "mime_type", None) or "image/png"
+        b64 = getattr(content, "base64_data", None)
+        if b64:
+            try:
+                return types.Part.from_bytes(data=base64.b64decode(b64), mime_type=mime)
+            except Exception:
+                return None
+        uri = getattr(content, "file_uri", None)
+        if uri and uri.startswith("gs://"):
+            return types.Part.from_uri(file_uri=uri, mime_type=mime)
+        return None
+
+    def _native_image_parts(self, unified_config: UnifiedConfig) -> list[Any]:
+        """User-message images for native generate_content, in order:
+        roled references (each preceded by its label), then plain images.
+
+        An image that cannot be resolved to bytes RAISES — sending the prompt
+        without the reference the person attached would be a silent drop."""
+        from matrx_ai.media.image_reference_roles import (
+            ROLE_INSTRUCTIONS,
+            collect_plain_images,
+            collect_role_images,
+            ordered_role_images,
+        )
+
+        parts: list[Any] = []
+        ordered = ordered_role_images(
+            collect_role_images(unified_config.messages), self.NATIVE_ROLE_TRANSPORT
+        )
+        for index, (role, content) in enumerate(ordered, start=1):
+            part = self._image_content_part(content)
+            if part is None:
+                raise ValueError(
+                    f"Reference image {index} ({role}) could not be read. Re-upload it "
+                    "and run again."
+                )
+            parts.append(f"Image {index} is the {ROLE_INSTRUCTIONS[role]}.")
+            parts.append(part)
+        for content in collect_plain_images(unified_config.messages):
+            part = self._image_content_part(content)
+            if part is None:
+                raise ValueError("An attached image could not be read. Re-upload it and run again.")
+            parts.append(part)
+        return parts
 
     def _apply_minor_image_overrides(
         self, kwargs: dict[str, Any], unified_config: UnifiedConfig, profile: Any
@@ -243,10 +313,16 @@ class GoogleImageGeneration(BaseMediaGeneration):
         carries ``usage_basis="image_output"`` and no token usage is reported, so
         return None (the base class uses the synthetic per-image count).
 
-        Gemini image-native (``generate_content``) is token-priced ($/1M, no
-        usage_basis) and reports real usage on ``raw.usage_metadata``; surface it
-        so the basis-aware base class bills real tokens instead of treating
-        ``output_price`` as a flat $/image. Mirrors ``TokenUsage.from_gemini``.
+        Gemini image-native (``generate_content``) is TOKEN-billed by Google:
+        input $/1M (text and image alike), text+thinking output $/1M, and image
+        output at its own $/1M rate (a 1K image is 1,120 image tokens). The
+        response's ``usage_metadata`` carries every one of those numbers, so
+        they are what gets recorded — never a synthetic per-image sentinel.
+
+        ``(input, output, cached)``: ``prompt_token_count`` INCLUDES cached
+        content, so the cached share is split out to bill at the cached rate;
+        ``thoughts_token_count`` is billed as output by Google but is NOT part
+        of ``candidates_token_count``, so it is added.
         """
         if self._is_imagen_call:
             return None
@@ -258,7 +334,32 @@ class GoogleImageGeneration(BaseMediaGeneration):
         if prompt_tokens is None and candidates_tokens is None:
             return None
         cached = int(getattr(um, "cached_content_token_count", 0) or 0)
-        return (int(prompt_tokens or 0), int(candidates_tokens or 0), cached)
+        thoughts = int(getattr(um, "thoughts_token_count", 0) or 0)
+        prompt = int(prompt_tokens or 0)
+        return (max(0, prompt - cached), int(candidates_tokens or 0) + thoughts, cached)
+
+    def _provider_billing_components(self, raw: Any) -> dict[str, int]:
+        """Gemini image-native output tokens split by modality.
+
+        Google prices IMAGE output tokens far above text/thinking output tokens
+        ($60 vs $3 per 1M on gemini-3.1-flash-image), and reports the split on
+        ``usage_metadata.candidates_tokens_details`` (``[{modality, token_count}]``).
+        ``output.image`` carries the image share; the remainder of the output
+        (text + thinking) bills at the tier's plain ``output_price``. Input text
+        and image cost the same per token, so input needs no component.
+        """
+        if self._is_imagen_call:
+            return {}
+        um = getattr(raw, "usage_metadata", None)
+        if um is None:
+            return {}
+        image_tokens = 0
+        for detail in getattr(um, "candidates_tokens_details", None) or []:
+            modality = getattr(detail, "modality", None)
+            name = str(getattr(modality, "value", modality) or "").upper()
+            if name.endswith("IMAGE"):
+                image_tokens += int(getattr(detail, "token_count", 0) or 0)
+        return {"output.image": image_tokens} if image_tokens else {}
 
     def _map_generation_metadata(
         self,

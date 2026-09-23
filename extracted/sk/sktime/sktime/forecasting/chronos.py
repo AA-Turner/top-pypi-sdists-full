@@ -316,12 +316,12 @@ class ChronosForecaster(BaseForecaster):
         "capability:multivariate": False,
         "capability:insample": False,
         "capability:pred_int:insample": False,
-        "capability:global_forecasting": True,
         "capability:unequal_length": False,
         # testing configuration
         # ---------------------
         "tests:vm": True,
         "tests:libs": ["sktime.libs.chronos"],
+        "tests:specific": ["sktime.forecasting.tests.test_chronos"],
         "tests:skip_by_name": [  # pickling problems
             "test_persistence_via_pickle",
             "test_save_estimators_to_file",

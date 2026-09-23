@@ -12,13 +12,15 @@ from x_transformers.x_transformers import (
     TransformerWrapper,
     ViTransformerWrapper,
     TransformerBlock,
-    layer_schedule
+    layer_schedule,
+    default_device
 )
 
 from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
 from x_transformers.nonautoregressive_wrapper import NonAutoregressiveWrapper
 from x_transformers.belief_state_wrapper import BeliefStateWrapper
 from x_transformers.next_latent_wrapper import NextLatentWrapper
+from x_transformers.full_bandwidth import FullBandwidth, LossBreakdown
 
 from x_transformers.continuous import (
     ContinuousTransformerWrapper,

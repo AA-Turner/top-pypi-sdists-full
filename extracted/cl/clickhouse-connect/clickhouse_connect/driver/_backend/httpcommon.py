@@ -28,12 +28,13 @@ if TYPE_CHECKING:
 
 from clickhouse_connect import common
 from clickhouse_connect.driver._backend.models import QueryRuntime
-from clickhouse_connect.driver.binding import quote_identifier, use_form_encoding
+from clickhouse_connect.driver.binding import _query_has_trailing_limit_zero, quote_identifier, use_form_encoding
 from clickhouse_connect.driver.common import ShowClickHouseErrors, coerce_bool, dict_copy
 from clickhouse_connect.driver.compression import _zstd_decompress, available_compression
 from clickhouse_connect.driver.exceptions import (
     GENERIC_CLICKHOUSE_ERROR,
     DatabaseError,
+    InternalError,
     OperationalError,
     ProgrammingError,
     error_code_from_header,
@@ -50,6 +51,21 @@ retryable_http_statuses = (429, 503, 504)
 
 # A removed comment leaves a space behind, so the gap before the 0 is not always a single space
 columns_only_re = re.compile(r"LIMIT\s+0\s*(?:;\s*)*$", re.IGNORECASE)
+
+
+def is_columns_only_query(context: QueryContext) -> bool:
+    if context.is_insert or not columns_only_re.search(context.uncommented_query):
+        return False
+
+    final_query = context.final_query
+    return isinstance(final_query, str) and _query_has_trailing_limit_zero(final_query)
+
+
+def columns_only_meta(json_result: dict[str, Any]) -> list[dict[str, Any]]:
+    if json_result.get("data"):
+        raise InternalError("LIMIT 0 metadata probe unexpectedly returned rows. Use raw_query() to retrieve results for this SQL.")
+    return json_result["meta"]
+
 
 if "br" in available_compression:
     import brotli
@@ -184,7 +200,9 @@ class HttpTransportState(Protocol):
     progress_interval: str | None
 
 
-def apply_http_server_settings(client: Client, transport: HttpTransportState, compression: str | None, send_receive_timeout: int) -> None:
+def apply_http_server_settings(
+    client: Client, transport: HttpTransportState, compression: str | None, send_receive_timeout: int | float
+) -> None:
     """Apply HTTP-specific client setting defaults after server settings discovery.
 
     Sets the readonly-query cancel default (unless user-supplied), response
@@ -204,7 +222,7 @@ def apply_http_server_settings(client: Client, transport: HttpTransportState, co
     send_setting = client._setting_status("send_progress_in_http_headers")
     transport.send_progress = not send_setting.is_set and send_setting.is_writable
     if (send_setting.is_set or send_setting.is_writable) and client._setting_status("http_headers_progress_interval_ms").is_writable:
-        transport.progress_interval = str(min(120000, max(10000, (send_receive_timeout - 5) * 1000)))
+        transport.progress_interval = str(int(min(120000, max(10000, (send_receive_timeout - 5) * 1000))))
 
 
 @dataclass
@@ -250,7 +268,7 @@ def plan_query_request(
     headers: dict[str, Any] = {}
     use_form = use_form_encoding(context.final_query, context.bind_params, form_encode_query_params)
 
-    if not context.is_insert and columns_only_re.search(context.uncommented_query):
+    if is_columns_only_query(context):
         fmt_json_query = f"{context.final_query}\n FORMAT JSON"
         if use_form:
             form_values: dict[str, Any] = {"query": fmt_json_query}

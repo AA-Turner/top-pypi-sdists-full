@@ -1866,7 +1866,7 @@ class Parser:
 
     # Whether query modifiers such as LIMIT are attached to the UNION node (vs its right operand)
     MODIFIERS_ATTACHED_TO_SET_OP: t.ClassVar = True
-    SET_OP_MODIFIERS: t.ClassVar = {"order", "limit", "offset"}
+    SET_OP_MODIFIERS: t.ClassVar = {"order", "limit", "offset", "sort", "distribute", "cluster"}
 
     # Whether to parse IF statements that aren't followed by a left parenthesis as commands
     NO_PAREN_IF_COMMANDS: t.ClassVar = True
@@ -2919,6 +2919,9 @@ class Parser:
 
         if self._match_text_seq("PARAMETER", "STYLE", "PANDAS"):
             return self.expression(exp.ParameterStyleProperty(this="PANDAS"))
+
+        if self._match_text_seq("NOT", "DETERMINISTIC"):
+            return self.expression(exp.StabilityProperty(this=exp.Literal.string("VOLATILE")))
 
         index = self._index
 
@@ -4362,6 +4365,16 @@ class Parser:
             while True:
                 if self._match_set(self.QUERY_MODIFIER_PARSERS, advance=False):
                     modifier_token = self._curr
+
+                    # Defer LIMIT/FETCH after TOP until a set op is built so it applies to the whole result
+                    # e.g., SELECT 1 AS x UNION ALL SELECT TOP 2 2 AS x LIMIT 1 -> limit applies to union
+                    if (
+                        modifier_token.token_type in (TokenType.LIMIT, TokenType.FETCH)
+                        and (limit := this.args.get("limit"))
+                        and limit.meta.get("top")
+                    ):
+                        break
+
                     parser = self.QUERY_MODIFIER_PARSERS[modifier_token.token_type]
                     key, expression = parser(self)
 
@@ -4378,6 +4391,11 @@ class Parser:
                             expression.set("offset", None)
 
                             if offset:
+                                if this.args.get("offset"):
+                                    self.raise_error(
+                                        "Found multiple 'OFFSET' clauses", token=modifier_token
+                                    )
+
                                 offset = exp.Offset(expression=offset)
                                 this.set("offset", offset)
 
@@ -5569,8 +5587,6 @@ class Parser:
             elements["all"] = False
 
         while True:
-            index = self._index
-
             # Stop before consuming modifier tokens like LIMIT, OFFSET and WINDOW,
             # which are also valid identifiers
             if self._match_set(self.QUERY_MODIFIER_TOKENS, advance=False):
@@ -5579,35 +5595,29 @@ class Parser:
             elements["expressions"].extend(
                 self._parse_csv(
                     lambda: (
-                        None
-                        if self._match_set((TokenType.CUBE, TokenType.ROLLUP), advance=False)
-                        else self._parse_disjunction()
+                        self._parse_grouping_sets()
+                        or self._parse_cube_or_rollup()
+                        or self._parse_disjunction()
                     )
                 )
             )
-            grouping_sets_as_group_by_element = (
-                not elements["expressions"] or self._prev.token_type == TokenType.COMMA
-            )
 
             before_with_index = self._index
-            with_prefix = self._match(TokenType.WITH)
 
-            if cube_or_rollup := self._parse_cube_or_rollup(with_prefix=with_prefix):
+            if self._match(TokenType.WITH) and (
+                cube_or_rollup := self._parse_cube_or_rollup(with_prefix=True)
+            ):
                 key = "rollup" if isinstance(cube_or_rollup, exp.Rollup) else "cube"
                 elements[key].append(cube_or_rollup)
             elif grouping_sets := self._parse_grouping_sets():
+                # Hive-style suffix syntax: GROUP BY a, b GROUPING SETS (...)
                 elements["grouping_sets"].append(grouping_sets)
-                elements["grouping_sets_as_group_by_element"] = grouping_sets_as_group_by_element
-                if not grouping_sets_as_group_by_element:
-                    break
+                break
             elif self._match_text_seq("TOTALS"):
                 elements["totals"] = True  # type: ignore
 
             if before_with_index <= self._index <= before_with_index + 1:
                 self._retreat(before_with_index)
-                break
-
-            if index == self._index:
                 break
 
         return self.expression(exp.Group(**elements), comments=comments)  # type: ignore
@@ -5808,6 +5818,9 @@ class Parser:
                 comments=comments,
             )
 
+            if top:
+                limit_exp.meta["top"] = True
+
             return limit_exp
 
         if self._match(TokenType.FETCH):
@@ -6002,8 +6015,13 @@ class Parser:
             if expression:
                 for arg in self.SET_OP_MODIFIERS:
                     expr = expression.args.get(arg)
-                    if expr:
-                        this.set(arg, expr.pop())
+                    if expr and not (arg == "limit" and expr.meta.get("top")):
+                        expression.set(arg, None)
+                        this.set(arg, expr)
+
+            # A trailing LIMIT/FETCH can coexist with TOP on the final operand.
+            if self._curr.token_type in (TokenType.LIMIT, TokenType.FETCH):
+                this = self._parse_query_modifiers(this)
 
         return this
 
@@ -10484,22 +10502,17 @@ class Parser:
         return expr
 
     def _parse_operator(self, this: exp.Expr | None) -> exp.Expr | None:
-        while True:
-            if not self._match(TokenType.L_PAREN):
-                break
+        if not self._match(TokenType.L_PAREN):
+            self._retreat(self._index - 1)
+            return None
 
-            op = ""
-            while self._curr and not self._match(TokenType.R_PAREN):
-                op += self._curr.text
-                self._advance()
+        op = ""
+        while self._curr and not self._match(TokenType.R_PAREN):
+            op += self._curr.text
+            self._advance()
 
-            comments = self._prev_comments
-            this = self.expression(
-                exp.Operator(this=this, operator=op, expression=self._parse_bitwise()),
-                comments=comments,
-            )
-
-            if not self._match(TokenType.OPERATOR):
-                break
-
-        return this
+        comments = self._prev_comments
+        return self.expression(
+            exp.Operator(this=this, operator=op, expression=self._parse_bitwise()),
+            comments=comments,
+        )

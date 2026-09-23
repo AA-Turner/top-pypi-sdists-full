@@ -152,8 +152,14 @@ INTERACTION_ALIASES: dict[str, str] = {
 }
 
 CANONICAL_KEYS: frozenset[str] = frozenset(
-    {"input", "output", "features", "interaction", "multilingual"}
+    {"input", "output", "features", "interaction", "multilingual", "image_reference_roles"}
 )
+
+#: ``image_reference_roles`` is ``{role: max_count, ..., "total": n}`` — how
+#: many reference images of each role an image model accepts. A role absent
+#: from the map is a role the model cannot take (the request is REFUSED, never
+#: silently stripped). Vocabulary: ``matrx_ai/media/image_reference_roles.py``.
+IMAGE_REFERENCE_ROLES_KEY = "image_reference_roles"
 
 VOCABULARY_FILE = "matrx_ai/providers/capability_vocabulary.py"
 
@@ -310,6 +316,24 @@ def normalize_capabilities(raw: Any, *, label: str = "") -> CapabilitiesNormaliz
     if multilingual is not None and not isinstance(multilingual, bool):
         rejections.append(f"multilingual {multilingual!r}{where} is not a boolean")
 
+    if IMAGE_REFERENCE_ROLES_KEY in raw:
+        from matrx_ai.media.image_reference_roles import IMAGE_REFERENCE_ROLES, TOTAL_KEY
+
+        limits = raw[IMAGE_REFERENCE_ROLES_KEY]
+        if not isinstance(limits, dict):
+            rejections.append(
+                f"{IMAGE_REFERENCE_ROLES_KEY}{where} must be an object of role -> count"
+            )
+        else:
+            for role, count in limits.items():
+                if role not in IMAGE_REFERENCE_ROLES and role != TOTAL_KEY:
+                    rejections.append(f"{IMAGE_REFERENCE_ROLES_KEY} role {role!r}{where}")
+                elif isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                    rejections.append(
+                        f"{IMAGE_REFERENCE_ROLES_KEY}.{role} {count!r}{where} is not a "
+                        "non-negative integer"
+                    )
+
     return CapabilitiesNormalization(value=out, corrections=corrections, rejections=rejections)
 
 
@@ -320,6 +344,7 @@ __all__ = [
     "FEATURE_ALIASES",
     "FEATURE_KEYS",
     "FEATURE_TO_INPUT_MODALITY",
+    "IMAGE_REFERENCE_ROLES_KEY",
     "INTERACTION_ALIASES",
     "INTERACTION_MODES",
     "VOCABULARY_FILE",

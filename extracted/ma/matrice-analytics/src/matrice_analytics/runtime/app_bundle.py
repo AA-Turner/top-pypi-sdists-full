@@ -8,10 +8,17 @@ ml-applications app folder and that zip *is* an engine app bundle -- ``app.yaml`
 three config JSONs -- in exactly the layout ``_locate_manifest_root`` already accepts.
 
 This module answers one question: **given what a worker was handed, where is the bundle?** It does
-no I/O and never raises. The answer is an ordered tuple of candidates, and an *empty* tuple is the
-ordinary answer -- it means "no bundle reference", which is every app deployed today. That empty
-tuple is the backward-compatibility guarantee: with no candidates, ``select_engine_backend`` runs
-the same ``route_app`` line it ran before this module existed.
+no I/O and never raises. The answer is an ordered tuple of candidates, and an *empty* tuple is a
+legitimate answer -- it means "no bundle reference for this application version". That empty tuple
+is the backward-compatibility guarantee: with no candidates, ``select_engine_backend`` runs the
+same ``route_app`` line it ran before this module existed.
+
+How common an empty answer is, is deployment state, not a property of this module. The line above
+used to say "which is every app deployed today"; that was written *in the commit that introduced
+bundle loading*, so it was true by construction on the day and says nothing about any later one.
+INC-2606 (``aca37e4``) then found X-Ray Detection live on the engine path and dead because version
+resolution refused, which is the opposite case. Do not restore a fleet-state claim here -- nothing
+in this repo can check one, so it can only ever rot.
 
 Why an *ordered* list rather than one answer: the four sources have genuinely different failure
 modes. An operator's env var should beat platform config. A synced local folder should beat the
@@ -24,20 +31,29 @@ it server-side, so it is unknowable at authoring time. It is read back from the 
 worker's own action record first, then the app-deployment record -- and never guessed from the
 application's *published* version, which routinely runs ahead of what a deployment is on.
 
-Standard library only at module scope. ``matrice_common`` is imported lazily inside
-:func:`_open_session`, the same way ``PostProcessingConfigClient`` does it, so this module imports
-cleanly in an image that has no platform SDK.
+Standard library at module scope, plus the ``clients`` package -- the response layer, the
+transport and the session bootstrap. That package is an import leaf in the other direction: it
+never imports from ``runtime``, which is why the calls it owns report :class:`CallFailure` and
+are re-reported as :class:`AppBundleError` by the adapters at the bottom of the imports.
+``matrice_common`` is imported lazily inside ``clients.bootstrap``, the same way
+``PostProcessingConfigClient`` does it, so this module imports cleanly in an image that has no
+platform SDK.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+
+from ..clients.bootstrap import open_session as _client_open_session
+from ..clients.bootstrap import resolve_action_id
+from ..clients.response import CallFailure, _is_not_found
+from ..clients.transport import _bases_for, _describe, backend_base_url
+from ..clients.transport import _rpc as _client_rpc
+from ..clients.transport import _rpc_data as _client_rpc_data
 
 logger = logging.getLogger(__name__)
 
@@ -89,14 +105,6 @@ APP_DEPLOYMENT_ID_KEYS: Tuple[str, ...] = ("app_deployment_id", "appDeploymentId
 
 ENV_BUNDLE_REF = "MATRICE_APP_BUNDLE_REF"
 ENV_SELF_MINT = "MATRICE_APP_BUNDLE_SELF_MINT"
-ENV_ACTION_ID = "MATRICE_ACTION_ID"
-#: The bare name the Go services and the ENV_ID_ACTIONS images read. py_compute's
-#: k8s lane has always emitted both; its docker lane emitted only the MATRICE_ one
-#: for the ACTION_SCRIPTS class, so the id was reachable under one name in one lane
-#: and the other name in the other. Accepting both here fixes every already-running
-#: pod on its next SDK pull, without waiting on a py_compute redeploy.
-ENV_ACTION_ID_BARE = "ACTION_ID"
-ENV_API_BASE = "MATRICE_APP_BUNDLE_API_BASE"
 ENV_LICENSE_KEY = "MATRICE_LICENSE_KEY"
 
 #: Kill switch for the published-version fallback (see
@@ -160,15 +168,6 @@ POST_PROCESSING_CONFIGS_PATH = (
 #: Querying this as a fallback is what makes the pipeline agree with the screen. It cannot pick up
 #: another deployment's geometry, because there is no other document to pick up.
 POST_PROCESSING_CONFIG_BY_CAMERA_APP_PATH = "/v1/inference/post_processing_config"
-
-#: Route prefixes the local gateway serves from an **on-prem** service instead of proxying to the
-#: cloud (``location /v1/inference -> api_inference``). For these the session's own base URL is the
-#: authority, and :func:`backend_base_url` is not a fallback but a wrong answer -- see
-#: :func:`_bases_for`.
-LOCAL_AUTHORITY_PREFIXES = ("/v1/inference/",)
-
-#: A 24-hex Mongo ObjectId. Used to recognise an action id in ``sys.argv``.
-_OBJECT_ID_RE = re.compile(r"^[0-9a-f]{24}$")
 
 
 class AppBundleError(RuntimeError):
@@ -453,109 +452,40 @@ def _local_app_folder(usecase: Optional[str], environ: Mapping[str, str]) -> Opt
     return None
 
 
-def resolve_action_id(
-    env: Optional[Mapping[str, str]] = None, argv: Optional[Sequence[str]] = None
-) -> Optional[str]:
-    """The action record id for this worker, if it can be determined locally.
+# -- the client package seam ------------------------------------------------------------------
+#
+# ``clients/`` is an import leaf: it may import ``matrice_common`` and the standard library,
+# never ``matrice_analytics.runtime``. ``AppBundleError`` is defined in this module, so the
+# helpers that moved out cannot raise it -- they raise ``CallFailure`` instead.
+#
+# ``backend_base_url``, ``_bases_for``, ``_describe`` and ``resolve_action_id`` are imported
+# above and used unchanged: they raise nothing, so there is nothing to translate. The three
+# that can fail get one adapter each, keeping the original name and restoring this module's
+# error type. Translating here rather than at each call site leaves all fourteen call sites and
+# every enclosing handler exactly as they were, and means a call added later cannot forget the
+# guard -- there is no other route from ``clients`` into this module.
 
-    Three sources, no I/O. ``$MATRICE_ACTION_ID`` first, because an operator setting it means it,
-    then ``$ACTION_ID`` -- the bare name the Go services and the ENV_ID_ACTIONS images read, and the
-    only one some py_compute launch paths emitted. Then ``sys.argv``: py_compute launches every
-    action container as ``python3 <entrypoint>.py <action_record_id> <port>``, so the id is the
-    first argument that looks like an ObjectId. Matching on shape rather than position keeps this
-    from mistaking a port or a flag for an id.
 
-    A malformed value in either env var falls through rather than erroring, so a truncated id does
-    not mask a good one in argv.
+def _open_session(what: str) -> Any:
+    """A ``matrice_common`` session from the container's credentials.
+
+    Wraps ``clients.bootstrap.open_session``, which is uncached: every call opens a new
+    session, as every caller in this module has always got. ``clients.bootstrap.get_session``
+    memoises one per process and is deliberately not used here -- a shared session has no
+    invalidation path, so one bad session would outlive the call that made it.
     """
-    environ = os.environ if env is None else env
-    for name in (ENV_ACTION_ID, ENV_ACTION_ID_BARE):
-        explicit = (environ.get(name) or "").strip()
-        if _OBJECT_ID_RE.match(explicit.lower()):
-            return explicit.lower()
-
-    for arg in list(argv if argv is not None else sys.argv)[1:]:
-        candidate = str(arg).strip().lower()
-        if _OBJECT_ID_RE.match(candidate):
-            return candidate
-    return None
+    try:
+        return _client_open_session(what)
+    except CallFailure as exc:
+        raise AppBundleError(str(exc)) from exc
 
 
 def _rpc(session: Any) -> Any:
-    """The authenticated RPC off a session, or a named error.
-
-    ``session.rpc`` is the same handle ``PostProcessingConfigClient`` uses, already signed with the
-    container's access keys -- nothing here builds its own auth.
-    """
+    """The authenticated RPC handle off a session. Wraps ``clients.transport._rpc``."""
     try:
-        return session.rpc
-    except Exception as exc:  # pragma: no cover - a session whose rpc property raises
-        raise AppBundleError(f"Session has no usable RPC handle: {exc}") from exc
-
-
-def backend_base_url(env: Optional[Mapping[str, str]] = None) -> str:
-    """The backend's own address, for a route the session's base URL will not serve.
-
-    Deployments set ``MATRICE_BASE_URL`` to a local gateway (``http://localhost``). That gateway
-    proxies the route prefixes it knows -- ``/v1/inference/*`` among them, which is why
-    ``PostProcessingConfigClient`` has always worked -- and 302s anything else out to the real
-    backend. ``matrice_common``'s client has ``follow_redirects=True``, and httpx drops the
-    ``Authorization`` header when a redirect crosses origin, so a redirected call arrives
-    unauthenticated and be-application answers 404. Observed in production on 0.1.428:
-    ``http://localhost/v1/applications/.../usecase/download`` -> 302 -> prod -> 404, while the same
-    path with a direct base URL returns 200.
-
-    Derived the same way ``matrice_common`` derives its own default, so an on-prem or non-prod
-    deployment still lands on its own backend; ``$MATRICE_APP_BUNDLE_API_BASE`` overrides it.
-    """
-    environ = os.environ if env is None else env
-    explicit = (environ.get(ENV_API_BASE) or "").strip()
-    if explicit:
-        return explicit.rstrip("/")
-    stage = ((environ.get("ENV") or "").strip() or "prod").lower()
-    return f"https://{stage}.backend.app.matrice.ai"
-
-
-def _bases_for(path: str, env: Optional[Mapping[str, str]] = None) -> tuple:
-    """The base URLs worth trying for ``path``, in order.
-
-    Two bases for a **cloud-only** route, because the local gateway 302s those out and httpx drops
-    the ``Authorization`` header across the origin change -- the case :func:`backend_base_url`
-    exists for.
-
-    One base for a route in :data:`LOCAL_AUTHORITY_PREFIXES`, because retrying those against the
-    cloud is not a fallback, it is a category error, and an expensive one (ANLY-15):
-
-    * The gateway proxies ``/v1/inference/*`` to the on-prem ``api_inference``. That service, not
-      the cloud, owns the answer -- on an ``accessScale: "local"`` deployment the document exists
-      in the on-prem mongo and *nowhere else*, so the cloud has nothing to return even in
-      principle.
-    * The retry cannot authenticate anyway. Tokens are minted against ``$MATRICE_BASE_URL``
-      (``token_auth.py`` ``VALIDATE_ACCESS_KEY_URL`` / ``REFRESH_TOKEN_URL``), i.e. the local
-      gateway's ``api_user``, so a direct-to-cloud call presents a JWT that the cloud never issued
-      and is refused ``401 Invalid authentication token``. Going direct also bypasses the
-      gateway's ``cloud_egress`` listener, which is the *only* sanctioned crossing: it strips
-      ``Authorization`` and substitutes the deployment's ``X-License-Key``. This module already
-      does the crossing correctly for the one route that needs it -- see ``_mint_via_license``.
-    * ``rpc``'s 401 handler then re-mints (against the gateway, successfully) and retries into the
-      same refusal, so each attempt costs two cloud round trips plus a re-auth, logs a full error
-      block, and cannot ever succeed.
-    """
-    if path.startswith(LOCAL_AUTHORITY_PREFIXES):
-        return (None,)
-    return (None, backend_base_url(env))
-
-
-def _is_not_found(response: Any) -> bool:
-    """True when ``response`` is ``matrice_common``'s canonical 404 envelope.
-
-    ``rpc._execute_request`` short-circuits **every** 404 into ``_not_found_response()`` and never
-    raises, so "the document does not exist" arrives looking exactly like a failed call. It is
-    distinguishable only by the ``status_code`` the envelope carries, and telling the two apart is
-    what lets a fetcher honour its documented "returns nothing when absent" contract instead of
-    escalating a perfectly good answer into another attempt.
-    """
-    return isinstance(response, dict) and response.get("status_code") == 404
+        return _client_rpc(session)
+    except CallFailure as exc:
+        raise AppBundleError(str(exc)) from exc
 
 
 def _rpc_data(
@@ -565,66 +495,15 @@ def _rpc_data(
     what: str,
     env: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
-    """GET ``path`` on the authenticated session and return ``data`` as a dict.
+    """GET ``path`` and return its ``data`` object. Wraps ``clients.transport._rpc_data``.
 
-    Tries the session's own base URL first -- where the gateway does proxy the route, that is one
-    call and the right one. Only if that fails does it retry against
-    :func:`backend_base_url`, because the most likely reason for the first failure is a
-    cross-origin redirect that stripped the auth header rather than anything wrong with the request.
-    A locally-owned route gets no such retry; :func:`_bases_for` says why.
-
-    A 404 is deliberately *not* short-circuited here, unlike in the post-processing fetchers: on a
-    cloud-only route it is the signature of the redirect having stripped the auth header, which is
-    precisely the case the second base exists to rescue.
+    Raises rather than returning ``{}`` when a successful reply's ``data`` is not an object;
+    the wrapped function's docstring says why.
     """
-    attempts: list[str] = []
-    for base in _bases_for(path, env):
-        try:
-            rpc = _rpc(session)
-            response = rpc.get(path) if base is None else rpc.get(path, base_url=base)
-        except AppBundleError as exc:
-            # Recorded rather than re-raised so the final message still names the path. A session
-            # with no usable rpc fails the same way twice, which is fine -- the cause is in the list.
-            attempts.append(f"{base or 'session base url'}: {exc}")
-            continue
-        except Exception as exc:  # noqa: BLE001 - every transport error is one failed attempt
-            attempts.append(f"{base or 'session base url'}: {type(exc).__name__}: {exc}")
-            continue
-
-        if isinstance(response, dict) and response.get("success"):
-            if base is not None:
-                logger.info(
-                    "app bundle: %s served from %s -- the session's base URL did not serve it (%s)",
-                    path,
-                    base,
-                    attempts[0] if attempts else "no detail",
-                )
-            data = response.get("data")
-            return data if isinstance(data, dict) else {}
-        attempts.append(f"{base or 'session base url'}: {_describe(response)}")
-
-    raise AppBundleError(
-        f"GET {path} did not succeed while resolving {what}. Tried: " + "; ".join(attempts) + ". "
-        "A 404 here usually means the request lost its Authorization header on a redirect out of "
-        "the local gateway; a 401/403 means the container's credentials are not accepted on this "
-        "route. Set $MATRICE_APP_BUNDLE_API_BASE to the backend that should serve it."
-    )
-
-
-def _describe(response: Any) -> str:
-    """Say something useful about a failed response, including one that is not ours at all.
-
-    ``message`` is absent whenever the body did not come from the platform -- an edge proxy
-    returning its own error page, for instance. Reporting ``None`` in that case sends whoever reads
-    the log hunting for a bug in the API call rather than in the network path, so name the shape.
-    """
-    if not isinstance(response, dict):
-        return f"non-dict response {type(response).__name__}: {str(response)[:120]}"
-    for key in ("message", "detail", "title", "error_name"):
-        value = response.get(key)
-        if isinstance(value, str) and value.strip():
-            return f"{key}={value.strip()[:160]!r}"
-    return f"no message; response keys were {sorted(response)[:12]}"
+    try:
+        return _client_rpc_data(session, path, what=what, env=env)
+    except CallFailure as exc:
+        raise AppBundleError(str(exc)) from exc
 
 
 def fetch_action_job_params(action_id: str, *, session: Any = None) -> Dict[str, Any]:
@@ -849,34 +728,6 @@ def fetch_post_processing_config_by_camera_and_app(
         f"GET {path}?cameraId={camera_id}&applicationId={application_id} did not succeed while "
         "resolving zone geometry by camera and application. Tried: " + "; ".join(attempts)
     )
-
-
-def _open_session(what: str) -> Any:
-    """A ``matrice_common`` session from the container's own credentials.
-
-    Imported lazily, exactly as ``PostProcessingConfigClient.__init__`` does, so this module stays
-    importable in an image with no platform SDK.
-    """
-    access_key = os.getenv("MATRICE_ACCESS_KEY_ID", "")
-    secret_key = os.getenv("MATRICE_SECRET_ACCESS_KEY", "")
-    if not access_key or not secret_key:
-        raise AppBundleError(
-            f"Cannot resolve {what}: MATRICE_ACCESS_KEY_ID / MATRICE_SECRET_ACCESS_KEY are not set in this process."
-        )
-    try:
-        from matrice_common.session import Session
-    except Exception as exc:
-        raise AppBundleError(
-            f"Cannot resolve {what}: matrice_common is not importable ({exc})."
-        ) from exc
-    try:
-        return Session(
-            access_key=access_key,
-            secret_key=secret_key,
-            account_number=os.getenv("MATRICE_ACCOUNT_NUMBER", "") or "",
-        )
-    except Exception as exc:
-        raise AppBundleError(f"Could not open a Matrice session to resolve {what}: {exc}") from exc
 
 
 def resolve_application_identity(

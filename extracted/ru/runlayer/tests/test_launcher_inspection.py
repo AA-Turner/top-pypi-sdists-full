@@ -283,6 +283,125 @@ def test_windows_shell_link_inspection_reports_target_identity(
     ]
 
 
+def _counters(result: inspection_module.LauncherInspectionResult) -> dict[str, int]:
+    return {
+        "unreadable": result.unreadable,
+        "unsafe_path": result.unsafe_path,
+        "unparsed_grammar": result.unparsed_grammar,
+        "unknown_target": result.unknown_target,
+    }
+
+
+def test_windows_npm_cmd_shim_counts_as_unparsed_grammar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    primary = tmp_path / "AppData" / "Roaming" / "npm"
+    primary.mkdir(parents=True)
+    (primary / "aider.cmd").write_bytes(
+        b"@ECHO off\r\n"
+        b"GOTO start\r\n"
+        b":find_dp0\r\n"
+        b"SET dp0=%~dp0\r\n"
+        b"EXIT /b\r\n"
+        b":start\r\n"
+        b"SETLOCAL\r\n"
+        b"CALL :find_dp0\r\n"
+        b'IF EXIST "%dp0%\\node.exe" (\r\n'
+        b'  SET "_prog=%dp0%\\node.exe"\r\n'
+        b") ELSE (\r\n"
+        b'  SET "_prog=node"\r\n'
+        b"  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n"
+        b")\r\n"
+        b'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  '
+        b'"%dp0%\\node_modules\\aider\\bin\\aider.js" %*\r\n'
+    )
+    monkeypatch.setattr(
+        inspection_module,
+        "windows_bin_roots",
+        lambda **_kwargs: [primary],
+    )
+
+    result = inspect_launcher_identities(
+        known_basenames=["aider"],
+        home=tmp_path,
+        system="Windows",
+    )
+
+    assert result.findings == []
+    assert result.launchers == 1
+    assert _counters(result) == {
+        "unreadable": 0,
+        "unsafe_path": 0,
+        "unparsed_grammar": 1,
+        "unknown_target": 0,
+    }
+
+
+def test_windows_forwarder_to_unknown_exe_counts_as_unknown_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "tools" / "other.exe"
+    target.parent.mkdir()
+    target.write_bytes(b"MZ")
+    primary = tmp_path / "AppData" / "Roaming" / "npm"
+    primary.mkdir(parents=True)
+    (primary / "other.cmd").write_bytes(
+        b'@echo off\r\n@"%~dp0..\\..\\..\\tools\\other.exe" %*\r\n'
+    )
+    monkeypatch.setattr(
+        inspection_module,
+        "windows_bin_roots",
+        lambda **_kwargs: [primary],
+    )
+
+    result = inspect_launcher_identities(
+        known_basenames=["aider"],
+        home=tmp_path,
+        system="Windows",
+    )
+
+    assert result.findings == []
+    assert _counters(result) == {
+        "unreadable": 0,
+        "unsafe_path": 0,
+        "unparsed_grammar": 0,
+        "unknown_target": 1,
+    }
+
+
+def test_windows_forwarder_escaping_home_counts_as_unsafe_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    primary = home / "AppData" / "Roaming" / "npm"
+    primary.mkdir(parents=True)
+    (primary / "aider.cmd").write_bytes(
+        b'@echo off\r\n@"%~dp0..\\..\\..\\..\\aider.exe" %*\r\n'
+    )
+    monkeypatch.setattr(
+        inspection_module,
+        "windows_bin_roots",
+        lambda **_kwargs: [primary],
+    )
+
+    result = inspect_launcher_identities(
+        known_basenames=["aider"],
+        home=home,
+        system="Windows",
+    )
+
+    assert result.findings == []
+    assert _counters(result) == {
+        "unreadable": 0,
+        "unsafe_path": 1,
+        "unparsed_grammar": 0,
+        "unknown_target": 0,
+    }
+
+
 def test_windows_static_roots_are_inspected_before_version_root_listing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -374,7 +493,8 @@ def test_posix_entry_metadata_error_skips_entry_and_keeps_inspecting(
     )
 
     assert [finding.basename for finding in result.findings] == ["aider"]
-    assert result.malformed_or_unsafe == 1
+    assert result.unreadable == 1
+    assert result.unsafe_path == 0
     assert result.truncated is False
     assert result.truncation_reason is None
 
@@ -468,7 +588,8 @@ def test_posix_launcher_resolution_is_bounded(
     )
 
     assert result.findings == []
-    assert result.malformed_or_unsafe == 1
+    assert result.unsafe_path == 1
+    assert result.unreadable == 0
 
 
 @pytest.mark.skipif(os.name != "posix", reason="requires POSIX symlinks")
@@ -606,7 +727,7 @@ def test_partial_scandir_error_marks_result_incomplete_and_keeps_findings(
     )
 
     assert [finding.basename for finding in result.findings] == ["aider"]
-    assert result.malformed_or_unsafe == 1
+    assert result.unreadable == 1
     assert result.truncated is True
     assert result.truncation_reason == "directory_error"
 
@@ -741,7 +862,12 @@ def test_windows_candidate_deadline_is_not_counted_as_malformed(
 
     assert result.truncated is True
     assert result.truncation_reason == "deadline"
-    assert result.malformed_or_unsafe == 0
+    assert _counters(result) == {
+        "unreadable": 0,
+        "unsafe_path": 0,
+        "unparsed_grammar": 0,
+        "unknown_target": 0,
+    }
 
 
 @pytest.mark.skipif(os.name != "posix", reason="requires POSIX symlinks")
@@ -790,4 +916,9 @@ def test_posix_candidate_deadline_is_not_counted_as_malformed(
 
     assert result.truncated is True
     assert result.truncation_reason == "deadline"
-    assert result.malformed_or_unsafe == 0
+    assert _counters(result) == {
+        "unreadable": 0,
+        "unsafe_path": 0,
+        "unparsed_grammar": 0,
+        "unknown_target": 0,
+    }

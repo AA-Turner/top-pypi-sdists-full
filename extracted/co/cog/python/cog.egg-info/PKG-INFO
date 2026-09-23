@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cog
-Version: 0.22.0
+Version: 0.23.0
 Summary: Containers for machine learning
 Author-email: Replicate <team@replicate.com>
 License: 
@@ -218,7 +218,12 @@ Requires-Dist: typing_extensions>=4.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: structlog>=21.0.0
 Requires-Dist: requests>=2.25.0
-Requires-Dist: coglet<1.0,>=0.22.0
+Requires-Dist: coglet<1.0,>=0.23.0
+Provides-Extra: tracing
+Requires-Dist: opentelemetry-api==1.44.0; extra == "tracing"
+Requires-Dist: opentelemetry-sdk==1.44.0; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.44.0; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.44.0; extra == "tracing"
 Dynamic: license-file
 
 # Cog: Containers for machine learning
@@ -319,7 +324,7 @@ $ cog exec python train.py
 ...
 ```
 
-Or, [spin up a Jupyter notebook](https://github.com/replicate/cog/blob/v0.22.0/docs/notebooks.md):
+Or, [spin up a Jupyter notebook](https://github.com/replicate/cog/blob/v0.23.0/docs/notebooks.md):
 
 ```console
 $ cog exec -p 8888 jupyter notebook --allow-root --ip=0.0.0.0
@@ -340,7 +345,7 @@ Hit us up if you're interested in using it or want to collaborate with us. [We'r
 
 ## Prerequisites
 
-- **macOS, Linux or Windows 11**. Cog works on macOS, Linux and Windows 11 with [WSL 2](https://github.com/replicate/cog/blob/v0.22.0/docs/wsl2/wsl2.md)
+- **macOS, Linux or Windows 11**. Cog works on macOS, Linux and Windows 11 with [WSL 2](https://github.com/replicate/cog/blob/v0.23.0/docs/wsl2/wsl2.md)
 - **Docker**. Cog uses Docker to create a container for your model. You'll need to [install Docker](https://docs.docker.com/get-docker/) before you can run Cog. If you install Docker Engine instead of Docker Desktop, you will need to [install Buildx](https://docs.docker.com/build/architecture/#buildx) as well.
 
 ## Install
@@ -415,7 +420,7 @@ sudo chmod +x /usr/local/bin/cog
 <details markdown>
   <summary>Windows</summary>
 
-Cog does not natively support Windows, but you can run it on Windows 11 using [WSL 2](https://github.com/replicate/cog/blob/v0.22.0/docs/wsl2/wsl2.md). Once WSL 2 is set up, follow the Linux installation instructions above.
+Cog does not natively support Windows, but you can run it on Windows 11 using [WSL 2](https://github.com/replicate/cog/blob/v0.23.0/docs/wsl2/wsl2.md). Once WSL 2 is set up, follow the Linux installation instructions above.
 
 </details>
 
@@ -442,20 +447,20 @@ Otherwise, you can upgrade to the latest version by running the same commands yo
 
 ## Development
 
-See [CONTRIBUTING.md](https://github.com/replicate/cog/blob/v0.22.0/CONTRIBUTING.md) for how to set up a development environment and build from source.
+See [CONTRIBUTING.md](https://github.com/replicate/cog/blob/v0.23.0/CONTRIBUTING.md) for how to set up a development environment and build from source.
 
 ## Next steps
 
-- [Get started with an example model](https://github.com/replicate/cog/blob/v0.22.0/docs/getting-started.md)
-- [Get started with your own model](https://github.com/replicate/cog/blob/v0.22.0/docs/getting-started-own-model.md)
-- [Using Cog with notebooks](https://github.com/replicate/cog/blob/v0.22.0/docs/notebooks.md)
-- [Using Cog with Windows 11](https://github.com/replicate/cog/blob/v0.22.0/docs/wsl2/wsl2.md)
-- [Browse the example models in this repo](https://github.com/replicate/cog/blob/v0.22.0/docs/examples.md)
-- [Deploy models with Cog](https://github.com/replicate/cog/blob/v0.22.0/docs/deploy.md)
-- [`cog.yaml` reference](https://github.com/replicate/cog/blob/v0.22.0/docs/yaml.md) to learn how to define your model's environment
-- [Run interface reference](https://github.com/replicate/cog/blob/v0.22.0/docs/python.md) to learn how the `Runner` interface works
-- [Training interface reference](https://github.com/replicate/cog/blob/v0.22.0/docs/training.md) to learn how to add a fine-tuning API to your model
-- [HTTP API reference](https://github.com/replicate/cog/blob/v0.22.0/docs/http.md) to learn how to use the HTTP API that models serve
+- [Get started with an example model](https://github.com/replicate/cog/blob/v0.23.0/docs/getting-started.md)
+- [Get started with your own model](https://github.com/replicate/cog/blob/v0.23.0/docs/getting-started-own-model.md)
+- [Using Cog with notebooks](https://github.com/replicate/cog/blob/v0.23.0/docs/notebooks.md)
+- [Using Cog with Windows 11](https://github.com/replicate/cog/blob/v0.23.0/docs/wsl2/wsl2.md)
+- [Browse the example models in this repo](https://github.com/replicate/cog/blob/v0.23.0/docs/examples.md)
+- [Deploy models with Cog](https://github.com/replicate/cog/blob/v0.23.0/docs/deploy.md)
+- [`cog.yaml` reference](https://github.com/replicate/cog/blob/v0.23.0/docs/yaml.md) to learn how to define your model's environment
+- [Run interface reference](https://github.com/replicate/cog/blob/v0.23.0/docs/python.md) to learn how the `Runner` interface works
+- [Training interface reference](https://github.com/replicate/cog/blob/v0.23.0/docs/training.md) to learn how to add a fine-tuning API to your model
+- [HTTP API reference](https://github.com/replicate/cog/blob/v0.23.0/docs/http.md) to learn how to use the HTTP API that models serve
 
 ## Need help?
 

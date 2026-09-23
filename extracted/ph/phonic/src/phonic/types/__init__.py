@@ -176,6 +176,9 @@ if typing.TYPE_CHECKING:
     from .responses_tool_reference import ResponsesToolReference
     from .responses_transfer_to_agent_action import ResponsesTransferToAgentAction
     from .responses_transfer_to_phone_number_action import ResponsesTransferToPhoneNumberAction
+    from .responses_transfer_to_phone_number_action_on_transfer_no_answer import (
+        ResponsesTransferToPhoneNumberActionOnTransferNoAnswer,
+    )
     from .responses_user_message import ResponsesUserMessage
     from .say_payload import SayPayload
     from .set_external_id_payload import SetExternalIdPayload
@@ -184,6 +187,8 @@ if typing.TYPE_CHECKING:
     from .sip_call_error_error_code import SipCallErrorErrorCode
     from .sip_outbound_call_initiated_response import SipOutboundCallInitiatedResponse
     from .sip_outbound_dry_run_response import SipOutboundDryRunResponse
+    from .stream_tts_request import StreamTtsRequest
+    from .stream_tts_request_output_format import StreamTtsRequestOutputFormat
     from .task import Task
     from .tool import Tool
     from .tool_call_interrupted_payload import ToolCallInterruptedPayload
@@ -195,6 +200,7 @@ if typing.TYPE_CHECKING:
     from .tool_endpoint_method import ToolEndpointMethod
     from .tool_execution_mode import ToolExecutionMode
     from .tool_name import ToolName
+    from .tool_on_transfer_no_answer import ToolOnTransferNoAnswer
     from .tool_parameter import ToolParameter
     from .tool_parameter_item_type import ToolParameterItemType
     from .tool_parameter_location import ToolParameterLocation
@@ -205,6 +211,7 @@ if typing.TYPE_CHECKING:
     from .tool_project import ToolProject
     from .tool_speech_before_tool_call import ToolSpeechBeforeToolCall
     from .tool_type import ToolType
+    from .tts_response import TtsResponse
     from .unmute_payload import UnmutePayload
     from .update_system_prompt_payload import UpdateSystemPromptPayload
     from .update_tools_subset_payload import UpdateToolsSubsetPayload
@@ -378,6 +385,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponsesToolReference": ".responses_tool_reference",
     "ResponsesTransferToAgentAction": ".responses_transfer_to_agent_action",
     "ResponsesTransferToPhoneNumberAction": ".responses_transfer_to_phone_number_action",
+    "ResponsesTransferToPhoneNumberActionOnTransferNoAnswer": ".responses_transfer_to_phone_number_action_on_transfer_no_answer",
     "ResponsesUserMessage": ".responses_user_message",
     "SayPayload": ".say_payload",
     "SetExternalIdPayload": ".set_external_id_payload",
@@ -386,6 +394,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SipCallErrorErrorCode": ".sip_call_error_error_code",
     "SipOutboundCallInitiatedResponse": ".sip_outbound_call_initiated_response",
     "SipOutboundDryRunResponse": ".sip_outbound_dry_run_response",
+    "StreamTtsRequest": ".stream_tts_request",
+    "StreamTtsRequestOutputFormat": ".stream_tts_request_output_format",
     "Task": ".task",
     "Tool": ".tool",
     "ToolCallInterruptedPayload": ".tool_call_interrupted_payload",
@@ -397,6 +407,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ToolEndpointMethod": ".tool_endpoint_method",
     "ToolExecutionMode": ".tool_execution_mode",
     "ToolName": ".tool_name",
+    "ToolOnTransferNoAnswer": ".tool_on_transfer_no_answer",
     "ToolParameter": ".tool_parameter",
     "ToolParameterItemType": ".tool_parameter_item_type",
     "ToolParameterLocation": ".tool_parameter_location",
@@ -407,6 +418,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ToolProject": ".tool_project",
     "ToolSpeechBeforeToolCall": ".tool_speech_before_tool_call",
     "ToolType": ".tool_type",
+    "TtsResponse": ".tts_response",
     "UnmutePayload": ".unmute_payload",
     "UpdateSystemPromptPayload": ".update_system_prompt_payload",
     "UpdateToolsSubsetPayload": ".update_tools_subset_payload",
@@ -604,6 +616,7 @@ __all__ = [
     "ResponsesToolReference",
     "ResponsesTransferToAgentAction",
     "ResponsesTransferToPhoneNumberAction",
+    "ResponsesTransferToPhoneNumberActionOnTransferNoAnswer",
     "ResponsesUserMessage",
     "SayPayload",
     "SetExternalIdPayload",
@@ -612,6 +625,8 @@ __all__ = [
     "SipCallErrorErrorCode",
     "SipOutboundCallInitiatedResponse",
     "SipOutboundDryRunResponse",
+    "StreamTtsRequest",
+    "StreamTtsRequestOutputFormat",
     "Task",
     "Tool",
     "ToolCallInterruptedPayload",
@@ -623,6 +638,7 @@ __all__ = [
     "ToolEndpointMethod",
     "ToolExecutionMode",
     "ToolName",
+    "ToolOnTransferNoAnswer",
     "ToolParameter",
     "ToolParameterItemType",
     "ToolParameterLocation",
@@ -633,6 +649,7 @@ __all__ = [
     "ToolProject",
     "ToolSpeechBeforeToolCall",
     "ToolType",
+    "TtsResponse",
     "UnmutePayload",
     "UpdateSystemPromptPayload",
     "UpdateToolsSubsetPayload",

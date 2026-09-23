@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
+import pathlib
 import threading
 from typing import Any
 
@@ -200,9 +202,15 @@ async def test_python_environments_async_create_with_from_environment(
 class _ScottyFileHandler(BaseHTTPRequestHandler):
   captured: list[str] = []
   uploaded_bytes: list[bytes] = []
+  captured_requests: list[dict[str, Any]] = []
 
   def do_PUT(self) -> None:
     self.captured.append(f"PUT {self.path}")
+    self.captured_requests.append({
+        "method": "PUT",
+        "path": self.path,
+        "headers": {k.lower(): v for k, v in self.headers.items()},
+    })
     if self.path.startswith("/upload/") and ("/environments/" in self.path) and ("/files/" in self.path):
       # Initial Scotty upload handshake
       upload_url = f"http://127.0.0.1:{self.server.server_port}/scotty/upload/resumable_123"
@@ -220,8 +228,14 @@ class _ScottyFileHandler(BaseHTTPRequestHandler):
     self.captured.append(f"POST {self.path}")
     if self.path == "/scotty/upload/resumable_123":
       content_length = int(self.headers.get("Content-Length", 0))
-      data = self.rfile.read(content_length)
+      data = self.rfile.read(content_length) if content_length > 0 else b""
       self.uploaded_bytes.append(data)
+      self.captured_requests.append({
+          "method": "POST",
+          "path": self.path,
+          "headers": {k.lower(): v for k, v in self.headers.items()},
+          "body": data,
+      })
       file_response = {
           "file": {
               "name": "main.py",
@@ -273,9 +287,11 @@ def test_python_environments_file_upload_download(monkeypatch):
     monkeypatch.delenv(var, raising=False)
   captured: list[str] = []
   uploaded_bytes: list[bytes] = []
+  captured_requests: list[dict[str, Any]] = []
   handler = type("Handler", (_ScottyFileHandler,), {
       "captured": captured,
       "uploaded_bytes": uploaded_bytes,
+      "captured_requests": captured_requests,
   })
   server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
   thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -302,7 +318,6 @@ def test_python_environments_file_upload_download(monkeypatch):
     assert files_res.files[0].size_bytes == 128
     assert files_res.next_page_token == "token_next_123"
 
-
     # Test sync files.list with pagination and recursive options
     files_res_paginated = client.environments.files.list(
         environment="env_123",
@@ -319,10 +334,28 @@ def test_python_environments_file_upload_download(monkeypatch):
         path="src/main.py",
         file=b"print('hello world')",
         mime_type="text/x-python",
+        overwrite=True,
     )
     assert upload_res.files and len(upload_res.files) == 1
     assert upload_res.files[0].name == "main.py"
     assert uploaded_bytes[0] == b"print('hello world')"
+
+    # Verify handshake and chunk headers
+    handshake = [r for r in captured_requests if r["method"] == "PUT" and "/files/" in r["path"]][0]
+    assert handshake["method"] == "PUT"
+    assert handshake["path"].startswith("/upload/v1beta/environments/env_123/files/src/main.py")
+    assert "overwrite=true" in handshake["path"]
+    assert handshake["headers"].get("x-goog-upload-protocol") == "resumable"
+    assert handshake["headers"].get("x-goog-upload-command") == "start"
+    assert handshake["headers"].get("x-goog-upload-header-content-length") == str(len(b"print('hello world')"))
+    assert handshake["headers"].get("x-goog-upload-header-content-type") == "text/x-python"
+
+    chunk_post = [r for r in captured_requests if r["method"] == "POST" and r["path"] == "/scotty/upload/resumable_123"][0]
+    assert chunk_post["method"] == "POST"
+    assert chunk_post["path"] == "/scotty/upload/resumable_123"
+    assert chunk_post["headers"].get("x-goog-upload-command") == "upload, finalize"
+    assert chunk_post["headers"].get("x-goog-upload-offset") == "0"
+    assert chunk_post["body"] == b"print('hello world')"
 
     # Test sync files.download
     downloaded = client.environments.files.download(
@@ -364,9 +397,11 @@ async def test_python_environments_async_file_upload_download(monkeypatch):
     monkeypatch.delenv(var, raising=False)
   captured: list[str] = []
   uploaded_bytes: list[bytes] = []
+  captured_requests: list[dict[str, Any]] = []
   handler = type("Handler", (_ScottyFileHandler,), {
       "captured": captured,
       "uploaded_bytes": uploaded_bytes,
+      "captured_requests": captured_requests,
   })
   server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
   thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -408,10 +443,26 @@ async def test_python_environments_async_file_upload_download(monkeypatch):
         path="src/main.py",
         file=b"print('async hello world')",
         mime_type="text/x-python",
+        overwrite=True,
     )
     assert upload_res.files and len(upload_res.files) == 1
     assert upload_res.files[0].name == "main.py"
     assert uploaded_bytes[0] == b"print('async hello world')"
+
+    # Verify async handshake and chunk headers
+    handshake = [r for r in captured_requests if r["method"] == "PUT" and "/files/" in r["path"]][0]
+    assert handshake["method"] == "PUT"
+    assert handshake["path"].startswith("/upload/v1beta/environments/env_123/files/src/main.py")
+    assert "overwrite=true" in handshake["path"]
+    assert handshake["headers"].get("x-goog-upload-protocol") == "resumable"
+    assert handshake["headers"].get("x-goog-upload-command") == "start"
+    assert handshake["headers"].get("x-goog-upload-header-content-length") == str(len(b"print('async hello world')"))
+    assert handshake["headers"].get("x-goog-upload-header-content-type") == "text/x-python"
+
+    chunk_post = [r for r in captured_requests if r["method"] == "POST" and r["path"] == "/scotty/upload/resumable_123"][0]
+    assert chunk_post["headers"].get("x-goog-upload-command") == "upload, finalize"
+    assert chunk_post["headers"].get("x-goog-upload-offset") == "0"
+    assert chunk_post["body"] == b"print('async hello world')"
 
     # Test async files.download
     downloaded = await client.aio.environments.files.download(
@@ -435,6 +486,158 @@ async def test_python_environments_async_file_upload_download(monkeypatch):
     parsed = await raw_files_res.parse()
     assert len(parsed.files) == 1
     assert parsed.files[0].name == "main.py"
+
+  finally:
+    server.shutdown()
+    thread.join()
+    server.server_close()
+
+
+def test_python_environments_upload_io_and_file_paths(monkeypatch, tmp_path):
+  monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+  for var in ("http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+    monkeypatch.delenv(var, raising=False)
+  captured: list[str] = []
+  uploaded_bytes: list[bytes] = []
+  captured_requests: list[dict[str, Any]] = []
+  handler = type("Handler", (_ScottyFileHandler,), {
+      "captured": captured,
+      "uploaded_bytes": uploaded_bytes,
+      "captured_requests": captured_requests,
+  })
+  server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+  thread = threading.Thread(target=server.serve_forever, daemon=True)
+  thread.start()
+  try:
+    client = Client(
+        api_key="test-api-key",
+        http_options={
+            "api_version": "v1beta",
+            "base_url": f"http://127.0.0.1:{server.server_port}",
+        },
+    )
+
+    # 1. Test upload with io.BytesIO
+    stream_data = b"content from BytesIO"
+    io_stream = io.BytesIO(stream_data)
+    upload_res = client.environments.files.upload(
+        environment="env_123",
+        path="stream.txt",
+        file=io_stream,
+        mime_type="text/plain",
+    )
+    assert upload_res.files and len(upload_res.files) == 1
+    assert uploaded_bytes[-1] == stream_data
+
+    # 2. Test upload with file path as string
+    tmp_file = tmp_path / "hello.py"
+    tmp_file.write_text("print('from file path str')")
+    upload_res_str = client.environments.files.upload(
+        environment="env_123",
+        path="hello.py",
+        file=str(tmp_file),
+    )
+    assert upload_res_str.files and len(upload_res_str.files) == 1
+    assert uploaded_bytes[-1] == b"print('from file path str')"
+
+    # 3. Test upload with pathlib.Path
+    tmp_file_path = tmp_path / "hello_path.py"
+    tmp_file_path.write_text("print('from pathlib.Path')")
+    upload_res_path = client.environments.files.upload(
+        environment="env_123",
+        path="hello_path.py",
+        file=tmp_file_path,
+        extract=False,
+        overwrite=True,
+    )
+    assert upload_res_path.files and len(upload_res_path.files) == 1
+    assert uploaded_bytes[-1] == b"print('from pathlib.Path')"
+
+    # 4. Test upload with open file handle (io.IOBase)
+    with open(str(tmp_file), "rb") as fh:
+      upload_res_fh = client.environments.files.upload(
+          environment="env_123",
+          path="hello_fh.py",
+          file=fh,
+      )
+      assert upload_res_fh.files and len(upload_res_fh.files) == 1
+      assert uploaded_bytes[-1] == b"print('from file path str')"
+
+  finally:
+    server.shutdown()
+    thread.join()
+    server.server_close()
+
+
+@pytest.mark.asyncio
+async def test_python_environments_async_upload_io_and_file_paths(monkeypatch, tmp_path):
+  monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+  for var in ("http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+    monkeypatch.delenv(var, raising=False)
+  captured: list[str] = []
+  uploaded_bytes: list[bytes] = []
+  captured_requests: list[dict[str, Any]] = []
+  handler = type("Handler", (_ScottyFileHandler,), {
+      "captured": captured,
+      "uploaded_bytes": uploaded_bytes,
+      "captured_requests": captured_requests,
+  })
+  server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+  thread = threading.Thread(target=server.serve_forever, daemon=True)
+  thread.start()
+  try:
+    client = Client(
+        api_key="test-api-key",
+        http_options={
+            "api_version": "v1beta",
+            "base_url": f"http://127.0.0.1:{server.server_port}",
+        },
+    )
+
+    # 1. Async test upload with io.BytesIO
+    stream_data = b"async content from BytesIO"
+    io_stream = io.BytesIO(stream_data)
+    upload_res = await client.aio.environments.files.upload(
+        environment="env_123",
+        path="async_stream.txt",
+        file=io_stream,
+        mime_type="text/plain",
+    )
+    assert upload_res.files and len(upload_res.files) == 1
+    assert uploaded_bytes[-1] == stream_data
+
+    # 2. Async test upload with file path as string
+    tmp_file = tmp_path / "async_hello.py"
+    tmp_file.write_text("print('async from file path str')")
+    upload_res_str = await client.aio.environments.files.upload(
+        environment="env_123",
+        path="async_hello.py",
+        file=str(tmp_file),
+    )
+    assert upload_res_str.files and len(upload_res_str.files) == 1
+    assert uploaded_bytes[-1] == b"print('async from file path str')"
+
+    # 3. Async test upload with pathlib.Path
+    tmp_file_path = tmp_path / "async_hello_path.py"
+    tmp_file_path.write_text("print('async from pathlib.Path')")
+    upload_res_path = await client.aio.environments.files.upload(
+        environment="env_123",
+        path="async_hello_path.py",
+        file=tmp_file_path,
+        overwrite=True,
+    )
+    assert upload_res_path.files and len(upload_res_path.files) == 1
+    assert uploaded_bytes[-1] == b"print('async from pathlib.Path')"
+
+    # 4. Async test upload with open file handle (io.IOBase)
+    with open(str(tmp_file), "rb") as fh:
+      upload_res_fh = await client.aio.environments.files.upload(
+          environment="env_123",
+          path="async_hello_fh.py",
+          file=fh,
+      )
+      assert upload_res_fh.files and len(upload_res_fh.files) == 1
+      assert uploaded_bytes[-1] == b"print('async from file path str')"
 
   finally:
     server.shutdown()

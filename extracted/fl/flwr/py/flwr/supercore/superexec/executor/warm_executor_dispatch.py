@@ -22,7 +22,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from logging import INFO, WARNING
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING
 
 from flwr.common.constant import (
     FLWR_AGENTAPP_TOKEN_STDIN_ACKNOWLEDGEMENT,
@@ -33,6 +33,10 @@ from flwr.supercore.constant import (
     TASK_TYPE_TO_APPIO_API_ADDRESS_ARG,
     TASK_TYPE_TO_COMMAND,
     TaskType,
+)
+from flwr.supercore.warm_executor_constants import (
+    WARM_EXECUTOR_BUSY_FILE,
+    WARM_MODEL_EXECUTOR_MODULE,
 )
 
 from .types import ExecutionSpec, LaunchResult
@@ -52,6 +56,7 @@ _TOKEN_STDIN_ACKNOWLEDGEMENTS = (
     FLWR_AGENTAPP_TOKEN_STDIN_ACKNOWLEDGEMENT,
 )
 _TOKEN_STDIN_ACKNOWLEDGEMENT_BUFFER_SIZE = max(map(len, _TOKEN_STDIN_ACKNOWLEDGEMENTS))
+_MAX_OUTPUT_LINE_BUFFER_SIZE = 16_384
 WARM_EXECUTOR_CONSUMED_ANNOTATION = "flower.ai/warm-executor-consumed"
 WARM_EXECUTOR_ROOT_CERTIFICATES_MOUNT_PATH = "/run/flwr/runtime-ca"
 WARM_EXECUTOR_ROOT_CERTIFICATES_FILE_PATH = (
@@ -61,9 +66,11 @@ _WARM_EXECUTOR_ACK_TIMEOUT_SECONDS = 5.0
 # A surviving consumed Pod is safe to retire only after all task processes exit.
 # Ignore PID 1 (the idle parent), this probe, and zombies. A concurrent readiness
 # probe can delay retirement, but cannot make a running task appear finished.
-_WARM_EXECUTOR_IDLE_CHECK = """\
+_WARM_EXECUTOR_IDLE_CHECK = f"""\
 import os
 from pathlib import Path
+if Path({WARM_EXECUTOR_BUSY_FILE!r}).is_file():
+    raise SystemExit()
 for process in Path('/proc').iterdir():
     if not process.name.isdigit() or int(process.name) in (1, os.getpid()):
         continue
@@ -85,9 +92,20 @@ class WarmExecutorUnavailable(RuntimeError):
 class KubernetesWarmExecutorDispatch:
     """Interact with one Kubernetes exec stream without logging task authority."""
 
-    def __init__(self, response: object) -> None:
+    def __init__(
+        self,
+        response: object,
+        *,
+        pod_name: str | None = None,
+        task_id: int | None = None,
+        log_output: bool = False,
+    ) -> None:
         self._response = response
-        self._output_after_acceptance: list[tuple[TextIO, str]] = []
+        self._pod_name = pod_name
+        self._task_id = task_id
+        self._log_output = log_output
+        self._output_after_acceptance: list[tuple[str, str]] = []
+        self._output_buffers = {"stdout": "", "stderr": ""}
 
     def send_token(self, token: str) -> None:
         """Send one token over stdin without retaining it in Pod metadata."""
@@ -114,7 +132,7 @@ class KubernetesWarmExecutorDispatch:
             if acknowledgement_span is not None:
                 acknowledgement_start, acknowledgement_end = acknowledgement_span
                 self._output_after_acceptance.extend(
-                    (sys.stdout, output)
+                    ("stdout", output)
                     for output in (
                         "".join(
                             (*stdout_before_acceptance, stdout[:acknowledgement_start])
@@ -124,7 +142,7 @@ class KubernetesWarmExecutorDispatch:
                     if output
                 )
                 self._output_after_acceptance.extend(
-                    (sys.stderr, output) for output in stderr_before_acceptance
+                    ("stderr", output) for output in stderr_before_acceptance
                 )
                 return True
             stdout_before_acceptance.append(
@@ -132,9 +150,31 @@ class KubernetesWarmExecutorDispatch:
             )
             stdout = stdout[-_TOKEN_STDIN_ACKNOWLEDGEMENT_BUFFER_SIZE:]
             if not self._is_open():
+                self._log_unacknowledged_output(
+                    stdout_before_acceptance, stdout, stderr_before_acceptance
+                )
                 return False
             self._update(min(0.5, deadline - time.monotonic()))
+        self._log_unacknowledged_output(
+            stdout_before_acceptance, stdout, stderr_before_acceptance
+        )
         return False
+
+    def _log_unacknowledged_output(
+        self,
+        stdout_before_acceptance: list[str],
+        stdout: str,
+        stderr_before_acceptance: list[str],
+    ) -> None:
+        """Log output observed before a child failed to acknowledge its token."""
+        log_output = self._log_output
+        # A later cleanup drain must not log a queued token acknowledgement.
+        self._log_output = False
+        if not log_output:
+            return
+        self._log_stream_output("stdout", "".join((*stdout_before_acceptance, stdout)))
+        self._log_stream_output("stderr", "".join(stderr_before_acceptance))
+        self._flush_output_buffers()
 
     def wait_for_close(self, *, forward_output: bool = False) -> bool:
         """Return whether stream closure confirms that the child exited.
@@ -147,18 +187,22 @@ class KubernetesWarmExecutorDispatch:
             self._update(1.0)
             self._drain_output(forward_output)
             self._discard_combined_output()
+        self._flush_output_buffers()
         # A disconnected socket is not proof of process exit. Kubernetes sends
         # the exit status on a separate channel, which must not be discarded.
         return isinstance(getattr(self._response, "returncode", None), int)
 
     def close(self) -> None:
         """Close the Kubernetes exec stream best-effort."""
+        # Closing before acceptance also disables logging in the cleanup drain.
+        self._log_output = False
         close = getattr(self._response, "close", None)
         if callable(close):
             try:
                 close()
             except Exception:  # pylint: disable=broad-exception-caught
                 log(WARNING, "Failed to close warm TaskExecutor exec stream.")
+        self._flush_output_buffers()
 
     def _is_open(self) -> bool:
         is_open = getattr(self._response, "is_open", None)
@@ -207,12 +251,64 @@ class KubernetesWarmExecutorDispatch:
         self._output_after_acceptance = []
         for stream, output in (
             *output_after_acceptance,
-            (sys.stdout, self._read_stdout()),
-            (sys.stderr, self._read_stderr()),
+            ("stdout", self._read_stdout()),
+            ("stderr", self._read_stderr()),
         ):
-            if forward_output and output:
-                stream.write(output)
-                stream.flush()
+            if not output:
+                continue
+            output_stream = sys.stdout if stream == "stdout" else sys.stderr
+            if forward_output:
+                output_stream.write(output)
+                output_stream.flush()
+            if self._log_output:
+                self._log_stream_output(stream, output)
+
+    def _log_stream_output(self, stream: str, output: str) -> None:
+        """Log complete child-output lines while retaining a partial suffix."""
+        buffered = self._output_buffers[stream] + output
+        trailing_carriage_return = buffered.endswith("\r")
+        if trailing_carriage_return:
+            buffered = buffered[:-1]
+        lines = buffered.splitlines(keepends=True)
+        self._output_buffers[stream] = ""
+        if lines and not lines[-1].endswith(("\n", "\r")):
+            self._output_buffers[stream] = lines.pop()
+        if trailing_carriage_return:
+            self._output_buffers[stream] += "\r"
+        for line in lines:
+            self._log_output_line(stream, line.rstrip("\r\n"))
+        while (
+            len(self._output_buffers[stream].removesuffix("\r"))
+            > _MAX_OUTPUT_LINE_BUFFER_SIZE
+        ):
+            chunk = self._output_buffers[stream][:_MAX_OUTPUT_LINE_BUFFER_SIZE]
+            self._output_buffers[stream] = self._output_buffers[stream][
+                _MAX_OUTPUT_LINE_BUFFER_SIZE:
+            ]
+            self._log_output_line(stream, chunk)
+
+    def _flush_output_buffers(self) -> None:
+        """Log any final partial child-output lines."""
+        for stream, output in self._output_buffers.items():
+            if output:
+                self._log_output_line(stream, output.removesuffix("\r"))
+        self._output_buffers = {"stdout": "", "stderr": ""}
+
+    def _log_output_line(self, stream: str, output: str) -> None:
+        """Log one child-output line with enough dispatch context to correlate it."""
+        filtered_output = output
+        for acknowledgement in _TOKEN_STDIN_ACKNOWLEDGEMENTS:
+            filtered_output = filtered_output.replace(acknowledgement, "")
+        if output and not filtered_output:
+            return
+        log(
+            INFO,
+            "Warm TaskExecutor output pod=%s task_id=%s stream=%s: %s",
+            self._pod_name or "unknown",
+            self._task_id if self._task_id is not None else "unknown",
+            stream,
+            filtered_output,
+        )
 
     def _discard_combined_output(self) -> None:
         # WSClient.read_all() also clears unread channels, including the exit
@@ -228,12 +324,23 @@ def warm_executor_command(
     spec: ExecutionSpec, runtime_root_certificates: str | None
 ) -> list[str]:
     """Build a one-task child command that receives authority on standard input."""
-    command = [
-        TASK_TYPE_TO_COMMAND[spec.task_type],
-        TASK_TYPE_TO_APPIO_API_ADDRESS_ARG[spec.task_type],
-        spec.runtime_api_address,
-        "--token-stdin",
-    ]
+    if spec.task_type == TaskType.MODEL:
+        command = [
+            "python",
+            "-m",
+            WARM_MODEL_EXECUTOR_MODULE,
+            "dispatch",
+            "--runtime-api-address",
+            spec.runtime_api_address,
+            "--token-stdin",
+        ]
+    else:
+        command = [
+            TASK_TYPE_TO_COMMAND[spec.task_type],
+            TASK_TYPE_TO_APPIO_API_ADDRESS_ARG[spec.task_type],
+            spec.runtime_api_address,
+            "--token-stdin",
+        ]
     if spec.insecure:
         command.append("--insecure")
     elif runtime_root_certificates is not None:
@@ -263,7 +370,7 @@ class WarmExecutorPoolManager:  # pylint: disable=too-many-instance-attributes,t
             None,
         ],
         has_warm_executor_configuration: Callable[
-            [object, KubernetesExecutorConfig], bool
+            [object, WarmExecutorPoolKey, KubernetesExecutorConfig], bool
         ],
         is_active_warm_executor: Callable[
             [object, WarmExecutorPoolKey, KubernetesExecutorConfig], bool
@@ -436,7 +543,7 @@ class WarmExecutorPoolManager:  # pylint: disable=too-many-instance-attributes,t
             and pod_name not in self._busy_pods
             and pod_name not in self._retiring_pods
             and not _is_consumed_warm_executor(pod)
-            and self._has_warm_executor_configuration(pod, self._config)
+            and self._has_warm_executor_configuration(pod, key, self._config)
             and is_warm_executor_ready(pod, key)
         )
 
@@ -619,7 +726,12 @@ class WarmExecutorPoolManager:  # pylint: disable=too-many-instance-attributes,t
             raise WarmExecutorUnavailable(
                 "Warm TaskExecutor Pod is unavailable for dispatch."
             ) from err
-        return KubernetesWarmExecutorDispatch(response)
+        return KubernetesWarmExecutorDispatch(
+            response,
+            pod_name=pod_name,
+            task_id=spec.task_id,
+            log_output=self._config.log_warm_executor_output and spec.suppress_output,
+        )
 
     def _consumed_pod_has_finished(self, pod: object) -> bool:
         """Preserve surviving tasks unless their exit can be established."""

@@ -57642,6 +57642,63 @@ class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataC
         ...
 
 
+class SEC13FHoldings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Every SEC Form 13F position reported for one security on one filing date. A day's point
+    carries one SEC13FHolding per reported line, so a manager that filed for the security that
+    day appears once for each line it reported it on, and a day on which several managers filed
+    carries all of them.
+    
+    The collection carries no totals of its own. How many managers hold the security and how
+    many shares they hold between them are counts over the records, and no 13F filing states
+    either, so they are left to the algorithm.
+    """
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern, the SEC filing time zone)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Location of the source file. One zip per security holds one entry per filing date, so
+        that the dataset stays at a file per security instead of the eight and a half million a
+        loose file per date would take. LEAN reads the entry straight out of the zip.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: a security is only reported on the days managers file for it."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads one line of the file into one reported position. The engine folds the lines this
+        returns into the collection, grouping them by their end time, and every line of a file
+        carries the same filing date, so one file gives one point.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Linked to Equities, so renames and delistings are applied via map files."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only, the quarterly cadence is modeled as Daily)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
 class SECReportDocument(System.Object):
     """Business documents reported to the SEC"""
 
@@ -58072,6 +58129,19 @@ class SECReportSubmission(System.Object):
         ...
 
 
+class SEC13FManagerNameProvider(System.Object):
+    """
+    The names of the managers that file Form 13F, by CIK, read from the managers.csv published
+    beside the dataset. A name is the one the manager's most recent cover page states, so an old
+    filing shows the name the manager carries today.
+    """
+
+    @staticmethod
+    def get_name(manager_cik: int) -> str:
+        """The manager's name, or null for a CIK the file does not carry."""
+        ...
+
+
 class ISECReport(QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta):
     """
     Base interface for all SEC report types.
@@ -58323,6 +58393,340 @@ class SECReport10K(QuantConnect.Data.BaseData, QuantConnect.DataSource.ISECRepor
 
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
         """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class SEC13FHolding(QuantConnect.Data.BaseData):
+    """
+    One position as a single institutional manager reported it on a single SEC Form 13F
+    submission. Managers exercising discretion over at least 100 million dollars must file a
+    Form 13F within 45 days of quarter end, listing the covered securities they hold.
+    
+    Nothing here is summed or otherwise derived: every field is the value the SEC publishes for
+    that line of that filing's information table. A manager that reports the same security on
+    two lines, which the rules allow when the discretion differs, produces two records, and they
+    are left apart. Holder counts, quarter-over-quarter change and concentration are all
+    derivable from the records of a day and are left to the algorithm.
+    
+    This is the factory that reads one line. The points an algorithm receives are
+    SEC13FHoldings, the collection of every record a security carries for one
+    filing date.
+    """
+
+    FILING_DATE_FORMAT: str = "yyyyMMdd"
+    """Format of the filing date column, which is also the name of the file."""
+
+    @property
+    def accession_number(self) -> str:
+        """
+        EDGAR accession number of the submission this line was reported on, such as
+        0001067983-26-000012. It identifies the filing on the SEC's own site and is what groups
+        the records of one submission back together.
+        """
+        ...
+
+    @accession_number.setter
+    def accession_number(self, value: str) -> None:
+        ...
+
+    @property
+    def manager_cik(self) -> int:
+        """
+        Central Index Key of the manager that filed the submission. It is the stable identity of
+        a fund across name changes, which is why it, and not the name, is carried on every
+        line of the files. The names live once in managers.csv beside the dataset.
+        """
+        ...
+
+    @manager_cik.setter
+    def manager_cik(self, value: int) -> None:
+        ...
+
+    @property
+    def manager_name(self) -> str:
+        """
+        Name of the manager as its most recent cover page states it, read from managers.csv, with
+        any comma taken out because that file is split on every one. It is the current name even
+        on an old filing, and null for a CIK the file does not carry.
+        """
+        ...
+
+    @manager_name.setter
+    def manager_name(self, value: str) -> None:
+        ...
+
+    @property
+    def period_end(self) -> datetime.datetime:
+        """
+        The quarter the position is reported for, which is the SEC PERIODOFREPORT. It is carried
+        rather than derived from Time because the two are unrelated: late
+        filings and amendments mean one filing date carries several different reported quarters,
+        and the gap between them runs from zero to years.
+        """
+        ...
+
+    @period_end.setter
+    def period_end(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def form_type(self) -> str:
+        """
+        Submission type, which is 13F-HR for a holdings report and 13F-HR/A for an amendment.
+        A 13F-NT notice reports no positions and so contributes no records at all.
+        """
+        ...
+
+    @form_type.setter
+    def form_type(self, value: str) -> None:
+        ...
+
+    @property
+    def amendment_type(self) -> str:
+        """
+        For an amendment, whether it restates the whole report or only adds holdings. The
+        distinction decides whether the amendment replaces the original filing or supplements
+        it, and the SEC leaves it to the filer to declare. Empty on an original filing.
+        """
+        ...
+
+    @amendment_type.setter
+    def amendment_type(self, value: str) -> None:
+        ...
+
+    @property
+    def amendment_number(self) -> typing.Optional[int]:
+        """Sequence number of the amendment, or null on an original filing."""
+        ...
+
+    @amendment_number.setter
+    def amendment_number(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def title_of_class(self) -> str:
+        """
+        Class of the security as the manager titled it, such as COM or CL A. It is free text
+        that the filer writes, so it varies between managers for the same security.
+        """
+        ...
+
+    @title_of_class.setter
+    def title_of_class(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """
+        Size of the position, which is a number of shares when AmountType is SH
+        and a principal amount when it is PRN. The two are not comparable and are deliberately
+        left in one field with its unit beside it, as the SEC reports them.
+        """
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def amount_type(self) -> str:
+        """Unit of Amount: SH for shares, PRN for a principal amount."""
+        ...
+
+    @amount_type.setter
+    def amount_type(self, value: str) -> None:
+        ...
+
+    @property
+    def reported_value(self) -> typing.Optional[float]:
+        """
+        Market value of the position exactly as the manager reported it, in the unit the filing
+        used. Before 2023 the SEC asked for thousands of dollars and since then for whole
+        dollars, and filers on both sides of that change ignore the instruction, so the number
+        is published untouched with ValueScale beside it.
+        """
+        ...
+
+    @reported_value.setter
+    def reported_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value_scale(self) -> int:
+        """
+        The power of ten that turns ReportedValue into whole dollars: 3 for a value
+        stated in thousands, 0 for one already in dollars, and -3 for a line that overstated its
+        value a thousandfold, which happens often enough to matter.
+        
+        This is the one reading in the record that the SEC does not publish. It comes from the
+        filing's period and from the size of the value against the security's close, because
+        filers disagree with the instruction often enough that the period alone is wrong. It is
+        carried beside the reported number rather than multiplied into it, so that what the
+        manager filed stays readable and this judgement stays separable from it. Use
+        MarketValue to apply it.
+        """
+        ...
+
+    @value_scale.setter
+    def value_scale(self, value: int) -> None:
+        ...
+
+    @property
+    def market_value(self) -> typing.Optional[float]:
+        """
+        Market value of the position in whole dollars. Worked out from ReportedValue
+        and ValueScale rather than carried as a column of its own, so the three can never disagree.
+        """
+        ...
+
+    @property
+    def put_call(self) -> typing.Optional[QuantConnect.OptionRight]:
+        """
+        Whether the position is an option on the security rather than the security itself, and
+        on which side. Null for a holding of the security. An option line states the shares
+        underlying the contracts, not the number of contracts.
+        """
+        ...
+
+    @put_call.setter
+    def put_call(self, value: typing.Optional[QuantConnect.OptionRight]) -> None:
+        ...
+
+    @property
+    def investment_discretion(self) -> str:
+        """
+        Who exercises investment discretion over the position: SOLE for the filing manager
+        alone, DFND when it is defined by other managers, OTR otherwise.
+        """
+        ...
+
+    @investment_discretion.setter
+    def investment_discretion(self, value: str) -> None:
+        ...
+
+    @property
+    def other_manager(self) -> str:
+        """
+        The other managers that share the position, as the sequence numbers the filing gives
+        them on its cover page, separated by semicolons. Empty when the manager reports alone.
+        """
+        ...
+
+    @other_manager.setter
+    def other_manager(self, value: str) -> None:
+        ...
+
+    @property
+    def voting_sole(self) -> typing.Optional[float]:
+        """Shares over which the manager holds sole voting authority."""
+        ...
+
+    @voting_sole.setter
+    def voting_sole(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def voting_shared(self) -> typing.Optional[float]:
+        """Shares over which the manager shares voting authority."""
+        ...
+
+    @voting_shared.setter
+    def voting_shared(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def voting_none(self) -> typing.Optional[float]:
+        """Shares over which the manager holds no voting authority."""
+        ...
+
+    @voting_none.setter
+    def voting_none(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def confidential_omitted(self) -> bool:
+        """
+        True when the submission this line belongs to withheld other positions under
+        confidential treatment. The filing is then incomplete by design and the withheld
+        positions surface in a later one, so the flag is carried rather than silently ignored.
+        """
+        ...
+
+    @confidential_omitted.setter
+    def confidential_omitted(self, value: bool) -> None:
+        ...
+
+    @property
+    def date_reported(self) -> typing.Optional[datetime.datetime]:
+        """
+        The date a previously confidential filing was originally made, which the SEC publishes
+        as DATEREPORTED. It is filled on about two filings in a thousand and is null on the
+        rest, so it marks positions that were withheld and later released rather than serving as
+        a timestamp. The timestamp is Time, the filing date.
+        """
+        ...
+
+    @date_reported.setter
+    def date_reported(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The record covers the filing date it is stamped with, ending at midnight that night.
+        
+        LEAN emits a point at its end time rather than at its time, so this is what decides when
+        an algorithm sees the filing: the day's filings all arrive at 00:00 the following day,
+        after EDGAR has finished listing that day at about 22:05 ET. Nothing is readable before
+        it was filed, and a whole day of filings arrives at once instead of trickling in.
+        """
+        ...
+
+    REPORT_FOLDER: str
+    """Name of the dataset's folder under alternative/sec/, which is where its files live."""
+
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern, the SEC filing time zone)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Location of the source file. One zip per security holds one entry per filing date, so
+        that the dataset stays at a file per security instead of the eight and a half million a
+        loose file per date would take. LEAN reads the entry straight out of the zip.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: a security is only reported on the days managers file for it."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses one line of the file into one reported position."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Linked to Equities, so renames and delistings are applied via map files."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only, the quarterly cadence is modeled as Daily)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
         ...
 
 

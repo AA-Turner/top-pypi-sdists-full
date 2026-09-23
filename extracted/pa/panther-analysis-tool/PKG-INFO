@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panther_analysis_tool
-Version: 1.9.0
+Version: 1.10.0
 Summary: Panther command line interface for writing, testing, and packaging policies/rules.
 License: Apache-2.0
 License-File: LICENSE.txt
@@ -47,13 +47,12 @@ Requires-Dist: jsonschema (>=4.25.1,<4.26.0)
 Requires-Dist: jsonschema-specifications (>=2025.9.1,<2025.10.0)
 Requires-Dist: markupsafe (>=3.0.2,<3.1.0)
 Requires-Dist: multidict (>=6.7.0,<6.8.0)
-Requires-Dist: nested-lookup (>=0.2.25,<0.3.0)
 Requires-Dist: packaging (>=25.0,<26.0)
 Requires-Dist: panther-core (>=0.16.2,<0.17.0)
 Requires-Dist: pathspec (>=1.0.0,<1.1.0)
 Requires-Dist: pluggy (>=1.6.0,<1.7.0)
 Requires-Dist: ply (>=3.11,<4.0)
-Requires-Dist: policyuniverse (>=1.5.1.20230817,<1.6.0.0)
+Requires-Dist: policyuniverse (>=1.5.1.20230817,<1.5.2.0)
 Requires-Dist: propcache (>=0.4.1,<0.5.0)
 Requires-Dist: pydantic (>=2.12.0,<2.13.0)
 Requires-Dist: pygments (>=2.19.2,<2.20.0)

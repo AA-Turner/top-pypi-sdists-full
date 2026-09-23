@@ -330,7 +330,7 @@ class StateConfig(BaseModel):
         "workers, and the endpoint now answers 410. Keep state in @durable/workspaces.",
     )
     path: str = "/state"
-    resume_from: str = ""  # session_id to load pipeline state from (cross-session resume)
+    resume_from: str = ""  # default source session for step-only state.workspaces refs
     resume_workspaces: dict[str, str] = Field(
         default_factory=dict,
         description="Map workspace name → repo name for cross-session resume, "

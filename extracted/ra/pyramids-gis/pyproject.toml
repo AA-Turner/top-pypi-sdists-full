@@ -1,6 +1,6 @@
 [project]
 name = "pyramids-gis"
-version = "0.63.0"
+version = "0.64.0"
 description = "GIS utility package"
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [{ name = "Mostafa Farrag", email = "moah.farag@gmail.com" }]
@@ -56,7 +56,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-viz = ["cleopatra[tiles]>=0.31.0"]
+# cleopatra's parameter-object plotting API (Animation / FacetLayout and the
+# ArrayGlyph.facet / animate call shape) is available from 0.38.0, but the floor is
+# pinned to the tested 0.39.0 release deliberately: an unbounded / too-loose floor is
+# what let an untested cleopatra resolve and break pyramids' plotting in the first
+# place (the guarded import in dataset/_plot_helpers.py brands anything older).
+viz = ["cleopatra[tiles]>=0.39.0"]
 lazy = [
     "dask>=2024.1.0",
     "distributed>=2024.1.0",
@@ -90,6 +95,12 @@ dev = [
     "jupyterlab",
     "notebook",
     "jupyter",
+    # Floored for CVE-2026-86049: before 2.21.0 a 500 response logged the request's
+    # `Referer` header verbatim, so a token carried in that URL — which the normal
+    # token login and launch flows put there — landed in the server log in plain text.
+    # Reached only as a transitive dependency of jupyterlab/notebook, so the floor has
+    # to be stated here; drop it once those pull 2.21.0 or later on their own.
+    "jupyter-server>=2.21.0",
     "commitizen>=4.8.4",
     "mypy>=1.10.0",
     "types-PyYAML>=6.0.0",

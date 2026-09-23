@@ -50,12 +50,19 @@ present, because V4.1 renders even an empty one as a token.
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
+from river_client.images import Image
 from river_client.renderers.base import (
+    _ChunkBuilder,
+    _truncate_chunks_to_length,
     ContentPart,
+    ImageChunk,
+    ImageFormat,
+    ImagePart,
     Message,
     ParsedResponse,
     Renderer,
@@ -69,6 +76,8 @@ from river_client.renderers.base import (
     TrainOnWhat,
     TrainingExample,
     UnparsedToolCall,
+    image_part,
+    image_part_size,
 )
 
 # ─── Constants ───────────────────────────────────────────────────────────
@@ -90,6 +99,18 @@ _THINK_CLOSE = "</think>"
 
 _TOOL_RESULT_OPEN = "<tool_result>"
 _TOOL_RESULT_CLOSE = "</tool_result>"
+
+#: V4.1's reference encoder replaces each structured image content block with
+#: one placeholder. The serving image processor expands it to the model's full
+#: image-token span after decoding the corresponding image bytes.
+_IMAGE_PLACEHOLDER = "<｜deepseek_image｜>"
+
+# Defaults from DeepSeek-V4.1-Flash's vision_config. The worker verifies the
+# resulting expected_tokens against its own processor before using the sample.
+_VISION_PATCH_SIZE = 14
+_VISION_DOWNSAMPLE_RATIO = 3
+_VISION_MAX_IMAGE_TOKENS = 1024
+_VISION_MIN_PIXELS = 295936  # 544 x 544
 
 _DSML = "｜DSML｜"
 
@@ -559,7 +580,8 @@ class DeepSeekV4Renderer(Renderer):
     ``v41`` selects the V4.1 encoder's format (see the module docstring);
     ``reasoning_effort`` is its numeric thinking budget — ``low`` / ``high``
     / ``max`` or an integer in ``[1, 100]``, default ``high`` — and is only
-    meaningful there.
+    meaningful there. V4.1 image parts are supported for sampling and RL
+    continuation prompts; V4 remains text-only.
     """
 
     def __init__(
@@ -570,6 +592,11 @@ class DeepSeekV4Renderer(Renderer):
         strip_thinking_from_history: bool = True,
         v41: bool = False,
         reasoning_effort: int | str | None = None,
+        vision_patch_size: int = _VISION_PATCH_SIZE,
+        vision_downsample_ratio: int = _VISION_DOWNSAMPLE_RATIO,
+        vision_max_image_tokens: int = _VISION_MAX_IMAGE_TOKENS,
+        vision_min_pixels: int = _VISION_MIN_PIXELS,
+        vision_max_wh_ratio: int | None = None,
     ) -> None:
         super().__init__(tokenizer)
         self.thinking = thinking
@@ -584,6 +611,11 @@ class DeepSeekV4Renderer(Renderer):
         self.reasoning_effort = (
             resolve_reasoning_effort(reasoning_effort) if v41 else None
         )
+        self.vision_patch_size = vision_patch_size
+        self.vision_downsample_ratio = vision_downsample_ratio
+        self.vision_max_image_tokens = vision_max_image_tokens
+        self.vision_min_pixels = vision_min_pixels
+        self.vision_max_wh_ratio = vision_max_wh_ratio
 
     # ── Prompt building ──────────────────────────────────────────────
 
@@ -599,17 +631,123 @@ class DeepSeekV4Renderer(Renderer):
         pieces.append(self._generation_prompt())
         return "".join(pieces)
 
+    def build_sample_prompt(
+        self,
+        messages: list[Message],
+        *,
+        tools: list[ToolSpec] | None = None,
+    ) -> SamplePrompt:
+        """Render a V4.1 prompt and collect its images in placeholder order.
+
+        The prompt contains one unexpanded ``<｜deepseek_image｜>`` per
+        :class:`ImagePart`. River Serve performs the model-specific resize and
+        expands each placeholder to its complete image-token span.
+        """
+        prompt = self.build_prompt_str(messages, tools=tools)
+        image_parts = self._image_parts(messages)
+        return SamplePrompt(
+            prompt=prompt,
+            images=[part["image"] for part in image_parts],
+            image_formats=[part["format"] for part in image_parts],
+        )
+
+    def image_token_count(self, height: int, width: int) -> int:
+        """Return the expanded V4.1 image span length for these dimensions."""
+        if not self.v41:
+            raise ValueError("DeepSeek V4 has no vision tower; use a V4.1 renderer")
+        if height <= 0 or width <= 0:
+            raise ValueError("image height and width must be positive")
+
+        patch = self.vision_patch_size
+        ratio = self.vision_downsample_ratio
+        max_tokens = self.vision_max_image_tokens
+        min_pixels = self.vision_min_pixels
+        if min(patch, ratio, max_tokens, min_pixels) <= 0:
+            raise ValueError("DeepSeek V4.1 vision configuration must be positive")
+
+        resized_height, resized_width = height, width
+        if (
+            self.vision_max_wh_ratio is not None
+            and resized_width > resized_height * self.vision_max_wh_ratio
+        ):
+            resized_width = resized_height * self.vision_max_wh_ratio
+        pixels = resized_height * resized_width
+        if pixels < min_pixels:
+            scale = math.sqrt(min_pixels / pixels)
+            resized_height = int(resized_height * scale)
+            resized_width = int(resized_width * scale)
+
+        best_height = math.ceil(resized_height / patch) * patch
+        best_width = math.ceil(resized_width / patch) * patch
+
+        def grid_size(h: int, w: int) -> tuple[int, int]:
+            return (
+                math.ceil((h // patch) / ratio),
+                math.ceil((w // patch) / ratio),
+            )
+
+        def token_count(h: int, w: int) -> int:
+            grid_h, grid_w = grid_size(h, w)
+            return grid_h * (grid_w + 1) + 2
+
+        if token_count(best_height, best_width) <= max_tokens:
+            return token_count(best_height, best_width)
+
+        aspect_ratio = resized_height / resized_width
+        max_width = math.sqrt((max_tokens - 2) / aspect_ratio + 0.25) - 0.5
+        max_height = max_width * aspect_ratio
+        cell = patch * ratio
+        if max_width < 1.0:
+            best_height, best_width = (max_tokens - 2) // 2 * cell, cell
+        elif max_height < 1.0:
+            best_height, best_width = cell, (max_tokens - 3) * cell
+        else:
+            scale = min(
+                math.floor(max_width) * cell / resized_width,
+                math.floor(max_height) * cell / resized_height,
+            )
+            best_height = math.floor(resized_height * scale / patch) * patch
+            best_width = math.floor(resized_width * scale / patch) * patch
+        count = token_count(best_height, best_width)
+        if count > max_tokens:
+            raise ValueError(
+                f"DeepSeek V4.1 image resize produced {count} tokens, above "
+                f"the configured maximum of {max_tokens}"
+            )
+        return count
+
+    def image_chunk(
+        self,
+        data: Image,
+        *,
+        format: str = "png",
+        height: int | None = None,
+        width: int | None = None,
+    ) -> ImageChunk:
+        """Build a V4.1 image chunk with the expected expanded span length."""
+        if height is None or width is None:
+            height, width = image_part_size(
+                image_part(data, format=cast("ImageFormat", format))
+            )
+        return ImageChunk(
+            type="image",
+            data=data,
+            format=cast("ImageFormat", format),
+            expected_tokens=self.image_token_count(height, width),
+        )
+
     def build_continuation_prompt(self, messages, *, last_stop):
         if any(m["role"] not in ("user", "tool") for m in messages):
             raise ValueError("DeepSeek continuations require user or tool observations")
         prefix = "" if last_stop == _EOS else _EOS
         rendered = self._render_all(messages, None)
+        image_parts = self._image_parts(messages)
         return SamplePrompt(
             prefix
             + "".join(header + body for header, body in rendered)
             + self._generation_prompt(),
-            [],
-            [],
+            [part["image"] for part in image_parts],
+            [part["format"] for part in image_parts],
         )
 
     def get_stop_strings(self) -> list[str]:
@@ -803,6 +941,19 @@ class DeepSeekV4Renderer(Renderer):
         max_length: int | None = None,
         tools: list[ToolSpec] | None = None,
     ) -> TrainingExample:
+        if self._contains_images(messages):
+            if not self.v41:
+                raise ValueError(
+                    "DeepSeek V4 has no vision tower; use a V4.1 renderer for "
+                    "image-bearing prompts"
+                )
+            return self._build_image_training_example(
+                messages,
+                train_on=train_on,
+                train_on_eos=train_on_eos,
+                max_length=max_length,
+                tools=tools,
+            )
         encode = self.tokenizer.encode
         ids: list[int] = []
         weights: list[float] = []
@@ -867,6 +1018,111 @@ class DeepSeekV4Renderer(Renderer):
             ids = ids[:max_length]
             weights = weights[:max_length]
         return TrainingExample(input_ids=ids, weights=weights)
+
+    def _build_image_training_example(
+        self,
+        messages: list[Message],
+        *,
+        train_on: TrainOnWhat,
+        train_on_eos: bool,
+        max_length: int | None,
+        tools: list[ToolSpec] | None,
+    ) -> TrainingExample:
+        """Build V4.1 chunks while keeping image bytes in document order."""
+        placeholder_id = self.tokenizer.convert_tokens_to_ids(_IMAGE_PLACEHOLDER)
+        if placeholder_id is None or placeholder_id == getattr(
+            self.tokenizer, "unk_token_id", None
+        ):
+            raise ValueError(
+                f"Tokenizer does not recognize {_IMAGE_PLACEHOLDER!r}; "
+                "DeepSeek V4.1 image training requires the vision tokenizer."
+            )
+
+        builder = _ChunkBuilder()
+
+        def emit(text: str, weight: float) -> None:
+            if text:
+                builder.add_text(
+                    self.tokenizer.encode(text, add_special_tokens=False), weight
+                )
+
+        def emit_with_images(
+            text: str, image_parts: list[ImagePart], weight: float
+        ) -> None:
+            pieces = text.split(_IMAGE_PLACEHOLDER)
+            if len(pieces) != len(image_parts) + 1:
+                raise ValueError(
+                    "DeepSeek V4.1 rendered image placeholders do not match "
+                    f"image parts ({len(pieces) - 1} placeholders, "
+                    f"{len(image_parts)} images)"
+                )
+            emit(pieces[0], weight)
+            for part, suffix in zip(image_parts, pieces[1:], strict=True):
+                height, width = image_part_size(part)
+                builder.add_image(
+                    data=part["image"],
+                    format=part["format"],
+                    expected_tokens=self.image_token_count(height, width),
+                    placeholder_id=int(placeholder_id),
+                )
+                emit(suffix, weight)
+
+        emit(self._prefix(messages, tools), 0.0)
+
+        last_assistant = max(
+            (idx for idx, msg in enumerate(messages) if msg["role"] == "assistant"),
+            default=-1,
+        )
+        if self.thinking and train_on == TrainOnWhat.ALL_ASSISTANT:
+            assistants = sum(1 for msg in messages if msg["role"] == "assistant")
+            if assistants > 1:
+                raise ValueError(
+                    "train_on=ALL_ASSISTANT cannot be represented in thinking "
+                    "mode: the DeepSeek V4 template drops reasoning from every "
+                    "history assistant turn, so only the final one can carry "
+                    "the target layout. Train one turn per example "
+                    "(LAST_ASSISTANT over progressively longer prefixes), or "
+                    "use thinking=False, where history and generation share "
+                    "the same </think> prefill."
+                )
+
+        rendered = self._render_all(
+            messages,
+            tools,
+            generated_turn=last_assistant if last_assistant >= 0 else None,
+        )
+        for idx, (header, content) in enumerate(rendered):
+            is_assistant = messages[idx]["role"] == "assistant"
+            if train_on == TrainOnWhat.LAST_ASSISTANT:
+                trainable = is_assistant and idx == last_assistant
+            elif train_on == TrainOnWhat.ALL_ASSISTANT:
+                trainable = is_assistant
+            else:
+                trainable = False
+
+            emit(header, 0.0)
+            message_images = self._image_parts([messages[idx]])
+            if trainable and not train_on_eos and content.endswith(_EOS):
+                emit_with_images(content[: -len(_EOS)], message_images, 1.0)
+                emit(_EOS, 0.0)
+            else:
+                emit_with_images(content, message_images, 1.0 if trainable else 0.0)
+
+        builder.finish()
+        input_ids = builder.flat_ids
+        weights = builder.weights
+        model_input = builder.chunks
+        if max_length is not None and len(input_ids) > max_length:
+            model_input, expanded_length = _truncate_chunks_to_length(
+                model_input, max_length
+            )
+            input_ids = input_ids[:expanded_length]
+            weights = weights[:expanded_length]
+        return TrainingExample(
+            input_ids=input_ids,
+            weights=weights,
+            model_input=model_input,
+        )
 
     # ── Tool support ─────────────────────────────────────────────────
 
@@ -978,33 +1234,84 @@ class DeepSeekV4Renderer(Renderer):
         """
         explicit = message.get("reasoning_content")
         if isinstance(explicit, str):
+            self._reject_literal_image_placeholder(explicit)
             return explicit, self._text_of(message)
         content = message["content"]
         if isinstance(content, str):
+            self._reject_literal_image_placeholder(content)
             if _THINK_CLOSE in content:
                 head, _, tail = content.partition(_THINK_CLOSE)
                 reasoning = head.rstrip("\n").split(_THINK_OPEN)[-1]
                 return reasoning.strip(), tail.lstrip("\n")
             return "", content
-        self._reject_non_text_parts(content)
         reasoning = "".join(p["thinking"] for p in content if p["type"] == "thinking")
-        text = "".join(p["text"] for p in content if p["type"] == "text")
+        self._reject_literal_image_placeholder(reasoning)
+        text = self._text_of(message)
         return reasoning.strip(), text
 
     def _text_of(self, message: Message) -> str:
-        """Plain text of a non-assistant message."""
+        """Rendered text/placeholder content of one message."""
         content = message["content"]
         if isinstance(content, str):
+            self._reject_literal_image_placeholder(content)
             return content
-        self._reject_non_text_parts(content)
-        return "".join(p["text"] for p in content if p["type"] == "text")
+        if not self.v41:
+            self._reject_non_text_parts(content)
+            return "".join(p["text"] for p in content if p["type"] == "text")
+
+        rendered: list[str] = []
+        for part in content:
+            if part["type"] == "text":
+                text = cast(TextPart, part)["text"]
+                self._reject_literal_image_placeholder(text)
+                rendered.append(text)
+            elif part["type"] == "image":
+                rendered.append(_IMAGE_PLACEHOLDER)
+            elif part["type"] != "thinking":
+                raise ValueError(f"Unsupported content part type: {part['type']!r}")
+        # V4.1's process_image_messages + render_message pair joins structured
+        # content blocks with blank lines, including adjacent text blocks.
+        return "\n\n".join(rendered)
+
+    def _image_parts(self, messages: list[Message]) -> list[ImagePart]:
+        """Return validated V4.1 images in prompt/document order."""
+        parts: list[ImagePart] = []
+        for message in messages:
+            content = message["content"]
+            if isinstance(content, str):
+                continue
+            for part in content:
+                if part["type"] != "image":
+                    continue
+                if not self.v41:
+                    self._reject_non_text_parts(content)
+                image = cast(ImagePart, part)
+                # Validate inline bytes (or explicit ImageHandle dimensions)
+                # before the request reaches the server-side processor.
+                _ = image_part_size(image)
+                parts.append(image)
+        return parts
+
+    @staticmethod
+    def _contains_images(messages: list[Message]) -> bool:
+        return any(
+            not isinstance(message["content"], str)
+            and any(part["type"] == "image" for part in message["content"])
+            for message in messages
+        )
+
+    def _reject_literal_image_placeholder(self, text: str) -> None:
+        if self.v41 and _IMAGE_PLACEHOLDER in text:
+            raise ValueError(
+                f"Message text contains image placeholder {_IMAGE_PLACEHOLDER!r}; "
+                "provide images as image_part(...) content blocks instead."
+            )
 
     def _reject_non_text_parts(self, parts: list[ContentPart]) -> None:
         """Fail loudly on content this text-only renderer cannot express.
 
-        DeepSeek V4 Flash has no vision tower, and this renderer does not
-        carry V4.1's image placeholders; silently dropping image parts would
-        produce corrupt training data rather than an obvious error.
+        DeepSeek V4 Flash has no vision tower. Silently dropping image parts
+        would produce a corrupt prompt rather than an obvious error.
         """
         for p in parts:
             if p["type"] not in ("text", "thinking"):

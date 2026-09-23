@@ -14,3 +14,10 @@ class GroupRenameParams(TypedDict, total=False):
     New group name; whitespace-only values are rejected, while null or an empty
     string clears it
     """
+
+    from_number: Optional[str]
+    """
+    Sendblue line that must perform the change; it must have an iMessage mapping for
+    this group, and no other line is used if it cannot act. Omit or pass null for
+    automatic selection
+    """

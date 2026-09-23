@@ -489,7 +489,16 @@ def should_noop_for_devin(client: Client, *, tool_name: str = "") -> bool:
         return False
     if tool_name in _CLAUDE_CODE_BUILTIN_TOOLS:
         return False
-    if tool_name not in _DEVIN_BUILTIN_TOOLS and hook_io.getenv("CLAUDECODE"):
+    # ``CLAUDECODE`` is a per-invocation marker Claude Code exports to the
+    # subprocesses it spawns; its absence in the forwarded request env means
+    # "this request did not come from a nested Claude Code host." Read it
+    # forwarded-only so a daemon that inherited ``CLAUDECODE`` into its own
+    # long-lived ``os.environ`` cannot poison every daemon-served request for
+    # its lifetime -- the inline path (no ``HookIO`` or not daemon-served)
+    # still falls through to ``os.environ`` for a real nested host.
+    if tool_name not in _DEVIN_BUILTIN_TOOLS and hook_io.getenv(
+        "CLAUDECODE", forwarded_only=True
+    ):
         return False
     return True
 

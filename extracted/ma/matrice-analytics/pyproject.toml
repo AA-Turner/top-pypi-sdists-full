@@ -35,12 +35,15 @@ classifiers = [
 # numpy and scipy are hard, unguarded top-level imports on the KEEP tracker path
 # (advanced_tracker/matching.py:9, kalman_filter.py:9) but were never declared as
 # runtime dependencies -- only present via the dev extra below. Declaring them here
-# is a no-op for any environment that already has them (inference image, dev extra)
-# and fixes a clean-install gap for anyone installing matrice_analytics standalone.
-# Each floor must be a version APPROVED_DEPS-python.toml (matrice-ai/.github@v2)
-# literally allow-lists. dependency-approval-py reads the *floor* out of each
-# spec -- its regex stops at the first `,` or `;`, so upper bounds and markers are
-# invisible to it -- and demands exact membership in that package's `versions`.
+# fixes a clean-install gap for anyone installing matrice_analytics standalone.
+# numpy is a floor, so it is a no-op for any environment already carrying a newer
+# one (inference image, dev extra); scipy is pinned exactly, so it resolves to that
+# single version wherever it is installed.
+# Every version named here must be one APPROVED_DEPS-python.toml
+# (matrice-ai/.github@v2) literally allow-lists. dependency-approval-py reads the
+# first version token out of each spec -- its regex stops at the first `,` or `;`,
+# so upper bounds and markers are invisible to it and `>=` and `==` read alike --
+# and demands exact membership in that package's `versions`.
 # ">=1.21.0" was never allow-listed (numpy's set is 2.5.1 / 2.4.4), so this
 # manifest failed the check the first time an unrelated edit put it in a PR diff;
 # the check is path-gated on pyproject.toml, which is why it stayed hidden.
@@ -49,12 +52,12 @@ classifiers = [
 # 3.12+), while this package declares a 3.8 floor. The marker is forced, not
 # stylistic: no approved numpy floor is installable below 3.11, so on 3.8-3.10
 # numpy stays undeclared and the environment/inference image provides it, exactly
-# as it did before this declaration existed. scipy 1.18.0 is the same trade at
+# as it did before this declaration existed. scipy 1.18.1 is the same trade at
 # 3.12. Raising `requires-python` to match reality is the real fix and is its own
 # change -- the engine already needs 3.10+ (see [project.scripts] below).
 dependencies = [
     'numpy>=2.4.4,<3; python_version >= "3.11"',
-    'scipy>=1.18.0; python_version >= "3.12"',
+    'scipy==1.18.1; python_version >= "3.12"',
 ]
 
 [project.scripts]
@@ -91,7 +94,37 @@ dev = [
     # numpy is not repeated here: [project].dependencies already carries it, and the
     # "<2.0" cap this line used to add is unsatisfiable next to scipy 1.18.0 (which
     # requires numpy>=2.0.0,<2.8), so `pip install -e ".[dev]"` would not resolve.
-    "matrice-common==0.1.95",
+    # matrice-common is dev-only on purpose: [project].dependencies does not name
+    # it, src/ imports it lazily (clients/bootstrap.py opens the session inside the
+    # call rather than at module scope, so the wheel stays importable in an image
+    # with no platform SDK), and the deploy image supplies and pins its own copy --
+    # a hard requirement here would force-reinstall over that.
+    #
+    # The range is doing real work, so do not simplify it to a bare floor or to a
+    # bare name:
+    #   - `>=0.11.0` is the first release carrying `resolve_credentials` and the
+    #     `_credentials` module behind it. clients/bootstrap.py:97 imports that
+    #     name, so 0.1.95 -- which ships neither -- raises ImportError, and
+    #     open_session then reports "matrice_common is not importable" instead of
+    #     naming the credential variable that is actually missing.
+    #   - `!=1.0.0` excludes a release that is NEWER by version and OLDER by
+    #     content: it was published 2026-07-29, before the credential work, and
+    #     ships no `_credentials` at all. Because `1.0.0 > 0.11.0`, a bare
+    #     `matrice-common` or a plain `>=0.11.0` floor selects it and the same
+    #     ImportError comes straight back. Excluding the one bad release rather
+    #     than capping `<1.0.0` keeps a corrected future 1.x installable.
+    #
+    # No new transitive pin is required. The unguarded module-level third-party
+    # imports reachable from the four entry points we import (matrice_common,
+    # .utils, .rpc, .session) go from {dateutil, requests, urllib3} at 0.1.95 to
+    # {requests, urllib3} at 0.11.1, and both are already declared below. 0.11.x
+    # also drops the import-time `dependencies_check` self-heal, so importing the
+    # package no longer pip-installs anything.
+    #
+    # `dependency-approval-py` reads the first version token of a range, so this
+    # reads as `0.11.0` to the gate; APPROVED_DEPS-python.toml allows it via
+    # `versions = ["0.3.0", "*"]` and sets no min_version.
+    "matrice-common>=0.11.0,!=1.0.0",
     "httpx==0.28.1",
     # redis is a SOFT runtime dependency: the new analytics flow imports it
     # lazily and degrades to a logged no-op if absent (the inference image
@@ -102,8 +135,8 @@ dev = [
     # which already ships. Declared here rather than in [project].dependencies
     # for the same deploy-safety reason as the rest: the inference image
     # provides it, and a forced reinstall over a system package breaks the
-    # deploy. 2.13.4 is the version allowlisted in APPROVED_DEPS-python.toml.
-    "pydantic==2.13.4",
+    # deploy. 2.13.5 is the version allowlisted in APPROVED_DEPS-python.toml.
+    "pydantic==2.13.5",
     # opencv is a HARD runtime import -- an unguarded module-level `import cv2`
     # in 28 files under src/, e.g. analytics/geometry.py:16 -- and was declared
     # nowhere at all. `py-test` is skipped for dev-base PRs and was skipped on
@@ -142,14 +175,14 @@ dev = [
     # makes it a hard requirement for importing a SHIPPED module of ours. The
     # real fix belongs upstream in matrice-common's own manifest; pinning it here
     # keeps our test tree collectable without waiting on that release.
-    "confluent-kafka==2.15.0",
+    "confluent-kafka==2.15.1",
     # pymongo supplies `bson`, which 12 modules under tests/integration/face_reg
     # import (`from bson import ObjectId`, `from bson.errors import InvalidId`).
     # That is pymongo's bundled bson, NOT the standalone `bson` distribution --
     # APPROVED_DEPS allow-lists that one too (0.5.10), but it is a DIFFERENT
     # package that installs a conflicting top-level `bson` and would shadow
     # pymongo's. Declare pymongo only; never both.
-    "pymongo==4.17.0",
+    "pymongo==4.18.1",
     # The rest of matrice-common's undeclared imports. matrice-common 0.1.95
     # publishes requires_dist = None -- it declares NO dependencies at all -- so
     # every third-party module it imports is a latent ImportError for every
@@ -205,7 +238,7 @@ dev = [
     # cupy is not in APPROVED_DEPS at all, and torch would add gigabytes to every
     # CI install for a lazy import nothing in our test path reaches. aiohttp is
     # already declared above from an earlier pass -- harmless, just not required.
-    "kafka-python==3.0.9",
+    "kafka-python==3.0.11",
 ]
 
 [tool.setuptools.packages.find]

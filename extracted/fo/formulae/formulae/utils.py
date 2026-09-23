@@ -29,6 +29,17 @@ def flatten_list(nested_list):
             yield sublist
 
 
+def get_centering_matrix(basis):
+    """Remove the coefficient direction given by the training column means."""
+    column_means = basis.mean(axis=0)
+    unit_means = column_means / np.linalg.norm(column_means)
+    reflector = unit_means.copy()
+    reflector[0] += 1 if unit_means[0] >= 0 else -1
+    reflector /= np.linalg.norm(reflector)
+    householder = np.eye(column_means.size) - 2 * np.outer(reflector, reflector)
+    return householder[:, 1:]
+
+
 def get_interaction_matrix(x, y):
     l = []
 
@@ -69,8 +80,8 @@ def row_khatri_rao_sparse(X, groups, k):
         The integer group indices for each observation (0 to k- 1).
 
     k : int
-        Number of groups in ``groups``.
-        This parameter is needed to correctly determine the shape of the result when ``groups``
+        Number of groups in `groups`.
+        This parameter is needed to correctly determine the shape of the result when `groups`
         does not contain indexes representing all possible groups.
 
     Returns

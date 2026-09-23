@@ -16,6 +16,7 @@ These power three call sites without modification:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from typing import Any
@@ -28,6 +29,10 @@ from matrx_scraper.ai_browser.session import (
     get_browser_session_manager,
 )
 from matrx_scraper.ai_browser.humanize import HumanInput
+from matrx_scraper.ai_browser.readiness import (
+    PROBE_TIMEOUT_MS as READINESS_PROBE_TIMEOUT_MS,
+)
+from matrx_scraper.ai_browser.readiness import element_readiness
 from matrx_scraper.ai_browser.url_guard import (
     UnsafeUrlError,
     guard_landing,
@@ -69,6 +74,45 @@ def _failure_type(exc: Exception) -> str:
     imported here.
     """
     return "timeout" if type(exc).__name__ == "TimeoutError" else "browser"
+
+
+#: How long the courtesy body-text preview may take. A PREVIEW IS NOT THE
+#: ACTION, and it must never be able to cost more than the action it describes.
+#: Measured on production 2026-09-21: the signed-in `/staff` page made
+#: `inner_text("body")` cost 25 s or more, and because every navigate / click /
+#: type_text ran it unconditionally, every one of those commands blew the
+#: worker's 55 s command ceiling — on a five-character `type_text`. The SAME
+#: navigate on the SAME page in the SAME run took 7.1 s with `extract_text` off
+#: and 31.2 s with it on. That is the real shape of the reported "type_text
+#: drops about 1 in 5": nothing to do with typing, and it looked random only
+#: because a heavy page sometimes finished under the client's deadline.
+TEXT_PREVIEW_TIMEOUT_SECONDS = 5.0
+
+#: What the caller is told when the preview did not finish. It goes in
+#: `text_preview` because that is the field the agent reads, and a preview that
+#: quietly turned into `None` would be a screen that lies about an action that
+#: actually succeeded.
+PREVIEW_UNAVAILABLE = (
+    "[page text preview unavailable: this page took longer than "
+    f"{TEXT_PREVIEW_TIMEOUT_SECONDS:.0f}s to read, so it was skipped. The action itself "
+    "succeeded. Use get_text or get_element with a narrower selector to read this page.]"
+)
+
+
+async def _body_preview(page: Any) -> tuple[str, int, bool]:
+    """The capped body-text preview, BOUNDED and honest when it cannot be had.
+
+    The one place the three preview-carrying actions (navigate, click,
+    type_text) read page text, so the bound is written once and cannot be
+    forgotten by the fourth one.
+    """
+    try:
+        async with asyncio.timeout(TEXT_PREVIEW_TIMEOUT_SECONDS):
+            text = await page.inner_text("body")
+    except (TimeoutError, asyncio.CancelledError):
+        logger.warning("body-text preview exceeded %ss; skipped", TEXT_PREVIEW_TIMEOUT_SECONDS)
+        return PREVIEW_UNAVAILABLE, 0, False
+    return _cap_text(text, TEXT_PREVIEW_CAP)
 
 
 def _cap_text(text: str, limit: int) -> tuple[str, int, bool]:
@@ -193,7 +237,17 @@ class WaitForResult(_BaseResult):
 
 class GetElementResult(_CappedResult):
     selector: str | None = None
+    #: THE shared readiness verdict (``ai_browser/readiness.py``): True only for
+    #: an element the input actions will actually accept. It is deliberately NOT
+    #: "matched the DOM" — a ``visibility:hidden`` field reported found=True here
+    #: while ``type_text`` timed out on the very same selector.
     found: bool = False
+    #: The selector matched something. ``present=True, found=False`` is the
+    #: honest answer for a field the page has not revealed yet, and needs a
+    #: different remedy from a wrong selector.
+    present: bool = False
+    #: One word from ``readiness.READINESS_REASONS``.
+    readiness: str = "absent"
     text: str | None = None
     inner_html: str | None = None
     outer_html: str | None = None
@@ -347,9 +401,8 @@ async def navigate(
             http_status=resp.status if resp else None,
         )
         if extract_text:
-            text = await session.page.inner_text("body")
-            result.text_preview, result.total_chars, result.truncated = _cap_text(
-                text, TEXT_PREVIEW_CAP
+            result.text_preview, result.total_chars, result.truncated = await _body_preview(
+                session.page
             )
         return result
     except Exception as exc:
@@ -382,6 +435,18 @@ async def click(
         return ClickResult(
             success=False, session_id=session_id, error_type="not_found", error_message=err
         )
+    refusal = await _refuse_unusable_target(
+        session.page, selector, timeout_ms=timeout_ms, act="clicked"
+    )
+    if refusal is not None:
+        error_type, message = refusal
+        return ClickResult(
+            success=False,
+            session_id=session_id,
+            selector=selector,
+            error_type=error_type,
+            error_message=message,
+        )
     try:
         # ``human`` shapes the pointer events like a person's (humanize.py);
         # when the target has no box to aim at, the plain click is the fallback.
@@ -401,8 +466,7 @@ async def click(
                 error_type=error_type,
                 error_message=message,
             )
-        text = await session.page.inner_text("body")
-        preview, total_chars, truncated = _cap_text(text, TEXT_PREVIEW_CAP)
+        preview, total_chars, truncated = await _body_preview(session.page)
         return ClickResult(
             success=True,
             session_id=session_id,
@@ -443,6 +507,18 @@ async def fill(
         return FillResult(
             success=False, session_id=session_id, error_type="not_found", error_message=err
         )
+    refusal = await _refuse_unusable_target(
+        session.page, selector, timeout_ms=timeout_ms, act="filled in"
+    )
+    if refusal is not None:
+        error_type, message = refusal
+        return FillResult(
+            success=False,
+            session_id=session_id,
+            selector=selector,
+            error_type=error_type,
+            error_message=message,
+        )
     try:
         # A person cannot set a field's value in one event; ``human`` clears
         # and retypes it keystroke by keystroke. Fields no keyboard can drive
@@ -472,6 +548,62 @@ async def _human_fill(page: Any, selector: str, value: str, timeout_ms: int) -> 
     return await HumanInput(page).type_text(selector, value, clear_first=True, timeout_ms=timeout_ms)
 
 
+#: One fixed sentence per readiness verdict: what is wrong with the element and
+#: what to do about it. Never a page body or a raw Playwright message.
+#: ``{act}`` is the acting verb of whichever action asked — the sentence belongs
+#: to the readiness verdict, not to one action.
+_UNUSABLE_TARGET_MESSAGE = {
+    "absent": "Nothing on this page matches {selector}.",
+    "not_visible": (
+        "{selector} exists on this page but is hidden, so it cannot be {act}. "
+        "Reveal it first (open the section, choose the option that shows it) and "
+        "try again."
+    ),
+    "zero_size": (
+        "{selector} exists on this page but has no size, so it cannot be {act}. "
+        "It is probably a collapsed or placeholder element."
+    ),
+    "probe_failed": "{selector} could not be examined on this page.",
+}
+
+
+async def _refuse_unusable_target(
+    page: Any, selector: str, *, timeout_ms: int, act: str
+) -> tuple[str, str] | None:
+    """THE ONE pre-gate every element-aimed action runs.
+
+    Returns ``(error_type, message)`` when the element is not something a person
+    could act on, else ``None``. Two things it buys, both observed failing in
+    production on 2026-09-21:
+
+    * **Agreement.** ``get_element`` and every action share one verdict, so a
+      field an agent was told it had can never be a field the action refuses.
+      ``type_text`` and ``get_element`` were brought onto it first; ``click``,
+      ``fill`` and ``select_option`` were the rest of the same class.
+    * **An honest, fast answer.** Without it, a hidden target burns the caller's
+      whole timeout inside Playwright and comes back with a raw locator message
+      that names nothing the agent can act on. A hidden Cancel button used to
+      cost eight seconds and say "Timeout 8000ms exceeded"; it now costs under a
+      second and says the button is hidden and how to reveal it.
+
+    Playwright still runs its own, stricter actionability checks afterwards —
+    this gate never replaces them, it only refuses first and says why.
+
+    🚨 It refuses ONLY what it positively determined is unusable. When the probe
+    itself could not run (``probe_failed``), the action proceeds and Playwright
+    answers: refusing because we could not look is a guess dressed as a fact,
+    and it would turn working actions into errors on any page the probe cannot
+    read.
+    """
+    verdict = await element_readiness(page, selector, timeout_ms=timeout_ms)
+    if verdict.usable or verdict.reason == "probe_failed":
+        return None
+    return (
+        "not_found" if verdict.reason == "absent" else "timeout",
+        _UNUSABLE_TARGET_MESSAGE[verdict.reason].format(selector=selector, act=act),
+    )
+
+
 async def type_text(
     session_id: str,
     selector: str,
@@ -494,6 +626,23 @@ async def type_text(
     if err:
         return TypeResult(
             success=False, session_id=session_id, error_type="not_found", error_message=err
+        )
+    # THE ONE readiness definition, applied BEFORE any typing — the same
+    # verdict ``get_element`` reports, so a field an agent was told it had
+    # cannot silently be a field this refuses. It also turns the commonest
+    # failure from "sat on the page for the whole timeout, then a generic
+    # error" into a fast sentence naming what is wrong with the element.
+    refusal = await _refuse_unusable_target(
+        session.page, selector, timeout_ms=timeout_ms, act="typed into"
+    )
+    if refusal is not None:
+        error_type, message = refusal
+        return TypeResult(
+            success=False,
+            session_id=session_id,
+            selector=selector,
+            error_type=error_type,
+            error_message=message,
         )
     try:
         hi = HumanInput(session.page) if human else None
@@ -525,8 +674,7 @@ async def type_text(
                 error_type=error_type,
                 error_message=message,
             )
-        body_text = await session.page.inner_text("body")
-        preview, total_chars, truncated = _cap_text(body_text, TEXT_PREVIEW_CAP)
+        preview, total_chars, truncated = await _body_preview(session.page)
         return TypeResult(
             success=True,
             session_id=session_id,
@@ -573,6 +721,18 @@ async def select_option(
     if err:
         return SelectOptionResult(
             success=False, session_id=session_id, error_type="not_found", error_message=err
+        )
+    refusal = await _refuse_unusable_target(
+        session.page, selector, timeout_ms=timeout_ms, act="chosen from"
+    )
+    if refusal is not None:
+        error_type, message = refusal
+        return SelectOptionResult(
+            success=False,
+            session_id=session_id,
+            selector=selector,
+            error_type=error_type,
+            error_message=message,
         )
     try:
         if value:
@@ -734,10 +894,20 @@ async def get_element(
             error_message=message,
         )
     try:
-        element = await session.page.query_selector(selector)
+        # THE ONE readiness definition (readiness.py) — the same one the input
+        # actions apply, so "found" here and "typeable" there cannot disagree.
+        verdict = await element_readiness(
+            session.page, selector, timeout_ms=READINESS_PROBE_TIMEOUT_MS
+        )
+        element = await session.page.query_selector(selector) if verdict.present else None
         if element is None:
             return GetElementResult(
-                success=True, session_id=session_id, selector=selector, found=False
+                success=True,
+                session_id=session_id,
+                selector=selector,
+                found=False,
+                present=verdict.present,
+                readiness=verdict.reason,
             )
         # Pull a flat attribute map via evaluate.
         attrs_raw = await element.evaluate(
@@ -749,7 +919,9 @@ async def get_element(
             success=True,
             session_id=session_id,
             selector=selector,
-            found=True,
+            found=verdict.usable,
+            present=verdict.present,
+            readiness=verdict.reason,
             text=capped_text,
             attributes={str(k): str(v) for k, v in (attrs_raw or {}).items()},
             total_chars=text_total,
@@ -766,12 +938,10 @@ async def get_element(
             # is True if ANY of them was cut.
             result.total_chars += inner_total + outer_total
             result.truncated = result.truncated or inner_cut or outer_cut
-        try:
-            box = await element.bounding_box()
-            if box:
-                result.bounding_box = {k: float(v) for k, v in box.items()}
-        except Exception:
-            pass
+        # The box comes from the readiness verdict, which offers one only for
+        # something a pointer can actually be aimed at. A box on an unusable
+        # element is the exact lie this class of defect was made of.
+        result.bounding_box = verdict.box
         return result
     except Exception as exc:
         return GetElementResult(

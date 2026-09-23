@@ -418,24 +418,6 @@ conf = lakefs_sdk.Configuration(
                     'cookie_auth',
                 ),
             }
-        if 'oidc_auth' in self.api_key:
-            auth['oidc_auth'] = {
-                'type': 'api_key',
-                'in': 'cookie',
-                'key': 'oidc_auth_session',
-                'value': self.get_api_key_with_prefix(
-                    'oidc_auth',
-                ),
-            }
-        if 'saml_auth' in self.api_key:
-            auth['saml_auth'] = {
-                'type': 'api_key',
-                'in': 'cookie',
-                'key': 'saml_auth_session',
-                'value': self.get_api_key_with_prefix(
-                    'saml_auth',
-                ),
-            }
         return auth
 
     def to_debug_report(self):
@@ -447,7 +429,7 @@ conf = lakefs_sdk.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 1.0.0\n"\
-               "SDK Package Version: 1.86.0".\
+               "SDK Package Version: 1.87.0".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self):

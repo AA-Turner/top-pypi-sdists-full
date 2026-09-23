@@ -76,11 +76,30 @@ RULES: tuple[RuleDefinition, ...] = (
     RuleDefinition(
         id="S002",
         canonical_reference=(
-            "atlan-mysql-app app/client.py — the two os.environ credential writes in "
-            "`get_iam_role_token` carry an inline ignore[S002] explaining that the value "
-            "came from the resolved credentials and is staged into the environment only "
-            "because boto3's token helper has no explicit-credentials parameter. That "
-            "justification is what makes them acceptable."
+            "atlan-metabase-app app/credentials.py — `build_credential_ref` resolves "
+            "the secret through the SDK's `CredentialRef.resolve` (handling both "
+            "`credential_guid` and agent `agent_json` routing), and the typed "
+            "MetabaseCredential the API client consumes is populated from that resolved "
+            "payload. No credential-named environment variable is read anywhere in the "
+            "module — resolution through the seam is what correct looks like, not a "
+            "justified read."
+        ),
+        terminal_state=(
+            "Zero findings, reached by resolving the secret through CredentialRef / the "
+            "SecretStore protocol rather than reading it from the environment. S002 "
+            "flags reads only — a credential-named `os.getenv` / `os.environ[...]` / "
+            "`.get` / `.pop` — so only a read can be licensed; a directive over an "
+            "`os.environ[x] = v` write is inert, because the detector never emits there. "
+            "A justified inline `# conformance: ignore[S002] <reason>` IS the correct "
+            "end state for one kind of read: platform / transport self-auth the SDK "
+            "exposes no secret-store seam for — an `ATLAN_*` token the app uses to call "
+            "Atlan itself at process startup, injected into the pod environment before "
+            "any credential context exists. Naming 'platform self-auth' is not "
+            "sufficient on its own: the reason must name the specific value and the "
+            "specific SDK function or seam that cannot supply it, so the suppression "
+            "can be retired when that seam ships (BLDX-1419). A read that could go "
+            "through credential resolution is never terminal — route it through the "
+            "seam instead."
         ),
         scope=RuleScope.APP,
         name="RawEnvCredentialAccess",

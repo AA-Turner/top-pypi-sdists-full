@@ -37,6 +37,16 @@ except ImportError as ex:
     _pillow_heif = DeferredError(ex)
 
 
+def _save_color_profile(c_image, info: dict) -> None:
+    color_profile: dict[str, Any] = c_image.color_profile
+    if color_profile:
+        if color_profile["type"] in ("rICC", "prof"):
+            info["icc_profile"] = color_profile["data"]
+            info["icc_profile_type"] = color_profile["type"]
+        else:
+            info["nclx_profile"] = color_profile["data"]
+
+
 class BaseImage:
     """Base class for :py:class:`HeifImage`, :py:class:`HeifDepthImage` and :py:class:`HeifAuxImage`."""
 
@@ -150,6 +160,30 @@ class HeifAuxImage(BaseImage):
         return f"<{self.__class__.__name__} {self.size[0]}x{self.size[1]} {self.mode}>"
 
 
+class HeifThumbnail(BaseImage):
+    """Class representing the thumbnail of the :py:class:`~pillow_heif.HeifImage` class."""
+
+    def __init__(self, c_image):
+        super().__init__(c_image)
+        self.info = {
+            "bit_depth": int(c_image.bit_depth),
+        }
+        save_colorspace_chroma(c_image, self.info)
+        _save_color_profile(c_image, self.info)
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.size[0]}x{self.size[1]} {self.mode}>"
+
+    def to_pillow(self) -> Image.Image:
+        """Helper method to create :external:py:class:`~PIL.Image.Image` class.
+
+        :returns: :external:py:class:`~PIL.Image.Image` class created from an image.
+        """
+        image = super().to_pillow()
+        image.info = self.info.copy()
+        return image
+
+
 class HeifImage(BaseImage):
     """One image in a :py:class:`~pillow_heif.HeifFile` container."""
 
@@ -199,13 +233,7 @@ class HeifImage(BaseImage):
         if tiling:
             self.info["tiling"] = tiling
         save_colorspace_chroma(c_image, self.info)
-        color_profile: dict[str, Any] = c_image.color_profile
-        if color_profile:
-            if color_profile["type"] in ("rICC", "prof"):
-                self.info["icc_profile"] = color_profile["data"]
-                self.info["icc_profile_type"] = color_profile["type"]
-            else:
-                self.info["nclx_profile"] = color_profile["data"]
+        _save_color_profile(c_image, self.info)
 
     def __repr__(self):
         s_bytes = f"{len(self.data)} bytes" if self._data or isinstance(self._c_image, MimCImage) else "no"
@@ -247,6 +275,15 @@ class HeifImage(BaseImage):
         aux_image = self._c_image.get_aux_image(aux_id)
         return HeifAuxImage(aux_image)
 
+    def get_thumbnail(self, index: int) -> HeifThumbnail:
+        """Method to retrieve the thumbnail at the given position of ``info["thumbnails"]``.
+
+        :exception IndexError: If there is no thumbnail with such index.
+
+        :returns: a :py:class:`~pillow_heif.heif.HeifThumbnail` class instance.
+        """
+        return HeifThumbnail(self._c_image.get_thumbnail(index))
+
 
 class HeifFile:
     """Representation of the :py:class:`~pillow_heif.HeifImage` classes container.
@@ -268,6 +305,7 @@ class HeifFile:
 
         if fp is None:
             images = []
+            entity_groups = []
             mimetype = ""
         else:
             fp_bytes = _get_bytes(fp)
@@ -278,7 +316,7 @@ class HeifFile:
                 preferred_decoder = options.PREFERRED_DECODER.get("HEIF", "")
             else:
                 preferred_decoder = ""
-            images = _pillow_heif.load_file(
+            images, entity_groups = _pillow_heif.load_file(
                 fp_bytes,
                 options.DECODE_THREADS,
                 convert_hdr_to_8bit,
@@ -289,11 +327,18 @@ class HeifFile:
                 options.DISABLE_SECURITY_LIMITS,
             )
         self.mimetype = mimetype
-        self._images: list[HeifImage] = [HeifImage(i) for i in images if i is not None]
+        images = [i for i in images if i is not None]
+        self._images: list[HeifImage] = [HeifImage(i) for i in images]
         self.primary_index = 0
         for index, _ in enumerate(self._images):
             if _.info.get("primary", False):
                 self.primary_index = index
+        if entity_groups:
+            item_ids = {c_image.item_id: index for index, c_image in enumerate(images)}
+            for group in entity_groups:
+                group["images"] = [item_ids.get(i) for i in group["entities"]]
+            for image in self._images:
+                image.info["entity_groups"] = deepcopy(entity_groups)
 
     @property
     def size(self):
@@ -457,6 +502,7 @@ class HeifFile:
         )
         added_image.info = deepcopy(image.info)
         added_image.info.pop("primary", None)
+        added_image.info.pop("entity_groups", None)
         return added_image
 
     def add_from_pillow(self, image: Image.Image) -> HeifImage:

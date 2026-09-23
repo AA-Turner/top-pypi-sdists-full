@@ -602,6 +602,7 @@ class MCPServer:
         await self._check_and_warn_missing_secrets()
 
         await self._resource_manager.start()
+        await self._resource_manager.load_from_catalog(self._initial_catalog)
         for item, handler in self._initial_resources:
             if isinstance(item, ResourceTemplate):
                 if handler is not None:
@@ -1006,7 +1007,7 @@ class MCPServer:
             "tools": {"listChanged": True},
             "logging": {},
             "prompts": {"listChanged": True},
-            "resources": {"subscribe": True, "listChanged": True},
+            "resources": {"listChanged": True},
         }
 
         # Add middleware-contributed capabilities
@@ -2172,6 +2173,7 @@ class MCPServer:
             result = await self._prompt_manager.get_prompt(
                 message.params.name,
                 message.params.arguments if hasattr(message.params, "arguments") else None,
+                context=get_current_model_context(),
             )
             return JSONRPCResponse(id=message.id, result=result)
         except NotFoundError:

@@ -85,11 +85,13 @@ __all__ = (
     "CapacityManagerDataExportStatusType",
     "CapacityManagerMonitoredTagKeyStatusType",
     "CapacityManagerStatusType",
+    "CapacityReservationAdjustmentStatusType",
     "CapacityReservationBillingRequestStatusType",
     "CapacityReservationCancellationQuoteStateType",
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
     "CapacityReservationInstancePlatformType",
+    "CapacityReservationModificationQuoteStateType",
     "CapacityReservationPreferenceType",
     "CapacityReservationStateType",
     "CapacityReservationTenancyType",
@@ -137,6 +139,7 @@ __all__ = (
     "DescribeCapacityBlocksPaginatorName",
     "DescribeCapacityManagerDataExportsPaginatorName",
     "DescribeCapacityReservationBillingRequestsPaginatorName",
+    "DescribeCapacityReservationDateChangeQuotesPaginatorName",
     "DescribeCapacityReservationFleetsPaginatorName",
     "DescribeCapacityReservationsPaginatorName",
     "DescribeCarrierGatewaysPaginatorName",
@@ -886,6 +889,7 @@ CapacityManagerMonitoredTagKeyStatusType = Literal[
     "activated", "activating", "deactivating", "suspended"
 ]
 CapacityManagerStatusType = Literal["disabled", "enabled"]
+CapacityReservationAdjustmentStatusType = Literal["applied", "rejected", "requested"]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
 ]
@@ -922,6 +926,7 @@ CapacityReservationInstancePlatformType = Literal[
     "Windows with SQL Server Standard",
     "Windows with SQL Server Web",
 ]
+CapacityReservationModificationQuoteStateType = Literal["active", "expired"]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only", "none", "open"]
 CapacityReservationStateType = Literal[
     "active",
@@ -1000,6 +1005,9 @@ DescribeCapacityBlocksPaginatorName = Literal["describe_capacity_blocks"]
 DescribeCapacityManagerDataExportsPaginatorName = Literal["describe_capacity_manager_data_exports"]
 DescribeCapacityReservationBillingRequestsPaginatorName = Literal[
     "describe_capacity_reservation_billing_requests"
+]
+DescribeCapacityReservationDateChangeQuotesPaginatorName = Literal[
+    "describe_capacity_reservation_date_change_quotes"
 ]
 DescribeCapacityReservationFleetsPaginatorName = Literal["describe_capacity_reservation_fleets"]
 DescribeCapacityReservationsPaginatorName = Literal["describe_capacity_reservations"]
@@ -3361,6 +3369,7 @@ ResourceTypeType = Literal[
     "capacity-reservation",
     "capacity-reservation-cancellation-quote",
     "capacity-reservation-fleet",
+    "capacity-reservation-modification-quote",
     "carrier-gateway",
     "client-vpn-endpoint",
     "coip-pool",
@@ -3890,6 +3899,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -4257,6 +4267,7 @@ PaginatorName = Literal[
     "describe_capacity_blocks",
     "describe_capacity_manager_data_exports",
     "describe_capacity_reservation_billing_requests",
+    "describe_capacity_reservation_date_change_quotes",
     "describe_capacity_reservation_fleets",
     "describe_capacity_reservations",
     "describe_carrier_gateways",

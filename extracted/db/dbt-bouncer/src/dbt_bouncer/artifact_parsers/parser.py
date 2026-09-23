@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 import orjson
 
+from dbt_bouncer.exceptions import DbtBouncerArtifactError
 from dbt_bouncer.utils import clean_path_str, get_package_version_number
 
 if TYPE_CHECKING:
@@ -25,7 +26,7 @@ class ProxyStr(str):
 
     @property
     def value(self) -> str:
-        """Return the string value (mimics Pydantic enum .value access).
+        """The string value (mimics Pydantic enum .value access).
 
         Returns:
             str: The underlying string value.
@@ -89,7 +90,7 @@ class DictProxy(dict):
         for v in dict.values(self):
             yield _wrap_value(v)
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: Any, default: Any = None) -> Any:
         """Get a wrapped value by key, or *default* if missing.
 
         Returns:
@@ -128,20 +129,25 @@ class ListProxy(list):
             yield _wrap_value(item)
 
 
+# Exact-type dispatch table for `_wrap_value`. orjson only ever produces plain
+# `dict`/`list`/`str` (plus primitives), and the proxy classes are deliberately
+# absent, so an already-wrapped value falls straight through.
+_WRAPPERS: dict[type, Any] = {dict: DictProxy, list: ListProxy, str: ProxyStr}
+
+
 def _wrap_value(value: Any) -> Any:
     """Wrap dicts/lists in proxies, strings in ProxyStr. Primitives pass through.
+
+    This is the hottest function in the codebase -- hundreds of thousands of calls
+    per run -- so it dispatches on the value's exact type: one dict lookup instead
+    of up to six ``isinstance`` calls.
 
     Returns:
         Any: Proxy-wrapped value or primitive as-is.
 
     """
-    if isinstance(value, dict) and not isinstance(value, DictProxy):
-        return DictProxy(value)
-    if isinstance(value, list) and not isinstance(value, ListProxy):
-        return ListProxy(value)
-    if isinstance(value, str) and not isinstance(value, ProxyStr):
-        return ProxyStr(value)
-    return value
+    wrapper = _WRAPPERS.get(value.__class__)
+    return value if wrapper is None else wrapper(value)
 
 
 def _make_wrapper(
@@ -198,24 +204,24 @@ def parse_dbt_artifacts(
         ParsedArtifacts: Named tuple of lightweight proxy objects.
 
     Raises:
-        AssertionError: If the dbt version is below the minimum supported version.
-        FileNotFoundError: If a required artifact file does not exist.
+        DbtBouncerArtifactError: If the dbt version is below the minimum supported
+            version, or a required artifact file does not exist.
 
     """
     # --- Manifest ---
     manifest_path = dbt_artifacts_dir / "manifest.json"
     if not manifest_path.exists():
-        raise FileNotFoundError(f"No manifest.json found at {manifest_path}.")
+        raise DbtBouncerArtifactError(f"No manifest.json found at {manifest_path}.")
 
     manifest_dict = orjson.loads(manifest_path.read_bytes())
 
     dbt_version = manifest_dict["metadata"]["dbt_version"]
     if not get_package_version_number(dbt_version) >= get_package_version_number(
-        "1.7.0"
+        "1.10.0"
     ):
-        raise AssertionError(
+        raise DbtBouncerArtifactError(
             f"The supplied `manifest.json` was generated with dbt version {dbt_version}, "
-            "this is below the minimum supported version of 1.7.0."
+            "this is below the minimum supported version of 1.10.0."
         )
 
     manifest_proxy = DictProxy(manifest_dict)
@@ -293,15 +299,12 @@ def parse_dbt_artifacts(
         if v.get("package_name") == target_package
     ]
 
-    # Unit tests (dbt >= 1.8.0)
-    if get_package_version_number(dbt_version) >= get_package_version_number("1.8.0"):
-        project_unit_tests: list[DictProxy] = [
-            DictProxy(v)
-            for _, v in manifest_dict.get("unit_tests", {}).items()
-            if v.get("package_name") == target_package
-        ]
-    else:
-        project_unit_tests = []
+    # Unit tests
+    project_unit_tests: list[DictProxy] = [
+        DictProxy(v)
+        for _, v in manifest_dict.get("unit_tests", {}).items()
+        if v.get("package_name") == target_package
+    ]
 
     # --- Catalog ---
     if (
@@ -310,7 +313,15 @@ def parse_dbt_artifacts(
     ):
         catalog_path = dbt_artifacts_dir / "catalog.json"
         if not catalog_path.exists():
-            raise FileNotFoundError(f"No catalog.json found at {catalog_path}.")
+            # dbt 2.0 removed `--write-catalog` from `dbt build`, so a pipeline that
+            # only runs `dbt build` now reaches this branch. Name the commands that do
+            # write a catalog rather than only reporting the missing path.
+            raise DbtBouncerArtifactError(
+                f"No catalog.json found at {catalog_path}. "
+                "Generate one with `dbt compile --write-catalog` on dbt 2.0, or with "
+                "`dbt docs generate` on dbt 1.x. On dbt 2.0 the Apache-2.0 `dbt-oss` "
+                "distribution writes no catalog.json; use the `dbt` distribution."
+            )
 
         catalog_dict = orjson.loads(catalog_path.read_bytes())
         nodes_dict = manifest_dict.get("nodes", {})
@@ -349,7 +360,7 @@ def parse_dbt_artifacts(
     ):
         rr_path = dbt_artifacts_dir / "run_results.json"
         if not rr_path.exists():
-            raise FileNotFoundError(f"No run_results.json found at {rr_path}.")
+            raise DbtBouncerArtifactError(f"No run_results.json found at {rr_path}.")
 
         rr_dict = orjson.loads(rr_path.read_bytes())
         nodes_dict = manifest_dict.get("nodes", {})

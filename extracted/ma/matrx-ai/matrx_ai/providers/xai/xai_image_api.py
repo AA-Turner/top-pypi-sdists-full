@@ -68,6 +68,10 @@ class XAIImageGeneration(BaseMediaGeneration):
         # promotes the call to the edit endpoint.
         if unified_config.image_input or unified_config.image_inputs:
             return True
+        from matrx_ai.media.image_reference_roles import collect_role_images
+
+        if collect_role_images(unified_config.messages):
+            return True
         if pick_image_by_role(unified_config.messages, "start_image") is not None:
             return True
         if pick_image_by_role(unified_config.messages, None) is not None:
@@ -94,7 +98,24 @@ class XAIImageGeneration(BaseMediaGeneration):
         # Prefer user-message-tagged images (start_image, reference, or first
         # un-tagged image), fall back to settings-level image_input/image_inputs.
         if self._is_edit(unified_config):
-            inputs: list[str] = []
+            # Typed reference roles first (edit target = image 1), legend in
+            # the prompt; the catalog total (3) is enforced before we get here.
+            from matrx_ai.media.image_reference_roles import (
+                collect_role_images,
+                ordered_role_images,
+                resolve_roled,
+                with_legend,
+            )
+
+            roled = resolve_roled(
+                ordered_role_images(
+                    collect_role_images(unified_config.messages), self.ROLE_TRANSPORT
+                ),
+                self._mediaref_url,
+            )
+            if roled:
+                kwargs["prompt"] = with_legend(prompt, roled)
+            inputs: list[str] = [url for _role, url in roled]
             start = (
                 pick_image_by_role(unified_config.messages, "start_image")
                 or pick_image_by_role(unified_config.messages, None)
@@ -127,6 +148,12 @@ class XAIImageGeneration(BaseMediaGeneration):
             else:
                 kwargs["image_urls"] = inputs
         return kwargs
+
+    #: xAI multi-image edit: up to 3 source images in ``image_urls``.
+    ROLE_TRANSPORT: frozenset[str] = frozenset({"edit_target", "subject", "character", "style"})
+
+    def image_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        return self.ROLE_TRANSPORT
 
     def _telemetry_url(self, unified_config: UnifiedConfig, kwargs: dict[str, Any]) -> str:
         if self._is_edit(unified_config):

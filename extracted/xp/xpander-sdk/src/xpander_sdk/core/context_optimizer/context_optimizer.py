@@ -111,6 +111,7 @@ from xpander_sdk.core.context_optimizer.finalize_mode import (
     is_finalize_active,
 )
 from xpander_sdk.core.context_optimizer.encryption import (
+    session_id_for,
     aencrypt,
     conversation_scope_id,
     derive_key,
@@ -2413,14 +2414,16 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
             agent_obj = agno_agent_or_xpander_agent
             session = None
 
+            # a direct conversation stores its turns under the conversation id
+            session_key = session_id_for(task)
             # Agno Agent path (mono) — has session_id attr from agno
             if hasattr(agent_obj, "session_id") and hasattr(agent_obj, "db"):
                 from agno.agent._session import aget_session as agno_aget_session
 
-                session = await agno_aget_session(agent_obj, session_id=task.id)
+                session = await agno_aget_session(agent_obj, session_id=session_key)
             # xpander Agent path (SDK) — use the xpander agent's method
             elif hasattr(agent_obj, "aget_session"):
-                session = await agent_obj.aget_session(session_id=task.id)
+                session = await agent_obj.aget_session(session_id=session_key)
 
             if not session:
                 logger.warning(
@@ -2696,12 +2699,13 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
                     # Agno Agent path
                     from agno.agent._session import adelete_session
 
-                    await adelete_session(agent_obj, session_id=task.id)
+                    await adelete_session(agent_obj, session_id=session_key)
                 elif hasattr(agent_obj, "adelete_session"):
                     # xpander Agent path
-                    await agent_obj.adelete_session(session_id=task.id)
+                    await agent_obj.adelete_session(session_id=session_key)
                 logger.info(
-                    f"[context-optimizer] pre-retry: deleted old session {task.id}"
+                    "[context-optimizer] pre-retry: deleted old session "
+                    f"{session_key}"
                 )
             except Exception as exc:
                 logger.warning(

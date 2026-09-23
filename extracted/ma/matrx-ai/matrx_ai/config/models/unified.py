@@ -80,6 +80,7 @@ class UnifiedConfigModel(BaseModel):
     tool_delegation_disabled_policy: bool = False
     tool_delegation_registry_fingerprint: str | None = None
     tool_delegation_filter_applied_runtime: bool = False
+    responder_mandate_key: str | None = None
     tool_choice: Optional[Literal['none', 'auto', 'required']] = None  # never populated in 6,485 stored configs
     parallel_tool_calls: bool = True
     skill_injected_tool_ids: list[str] = Field(default_factory=list)

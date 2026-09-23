@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents-evals
-Version: 1.3.0
+Version: 1.4.0
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Dist: pydantic<3.0.0,>=2.4.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
 Requires-Dist: rich<15.0.0,>=14.0.0
 Requires-Dist: strands-agents-tools<1.0.0,>=0.1.0
-Requires-Dist: strands-agents>=1.42.0
+Requires-Dist: strands-agents>=1.45.0
 Requires-Dist: tenacity<10.0.0,>=8.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Provides-Extra: adk
@@ -56,7 +56,10 @@ Description-Content-Type: text/markdown
 <div align="center">
   <div>
     <a href="https://strandsagents.com">
-      <img src="https://strandsagents.com/latest/assets/logo-github.svg" alt="Strands Agents" width="55px" height="105px">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://strandsagents.com/latest/assets/wordmark-github-dark.svg">
+        <img src="https://strandsagents.com/latest/assets/wordmark-github-light.svg" alt="Strands" width="320">
+      </picture>
     </a>
   </div>
 

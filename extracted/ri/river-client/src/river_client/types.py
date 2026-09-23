@@ -353,20 +353,6 @@ class ChatCompleteResult:
 
 
 @dataclass
-class PromotedStreamingReplica:
-    """Server-owned routing metadata for a promoted streaming replica."""
-
-    checkpoint: str
-    status: str
-    base_url: str | None
-    replica_id: str | None
-    model: str
-    base_model: str
-    updated_at: str
-    status_reason: str | None = None
-
-
-@dataclass
 class DeploymentReplicas:
     """Desired, allocated, ready and pending counts for one role of a deployment.
 

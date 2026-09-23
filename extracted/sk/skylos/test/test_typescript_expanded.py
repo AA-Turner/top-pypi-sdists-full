@@ -1201,6 +1201,42 @@ class TestTSClassDefs:
 
 
 class TestMixedRepoIntegration:
+    def test_unrelated_test_strings_do_not_hide_typescript_dead_code(self, tmp_path):
+        """Regression for #877: grep evidence must respect TS binding owners."""
+        from skylos.analyzer import analyze
+
+        source = tmp_path / "unused.ts"
+        _write(
+            source,
+            'import { issue877UnusedImport } from "some-module";\n'
+            "\n"
+            "function issue877DeadHelper() { return 42; }\n"
+            "class Issue877DeadClass {}\n"
+            "\n"
+            "export function issue877LiveEntry() { return 100; }\n",
+        )
+        _write(
+            tmp_path / "test_scanner.py",
+            "EXPECTED_UNUSED = {\n"
+            '    "issue877DeadHelper",\n'
+            '    "issue877UnusedImport",\n'
+            '    "Issue877DeadClass",\n'
+            "}\n",
+        )
+
+        result = json.loads(analyze(str(source), conf=0))
+
+        unused_functions = {
+            item["name"] for item in result.get("unused_functions", [])
+        }
+        unused_imports = {item["name"] for item in result.get("unused_imports", [])}
+        unused_classes = {item["name"] for item in result.get("unused_classes", [])}
+
+        assert "issue877DeadHelper" in unused_functions
+        assert "issue877UnusedImport" in unused_imports
+        assert "Issue877DeadClass" in unused_classes
+        assert result["analysis_summary"]["grep_verify"]["rescued_count"] == 0
+
     def test_esbuild_entry_and_jsdoc_types_are_not_reported_as_unused_files(
         self, tmp_path
     ):
@@ -1399,6 +1435,61 @@ class TestMixedRepoIntegration:
 
 
 class TestTSMonorepoReachability:
+    def test_package_entrypoint_barrel_exports_remain_public(self, tmp_path):
+        from skylos.analyzer import analyze
+
+        src_dir = tmp_path / "src"
+        engine_dir = src_dir / "engine"
+        engine_dir.mkdir(parents=True)
+        (tmp_path / "package.json").write_text(
+            json.dumps(
+                {"name": "reexport-repro", "main": "dist/src/index.js"}
+            ),
+            encoding="utf-8",
+        )
+        (src_dir / "index.ts").write_text(
+            'export * from "./engine";\n', encoding="utf-8"
+        )
+        (engine_dir / "index.ts").write_text(
+            "export const processReview = () => true;\n"
+            "export const MASTERY_THRESHOLD = 0.8;\n"
+            "export class PublicEngine {\n"
+            "  run() { return true; }\n"
+            "  protected extend() { return true; }\n"
+            "}\n"
+            "function internalHelper() { return false; }\n"
+            "const internalThreshold = 0.2;\n"
+            "class InternalEngine {}\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        reported_names = {
+            item["name"]
+            for category in (
+                "unused_functions",
+                "unused_variables",
+                "unused_classes",
+                "unused_exports",
+            )
+            for item in result.get(category, [])
+        }
+
+        assert {
+            "processReview",
+            "MASTERY_THRESHOLD",
+            "PublicEngine",
+            "PublicEngine.run",
+            "PublicEngine.extend",
+        }.isdisjoint(reported_names)
+        assert {
+            "internalHelper",
+            "internalThreshold",
+            "InternalEngine",
+        } <= reported_names
+        assert result.get("unused_files", []) == []
+        assert result.get("analysis_errors", []) == []
+
     def test_package_entrypoint_is_not_reported_dead_or_unnecessary(self, tmp_path):
         from skylos.analyzer import analyze
 

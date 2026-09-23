@@ -46,12 +46,14 @@ if TYPE_CHECKING:
       AsyncGeminiNextGenEnvironments,
       AsyncGeminiNextGenInteractions,
       AsyncGeminiNextGenTriggers,
+      AsyncGeminiNextGenVoices,
       AsyncGeminiNextGenWebhooks,
       GeminiNextGenAgents,
       GeminiNextGenCredentials,
       GeminiNextGenEnvironments,
       GeminiNextGenInteractions,
       GeminiNextGenTriggers,
+      GeminiNextGenVoices,
       GeminiNextGenWebhooks,
   )
   from ._gaos.sdk import AsyncGenAI as AsyncGeminiNextGenAPI
@@ -85,6 +87,7 @@ class AsyncClient:
     self._triggers: Optional[AsyncGeminiNextGenTriggers] = None
     self._environments: Optional[AsyncGeminiNextGenEnvironments] = None
     self._credentials: Optional[AsyncGeminiNextGenCredentials] = None
+    self._voices: Optional[AsyncGeminiNextGenVoices] = None
 
   @property
   def _nextgen_client(self) -> AsyncGeminiNextGenAPI:
@@ -177,6 +180,15 @@ class AsyncClient:
 
       self._credentials = AsyncGeminiNextGenCredentials(self._api_client)
     return self._credentials
+
+  @property
+  def voices(self) -> AsyncGeminiNextGenVoices:
+    """Voices resource."""
+    if self._voices is None:
+      from ._gaos.google_genai import AsyncGeminiNextGenVoices
+
+      self._voices = AsyncGeminiNextGenVoices(self._api_client)
+    return self._voices
 
   @property
   def models(self) -> AsyncModels:
@@ -433,6 +445,7 @@ class Client:
     self._triggers: Optional[GeminiNextGenTriggers] = None
     self._environments: Optional[GeminiNextGenEnvironments] = None
     self._credentials: Optional[GeminiNextGenCredentials] = None
+    self._voices: Optional[GeminiNextGenVoices] = None
 
   @staticmethod
   def _get_api_client(
@@ -559,6 +572,14 @@ class Client:
 
       self._credentials = GeminiNextGenCredentials(self._api_client)
     return self._credentials
+
+  @property
+  def voices(self) -> GeminiNextGenVoices:
+    if self._voices is None:
+      from ._gaos.google_genai import GeminiNextGenVoices
+
+      self._voices = GeminiNextGenVoices(self._api_client)
+    return self._voices
 
   @property
   def chats(self) -> Chats:

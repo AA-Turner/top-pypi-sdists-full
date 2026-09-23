@@ -19,6 +19,7 @@ from typing import Optional
 import aiohttp
 
 from ._auth import AuthBase
+from ._common import PROCESSING_DATA_HEADER
 from ._exceptions import AuthenticationError
 from ._exceptions import ConnectionError
 from ._exceptions import TransportError
@@ -26,7 +27,7 @@ from ._helpers import get_version
 from ._logging import get_logger
 from ._models import ConnectionConfig
 
-PROCESSING_DATA_HEADER = "X-SM-Processing-Data"
+__all__ = ["PROCESSING_DATA_HEADER", "Transport"]
 
 
 class Transport:
@@ -120,6 +121,7 @@ class Transport:
         multipart_data: Optional[dict[str, Any]] = None,
         timeout: Optional[float] = None,
         extra_headers: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Send POST request to the API.
@@ -130,6 +132,7 @@ class Transport:
             multipart_data: Optional multipart form data
             timeout: Optional request timeout
             extra_headers: Optional additional headers to include in the request
+            params: Optional query parameters
 
         Returns:
             JSON response as dictionary
@@ -145,15 +148,19 @@ class Transport:
             multipart_data=multipart_data,
             timeout=timeout,
             extra_headers=extra_headers,
+            params=params,
         )
 
-    async def delete(self, path: str, timeout: Optional[float] = None) -> dict[str, Any]:
+    async def delete(
+        self, path: str, timeout: Optional[float] = None, params: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """
         Send DELETE request to the API.
 
         Args:
             path: API endpoint path
             timeout: Optional request timeout
+            params: Optional query parameters
 
         Returns:
             JSON response as dictionary
@@ -162,7 +169,7 @@ class Transport:
             AuthenticationError: If authentication fails
             TransportError: If request fails
         """
-        return await self._request("DELETE", path, timeout=timeout)
+        return await self._request("DELETE", path, timeout=timeout, params=params)
 
     async def close(self) -> None:
         """
@@ -298,6 +305,8 @@ class Transport:
                 "Request timeout %s %s (timeout=%.1fs)", method, path, self._conn_config.operation_timeout
             )
             raise TransportError(f"Request timeout for {method} {path}") from None
+        except (AuthenticationError, TransportError):
+            raise
         except aiohttp.ClientError as e:
             self._logger.error("Request failed %s %s: %s", method, path, e)
             raise ConnectionError(f"Request failed: {e}") from e
@@ -313,9 +322,9 @@ class Transport:
             Headers dictionary with authentication and tracking info
         """
         auth_headers = await self._auth.get_auth_headers()
-        auth_headers["User-Agent"] = (
-            f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
-        )
+        auth_headers[
+            "User-Agent"
+        ] = f"speechmatics-batch-v{get_version()} python/{sys.version_info.major}.{sys.version_info.minor}"
 
         if self._request_id:
             auth_headers["X-Request-Id"] = self._request_id
@@ -344,7 +353,10 @@ class Transport:
             elif response.status >= 400:
                 error_text = await response.text()
                 self._logger.error("HTTP error %d %s: %s", response.status, response.reason, error_text)
-                raise TransportError(f"HTTP {response.status}: {response.reason} - {error_text}")
+                raise TransportError(
+                    f"HTTP {response.status}: {response.reason} - {error_text}",
+                    status_code=response.status,
+                )
 
             # Try to parse JSON response
             if (
@@ -361,6 +373,8 @@ class Transport:
         except aiohttp.ContentTypeError as e:
             self._logger.error("Failed to parse JSON response: %s", e)
             raise TransportError(f"Failed to parse response: {e}") from e
+        except (AuthenticationError, TransportError):
+            raise
         except Exception as e:
             self._logger.error("Error handling response: %s", e)
             raise TransportError(f"Error handling response: {e}") from e

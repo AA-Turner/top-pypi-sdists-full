@@ -74,7 +74,7 @@ async def test_run_agent_replaces_schema_placeholder_before_model_call() -> None
     )
     seen: dict[str, object] = {}
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         seen["response_format"] = config.response_format
         seen["output_schema"] = agent.output_schema
         return SimpleNamespace(
@@ -138,7 +138,7 @@ async def test_run_agent_accepts_persisted_schema_dictionary() -> None:
         "additionalProperties": False,
     }
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output=json.dumps({"assignments": []}),
             assistant_response=None,
@@ -199,7 +199,7 @@ async def test_run_agent_does_not_alarm_on_unstamped_parent_when_child_source_is
         }
     )
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output="tracked",
             assistant_response=None,
@@ -246,7 +246,7 @@ async def test_run_agent_still_rejects_invalid_typed_payload_after_call() -> Non
         }
     )
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output=json.dumps(
                 {
@@ -301,7 +301,7 @@ async def test_run_agent_does_not_parse_a_failed_completed_request() -> None:
         }
     )
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output='{"partial": "provider buffer"}',
             assistant_response=None,

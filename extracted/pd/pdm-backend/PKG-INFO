@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdm-backend
-Version: 2.4.9
+Version: 2.4.10
 Summary: The build backend used by PDM that supports latest packaging standards
 Keywords: packaging,PEP 517,build
 Author-Email: Frost Ming <me@frostming.com>
@@ -23,6 +23,8 @@ Requires-Dist: importlib-metadata>=3.6; python_version < "3.10"
 Description-Content-Type: text/markdown
 
 # PDM-Backend
+
+[![Support Frost's Python packaging ecosystem](https://img.shields.io/badge/Sponsor-Python%20packaging%20ecosystem-ea4aaa?logo=githubsponsors&logoColor=white&style=for-the-badge)](https://github.com/sponsors/frostming)
 
 The build backend used by [PDM] that supports latest packaging standards.
 

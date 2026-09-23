@@ -30,7 +30,7 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 class CreateCredentialGlobalsTypedDict(TypedDict):
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
 
 class CreateCredentialGlobals(BaseModel):
@@ -38,7 +38,7 @@ class CreateCredentialGlobals(BaseModel):
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -59,8 +59,9 @@ class CreateCredentialGlobals(BaseModel):
 
 class CreateCredentialRequestParam(TypedDict):
     body: credentials_credentialcreateparams.CredentialCreateParamsParam
+    r"""Required. The request body."""
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
 
 class CreateCredentialRequest(BaseModel):
@@ -68,12 +69,13 @@ class CreateCredentialRequest(BaseModel):
         credentials_credentialcreateparams.CredentialCreateParams,
         FieldMetadata(request=RequestMetadata(media_type="application/json")),
     ]
+    r"""Required. The request body."""
 
     api_version: Annotated[
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):

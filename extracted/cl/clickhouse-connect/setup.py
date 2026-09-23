@@ -82,7 +82,7 @@ def run_setup():
         packages=find_packages(exclude=["tests*"]),
         package_data={"clickhouse_connect": ["py.typed"]},
         python_requires=">=3.10,<3.15",
-        license="Apache-2.0",
+        license_expression="Apache-2.0",
         install_requires=[
             "certifi",
             "urllib3>=1.26",
@@ -93,6 +93,7 @@ def run_setup():
         ],
         extras_require={
             "sqlalchemy": ["sqlalchemy>=1.4.40,<3.0"],
+            "sqlalchemy-async": ["sqlalchemy[asyncio]>=2.0.44,<3.0", "aiohttp>=3.9.0"],
             "alembic": ["sqlalchemy>=1.4.40,<3.0", "alembic>=1.18"],
             "numpy": ["numpy"],
             "pandas": ["pandas>=2,<4"],
@@ -105,17 +106,16 @@ def run_setup():
             "chdb": ["chdb>=4.1.7"],
             "rust": ["clickhouse-connect-core>=0.2.0,<0.3"],
         },
-        tests_require=["pytest"],
         entry_points={
             "sqlalchemy.dialects": [
                 "clickhousedb.connect=clickhouse_connect.cc_sqlalchemy.dialect:ClickHouseDialect",
                 "clickhousedb=clickhouse_connect.cc_sqlalchemy.dialect:ClickHouseDialect",
+                "clickhousedb.async=clickhouse_connect.cc_sqlalchemy.asyncio:ClickHouseAsyncDialect",
             ]
         },
         classifiers=[
             "Development Status :: 5 - Production/Stable",
             "Intended Audience :: Developers",
-            "License :: OSI Approved :: Apache Software License",
             "Programming Language :: Python :: 3.10",
             "Programming Language :: Python :: 3.11",
             "Programming Language :: Python :: 3.12",

@@ -29,6 +29,12 @@ class TestSpark(Validator):
             "CREATE TABLE foo (col STRING) CLUSTERED BY (col) SORTED BY (col) INTO 10 BUCKETS"
         )
         self.validate_identity("TRUNCATE TABLE t1 PARTITION(age = 10, name = 'test', address)")
+        self.validate_identity(
+            "CREATE FUNCTION f(col STRING) RETURNS STRING DETERMINISTIC RETURN col"
+        )
+        self.validate_identity(
+            "CREATE FUNCTION f(col STRING) RETURNS STRING NOT DETERMINISTIC RETURN col"
+        )
 
         self.validate_all(
             "CREATE TABLE t (a INT, b STRING, UNIQUE (a))",
@@ -1212,15 +1218,24 @@ TBLPROPERTIES (
         suffix_sql = "SELECT COUNT(1), d, h FROM t GROUP BY d, h GROUPING SETS ((d, h), (d))"
         element_sql = "SELECT COUNT(1), d, h FROM t GROUP BY d, h, GROUPING SETS ((d, h), (d))"
 
-        for sql, expected_flag in (
-            (suffix_sql, False),
-            (element_sql, True),
-            ("SELECT a FROM t GROUP BY a, GROUPING SETS ((a)), GROUPING SETS ((a))", True),
-            ("SELECT COUNT(1), d, h FROM t GROUP BY GROUPING SETS ((d, h), (d))", True),
+        for sql, is_suffix in (
+            (suffix_sql, True),
+            (element_sql, False),
+            ("SELECT a FROM t GROUP BY a, GROUPING SETS ((a)), GROUPING SETS ((a))", False),
+            ("SELECT COUNT(1), d, h FROM t GROUP BY GROUPING SETS ((d, h), (d))", False),
         ):
             with self.subTest(sql=sql):
                 group = self.validate_identity(sql).args["group"]
-                self.assertIs(group.args.get("grouping_sets_as_group_by_element"), expected_flag)
+                self.assertIs(bool(group.args.get("grouping_sets")), is_suffix)
+                self.assertIs(
+                    any(isinstance(e, exp.GroupingSets) for e in group.expressions), not is_suffix
+                )
+
+        # The relative order of GROUP BY items must be preserved
+        self.validate_identity("SELECT c1, c2, c3, c4 FROM t GROUP BY CUBE (c1, c2), c3, c4")
+        self.validate_identity("SELECT c1, c2, c3, c4 FROM t GROUP BY c3, CUBE (c1, c2), c4")
+        self.validate_identity("SELECT a, b, c FROM t GROUP BY ROLLUP (a), b, CUBE (c)")
+        self.validate_identity("SELECT a, b, c FROM t GROUP BY a, GROUPING SETS ((a), (b)), c")
 
         with self.assertRaises(ParseError):
             self.parse_one("SELECT a FROM t GROUP BY a GROUPING SETS ((a)), GROUPING SETS ((a))")

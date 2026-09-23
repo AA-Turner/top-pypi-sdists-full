@@ -12,6 +12,7 @@ from schemathesis.engine import Status
 from schemathesis.engine.run import PhaseName, PhaseSkipReason
 
 if TYPE_CHECKING:
+    from schemathesis.cli.commands.run.warnings import ValidRate
     from schemathesis.core.statistic import ApiStatistic
     from schemathesis.engine import StopReason, events
     from schemathesis.engine.statistic import Statistic
@@ -34,10 +35,18 @@ class WarningData:
     constants_extraction: set[str]
     unmatched_filter: set[str]
     unresolvable_reference: dict[str, set[str]]
+    # Operations whose acceptance rate fell below the configured threshold.
+    low_valid_rate: set[str]
+    # Acceptance counts for every operation and phase, keyed by label then phase, for reporting.
+    valid_rates: dict[str, dict[str, ValidRate]]
     # Operations the stateful phase actually sent a request for.
     stateful_exercised: set[str]
     # Operations some other operation links to; `None` until an operation warns.
     linked_operations: set[str] | None
+    # Operations that appear to supply what each consuming one needs; `None` until an operation warns.
+    resource_producers: dict[str, set[str]] | None
+    # Warned operations that take no parameters and no body, so no value could have been varied.
+    parameterless: set[str]
 
     def __init__(
         self,
@@ -53,8 +62,12 @@ class WarningData:
         constants_extraction: set[str] | None = None,
         unmatched_filter: set[str] | None = None,
         unresolvable_reference: dict[str, set[str]] | None = None,
+        low_valid_rate: set[str] | None = None,
+        valid_rates: dict[str, dict[str, ValidRate]] | None = None,
         stateful_exercised: set[str] | None = None,
         linked_operations: set[str] | None = None,
+        resource_producers: dict[str, set[str]] | None = None,
+        parameterless: set[str] | None = None,
     ) -> None:
         self.missing_auth = missing_auth or {}
         self.missing_test_data = missing_test_data or set()
@@ -68,8 +81,21 @@ class WarningData:
         self.constants_extraction = constants_extraction or set()
         self.unmatched_filter = unmatched_filter or set()
         self.unresolvable_reference = unresolvable_reference or {}
+        self.low_valid_rate = low_valid_rate or set()
+        self.valid_rates = valid_rates or {}
         self.stateful_exercised = stateful_exercised or set()
         self.linked_operations = linked_operations
+        self.resource_producers = resource_producers
+        self.parameterless = parameterless or set()
+
+    @property
+    def low_valid_rate_reported(self) -> set[str]:
+        """Operations reported for a low rate, minus those a stronger warning already explains.
+
+        An operation can be rejected outright in one phase and accepted occasionally in another;
+        reporting both says the same thing twice, and the stricter warning says more about why.
+        """
+        return self.low_valid_rate - self.missing_test_data - self.validation_mismatch
 
     def as_labels(self) -> dict[str, list[str]]:
         """Every warning kind mapped to the affected labels; empty kinds stay present."""
@@ -89,6 +115,7 @@ class WarningData:
             SchemathesisWarning.CONSTANTS_EXTRACTION.value: sorted(self.constants_extraction),
             SchemathesisWarning.UNMATCHED_FILTER.value: sorted(self.unmatched_filter),
             SchemathesisWarning.UNRESOLVABLE_REFERENCE.value: sorted(self.unresolvable_reference),
+            SchemathesisWarning.LOW_VALID_RATE.value: sorted(self.low_valid_rate_reported),
         }
 
     @property
@@ -105,6 +132,7 @@ class WarningData:
             or self.constants_extraction
             or self.unmatched_filter
             or self.unresolvable_reference
+            or self.low_valid_rate_reported
         )
 
     @property
@@ -124,6 +152,7 @@ class WarningData:
                 self.constants_extraction,
                 self.unmatched_filter,
                 self.unresolvable_reference,
+                self.low_valid_rate_reported,
             )
             if warnings
         )

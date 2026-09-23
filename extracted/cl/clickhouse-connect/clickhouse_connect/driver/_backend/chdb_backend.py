@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any
 
 import chdb
 
-from clickhouse_connect.driver._backend.httpcommon import columns_only_re
+from clickhouse_connect.driver._backend.httpcommon import columns_only_meta, is_columns_only_query
 from clickhouse_connect.driver._backend.models import Capabilities, CommandExecution, QueryExecution, QueryRuntime
 from clickhouse_connect.driver.binding import quote_identifier
 from clickhouse_connect.driver.common import ShowClickHouseErrors
@@ -44,6 +44,7 @@ from clickhouse_connect.driver.exceptions import (
     NotSupportedError,
     ProgrammingError,
     StreamFailureError,
+    _error_code_from_message,
     error_name_from_body,
     scrub_error_details,
 )
@@ -95,8 +96,6 @@ _STREAM_OPEN_MESSAGE = (
     "The chdb connection is streaming a query result on this thread. Close or fully consume the stream before another operation."
 )
 
-_ERROR_CODE_RE = re.compile(r"\bCode:\s*(\d+)")
-
 
 def _quote_sql_string(text: str) -> str:
     """Single-quote a string literal (e.g. an INFILE path, which can contain
@@ -136,13 +135,15 @@ def _format_error_message(message: str) -> str:
     return message.strip()
 
 
-def _format_stream_error(message: str, show_clickhouse_errors: ShowClickHouseErrors) -> str:
+def _stream_failure_error(message: str, show_clickhouse_errors: ShowClickHouseErrors) -> StreamFailureError:
     message = _format_error_message(message)
+    code = _error_code_from_message(message)
+    name = error_name_from_body(message) if show_clickhouse_errors else None
     if show_clickhouse_errors is False:
-        return GENERIC_CLICKHOUSE_ERROR
-    if show_clickhouse_errors == "scrub":
-        return scrub_error_details(message)
-    return message
+        message = GENERIC_CLICKHOUSE_ERROR
+    elif show_clickhouse_errors == "scrub":
+        message = scrub_error_details(message)
+    return StreamFailureError(message, code=code, name=name)
 
 
 def _strip_param_prefix(bind_params: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -324,7 +325,7 @@ class _ChdbStreamSource:
                     except StopIteration:
                         return
                     except Exception as ex:
-                        raise StreamFailureError(_format_stream_error(str(ex), self._show_clickhouse_errors)) from ex
+                        raise _stream_failure_error(str(ex), self._show_clickhouse_errors) from ex
                     payload = chunk.bytes() if hasattr(chunk, "bytes") else bytes(chunk)
                     if payload:
                         yield payload
@@ -362,7 +363,7 @@ class _ChdbStreamFile(io.RawIOBase):
                 return b""
             except Exception as ex:
                 self._eof = True
-                raise StreamFailureError(_format_stream_error(str(ex), self._show_clickhouse_errors)) from ex
+                raise _stream_failure_error(str(ex), self._show_clickhouse_errors) from ex
             payload = chunk.bytes() if hasattr(chunk, "bytes") else bytes(chunk)
             if payload:
                 return payload
@@ -418,8 +419,7 @@ class ChdbBackend:
 
     def _wrap_exception(self, ex: Exception) -> DatabaseError:
         message = _format_error_message(str(ex))
-        code_match = _ERROR_CODE_RE.search(message)
-        code = int(code_match.group(1)) if code_match else None
+        code = _error_code_from_message(message)
         if not self.show_clickhouse_errors or not message:
             # The numeric code is always populated, matching the HTTP path
             return DatabaseError(GENERIC_CLICKHOUSE_ERROR, code=code)
@@ -588,14 +588,14 @@ class ChdbBackend:
         params = _strip_param_prefix(context.bind_params)
         settings = self._engine_settings(runtime.settings)
 
-        if not context.is_insert and columns_only_re.search(context.uncommented_query):
+        if is_columns_only_query(context):
             # chdb emits zero Native bytes for LIMIT 0, so probe the column
             # metadata with FORMAT JSON like the HTTP backend does.
             probe_sql = context.final_query
             if settings:
                 probe_sql = f"{probe_sql}\n SETTINGS {_settings_clause(settings)}"
             result = self._run(f"{probe_sql}\n FORMAT JSON", "JSON", params=params, database=runtime.database)
-            return QueryExecution(columns=json.loads(result.bytes())["meta"])
+            return QueryExecution(columns=columns_only_meta(json.loads(result.bytes())))
 
         if context.is_insert:
             # Inline VALUES data must stay the final clause, so settings go

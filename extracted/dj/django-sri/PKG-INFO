@@ -1,43 +1,35 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-sri
-Version: 0.8.0
+Version: 1.0.0
 Summary: Subresource Integrity for Django
-Home-page: https://github.com/RealOrangeOne/django-sri
 Author: Jake Howard
-License: BSD
-Keywords: django subresource integrity sri
-Classifier: Environment :: Web Environment
-Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+License-Expression: BSD-3-Clause
+Project-URL: Source, https://github.com/RealOrangeOne/django-sri
+Project-URL: Issues, https://github.com/RealOrangeOne/django-sri/issues
+Project-URL: Changelog, https://github.com/RealOrangeOne/django-sri/releases
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Natural Language :: English
 Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: Django>=4.2
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: django>=5.2
+Dynamic: license-file
 
 # Django SRI
 
@@ -63,73 +55,51 @@ And add `sri` to your `INSTALLED_APPS`.
 
 ### Template Tags
 
-__Note__: By default, integrity hashes are not output when `DEBUG` is `True`, as static files change a lot during local development. To override this, set `USE_SRI` to `True`.
-
-`django-sri` is designed to primarily be used through template tags:
+`django-sri` is intended to primarily be used through template tags:
 
 ```html
 {% load sri %}
 
-{% sri_static "index.js" %} <!-- Will output "<script src='/static/index.js' integrity='sha256-...'></script>" -->
-{% sri_static "index.css" %} <!-- Will output "<link rel='stylesheet' href='/static/index.css' integrity='sha256-...'/>" -->
+<!-- Add the required integrity attributes to the relevant tag -->
+<link rel="stylesheet" href="{% static 'index.css' %}" {% sri_attrs 'index.css' %} />
+<script src="{% static 'index.js %}" {% sri_attrs 'index.js' %}></script>
+
+<!-- Or, get the integrity value directly -->
+<script src="{% static 'index.js %}" integrity="{% sri_integrity 'index.js' %}" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="{% static 'index.css' %}" integrity="{% sri_integrity 'index.css' %}" crossorigin="anonymous" />
 ```
 
-For performance, the hashes of files are caches in Django's [caching framework](https://docs.djangoproject.com/en/dev/topics/cache/). It will attempt to use the "sri" cache, but fall back to "default" if it doesn't exist. The cache keys are the hash of the file path in the specified algorithm in hex. Caches are stored for as long as `DEFAULT_TIMEOUT` is set to.
+__Note__: By default, `sri_attrs` does not output when `DEBUG` is `True`, as static files change a lot during local development. To override this, set `USE_SRI` to `True`. `sri_integrity` always outputs.
 
-#### Algorithms
+When outside `DEBUG` (or forced using `USE_SRI`), hashes are cached using an `lru_cache`.
 
-The SRI standard supports 3 algorithms: sha256, sha384 and sha512. By default, SHA256 is used. To override this, supply an additional `algorithm` argument to the `sri` template tag (or the specific ones):
+### Algorithms
+
+The SRI standard supports 3 algorithms: SHA256, SHA384 and SHA512. By default, SHA256 is used. To override this, supply an additional `algorithm` argument to the template tag:
 
 ```html
 {% load sri %}
 
-{% sri_static "index.js" algorithm="sha512" %} <!-- Will output "<script src='/static/index.js' integrity='sha512-...'></script>" -->
+{% sri_integrity "index.js" algorithm="sha512" %} <!-- Will output "integrity='sha512-...'" -->
 ```
 
 The default algorithm can be changed by setting `SRI_ALGORITHM` to the required algorithm.
 
-#### Additional attributes
-
-To add additional attributes to the output tag (such as `async` / `defer`), specify them as additional arguments to the template tag:
-
-```html
-{% load sri %}
-
-{% sri_static "index.js" 'defer' 'async'%}
-{% sri_static "index.woff2" preload as="font" %}
-```
-
-#### Just the integrity value
-
-To retrieve just the integrity hash (the contents of the `integrity` attribute), you can use the `{% sri_integrity_static %}` tag, which supports the same arguments as the other tags.
-
-```html
-{% load sri %}
-
-{% sri_integrity_static "index.js" "sha512" %} <!-- Will output "sha512-..." -->
-```
-
-#### Supported Files
-
-For automatic tag output, the following files are supported:
-
-- `.js`
-- `.css`
-
-Unknown extensions will emit a `link` tag with the URL as the `href` attribute.
-
-`sri_integrity_static` is unaffected by this limitation.
-
 ### API
+
+Outside of templates, the relevant integrity values can be retrieved using `get_sri` or `get_sri_of_static`.
+
+`get_sri` accepts the path to any file, whereas `get_sri_of_static` resolves static files similar to `{% static %}`.
 
 ```python
 from pathlib import Path
-from sri import calculate_integrity, calculate_integrity_of_static, Algorithm
+from sri import get_sri, get_sri_of_static
 
-calculate_integrity(Path("/path/to/myfile.txt"))  # "sha256-..."
-calculate_integrity_of_static("index.js")  # "sha256-..."
+get_sri(Path("/path/to/myfile.txt"))  # "sha256-..."
+get_sri(Path("/path/to/myfile.txt"), "sha512")  # "sha512-..."
 
-calculate_integrity_of_static("index.js", Algorithm.SHA512)  # "sha512-..."
+get_sri_of_static("index.js")  # "sha256-..."
+get_sri_of_static("index.js", "sha512")  # "sha512-..."
 ```
 
 ### _"Does this work with [whitenoise](https://whitenoise.evans.io/en/stable/) or alike?"_

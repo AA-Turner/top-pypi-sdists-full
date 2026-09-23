@@ -4,10 +4,14 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "tracing")]
+use axum::extract::MatchedPath;
 use axum::{
     Router,
+    body::Body,
     extract::{DefaultBodyLimit, Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, Request, StatusCode},
+    middleware::{self, Next},
     response::{
         IntoResponse, Json, Response,
         sse::{Event, KeepAlive, Sse},
@@ -15,7 +19,10 @@ use axum::{
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
+use tracing::Instrument as _;
 
+#[cfg(not(feature = "tracing"))]
+use crate::bridge::protocol::TraceCarrier;
 #[cfg(test)]
 use crate::health::Health;
 use crate::health::{HealthResponse, SetupResult};
@@ -225,6 +232,17 @@ enum PredictionResponseMode {
     AsyncSse,
 }
 
+impl PredictionResponseMode {
+    #[cfg(feature = "tracing")]
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::SyncJson => "sync",
+            Self::AsyncJson => "async",
+            Self::AsyncSse => "sse",
+        }
+    }
+}
+
 fn wants_sse(headers: &HeaderMap) -> bool {
     headers
         .get(axum::http::header::ACCEPT)
@@ -285,6 +303,7 @@ fn extract_trace_context(headers: &HeaderMap) -> TraceContext {
             .get("tracestate")
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string()),
+        custom_header: None,
     }
 }
 
@@ -411,6 +430,34 @@ async fn create_prediction_with_id(
     trace_context: TraceContext,
     is_training: bool,
 ) -> Response {
+    let prediction_span = if is_training {
+        crate::cog_span!(
+            info_span,
+            "cog.train",
+            "cog.prediction.id" = %bounded_prediction_id(&prediction_id),
+            "cog.prediction.response_mode" = response_mode.as_str(),
+            "cog.prediction.status" = tracing::field::Empty,
+            "cog.slot.id" = tracing::field::Empty,
+            "error.type" = tracing::field::Empty,
+            "otel.status_code" = tracing::field::Empty
+        )
+    } else {
+        crate::cog_span!(
+            info_span,
+            "cog.prediction",
+            "cog.prediction.id" = %bounded_prediction_id(&prediction_id),
+            "cog.prediction.response_mode" = response_mode.as_str(),
+            "cog.prediction.status" = tracing::field::Empty,
+            "cog.slot.id" = tracing::field::Empty,
+            "error.type" = tracing::field::Empty,
+            "otel.status_code" = tracing::field::Empty
+        )
+    };
+    #[cfg(feature = "tracing")]
+    if !is_training {
+        crate::trace::set_caller_attributes(&prediction_span, &context);
+    }
+
     if !is_training
         && response_mode == PredictionResponseMode::AsyncSse
         && !service.supports_prediction_streaming().await
@@ -420,11 +467,22 @@ async fn create_prediction_with_id(
 
     // Strip unknown fields and validate in one pass. Unknown inputs are
     // silently dropped to match Replicate's historical API behavior.
-    let (stripped, validation_result) = if is_training {
-        service.strip_and_validate_train_input(&mut input).await
-    } else {
-        service.strip_and_validate_input(&mut input).await
-    };
+    let validation_span = prediction_span.in_scope(|| {
+        if is_training {
+            tracing::Span::none()
+        } else {
+            crate::cog_span!(info_span, "cog.prediction.validate")
+        }
+    });
+    let (stripped, validation_result) = async {
+        if is_training {
+            service.strip_and_validate_train_input(&mut input).await
+        } else {
+            service.strip_and_validate_input(&mut input).await
+        }
+    }
+    .instrument(validation_span)
+    .await;
     if !stripped.is_empty() {
         tracing::warn!(
             prediction_id = %prediction_id,
@@ -433,6 +491,9 @@ async fn create_prediction_with_id(
         );
     }
     if let Err(errors) = validation_result {
+        prediction_span.record("cog.prediction.status", "failed");
+        prediction_span.record("error.type", "validation_error");
+        prediction_span.record("otel.status_code", "ERROR");
         let detail: Vec<serde_json::Value> = errors
             .into_iter()
             .map(|e| {
@@ -450,11 +511,34 @@ async fn create_prediction_with_id(
             .into_response();
     }
 
-    let webhook_sender = build_webhook_sender(
-        webhook.clone(),
-        webhook_events_filter.clone(),
-        trace_context.clone(),
-    );
+    #[cfg(feature = "tracing")]
+    let trace_carrier = crate::trace::carrier_from_span(&prediction_span);
+    #[cfg(not(feature = "tracing"))]
+    let trace_carrier: Option<TraceCarrier> = None;
+    let webhook_trace_context = trace_carrier
+        .as_ref()
+        .map(|trace| TraceContext {
+            traceparent: Some(trace.traceparent.clone()),
+            tracestate: trace.tracestate.clone(),
+            custom_header: {
+                #[cfg(feature = "tracing")]
+                {
+                    crate::trace::custom_header(trace)
+                }
+                #[cfg(not(feature = "tracing"))]
+                {
+                    None
+                }
+            },
+        })
+        .unwrap_or(trace_context);
+    let webhook_sender = prediction_span.in_scope(|| {
+        build_webhook_sender(
+            webhook.clone(),
+            webhook_events_filter.clone(),
+            webhook_trace_context,
+        )
+    });
 
     // Submit prediction: creates Prediction, acquires slot, registers in service
     let (handle, unregistered_slot) = match service
@@ -468,6 +552,9 @@ async fn create_prediction_with_id(
     {
         Ok(r) => r,
         Err(CreatePredictionError::NotReady) => {
+            prediction_span.record("cog.prediction.status", "failed");
+            prediction_span.record("error.type", "not_ready");
+            prediction_span.record("otel.status_code", "ERROR");
             let msg = PredictionError::NotReady.to_string();
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -479,6 +566,9 @@ async fn create_prediction_with_id(
                 .into_response();
         }
         Err(CreatePredictionError::AtCapacity) => {
+            prediction_span.record("cog.prediction.status", "failed");
+            prediction_span.record("error.type", "at_capacity");
+            prediction_span.record("otel.status_code", "ERROR");
             return (
                 StatusCode::CONFLICT,
                 Json(serde_json::json!({
@@ -491,6 +581,11 @@ async fn create_prediction_with_id(
     };
 
     let prediction = unregistered_slot.prediction();
+    if !prediction_span.is_disabled()
+        && let Ok(mut prediction) = prediction.lock()
+    {
+        prediction.set_trace_span(prediction_span);
+    }
 
     // Async mode: spawn background task, return immediately
     if response_mode != PredictionResponseMode::SyncJson {
@@ -509,9 +604,10 @@ async fn create_prediction_with_id(
         let service_clone = Arc::clone(&service);
         let id_for_cleanup = prediction_id.clone();
         let context_async = context.clone();
+        let trace_async = trace_carrier.clone();
         tokio::spawn(async move {
             let _result = service_clone
-                .predict(unregistered_slot, input, context_async)
+                .predict(unregistered_slot, input, context_async, trace_async)
                 .await;
             // Prediction state is already updated by predict() internally
             // (set_succeeded/set_failed/set_canceled fire webhooks automatically)
@@ -544,7 +640,9 @@ async fn create_prediction_with_id(
     let result_rx = {
         let (tx, rx) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
-            let result = service_bg.predict(unregistered_slot, input, context).await;
+            let result = service_bg
+                .predict(unregistered_slot, input, context, trace_carrier)
+                .await;
             // Prediction state is already updated by predict() internally
             service_bg.remove_prediction(&id_bg);
             let _ = tx.send(result);
@@ -654,6 +752,11 @@ async fn create_prediction_with_id(
                 .into_response()
         }
     }
+}
+
+#[cfg(feature = "tracing")]
+fn bounded_prediction_id(id: &str) -> &str {
+    crate::bounded_attribute_value(id)
 }
 
 async fn cancel_prediction(
@@ -909,6 +1012,53 @@ async fn cancel_training(
 /// frame limit are automatically spilled to disk by `build_slot_request`.
 const MAX_HTTP_BODY_SIZE: usize = 100 * 1024 * 1024;
 
+#[cfg(feature = "tracing")]
+async fn trace_request(request: Request<Body>, next: Next) -> Response {
+    if coglet_core_trace_inactive() {
+        return next.run(request).await;
+    }
+
+    let route = request
+        .extensions()
+        .get::<MatchedPath>()
+        .map(MatchedPath::as_str)
+        .unwrap_or("unknown")
+        .to_string();
+    if matches!(
+        route.as_str(),
+        "/" | "/health-check" | "/openapi.json" | "/shutdown"
+    ) {
+        return next.run(request).await;
+    }
+    let method = request.method().to_string();
+    let span = crate::cog_span!(
+        info_span,
+        "http.server.request",
+        "otel.name" = %format!("{method} {route}"),
+        "otel.kind" = "server",
+        "http.request.method" = %method,
+        "http.route" = %route,
+        "http.response.status_code" = tracing::field::Empty
+    );
+    #[cfg(feature = "tracing")]
+    if let Some(parent) = crate::trace::extract_parent(request.headers()) {
+        crate::trace::set_parent(&span, parent);
+    }
+    let response = next.run(request).instrument(span.clone()).await;
+    span.record("http.response.status_code", response.status().as_u16());
+    response
+}
+
+#[cfg(not(feature = "tracing"))]
+async fn trace_request(request: Request<Body>, next: Next) -> Response {
+    next.run(request).await
+}
+
+#[cfg(feature = "tracing")]
+fn coglet_core_trace_inactive() -> bool {
+    !crate::trace::is_active()
+}
+
 pub fn routes(service: Arc<PredictionService>) -> Router {
     Router::new()
         .route("/", get(root))
@@ -921,6 +1071,7 @@ pub fn routes(service: Arc<PredictionService>) -> Router {
         .route("/trainings", post(create_training))
         .route("/trainings/{id}", put(create_training_idempotent))
         .route("/trainings/{id}/cancel", post(cancel_training))
+        .route_layer(middleware::from_fn(trace_request))
         .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_SIZE))
         .with_state(service)
 }
@@ -1039,7 +1190,7 @@ mod tests {
     // --- Tests with MockOrchestrator for full prediction flow ---
 
     use crate::PredictionOutput;
-    use crate::bridge::protocol::SlotId;
+    use crate::bridge::protocol::{SlotId, TraceCarrier};
     use crate::orchestrator::Orchestrator;
     use crate::permit::PermitPool;
     use std::sync::Mutex as StdMutex;
@@ -1049,6 +1200,7 @@ mod tests {
     struct MockOrchestrator {
         register_count: AtomicUsize,
         complete_immediately: bool,
+        trace_carrier: StdMutex<Option<TraceCarrier>>,
     }
 
     impl MockOrchestrator {
@@ -1056,6 +1208,7 @@ mod tests {
             Self {
                 register_count: AtomicUsize::new(0),
                 complete_immediately: true,
+                trace_carrier: StdMutex::new(None),
             }
         }
 
@@ -1064,7 +1217,13 @@ mod tests {
             Self {
                 register_count: AtomicUsize::new(0),
                 complete_immediately: false,
+                trace_carrier: StdMutex::new(None),
             }
+        }
+
+        #[cfg(feature = "tracing")]
+        fn trace_carrier(&self) -> Option<TraceCarrier> {
+            self.trace_carrier.lock().unwrap().clone()
         }
     }
 
@@ -1077,8 +1236,9 @@ mod tests {
             _idle_sender: tokio::sync::oneshot::Sender<crate::permit::SlotIdleToken>,
         ) {
             self.register_count.fetch_add(1, Ordering::SeqCst);
+            let mut pred = prediction.lock().unwrap();
+            *self.trace_carrier.lock().unwrap() = pred.trace_carrier();
             if self.complete_immediately {
-                let mut pred = prediction.lock().unwrap();
                 pred.set_succeeded(PredictionOutput::Single(serde_json::json!("mock output")));
             }
         }
@@ -1127,12 +1287,18 @@ mod tests {
     }
 
     async fn create_ready_service() -> Arc<PredictionService> {
+        create_ready_service_with_orchestrator().await.0
+    }
+
+    async fn create_ready_service_with_orchestrator()
+    -> (Arc<PredictionService>, Arc<MockOrchestrator>) {
         let service = Arc::new(PredictionService::new_no_pool());
         let pool = create_test_pool(2).await;
         let orchestrator = Arc::new(MockOrchestrator::new());
-        service.set_orchestrator(pool, orchestrator).await;
+        let orchestrator_dyn: Arc<dyn Orchestrator> = orchestrator.clone();
+        service.set_orchestrator(pool, orchestrator_dyn).await;
         service.set_health(Health::Ready).await;
-        service
+        (service, orchestrator)
     }
 
     async fn enable_prediction_streaming(service: &PredictionService) {
@@ -1673,6 +1839,43 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let json = response_json(response).await;
         assert_eq!(json["status"], "succeeded");
+    }
+
+    #[cfg(feature = "tracing")]
+    #[tokio::test]
+    async fn training_forwards_incoming_trace_context() {
+        use opentelemetry::trace::TracerProvider as _;
+        use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
+        use tracing_subscriber::layer::SubscriberExt as _;
+
+        let _active = crate::trace::activate_for_test();
+        let provider = SdkTracerProvider::builder()
+            .with_sampler(Sampler::AlwaysOn)
+            .build();
+        let subscriber = tracing_subscriber::registry().with(
+            tracing_opentelemetry::layer().with_tracer(provider.tracer("training-route-test")),
+        );
+        let _subscriber = tracing::subscriber::set_default(subscriber);
+        let (service, orchestrator) = create_ready_service_with_orchestrator().await;
+        let app = routes(service);
+        let trace_id = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+        let response = app
+            .oneshot(
+                Request::post("/trainings")
+                    .header("content-type", "application/json")
+                    .header("traceparent", format!("00-{trace_id}-00f067aa0ba902b7-01"))
+                    .body(Body::from(r#"{"input":{}}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let carrier = orchestrator
+            .trace_carrier()
+            .expect("training should carry trace context to the worker");
+        assert_eq!(carrier.traceparent.split('-').nth(1), Some(trace_id));
     }
 
     #[tokio::test]

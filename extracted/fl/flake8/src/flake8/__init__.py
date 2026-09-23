@@ -17,7 +17,7 @@ import sys
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.NullHandler())
 
-__version__ = "7.3.0"
+__version__ = "7.4.0"
 __version_info__ = tuple(int(i) for i in __version__.split(".") if i.isdigit())
 
 _VERBOSITY_TO_LOG_LEVEL = {
@@ -66,5 +66,5 @@ def configure_logging(
     LOG.addHandler(handler)
     LOG.setLevel(log_level)
     LOG.debug(
-        "Added a %s logging handler to logger root at %s", filename, __name__
+        "Added a %s logging handler to logger root at %s", filename, __name__,
     )

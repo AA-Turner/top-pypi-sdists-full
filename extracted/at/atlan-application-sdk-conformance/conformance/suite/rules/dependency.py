@@ -207,8 +207,8 @@ RULES: tuple[RuleDefinition, ...] = (
             "dependencies are never installed and the failure appears only at "
             "runtime.  The published set is read from installed metadata; if "
             "the SDK is not importable, this rule is skipped silently.  The fix "
-            "(map a typo to the intended extra) is judgment, so findings route "
-            "to residue rather than auto-fix.  Cite: BLDX-1410."
+            "(map a typo to the intended extra) is judgment, so the fix is "
+            "written per site rather than applied mechanically.  Cite: BLDX-1410."
         ),
         help_uri=(
             "https://github.com/atlanhq/application-sdk/blob/main/"
@@ -329,10 +329,23 @@ RULES: tuple[RuleDefinition, ...] = (
     RuleDefinition(
         id="D003",
         canonical_reference=(
-            "atlan-mysql-app pyproject.toml — aiomysql is declared with no import to "
-            "justify it, and carries an inline ignore[D003] saying SQLAlchemy loads it "
-            'dynamically from the "mysql+aiomysql" dialect string. A dynamically-loaded '
-            "dependency is real; it just has to say so."
+            "atlan-mysql-app pyproject.toml — aiomysql is declared in "
+            "[project.dependencies] with no Python import anywhere in the repo, and "
+            "carries no suppression. SQLAlchemy loads the driver from the "
+            '"mysql+aiomysql" dialect string in app/client.py, which the checker reads '
+            "via _collect_dialect_drivers, so the dependency is counted as used. A "
+            "dynamically-loaded dependency the checker can see is not a finding at all."
+        ),
+        terminal_state=(
+            "A justified inline `# conformance: ignore[D003] <reason>` IS the correct "
+            "end state for a dependency that is genuinely loaded without a static "
+            "import — a driver resolved from a dialect/plugin string, an entry-point "
+            "registration, a CLI invoked as a subprocess. The reason must name the "
+            "mechanism that loads it — and only where the checker cannot already see "
+            "that mechanism itself, as it does for atlan-mysql-app's aiomysql. A "
+            "directive that only asserts the dependency is needed is unremediated: if "
+            "nothing loads it dynamically, remove the dependency rather than "
+            "suppressing the finding."
         ),
         fix_locus=FixLocus.PACKAGING,
         scope=RuleScope.BOTH,
@@ -348,7 +361,7 @@ RULES: tuple[RuleDefinition, ...] = (
             "was meant to live elsewhere (a test/dev group). Surfacing it turns the "
             "recurring manual question during a version bump — 'is this even used?' — "
             "into a deterministic, reviewable signal. It stays advisory (WARN, no "
-            "autofix) because a dependency can be loaded dynamically, via an entry "
+            "mechanical fix) because a dependency can be loaded dynamically, via an entry "
             "point/plugin, or run as a server (e.g. uvicorn) without an explicit import."
         ),
         short_description=(
@@ -902,7 +915,7 @@ RULES: tuple[RuleDefinition, ...] = (
             "fingerprint and re-notify on an unchanged repo daily, forever.\n"
             "The message names the date; the reader subtracts.\n"
             "\n"
-            "Not autofixable, deliberately.  Deleting the key is one line, but\n"
+            "Deliberately not a mechanical rewrite.  Deleting the key is one line, but\n"
             "the next resolve then jumps the repo across every release the\n"
             "fence was holding back, and at least one instance is a documented\n"
             "owner-gated hold (FND-1125) rather than drift.  Which of those a\n"

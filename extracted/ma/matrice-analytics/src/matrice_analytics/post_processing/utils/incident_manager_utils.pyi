@@ -16,6 +16,7 @@ from .post_processing_config_client import is_null_object_id, is_resolvable_loca
 from .stream_time_utils import force_wallclock_stream_time, wallclock_incident_stream_time
 
 # Constants
+CLOSE_SEVERITY: str
 DEFAULT_THRESHOLDS: List[Any]
 LOITERING_DEFAULT_THRESHOLDS: List[Any]
 OVERCROWDING_DEFAULT_THRESHOLDS: List[Any]

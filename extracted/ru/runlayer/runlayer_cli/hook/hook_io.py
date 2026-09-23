@@ -72,6 +72,27 @@ def client_start_ms() -> int | None:
     return io.client_start_ms if io is not None else None
 
 
+def read_process_stdin() -> str:
+    """The harness payload on the process stdin, decoded as UTF-8.
+
+    Hook payloads are JSON, and JSON is UTF-8 by spec (RFC 8259 §8.1), so the
+    bytes are read below the text layer and decoded here. Reading through
+    ``sys.stdin`` would apply the interpreter's locale codec instead: on
+    Windows a piped stdin is the ANSI code page with ``surrogateescape``,
+    which turns every multibyte character into mojibake and the code page's
+    unmapped bytes (``0x8F``, ``0x90``, ...) into lone surrogates that no
+    UTF-8 sink downstream accepts. A stdin with no byte layer (a ``StringIO``
+    stand-in) is already text and is read as is.
+    """
+    raw = getattr(sys.stdin, "buffer", None)
+    text = (
+        sys.stdin.read()
+        if raw is None
+        else raw.read().decode("utf-8", errors="replace")
+    )
+    return text
+
+
 def read_stdin() -> str:
     io = _hook_io.get()
     if io is not None:
@@ -79,7 +100,7 @@ def read_stdin() -> str:
             raise io.stdin_error
         if io.stdin_text is not None:
             return io.stdin_text
-    return sys.stdin.read()
+    return read_process_stdin()
 
 
 def write_stdout(value: str) -> None:
@@ -173,10 +194,26 @@ def write_stderr(value: str) -> None:
     writer.flush()
 
 
-def getenv(name: str, default: str | None = None) -> str | None:
+def getenv(
+    name: str, default: str | None = None, *, forwarded_only: bool = False
+) -> str | None:
     io = _hook_io.get()
     if io is not None and name in io.env:
         return io.env[name]
+    # A daemon-served request installs only the allowlist-filtered forwarded
+    # env on its HookIO; the daemon's own long-lived ``os.environ`` is never
+    # scrubbed. For a *per-invocation* marker (e.g. ``CLAUDECODE``) whose
+    # absence in the forwarded env is itself meaningful -- "this request did
+    # not come from a nested host that sets the marker" -- falling through to
+    # the daemon process env would let an inherited marker poison every
+    # daemon-served request for the daemon's lifetime. ``forwarded_only``
+    # pins such reads to the forwarded env for daemon-served requests, so
+    # the daemon's ambient env cannot decide a per-invocation signal. The
+    # inline path (no HookIO, or a non-daemon-served HookIO) keeps the
+    # ``os.environ`` fallback unchanged so real nested hosts there still read
+    # their marker.
+    if forwarded_only and io is not None and io.daemon_served:
+        return default
     return os.environ.get(name, default)
 
 

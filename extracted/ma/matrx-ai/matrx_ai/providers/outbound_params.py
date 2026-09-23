@@ -58,6 +58,15 @@ _STRUCTURAL_CANONICAL_KEYS: tuple[str, ...] = (
     "response_format",
     "tts_voice",
     "audio_format",
+    # Speech controls: every TTS translator places these itself
+    # (matrx_ai.speech.compile) — Gemini as director prose, OpenAI as
+    # `instructions`/`speed`, ElevenLabs as audio tags / voice_settings /
+    # language_code. None is a GenerateContentConfig field.
+    "performance_direction",
+    "speech_speed",
+    "turn_pause_ms",
+    "language_code",
+    "multi_speaker",
 )
 
 

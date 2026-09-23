@@ -595,7 +595,14 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         is_visible_to_model: bool,
         delivery: str = "next_boundary",
         metadata: dict[str, Any] | None = None,
+        status: str = "pending",
     ) -> CxPendingInjection:
+        # `status` exists for ONE producer: a deferred tool hand-off writes its
+        # row as 'running' BEFORE the work finishes, so a process that dies
+        # mid-flight leaves a durable, sweepable promise instead of silence
+        # (AD256). Every other producer writes 'pending' and must keep doing so
+        # — a row nobody is going to finish has no business claiming to be an
+        # answer.
         # chat.pending_injection.organization_id is NOT NULL. A pending
         # injection is a CHILD of its conversation — carry the parent's
         # organization rather than defaulting or reading the caller's ambient
@@ -617,7 +624,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
             kind=kind,
             content=content,
             source=source,
-            status="pending",
+            status=status,
             delivery=delivery,
             is_visible_to_user=is_visible_to_user,
             is_visible_to_model=is_visible_to_model,
@@ -662,11 +669,20 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         zero rows and the item is simply gone (already claimed)."""
         from datetime import UTC, datetime
 
-        candidates = await self.filter_items(
-            conversation_id=conversation_id,
-            status="pending",
-            delivery="turn_end",
-        )
+        # 'failed' is here for ONE producer and one reason: a deferred tool
+        # hand-off whose promise was broken writes the apology onto the same
+        # row (AD256), and a broken promise must ride the person's next turn
+        # exactly like an answer would. Leaving it out would mean the only way
+        # anyone ever heard about it was a worker paying for a turn of its own.
+        candidates: list[CxPendingInjection] = []
+        for state in ("pending", "failed"):
+            candidates.extend(
+                await self.filter_items(
+                    conversation_id=conversation_id,
+                    status=state,
+                    delivery="turn_end",
+                )
+            )
         # A run NEVER delivers a turn_end item it enqueued itself (matched via
         # metadata.enqueued_by_request_id, stamped by every producer). Without
         # this, an in-run producer (agent_call's remember write-back to the
@@ -684,7 +700,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
             return []
         head = min(candidates, key=lambda r: int(r.enqueued_seq or 0))
         result = await self.update_where(
-            {"id": str(head.id), "status": "pending"},
+            {"id": str(head.id), "status": str(getattr(head, "status", "pending") or "pending")},
             status="consumed",
             consumed_at=datetime.now(UTC),
             consumed_by_request_id=request_id,

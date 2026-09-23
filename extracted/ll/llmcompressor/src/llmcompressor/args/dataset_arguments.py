@@ -143,9 +143,9 @@ class DatasetArguments(CustomDatasetArguments):
         metadata={
             "help": (
                 "Optional dataset split selector. Passing a string like 'train' or "
-                "'train[:50%]' is strongly recommended. Legacy dict input is "
+                "'train[:50%%]' is strongly recommended. Legacy dict input is "
                 "deprecated and only supported for calibration compatibility "
-                "(for example: {'calibration': 'train[:50%]'})."
+                "(for example: {'calibration': 'train[:50%%]'})."
             )
         },
     )
@@ -172,7 +172,7 @@ class DatasetArguments(CustomDatasetArguments):
         metadata={"help": "The number of workers to use for dataset processing."},
     )
     pad_to_max_length: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": "Whether to pad all samples to `max_seq_length`. If False, "
             "will pad the samples dynamically when batching to the maximum length "
@@ -225,6 +225,7 @@ class DatasetArguments(CustomDatasetArguments):
             "_prepare_4d_causal_attention_mask_with_cache_position",
             "_update_linear_attn_mask",
             "project_per_layer_inputs",
+            "_apply_attn_res",
         ],
         metadata={
             "help": "List of functions to ignore during tracing, either "
@@ -295,13 +296,6 @@ class DatasetArguments(CustomDatasetArguments):
             "help": "When using the sequential pipeline, prefetch the next batch in a "
             "background thread to overlap onload with forward. Default False; set True "
             "for faster calibration when GPU memory allows (two batches on device)."
-        },
-    )
-    enable_compile: bool = field(
-        default=False,
-        metadata={
-            "help": "If True, use torch.compiled functions where available"
-            "calibration. Default False."
         },
     )
 

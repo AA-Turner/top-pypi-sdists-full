@@ -1,6 +1,6 @@
 [project]
 name = "dbt-bouncer"
-version = "3.8.0"
+version = "4.0.0"
 description = "Configure and enforce conventions for your dbt project."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -50,9 +50,18 @@ run_results = "dbt_bouncer.checks.run_results"
 
 [project.optional-dependencies]
 dev = [
+  "altair>=6.0,<7",
   "bandit~=1.0",
-  "dbt-core>=1.12.0,<2",
-  "dbt-duckdb~=1.0",
+  # dbt 2.0 ships as the `dbt` distribution, a self-contained Rust binary with the
+  # adapters built in. The `dbt-core` namespace is deprecated at 2.0 and its 2.x line
+  # is pre-release only, so a separate `dbt-duckdb` adapter is no longer needed here.
+  # dbt is only ever invoked as a CLI to build test fixtures; nothing imports it.
+  # Pinned to the 2.0 minor series: a 2.1 release can change artifacts or CLI flags,
+  # as 2.0 did when it removed `--write-catalog` from `dbt build`. Raise this pin
+  # deliberately, after rebuilding the fixtures against the new minor version.
+  "dbt>=2,<2.1",
+  "matchify>=0.2,<1",
+  "mcp>=1.9,<3",
   "prek>=0.1,<1",
   "pytest>=8,<10",
   "pytest-benchmark>=4,<6",
@@ -62,9 +71,11 @@ dev = [
   "rumdl>=0.1.19",
   "ruff>=0.8,<1",
   "shandy-sqlfmt[jinjafmt]>=0.7,<1",
-  "tombi>=0.7.32",
+  "tombi>=1.2,<2",
+  "tqdm>=4,<5",
   "ty>=0.0.7"
 ]
+mcp = ["mcp>=1.9,<3"]
 
 # PEP 735 dev-only groups (not published in wheel metadata).
 # `docs` lives here because PyPI rejects direct URL deps in published projects;
@@ -78,15 +89,24 @@ docs = [
   # swap back to `mike~=2.0` once Zensical ships native versioning support.
   "mike @ git+https://github.com/squidfunk/mike.git@2d4ad799442f4592db8ad53b179bfb33db8c69ac",
   "mkdocstrings-python<3",
-  "pymdown-extensions~=10.0",
+  "pymdown-extensions>=10,<12",
   # Zensical is pre-1.0; constrain to the patch series to avoid surprise breakage.
   "zensical~=0.0.43"
 ]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [tool.coverage.report]
 exclude_lines = [
   "if TYPE_CHECKING:",
 ]
+
+[tool.coverage.run]
+# Statement coverage alone reports a partially-taken `if`/`except` as covered,
+# which hid ~126 untaken branches across the config validator and check registry.
+branch = true
 
 [tool.dbt-bouncer]
 dbt_artifacts_dir = "dbt_project/target"
@@ -133,51 +153,17 @@ indent-width = 4
 target-version = "py311"
 
 [tool.ruff.lint]
-ignore = [
-  "COM812",
-  "D100",
-  "D203",
-  "D213",
-  "D406",
-  "D407",
-  "D409",
-  "E501",
-  "G004",
-  "LOG015",
-  "S101"
-]
+ignore = ["COM812", "D100", "D203", "D213", "D406", "D407", "D409", "E501", "G004", "LOG015", "S101"]
 preview = true
-select = [
-  "A",
-  "ARG",
-  "B",
-  "C4",
-  "COM",
-  "D",
-  "DOC",
-  "E",
-  "EXE",
-  "F",
-  "I",
-  "ICN",
-  "LOG",
-  "G",
-  "N",
-  "PT",
-  "PTH",
-  "Q",
-  "RUF",
-  "S",
-  "SIM",
-  "T20",
-  "TCH",
-  "TID",
-  "W"
-]
+select = ["A", "ARG", "B", "C4", "COM", "D", "DOC", "E", "EXE", "F", "I", "ICN", "LOG", "G", "N", "PT", "PTH", "Q", "RUF", "S", "SIM", "T20", "TCH", "TID", "W"]
 unfixable = ["B"]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402"]
+# RUF067: `__init__.py` files here deliberately hold runtime code -- the
+# `@app.command()` registrations in the `cli/*` subpackages and the lazy
+# `__getattr__` PEP 562 loader in the top-level package that keeps import
+# startup cheap. They are not pure re-export shims.
+"__init__.py" = ["E402", "RUF067"]
 "src/dbt_bouncer/checks/*" = ["ARG001", "D101", "D401", "D417", "DOC501"]
 "src/dbt_bouncer/parsers.py" = ["TCH002"]
 "docs/assets/brand/scripts/*" = [
@@ -189,7 +175,11 @@ unfixable = ["B"]
   "S603",
   "T201",
 ]
+# The standalone binary build script runs PyInstaller and the built binary via
+# subprocess with controlled arguments, so the subprocess S-rules do not apply.
+"scripts/build_standalone_binary.py" = ["S404", "S603"]
 "tests/*" = ["D100", "D101", "D102", "D103", "D104", "E402"]
+"tests/unit/test_standalone_binary_packaging.py" = ["S404"]
 # The synthetic-manifest builders are internal test helpers; documenting a
 # "Returns" section on every small factory is noise.
 "tests/benchmark/*" = ["D413", "DOC201"]
@@ -220,6 +210,9 @@ exclude = [
 ]
 MD007.indent = 4
 respect_gitignore = true
+
+[tool.setuptools.package-data]
+dbt_bouncer = ["presets/*.yml"]
 
 [tool.uv]
 package = true

@@ -623,7 +623,7 @@ def test_posix_launcher_rejects_long_component_link_chain_without_realpath(
     )
 
     assert result.findings == []
-    assert result.malformed_or_unsafe == 1
+    assert result.unsafe_path == 1
     assert checkpoints <= (2 * symlink_identity_module.MAX_PATH_COMPONENTS) + 1
 
 

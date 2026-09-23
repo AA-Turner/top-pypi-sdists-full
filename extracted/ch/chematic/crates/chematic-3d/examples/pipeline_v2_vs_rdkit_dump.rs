@@ -20,7 +20,11 @@
 //!
 //! For bounded/restartable corpus runs, pass `--tier A|B`, `--start N`, and
 //! `--count N`. `--only-arm NAME` restricts execution to one pipeline arm.
-//! The default remains the complete A+B corpus.
+//! `--manifest PATH` runs one independently frozen manifest (its top-level
+//! `tier` value is used in emitted rows). The default remains the complete A+B
+//! corpus.
+
+#![recursion_limit = "256"]
 
 use std::collections::HashMap;
 use std::panic::{self, AssertUnwindSafe};
@@ -194,6 +198,19 @@ const PIPELINE_ARMS: &[Arm] = &[
         gate_torsion_oop: false,
         enforce_chirality: false,
     },
+    // Production stereo-safe MMFF94 lane. Unlike the historical `*_repair`
+    // diagnostics above, this composes all three settings required by
+    // `PipelineV2Config::stereo_safe`: chiral embedding, implicit-H expansion
+    // through minimization, and fail-closed repair/re-verification. Keep the
+    // older arms unchanged so historical packets remain reproducible.
+    Arm {
+        name: "chematic_pipeline_v2_mmff94_strict_stereo_safe",
+        force_field: ForceFieldPolicy::Mmff94BondAngleStrict,
+        stereo_policy: StereoPolicy::RepairAndVerify,
+        gate_stretch_bend: false,
+        gate_torsion_oop: false,
+        enforce_chirality: true,
+    },
     // New arms for Priority 2 / Stage 1B (issue #227): "complete_term_strict_gate"
     // side of the legacy-vs-complete-term comparison -- identical to
     // chematic_pipeline_v2_mmff94_strict/..._with_uff_fallback (same
@@ -296,13 +313,13 @@ fn base_config(
         fail_on_unevaluable_stereo: false,
         force_field_policy: force_field,
         // Diagnostic-only override for convergence triage. Production callers
-        // still use PipelineV2Config::minimal's 200-step default; keeping the
+        // still use PipelineV2Config::minimal's 300-step default; keeping the
         // override in this external benchmark runner lets us distinguish an
         // exhausted iteration budget from a genuine stationary-point problem.
         force_field_max_iterations: std::env::var("SCHEMATIC_MMFF94_MAX_ITERATIONS")
             .ok()
             .and_then(|value| value.parse().ok())
-            .unwrap_or(200),
+            .unwrap_or(300),
         gate_mmff94_torsion_oop: gate_torsion_oop,
         gate_mmff94_stretch_bend: gate_stretch_bend,
         // DiagnosticOnly, not FailClosed: with use_small_ring_torsions/
@@ -326,7 +343,11 @@ fn base_config(
         // to let the whole benchmark hang indefinitely (which would silently
         // omit that row forever, worse than reporting it as a timeout).
         total_timeout_ms: Some(20_000),
-        expand_implicit_h_through_pipeline: false,
+        // The production stereo-safe contract requires this together with
+        // chiral embedding and RepairAndVerify. Other historical arms remain
+        // byte-for-byte on their former configuration.
+        expand_implicit_h_through_pipeline: enforce_chirality
+            && stereo_policy == StereoPolicy::RepairAndVerify,
     }
 }
 
@@ -469,7 +490,7 @@ fn run_pipeline_arm(mol: &Molecule, arm: &Arm) -> Value {
 fn run_pipeline_arm_with_config(mol: &Molecule, arm: &Arm, config: &PipelineV2Config) -> Value {
     let start = Instant::now();
     let result = panic::catch_unwind(AssertUnwindSafe(|| pv2::embed_pipeline_v2(mol, config)));
-    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
 
     match result {
         Err(_panic) => json!({
@@ -540,6 +561,18 @@ fn run_pipeline_arm_with_config(mol: &Molecule, arm: &Arm, config: &PipelineV2Co
                     .filter(|p| p.applied_to_geometry)
                     .count(),
                 "ring_torsion_diagnostic_only": r.ring_torsion_evidence.diagnostic_only,
+                "stage_timings_ms": {
+                    "distance_geometry": r.elapsed_ms_by_stage.distance_geometry_ms,
+                    "torsion_optimization": r.elapsed_ms_by_stage.torsion_optimization_ms,
+                    "force_field": r.elapsed_ms_by_stage.force_field_ms,
+                    "stereo_total": r.elapsed_ms_by_stage.stereo_verify_before_ms
+                        + r.elapsed_ms_by_stage.stereo_repair_ms
+                        + r.elapsed_ms_by_stage.stereo_verify_after_repair_ms
+                        + r.elapsed_ms_by_stage.final_stereo_verify_ms
+                        + r.elapsed_ms_by_stage.post_min_stereo_repair_ms,
+                    "final_validation": r.elapsed_ms_by_stage.final_validation_ms,
+                    "total": r.elapsed_ms_by_stage.total_ms,
+                },
             })
         }
         Ok(Err(f)) => {
@@ -580,7 +613,7 @@ fn run_pipeline_arm_with_config(mol: &Molecule, arm: &Arm, config: &PipelineV2Co
 fn run_legacy_arm(mol: &Molecule) -> Value {
     let start = Instant::now();
     let result = panic::catch_unwind(AssertUnwindSafe(|| generate_coords_etkdg(mol)));
-    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
 
     match result {
         Err(_panic) => json!({
@@ -645,7 +678,7 @@ fn run_best_of_n_arm(mol: &Molecule) -> Value {
 
     let start = Instant::now();
     let result = panic::catch_unwind(AssertUnwindSafe(|| embed_ensemble_v2(mol, &config)));
-    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
 
     let r = match result {
         Err(_panic) => {
@@ -748,6 +781,7 @@ fn load_manifest(path: &str) -> Value {
 
 fn main() {
     let mut tier_filter: Option<String> = None;
+    let mut manifest_path: Option<String> = None;
     let mut start = 0usize;
     let mut count = usize::MAX;
     let mut only_arm: Option<String> = None;
@@ -780,16 +814,24 @@ fn main() {
                         .unwrap_or_else(|| panic!("--only-arm requires an arm name")),
                 );
             }
+            "--manifest" => {
+                manifest_path = Some(
+                    args.next()
+                        .unwrap_or_else(|| panic!("--manifest requires a path")),
+                );
+            }
             "--help" | "-h" => {
                 eprintln!(
-                    "usage: pipeline_v2_vs_rdkit_dump [--tier A|B] [--start N] [--count N] [--only-arm NAME]"
+                    "usage: pipeline_v2_vs_rdkit_dump [--manifest PATH] [--tier A|B] [--start N] [--count N] [--only-arm NAME]"
                 );
                 return;
             }
             other => panic!("unknown argument {other:?}"),
         }
     }
-    if let Some(tier) = &tier_filter {
+    if manifest_path.is_none()
+        && let Some(tier) = &tier_filter
+    {
         assert!(matches!(tier.as_str(), "A" | "B"), "--tier must be A or B");
     }
     let selected_arms: Vec<&Arm> = PIPELINE_ARMS
@@ -806,19 +848,27 @@ fn main() {
             "unknown --only-arm value {wanted:?}"
         );
     }
-    let mut manifests: Vec<(String, Value)> = Vec::new();
-    for (tier, path) in [
-        (
-            "A",
-            "validation/manifests/pipeline_v2_vs_rdkit_etkdgv3_tier_a.json",
-        ),
-        (
-            "B",
-            "validation/manifests/pipeline_v2_vs_rdkit_etkdgv3_tier_b.json",
-        ),
-    ] {
-        manifests.push((tier.to_string(), load_manifest(path)));
-    }
+    let manifests: Vec<(String, Value)> = if let Some(path) = &manifest_path {
+        let manifest = load_manifest(path);
+        let tier = manifest["tier"]
+            .as_str()
+            .unwrap_or_else(|| panic!("custom manifest {path} must contain a string `tier`"));
+        vec![(tier.to_string(), manifest)]
+    } else {
+        [
+            (
+                "A",
+                "validation/manifests/pipeline_v2_vs_rdkit_etkdgv3_tier_a.json",
+            ),
+            (
+                "B",
+                "validation/manifests/pipeline_v2_vs_rdkit_etkdgv3_tier_b.json",
+            ),
+        ]
+        .into_iter()
+        .map(|(tier, path)| (tier.to_string(), load_manifest(path)))
+        .collect()
+    };
 
     let config_snapshot: HashMap<&str, Value> = PIPELINE_ARMS
         .iter()
@@ -826,8 +876,13 @@ fn main() {
             (
                 arm.name,
                 json!(format!(
-                    "ff={:?} stereo={:?} gate_stretch_bend={} gate_torsion_oop={}",
-                    arm.force_field, arm.stereo_policy, arm.gate_stretch_bend, arm.gate_torsion_oop
+                    "ff={:?} stereo={:?} gate_stretch_bend={} gate_torsion_oop={} enforce_chirality={} expand_implicit_h={}",
+                    arm.force_field,
+                    arm.stereo_policy,
+                    arm.gate_stretch_bend,
+                    arm.gate_torsion_oop,
+                    arm.enforce_chirality,
+                    arm.enforce_chirality && arm.stereo_policy == StereoPolicy::RepairAndVerify,
                 )),
             )
         })
@@ -842,11 +897,11 @@ fn main() {
          disabled, for parity with RDKit's no-dedup best-of-N selection)"
     );
     eprintln!(
-        "config_snapshot mmff94_max_iterations={} (override via SCHEMATIC_MMFF94_MAX_ITERATIONS; production default remains 200)",
+        "config_snapshot mmff94_max_iterations={} (override via SCHEMATIC_MMFF94_MAX_ITERATIONS; production default remains 300)",
         std::env::var("SCHEMATIC_MMFF94_MAX_ITERATIONS")
             .ok()
             .and_then(|value| value.parse::<usize>().ok())
-            .unwrap_or(200)
+            .unwrap_or(300)
     );
 
     for (tier, manifest) in &manifests {

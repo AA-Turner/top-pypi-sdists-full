@@ -229,7 +229,12 @@ class ChronosSessionMixin:
         await self._upload_state(self._state.model_dump())
 
     async def load_state(self, session_id: str | None = None) -> bool:
-        """Load world state from Chronos DB and restore tracked workspaces."""
+        """Restore tracked workspaces from the refs in ``config.state.workspaces``.
+
+        The ``WorldState`` blob is no longer read back from Chronos (the
+        ``/sessions/{id}/state`` endpoint is gone), so resume is driven purely
+        by explicit workspace refs.
+        """
         if not self.config.state.enabled:
             return False
 
@@ -260,86 +265,50 @@ class ChronosSessionMixin:
                     )
                     continue
                 workspace_specs[field] = (None, val, None)
-        use_workspace_specs_mode = bool(workspace_specs)
-        sid = session_id or self.chronos.session_id
-        if not sid and not use_workspace_specs_mode:
+        if not workspace_specs:
+            if session_id:
+                self.logger.warning(
+                    "resume_from=%s has no state.workspaces refs; nothing to restore "
+                    "(the saved WorldState blob is no longer available from Chronos)",
+                    session_id,
+                )
             return False
 
-        state_applied = False
-        if sid:
-            data = await self._download_state(sid)
-            if data is None:
-                if not use_workspace_specs_mode:
-                    return False
-            elif not data:
-                self.logger.debug("State payload for session %s is empty; starting fresh", sid)
-                if not use_workspace_specs_mode:
-                    return False
-            else:
-                if not self._apply_state(data):
-                    return False
-                state_applied = True
-
         resume_repos = self.config.state.resume_workspaces
-        saved_snapshots = self._state.workspaces if self._state else {}
         restored_any = False
         for name, workspace in self._workspaces.items():
             if workspace.tracked:
-                snap = saved_snapshots.get(name)
-                if use_workspace_specs_mode:
-                    ws_entry = workspace_specs.get(name)
-                    if ws_entry is None:
-                        self.logger.debug(
-                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    override_repo_from_spec, ref_spec, seed_token = ws_entry
-                    ref_spec = ref_spec.strip()
-                    if not ref_spec:
-                        self.logger.debug(
-                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    if ":" in ref_spec:
-                        source_session_id, exact_step = ref_spec.split(":", 1)
-                        source_session_id = source_session_id.strip()
-                        exact_step = exact_step.strip()
-                    else:
-                        source_session_id = (session_id or self.config.state.resume_from or "").strip()
-                        exact_step = ref_spec
-                    if not source_session_id:
-                        raise RuntimeError(
-                            f"Workspace resume spec for '{name}' must include session_id:step (got '{ref_spec}')"
-                        )
-                    if not exact_step:
-                        raise RuntimeError(
-                            f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')"
-                        )
-                    if seed_token and not override_repo_from_spec:
-                        raise RuntimeError(
-                            f"Workspace seed spec for '{name}' carries a download token but no source repo"
-                        )
-                    should_record_resume_input = source_session_id != (self.chronos.session_id or "")
+                ws_entry = workspace_specs.get(name)
+                if ws_entry is None:
+                    self.logger.debug(
+                        "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
+                        name,
+                    )
+                    continue
+                override_repo_from_spec, ref_spec, seed_token = ws_entry
+                ref_spec = ref_spec.strip()
+                if not ref_spec:
+                    self.logger.debug(
+                        "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
+                        name,
+                    )
+                    continue
+                if ":" in ref_spec:
+                    source_session_id, exact_step = ref_spec.split(":", 1)
+                    source_session_id = source_session_id.strip()
+                    exact_step = exact_step.strip()
                 else:
-                    override_repo_from_spec = None
-                    seed_token = None
-                    if not snap:
-                        self.logger.debug(
-                            "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    if not snap.steps:
-                        self.logger.debug(
-                            "State snapshot for tracked workspace '%s' has no saved step; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    exact_step = snap.steps[-1]
-                    source_session_id = (session_id or "").strip()
-                    should_record_resume_input = bool(session_id)
+                    source_session_id = (session_id or self.config.state.resume_from or "").strip()
+                    exact_step = ref_spec
+                if not source_session_id:
+                    raise RuntimeError(
+                        f"Workspace resume spec for '{name}' must include session_id:step (got '{ref_spec}')"
+                    )
+                if not exact_step:
+                    raise RuntimeError(f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')")
+                if seed_token and not override_repo_from_spec:
+                    raise RuntimeError(f"Workspace seed spec for '{name}' carries a download token but no source repo")
+                should_record_resume_input = source_session_id != (self.chronos.session_id or "")
 
                 original = {
                     "session_id": workspace.session_id,
@@ -356,17 +325,7 @@ class ChronosSessionMixin:
                     if source_session_id:
                         workspace.session_id = source_session_id
 
-                    override_repo = (override_repo_from_spec if use_workspace_specs_mode else None) or resume_repos.get(
-                        name
-                    )
-                    if (
-                        not override_repo
-                        and not use_workspace_specs_mode
-                        and source_session_id
-                        and snap
-                        and snap.repo_name
-                    ):
-                        override_repo = snap.repo_name
+                    override_repo = override_repo_from_spec or resume_repos.get(name)
                     if seed_token and override_repo:
                         # The source is readable only through the token (e.g. it
                         # lives in another org): resolve it from what the token
@@ -504,14 +463,7 @@ class ChronosSessionMixin:
                             f"(repo={workspace.repo_name}, step={exact_step}): missing source metadata"
                         )
 
-        return restored_any or state_applied
-
-    def _apply_state(self, data: dict) -> bool:
-        """Apply a state dict to the world's in-memory state."""
-        if not self._state_class:
-            return False
-        self._state = self._state_class.model_validate(data)
-        return True
+        return restored_any
 
     async def _try_resume(self) -> bool:
         """Try to resume from saved state. Returns True if resumed."""
@@ -541,21 +493,3 @@ class ChronosSessionMixin:
         except Exception as e:
             self.logger.warning(f"Failed to upload state: {e}")
             return False
-
-    async def _download_state(self, session_id: str) -> dict | None:
-        """Download world state dict from Chronos DB. Returns None if not found."""
-        if not self._get_chronos_base_url():
-            self.logger.warning("Cannot download state: no chronos_url")
-            return None
-
-        try:
-            async with self._chronos_client() as client:
-                data = await client.get_state(session_id)
-            if data is None:
-                self.logger.debug(f"No state found for session {session_id}")
-            else:
-                self.logger.debug(f"Downloaded state from session {session_id}")
-            return data
-        except Exception as e:
-            self.logger.warning(f"Failed to download state: {e}")
-            return None

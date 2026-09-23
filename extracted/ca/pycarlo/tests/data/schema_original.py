@@ -2291,7 +2291,9 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     * `DURATION`None
     * `HAS_ERRORS`None
     * `INTENT_CLUSTER`None
+    * `QUERY_COST`None
     * `STATUS`None
+    * `TOTAL_COST`None
     * `TOTAL_TOKENS`None
     * `TURNS`None
     * `WORKFLOW`None
@@ -2304,7 +2306,9 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
         "DURATION",
         "HAS_ERRORS",
         "INTENT_CLUSTER",
+        "QUERY_COST",
         "STATUS",
+        "TOTAL_COST",
         "TOTAL_TOKENS",
         "TURNS",
         "WORKFLOW",
@@ -6076,6 +6080,29 @@ class MonitoringPlanOutcomeStatus(sgqlc.types.Enum):
     __choices__ = ("COLLECTING", "COMPLETE", "PARTIAL")
 
 
+class MonitoringPlanRecordingState(sgqlc.types.Enum):
+    """Whether a run's outcome recording is complete, and whether to keep
+    polling.  Derived at read time from the run's execution state,
+    delivery accounting and persisted evidence — not a stored status.
+    - `pending`: recording may still be in flight; keep polling. -
+    `complete`: the run finished normally and its full recorded set
+    has landed. - `incomplete`: recording is over with known or
+    unknown gaps; `reasons`   explains. Late batches can still add
+    rows but will not improve this. - `not_recorded`: the run was
+    dispatched without outcome capture.
+
+    Enumeration Choices:
+
+    * `COMPLETE`None
+    * `INCOMPLETE`None
+    * `NOT_RECORDED`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETE", "INCOMPLETE", "NOT_RECORDED", "PENDING")
+
+
 class MonthlyPosition(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9223,10 +9250,12 @@ class TraceFilterFieldName(sgqlc.types.Enum):
     * `DURATION`None
     * `MODEL`None
     * `PROMPT_TOKENS`None
+    * `QUERY_COST`None
     * `ROOT_STATUS`None
     * `STATUS`None
     * `TASK`None
     * `TOOL`None
+    * `TOTAL_COST`None
     * `TOTAL_TOKENS`None
     * `WORKFLOW`None
     """
@@ -9238,10 +9267,12 @@ class TraceFilterFieldName(sgqlc.types.Enum):
         "DURATION",
         "MODEL",
         "PROMPT_TOKENS",
+        "QUERY_COST",
         "ROOT_STATUS",
         "STATUS",
         "TASK",
         "TOOL",
+        "TOTAL_COST",
         "TOTAL_TOKENS",
         "WORKFLOW",
     )
@@ -9314,14 +9345,28 @@ class TraceSortDirection(sgqlc.types.Enum):
 
 
 class TraceSortField(sgqlc.types.Enum):
-    """Fields that can be used for sorting traces.
+    """Fields that can be used for sorting traces.  The three cost fields
+    order by a value only the customer's warehouse holds, so they page
+    by offset cursor rather than the keyset cursors the other fields
+    use, and they are Cortex-only -- any other Timescale-served agent
+    publishes no cost and sorts to an empty page, while the ClickHouse
+    backend rejects a cost sort with a validation error. QUERY_COST
+    orders traces with no attributed warehouse compute last in both
+    directions -- unknown after known. COST keeps traces whose models
+    the price book omits; their cost is unknown and sorts last in both
+    directions. Attribution trails execution by about three hours, so
+    the freshest traces sort by a lower bound of their query and total
+    cost.
 
     Enumeration Choices:
 
     * `COMPLETION_TOKENS`None
+    * `COST`None
     * `COUNT_LLM_CALLS`None
     * `DURATION_SECONDS`None
     * `PROMPT_TOKENS`None
+    * `QUERY_COST`None
+    * `TOTAL_COST`None
     * `TOTAL_TOKENS`None
     * `TRACE_END_TIME`None
     * `TRACE_ID`None
@@ -9331,9 +9376,12 @@ class TraceSortField(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "COMPLETION_TOKENS",
+        "COST",
         "COUNT_LLM_CALLS",
         "DURATION_SECONDS",
         "PROMPT_TOKENS",
+        "QUERY_COST",
+        "TOTAL_COST",
         "TOTAL_TOKENS",
         "TRACE_END_TIME",
         "TRACE_ID",
@@ -12460,6 +12508,10 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "max_total_tokens",
         "min_cost",
         "max_cost",
+        "min_query_cost",
+        "max_query_cost",
+        "min_total_cost",
+        "max_total_cost",
         "min_duration",
         "max_duration",
         "min_active_duration",
@@ -12509,14 +12561,40 @@ class ConversationFiltersInput(sgqlc.types.Input):
     """Maximum total tokens (inclusive)"""
 
     min_cost = sgqlc.types.Field(Float, graphql_name="minCost")
-    """Minimum cost of a conversation, in the unit its platform bills.
-    Resolved against the customer's warehouse, so it matches nothing
-    for an agent whose platform publishes no cost -- today that is
-    everything except Cortex.
+    """Minimum token cost of a conversation, in the unit its platform
+    bills. A conversation with no priceable span has an unknown token
+    cost and matches no bound. One with some priced spans is bounded
+    on those only. Resolved against the customer's warehouse, so it
+    matches nothing for an agent whose platform publishes no cost --
+    today that is everything except Cortex.
     """
 
     max_cost = sgqlc.types.Field(Float, graphql_name="maxCost")
-    """Maximum cost of a conversation, in the same unit"""
+    """Maximum token cost of a conversation, in the same unit"""
+
+    min_query_cost = sgqlc.types.Field(Float, graphql_name="minQueryCost")
+    """Minimum query cost of a conversation: the warehouse compute
+    credits attributed to its SQL queries, in the same unit.
+    Attribution trails execution by about three hours and excludes
+    warehouse idle time, so the figure is a lower bound. Queries not
+    yet attributed read as zero, not as unknown. Matches nothing for
+    an agent whose platform publishes no cost -- today that is
+    everything except Cortex.
+    """
+
+    max_query_cost = sgqlc.types.Field(Float, graphql_name="maxQueryCost")
+    """Maximum query cost of a conversation, in the same unit"""
+
+    min_total_cost = sgqlc.types.Field(Float, graphql_name="minTotalCost")
+    """Minimum total cost of a conversation: token cost plus query cost,
+    in the same unit. Unpriced tokens and queries still awaiting
+    attribution contribute zero, so the total is a lower bound.
+    Matches nothing for an agent whose platform publishes no cost --
+    today that is everything except Cortex.
+    """
+
+    max_total_cost = sgqlc.types.Field(Float, graphql_name="maxTotalCost")
+    """Maximum total cost of a conversation, in the same unit"""
 
     min_duration = sgqlc.types.Field(Float, graphql_name="minDuration")
     """Minimum conversation duration in seconds"""
@@ -15442,7 +15520,11 @@ class GetTracesInput(sgqlc.types.Input):
     """Cursor for backward pagination"""
 
     sort_field = sgqlc.types.Field(TraceSortField, graphql_name="sortField")
-    """Field to sort by"""
+    """Field to sort by. The cost fields (COST, QUERY_COST, TOTAL_COST)
+    order by warehouse-priced cost — Cortex only — and attribution
+    trails execution by about three hours, so the freshest traces sort
+    by a lower bound of their query and total cost.
+    """
 
     sort_direction = sgqlc.types.Field(TraceSortDirection, graphql_name="sortDirection")
     """Sort direction"""
@@ -19141,6 +19223,10 @@ class TraceFiltersInput(sgqlc.types.Input):
         "max_total_tokens",
         "min_cost",
         "max_cost",
+        "min_query_cost",
+        "max_query_cost",
+        "min_total_cost",
+        "max_total_cost",
         "conversation_id",
         "trace_id",
         "statuses",
@@ -19197,14 +19283,40 @@ class TraceFiltersInput(sgqlc.types.Input):
     """Maximum total tokens"""
 
     min_cost = sgqlc.types.Field(Float, graphql_name="minCost")
-    """Minimum cost of a trace, in the unit its platform bills. Resolved
-    against the customer's warehouse, so it matches nothing for an
-    agent whose platform publishes no cost -- today that is everything
-    except Cortex.
+    """Minimum token cost of a trace, in the unit its platform bills. A
+    trace with no priceable span has an unknown token cost and matches
+    no bound. One with some priced spans is bounded on those only.
+    Resolved against the customer's warehouse, so it matches nothing
+    for an agent whose platform publishes no cost -- today that is
+    everything except Cortex.
     """
 
     max_cost = sgqlc.types.Field(Float, graphql_name="maxCost")
-    """Maximum cost of a trace, in the same unit"""
+    """Maximum token cost of a trace, in the same unit"""
+
+    min_query_cost = sgqlc.types.Field(Float, graphql_name="minQueryCost")
+    """Minimum query cost of a trace: the warehouse compute credits
+    attributed to its SQL queries, in the same unit. Attribution
+    trails execution by about three hours and excludes warehouse idle
+    time, so the figure is a lower bound. Queries not yet attributed
+    read as zero, not as unknown. Matches nothing for an agent whose
+    platform publishes no cost -- today that is everything except
+    Cortex.
+    """
+
+    max_query_cost = sgqlc.types.Field(Float, graphql_name="maxQueryCost")
+    """Maximum query cost of a trace, in the same unit"""
+
+    min_total_cost = sgqlc.types.Field(Float, graphql_name="minTotalCost")
+    """Minimum total cost of a trace: token cost plus query cost, in the
+    same unit. Unpriced tokens and queries still awaiting attribution
+    contribute zero, so the total is a lower bound. Matches nothing
+    for an agent whose platform publishes no cost -- today that is
+    everything except Cortex.
+    """
+
+    max_total_cost = sgqlc.types.Field(Float, graphql_name="maxTotalCost")
+    """Maximum total cost of a trace, in the same unit"""
 
     conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
     """Filter by exact conversation ID"""
@@ -21462,6 +21574,7 @@ class Account(sgqlc.types.Type):
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
         "enable_proactive_tune_creator_notifications",
+        "enable_reinforcement_loop_v2",
         "enable_cost_agent_paid_tier",
         "agent_monitor_default_collection_lag_hours",
         "validate_monitor_domains",
@@ -22119,6 +22232,14 @@ class Account(sgqlc.types.Type):
     created.
     """
 
+    enable_reinforcement_loop_v2 = sgqlc.types.Field(
+        Boolean, graphql_name="enableReinforcementLoopV2"
+    )
+    """Whether the reinforcement loop diagnoses conversations by Issue
+    cluster for this account, which unlocks the cluster selection and
+    root-cause issue views.
+    """
+
     enable_cost_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enableCostAgentPaidTier")
     """Whether the cost agent is unrestricted for the account: the full
     set of cost and performance insights. When false, the account has
@@ -22250,6 +22371,21 @@ class AccountAuditLog(sgqlc.types.Type):
 
     client_ip = sgqlc.types.Field(String, graphql_name="clientIp")
     """Client IP address"""
+
+
+class AccountAuditLogSummaryGroup(sgqlc.types.Type):
+    """One (user, page) activity count in an account audit-log summary."""
+
+    __schema__ = schema
+    __field_names__ = ("email", "url", "count")
+    email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
+    """Email of the user"""
+
+    url = sgqlc.types.Field(String, graphql_name="url")
+    """Page URL, with query string and fragment stripped"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Activity rows recorded for this (user, page) in the window"""
 
 
 class AccountEntitlementLimit(sgqlc.types.Type):
@@ -23331,10 +23467,14 @@ class AgentCost(sgqlc.types.Type):
     """
 
     warehouse_cost_available = sgqlc.types.Field(Boolean, graphql_name="warehouseCostAvailable")
-    """Whether the attribution read behind the spans' `warehouseCost`
-    answered. False means a span's null `warehouseCost` says the read
-    failed -- the grant missing, or the request's budget spent -- not
-    that the span ran no SQL. Set on a span breakdown only.
+    """Whether the attribution read behind the spans' `warehouseCost` --
+    or, on a trace read that asked for the combined token + query
+    cost, behind the traces' `queryCost` -- answered. False means a
+    null says the read failed -- the grant missing, or the request's
+    budget spent -- not that the span ran no SQL and not that the
+    trace is still inside attribution's lag. Set on a span breakdown
+    and on the combined trace read; true there, false when its
+    attribution half failed and the token half degraded.
     """
 
     traces = sgqlc.types.Field(
@@ -41169,6 +41309,20 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
 
+class GetAccountAuditLogSummaryResponse(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("groups", "truncated")
+    groups = sgqlc.types.Field(
+        sgqlc.types.list_of(AccountAuditLogSummaryGroup), graphql_name="groups"
+    )
+    """Per-(user, page) activity counts, most active first"""
+
+    truncated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="truncated")
+    """Whether the group limit cut the result. When true, the dropped
+    groups are the least active ones.
+    """
+
+
 class GetAccountAuditLogsResponse(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("records", "page_info")
@@ -47812,6 +47966,8 @@ class MonitoringPlanOutcomes(sgqlc.types.Type):
         "status",
         "capture_status",
         "materialization_status",
+        "recording_state",
+        "recording_reasons",
         "snapshot_revision",
         "provisional",
         "filtered_total",
@@ -47837,6 +47993,24 @@ class MonitoringPlanOutcomes(sgqlc.types.Type):
         sgqlc.types.non_null(MonitoringPlanMaterializationStatus),
         graphql_name="materializationStatus",
     )
+
+    recording_state = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanRecordingState), graphql_name="recordingState"
+    )
+    """Whether the run's outcome recording is complete and whether to
+    keep polling. Derived at read time; unlike status, it exists for
+    every collection. Stopping at a non-pending state does not promise
+    an immutable snapshot: late batches can still add rows.
+    """
+
+    recording_reasons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="recordingReasons",
+    )
+    """Why an incomplete recording is incomplete (producer loss,
+    recording uncertainty, missing run metadata, delivery short of the
+    reported count). Empty unless recordingState is incomplete.
+    """
 
     snapshot_revision = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="snapshotRevision"
@@ -69453,6 +69627,10 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("host", sgqlc.types.Arg(String, graphql_name="host", default=None)),
                 ("http_scheme", sgqlc.types.Arg(String, graphql_name="httpScheme", default=None)),
+                (
+                    "metadata_catalog_id",
+                    sgqlc.types.Arg(String, graphql_name="metadataCatalogId", default=None),
+                ),
                 ("password", sgqlc.types.Arg(String, graphql_name="password", default=None)),
                 ("port", sgqlc.types.Arg(Int, graphql_name="port", default=None)),
                 ("schema", sgqlc.types.Arg(String, graphql_name="schema", default=None)),
@@ -69468,11 +69646,17 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `catalog` (`String`): Mount point to access data source
+    * `catalog` (`String`): Mount point to access data source. Only
+      lowercase letters, digits, underscores and dashes are allowed
+      when `metadataCatalogId` is set.
     * `connection_options` (`ConnectionTestOptions`): Common options
       for integration tests
     * `host` (`String`): Hostname
     * `http_scheme` (`String`): Scheme for authentication
+    * `metadata_catalog_id` (`String`): Name of the catalog in the
+      metadata store (e.g. the AWS Glue federated catalog name) when
+      it differs from the Trino mount name given in `catalog`.
+      Requires `catalog`.
     * `password` (`String`): User's password
     * `port` (`Int`): HTTP port
     * `schema` (`String`): Schema to access
@@ -78616,6 +78800,7 @@ class Query(sgqlc.types.Type):
         "evaluate_asset_selection",
         "evaluate_field_pattern_matches",
         "get_account_audit_logs",
+        "get_account_audit_log_summary",
         "get_monitor_audit_logs",
         "get_asset_metric_audit_logs",
         "get_size_collection_audit_logs",
@@ -79959,6 +80144,10 @@ class Query(sgqlc.types.Type):
                     "span_breakdown",
                     sgqlc.types.Arg(Boolean, graphql_name="spanBreakdown", default=None),
                 ),
+                (
+                    "include_query_cost",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeQueryCost", default=False),
+                ),
             )
         ),
     )
@@ -80016,6 +80205,19 @@ class Query(sgqlc.types.Type):
       traceIds (at most 100). Cannot be combined with bucketSize or
       conversationIds. Defaults to false: omit it (or send false) to
       get the grain the other arguments select.
+    * `include_query_cost` (`Boolean`): Scoped to traceIds, each trace
+      also carries queryCost (the warehouse compute credits attributed
+      to its SQL queries) and totalCost (token cost plus queryCost).
+      Attribution trails execution by about three hours, so a fresh
+      trace's figures are lower bounds that keep filling in; a null
+      queryCost means nothing has been attributed to the trace yet --
+      it ran no SQL, or attribution is still inside the lag. If the
+      attribution view cannot be read at all, the read degrades: the
+      token half still answers, each trace's queryCost and totalCost
+      read null, and the response's warehouseCostAvailable is false.
+      Costs the attribution scan, so it is opt-in. Requires traceIds;
+      cannot be combined with spanBreakdown, bucketSize or
+      conversationIds. (default: `false`)
     """
 
     get_agent_cost_totals = sgqlc.types.Field(
@@ -101682,6 +101884,57 @@ class Query(sgqlc.types.Type):
       filter is applied.
     """
 
+    get_account_audit_log_summary = sgqlc.types.Field(
+        GetAccountAuditLogSummaryResponse,
+        graphql_name="getAccountAuditLogSummary",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                (
+                    "include_api_queries",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeApiQueries", default=False),
+                ),
+                (
+                    "actor_role",
+                    sgqlc.types.Arg(AuditLogActorRole, graphql_name="actorRole", default=None),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+            )
+        ),
+    )
+    """(experimental) The account audit log aggregated server-side: one
+    row per (user, page) with its activity count, over the whole
+    window. Unlike the paged row-level log — which is served oldest-
+    first, so a capped read holds the start of the window — this
+    answers over the entire range in one call.
+
+    Arguments:
+
+    * `start_time` (`DateTime!`): Start time of the time range to
+      query
+    * `end_time` (`DateTime`): End time of the time range to query.
+      Defaults to current time
+    * `include_api_queries` (`Boolean`): If set to true, GraphQL API
+      calls that are queries (not mutations) will be included in the
+      response. By default, queries are not included. (default:
+      `false`)
+    * `actor_role` (`AuditLogActorRole`): Filter activity by actor
+      role. When ``USER``, returns only entries whose actor is not a
+      known agent user for the account (entries for service or system
+      actors are included). When ``AGENT``, returns only entries whose
+      actor is an internal agent user. When omitted, no actor-role
+      filter is applied.
+    * `limit` (`Int`): Max (user, page) groups to return, most active
+      first. Bounded server-side; `truncated` reports when the bound
+      cut the result.
+    """
+
     get_monitor_audit_logs = sgqlc.types.Field(
         AuditLogEntryConnection,
         graphql_name="getMonitorAuditLogs",
@@ -111672,10 +111925,30 @@ class TraceConnection(sgqlc.types.relay.Connection):
 
 class TraceCost(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("trace_id", "cost")
+    __field_names__ = ("trace_id", "cost", "query_cost", "total_cost")
     trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
 
     cost = sgqlc.types.Field(Float, graphql_name="cost")
+
+    query_cost = sgqlc.types.Field(Float, graphql_name="queryCost")
+    """Warehouse compute credits attributed to the trace's SQL queries,
+    in the same unit as cost. Set only when the read asked for the
+    combined token + query cost (includeQueryCost); null otherwise.
+    Null on that read means nothing has been attributed to the trace
+    yet -- it ran no SQL, or attribution is still inside its lag --
+    never zero. A read whose attribution view cannot be read still
+    returns the trace, with queryCost null and the response's
+    warehouseCostAvailable false. Attribution trails execution by
+    about three hours, so a fresh trace's figure is a lower bound that
+    keeps filling in.
+    """
+
+    total_cost = sgqlc.types.Field(Float, graphql_name="totalCost")
+    """cost plus queryCost, in the same unit. Set only when the read
+    asked for the combined token + query cost (includeQueryCost). A
+    component not yet known contributes zero, so a fresh trace's total
+    is a lower bound until attribution catches up (~3h).
+    """
 
 
 class TraceEdge(sgqlc.types.Type):

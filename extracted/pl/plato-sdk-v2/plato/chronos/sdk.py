@@ -541,14 +541,6 @@ class Chronos(_ChronosBase):
         resp = self._client.put(f"/api/sessions/{session_id}/state", json=state_data)
         return resp.status_code == 200
 
-    def get_state(self, session_id: str) -> dict[str, Any] | None:
-        """Get world state JSON from the DB. Returns None if not found."""
-        resp = self._client.get(f"/api/sessions/{session_id}/state")
-        if resp.status_code == 404:
-            return None
-        resp.raise_for_status()
-        return resp.json()
-
     # -- Checkpoints --
 
     def get_checkpoint_info(self, session_id: str) -> dict[str, Any]:
@@ -1074,14 +1066,6 @@ class AsyncChronos(_ChronosBase):
         """Save world state JSON to the DB."""
         resp = await self._client.put(f"/api/sessions/{session_id}/state", json=state_data)
         return resp.status_code == 200
-
-    async def get_state(self, session_id: str) -> dict[str, Any] | None:
-        """Get world state JSON from the DB. Returns None if not found."""
-        resp = await self._client.get(f"/api/sessions/{session_id}/state")
-        if resp.status_code == 404:
-            return None
-        resp.raise_for_status()
-        return resp.json()
 
     # -- Checkpoints --
 

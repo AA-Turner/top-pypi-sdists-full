@@ -152,7 +152,10 @@ CATEGORY_SURFACES: Mapping[
 # healthy. The CLI layer owns 1 (generic auth/5xx/unexpected error) and 0 (clean
 # run / no findings / dry run).
 EXIT_UNSUPPORTED = 2  # endpoint 404 — backend too old / wrong host / intercepted
-EXIT_SUBMIT_FAILED = 3  # submission attempted but failed (network error / 5xx)
+# Transport/HTTP failure only (network error / 5xx): the payload never
+# persisted. A 200 whose body lists ``incomplete_surfaces`` is NOT this — the
+# server accepted the scan and merely declined authority over a surface.
+EXIT_SUBMIT_FAILED = 3
 
 # Per-report agent cap. Mirrors the backend MAX_AGENTS_PER_REPORT so an outlier
 # host (huge monorepo, many detected projects) can't send an unbounded batch;
@@ -194,6 +197,12 @@ class ScanSubmissionResult:
         tuple[ScanManifestCategory, ScanManifestSurface],
         str,
     ] = field(default_factory=dict)
+    # Surfaces the backend accepted the payload for but declined authority
+    # over (``incomplete_surfaces`` in a 200 response), in response order.
+    # Rendered as their own WARN line; never a submit failure.
+    backend_incomplete: list[tuple[ScanManifestCategory, ScanManifestSurface, str]] = (
+        field(default_factory=list)
+    )
 
     @property
     def exit_code(self) -> int:
@@ -204,6 +213,11 @@ class ScanSubmissionResult:
         on-device signal is the exit code via Task Scheduler LastTaskResult).
         ``failed`` (network error / 5xx) outranks ``unsupported`` (404): it is the
         more urgent signal and more likely to be transient.
+
+        ``backend_incomplete`` never contributes: the payload persisted, the
+        backend already produced (and logged) the reason, and the manifest
+        gates the surface so nothing is removed. The device cannot fix it, so a
+        nonzero exit would only read as a failed scheduled task.
         """
         if self.failed_submissions:
             return EXIT_SUBMIT_FAILED
@@ -3426,14 +3440,6 @@ def _consume_backend_surface_failures(
         logger.warning("mcp_watch_scan_invalid_incomplete_surfaces")
         return
 
-    failed_labels = {
-        "mcp": "servers",
-        "client": "clients",
-        "skill": "skills",
-        "plugin": "plugins",
-        "agent": "agents",
-        "agent_definition": "agent definitions",
-    }
     for raw_failure in raw_failures[:30]:
         if not isinstance(raw_failure, dict):
             continue
@@ -3452,10 +3458,25 @@ def _consume_backend_surface_failures(
         if surface not in CATEGORY_SURFACES[typed_category]:
             continue
         typed_surface = cast(ScanManifestSurface, surface)
-        submission.incomplete_surfaces[(typed_category, typed_surface)] = reason[:200]
-        failed_label = failed_labels[typed_category]
-        if failed_label not in submission.failed_submissions:
-            submission.failed_submissions.append(failed_label)
+        reason = reason[:200]
+        # Device-side diagnostic for the WARN line + exit policy: without this
+        # the only local evidence of a backend-incomplete run is the absence of
+        # a submission-failure warning.
+        logger.warning(
+            "mcp_watch_scan_backend_surface_incomplete",
+            category=typed_category,
+            surface=typed_surface,
+            reason=reason,
+        )
+        submission.incomplete_surfaces[(typed_category, typed_surface)] = reason
+        already_recorded = any(
+            recorded_category == typed_category and recorded_surface == typed_surface
+            for recorded_category, recorded_surface, _ in submission.backend_incomplete
+        )
+        if not already_recorded:
+            submission.backend_incomplete.append(
+                (typed_category, typed_surface, reason)
+            )
 
 
 def submit_scan_results(

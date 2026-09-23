@@ -32,14 +32,14 @@ class AgentKnowledgeBaseArgs:
         """
         The set of arguments for constructing a AgentKnowledgeBase resource.
 
-        :param pulumi.Input['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs'] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        :param pulumi.Input['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs'] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         :param pulumi.Input[_builtins.str] role_arn: ARN of the IAM role with permissions to invoke API operations on the knowledge base.
                
                The following arguments are optional:
         :param pulumi.Input[_builtins.str] description: Description of the knowledge base.
         :param pulumi.Input[_builtins.str] name: Name of the knowledge base.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
-        :param pulumi.Input['AgentKnowledgeBaseStorageConfigurationArgs'] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        :param pulumi.Input['AgentKnowledgeBaseStorageConfigurationArgs'] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Map of tags assigned to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         pulumi.set(__self__, "knowledge_base_configuration", knowledge_base_configuration)
@@ -61,7 +61,7 @@ class AgentKnowledgeBaseArgs:
     @pulumi.getter(name="knowledgeBaseConfiguration")
     def knowledge_base_configuration(self) -> pulumi.Input['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs']:
         """
-        Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         """
         return pulumi.get(self, "knowledge_base_configuration")
 
@@ -123,7 +123,7 @@ class AgentKnowledgeBaseArgs:
     @pulumi.getter(name="storageConfiguration")
     def storage_configuration(self) -> pulumi.Input[Optional['AgentKnowledgeBaseStorageConfigurationArgs']]:
         """
-        Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         """
         return pulumi.get(self, "storage_configuration")
 
@@ -175,13 +175,14 @@ class _AgentKnowledgeBaseState:
         :param pulumi.Input[_builtins.str] arn: ARN of the knowledge base.
         :param pulumi.Input[_builtins.str] created_at: Time at which the knowledge base was created.
         :param pulumi.Input[_builtins.str] description: Description of the knowledge base.
-        :param pulumi.Input['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs'] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] failure_reasons: List of failure reasons reported when the knowledge base is in a failed state.
+        :param pulumi.Input['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs'] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         :param pulumi.Input[_builtins.str] name: Name of the knowledge base.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] role_arn: ARN of the IAM role with permissions to invoke API operations on the knowledge base.
                
                The following arguments are optional:
-        :param pulumi.Input['AgentKnowledgeBaseStorageConfigurationArgs'] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        :param pulumi.Input['AgentKnowledgeBaseStorageConfigurationArgs'] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Map of tags assigned to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         :param pulumi.Input[_builtins.str] updated_at: Time at which the knowledge base was last updated.
@@ -252,6 +253,9 @@ class _AgentKnowledgeBaseState:
     @_builtins.property
     @pulumi.getter(name="failureReasons")
     def failure_reasons(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of failure reasons reported when the knowledge base is in a failed state.
+        """
         return pulumi.get(self, "failure_reasons")
 
     @failure_reasons.setter
@@ -262,7 +266,7 @@ class _AgentKnowledgeBaseState:
     @pulumi.getter(name="knowledgeBaseConfiguration")
     def knowledge_base_configuration(self) -> pulumi.Input[Optional['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs']]:
         """
-        Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         """
         return pulumi.get(self, "knowledge_base_configuration")
 
@@ -312,7 +316,7 @@ class _AgentKnowledgeBaseState:
     @pulumi.getter(name="storageConfiguration")
     def storage_configuration(self) -> pulumi.Input[Optional['AgentKnowledgeBaseStorageConfigurationArgs']]:
         """
-        Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         """
         return pulumi.get(self, "storage_configuration")
 
@@ -373,13 +377,13 @@ class AgentKnowledgeBase(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 knowledge_base_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict']]] = None,
+                 knowledge_base_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict', 'outputs.AgentKnowledgeBaseKnowledgeBaseConfiguration']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  role_arn: pulumi.Input[Optional[_builtins.str]] = None,
-                 storage_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict']]] = None,
+                 storage_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict', 'outputs.AgentKnowledgeBaseStorageConfiguration']]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['AgentKnowledgeBaseTimeoutsArgs', 'AgentKnowledgeBaseTimeoutsArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['AgentKnowledgeBaseTimeoutsArgs', 'AgentKnowledgeBaseTimeoutsArgsDict', 'outputs.AgentKnowledgeBaseTimeouts']]] = None,
                  __props__=None):
         """
         Resource for managing an AWS Agents for Amazon Bedrock Knowledge Base.
@@ -638,13 +642,13 @@ class AgentKnowledgeBase(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] description: Description of the knowledge base.
-        :param pulumi.Input[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict']] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        :param pulumi.Input[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict', 'outputs.AgentKnowledgeBaseKnowledgeBaseConfiguration']] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         :param pulumi.Input[_builtins.str] name: Name of the knowledge base.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] role_arn: ARN of the IAM role with permissions to invoke API operations on the knowledge base.
                
                The following arguments are optional:
-        :param pulumi.Input[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict']] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        :param pulumi.Input[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict', 'outputs.AgentKnowledgeBaseStorageConfiguration']] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Map of tags assigned to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         ...
@@ -923,13 +927,13 @@ class AgentKnowledgeBase(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  description: pulumi.Input[Optional[_builtins.str]] = None,
-                 knowledge_base_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict']]] = None,
+                 knowledge_base_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict', 'outputs.AgentKnowledgeBaseKnowledgeBaseConfiguration']]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  role_arn: pulumi.Input[Optional[_builtins.str]] = None,
-                 storage_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict']]] = None,
+                 storage_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict', 'outputs.AgentKnowledgeBaseStorageConfiguration']]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['AgentKnowledgeBaseTimeoutsArgs', 'AgentKnowledgeBaseTimeoutsArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['AgentKnowledgeBaseTimeoutsArgs', 'AgentKnowledgeBaseTimeoutsArgsDict', 'outputs.AgentKnowledgeBaseTimeouts']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -970,14 +974,14 @@ class AgentKnowledgeBase(pulumi.CustomResource):
             created_at: pulumi.Input[Optional[_builtins.str]] = None,
             description: pulumi.Input[Optional[_builtins.str]] = None,
             failure_reasons: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
-            knowledge_base_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict']]] = None,
+            knowledge_base_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict', 'outputs.AgentKnowledgeBaseKnowledgeBaseConfiguration']]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
             region: pulumi.Input[Optional[_builtins.str]] = None,
             role_arn: pulumi.Input[Optional[_builtins.str]] = None,
-            storage_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict']]] = None,
+            storage_configuration: pulumi.Input[Optional[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict', 'outputs.AgentKnowledgeBaseStorageConfiguration']]] = None,
             tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            timeouts: pulumi.Input[Optional[Union['AgentKnowledgeBaseTimeoutsArgs', 'AgentKnowledgeBaseTimeoutsArgsDict']]] = None,
+            timeouts: pulumi.Input[Optional[Union['AgentKnowledgeBaseTimeoutsArgs', 'AgentKnowledgeBaseTimeoutsArgsDict', 'outputs.AgentKnowledgeBaseTimeouts']]] = None,
             updated_at: pulumi.Input[Optional[_builtins.str]] = None) -> 'AgentKnowledgeBase':
         """
         Get an existing AgentKnowledgeBase resource's state with the given name, id, and optional extra
@@ -989,13 +993,14 @@ class AgentKnowledgeBase(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] arn: ARN of the knowledge base.
         :param pulumi.Input[_builtins.str] created_at: Time at which the knowledge base was created.
         :param pulumi.Input[_builtins.str] description: Description of the knowledge base.
-        :param pulumi.Input[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict']] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] failure_reasons: List of failure reasons reported when the knowledge base is in a failed state.
+        :param pulumi.Input[Union['AgentKnowledgeBaseKnowledgeBaseConfigurationArgs', 'AgentKnowledgeBaseKnowledgeBaseConfigurationArgsDict', 'outputs.AgentKnowledgeBaseKnowledgeBaseConfiguration']] knowledge_base_configuration: Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         :param pulumi.Input[_builtins.str] name: Name of the knowledge base.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] role_arn: ARN of the IAM role with permissions to invoke API operations on the knowledge base.
                
                The following arguments are optional:
-        :param pulumi.Input[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict']] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        :param pulumi.Input[Union['AgentKnowledgeBaseStorageConfigurationArgs', 'AgentKnowledgeBaseStorageConfigurationArgsDict', 'outputs.AgentKnowledgeBaseStorageConfiguration']] storage_configuration: Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Map of tags assigned to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         :param pulumi.Input[_builtins.str] updated_at: Time at which the knowledge base was last updated.
@@ -1046,13 +1051,16 @@ class AgentKnowledgeBase(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="failureReasons")
     def failure_reasons(self) -> pulumi.Output[Sequence[_builtins.str]]:
+        """
+        List of failure reasons reported when the knowledge base is in a failed state.
+        """
         return pulumi.get(self, "failure_reasons")
 
     @_builtins.property
     @pulumi.getter(name="knowledgeBaseConfiguration")
     def knowledge_base_configuration(self) -> pulumi.Output['outputs.AgentKnowledgeBaseKnowledgeBaseConfiguration']:
         """
-        Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` block for details.
+        Details about the embeddings configuration of the knowledge base. See `knowledge_base_configuration` Block for details.
         """
         return pulumi.get(self, "knowledge_base_configuration")
 
@@ -1086,7 +1094,7 @@ class AgentKnowledgeBase(pulumi.CustomResource):
     @pulumi.getter(name="storageConfiguration")
     def storage_configuration(self) -> pulumi.Output[Optional['outputs.AgentKnowledgeBaseStorageConfiguration']]:
         """
-        Details about the storage configuration of the knowledge base. See `storage_configuration` block for details.
+        Details about the storage configuration of the knowledge base. See `storage_configuration` Block for details.
         """
         return pulumi.get(self, "storage_configuration")
 

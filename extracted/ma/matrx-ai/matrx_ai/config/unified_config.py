@@ -238,6 +238,18 @@ class UnifiedConfig:
     # unchanged; True prevents same-request merges from resurrecting dynamic
     # removals. Deliberately omitted from storage.
     tool_delegation_filter_applied_runtime: bool = False
+    # 🚨 THE SECOND LAYER OF THE MANDATE-HELD RULE. When set, this turn's
+    # structural half came from the LIVE Holder of that mandate, not from the
+    # conversation row — so the row must NOT be re-frozen with it at the end of
+    # the turn. The row carries the same marker, and normally the row is what
+    # persistence reads. This field exists because that read can FAIL (a gate
+    # INSERT still queued, a pooled connection under contention), and on
+    # 2026-09-21 it did: persistence fell back to "not mandate-held", froze the
+    # belt onto the row and wiped the marker, and the very next turn on that
+    # thread went to the provider with ZERO of the Holder's eighteen authored
+    # tools. A single layer that fails closed to the wrong answer is not a
+    # layer. See `matrx_ai/agents/live_structure.py`.
+    responder_mandate_key: str | None = None
     # Literal["none", "auto", "required"]
     tool_choice: Literal["none", "auto", "required"] | None = None
     parallel_tool_calls: bool = True
@@ -342,6 +354,14 @@ class UnifiedConfig:
     # tts_voice: list[dict] → multi-speaker [{"name": "Alex", "voice": "Orus"}, ...]
     tts_voice: str | list[dict[str, str]] | None = None
     audio_format: str | None = None  # desired output format: "wav", "mp3", "ogg"
+    # Vendor-neutral speech controls (typed-message design, Text to speech).
+    # Free-text delivery direction — every TTS leader converged on natural
+    # language, never an enum. Each translator places it where its vendor
+    # wants it (matrx_ai.speech.compile).
+    performance_direction: str | None = None
+    speech_speed: float | None = None  # 1.0 = normal pace
+    turn_pause_ms: int | None = None  # default silence between script turns
+    language_code: str | None = None  # ISO 639-1 / BCP-47 language hint
 
     # =====================================================================
     # Media generation: video-specific
@@ -682,6 +702,7 @@ class UnifiedConfig:
                 data.get("tool_delegation_disabled_policy", False)
             ),
             tool_delegation_registry_fingerprint=data.get("tool_delegation_registry_fingerprint"),
+            responder_mandate_key=data.get("responder_mandate_key"),
             skill_injected_tool_ids=data.get("skill_injected_tool_ids", []),
             tool_choice=data.get("tool_choice"),
             parallel_tool_calls=data.get("parallel_tool_calls", True),
@@ -720,6 +741,10 @@ class UnifiedConfig:
             # TTS / audio
             tts_voice=data.get("tts_voice"),
             audio_format=data.get("audio_format"),
+            performance_direction=data.get("performance_direction"),
+            speech_speed=data.get("speech_speed"),
+            turn_pause_ms=data.get("turn_pause_ms"),
+            language_code=data.get("language_code"),
             # Media: video-specific
             duration_seconds=data.get("duration_seconds"),
             resolution=data.get("resolution"),
@@ -823,7 +848,7 @@ class UnifiedConfig:
         """
 
         message_storage_dicts = [
-            msg.to_storage_dict() for msg in self.messages if not msg.is_ephemeral_only()
+            msg.to_storage_dict() for msg in self.messages
         ]
         # vcprint(message_storage_dicts, "[UnifiedConfig] Message Storage Dicts", color="yellow")
 
@@ -874,6 +899,12 @@ class UnifiedConfig:
             config["tool_authority_exclusions"] = self.tool_authority_exclusions
         if self.tool_capability_filtered:
             config["tool_capability_filtered"] = True
+        if self.responder_mandate_key:
+            # Both marker keys, together, so a row written by a turn that KNEW
+            # it was mandate-held is readable as such by the next turn even if
+            # nothing else survived.
+            config["responder_mandate_key"] = self.responder_mandate_key
+            config["structure_is_live"] = True
         if self.tool_delegation_filtered:
             config["tool_delegation_filtered"] = True
         if self.tool_delegation_executors is not None:
@@ -930,6 +961,10 @@ class UnifiedConfig:
             config["tts_voice"] = self.tts_voice
         if self.audio_format is not None:
             config["audio_format"] = self.audio_format
+        for _speech_key in ("performance_direction", "speech_speed", "turn_pause_ms", "language_code"):
+            _speech_value = getattr(self, _speech_key)
+            if _speech_value is not None:
+                config[_speech_key] = _speech_value
         if self.compaction_settings is not None:
             config["compaction_settings"] = self.compaction_settings
         if self.detected_contexts is not None:
@@ -958,13 +993,74 @@ class UnifiedConfig:
         """
         Add user text to the message list.
         """
+        self.lift_opening_turn(person_is_speaking=bool(text and text.strip()))
         self.messages.append_or_extend_user_text(text, **kwargs)
 
     def append_or_extend_user_input(self, user_input: str | list[dict[str, Any]]) -> None:
         """
         Add user input items to the message list.
         """
+        self.lift_opening_turn(person_is_speaking=_has_words_or_media(user_input))
         self.messages.append_or_extend_user_input(user_input)
+
+    def lift_opening_turn(self, *, person_is_speaking: bool) -> bool:
+        """Move the definition's own opening user turn out of the person's turn.
+
+        🚨 THE PERSON'S TURN IS THE PERSON'S ALONE — on the FIRST turn too. An
+        agent definition that ends with a seeded user message ("Let's get
+        started. Follow the mode you were given above, then ask your first
+        concrete question.") used to have the person's first words appended
+        INTO it, so the stored turn — and the turn the model answered — began
+        with the platform's sentence (cold walk 22, 2026-09-22,
+        chat.conversation e450743f-45ad-4caa-8d30-149138c7f757, position 0).
+
+        The seeded text is instructions, so it moves to the system channel
+        (``SystemInstruction.opening_turn``) and her words become a turn of
+        their own. It is lifted only when ALL of these hold, and otherwise the
+        old merge stands (its authorship is still recorded in ``user_content``):
+
+          * she is actually saying something this turn;
+          * the model is a chat model (``supports_tools``) — an image / TTS
+            model takes its prompt from the user text, so the template must
+            stay there (``unified_client`` restores it if a non-chat model
+            slips through);
+          * the conversation's system prompt is not frozen yet and nothing has
+            been answered — this is the opening turn;
+          * the trailing message is a definition-seeded user turn: role user,
+            no authorship record (``user_content`` is None), plain text only.
+
+        Returns True when it lifted something.
+        """
+        if not person_is_speaking or not self.supports_tools or self.system_prompt_frozen:
+            return False
+        if not len(self.messages):
+            return False
+        last = self.messages[-1]
+        if last.role != Role.USER or last.user_content is not None:
+            return False
+        if any(m.role in (Role.ASSISTANT, Role.TOOL) for m in self.messages):
+            return False
+        if not last.content or not all(
+            isinstance(block, TextContent) and not (block.metadata or {}).get("role")
+            for block in last.content
+        ):
+            return False
+        opening = "\n\n".join(
+            block.text.strip() for block in last.content if block.text and block.text.strip()
+        )
+        self.messages.pop()
+        if not opening:
+            return True
+        if self.system_instruction is None:
+            # No authored system prompt at all: carry only the opening turn —
+            # no date line or other decoration the agent never had.
+            self.system_instruction = SystemInstruction(base_instruction="", include_date=False)
+        si = self.system_instruction
+        if not isinstance(si, SystemInstruction):
+            si = SystemInstruction.from_value(si)
+            self.system_instruction = si
+        si.opening_turn = f"{si.opening_turn}\n\n{opening}" if si.opening_turn else opening
+        return True
 
     def replace_variables(self, variables: dict[str, Any]) -> None:
         """
@@ -1071,3 +1167,19 @@ class UnifiedResponse:
                 result[key] = value
 
         return result
+
+
+def _has_words_or_media(user_input: Any) -> bool:
+    """Whether a turn's input carries anything the person actually sent."""
+    if isinstance(user_input, str):
+        return bool(user_input.strip())
+    if isinstance(user_input, list):
+        for item in user_input:
+            if not isinstance(item, dict):
+                return True
+            if item.get("type") in ("text", "input_text"):
+                if str(item.get("text") or "").strip():
+                    return True
+            else:
+                return True
+    return False

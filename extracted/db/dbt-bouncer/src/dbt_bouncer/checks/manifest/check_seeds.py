@@ -1,20 +1,19 @@
-import logging
 from typing import Annotated
 
 from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.check_framework.exceptions import NestedDict
+from dbt_bouncer.enums import Criteria
 from dbt_bouncer.utils import (
     compile_pattern,
-    find_missing_meta_keys,
+    find_meta_keys_criteria_failure,
     get_clean_model_name,
-    get_package_version_number,
     is_description_populated,
 )
 
 
-@check
+@check(code="SE001")
 def check_seed_column_names(seed, *, seed_column_name_pattern: str):
     """Seed columns must have names that match the supplied regex.
 
@@ -56,7 +55,7 @@ def check_seed_column_names(seed, *, seed_column_name_pattern: str):
         )
 
 
-@check
+@check(code="SE002")
 def check_seed_columns_have_types(seed):
     """Columns defined for seeds must have a `data_type` declared.
 
@@ -90,7 +89,7 @@ def check_seed_columns_have_types(seed):
         )
 
 
-@check
+@check(code="SE003")
 def check_seed_description_populated(
     seed, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
@@ -132,8 +131,10 @@ def check_seed_description_populated(
         )
 
 
-@check
-def check_seed_has_meta_keys(seed, *, keys: NestedDict):
+@check(code="SE004")
+def check_seed_has_meta_keys(
+    seed, *, criteria: Criteria = Criteria.ALL, keys: NestedDict
+):
     """The `meta` config for seeds must have the specified keys.
 
     !!! info "Rationale"
@@ -141,6 +142,7 @@ def check_seed_has_meta_keys(seed, *, keys: NestedDict):
         The `meta` config is a flexible, project-defined dictionary used to track ownership, maturity levels, PII classification, and other governance attributes. Requiring specific keys ensures that these attributes are consistently populated across all seeds, enabling automated reporting, data cataloguing, and access-control workflows that depend on them.
 
     Parameters:
+        criteria (Literal["all", "any", "one"]): Whether the resource must have all, any, or exactly one of the specified keys. Default: `all`.
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
 
     Receives:
@@ -162,16 +164,13 @@ def check_seed_has_meta_keys(seed, *, keys: NestedDict):
         ```
 
     """
-    missing_keys = find_missing_meta_keys(
-        meta_config=seed.meta, required_keys=keys.model_dump()
-    )
-    if missing_keys:
-        fail(
-            f"`{get_clean_model_name(seed.unique_id)}` is missing the following keys from the `meta` config: {[x.replace('>>', '') for x in missing_keys]}"
-        )
+    failure = find_meta_keys_criteria_failure(seed.meta, keys.model_dump(), criteria)
+    if failure:
+        display_name = get_clean_model_name(seed.unique_id)
+        fail(f"`{display_name}` {failure}")
 
 
-@check
+@check(code="SE005")
 def check_seed_has_unit_tests(
     seed, ctx, *, min_number_of_unit_tests: Annotated[int, Field(gt=0)] = 1
 ):
@@ -195,10 +194,6 @@ def check_seed_has_unit_tests(
         include (str | list[str] | None): Regex pattern(s) to match the seed path. Only seed paths that match any pattern will be checked.
         severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
 
-    !!! warning
-
-        This check is only supported for dbt 1.8.0 and above.
-
     Example(s):
         ```yaml
         manifest_checks:
@@ -212,22 +207,14 @@ def check_seed_has_unit_tests(
         ```
 
     """
-    manifest_obj = ctx.manifest_obj
-    if get_package_version_number(
-        manifest_obj.manifest.metadata.dbt_version or "0.0.0"
-    ) >= get_package_version_number("1.8.0"):
-        num_unit_tests = len(ctx.unit_tests_by_depends_on_node.get(seed.unique_id, []))
-        if num_unit_tests < min_number_of_unit_tests:
-            fail(
-                f"`{get_clean_model_name(seed.unique_id)}` has {num_unit_tests} unit tests, this is less than the minimum of {min_number_of_unit_tests}."
-            )
-    else:
-        logging.warning(
-            "This unit test check is only supported for dbt 1.8.0 and above."
+    num_unit_tests = len(ctx.unit_tests_by_depends_on_node.get(seed.unique_id, []))
+    if num_unit_tests < min_number_of_unit_tests:
+        fail(
+            f"`{get_clean_model_name(seed.unique_id)}` has {num_unit_tests} unit tests, this is less than the minimum of {min_number_of_unit_tests}."
         )
 
 
-@check
+@check(code="SE006")
 def check_seed_names(seed, *, seed_name_pattern: str):
     """Seed must have a name that matches the supplied regex.
 

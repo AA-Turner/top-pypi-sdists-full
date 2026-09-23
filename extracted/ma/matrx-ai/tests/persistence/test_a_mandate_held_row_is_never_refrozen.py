@@ -125,3 +125,53 @@ def test_an_ordinary_conversation_keeps_its_prefix_write_once() -> None:
     )
     assert result.system_instruction is None
     assert result.config["system_prompt_frozen"] is True
+
+
+# ---------------------------------------------------------------------------
+# The second layer, and the live failure that proved one was not enough
+# ---------------------------------------------------------------------------
+
+
+def test_a_failed_row_read_does_not_silently_refreeze_a_mandate_held_thread() -> None:
+    """MEASURED LIVE, 2026-09-21, and caught by the fence — not imagined.
+
+    The existing-row read in ``persist_completed_request`` sits in a try/except
+    because a gate INSERT may still be queued. When it fails, ``existing_config``
+    is ``{}`` — indistinguishable, to the old single-layer check, from a row
+    that simply is not mandate-held. So the turn froze the Holder's belt back
+    onto the staff row and wiped the marker, and the VERY NEXT turn on that
+    thread went to the provider with `config.tools=18 authored_tools=18` — all
+    eighteen being capability and organization automatics, and not one of the
+    Holder's own. Recorded at `chat.request_snapshot` `cdf4870b-5a88-42b0-a7b3-fe0f53235654`.
+
+    The resolver knows the answer at the moment it builds the turn, so the turn
+    carries it too. A single layer that fails closed to the WRONG answer is not
+    a layer.
+    """
+    result = structural_conversation_update(
+        assembled_config=dict(ASSEMBLED),
+        existing_config={},  # the read failed — we know nothing about the row
+        existing_system_instruction=None,
+        incoming_system_instruction="You are the Chief of Staff…",
+        request_already_frozen=False,
+        turn_mandate_key="personal_staff.front_line",
+    )
+    assert result.is_mandate_held is True
+    assert [k for k in HOLDER_OWNED_CONFIG_KEYS if k in result.config] == []
+    assert result.config[LIVE_STRUCTURE_KEY] is True
+    assert result.config[RESPONDER_MANDATE_KEY] == "personal_staff.front_line"
+    assert result.system_instruction is None
+
+
+def test_an_ordinary_turn_carries_no_mandate_key_and_still_freezes() -> None:
+    """The positive control for the second layer: only the mandate path sets it."""
+    result = structural_conversation_update(
+        assembled_config=dict(ASSEMBLED),
+        existing_config={},
+        existing_system_instruction=None,
+        incoming_system_instruction="You are a helpful assistant.",
+        request_already_frozen=False,
+        turn_mandate_key=None,
+    )
+    assert result.is_mandate_held is False
+    assert result.config["system_prompt_frozen"] is True

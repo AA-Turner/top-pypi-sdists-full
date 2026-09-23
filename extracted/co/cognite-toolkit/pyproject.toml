@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.8.219"
+version = "0.8.222"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -55,6 +55,7 @@ table = [
 ]
 sql = ["sqlparse >=0.5.3"]
 v08 = ["cognite-neat >=1.0.43"]
+run-function-app = ["cognite-function-apps[cli]>=0.15.0"]
 
 [project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"

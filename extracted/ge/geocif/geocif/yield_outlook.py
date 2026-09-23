@@ -2182,7 +2182,24 @@ def _plot_national_progression(df, stages_sorted, metric_col, ylabel, title,
         ax.plot(x, nat, color="black", linewidth=3, marker="o", markersize=7,
                 label="National", zorder=10)
 
-        friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
+        # Stages are NOT all modelled over the same regions: a stage window
+        # only exists for a region once its own season has started, so an
+        # early window can cover a small and unrepresentative subset whose
+        # metric is not comparable with the later ones. nsp sorghum's
+        # "April" window is Texas-only (22 of 81 counties, Texas being the
+        # one state planting in April) and its flatteringly low MAPE is a
+        # sample artefact, not skill. Carry the region count on each tick so
+        # it is obvious which points share a sample.
+        n_by_stage = (
+            region_vals.groupby("Stage Name")["Region"].nunique()
+            .reindex(stages_sorted)
+            .to_numpy(dtype=float)
+        )
+        friendly_labels = [
+            f"{friendly_stage_label(s)}\n(n={int(c)})" if np.isfinite(c)
+            else friendly_stage_label(s)
+            for s, c in zip(stages_sorted, n_by_stage)
+        ]
         ax.set_xticks(x)
         ax.set_xticklabels(friendly_labels, rotation=45, ha="right", fontsize=8)
 

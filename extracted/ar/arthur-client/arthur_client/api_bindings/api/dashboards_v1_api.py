@@ -604,7 +604,7 @@ class DashboardsV1Api:
     ) -> UpsolveToken:
         """Get Upsolve Jwt For A Dashboard
 
-        Returns an Upsolve JWT scoped to this dashboard's resolved member set (intersected with the caller's MODEL_READ access). Tenant identity is stable for the lifetime of the dashboard, so customizations persist across membership and visibility changes. Requires dashboard_read. Fails with the standard authorization error when the caller has access to none of the dashboard's data sources.
+        Returns an Upsolve JWT scoped to this dashboard's resolved member set (intersected with the caller's MODEL_QUERY_METRICS access). Tenant identity is stable for the lifetime of the dashboard, so customizations persist across membership and visibility changes. Requires dashboard_read. Fails with the standard authorization error when the caller has access to none of the dashboard's data sources.
 
         :param dashboard_id: (required)
         :type dashboard_id: str
@@ -674,7 +674,7 @@ class DashboardsV1Api:
     ) -> ApiResponse[UpsolveToken]:
         """Get Upsolve Jwt For A Dashboard
 
-        Returns an Upsolve JWT scoped to this dashboard's resolved member set (intersected with the caller's MODEL_READ access). Tenant identity is stable for the lifetime of the dashboard, so customizations persist across membership and visibility changes. Requires dashboard_read. Fails with the standard authorization error when the caller has access to none of the dashboard's data sources.
+        Returns an Upsolve JWT scoped to this dashboard's resolved member set (intersected with the caller's MODEL_QUERY_METRICS access). Tenant identity is stable for the lifetime of the dashboard, so customizations persist across membership and visibility changes. Requires dashboard_read. Fails with the standard authorization error when the caller has access to none of the dashboard's data sources.
 
         :param dashboard_id: (required)
         :type dashboard_id: str
@@ -744,7 +744,7 @@ class DashboardsV1Api:
     ) -> RESTResponseType:
         """Get Upsolve Jwt For A Dashboard
 
-        Returns an Upsolve JWT scoped to this dashboard's resolved member set (intersected with the caller's MODEL_READ access). Tenant identity is stable for the lifetime of the dashboard, so customizations persist across membership and visibility changes. Requires dashboard_read. Fails with the standard authorization error when the caller has access to none of the dashboard's data sources.
+        Returns an Upsolve JWT scoped to this dashboard's resolved member set (intersected with the caller's MODEL_QUERY_METRICS access). Tenant identity is stable for the lifetime of the dashboard, so customizations persist across membership and visibility changes. Requires dashboard_read. Fails with the standard authorization error when the caller has access to none of the dashboard's data sources.
 
         :param dashboard_id: (required)
         :type dashboard_id: str
@@ -1173,7 +1173,7 @@ class DashboardsV1Api:
     ) -> Dashboard:
         """Create Dashboard
 
-        Creates a new custom dashboard in a workspace. Requires workspace_create_dashboard on the home workspace and read permission on every member resource.
+        Creates a new custom dashboard in a workspace. Requires workspace_create_dashboard on the home workspace, read permission on every workspace, project and policy member, and model_query_metrics on every application member.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -1246,7 +1246,7 @@ class DashboardsV1Api:
     ) -> ApiResponse[Dashboard]:
         """Create Dashboard
 
-        Creates a new custom dashboard in a workspace. Requires workspace_create_dashboard on the home workspace and read permission on every member resource.
+        Creates a new custom dashboard in a workspace. Requires workspace_create_dashboard on the home workspace, read permission on every workspace, project and policy member, and model_query_metrics on every application member.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -1319,7 +1319,7 @@ class DashboardsV1Api:
     ) -> RESTResponseType:
         """Create Dashboard
 
-        Creates a new custom dashboard in a workspace. Requires workspace_create_dashboard on the home workspace and read permission on every member resource.
+        Creates a new custom dashboard in a workspace. Requires workspace_create_dashboard on the home workspace, read permission on every workspace, project and policy member, and model_query_metrics on every application member.
 
         :param workspace_id: (required)
         :type workspace_id: str

@@ -12,6 +12,7 @@ from sqlglot.expressions.core import (
     Condition,
     Distinct,
     Dot,
+    DynamicIdentifier,
     Expr,
     Expression,
     Func,
@@ -624,7 +625,6 @@ class Group(Expression):
     arg_types = {
         "expressions": False,
         "grouping_sets": False,
-        "grouping_sets_as_group_by_element": False,
         "cube": False,
         "rollup": False,
         "totals": False,
@@ -967,9 +967,10 @@ class Table(Expression, Selectable):
 
     @property
     def name(self) -> str:
-        if not self.this or isinstance(self.this, Func):
+        this = self.this
+        if not this or (isinstance(this, Func) and not isinstance(this, DynamicIdentifier)):
             return ""
-        return self.this.name
+        return this.name
 
     @property
     def db(self) -> str:
@@ -1019,6 +1020,20 @@ class Table(Expression, Selectable):
         return col
 
 
+def _is_star(expression: Expr) -> bool:
+    stack = [expression]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, SetOperation):
+            stack.append(node.this)
+            stack.append(node.expression)
+        elif isinstance(node, Subquery):
+            stack.append(node.this)
+        elif node.is_star:
+            return True
+    return False
+
+
 class SetOperation(Expression, Query):
     arg_types = {
         "with_": False,
@@ -1061,7 +1076,7 @@ class SetOperation(Expression, Query):
 
     @property
     def is_star(self) -> bool:
-        return self.this.is_star or self.expression.is_star
+        return _is_star(self)
 
     @property
     def selects(self) -> list[Expr]:
@@ -1719,7 +1734,7 @@ class Subquery(Expression, DerivedTable, Query):
 
     @property
     def is_star(self) -> bool:
-        return self.this.is_star
+        return _is_star(self)
 
     @property
     def output_name(self) -> str:

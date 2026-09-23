@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-mongodb
-Version: 0.12.0
+Version: 0.12.1
 Summary: An integration package connecting MongoDB and LangChain
 License-File: LICENSE
 Requires-Python: >=3.11
@@ -12,7 +12,7 @@ Requires-Dist: lark<2.0.0,>=1.1.9
 Requires-Dist: numpy>=1.26; python_version < '3.14'
 Requires-Dist: numpy>=2.3.2; python_version >= '3.14'
 Requires-Dist: pydantic>=2.13.0
-Requires-Dist: pymongo-search-utils>=0.3.0
+Requires-Dist: pymongo-search-utils>=0.3.1
 Requires-Dist: pymongo>=4.6.1
 Provides-Extra: viz
 Requires-Dist: holoviews>=1.19; extra == 'viz'

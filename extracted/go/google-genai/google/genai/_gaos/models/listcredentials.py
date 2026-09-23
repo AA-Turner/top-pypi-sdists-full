@@ -27,7 +27,7 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 class ListCredentialsGlobalsTypedDict(TypedDict):
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
 
 class ListCredentialsGlobals(BaseModel):
@@ -35,7 +35,7 @@ class ListCredentialsGlobals(BaseModel):
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -56,11 +56,9 @@ class ListCredentialsGlobals(BaseModel):
 
 class ListCredentialsRequestParam(TypedDict):
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
     page_size: NotRequired[int]
-    r"""Optional. Maximum number of credentials to return.
-    If unspecified, defaults to 50. Maximum is 1000.
-    """
+    r"""Optional. Maximum number of credentials to return."""
     page_token: NotRequired[str]
     r"""Optional. Pagination token."""
 
@@ -70,15 +68,13 @@ class ListCredentialsRequest(BaseModel):
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     page_size: Annotated[
         Optional[int],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
-    r"""Optional. Maximum number of credentials to return.
-    If unspecified, defaults to 50. Maximum is 1000.
-    """
+    r"""Optional. Maximum number of credentials to return."""
 
     page_token: Annotated[
         Optional[str],

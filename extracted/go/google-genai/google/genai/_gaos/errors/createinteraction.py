@@ -33,7 +33,7 @@ class CreateInteractionServerErrorData(BaseModel):
 
 @dataclass(unsafe_hash=True)
 class CreateInteractionServerError(GenAiError):
-    r"""Error creating interaction"""
+    r"""Server Error"""
 
     data: CreateInteractionServerErrorData = field(hash=False)
 
@@ -56,7 +56,7 @@ class CreateInteractionClientErrorData(BaseModel):
 
 @dataclass(unsafe_hash=True)
 class CreateInteractionClientError(GenAiError):
-    r"""Error creating interaction"""
+    r"""Client Error"""
 
     data: CreateInteractionClientErrorData = field(hash=False)
 

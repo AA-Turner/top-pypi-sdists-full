@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daytona_api_client
-Version: 0.214.0
+Version: 0.216.0
 Summary: Daytona
 Home-page: 
 Author: Daytona Platforms Inc.
@@ -11,7 +11,7 @@ Keywords: OpenAPI,OpenAPI-Generator,Daytona
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: urllib3<3.0.0,>=2.7.0
+Requires-Dist: urllib3<3.0.0,>=2.8.0
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: pydantic>=2.13.5
 Requires-Dist: typing-extensions>=4.16.0

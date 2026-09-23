@@ -2,7 +2,8 @@ import asyncio
 import inspect
 
 import pytest
-from arcade_core.auth import AuthProviderType, Google, Microsoft, MicrosoftPowerBI
+from arcade_core.auth import AuthProviderType, Calendly, Google, Microsoft, MicrosoftPowerBI
+from arcade_core.resources import resource
 from arcade_tdk import tool
 from arcade_tdk.auth import OAuth2, PagerDuty
 
@@ -70,6 +71,13 @@ async def test_async_function():
             "microsoft-powerbi",
             "my_powerbi_provider123",
         ),
+        (Calendly, {"scopes": ["test_scope", "another.scope"]}, "calendly", None),
+        (
+            Calendly,
+            {"id": "my_calendly_provider123", "scopes": ["test_scope", "another.scope"]},
+            "calendly",
+            "my_calendly_provider123",
+        ),
     ],
 )
 def test_tool_decorator_with_auth_success(
@@ -114,6 +122,32 @@ def test_microsoft_powerbi_importable_from_tdk_auth():
 
     assert MicrosoftPowerBIFromTdk is MicrosoftPowerBI
     assert MicrosoftPowerBIFromTdk().provider_id == "microsoft-powerbi"
+
+
+def test_calendly_provider_defaults():
+    auth = Calendly()
+
+    assert auth.provider_id == "calendly"
+    # id stays unset so the engine resolves whichever provider instance is configured.
+    # That instance is named "arcade-calendly" on Arcade Cloud and "default-calendly"
+    # in the self-hosted config, so pinning it here would bind the tool to one of them.
+    assert auth.id is None
+    assert auth.scopes is None
+    assert auth.provider_type == AuthProviderType.oauth2
+
+
+def test_calendly_importable_from_mcp_server_auth():
+    from arcade_mcp_server.auth import Calendly as CalendlyFromServer
+
+    assert CalendlyFromServer is Calendly
+    assert CalendlyFromServer().provider_id == "calendly"
+
+
+def test_calendly_importable_from_tdk_auth():
+    from arcade_tdk.auth import Calendly as CalendlyFromTdk
+
+    assert CalendlyFromTdk is Calendly
+    assert CalendlyFromTdk().provider_id == "calendly"
 
 
 @pytest.mark.parametrize(
@@ -278,3 +312,34 @@ class TestArcadeTdkToolHasNoMCPSpecificKwargs:
         assert "mcp" not in doc
         assert "tasksupport" not in doc
         assert "arcade_mcp_server" not in doc
+
+
+def test_ui_is_recorded_on_the_function():
+    @resource(path="dashboard.html")
+    def dashboard() -> str:
+        return ""
+
+    @tool(ui=dashboard)
+    def with_ui() -> str:
+        """A tool with an interface."""
+        return ""
+
+    assert with_ui.__tool_ui__ is dashboard
+
+
+def test_ui_refuses_anything_but_a_declaration():
+    with pytest.raises(TypeError, match="@resource"):
+
+        @tool(ui="dashboard.html")
+        def with_path() -> str:
+            """A tool with a path where its interface should be."""
+            return ""
+
+
+def test_ui_defaults_to_none():
+    @tool
+    def without_ui() -> str:
+        """A tool with no interface."""
+        return ""
+
+    assert without_ui.__tool_ui__ is None

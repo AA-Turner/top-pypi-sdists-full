@@ -876,6 +876,67 @@ def test_examples_in_all_of_top_level(ctx):
     ]
 
 
+@pytest.mark.parametrize("container_keyword", ["examples", "x-examples"])
+@pytest.mark.parametrize(
+    ("container", "expected"),
+    [({"first": {"value": "abc"}}, "abc"), (["abc"], "abc")],
+    ids=["map", "list"],
+)
+def test_examples_container_in_parameter_subschema(ctx, container_keyword, container, expected):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "schema": {"allOf": [{"type": "string", container_keyword: container}]},
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    assert [example_to_dict(example) for example in extract_top_level(schema["/test"]["POST"])] == [
+        {"container": "query", "name": "q", "value": expected}
+    ]
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0.2"])
+@pytest.mark.parametrize(
+    ("container", "expected"),
+    [
+        ({"first": {"value": {"value": "abc"}}}, {"value": "abc"}),
+        ([{"value": "abc"}], {"value": "abc"}),
+    ],
+    ids=["map", "list"],
+)
+def test_examples_container_in_body_subschema(ctx, version, container, expected):
+    container_keyword = "x-examples" if version == "2.0" else "examples"
+    body_schema = {
+        "allOf": [
+            {
+                "type": "object",
+                "properties": {"value": {"type": "string"}},
+                container_keyword: container,
+            }
+        ]
+    }
+    if version == "2.0":
+        operation = {"parameters": [{"name": "body", "in": "body", "schema": body_schema}]}
+    else:
+        operation = {"requestBody": {"content": {"application/json": {"schema": body_schema}}}}
+    schema = ctx.openapi.load_schema(
+        {"/test": {"post": {**operation, "responses": {"default": {"description": "OK"}}}}},
+        version=version,
+    )
+    assert [example_to_dict(example) for example in extract_top_level(schema["/test"]["POST"])] == [
+        {"media_type": "application/json", "value": expected}
+    ]
+
+
 @pytest.mark.parametrize("key", ["anyOf", "oneOf"])
 def test_examples_in_any_of_in_schemas(ctx, key):
     schema = ctx.openapi.load_schema(
@@ -5320,3 +5381,93 @@ def test_parameter_examples_assembled_from_nested_ones_respect_the_parameter_sch
         }
     )["/r"]["GET"]
     assert [example_to_dict(example) for example in extract_from_schemas(operation)] == expected
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        {"example": {"name": "partial"}},
+        {"examples": {"partial": {"value": {"name": "partial"}}}},
+    ],
+    ids=["singular", "plural"],
+)
+def test_media_type_body_examples_container_is_completed(ctx, declaration):
+    # A partial body example gets the same filling-in whether it is declared singular or plural.
+    operation = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["name", "kind"],
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "kind": {"type": "string", "enum": ["only"]},
+                                    },
+                                    "additionalProperties": False,
+                                },
+                                **declaration,
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/items"]["POST"]
+    assert [example_to_dict(example) for example in extract_top_level(operation)] == [
+        {"media_type": "application/json", "value": {"name": "partial", "kind": "only"}}
+    ]
+
+
+CORRELATED_NAMED_EXAMPLES = {
+    "/search": {
+        "get": {
+            "parameters": [
+                {
+                    "name": "region",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "examples": {"US": {"value": "US"}, "EU": {"value": "EU"}},
+                },
+                {
+                    "name": "currency",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "examples": {"EU": {"value": "EUR"}, "US": {"value": "USD"}},
+                },
+            ],
+            "responses": {"200": {"description": "OK"}},
+        }
+    }
+}
+
+
+def test_examples_with_the_same_name_are_paired(ctx):
+    schema = ctx.openapi.load_schema(CORRELATED_NAMED_EXAMPLES)
+    assert list(produce_combinations(list(extract_top_level(schema["/search"]["GET"])))) == [
+        {"query": {"region": "US", "currency": "USD"}},
+        {"query": {"region": "EU", "currency": "EUR"}},
+    ]
+
+
+def test_examples_with_the_same_name_are_paired_in_fuzzing(ctx):
+    schema = ctx.openapi.load_schema(CORRELATED_NAMED_EXAMPLES)
+    seen = []
+
+    @given(case=schema["/search"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=200, deadline=None, phases=[Phase.generate], suppress_health_check=list(HealthCheck))
+    def test(case):
+        seen.append((case.query["region"], case.query["currency"]))
+
+    test()
+
+    from_examples = {pair for pair in seen if pair[0] in ("US", "EU") and pair[1] in ("USD", "EUR")}
+    assert from_examples
+    assert from_examples <= {("US", "USD"), ("EU", "EUR")}, f"Mismatched pairs: {from_examples}"

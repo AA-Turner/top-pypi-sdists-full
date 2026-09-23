@@ -12,10 +12,30 @@ pub mod orchestrator;
 pub mod permit;
 pub mod service;
 mod setup_log_accumulator;
+#[cfg(feature = "tracing")]
+pub mod trace;
 pub mod transport;
 pub mod webhook;
 pub mod worker;
 mod worker_tracing_layer;
+
+#[cfg(feature = "tracing")]
+#[macro_export]
+macro_rules! cog_span {
+    ($level:ident, $($span:tt)*) => {{
+        if $crate::trace::is_active() {
+            tracing::$level!(target: "coglet::trace", $($span)*)
+        } else {
+            tracing::Span::none()
+        }
+    }};
+}
+
+#[cfg(not(feature = "tracing"))]
+#[macro_export]
+macro_rules! cog_span {
+    ($level:ident, $($span:tt)*) => {{ tracing::Span::none() }};
+}
 
 pub use orchestrator::Orchestrator;
 
@@ -31,6 +51,23 @@ pub use version::{COGLET_VERSION, VersionInfo};
 pub use worker::{
     PredictHandler, PredictResult, SetupError, SetupLogHook, SlotSender, WorkerConfig, run_worker,
 };
+
+pub fn bounded_attribute_value(value: &str) -> &str {
+    let end = value.floor_char_boundary(value.len().min(128));
+    &value[..end]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bounded_attribute_value;
+
+    #[test]
+    fn bounds_attributes_without_splitting_utf8() {
+        let value = format!("{}é", "x".repeat(127));
+
+        assert_eq!(bounded_attribute_value(&value), "x".repeat(127));
+    }
+}
 
 /// Install the `ring` TLS crypto provider for `rustls`.
 ///

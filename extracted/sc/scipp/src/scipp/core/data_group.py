@@ -56,8 +56,31 @@ _R = TypeVar("_R")  # Return type of a callable
 _P = ParamSpec('_P')
 
 
+class _NoUnitProvided:
+    """Sentinel type indicating that no unit argument was passed."""
+
+
+_no_unit_provided = _NoUnitProvided()
+
+
 def _item_dims(item: Any) -> tuple[str, ...]:
     return getattr(item, 'dims', ())
+
+
+def _getitem_by_dict(item: Any, index: dict[str, Any]) -> Any:
+    """Index a DataGroup item with a mapping from dimension label to index."""
+    from .bins import Bins
+
+    if isinstance(item, Bins):
+        # Bins supports only tuple-based indexing.
+        for dim, i in index.items():
+            item = item[dim, i]
+        return item
+    # Forwarding the whole dict keeps the semantics of dict-based indexing -- in
+    # particular that the result is independent of the key order -- defined in a
+    # single place, the item's __getitem__.
+    sub = {dim: i for dim, i in index.items() if dim in _item_dims(item)}
+    return item[sub] if sub else item
 
 
 def _is_binned(item: Any) -> bool:
@@ -156,11 +179,20 @@ class DataGroup(MutableMapping[str, _V]):
         items contain the maximal index in the integer array. Boolean-variable indexing
         is only possible when the shape of all items is compatible with the boolean
         variable.
+
+        A dict index maps dimension names to indices, e.g., ``dg[{'x': 0, 'y': 1}]``.
+        It is forwarded to each item, restricted to the dims that the item has. All
+        indices are thus resolved against the unsliced item, so the result does not
+        depend on the order of the dict keys.
         """
         from .bins import Bins
 
         if isinstance(name, str):
             return self._items[name]
+        if isinstance(name, dict):
+            return DataGroup(
+                {key: _getitem_by_dict(var, name) for key, var in self.items()}
+            )
         if isinstance(name, tuple) and name == ():
             return cast(DataGroup[Any], self).apply(operator.itemgetter(name))
         if isinstance(name, Variable):  # boolean indexing
@@ -499,13 +531,14 @@ class DataGroup(MutableMapping[str, _V]):
     def to(
         self,
         *,
-        unit: Unit | str | None = None,
+        unit: Unit | str | None | _NoUnitProvided = _no_unit_provided,
         dtype: Any | None = None,
         copy: bool = True,
     ) -> DataGroup[_V]:
-        return self.apply(
-            operator.methodcaller('to', unit=unit, dtype=dtype, copy=copy)
-        )
+        kwargs = {'dtype': dtype, 'copy': copy}
+        if unit is not _no_unit_provided:
+            kwargs['unit'] = unit
+        return self.apply(operator.methodcaller('to', **kwargs))
 
     def transform_coords(
         self,

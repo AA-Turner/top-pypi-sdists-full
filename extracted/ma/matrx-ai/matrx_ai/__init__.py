@@ -68,6 +68,7 @@ def configure(
     source_app=None,
     persistence_policy_registrar=None,
     handoff_ledger=None,
+    relation_words_resolver=None,
     **ext_kwargs,
 ) -> None:
     """Configure matrx-ai with external dependencies from the host application.
@@ -158,6 +159,15 @@ def configure(
         source_app: Optional app identity stamp (e.g. ``"matrx_local"``) —
             selects which app's tools the server-backed tool fetch returns
             and stamps persisted rows.
+        relation_words_resolver: Optional async callable
+            ``(table_id, rows, *, user_id) -> list[dict]`` that answers the same
+            page of user-table rows with every ``relation`` cell already in
+            WORDS. A relation cell stores a record's id and means that record's
+            name; matrx-ai cannot resolve it itself because the one resolver
+            lives in matrx-records, which depends on THIS package. Consumed by
+            ``matrx_ai.tools.relation_words``; unwired, the dataset tools hand
+            the model raw identifiers and say so once, loudly, with the wiring
+            point (never a silent pass-through).
         **ext_kwargs: External deps (settings, get_async_supabase_client, etc.).
     """
     # A normal import — NOT a file-path load. matrx_ai/db/__init__.py resolves
@@ -198,6 +208,11 @@ def configure(
         for key, value in _client_seams.items():
             if value is not None:
                 ext_kwargs[key] = value
+    # The relation-words seam (matrx_ai/tools/relation_words.py). An ordinary
+    # _ext entry — declared here rather than left to **ext_kwargs so the one
+    # capability the dataset tools need is visible in this signature.
+    if relation_words_resolver is not None:
+        ext_kwargs["relation_words_resolver"] = relation_words_resolver
     if ext_kwargs:
         configure_ext(**ext_kwargs)
 

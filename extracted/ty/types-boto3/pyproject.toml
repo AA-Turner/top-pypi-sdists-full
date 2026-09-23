@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.43.99"
+version = "1.43.100"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.99 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.100 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.99",
+    "boto3==1.43.100",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -151,6 +151,7 @@ all = [
     "types-boto3-cloudtrail>=1.43.0, <1.44.0",
     "types-boto3-cloudtrail-data>=1.43.0, <1.44.0",
     "types-boto3-cloudwatch>=1.43.0, <1.44.0",
+    "types-boto3-cloudwatchomni>=1.43.0, <1.44.0",
     "types-boto3-codeartifact>=1.43.0, <1.44.0",
     "types-boto3-codebuild>=1.43.0, <1.44.0",
     "types-boto3-codecatalyst>=1.43.0, <1.44.0",
@@ -748,6 +749,9 @@ cloudtrail-data = [
 ]
 cloudwatch = [
     "types-boto3-cloudwatch>=1.43.0, <1.44.0",
+]
+cloudwatchomni = [
+    "types-boto3-cloudwatchomni>=1.43.0, <1.44.0",
 ]
 codeartifact = [
     "types-boto3-codeartifact>=1.43.0, <1.44.0",

@@ -35,6 +35,18 @@ enqueues the child's final answer into the SOURCE conversation's turn-boundary
 inbox (``delivery='turn_end'``, exactly-once, never interleaves with a live
 run) so the original participant durably learns the outcome on its next turn.
 
+Bounding one child (``time_budget_seconds`` / ``max_iterations``)
+-----------------------------------------------------------------
+A caller that knows a child desk must answer inside a window says so here. The
+two knobs bound THIS SUBTREE only — the calling turn keeps its own budget — and
+they stop the child AT an iteration boundary, never mid-tool: whatever it has
+produced comes back, with ``bounded`` on the result naming which ceiling it hit.
+``time_budget_seconds`` rides the forked context
+(``matrx_ai.orchestrator.subtree_budget``) so it also bounds anything the child
+itself spawns; ``max_iterations`` is that one loop's ceiling. Neither goes
+inside ``settings``: ``LLMParams`` is ``extra="forbid"`` and describes a single
+provider call, not a loop.
+
 Visibility: the caller may run an agent it owns, one it holds viewer-level
 access to (``iam.has_access_for`` — builtins, shares, org grants), or — for
 admins — any agent. Owner-only still applies to the addressed conversation.
@@ -279,6 +291,39 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 exc=exc,
             )
 
+    # ── Per-subtree execution budget ────────────────────────────────────
+    from matrx_ai.orchestrator.subtree_budget import (
+        MIN_SUBTREE_BUDGET_SECONDS,
+        is_subtree_budget_stop,
+        with_subtree_budget,
+    )
+
+    time_budget_seconds = parsed.time_budget_seconds
+    max_iterations = parsed.max_iterations
+    if time_budget_seconds is not None and int(time_budget_seconds) < MIN_SUBTREE_BUDGET_SECONDS:
+        return _fail(
+            ctx,
+            started_at,
+            error_type="invalid_arguments",
+            message=(
+                f"time_budget_seconds must be at least {MIN_SUBTREE_BUDGET_SECONDS}; "
+                f"{time_budget_seconds} would stop the agent before its first call, so "
+                "nothing ran and nothing was charged."
+            ),
+            suggested_action="Give the agent a realistic window, or omit the budget.",
+        )
+    if max_iterations is not None and int(max_iterations) < 1:
+        return _fail(
+            ctx,
+            started_at,
+            error_type="invalid_arguments",
+            message=(
+                f"max_iterations must be at least 1; {max_iterations} would stop the "
+                "agent before its first call, so nothing ran and nothing was charged."
+            ),
+            suggested_action="Pass the number of rounds the agent may take, or omit it.",
+        )
+
     # ── Conversation-aware history: validate args + resolve + gate ──────
     history_mode = parsed.history_mode
     if history_mode == "none":
@@ -503,11 +548,18 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     # bumped metadata for the child.
     from matrx_connect.context.app_context import set_app_context
 
-    set_app_context(
-        app_ctx.with_overrides(
-            metadata={**app_ctx.metadata, _AGENT_CALL_DEPTH_KEY: depth + 1}
+    child_metadata = {**app_ctx.metadata, _AGENT_CALL_DEPTH_KEY: depth + 1}
+    if time_budget_seconds:
+        # A NEW dict every time (never an in-place append): sibling calls in one
+        # batch share app_ctx.metadata, and this budget belongs to exactly one
+        # of them. run_agent's fork copies it down, so the child, its tools and
+        # its own children all poll the same clock.
+        child_metadata = with_subtree_budget(
+            child_metadata,
+            seconds=int(time_budget_seconds),
+            label=f"'{getattr(agent, 'name', None) or agent_id}' run",
         )
-    )
+    set_app_context(app_ctx.with_overrides(metadata=child_metadata))
     try:
         require_complete_output = parsed.result_mode in ("reference", "inline_once")
         result = await run_agent(
@@ -525,6 +577,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             suppress_stream=parsed.result_mode == "reference",
             allow_client_delegation=parsed.result_mode != "reference",
             require_complete_output=require_complete_output,
+            max_iterations=int(max_iterations) if max_iterations else None,
         )
     finally:
         # Restore THIS task's binding (no-op for siblings; keeps the bump from
@@ -562,6 +615,41 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 suggested_action="Retry the child agent or use inline mode for partial output.",
                 is_retryable=True,
             )
+
+    # ── Did a budget stop it? Say so, on the result. ────────────────────
+    # A bounded answer that presents itself as complete is the failure this
+    # whole mechanism exists to avoid: the caller would relay a partial answer
+    # as the final word. The marker is the machine-side twin of the model-side
+    # instruction to end with what it did not get to — neither replaces the
+    # other, because a desk can forget and a marker cannot say what is missing.
+    bounded_extras: dict[str, Any] = {}
+    _child_status = str((result.metadata or {}).get("status") or "")
+    if _child_status == "cancelled" and is_subtree_budget_stop(
+        (result.metadata or {}).get("error")
+    ):
+        bounded_extras["bounded"] = {
+            "stopped_by": "time_budget",
+            "time_budget_seconds": int(time_budget_seconds or 0),
+            "detail": str((result.metadata or {}).get("error") or ""),
+            "what_this_means": (
+                f"This answer is what '{getattr(agent, 'name', None) or agent_id}' had "
+                f"when its {int(time_budget_seconds or 0)}s budget ran out. It is real "
+                "work, not an error, and it may be incomplete — do not present it as a "
+                "finished answer without saying it was time-bounded."
+            ),
+        }
+    elif _child_status == "max_iterations_exceeded" and max_iterations:
+        bounded_extras["bounded"] = {
+            "stopped_by": "max_iterations",
+            "max_iterations": int(max_iterations),
+            "detail": f"stopped at its ceiling of {int(max_iterations)} rounds",
+            "what_this_means": (
+                f"This answer is what '{getattr(agent, 'name', None) or agent_id}' had "
+                f"after the {int(max_iterations)} rounds you allowed it. It is real "
+                "work, not an error, and it may be incomplete — do not present it as a "
+                "finished answer without saying it was bounded."
+            ),
+        }
 
     # Surface structured output natively when the agent declares a schema (and
     # the text parses) — keeps the model from receiving stringified JSON and
@@ -676,6 +764,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "agent_name": getattr(agent, "name", None) or "",
                 "stored": descriptor,
                 "model_id": result.model_id,
+                **bounded_extras,
                 **collab_extras,
             }
             if parsed.result_mode == "inline_once":
@@ -725,6 +814,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         "agent_name": getattr(agent, "name", None) or "",
         "result": result_value,
         "model_id": result.model_id,
+        **bounded_extras,
         **collab_extras,
     }
     if media_refs:

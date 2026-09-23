@@ -130,6 +130,8 @@ class PhoneNumbersResource:
         self,
         *,
         country: str | None = "US",
+        number_type: str | None = None,
+        area_code: str | None = None,
         type: str | None = None,
         prefix: str | None = None,
         locality: str | None = None,
@@ -140,6 +142,8 @@ class PhoneNumbersResource:
         """Search available numbers"""
         params = self._build_params(
             country=country,
+            number_type=number_type,
+            area_code=area_code,
             type=type,
             prefix=prefix,
             locality=locality,
@@ -247,6 +251,7 @@ class PhoneNumbersResource:
         country: str,
         *,
         area_code: str | None = None,
+        language: str | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
@@ -255,6 +260,7 @@ class PhoneNumbersResource:
             profile_id=profile_id,
             country=country,
             area_code=area_code,
+            language=language,
             branding=branding,
             redirect_url=redirect_url,
         )
@@ -477,6 +483,8 @@ class PhoneNumbersResource:
         self,
         *,
         country: str | None = "US",
+        number_type: str | None = None,
+        area_code: str | None = None,
         type: str | None = None,
         prefix: str | None = None,
         locality: str | None = None,
@@ -487,6 +495,8 @@ class PhoneNumbersResource:
         """Search available numbers (async)"""
         params = self._build_params(
             country=country,
+            number_type=number_type,
+            area_code=area_code,
             type=type,
             prefix=prefix,
             locality=locality,
@@ -596,6 +606,7 @@ class PhoneNumbersResource:
         country: str,
         *,
         area_code: str | None = None,
+        language: str | None = None,
         branding: dict[str, Any] | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
@@ -604,6 +615,7 @@ class PhoneNumbersResource:
             profile_id=profile_id,
             country=country,
             area_code=area_code,
+            language=language,
             branding=branding,
             redirect_url=redirect_url,
         )

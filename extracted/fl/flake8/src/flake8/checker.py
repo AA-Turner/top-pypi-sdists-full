@@ -45,40 +45,39 @@ SERIAL_RETRY_ERRNOS = {
     # noise in diffs.
 }
 
-_mp_plugins: Checkers
-_mp_options: argparse.Namespace
+_mp: tuple[Checkers, argparse.Namespace] | None = None
 
 
 @contextlib.contextmanager
 def _mp_prefork(
-    plugins: Checkers, options: argparse.Namespace
+    plugins: Checkers, options: argparse.Namespace,
 ) -> Generator[None]:
     # we can save significant startup work w/ `fork` multiprocessing
-    global _mp_plugins, _mp_options
-    _mp_plugins, _mp_options = plugins, options
+    global _mp
+    _mp = plugins, options
     try:
         yield
     finally:
-        del _mp_plugins, _mp_options
+        _mp = None
 
 
 def _mp_init(argv: Sequence[str]) -> None:
-    global _mp_plugins, _mp_options
+    global _mp
 
     # Ensure correct signaling of ^C using multiprocessing.Pool.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-    try:
-        # for `fork` this'll already be set
-        _mp_plugins, _mp_options  # noqa: B018
-    except NameError:
+    # for `fork` this'll already be set
+    if _mp is None:
         plugins, options = parse_args(argv)
-        _mp_plugins, _mp_options = plugins.checkers, options
+        _mp = plugins.checkers, options
 
 
 def _mp_run(filename: str) -> tuple[str, Results, dict[str, int]]:
+    assert _mp is not None, _mp
+    plugins, options = _mp
     return FileChecker(
-        filename=filename, plugins=_mp_plugins, options=_mp_options
+        filename=filename, plugins=plugins, options=options,
     ).run_checks()
 
 
@@ -138,7 +137,7 @@ class Manager:
         if utils.is_using_stdin(self.options.filenames):
             LOG.warning(
                 "The --jobs option is not compatible with supplying "
-                "input using - . Ignoring --jobs arguments."
+                "input using - . Ignoring --jobs arguments.",
             )
             return 0
 
@@ -253,7 +252,7 @@ class Manager:
                 stdin_display_name=self.options.stdin_display_name,
                 filename_patterns=self.options.filename,
                 exclude=self.exclude,
-            )
+            ),
         )
         self.jobs = min(len(self.filenames), self.jobs)
 
@@ -333,11 +332,11 @@ class FileChecker:
         assert self.processor is not None, self.filename
         try:
             params = self.processor.keyword_arguments_for(
-                plugin.parameters, arguments
+                plugin.parameters, arguments,
             )
         except AttributeError as ae:
             raise exceptions.PluginRequestedUnknownParameters(
-                plugin_name=plugin.display_name, exception=ae
+                plugin_name=plugin.display_name, exception=ae,
             )
         try:
             return plugin.obj(**arguments, **params)
@@ -373,43 +372,6 @@ class FileChecker:
             token = ()
             row, column = (1, 0)
 
-        if (
-            column > 0
-            and token
-            and isinstance(exception, SyntaxError)
-            and len(token) == 4  # Python 3.9 or earlier
-        ):
-            # NOTE(sigmavirus24): SyntaxErrors report 1-indexed column
-            # numbers. We need to decrement the column number by 1 at
-            # least.
-            column_offset = 1
-            row_offset = 0
-            # See also: https://github.com/pycqa/flake8/issues/169,
-            # https://github.com/PyCQA/flake8/issues/1372
-            # On Python 3.9 and earlier, token will be a 4-item tuple with the
-            # last item being the string. Starting with 3.10, they added to
-            # the tuple so now instead of it ending with the code that failed
-            # to parse, it ends with the end of the section of code that
-            # failed to parse. Luckily the absolute position in the tuple is
-            # stable across versions so we can use that here
-            physical_line = token[3]
-
-            # NOTE(sigmavirus24): Not all "tokens" have a string as the last
-            # argument. In this event, let's skip trying to find the correct
-            # column and row values.
-            if physical_line is not None:
-                # NOTE(sigmavirus24): SyntaxErrors also don't exactly have a
-                # "physical" line so much as what was accumulated by the point
-                # tokenizing failed.
-                # See also: https://github.com/pycqa/flake8/issues/169
-                lines = physical_line.rstrip("\n").split("\n")
-                row_offset = len(lines) - 1
-                logical_line = lines[0]
-                logical_line_length = len(logical_line)
-                if column > logical_line_length:
-                    column = logical_line_length
-            row -= row_offset
-            column -= column_offset
         return row, column
 
     def run_ast_checks(self) -> None:
@@ -549,7 +511,7 @@ class FileChecker:
             self.run_logical_checks()
 
     def check_physical_eol(
-        self, token: tokenize.TokenInfo, prev_physical: str
+        self, token: tokenize.TokenInfo, prev_physical: str,
     ) -> None:
         """Run physical checks if and only if it is at the end of the line."""
         assert self.processor is not None
@@ -599,7 +561,7 @@ def _try_initialize_processpool(
 
 
 def find_offset(
-    offset: int, mapping: processor._LogicalMapping
+    offset: int, mapping: processor._LogicalMapping,
 ) -> tuple[int, int]:
     """Find the offset tuple for a single offset."""
     if isinstance(offset, tuple):

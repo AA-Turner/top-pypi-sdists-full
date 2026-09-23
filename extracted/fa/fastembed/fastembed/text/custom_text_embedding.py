@@ -1,4 +1,4 @@
-from typing import Sequence, Any, Iterable
+from typing import Sequence, Any, Iterable, Type
 from dataclasses import dataclass
 
 import numpy as np
@@ -11,8 +11,9 @@ from fastembed.common.model_description import (
 )
 from fastembed.common.onnx_model import OnnxOutputContext
 from fastembed.common.types import NumpyArray, Device
-from fastembed.common.utils import normalize, mean_pooling
+from fastembed.common.utils import normalize, mean_pooling, last_token_pooling
 from fastembed.text.onnx_embedding import OnnxTextEmbedding
+from fastembed.text.onnx_text_model import TextEmbeddingWorker
 
 
 @dataclass(frozen=True)
@@ -50,12 +51,23 @@ class CustomTextEmbedding(OnnxTextEmbedding):
             specific_model_path=specific_model_path,
             **kwargs,
         )
-        self._pooling = self.POSTPROCESSING_MAPPING[model_name].pooling
-        self._normalization = self.POSTPROCESSING_MAPPING[model_name].normalization
+        postprocessing_config = self.POSTPROCESSING_MAPPING[self.model_description.model]
+        self._pooling = postprocessing_config.pooling
+        self._normalization = postprocessing_config.normalization
 
     @classmethod
     def _list_supported_models(cls) -> list[DenseModelDescription]:
         return cls.SUPPORTED_MODELS
+
+    @classmethod
+    def _get_worker_class(cls) -> Type["TextEmbeddingWorker[NumpyArray]"]:
+        return CustomTextEmbeddingWorker
+
+    def _get_worker_init_kwargs(self) -> dict[str, Any]:
+        return {
+            "model_description": self.model_description,
+            "postprocessing_config": self.POSTPROCESSING_MAPPING[self.model_description.model],
+        }
 
     def _post_process_onnx_output(
         self, output: OnnxOutputContext, **kwargs: Any
@@ -73,12 +85,18 @@ class CustomTextEmbedding(OnnxTextEmbedding):
                 raise ValueError("attention_mask must be provided for mean pooling")
             return mean_pooling(embeddings, attention_mask)
 
+        if self._pooling == PoolingType.LAST_TOKEN:
+            if attention_mask is None:
+                raise ValueError("attention_mask must be provided for last token pooling")
+            return last_token_pooling(embeddings, attention_mask)
+
         if self._pooling == PoolingType.DISABLED:
             return embeddings
 
         raise ValueError(
             f"Unsupported pooling type {self._pooling}. "
-            f"Supported types are: {PoolingType.CLS}, {PoolingType.MEAN}, {PoolingType.DISABLED}."
+            f"Supported types are: {PoolingType.CLS}, {PoolingType.MEAN}, "
+            f"{PoolingType.LAST_TOKEN}, {PoolingType.DISABLED}."
         )
 
     def _normalize(self, embeddings: NumpyArray) -> NumpyArray:
@@ -94,4 +112,33 @@ class CustomTextEmbedding(OnnxTextEmbedding):
         cls.SUPPORTED_MODELS.append(model_description)
         cls.POSTPROCESSING_MAPPING[model_description.model] = PostprocessingConfig(
             pooling=pooling, normalization=normalization
+        )
+
+
+class CustomTextEmbeddingWorker(TextEmbeddingWorker[NumpyArray]):
+    def init_embedding(
+        self,
+        model_name: str,
+        cache_dir: str,
+        model_description: DenseModelDescription | None = None,
+        postprocessing_config: PostprocessingConfig | None = None,
+        **kwargs: Any,
+    ) -> CustomTextEmbedding:
+        if model_description is None or postprocessing_config is None:
+            raise ValueError(
+                "`model_description` and `postprocessing_config` are required to initialize a "
+                "custom model in a worker process, they are provided by "
+                "`CustomTextEmbedding._get_worker_init_kwargs`"
+            )
+        # custom models live in a class-level registry, which spawned workers don't inherit
+        CustomTextEmbedding.add_model(
+            model_description,
+            pooling=postprocessing_config.pooling,
+            normalization=postprocessing_config.normalization,
+        )
+        return CustomTextEmbedding(
+            model_name=model_name,
+            cache_dir=cache_dir,
+            threads=1,
+            **kwargs,
         )

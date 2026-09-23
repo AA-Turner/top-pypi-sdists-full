@@ -1,0 +1,34 @@
+name: Upload Python Package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up Python
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+    - name: Install dependencies
+      run: uv sync --all-extras --dev
+    - name: Lint with ruff
+      run: uv run ruff check .
+    - name: Format with ruff
+      run: uv run ruff format --check .
+    - name: Build
+      run: uv build
+    - name: Upload distributions
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-dists
+        path: dist/
+    - name: Publish release distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: dist/

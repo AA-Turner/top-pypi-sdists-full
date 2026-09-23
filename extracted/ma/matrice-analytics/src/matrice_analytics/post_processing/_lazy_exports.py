@@ -260,6 +260,8 @@ LAZY_EXPORTS: dict[str, str] = {
     "VehiclePeopleDroneMonitoringConfig": "matrice_analytics.post_processing.usecases.drone_traffic_monitoring",
     "VehicleSegmentationConfig": "matrice_analytics.post_processing.usecases.vehicle_segmentation",
     "VehicleSegmentationUseCase": "matrice_analytics.post_processing.usecases.vehicle_segmentation",
+    "VehicleSpeedEstimationConfig": "matrice_analytics.post_processing.usecases.vehicle_speed_estimation_config",
+    "VehicleSpeedEstimationUseCase": "matrice_analytics.post_processing.usecases.vehicle_speed_estimation",
     "VehicleTypeClassificationConfig": "matrice_analytics.post_processing.usecases.vehicle_type_classification",
     "VehicleTypeClassificationUseCase": "matrice_analytics.post_processing.usecases.vehicle_type_classification",
     "ViolenceDetectionConfig": "matrice_analytics.post_processing.usecases.violence_detection",

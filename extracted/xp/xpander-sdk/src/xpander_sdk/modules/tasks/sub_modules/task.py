@@ -46,6 +46,7 @@ import json
 from httpx_sse import aconnect_sse
 from loguru import logger
 from xpander_sdk.models.frameworks import normalize_permission_mode
+from xpander_sdk.modules.tasks.models.conversation import ConversationKind
 from pydantic import Field, PrivateAttr, field_validator
 
 from xpander_sdk.consts.api_routes import APIRoute
@@ -204,6 +205,10 @@ class Task(XPanderSharedModel):
         finished_at (Optional[datetime]): Timestamp when the task was finished.
         result (Optional[str]): Result of the task execution.
         parent_execution (Optional[str]): Parent execution ID, if applicable.
+        conversation_id (Optional[str]): The conversation this task is one turn of; the
+            session id agno history and the harness session directory key on.
+        conversation_kind (Optional[str]): On a conversation head: "direct" (one task per
+            message on the agent) or "gateway" (router-era); None on a turn.
         sub_executions (Optional[List[str]]): List of sub-execution IDs.
         is_manually_stopped (Optional[bool]): Flag indicating if the task was manually stopped.
         payload_extension (Optional[dict]): Additional data for the task.
@@ -263,6 +268,8 @@ class Task(XPanderSharedModel):
     finished_at: Optional[datetime] = None
     result: Optional[str] = None
     parent_execution: Optional[str] = None
+    conversation_id: Optional[str] = None
+    conversation_kind: Optional[ConversationKind] = None
     sub_executions: Optional[List[str]] = []
     should_update_parent: Optional[bool] = False
     is_manually_stopped: Optional[bool] = False
@@ -276,6 +283,7 @@ class Task(XPanderSharedModel):
     output_schema: Optional[Dict] = None
     events_streaming: Optional[bool] = False
     is_orchestration: Optional[bool] = False
+    # legacy marker: True on every conversation head; conversation_kind says which shape
     is_gateway: Optional[bool] = False
     is_app: Optional[bool] = False
     background_auth_eligible: bool = False

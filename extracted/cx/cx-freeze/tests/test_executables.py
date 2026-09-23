@@ -16,6 +16,7 @@ from cx_Freeze._compat import (
     IS_CONDA,
     IS_MINGW,
     IS_WINDOWS,
+    IS_X86_32,
     SOABI,
 )
 from cx_Freeze.common import resource_path
@@ -25,8 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from cx_Freeze._typing import StrPath
-
-    from .conftest import TempPackage, TempPackageVenv
+    from tests.conftest import TempPackage, TempPackageVenv
 
 
 SOURCE_SETUP_TOML = """
@@ -305,8 +305,15 @@ if IS_WINDOWS or IS_MINGW:
     TEST_VALID_PARAMETERS += [
         ("base", "gui", f"bases/gui-{SOABI}{EXE_SUFFIX}"),
         ("base", "gui_dgpu", f"bases/gui_dgpu-{SOABI}{EXE_SUFFIX}"),
-        ("base", "service", f"bases/service-{SOABI}{EXE_SUFFIX}"),
     ]
+    if IS_MINGW and IS_X86_32:
+        TEST_VALID_PARAMETERS += [
+            pytest.param("base", "service", OptionError),
+        ]
+    else:
+        TEST_VALID_PARAMETERS += [
+            ("base", "service", f"bases/service-{SOABI}{EXE_SUFFIX}"),
+        ]
     # In Python < 3.13 legacy bases are available
     if sys.version_info[:2] < (3, 13):
         TEST_VALID_PARAMETERS += [
@@ -320,9 +327,9 @@ if IS_WINDOWS or IS_MINGW:
         ]
     else:
         TEST_VALID_PARAMETERS += [
-            ("base", "legacy/console", OptionError),
-            ("base", "Win32GUI", OptionError),
-            ("base", "Win32Service", OptionError),
+            pytest.param("base", "legacy/console", OptionError),
+            pytest.param("base", "Win32GUI", OptionError),
+            pytest.param("base", "Win32Service", OptionError),
         ]
 else:
     TEST_VALID_PARAMETERS += [
@@ -337,7 +344,7 @@ else:
         ]
     else:
         TEST_VALID_PARAMETERS += [
-            ("base", "legacy/console", OptionError),
+            pytest.param("base", "legacy/console", OptionError),
         ]
 
 

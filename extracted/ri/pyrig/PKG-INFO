@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 18.84.5
+Version: 18.85.4
 Summary: A tool that standardizes and automates Python project setup, configuration, development, and maintenance.
 Keywords: automation,boilerplate,ci-cd,code-quality,configuration,developer-tools,devops,project-setup,project-template,pyrig,scaffolding
 Author: Winipedia
@@ -24,13 +24,13 @@ Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
 Requires-Dist: inquirerpy>=0.3.4
-Requires-Dist: packaging>=26.2
-Requires-Dist: pyrig-runtime>=3.5.2
+Requires-Dist: packaging>=26.3
+Requires-Dist: pyrig-runtime>=3.23.45
 Requires-Dist: ruamel-yaml>=0.19.1
-Requires-Dist: ruamel-yaml-clib>=0.2.8
+Requires-Dist: ruamel-yaml-clib>=0.2.15
 Requires-Dist: spdx-matcher>=0.1.4
 Requires-Dist: tomli-w>=1.2.0
-Requires-Dist: typer>=0.26.8
+Requires-Dist: typer>=0.27.2
 Maintainer: Winipedia
 Maintainer-email: Winipedia <winipedia@gmx.de>
 Requires-Python: >=3.12

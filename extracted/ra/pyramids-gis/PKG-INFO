@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyramids-gis
-Version: 0.63.0
+Version: 0.64.0
 Summary: GIS utility package
 Author-email: Mostafa Farrag <moah.farag@gmail.com>
 License: GNU General Public License v3
@@ -36,7 +36,7 @@ Requires-Dist: PyYAML>=6.0.0
 Requires-Dist: Shapely>=2.1.0; sys_platform != "win32" or platform_machine != "ARM64"
 Requires-Dist: scipy>=1.10.0
 Provides-Extra: viz
-Requires-Dist: cleopatra[tiles]>=0.31.0; extra == "viz"
+Requires-Dist: cleopatra[tiles]>=0.39.0; extra == "viz"
 Provides-Extra: lazy
 Requires-Dist: dask>=2024.1.0; extra == "lazy"
 Requires-Dist: distributed>=2024.1.0; extra == "lazy"

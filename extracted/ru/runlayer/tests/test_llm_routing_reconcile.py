@@ -44,6 +44,7 @@ class _RoutingHarness(TypedDict):
     payloads: list[dict[str, object]]
     submit: Mock
     install: Mock
+    probe: Mock
 
 
 def _managed_config() -> dict[str, object]:
@@ -90,6 +91,7 @@ def routing_reconcile(
 
     install_mock = Mock(side_effect=install)
     submit_mock = Mock(side_effect=submit)
+    probe_mock = Mock(return_value=None)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     monkeypatch.setattr(
         llm_routing,
@@ -140,6 +142,10 @@ def routing_reconcile(
         install_mock,
     )
     monkeypatch.setattr(
+        "runlayer_cli.commands.aiwatch_setup.probe_gateway",
+        probe_mock,
+    )
+    monkeypatch.setattr(
         "runlayer_cli.commands.aiwatch_setup.read_managed_config",
         lambda: managed,
     )
@@ -174,6 +180,7 @@ def routing_reconcile(
         "payloads": payloads,
         "submit": submit_mock,
         "install": install_mock,
+        "probe": probe_mock,
     }
 
 
@@ -702,3 +709,131 @@ def test_unreadable_claude_file_still_presents_credential_hash(
     )
     assert payloads[1]["device_key_hash"] == expected_hash
     assert "[model_providers.runlayer.auth]" in routing_reconcile["codex"].read_text()
+
+
+def test_unreachable_gateway_reports_error_but_stays_routed(
+    routing_reconcile: _RoutingHarness,
+) -> None:
+    _seed_routed(routing_reconcile, "llm-device-abc")
+    before = {
+        "claude": routing_reconcile["claude"].read_text(),
+        "codex": routing_reconcile["codex"].read_text(),
+        "credential": routing_reconcile["credential"].read_text(),
+    }
+    routing_reconcile["responses"].append(
+        {"device_key_status": "active", "device_key": None}
+    )
+    routing_reconcile["probe"].return_value = "URLError: [Errno 61] Connection refused"
+
+    result = _invoke_mdm()
+
+    assert result.exit_code == 0, result.output
+    payloads = _llm_payloads(routing_reconcile)
+    assert len(payloads) == 2
+    assert payloads[0]["status"] == "ok"
+    assert payloads[1]["status"] == "error"
+    assert payloads[1]["error_message"] == (
+        "gateway unreachable: URLError: [Errno 61] Connection refused"
+    )
+    assert payloads[1]["device_key_hash"] == llm_routing.device_key_hash(
+        "llm-device-abc"
+    )
+    assert routing_reconcile["claude"].read_text() == before["claude"]
+    assert routing_reconcile["codex"].read_text() == before["codex"]
+    assert routing_reconcile["credential"].read_text() == before["credential"]
+    assert WARN in result.output
+    assert "gateway unreachable" in result.output
+
+
+def test_reachable_gateway_keeps_steady_state_single_checkin(
+    routing_reconcile: _RoutingHarness,
+) -> None:
+    _seed_routed(routing_reconcile, "llm-device-abc")
+    routing_reconcile["responses"].append(
+        {"device_key_status": "active", "device_key": None}
+    )
+
+    result = _invoke_mdm()
+
+    assert result.exit_code == 0, result.output
+    assert len(_llm_payloads(routing_reconcile)) == 1
+    routing_reconcile["probe"].assert_called_once_with("https://gw.example.com")
+
+
+def test_probe_skipped_when_routing_off(
+    routing_reconcile: _RoutingHarness,
+) -> None:
+    _seed_routed(routing_reconcile, "llm-device-abc")
+    routing_reconcile["managed"]["llm_routing"] = False
+
+    result = _invoke_mdm()
+
+    assert result.exit_code == 0, result.output
+    routing_reconcile["probe"].assert_not_called()
+
+
+def test_probe_skipped_when_key_not_active(
+    routing_reconcile: _RoutingHarness,
+) -> None:
+    _seed_routed(routing_reconcile, "llm-device-abc")
+    routing_reconcile["responses"].append(
+        {"device_key_status": "revoked", "device_key": None}
+    )
+
+    result = _invoke_mdm()
+
+    assert result.exit_code == 0, result.output
+    payloads = _llm_payloads(routing_reconcile)
+    assert payloads[-1]["status"] == "disabled"
+    routing_reconcile["probe"].assert_not_called()
+
+
+def test_probe_does_not_mask_write_errors(
+    routing_reconcile: _RoutingHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_apply = llm_routing._apply_prepared_write
+
+    def fail_codex(prepared: llm_routing._PreparedWrite) -> None:
+        if prepared["path"] == routing_reconcile["codex"]:
+            raise OSError(errno.EACCES, "denied")
+        original_apply(prepared)
+
+    monkeypatch.setattr(llm_routing, "_apply_prepared_write", fail_codex)
+    routing_reconcile["responses"].append(
+        {"device_key_status": "active", "device_key": "llm-device-abc"}
+    )
+    routing_reconcile["probe"].return_value = "URLError: timed out"
+
+    result = _invoke_mdm()
+
+    assert result.exit_code == 0, result.output
+    payloads = _llm_payloads(routing_reconcile)
+    assert payloads[1]["status"] == "error"
+    assert payloads[1]["error_message"] == (
+        "credential: written; claude_code: written; codex: failed"
+    )
+    routing_reconcile["probe"].assert_not_called()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX permission bits")
+def test_unreachable_gateway_keeps_drift_detail_in_front(
+    routing_reconcile: _RoutingHarness,
+) -> None:
+    _seed_routed(routing_reconcile, "llm-device-abc")
+    routing_reconcile["credential"].chmod(0o644)
+    routing_reconcile["responses"].append(
+        {"device_key_status": "active", "device_key": None}
+    )
+    routing_reconcile["probe"].return_value = "URLError: timed out"
+
+    result = _invoke_mdm()
+
+    assert result.exit_code == 0, result.output
+    payloads = _llm_payloads(routing_reconcile)
+    assert payloads[1]["status"] == "error"
+    assert payloads[1]["error_message"] == (
+        "credential: drifted; claude_code: unchanged; codex: unchanged; "
+        "gateway unreachable: URLError: timed out"
+    )
+    assert routing_reconcile["credential"].stat().st_mode & 0o777 == 0o600

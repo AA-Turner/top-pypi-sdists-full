@@ -8,7 +8,8 @@
 //!
 //! `AromaticityAlgorithm::RdkitLike` now routes through this engine when the
 //! input can be kekulized; explicit, self-consistent aromatic input is preserved
-//! when no matching Kekulé assignment exists. The historical per-ring
+//! unless re-perception strictly extends it without removing any supplied
+//! aromatic atom or bond. The historical per-ring
 //! implementation remains an infallible fallback for inputs that cannot satisfy
 //! either representation. `Huckel` remains the default and is unchanged. This module
 //! also backs a separate, explicitly opt-in, fallible production API:
@@ -710,6 +711,7 @@ fn clear_aromatic_flags(mol: &Molecule) -> Molecule {
     for (_, bond) in mol.bonds() {
         let _ = builder.add_bond(bond.atom1, bond.atom2, bond.order);
     }
+    builder.copy_r_groups_from(mol);
     builder.copy_stereo_groups_from(mol);
     builder.copy_stereo_from(mol);
     builder.copy_bond_directions_from(mol);
@@ -754,22 +756,188 @@ fn model_from_explicit_aromaticity(mol: &Molecule) -> AromaticityModel {
     )
 }
 
-/// Normalize `mol` for RDKit-parity aromaticity. A self-consistent explicit
-/// aromatic graph is already the representation RDKit's SMILES parser gives
-/// its downstream fingerprint code, so preserve it before attempting a
-/// Kekulé/re-perceive round trip. This matters for large fused systems where
-/// a valid alternate Kekulé assignment can otherwise change the aromatic
-/// partition. For non-explicit input, clear stale flags and kekulize. A
-/// non-representable graph returns an explicit error; no partial rewrite is
-/// exposed.
-fn kekulize_for_rdkit_parity(mol: &Molecule) -> Result<Molecule, AromaticityError> {
-    if let Some(explicit) = preserve_explicit_aromaticity(mol) {
-        return Ok(explicit);
+/// Return the already-complete aromatic representation when that can be
+/// proven without constructing an SSSR/cycle basis.
+///
+/// The common SMILES cases are either acyclic, saturated rings, or complete
+/// lowercase aromatic ring systems. A linear-time bridge pass is sufficient
+/// to prove that none of those can gain another aromatic bond. Mixed
+/// aromatic/Kekulé ring systems and non-aromatic cyclic multiple bonds still
+/// take the full RDKit-parity perception path; this is deliberately a
+/// conservative fast path, not a new aromaticity heuristic.
+fn complete_preperceived_aromaticity(mol: &Molecule) -> Option<Molecule> {
+    let explicit = preserve_explicit_aromaticity(mol);
+    let has_aromatic_bond = mol
+        .bonds()
+        .any(|(_, bond)| bond.order == BondOrder::Aromatic);
+    if has_aromatic_bond && explicit.is_none() {
+        return None;
     }
+
+    let ring_bonds = crate::sssr::ring_bond_flags(mol);
+    let mut ring_adjacency: Vec<Vec<(AtomIdx, BondIdx)>> = vec![Vec::new(); mol.atom_count()];
+    for (bond_idx, bond) in mol.bonds() {
+        if !ring_bonds[bond_idx.0 as usize] {
+            if bond.order == BondOrder::Aromatic {
+                return None;
+            }
+            continue;
+        }
+        ring_adjacency[bond.atom1.0 as usize].push((bond.atom2, bond_idx));
+        ring_adjacency[bond.atom2.0 as usize].push((bond.atom1, bond_idx));
+    }
+
+    let mut visited_atoms = vec![false; mol.atom_count()];
+    let mut visited_bonds = vec![false; mol.bond_count()];
+    for start in 0..mol.atom_count() {
+        if visited_atoms[start] || ring_adjacency[start].is_empty() {
+            continue;
+        }
+        let mut stack = vec![AtomIdx(start as u32)];
+        visited_atoms[start] = true;
+        let mut component_has_aromatic = false;
+        let mut component_has_non_aromatic = false;
+        let mut component_has_non_aromatic_multiple = false;
+        let mut component_has_incident_multiple = false;
+        let mut component_atoms = Vec::new();
+        while let Some(atom) = stack.pop() {
+            component_atoms.push(atom);
+            component_has_incident_multiple |= mol.neighbors(atom).any(|(_, bond_idx)| {
+                matches!(
+                    mol.bond(bond_idx).order,
+                    BondOrder::Double | BondOrder::Triple | BondOrder::Quadruple
+                )
+            });
+            for &(neighbor, bond_idx) in &ring_adjacency[atom.0 as usize] {
+                let bond_offset = bond_idx.0 as usize;
+                if !visited_bonds[bond_offset] {
+                    visited_bonds[bond_offset] = true;
+                    match mol.bond(bond_idx).order {
+                        BondOrder::Aromatic => component_has_aromatic = true,
+                        BondOrder::Single | BondOrder::Up | BondOrder::Down => {
+                            component_has_non_aromatic = true;
+                        }
+                        _ => {
+                            component_has_non_aromatic = true;
+                            component_has_non_aromatic_multiple = true;
+                        }
+                    }
+                }
+                let neighbor_offset = neighbor.0 as usize;
+                if !visited_atoms[neighbor_offset] {
+                    visited_atoms[neighbor_offset] = true;
+                    stack.push(neighbor);
+                }
+            }
+        }
+
+        if (component_has_aromatic && component_has_non_aromatic)
+            || (!component_has_aromatic && component_has_non_aromatic_multiple)
+        {
+            return None;
+        }
+        if !component_has_aromatic && component_has_incident_multiple {
+            // A formally saturated ring can still become aromatic through
+            // exocyclic C=N/C=O/C=S bonds (for example O=C1NNC(=O)N1). For a
+            // ring to qualify, its atoms that pass RDKit's donor/candidate
+            // rules must themselves contain a cycle. Proving that the induced
+            // candidate subgraph is acyclic is sufficient to skip SSSR even
+            // for fused saturated systems. A surviving candidate cycle stays
+            // on the conservative full path for exact Hueckel/fused handling.
+            let ring_bond_set: FxHashSet<BondIdx> = ring_bonds
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, is_ring)| is_ring.then_some(BondIdx(idx as u32)))
+                .collect();
+            let mut candidate = vec![false; mol.atom_count()];
+            for atom in &component_atoms {
+                let donor = get_atom_electron_donor_type(mol, *atom, &ring_bond_set);
+                candidate[atom.0 as usize] = is_atom_candidate_for_aromaticity(mol, *atom, donor);
+            }
+            let mut visited = vec![false; mol.atom_count()];
+            let mut candidate_cycle = false;
+            for start in component_atoms.iter().copied() {
+                if !candidate[start.0 as usize] || visited[start.0 as usize] {
+                    continue;
+                }
+                let mut stack = vec![(start, None::<BondIdx>)];
+                visited[start.0 as usize] = true;
+                while let Some((atom, parent_bond)) = stack.pop() {
+                    for &(neighbor, bond_idx) in &ring_adjacency[atom.0 as usize] {
+                        if !candidate[neighbor.0 as usize] || Some(bond_idx) == parent_bond {
+                            continue;
+                        }
+                        if visited[neighbor.0 as usize] {
+                            candidate_cycle = true;
+                            break;
+                        }
+                        visited[neighbor.0 as usize] = true;
+                        stack.push((neighbor, Some(bond_idx)));
+                    }
+                    if candidate_cycle {
+                        break;
+                    }
+                }
+                if candidate_cycle {
+                    break;
+                }
+            }
+            if candidate_cycle {
+                return None;
+            }
+        }
+    }
+
+    if let Some(explicit) = explicit {
+        Some(explicit)
+    } else if mol.atoms().any(|(_, atom)| atom.aromatic) {
+        Some(clear_aromatic_flags(mol))
+    } else {
+        Some(mol.clone())
+    }
+}
+
+/// Normalize `mol` for RDKit-parity aromaticity. A mixed aromatic/Kekulé
+/// input can contain additional atoms that RDKit's sanitizer promotes into
+/// the final aromatic system. Accept that re-perception only when it strictly
+/// extends the supplied aromatic atom/bond sets without removing anything;
+/// otherwise preserve the explicit representation. The latter matters for
+/// large fused cages where a valid alternate Kekulé assignment can change
+/// the aromatic partition. A non-representable graph without an explicit
+/// fallback returns an error; no partial rewrite is exposed.
+fn kekulize_for_rdkit_parity(mol: &Molecule) -> Result<Molecule, AromaticityError> {
+    let explicit_fallback = preserve_explicit_aromaticity(mol);
     let cleared = clear_aromatic_flags(mol);
     match chematic_core::kekulize(&cleared) {
-        Ok(k) => Ok(chematic_core::apply_kekule(&cleared, &k)),
-        Err(e) => Err(AromaticityError::KekulizationFailed { reason: e.detail }),
+        Ok(k) => {
+            let kekulized = chematic_core::apply_kekule(&cleared, &k);
+            let Some(explicit) = explicit_fallback else {
+                return Ok(kekulized);
+            };
+
+            let explicit_atoms: FxHashSet<AtomIdx> = explicit
+                .atoms()
+                .filter_map(|(idx, atom)| atom.aromatic.then_some(idx))
+                .collect();
+            let explicit_bonds: FxHashSet<BondIdx> = explicit
+                .bonds()
+                .filter_map(|(idx, bond)| (bond.order == BondOrder::Aromatic).then_some(idx))
+                .collect();
+            let (candidate_atoms, candidate_bonds) = rdkit_parity_aromaticity(&kekulized);
+            let preserves_explicit = candidate_atoms.is_superset(&explicit_atoms)
+                && candidate_bonds.is_superset(&explicit_bonds);
+            let strictly_extends = candidate_atoms.len() > explicit_atoms.len()
+                || candidate_bonds.len() > explicit_bonds.len();
+
+            if preserves_explicit && strictly_extends {
+                Ok(kekulized)
+            } else {
+                Ok(explicit)
+            }
+        }
+        Err(e) => {
+            explicit_fallback.ok_or(AromaticityError::KekulizationFailed { reason: e.detail })
+        }
     }
 }
 
@@ -828,6 +996,9 @@ fn assign_from_kekulized(kekulized: &Molecule) -> Result<AromaticityModel, Aroma
 pub fn assign_aromaticity_rdkit_parity_experimental(
     mol: &Molecule,
 ) -> Result<AromaticityModel, AromaticityError> {
+    if let Some(preperceived) = complete_preperceived_aromaticity(mol) {
+        return Ok(model_from_explicit_aromaticity(&preperceived));
+    }
     let kekulized = kekulize_for_rdkit_parity(mol)?;
     if kekulized
         .bonds()
@@ -848,6 +1019,9 @@ pub fn assign_aromaticity_rdkit_parity_experimental(
 pub fn apply_aromaticity_rdkit_parity_experimental(
     mol: &Molecule,
 ) -> Result<Molecule, AromaticityError> {
+    if let Some(preperceived) = complete_preperceived_aromaticity(mol) {
+        return Ok(preperceived);
+    }
     let kekulized = kekulize_for_rdkit_parity(mol)?;
     if kekulized
         .bonds()
@@ -1067,6 +1241,61 @@ mod tests {
     }
 
     #[test]
+    fn mixed_aromatic_morphine_promotes_bridge_oxygen_like_rdkit() {
+        // RDKit canonicalizes this mixed aromatic/Kekule spelling to
+        // `CN1CCc2oc3c(O)ccc4c3c2C1C4`: the degree-two bridge oxygen is
+        // aromatic. Preserving only the parser-supplied `c1ccc...` subgraph
+        // missed that promotion and shifted both TPSA and Crippen LogP.
+        let mol =
+            chematic_smiles::parse("Oc1ccc2CC3N(CCC4=C3c2c1O4)C").expect("valid morphine SMILES");
+        let applied =
+            apply_aromaticity_rdkit_parity_experimental(&mol).expect("morphine kekulizes");
+        let aromatic_oxygen_count = applied
+            .atoms()
+            .filter(|(idx, atom)| {
+                atom.element.atomic_number() == 8 && atom.aromatic && applied.degree(*idx) == 2
+            })
+            .count();
+        assert_eq!(
+            aromatic_oxygen_count, 1,
+            "RDKit marks exactly the bridge oxygen aromatic"
+        );
+    }
+
+    #[test]
+    fn mixed_fused_cyclic_ether_does_not_promote_oxygen() {
+        // Negative control for the morphine regression: an aromatic neighbour
+        // plus a vinylic neighbour is not sufficient to make a cyclic ether
+        // oxygen aromatic.
+        let mol = chematic_smiles::parse("CC(=O)c1c(O)c(C)c(O)c2c1OC1=Cc3c(c(C)nn3C)C(=O)C12C")
+            .expect("valid fused cyclic ether SMILES");
+        let applied = apply_aromaticity_rdkit_parity_experimental(&mol)
+            .expect("fused cyclic ether kekulizes");
+        assert!(
+            applied
+                .atoms()
+                .filter(|(_, atom)| atom.element.atomic_number() == 8)
+                .all(|(_, atom)| !atom.aromatic),
+            "RDKit keeps every oxygen in this fused cyclic ether non-aromatic"
+        );
+    }
+
+    #[test]
+    fn production_api_preserves_r_group_sidecar() {
+        use chematic_core::{MoleculeBuilder, RGroupLabel};
+
+        let parsed = chematic_smiles::parse("c1ccccc1.[*]").expect("valid disconnected SMILES");
+        let mut builder = MoleculeBuilder::from_molecule(&parsed);
+        let r1 = AtomIdx(6);
+        builder.set_r_group(r1, RGroupLabel::numbered(1).unwrap());
+        let mol = builder.build();
+
+        let applied = apply_aromaticity_rdkit_parity_experimental(&mol)
+            .expect("aromaticity perception preserves pseudoatom metadata");
+        assert_eq!(applied.r_group_label(r1), mol.r_group_label(r1));
+    }
+
+    #[test]
     fn production_api_preserves_valid_explicit_aromatic_input() {
         // RDKit accepts this fused purine-like graph even though chematic's
         // matching-based Kekule conversion cannot represent it. The explicit
@@ -1079,6 +1308,51 @@ mod tests {
         assert!(model.aromatic_atom_count() > 0);
         let applied = apply_aromaticity_rdkit_parity_experimental(&mol).expect("valid input");
         assert_eq!(applied.atom_count(), mol.atom_count());
+    }
+
+    #[test]
+    fn preperceived_fast_path_keeps_disconnected_saturated_ring_non_aromatic() {
+        let mol = chematic_smiles::parse("c1ccccc1.C1CCCCC1").expect("valid SMILES");
+        let applied = apply_aromaticity_rdkit_parity_experimental(&mol).expect("valid aromaticity");
+        assert_eq!(applied.atoms().filter(|(_, atom)| atom.aromatic).count(), 6);
+        assert_eq!(
+            applied
+                .bonds()
+                .filter(|(_, bond)| bond.order == BondOrder::Aromatic)
+                .count(),
+            6
+        );
+    }
+
+    #[test]
+    fn kekule_ring_bypasses_fast_path_and_is_still_perceived() {
+        let mol = chematic_smiles::parse("c1ccccc1.C1=CC=CC=C1").expect("valid SMILES");
+        let applied = apply_aromaticity_rdkit_parity_experimental(&mol).expect("valid aromaticity");
+        assert_eq!(
+            applied.atoms().filter(|(_, atom)| atom.aromatic).count(),
+            12,
+            "the separate Kekulé benzene must still use full perception"
+        );
+        assert_eq!(
+            applied
+                .bonds()
+                .filter(|(_, bond)| bond.order == BondOrder::Aromatic)
+                .count(),
+            12
+        );
+    }
+
+    #[test]
+    fn ring_with_exocyclic_multiple_bond_bypasses_fast_path() {
+        for smiles in ["O=C1NNC(=O)N1", "CN=C1SSC(=O)N1C", "S=C1NNC(=S)S1"] {
+            let mol = chematic_smiles::parse(smiles).expect("valid SMILES");
+            assert!(
+                complete_preperceived_aromaticity(&mol).is_none(),
+                "exocyclic unsaturation can participate in RDKit aromaticity: {smiles}"
+            );
+            apply_aromaticity_rdkit_parity_experimental(&mol)
+                .expect("full aromaticity perception succeeds");
+        }
     }
 
     #[test]

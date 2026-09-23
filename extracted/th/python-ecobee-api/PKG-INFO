@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-ecobee-api
-Version: 0.4.1
+Version: 0.4.2
 Summary: Python API for talking to Ecobee thermostats
 Home-page: https://github.com/nkgilley/python-ecobee-api
 Author: Nolan Gilley

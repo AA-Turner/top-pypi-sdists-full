@@ -301,6 +301,10 @@ class ImageContent:
     # so FE chat-message reads don't need a follow-up GET /assets/{id}.
     width: int | None = None
     height: int | None = None
+    # Image-generation reference role (subject | character | style | mask |
+    # edit_target | composition_control). None = a plain image the model sees.
+    # Vocabulary + gate: matrx_ai/media/image_reference_roles.py.
+    role: str | None = None
 
     # Vision-class hint — when set, the boundary resolver will render (or
     # cache-hit on) a derived variant of the master file before populating
@@ -318,6 +322,10 @@ class ImageContent:
 
     def __post_init__(self):
         """Normalise mime_type from multiple legacy locations, then auto-detect."""
+        from matrx_ai.media.image_reference_roles import validate_role
+
+        # An unknown role raises: a typo must never become an unlabeled image.
+        self.role = validate_role(self.role)
         # Frontend convenience: pull mime from metadata if the top-level
         # mime_type wasn't set. The cloud-files /files/upload response and
         # historical object listings surface MIME under metadata.{mimetype,
@@ -621,6 +629,8 @@ class ImageContent:
             result["width"] = self.width
         if self.height is not None:
             result["height"] = self.height
+        if self.role:
+            result["role"] = self.role
         # Kind-specific extras go into metadata
         storage_metadata = {**self.metadata}
         if self.media_resolution:
@@ -1968,6 +1978,7 @@ def reconstruct_media_content(
             file_size=file_size,
             width=width,
             height=height,
+            role=block.get("role"),
             metadata=meta,
         )
     elif kind == "audio":

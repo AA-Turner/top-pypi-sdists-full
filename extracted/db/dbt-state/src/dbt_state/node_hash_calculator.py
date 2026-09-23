@@ -198,7 +198,12 @@ class GenericTestNodeCalculator(NodeHashCalculator):
 class SeedNodeHashCalculator(NodeHashCalculator):
     @cached_property
     def node_body_hash(self) -> t.Optional[str]:
-        seed_path = Path(self._config.project_root) / self.node.original_file_path
+        seed_node = t.cast(SeedNode, self.node)
+        if seed_node.root_path:
+            seed_path = Path(seed_node.root_path) / seed_node.original_file_path
+        else:
+            seed_path = Path(self._config.project_root) / seed_node.original_file_path
+
         md5 = hashlib.md5(usedforsecurity=False)
         with open(seed_path, "rb") as f:
             for chunk in iter(lambda: f.read(_HASH_READ_CHUNK_SIZE), b""):

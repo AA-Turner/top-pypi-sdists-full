@@ -349,16 +349,18 @@ body {
 .airbyte-hero-header {
   align-items: flex-start !important;
   display: flex !important;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: space-between !important;
   width: 100%;
 }
 .airbyte-hero-copy {
-  flex: 1 1 28rem;
+  flex: 1 1 0%;
   min-width: 0;
+  width: auto !important;
 }
 .airbyte-hero-actions {
   flex: 0 0 auto;
+  width: auto !important;
 }
 .airbyte-stat-value {
   font-size: 1.5rem;

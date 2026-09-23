@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-semantic-release
-Version: 10.6.2
+Version: 10.7.0
 Summary: Automatic Semantic Versioning for Python projects
 Author-email: Rolf Erik Lekang <me@rolflekang.com>, codejedi365 <codejedi365@gmail.com>
 License: MIT
@@ -23,7 +23,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: click~=8.1.0; python_version == "3.8"
 Requires-Dist: click~=8.1.0; python_version == "3.9"
-Requires-Dist: click<8.5.0,~=8.1.0; python_version >= "3.10"
+Requires-Dist: click<8.6.0,>=8.1.0; python_version >= "3.10"
 Requires-Dist: click-option-group~=0.5.0
 Requires-Dist: gitpython~=3.0
 Requires-Dist: requests~=2.25
@@ -51,8 +51,8 @@ Requires-Dist: sphinx-autobuild==2024.2.4; extra == "docs"
 Requires-Dist: furo~=2025.9; extra == "docs"
 Provides-Extra: test
 Requires-Dist: coverage[toml]~=7.0; extra == "test"
-Requires-Dist: filelock~=3.15; extra == "test"
-Requires-Dist: flatdict~=4.0; extra == "test"
+Requires-Dist: filelock<5.0,>=3.15; extra == "test"
+Requires-Dist: cj365-flatdict~=5.0; extra == "test"
 Requires-Dist: freezegun~=1.5; extra == "test"
 Requires-Dist: pyyaml~=6.0; extra == "test"
 Requires-Dist: pytest<10.0,>=8.3; extra == "test"

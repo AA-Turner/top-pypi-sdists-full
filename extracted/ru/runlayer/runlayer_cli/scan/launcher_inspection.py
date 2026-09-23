@@ -85,7 +85,14 @@ class LauncherInspectionResult:
     bytes_read: int = 0
     cmd_bytes_read: int = 0
     lnk_bytes_read: int = 0
-    malformed_or_unsafe: int = 0
+    # Launchers claimed but not identified, split by why so the completion
+    # line is self-explanatory. On a Windows box with npm-installed tooling
+    # ``unparsed_grammar == launchers`` is steady state: the strict phase-1
+    # forwarder grammar never matches ``cmd-shim`` output.
+    unreadable: int = 0  # lstat/read failed, oversize, scandir/entry OSError
+    unsafe_path: int = 0  # escapes home, reparse/link, not a regular file
+    unparsed_grammar: int = 0  # .cmd/.lnk body outside the strict grammar
+    unknown_target: int = 0  # parsed + resolved, but not a known basename
     # Sweep-admitted bin directories this inspection refused (outside the
     # profile, reparse-bearing, or gone). Not a budget truncation, but the
     # launchers inside were never looked at, so absence there is unproven.
@@ -325,12 +332,12 @@ def _read_launcher(
     try:
         file_size = path.lstat().st_size
     except OSError:
-        budget.result.malformed_or_unsafe += 1
+        budget.result.unreadable += 1
         return None
     if not budget.checkpoint():
         return None
     if file_size > max_bytes:
-        budget.result.malformed_or_unsafe += 1
+        budget.result.unreadable += 1
         return None
     if file_size > remaining:
         budget.truncate("aggregate_bytes")
@@ -339,7 +346,7 @@ def _read_launcher(
     if not budget.checkpoint():
         return None
     if raw is None:
-        budget.result.malformed_or_unsafe += 1
+        budget.result.unreadable += 1
         return None
     if budget.result.bytes_read + len(raw) > MAX_AGGREGATE_BYTES:
         budget.truncate("aggregate_bytes")
@@ -366,7 +373,7 @@ def _inspect_windows_candidate(
     if not budget.checkpoint():
         return
     if not path_is_safe:
-        budget.result.malformed_or_unsafe += 1
+        budget.result.unsafe_path += 1
         return
     max_bytes = MAX_CMD_BYTES if kind == "cmd" else MAX_LNK_BYTES
     raw = _read_launcher(path, max_bytes=max_bytes, budget=budget)
@@ -381,18 +388,18 @@ def _inspect_windows_candidate(
         if kind == "cmd"
         else parse_windows_shell_link_target(raw)
     )
-    target = (
-        _resolve_user_target(path, relative_target, home=home)
-        if relative_target is not None
-        else None
-    )
+    if relative_target is None:
+        budget.result.unparsed_grammar += 1
+        return
+    target = _resolve_user_target(path, relative_target, home=home)
     if not budget.checkpoint():
         return
-    identity = (
-        _windows_identity(target, known_basenames) if target is not None else None
-    )
+    if target is None:
+        budget.result.unsafe_path += 1
+        return
+    identity = _windows_identity(target, known_basenames)
     if identity is None:
-        budget.result.malformed_or_unsafe += 1
+        budget.result.unknown_target += 1
         return
     budget.retain(
         LauncherFinding(
@@ -418,11 +425,13 @@ def _inspect_posix_symlink(
         checkpoint=budget.checkpoint,
     )
     if resolved is None:
+        # Chain too long, cycles, escapes, or lstat/readlink failure — the
+        # resolver collapses them all to "unsafe to follow".
         if budget.result.truncation_reason != "deadline":
-            budget.result.malformed_or_unsafe += 1
+            budget.result.unsafe_path += 1
         return
     if resolved.executable_basename is None:
-        budget.result.malformed_or_unsafe += 1
+        budget.result.unknown_target += 1
         return
     if not budget.checkpoint():
         return
@@ -542,9 +551,9 @@ def inspect_launcher_identities(
                                 budget=budget,
                             )
                         except OSError:
-                            result.malformed_or_unsafe += 1
+                            result.unreadable += 1
             except OSError:
-                result.malformed_or_unsafe += 1
+                result.unreadable += 1
                 budget.truncate("directory_error")
             budget.checkpoint()
 
@@ -563,7 +572,10 @@ def inspect_launcher_identities(
         lnk_bytes_read=result.lnk_bytes_read,
         findings=len(result.findings),
         matches_by_kind=matches_by_kind,
-        malformed_or_unsafe=result.malformed_or_unsafe,
+        unreadable=result.unreadable,
+        unsafe_path=result.unsafe_path,
+        unparsed_grammar=result.unparsed_grammar,
+        unknown_target=result.unknown_target,
         hidden_directories_skipped=result.hidden_directories_skipped,
         truncated=result.truncated,
         truncation_reason=result.truncation_reason,

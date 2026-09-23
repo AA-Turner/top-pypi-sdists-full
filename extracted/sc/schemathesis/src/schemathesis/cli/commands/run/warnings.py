@@ -9,9 +9,11 @@ from schemathesis.cli.commands.run.filters import describe_filter
 from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.summary import WarningData
 from schemathesis.config import ProjectConfig, SchemathesisWarning
+from schemathesis.core import SpecificationKind
 from schemathesis.core.errors import RefResolutionError
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.statistic import ApiStatistic
+from schemathesis.core.transport import CallOutcome
 from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import CaseNode, Interaction, RecordedScenario
 from schemathesis.engine.run import PhaseName
@@ -19,7 +21,7 @@ from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario
 from schemathesis.generation.modes import GenerationMode
 
 if TYPE_CHECKING:
-    from schemathesis.schemas import APIOperation
+    from schemathesis.schemas import APIOperation, BaseSchema
 
 
 @dataclass(slots=True)
@@ -84,6 +86,50 @@ class StatusCodeStatistic:
 
 AUTH_ERRORS_THRESHOLD = 0.9
 OTHER_CLIENT_ERRORS_THRESHOLD = 0.1
+# Fewer calls than this and the share accepted is noise rather than a rate.
+MIN_CALLS_FOR_VALID_RATE = 10
+
+
+@dataclass(slots=True)
+class ValidRate:
+    """How many positive cases an API accepted, and why the rest were turned away."""
+
+    accepted: int = 0
+    # Well-formed, but the addressed resource does not exist.
+    unreachable: int = 0
+    # Refused on the data itself.
+    rejected: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.accepted + self.unreachable + self.rejected
+
+    @property
+    def rate(self) -> float:
+        return self.accepted / self.total if self.total else 0.0
+
+
+def positive_call_outcomes(recorder: RecordedScenario) -> ValidRate:
+    """Classify every positive case by what the API did with it.
+
+    Auth rejections and server errors say nothing about whether the data was acceptable, so they
+    stay out of the count entirely rather than counting against the rate.
+    """
+    outcomes = ValidRate()
+    for case in recorder.cases.values():
+        if not _is_positive(case):
+            continue
+        interaction = recorder.interactions.get(case.value.id)
+        if interaction is None or interaction.response is None:
+            continue
+        outcome = case.value.operation.schema.classify_call_outcome(interaction.response)
+        if outcome is CallOutcome.ACCEPTED:
+            outcomes.accepted += 1
+        elif outcome is CallOutcome.UNREACHABLE:
+            outcomes.unreachable += 1
+        elif outcome is CallOutcome.REJECTED:
+            outcomes.rejected += 1
+    return outcomes
 
 
 def aggregate_status_codes(interactions: Iterable[Interaction]) -> StatusCodeStatistic:
@@ -133,12 +179,43 @@ def missing_base_path(operation: APIOperation) -> str | None:
     return declared if not urlsplit(configured).path.rstrip("/").endswith(declared) else None
 
 
+def takes_input(operation: APIOperation) -> bool:
+    """Whether the operation has anything a run could have got wrong."""
+    return bool(
+        operation.path_parameters or operation.query or operation.headers or operation.cookies or operation.body
+    )
+
+
+def resource_producers(schema: BaseSchema) -> dict[str, set[str]]:
+    """For every operation that consumes a resource, the operations that appear to supply it.
+
+    From the inferred graph, so it reports what was found in the schema, not what the API can do.
+    Absent means the operation consumes nothing, or there is no graph; empty means nothing supplies it.
+    """
+    if schema.specification.kind is not SpecificationKind.OPENAPI:
+        return {}
+    operations = schema.analysis.dependency_graph.operations  # type: ignore[attr-defined]
+    by_resource: dict[str, set[str]] = {}
+    for label, node in operations.items():
+        for slot in node.outputs:
+            by_resource.setdefault(slot.resource.name, set()).add(label)
+    producers: dict[str, set[str]] = {}
+    for label, node in operations.items():
+        if not node.inputs:
+            continue
+        found: set[str] = set()
+        for slot in node.inputs:
+            found |= by_resource.get(slot.resource.name, set())
+        producers[label] = found - {label}
+    return producers
+
+
 def _is_positive(case: CaseNode) -> bool:
     return case.value.meta is not None and case.value.meta.generation.mode == GenerationMode.POSITIVE
 
 
 def any_positive_is_accepted(recorder: RecordedScenario) -> bool:
-    """Whether a positive test case got a 2xx response.
+    """Whether the API served any of the positive test cases.
 
     Negative cases are excluded: an undocumented method may well be served while the operation
     itself is refused.
@@ -149,13 +226,13 @@ def any_positive_is_accepted(recorder: RecordedScenario) -> bool:
         interaction = recorder.interactions.get(case.value.id)
         if interaction is None or interaction.response is None:
             continue
-        if 200 <= interaction.response.status_code < 300:
+        if case.value.operation.schema.classify_call_outcome(interaction.response) is CallOutcome.ACCEPTED:
             return True
     return False
 
 
 def all_positive_are_rejected(recorder: RecordedScenario) -> bool:
-    """Whether the scenario generated positive test cases and none of them got a 2xx response."""
+    """Whether the scenario generated positive test cases and the API served none of them."""
     return any(_is_positive(case) for case in recorder.cases.values()) and not any_positive_is_accepted(recorder)
 
 
@@ -293,11 +370,48 @@ class WarningCollector:
                     SchemathesisWarning.VALIDATION_MISMATCH,
                     lambda: self.data.validation_mismatch.add(event.recorder.label),
                 )
+            # GraphQL answers the same status whether it served the query or refused it, so the two
+            # checks above stay silent; the response bodies are the only evidence either way.
+            if operation is not None and operation.schema.specification.kind is SpecificationKind.GRAPHQL:
+                self._handle_warning(
+                    ctx,
+                    SchemathesisWarning.MISSING_TEST_DATA,
+                    lambda: self._record_missing_test_data(event.recorder.label, operation),
+                )
+
+        # A run that did not ask for positive data has no valid-input rate worth reporting; the few
+        # positive cases other phases contribute are incidental.
+        if (
+            GenerationMode.POSITIVE
+            not in self.config.generation_for(operation=operation, phase=event.phase.value).modes
+        ):
+            return
+
+        outcomes = positive_call_outcomes(event.recorder)
+        if outcomes.total:
+            self.data.valid_rates.setdefault(event.recorder.label, {})[event.phase.value] = outcomes
+            # An operation nothing reached at all belongs to the two warnings above, which say more
+            # about why. This one is for the middle ground they leave silent.
+            if (
+                outcomes.accepted
+                and outcomes.total >= MIN_CALLS_FOR_VALID_RATE
+                and outcomes.rate < self.config.warnings.low_valid_rate.threshold
+            ):
+                self._handle_warning(
+                    ctx,
+                    SchemathesisWarning.LOW_VALID_RATE,
+                    lambda: self.data.low_valid_rate.add(event.recorder.label),
+                )
 
     def _record_missing_test_data(self, label: str, operation: APIOperation | None) -> None:
         """Record the operation, capturing the link graph the first time one warns."""
-        if self.data.linked_operations is None and operation is not None:
-            self.data.linked_operations = operation.schema.operations_with_incoming_links()
+        if operation is not None:
+            if self.data.linked_operations is None:
+                self.data.linked_operations = operation.schema.operations_with_incoming_links()
+            if self.data.resource_producers is None:
+                self.data.resource_producers = resource_producers(operation.schema)
+            if not takes_input(operation):
+                self.data.parameterless.add(label)
         self.data.missing_test_data.add(label)
 
     def _mark_authenticated(self, label: str) -> None:
@@ -398,5 +512,7 @@ class WarningCollector:
             self.data.stateful_exercised.add(label)
             if label in self.data.missing_test_data and key in event.recorder.interactions:
                 response = event.recorder.interactions[key].response
-                if response is not None and response.status_code < 300:
+                if response is None:
+                    continue
+                if node.value.operation.schema.classify_call_outcome(response) is CallOutcome.ACCEPTED:
                     self.data.missing_test_data.remove(label)

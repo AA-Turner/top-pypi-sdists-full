@@ -7,10 +7,11 @@ from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.check_framework.exceptions import NestedDict
+from dbt_bouncer.enums import Criteria
 from dbt_bouncer.utils import (
     clean_path_str,
     compile_pattern,
-    find_missing_meta_keys,
+    find_meta_keys_criteria_failure,
     is_description_populated,
 )
 
@@ -33,7 +34,7 @@ def _get_jinja_environment() -> "Environment":
     from jinja2_simple_tags import StandaloneTag
 
     class TagExtension(StandaloneTag):
-        tags: ClassVar = {
+        tags: ClassVar = {  # ty: ignore[invalid-attribute-override]
             "do",
             "endmaterialization",
             "endtest",
@@ -70,7 +71,7 @@ def _parse_macro_argument_names(macro_sql: str) -> list[str]:
 
     if "materialization" in [
         x.value.value
-        for x in ast.body[0].nodes[0].kwargs  # type: ignore[attr-defined]
+        for x in ast.body[0].nodes[0].kwargs  # ty: ignore[unresolved-attribute]
         if isinstance(x.value, nodes.Const)
     ]:
         # Materializations don't have arguments
@@ -81,7 +82,7 @@ def _parse_macro_argument_names(macro_sql: str) -> list[str]:
     # body. Walking the body is fragile: it breaks for tests whose body is a
     # single macro call or contains a `{% set %}` statement, which parses to a
     # `jinja2.nodes.Assign` node with no `.nodes` attribute (see issue #927).
-    signature_call = ast.body[0].nodes[0]  # type: ignore[attr-defined]
+    signature_call = ast.body[0].nodes[0]  # ty: ignore[unresolved-attribute]
     # With autoescape enabled the signature is wrapped in an `escape(...)`
     # call; unwrap it to reach the test's own call node.
     if signature_call.args and isinstance(signature_call.args[0], nodes.Call):
@@ -89,7 +90,7 @@ def _parse_macro_argument_names(macro_sql: str) -> list[str]:
     return [a.name for a in signature_call.args if isinstance(a, nodes.Name)]
 
 
-@check
+@check(code="MA001")
 def check_macro_arguments_description_populated(
     macro, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
@@ -152,7 +153,7 @@ def check_macro_arguments_description_populated(
         )
 
 
-@check
+@check(code="MA002")
 def check_macro_code_does_not_contain_regexp_pattern(macro, *, regexp_pattern: str):
     """The raw code for a macro must not match the specified regexp pattern.
 
@@ -188,7 +189,7 @@ def check_macro_code_does_not_contain_regexp_pattern(macro, *, regexp_pattern: s
         )
 
 
-@check
+@check(code="MA003")
 def check_macro_description_populated(
     macro, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
@@ -229,8 +230,10 @@ def check_macro_description_populated(
         fail(f"`{macro.name}` does not have a populated description.")
 
 
-@check
-def check_macro_has_meta_keys(macro, *, keys: NestedDict):
+@check(code="MA004")
+def check_macro_has_meta_keys(
+    macro, *, criteria: Criteria = Criteria.ALL, keys: NestedDict
+):
     """The `meta` config for macros must have the specified keys.
 
     !!! info "Rationale"
@@ -238,6 +241,7 @@ def check_macro_has_meta_keys(macro, *, keys: NestedDict):
         The `meta` config is a flexible, project-defined dictionary used to track ownership, maturity levels, PII classification, and other governance attributes. Requiring specific keys ensures that these attributes are consistently populated across all macros, enabling automated reporting, data cataloguing, and access-control workflows that depend on them.
 
     Parameters:
+        criteria (Literal["all", "any", "one"]): Whether the resource must have all, any, or exactly one of the specified keys. Default: `all`.
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
 
     Receives:
@@ -259,16 +263,12 @@ def check_macro_has_meta_keys(macro, *, keys: NestedDict):
         ```
 
     """
-    missing_keys = find_missing_meta_keys(
-        meta_config=macro.meta, required_keys=keys.model_dump()
-    )
-    if missing_keys:
-        fail(
-            f"`{macro.name}` is missing the following keys from the `meta` config: {[x.replace('>>', '') for x in missing_keys]}"
-        )
+    failure = find_meta_keys_criteria_failure(macro.meta, keys.model_dump(), criteria)
+    if failure:
+        fail(f"`{macro.name}` {failure}")
 
 
-@check
+@check(code="MA006")
 def check_macro_max_number_of_arguments(
     macro, *, max_number_of_arguments: Annotated[int, Field(gt=0)] = 4
 ):
@@ -310,7 +310,7 @@ def check_macro_max_number_of_arguments(
         )
 
 
-@check
+@check(code="MA007")
 def check_macro_max_number_of_lines(
     macro, *, max_number_of_lines: Annotated[int, Field(gt=0)] = 100
 ):
@@ -352,7 +352,7 @@ def check_macro_max_number_of_lines(
         )
 
 
-@check
+@check(code="MA008")
 def check_macro_name_matches_file_name(macro):
     """Macros names must be the same as the file they are contained in.
 
@@ -391,7 +391,7 @@ def check_macro_name_matches_file_name(macro):
             fail(f"Macro `{macro.name}` is not in a file of the same name.")
 
 
-@check
+@check(code="MA009")
 def check_macro_names(macro, *, macro_name_pattern: str):
     """Macros must have a name that matches the supplied regex.
 
@@ -427,7 +427,7 @@ def check_macro_names(macro, *, macro_name_pattern: str):
         )
 
 
-@check
+@check(code="MA010")
 def check_macro_property_file_location(macro):
     """Macro properties files must follow the guidance provided by dbt [here](https://docs.getdbt.com/best-practices/how-we-structure/5-the-rest-of-the-project#how-we-use-the-other-folders).
 
@@ -497,6 +497,36 @@ def check_macro_property_file_location(macro):
 _USED_MACROS_CACHE: dict[int, set[str]] = {}
 
 
+def _dispatches_to_own_name(macro: Any) -> bool:
+    """Whether a macro calls a dispatched implementation of its own name.
+
+    dbt's dispatch convention names implementations `<prefix>__<name>`, e.g.
+    `default__generate_schema_name` or `duckdb__apply_grants`. A macro that
+    depends on such an implementation of its own name is overriding a dbt
+    built-in, and is therefore invoked by dbt itself rather than by another
+    resource in the manifest.
+
+    Args:
+        macro: The macro object to inspect.
+
+    Returns:
+        True if the macro overrides a dispatched built-in.
+
+    """
+    depends_on = getattr(macro, "depends_on", None)
+    if depends_on is None or not hasattr(depends_on, "macros"):
+        return False
+
+    suffix = f"__{macro.name}"
+    for unique_id in depends_on.macros:
+        # `unique_id` is `macro.<package_name>.<macro_name>`.
+        dispatched_name = unique_id.rsplit(".", 1)[-1]
+        # `!= suffix` rejects an empty dispatch prefix.
+        if dispatched_name.endswith(suffix) and dispatched_name != suffix:
+            return True
+    return False
+
+
 def _get_used_macros(manifest_obj: Any) -> set[str]:
     obj_id = id(manifest_obj)
     if obj_id not in _USED_MACROS_CACHE:
@@ -516,7 +546,10 @@ def _get_used_macros(manifest_obj: Any) -> set[str]:
                 if hasattr(item, "depends_on") and hasattr(item.depends_on, "macros"):
                     used_macros.update(item.depends_on.macros)
 
-        # Add macros that override default dbt macros (identifiable via the depends_on key-value pair)
+        # Add macros that override default dbt macros. dbt < 2.0 records the
+        # dispatch edge on the built-in itself (`macro.dbt.<name>` depends on
+        # `macro.dbt.default__<name>`), so the overridable names can be read
+        # straight off the `dbt` package.
         overridable_dbt_macros = set()
         macros_collection = getattr(manifest_data, "macros", {})
         for item in macros_collection.values():
@@ -528,21 +561,28 @@ def _get_used_macros(manifest_obj: Any) -> set[str]:
             ):
                 overridable_dbt_macros.add(item.name)
 
+        # dbt 2.0 omits `depends_on` for macros in the built-in `dbt` and
+        # adapter packages, leaving `overridable_dbt_macros` empty, so also
+        # detect an override from its own dispatch edge.
         for item in macros_collection.values():
-            if item.name in overridable_dbt_macros:
+            if item.name in overridable_dbt_macros or _dispatches_to_own_name(item):
                 used_macros.add(item.unique_id)
 
         _USED_MACROS_CACHE[obj_id] = used_macros
     return _USED_MACROS_CACHE[obj_id]
 
 
-@check
+@check(code="MA005")
 def check_macro_is_used(macro, ctx):
     """Macros must be invoked by at least one other resource.
 
     !!! info "Rationale"
 
         Similar to orphaned models, macros are often written for a specific purpose and later abandoned, leaving behind technical debt and confusion. This check parses the manifest to find macros that are defined in the project but are never actually invoked by any model, test, or other macro. Keeps the macro directory lean and reduces the cognitive load for developers trying to understand the codebase.
+
+    !!! warning "Generate your manifest with `dbt compile`, not `dbt parse`, on dbt 2.0"
+
+        This check reads the macro-to-macro dependency graph (`depends_on.macros`). On dbt 2.0 (Fusion) a `dbt parse` run records no macro-to-macro dependencies at all, so any macro that is only ever invoked by another macro is reported as unused. Generate the manifest with `dbt compile` instead. Manifests from dbt 1.x are unaffected: `dbt parse` records the full macro graph there.
 
     Receives:
         macro (Macros): The Macros object to check.

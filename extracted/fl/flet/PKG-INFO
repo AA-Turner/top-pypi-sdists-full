@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flet
-Version: 1.0.0
+Version: 1.0.1
 Summary: Flet for Python - easily build interactive multi-platform apps in Python
 Author-email: "Appveyor Systems Inc." <hello@flet.dev>
 License-Expression: Apache-2.0
@@ -9,23 +9,23 @@ Project-URL: Repository, https://github.com/flet-dev/flet
 Project-URL: Documentation, https://flet.dev/docs/
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: flet-cli==1.0.0; extra == "cli"
-Requires-Dist: flet-web==1.0.0; extra == "web"
+Requires-Dist: flet-cli==1.0.1; extra == "cli"
+Requires-Dist: flet-web==1.0.1; extra == "web"
 Requires-Dist: oauthlib>=3.2.2; platform_system != "Emscripten"
 Requires-Dist: httpx>=0.28.1; platform_system != "Emscripten"
 Requires-Dist: repath>=0.9.0
 Requires-Dist: msgpack>=1.1.0
 Requires-Dist: typing-extensions; python_version < "3.11"
 Provides-Extra: all
-Requires-Dist: flet-cli==1.0.0; extra == "all"
-Requires-Dist: flet-web==1.0.0; extra == "all"
-Requires-Dist: flet-desktop==1.0.0; extra == "all"
+Requires-Dist: flet-cli==1.0.1; extra == "all"
+Requires-Dist: flet-web==1.0.1; extra == "all"
+Requires-Dist: flet-desktop==1.0.1; extra == "all"
 Provides-Extra: cli
-Requires-Dist: flet-cli==1.0.0; extra == "cli"
+Requires-Dist: flet-cli==1.0.1; extra == "cli"
 Provides-Extra: desktop
-Requires-Dist: flet-desktop==1.0.0; extra == "desktop"
+Requires-Dist: flet-desktop==1.0.1; extra == "desktop"
 Provides-Extra: web
-Requires-Dist: flet-web==1.0.0; extra == "web"
+Requires-Dist: flet-web==1.0.1; extra == "web"
 Provides-Extra: test
 Requires-Dist: pytest>=7.2.0; extra == "test"
 Requires-Dist: pytest-asyncio>=1.1.0; extra == "test"
@@ -41,7 +41,7 @@ Requires-Dist: scikit-image>=0.25.2; extra == "test"
 </p>
 
 <p align="center">
-    <em>Build multi-platform apps in Python. No frontend experience required.</em>
+    <em>Build cross-platform apps in Python. No frontend experience required.</em>
 </p>
 
 <p align="center">
@@ -59,10 +59,11 @@ Requires-Dist: scikit-image>=0.25.2; extra == "test"
         <img src="https://flet.dev/docs/assets/badges/docs-coverage/flet.svg" alt="Docstring coverage" /></a>
 </p>
 
----
+Flet is a Python framework for building web, desktop, and mobile apps without prior experience in frontend development.
 
-Flet is a framework that allows building mobile, desktop and web applications
-in Python only without prior experience in frontend development.
+> **[Try Flet online in Flet Studio](https://studio.flet.dev)**
+>
+> Create, run, and share Python apps in your browser. Start from an example, write your own code, or get help from the AI agent. No installation required.
 
 ### <img src="https://flet.dev/img/pages/home/single-code-base.svg" width="25" align="top" />&nbsp;&nbsp;&nbsp;Single code base for any device
 

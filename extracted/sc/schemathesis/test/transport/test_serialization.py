@@ -291,6 +291,52 @@ def test_binary_data(ctx, media_type):
     assert_requests_call(case)
 
 
+@pytest.mark.parametrize(
+    ("media_type", "schema", "body", "expected"),
+    [
+        (
+            "application/json",
+            {"type": "string", "format": "binary"},
+            Binary(b"\x00\x01"),
+            {"json": "", "data": None, "Content-Type": "application/json"},
+        ),
+        (
+            "application/json",
+            {"type": "object", "properties": {"f": {"type": "string", "format": "binary"}}, "required": ["f"]},
+            {"f": Binary(b"\x00\x01")},
+            {"json": {"f": ""}, "data": None, "Content-Type": "application/json"},
+        ),
+        (
+            "application/octet-stream",
+            {"type": "string", "format": "binary"},
+            Binary(b"\x00\x01"),
+            {"json": None, "data": b"\x00\x01", "Content-Type": "application/octet-stream"},
+        ),
+    ],
+    ids=["json-top-level", "json-nested", "octet-stream"],
+)
+def test_generated_binary_body(ctx, media_type, schema, body, expected):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {"required": True, "content": {media_type: {"schema": schema}}},
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+    case = schema["/test"]["POST"].Case(body=body, media_type=media_type)
+    for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
+        kwargs = transport.serialize_case(case)
+        assert {
+            "json": kwargs.get("json"),
+            "data": kwargs.get("data"),
+            "Content-Type": kwargs["headers"]["Content-Type"],
+        } == expected
+    assert_requests_call(case)
+
+
 @pytest.mark.parametrize(("value", "expected"), [(True, b"true"), (False, b"false"), (None, b"null")])
 def test_text_plain_boolean_and_null_use_json_spelling(ctx, value, expected):
     schema = ctx.openapi.load_schema(
@@ -1311,6 +1357,43 @@ def test_serialize_xml_unbound_prefix(ctx, schema_object):
             case.as_transport_kwargs()
 
     test()
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("str", b'<p:root xmlns:p="http://x">str</p:root>'),
+        (1, b'<p:root xmlns:p="http://x">1</p:root>'),
+        (1.5, b'<p:root xmlns:p="http://x">1.5</p:root>'),
+        (True, b'<p:root xmlns:p="http://x">true</p:root>'),
+        (None, b'<p:root xmlns:p="http://x">null</p:root>'),
+    ],
+    ids=["string", "integer", "float", "boolean", "null"],
+)
+def test_serialize_xml_scalar_body_under_prefixed_root(ctx, body, expected):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/xml": {
+                                "schema": {
+                                    "type": "object",
+                                    "xml": {"name": "root", "namespace": "http://x", "prefix": "p"},
+                                    "properties": {"a": {"type": "integer"}},
+                                    "required": ["a"],
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    assert schema["/test"]["POST"].Case(body=body).as_transport_kwargs(base_url="http://127.0.0.1")["data"] == expected
 
 
 SIMPLE_TEXT_STRATEGY = st.text(min_size=1, alphabet=st.sampled_from(string.ascii_letters))

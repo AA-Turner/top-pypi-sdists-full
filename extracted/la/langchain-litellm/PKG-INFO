@@ -1,12 +1,13 @@
 Metadata-Version: 2.5
 Name: langchain-litellm
-Version: 0.7.2
+Version: 0.8.0
 Summary: An integration package connecting LiteLLM and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/litellm
 Project-URL: Documentation, https://docs.langchain.com/oss/python/integrations/chat/litellm
 Project-URL: Repository, https://github.com/langchain-ai/langchain-litellm
 Project-URL: Issues, https://github.com/langchain-ai/langchain-litellm/issues
 Project-URL: Changelog, https://github.com/langchain-ai/langchain-litellm/releases
+Project-URL: Maintainer, https://akshaydongare.com
 Project-URL: Twitter, https://x.com/LangChain
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
@@ -32,6 +33,8 @@ Requires-Python: <4.0,>=3.10
 Requires-Dist: httpx<0.29.0,>=0.28.1
 Requires-Dist: langchain-core<2.0.0,>=1.6.1
 Requires-Dist: litellm!=1.82.7,!=1.82.8,<2.0.0,>=1.83.14
+Requires-Dist: pydantic<3.0.0,>=2.10.0
+Requires-Dist: typing-extensions<5.0.0,>=4.7.0
 Description-Content-Type: text/markdown
 
 # langchain-litellm
@@ -53,8 +56,6 @@ Description-Content-Type: text/markdown
 <a href="https://pepy.tech/projects/langchain-litellm">
 <img src="https://static.pepy.tech/personalized-badge/langchain-litellm?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=BLUE&left_text=downloads" alt="PyPI Downloads">
 </a><br/>
-<a href="https://github.com/Akshay-Dongare/langchain-litellm/actions/workflows/pypi-release.yml">
-</a>
 <a href="https://opensource.org/licenses/MIT">
 <img src="https://img.shields.io/badge/License-MIT-brightgreen.svg" alt="License: MIT">
 </a>
@@ -73,10 +74,10 @@ Description-Content-Type: text/markdown
 </td>
 
 <td align="center">
-<img src="https://img.shields.io/github/issues-closed/Akshay-Dongare/langchain-litellm" alt="GitHub Issues Closed"><br/>
-<img src="https://img.shields.io/github/issues/Akshay-Dongare/langchain-litellm" alt="GitHub Issues Open"><br/>
-<img src="https://img.shields.io/github/issues-pr/Akshay-Dongare/langchain-litellm" alt="GitHub PRs Open"><br/>
-<img src="https://img.shields.io/github/issues-pr-closed/Akshay-Dongare/langchain-litellm" alt="GitHub PRs Closed">
+<img src="https://img.shields.io/github/issues-closed/langchain-ai/langchain-litellm" alt="GitHub Issues Closed"><br/>
+<img src="https://img.shields.io/github/issues/langchain-ai/langchain-litellm" alt="GitHub Issues Open"><br/>
+<img src="https://img.shields.io/github/issues-pr/langchain-ai/langchain-litellm" alt="GitHub PRs Open"><br/>
+<img src="https://img.shields.io/github/issues-pr-closed/langchain-ai/langchain-litellm" alt="GitHub PRs Closed">
 </td>
 </tr>
 </tbody>
@@ -99,3 +100,7 @@ See our [Releases](https://docs.langchain.com/oss/python/release-policy) and [Ve
 As an open-source project in a rapidly developing field, we are extremely open to contributions, whether it be in the form of a new feature, improved infrastructure, or better documentation.
 
 For detailed information on how to contribute, see the [Contributing Guide](https://docs.langchain.com/oss/python/contributing/overview).
+
+## 👤 Maintainer
+
+Created and maintained by [Akshay Dongare](https://akshaydongare.com).

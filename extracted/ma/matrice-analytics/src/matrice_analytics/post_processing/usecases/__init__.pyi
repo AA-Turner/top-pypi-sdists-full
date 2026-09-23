@@ -85,6 +85,9 @@ from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL
 from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL, PostProcessingConfigClient
 from ..utils.post_processing_config_client import PostProcessingConfigClient
 from ..utils.public_ip import resolve_public_ip_once
+from ..utils.speed_fit_utils import baseline_slope, over_limit_pct, severity_for, uncertainty_pct
+from ..utils.speed_geometry_utils import RoadPlane
+from ..utils.speed_paint_calibration_utils import SelfCalibrator
 from ..utils.stream_time_utils import force_wallclock_stream_time, wallclock_fire_timestamp
 from ..utils.tailgating_utils import AccessEventManager, AccessPointState, CrossingRecord, analyze_passage, build_side_zone_map, detect_crossing
 from ..utils.weapon_human_filter import apply_weapon_human_frame_filter
@@ -96,6 +99,7 @@ from .hazard_zone_entry import PostProcessingConfigClient
 from .license_plate_monitoring import LicensePlateMonitorConfig, LicensePlateMonitorUseCase
 from .overcrowding_detection import PostProcessingConfigClient, lift_ai_camera_zones_into_post_processing
 from .people_counting import PeopleCountingUseCase
+from .vehicle_speed_estimation_config import FACTORS, UNIT_LABELS, VEHICLE_SPEED_ESTIMATION_SCHEMA, VehicleSpeedEstimationConfig
 
 # Constants
 LAZY_SUBMODULES: Any = ...  # From _lazy_exports
@@ -143,6 +147,9 @@ TAILGATING_SEVERITY: str = ...  # From tailgating_detection
 logger: Any = ...  # From tailgating_detection
 ColorCache: None = ...  # From vehicle_color_detection
 ColorClassifier: None = ...  # From vehicle_color_detection
+FACTORS: Dict[Any, Any] = ...  # From vehicle_speed_estimation_config
+UNIT_LABELS: Dict[Any, Any] = ...  # From vehicle_speed_estimation_config
+VEHICLE_CATEGORIES: List[Any] = ...  # From vehicle_speed_estimation_config
 
 # Functions
 # From advanced_customer_service
@@ -3380,9 +3387,10 @@ class LicensePlateAccessControlConfig:
     #     relative to the base profile. A missed read costs almost nothing: the vehicle
     #     is stationary and the next frame gets another attempt.
     #
-    #     ``confidence_threshold`` is intentionally left at the base value -- ``process``
-    #     overwrites it with a literal 0.37 on every call, so setting it here would be
-    #     silently discarded. See ``_apply_profile_gates``.
+    #     ``confidence_threshold`` is configurable per deployment and is no longer overwritten
+    #     by ``process``. This profile leaves the dataclass default alone deliberately: the gate
+    #     belongs in the deployment config next to the camera it was tuned against, not baked
+    #     into the class.
 
     ...
 
@@ -5760,6 +5768,48 @@ class VehicleSegmentationUseCase:
         ...
 
 
+# From vehicle_speed_estimation
+class VehicleSpeedEstimationUseCase:
+    # Measures vehicle speed using a camera recovered from the road's own markings.
+
+    def __init__(self: Any) -> None: ...
+
+    def get_config_schema(self: Any) -> Dict[str, Any]:
+        """
+        Get configuration schema for vehicle speed estimation.
+        """
+        ...
+
+    def process(self: Any, data: Any, config: Any, input_bytes: Optional[Any] = None, context: Optional[Any] = None, stream_info: Optional[Dict[str, Any]] = None) -> Any:
+        """
+        Measure speed for every tracked vehicle in this frame.
+        """
+        ...
+
+
+# From vehicle_speed_estimation_config
+class VehicleSpeedEstimationConfig:
+    # Configuration for self-calibrating vehicle speed estimation.
+
+    def __init__(self: Any, usecase: str = 'vehicle_speed_estimation', category: str = 'traffic', confidence_threshold: float = 0.5, target_categories: Optional[List[str]] = None, camera_height_m: float = 8.0, speed_limit: float = 50.0, units: str = 'kmh', tolerance: float = 0.1, window_samples: int = 40, min_samples: int = 12, min_baseline_seconds: float = 0.4, max_plausible_speed: float = 200.0, edge_margin_px: float = 6.0, jitter_px: float = 2.0, calibration_min_frames: int = 150, calibration_min_tracks: int = 25, calibration_retry_frames: int = 300, calibration_max_attempts: int = 5, max_vp2_diagonals: float = 20.0, max_f_sensitivity_pct: float = 2.0, **kwargs: Any) -> None: ...
+
+    def to_dict(self: Any) -> Dict[str, Any]:
+        """
+        Serialise every field, not only the ones ``BaseConfig`` declares.
+        
+                ``BaseConfig.to_dict`` walks ``dataclasses.fields(self)``. This class is a plain
+                class, not a dataclass, so without this override the config template and every
+                dict round-trip would silently drop every field below.
+        """
+        ...
+
+    def validate(self: Any) -> List[str]:
+        """
+        Validate configuration.
+        """
+        ...
+
+
 # From vehicle_type_classification
 class VehicleTypeClassificationConfig:
     # Configuration for vehicle type classification: refines the existing vehicle detector's
@@ -6081,4 +6131,4 @@ class WoundSegmentationUseCase:
         ...
 
 
-from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_type_classification, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation
+from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation

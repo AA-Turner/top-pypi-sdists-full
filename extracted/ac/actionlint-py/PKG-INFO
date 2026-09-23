@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: actionlint_py
-Version: 1.7.12.24
+Version: 1.7.12.25
 Summary: Python wrapper around invoking actionlint (https://github.com/rhysd/actionlint)
 Author-email: Ryan Rhee <pypi@rhee.io>, Mateusz Grzeliński <grzelinskimat@gmail.com>
 Maintainer-email: Mateusz Grzeliński <grzelinskimat@gmail.com>
@@ -141,7 +141,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Download actionlint
         id: get_actionlint
         run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
@@ -161,7 +161,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Check workflow files
         uses: docker://rhysd/actionlint:latest
         with:

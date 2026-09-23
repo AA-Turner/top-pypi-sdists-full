@@ -1,5 +1,5 @@
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, ParamSpec, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, ParamSpec, TypeVar
 
 from chalk._lsp.error_builder import get_resolver_error_builder
 from chalk.features.tag import Environments
@@ -35,6 +35,8 @@ __all__ = (
 P = ParamSpec("P")
 T = TypeVar("T")
 V = TypeVar("V")
+# The resolver's own return type. Distinct from `T`, which is what `parse` is handed.
+TResolverReturn = TypeVar("TResolverReturn")
 
 
 def stream(
@@ -48,7 +50,7 @@ def stream(
     keys: Optional[Dict[str, Any]] = None,
     timestamp: Optional[str] = None,
     updates_materialized_aggregations: bool = True,
-) -> Union[Callable[[Callable[P, T]], "ResolverProtocol[P, T]"], "ResolverProtocol[P, T]"]:
+) -> Callable[[Callable[P, TResolverReturn]], "ResolverProtocol[P, TResolverReturn]"]:
     """Decorator to create a stream resolver.
 
     Parameters
@@ -119,7 +121,7 @@ def stream(
     del frame
     from chalk.features.resolver import parse_and_register_stream_resolver
 
-    def decorator(fn: Callable[P, T]) -> "StreamResolver[P,T]":
+    def decorator(fn: Callable[P, TResolverReturn]) -> "StreamResolver[P, TResolverReturn]":
         caller_filename = inspect.getsourcefile(fn) or "unknown_file"
         error_builder = get_resolver_error_builder(fn)
         return parse_and_register_stream_resolver(

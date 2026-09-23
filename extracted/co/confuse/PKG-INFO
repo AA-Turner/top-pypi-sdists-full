@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: confuse
-Version: 2.2.1
+Version: 2.3.0
 Summary: Painless YAML config files
 License-Expression: MIT
 License-File: LICENSE

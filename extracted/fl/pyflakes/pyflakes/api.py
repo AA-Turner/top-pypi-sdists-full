@@ -12,7 +12,7 @@ from pyflakes import reporter as modReporter
 
 __all__ = ['check', 'checkPath', 'checkRecursive', 'iterSourceCode', 'main']
 
-PYTHON_SHEBANG_REGEX = re.compile(br'^#!.*\bpython(3(\.\d+)?|w)?[dmu]?\s')
+PYTHON_SHEBANG_REGEX = re.compile(br'^#!.*\bpython(3(\.\d+)?|w)?[dt]?\s')
 
 
 def check(codeString, filename, reporter=None):
@@ -128,7 +128,7 @@ def checkRecursive(paths, reporter):
     return warnings
 
 
-def _exitOnSignal(sigName, message):
+def _exitOnSignal(sigName, message):  # pragma: no cover  # platform specific
     """Handles a signal with sys.exit.
 
     Some of these signals (SIGPIPE, for example) don't exist or are invalid on

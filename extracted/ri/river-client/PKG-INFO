@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.11.0
+Version: 0.12.0
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -157,7 +157,9 @@ deployments.
 `client.create_deployment(checkpoint, ...)` provisions capacity for a
 checkpoint and returns a base URL that the standard OpenAI client streams
 from unchanged; `list_deployments`, `get_deployment_usage`, `scale_on_target`
-and `delete_deployment` manage it from there. The bundled agent skill below
+and `delete_deployment` manage it from there. See the
+[deployment walkthrough](https://docs.river.ai/#dedicated-streaming-deployments)
+for a complete example. The bundled agent skill below
 carries the full workflow: replica roles, scale-to-zero and resume, streaming
 error handling, and usage accounting.
 

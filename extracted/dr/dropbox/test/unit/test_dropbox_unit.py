@@ -1,23 +1,27 @@
 #!/usr/bin/env python
 
+import inspect
 import json
-import mock
 import pickle
+from datetime import datetime, timedelta
 
+import mock
 import pytest
+import requests
 
 # Tests OAuth Flow
 from dropbox import DropboxOAuth2Flow, session, Dropbox, create_session
+from dropbox.base import DropboxBase
+from dropbox.common import PathRoot
+from dropbox.content_hash import content_hash
 from dropbox.dropbox_client import (
     BadInputException,
     DropboxTeam,
     RouteResult,
+    USER_AUTH,
 )
-from dropbox.content_hash import content_hash
-from dropbox.common import PathRoot
-from dropbox.exceptions import AuthError, BadInputError
+from dropbox.exceptions import ApiError, AuthError, BadInputError
 from dropbox.oauth import OAuth2FlowNoRedirectResult, DropboxOAuth2FlowNoRedirect
-from datetime import datetime, timedelta
 
 APP_KEY = "dummy_app_key"
 APP_SECRET = "dummy_app_secret"
@@ -404,6 +408,107 @@ class TestClient:
             session=session_instance,
         )
 
+    def test_files_download_passes_extra_headers(self):
+        dbx = Dropbox(oauth2_access_token=ACCESS_TOKEN)
+
+        captured = {}
+
+        def fake_request(
+            route,
+            namespace,
+            request_arg,
+            request_binary,
+            timeout=None,
+            extra_headers=None,
+        ):
+            captured["extra_headers"] = extra_headers
+            return object(), object()
+
+        dbx.request = fake_request
+        extra_headers = {"Range": "bytes=0-99"}
+        dbx.files_download(
+            "/test.txt",
+            extra_headers=extra_headers,
+        )
+
+        assert captured["extra_headers"] == extra_headers
+
+    def test_files_download_without_headers_supports_legacy_request_override(self):
+        dbx = Dropbox(oauth2_access_token=ACCESS_TOKEN)
+
+        def legacy_request(route, namespace, request_arg, request_binary, timeout=None):
+            return object(), object()
+
+        dbx.request = legacy_request
+
+        dbx.files_download("/test.txt")
+
+    def test_base_request_signature_accepts_extra_headers(self):
+        parameters = inspect.signature(DropboxBase.request).parameters
+
+        assert "extra_headers" in parameters
+        assert parameters["extra_headers"].default is None
+
+    def test_extra_headers_are_added_to_http_request(self):
+        session_obj = create_session()
+
+        post_response = requests.Response()
+        post_response.status_code = 200
+        post_response.headers = {
+            "dropbox-api-result": "{}",
+        }
+        post_response._content = b""
+
+        session_obj.post = mock.MagicMock(return_value=post_response)
+
+        dbx = Dropbox(
+            oauth2_access_token=ACCESS_TOKEN,
+            session=session_obj,
+            headers={
+                "Authorization": "client-auth",
+                "Range": "bytes=100-199",
+                "X-Client-Header": "client-value",
+            },
+        )
+
+        dbx.request_json_string(
+            "content",
+            "files/download",
+            dbx._ROUTE_STYLE_DOWNLOAD,
+            '{"path": "/test.txt"}',
+            USER_AUTH,
+            None,
+            extra_headers={
+                "Authorization": "extra-auth",
+                "Range": "bytes=0-99",
+                "Dropbox-API-Arg": "incorrect",
+            },
+        )
+
+        headers = session_obj.post.call_args.kwargs["headers"]
+
+        assert headers["Authorization"] == "Bearer %s" % ACCESS_TOKEN
+        assert headers["Range"] == "bytes=0-99"
+        assert headers["X-Client-Header"] == "client-value"
+        assert headers["Dropbox-API-Arg"] == '{"path": "/test.txt"}'
+
+    def test_files_download_with_range_headers_preserves_api_errors(self):
+        session_obj = create_session()
+        post_response = requests.Response()
+        post_response.status_code = 409
+        post_response.headers = {
+            "content-type": "application/json",
+            "x-dropbox-request-id": "request-id",
+        }
+        post_response._content = b'{"error": {".tag": "path", "path": {".tag": "not_found"}}}'
+        session_obj.post = mock.MagicMock(return_value=post_response)
+        dbx = Dropbox(oauth2_access_token=ACCESS_TOKEN, session=session_obj)
+
+        with pytest.raises(ApiError) as error:
+            dbx.files_download("/missing.txt", extra_headers={"Range": "bytes=0-0"})
+
+        assert error.value.error.is_path()
+
     def test_Dropbox_with_expired_offline_token(self, session_instance):
         # Test Offline Case w/ invalid access
         Dropbox(
@@ -648,7 +753,16 @@ class TestAutoContentHash:
         # Stub out the network layer and capture the serialized argument sent.
         captured = {}
 
-        def fake_request(host, name, style, serialized_arg, auth, binary, timeout=None):
+        def fake_request(
+            host,
+            name,
+            style,
+            serialized_arg,
+            auth,
+            binary,
+            timeout=None,
+            extra_headers=None,
+        ):
             captured["arg"] = json.loads(serialized_arg)
             return RouteResult(self._fake_file_metadata(len(data), content_hash(data)))
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm-anthropic
-Version: 0.28
+Version: 0.29
 Summary: LLM access to models by Anthropic, including the Claude series
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: llm>=0.33
-Requires-Dist: anthropic<2,>=1
+Requires-Dist: anthropic<2,>=1.5
 Dynamic: license-file
 
 # llm-anthropic
@@ -45,7 +45,7 @@ Run `llm models` to list the models, and `llm models --options` to include a lis
 
 Run prompts like this:
 ```bash
-llm -m claude-opus-5 'Fun facts about walruses'
+llm -m claude-opus-5.5 'Fun facts about walruses'
 llm -m claude-sonnet-5 'Fun facts about pelicans'
 llm -m claude-haiku-4.5 'Fun facts about cormorants'
 ```

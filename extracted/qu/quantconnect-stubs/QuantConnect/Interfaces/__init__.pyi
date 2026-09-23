@@ -1043,6 +1043,16 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
+    def create_live_command(self, project_id: int, command: typing.Any) -> QuantConnect.Api.RestResponse:
+        """
+        Create a live command
+        
+        :param project_id: Project for the live instance we want to run the command against
+        :param command: The command to run
+        :returns: RestResponse.
+        """
+        ...
+
     def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
         ...
 
@@ -1199,6 +1209,16 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
+    def list_object_store(self, organization_id: str, path: str) -> QuantConnect.Api.ListObjectStoreResponse:
+        """
+        Request to list Object Store files of a specific organization and path
+        
+        :param organization_id: Organization ID we would like to list the Object Store files from
+        :param path: Path to the Object Store files
+        :returns: ListObjectStoreResponse.
+        """
+        ...
+
     def list_optimizations(self, project_id: int) -> typing.List[QuantConnect.Api.OptimizationSummary]:
         """
         List all the optimizations for a project
@@ -1257,6 +1277,31 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         :param start: Starting index of the insights to be fetched
         :param end: Last index of the insights to be fetched. Note that end - start must be less than 100
         :returns: InsightResponse.
+        """
+        ...
+
+    def read_backtest_log(self, project_id: int, backtest_id: str, start: int = 0, end: int = 0, query: str = None) -> QuantConnect.Api.BacktestLog:
+        """
+        Gets the logs of a specific backtest
+        
+        :param project_id: Id of the project from which to read the backtest
+        :param backtest_id: Id of the backtest from which to read the logs
+        :param start: Start line (inclusive) of logs to read
+        :param end: End line (exclusive) of logs to read
+        :param query: Keyword to filter the log lines
+        :returns: BacktestLog with the requested log lines and the total log line count.
+        """
+        ...
+
+    def read_backtest_orders(self, project_id: int, backtest_id: str, start: int = 0, end: int = 0) -> QuantConnect.Orders.OrdersResponseWrapper:
+        """
+        Returns the orders of the specified backtest and project id.
+        
+        :param project_id: Id of the project from which to read the orders
+        :param backtest_id: Id of the backtest from which to read the orders
+        :param start: Starting index of the orders to be fetched
+        :param end: Last index of the orders to be fetched
+        :returns: The OrdersResponseWrapper with the requested orders and the total order count.
         """
         ...
 
@@ -1335,15 +1380,29 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def read_live_logs(self, project_id: int, algorithm_id: str, start_line: int, end_line: int) -> QuantConnect.Api.LiveLog:
+    def read_live_logs(self, project_id: int, algorithm_id: str, start_line: int = 0, end_line: int = 0, query: str = None, deployment_logs: bool = False) -> QuantConnect.Api.LiveLog:
         """
         Gets the logs of a specific live algorithm
         
         :param project_id: Project Id of the live running algorithm
         :param algorithm_id: Algorithm Id of the live running algorithm
-        :param start_line: Start line of logs to read
-        :param end_line: End line of logs to read
-        :returns: List of strings that represent the logs of the algorithm.
+        :param start_line: Start line (inclusive) of logs to read
+        :param end_line: End line (exclusive) of logs to read
+        :param query: Keyword to filter the log lines
+        :param deployment_logs: Whether only the logs of the given algorithm_id deployment should be returned
+        :returns: LiveLog with the requested log lines.
+        """
+        ...
+
+    def read_live_orders(self, project_id: int, algorithm_id: str = None, start: int = 0, end: int = 0) -> QuantConnect.Orders.OrdersResponseWrapper:
+        """
+        Returns the orders of the specified project id live algorithm.
+        
+        :param project_id: Id of the project from which to read the live orders
+        :param algorithm_id: Deploy id (algorithm id) of the live running algorithm, null for the latest deployment
+        :param start: Starting index of the orders to be fetched
+        :param end: Last index of the orders to be fetched
+        :returns: The OrdersResponseWrapper with the requested orders and the total order count.
         """
         ...
 
@@ -1475,6 +1534,17 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         :param name: New backtest name to set
         :param note: Note attached to the backtest
         :returns: Rest response on success.
+        """
+        ...
+
+    def update_backtest_tags(self, project_id: int, backtest_id: str, tags: typing.Sequence[str]) -> QuantConnect.Api.RestResponse:
+        """
+        Updates the tags collection for a backtest
+        
+        :param project_id: Project for the backtest we want to update
+        :param backtest_id: Backtest id we want to update
+        :param tags: The new backtest tags
+        :returns: RestResponse.
         """
         ...
 

@@ -7,7 +7,6 @@ both the bash shim and the in-process ``aiwatch-hook`` paths.
 """
 
 import json
-import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
@@ -23,19 +22,6 @@ from runlayer_cli.commands.hooks import app
 from runlayer_cli.config import Config, HostConfig
 
 runner = CliRunner()
-
-
-@pytest.fixture(autouse=True)
-def _reset_logging_state():
-    """Undo ``silence_hook_logging``'s process-global mutation after each test.
-
-    The hook entrypoints call ``silence_hook_logging`` (structlog reconfigure +
-    ``logging.disable``). That state is process-global, so reset it in teardown
-    to keep it from leaking into unrelated tests.
-    """
-    yield
-    logging.disable(logging.NOTSET)
-    structlog.reset_defaults()
 
 
 @pytest.fixture(autouse=True)

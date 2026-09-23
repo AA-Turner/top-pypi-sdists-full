@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from .recipe import LoginRecipe, SignalDescriptor
 from .spec import ExpectSpec
@@ -43,12 +43,19 @@ class PageObservation(BaseModel):
 
     url: str | None = None
     url_before: str | None = None
+    url_probe_known: bool = False
     title: str | None = None
     present_selectors: frozenset[str] = Field(default_factory=frozenset)
+    # ``present_selectors`` is an empty *known* set only when its acquisition
+    # succeeded. A failed/unsupported selector command must set this false so a
+    # selector_absent descriptor cannot turn transport failure into a success.
+    selector_probe_known: bool = False
     cookie_names: frozenset[str] = Field(default_factory=frozenset)
+    cookie_probe_known: bool = False
     login_form_present: bool = True
     login_form_present_before: bool = True
     text_content: str | None = None
+    text_probe_known: bool = False
     timed_out: bool = False
 
     # ── The SETTLED structural probe (the strongest generic evidence we have) ──
@@ -64,21 +71,67 @@ class PageObservation(BaseModel):
     def structurally_probed(self) -> bool:
         return self.password_field_present is not None
 
-    def signal_observed(self, descriptor: SignalDescriptor) -> bool:
+    def signal_match(self, descriptor: SignalDescriptor) -> bool | None:
+        """Return a descriptor match, or None when its acquisition failed."""
         kind = descriptor.kind
         val = descriptor.value
         if kind == "selector_present":
-            return val in self.present_selectors
+            return val in self.present_selectors if self.selector_probe_known and not self.timed_out else None
         if kind == "selector_absent":
-            return val not in self.present_selectors
+            return val not in self.present_selectors if self.selector_probe_known and not self.timed_out else None
         if kind == "url_prefix":
-            return bool(self.url) and self.url.startswith(val)
+            return self.url.startswith(val) if self.url_probe_known and self.url is not None else None
         if kind == "cookie_present":
-            return val in self.cookie_names
+            return val in self.cookie_names if self.cookie_probe_known and not self.timed_out else None
         if kind == "text_present":
-            return bool(self.text_content) and val in self.text_content
-        return False
+            return (
+                val in self.text_content
+                if self.text_probe_known and self.text_content is not None and not self.timed_out
+                else None
+            )
+        return None
 
+    def signal_observed(self, descriptor: SignalDescriptor) -> bool:
+        """Compatibility projection for legacy direct raw-observation callers."""
+        return self.signal_match(descriptor) is True
+
+
+UrlRelation = Literal["unchanged", "changed", "unknown"]
+UrlFlow = Literal["challenge", "sign_in", "other", "unknown"]
+
+
+class EvaluatedObservation(BaseModel):
+    """Value-free facts evaluated against the authoritative expect and recipe.
+
+    This is deliberately a receipt shape, not a second recipe format.  It can
+    contain only booleans (or an honest ``None``) and the canonical URL classes;
+    selectors, URLs, cookie names, text, labels, weights, and verdicts remain in
+    the server-owned ``ExpectSpec`` and ``LoginRecipe`` passed to
+    :func:`verify_evaluated`.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    password_field_present_before: StrictBool | None = None
+    password_field_present_after: StrictBool | None = None
+    otp_field_present_before: StrictBool | None = None
+    otp_field_present_after: StrictBool | None = None
+    captcha_present_before: StrictBool | None = None
+    captcha_present_after: StrictBool | None = None
+    login_form_present_before: StrictBool | None = None
+    login_form_present_after: StrictBool | None = None
+    url_relation: UrlRelation = "unknown"
+    url_flow: UrlFlow = "unknown"
+
+    # Each value aligns with the same-named authoritative ExpectSpec field.
+    # Undeclared expectations MUST remain None; a caller cannot smuggle a hit.
+    success_url_prefix: StrictBool | None = None
+    success_selector: StrictBool | None = None
+    failure_selector: StrictBool | None = None
+    challenge_selector: StrictBool | None = None
+
+    # Ordered against recipe.all_signals(), exactly once per descriptor.
+    recipe_matches: tuple[StrictBool | None, ...] = ()
 
 class VerdictSignal(BaseModel):
     """One evaluated signal on the verdict — sanitized, never a value or page text."""
@@ -146,13 +199,15 @@ def _decide(observed: list[VerdictSignal]) -> tuple[Outcome, float, bool]:
     return "unknown", 0.0, False
 
 
-def _recipe_signals(recipe: LoginRecipe, obs: PageObservation) -> list[VerdictSignal]:
+def _recipe_signals(
+    recipe: LoginRecipe, matches: tuple[StrictBool | None, ...]
+) -> list[VerdictSignal]:
     out: list[VerdictSignal] = []
     for idx, d in enumerate(recipe.all_signals()):
         out.append(
             VerdictSignal(
                 signal=d.label or f"recipe:{d.kind}:{idx}",
-                observed=obs.signal_observed(d),
+                observed=matches[idx] is True,
                 source="recipe",
                 direction=d.direction,
                 weight=d.weight,
@@ -221,6 +276,97 @@ def url_segments(url: str | None) -> frozenset[str]:
     return frozenset(out)
 
 
+def _url_flow(url: str | None) -> UrlFlow:
+    """Project a raw URL into the only URL vocabulary receipts may carry."""
+    if url is None:
+        return "unknown"
+    segments = url_segments(url)
+    if segments & CHALLENGE_URL_SEGMENTS:
+        return "challenge"
+    if segments & AUTH_FLOW_URL_SEGMENTS:
+        return "sign_in"
+    return "other"
+
+
+def _evaluate_page_observation(
+    observation: PageObservation, *, expect: ExpectSpec, recipe: LoginRecipe | None
+) -> EvaluatedObservation:
+    """Remote adapter: evaluate rich, local-only page facts once at the edge."""
+    def expect_match(value: str | None, matched: bool | None) -> StrictBool | None:
+        return matched if value is not None else None
+
+    relation: UrlRelation = "unknown"
+    if observation.url_probe_known and observation.url is not None and observation.url_before is not None:
+        relation = "unchanged" if observation.url == observation.url_before else "changed"
+
+    return EvaluatedObservation(
+        password_field_present_after=(
+            observation.password_field_present
+            if observation.selector_probe_known and not observation.timed_out
+            else None
+        ),
+        otp_field_present_after=(
+            observation.otp_field_present if observation.selector_probe_known and not observation.timed_out else None
+        ),
+        captcha_present_after=(
+            observation.captcha_present
+            if observation.selector_probe_known and not observation.timed_out
+            else None
+        ),
+        login_form_present_before=observation.login_form_present_before,
+        login_form_present_after=(
+            observation.login_form_present
+            if observation.selector_probe_known and not observation.timed_out
+            else None
+        ),
+        url_relation=relation,
+        url_flow=_url_flow(observation.url) if observation.url_probe_known else "unknown",
+        success_url_prefix=expect_match(
+            expect.success_url_prefix,
+            observation.url.startswith(expect.success_url_prefix)
+            if observation.url_probe_known
+            and observation.url is not None
+            and expect.success_url_prefix is not None
+            else None,
+        ),
+        success_selector=expect_match(
+            expect.success_selector,
+            observation.signal_match(SignalDescriptor(
+                kind="selector_present",
+                value=expect.success_selector,
+                direction="authenticated",
+            ))
+            if expect.success_selector is not None
+            else None,
+        ),
+        failure_selector=expect_match(
+            expect.failure_selector,
+            observation.signal_match(SignalDescriptor(
+                kind="selector_present",
+                value=expect.failure_selector,
+                direction="rejected",
+            ))
+            if expect.failure_selector is not None
+            else None,
+        ),
+        challenge_selector=expect_match(
+            expect.challenge_selector,
+            observation.signal_match(SignalDescriptor(
+                kind="selector_present",
+                value=expect.challenge_selector,
+                direction="challenged",
+            ))
+            if expect.challenge_selector is not None
+            else None,
+        ),
+        recipe_matches=(
+            tuple(observation.signal_match(d) for d in recipe.all_signals())
+            if recipe is not None
+            else ()
+        ),
+    )
+
+
 #: The ambiguity markers — an observation that is real, is worth recording, and
 #: is deliberately NOT evidence for any outcome. Their whole job is to stop a
 #: success being claimed from the mere absence of a form.
@@ -230,8 +376,49 @@ AMBIGUOUS_STRUCTURAL_REASONS = (
     "form_cleared_url_unchanged",
 )
 
+#: EVERY generic structural signal this engine can emit, with its direction and
+#: its weight — the ONE place the vocabulary is declared. `_structural_signals`
+#: reads its weights from here, so a name cannot carry two weights, and hosts
+#: bind their own tables to it instead of restating it:
+#: `aidream/api/mcp/agent_service/browser_tools.py` (which reasons are safe to
+#: hand an agent) and `aidream/services/cloud_browser/local_commands.py` (the
+#: size bound a login completion must fit in). Adding a signal here therefore
+#: reaches both; restating one there is how a new signal escapes unannounced.
+GENERIC_STRUCTURAL_SIGNALS: tuple[tuple[str, str, float], ...] = (
+    ("anti_bot_challenge_detected", "challenged", 0.85),
+    ("verification_code_field_visible", "challenged", 0.85),
+    ("password_form_still_visible", "rejected", 0.8),
+    ("challenge_url_detected", "challenged", 0.8),
+    ("form_cleared_left_sign_in_flow", "authenticated", 0.75),
+    ("form_cleared_left_sign_in_flow_unprobed", "authenticated", 0.2),
+)
 
-def _structural_signals(obs: PageObservation) -> tuple[list[VerdictSignal], str | None]:
+#: The signals `_generic_signals` derives from a caller's ExpectSpec.
+EXPECT_SIGNALS: tuple[tuple[str, str, float], ...] = (
+    ("expected_challenge_present", "challenged", 0.9),
+    ("expected_error_present", "rejected", 0.9),
+    ("navigated_to_expected", "authenticated", 0.9),
+    ("expected_marker_present", "authenticated", 0.9),
+)
+
+#: Every value `Verdict.reason` can hold that is NOT a user-authored recipe
+#: label — a fixed, machine-safe vocabulary.
+FIXED_VERDICT_REASONS: frozenset[str] = frozenset(
+    {name for name, _d, _w in GENERIC_STRUCTURAL_SIGNALS}
+    | {name for name, _d, _w in EXPECT_SIGNALS}
+    | set(AMBIGUOUS_STRUCTURAL_REASONS)
+    | {
+        "explicit_expectation_not_met",
+        "no_signals_observed",
+        "signals_contradict",
+        "recipe_signals_contradict",
+    }
+)
+
+_STRUCTURAL_SIGNAL_SPEC = {name: (direction, weight) for name, direction, weight in GENERIC_STRUCTURAL_SIGNALS}
+
+
+def _structural_signals(obs: EvaluatedObservation) -> tuple[list[VerdictSignal], str | None]:
     """The settled-page structural evidence, in D-12 precedence order.
 
     Returns ``(signals, ambiguity_reason)``. Exactly one directional signal can
@@ -243,16 +430,8 @@ def _structural_signals(obs: PageObservation) -> tuple[list[VerdictSignal], str 
     kept in its own private classifier. It lives here now so there is exactly ONE
     implementation of the login decision.
     """
-    if not obs.structurally_probed:
-        return [], None
-
-    password = bool(obs.password_field_present)
-    otp = bool(obs.otp_field_present)
-    captcha = bool(obs.captcha_present)
-    segments = url_segments(obs.url)
-    url_unchanged = obs.url is not None and obs.url == obs.url_before
-
-    def sig(name: str, direction: str, weight: float) -> VerdictSignal:
+    def sig(name: str) -> VerdictSignal:
+        direction, weight = _STRUCTURAL_SIGNAL_SPEC[name]
         return VerdictSignal(
             signal=name,
             observed=True,
@@ -261,45 +440,59 @@ def _structural_signals(obs: PageObservation) -> tuple[list[VerdictSignal], str 
             weight=weight,
         )
 
-    if captcha:
-        return [sig("anti_bot_challenge_detected", "challenged", 0.85)], None
-    if otp:
-        return [sig("verification_code_field_visible", "challenged", 0.85)], None
-    if password:
-        if url_unchanged:
-            return [sig("password_form_still_visible", "rejected", 0.8)], None
+    # A positive challenge fact is decisive on its own.  Negative facts are
+    # different: they need the full settled probe before they may support success.
+    if obs.captcha_present_after is True:
+        return [sig("anti_bot_challenge_detected")], None
+    if obs.otp_field_present_after is True:
+        return [sig("verification_code_field_visible")], None
+    if obs.password_field_present_after is True:
+        if obs.url_relation == "unchanged":
+            return [sig("password_form_still_visible")], None
         # A password box on a DIFFERENT page is not a refusal and not a success
         # (a re-auth step, a second account chooser). Say so, decide nothing.
         return [], "password_form_on_new_page"
-    if segments & CHALLENGE_URL_SEGMENTS:
-        return [sig("challenge_url_detected", "challenged", 0.8)], None
-    if segments & AUTH_FLOW_URL_SEGMENTS:
+    if obs.url_flow == "challenge":
+        return [sig("challenge_url_detected")], None
+    if obs.url_flow == "sign_in":
         return [], "still_on_sign_in_flow"
-    if url_unchanged:
+    if obs.url_relation == "unchanged":
         return [], "form_cleared_url_unchanged"
-    return [sig("form_cleared_left_sign_in_flow", "authenticated", 0.75)], None
+
+    # Everything below here describes the SAME page shape: the sign-in form is
+    # gone AND the browser left the sign-in flow for an ordinary url. How much
+    # that is worth depends on HOW WELL it was observed, and the difference is
+    # confidence, not outcome — which is exactly what `confidence` is for.
+    if not (obs.url_relation == "changed" and obs.url_flow == "other"):
+        return [], None
+
+    settled_probe_saw_no_control = (
+        obs.password_field_present_after is False
+        and obs.otp_field_present_after is False
+        and obs.captcha_present_after is False
+    )
+    if settled_probe_saw_no_control:
+        # Precise: every control was probed and none is there. Strong evidence.
+        return [sig("form_cleared_left_sign_in_flow")], None
+    if obs.login_form_present_before is True and obs.login_form_present_after is False:
+        # Coarse: the precise probe never ran (or ran partially), but the one
+        # fact we DO have is a real before/after transition — the form was
+        # there, it is not any more, and the browser is off the sign-in flow.
+        # That is weak positive evidence, and dropping it is how a real success
+        # gets written down as "I could not read the page" (Lane AK). It is a
+        # weight-0.2 success: believable, never on its own sufficient, and it
+        # says in its own name that it was not probed.
+        return [sig("form_cleared_left_sign_in_flow_unprobed")], None
+    return [], None
 
 
-def _generic_signals(expect: ExpectSpec, obs: PageObservation) -> list[VerdictSignal]:
+def _generic_signals(expect: ExpectSpec, obs: EvaluatedObservation) -> list[VerdictSignal]:
     out: list[VerdictSignal] = []
-    # The login form is gone — weak alone (a site can swap the form for a challenge).
-    # Skipped entirely once the settled structural probe ran: that probe measures
-    # the same fact precisely, and counting both double-weights one observation.
-    if obs.login_form_present_before and not obs.structurally_probed:
-        out.append(
-            VerdictSignal(
-                signal="login_form_absent",
-                observed=not obs.login_form_present,
-                source="generic",
-                direction="authenticated",
-                weight=0.2,
-            )
-        )
     if expect.challenge_selector:
         out.append(
             VerdictSignal(
                 signal="expected_challenge_present",
-                observed=expect.challenge_selector in obs.present_selectors,
+                observed=obs.challenge_selector is True,
                 source="expect",
                 direction="challenged",
                 weight=0.9,
@@ -309,7 +502,7 @@ def _generic_signals(expect: ExpectSpec, obs: PageObservation) -> list[VerdictSi
         out.append(
             VerdictSignal(
                 signal="expected_error_present",
-                observed=expect.failure_selector in obs.present_selectors,
+                observed=obs.failure_selector is True,
                 source="expect",
                 direction="rejected",
                 weight=0.9,
@@ -319,7 +512,7 @@ def _generic_signals(expect: ExpectSpec, obs: PageObservation) -> list[VerdictSi
         out.append(
             VerdictSignal(
                 signal="navigated_to_expected",
-                observed=bool(obs.url) and obs.url.startswith(expect.success_url_prefix),
+                observed=obs.success_url_prefix is True,
                 source="expect",
                 direction="authenticated",
                 weight=0.9,
@@ -329,7 +522,7 @@ def _generic_signals(expect: ExpectSpec, obs: PageObservation) -> list[VerdictSi
         out.append(
             VerdictSignal(
                 signal="expected_marker_present",
-                observed=expect.success_selector in obs.present_selectors,
+                observed=obs.success_selector is True,
                 source="expect",
                 direction="authenticated",
                 weight=0.9,
@@ -373,23 +566,42 @@ def _winning_reason(signals: list[VerdictSignal], outcome: Outcome) -> str | Non
     return max(hits, key=lambda x: x.weight).signal
 
 
-def verify(
-    observation: PageObservation,
+def _validate_evaluated_observation(
+    observation: EvaluatedObservation, *, expect: ExpectSpec, recipe: LoginRecipe | None
+) -> None:
+    """Reject facts that do not correspond to the frozen authoritative inputs."""
+    for field in (
+        "success_url_prefix",
+        "success_selector",
+        "failure_selector",
+        "challenge_selector",
+    ):
+        if getattr(expect, field) is None and getattr(observation, field) is not None:
+            raise ValueError(f"evaluated observation includes hit for undeclared {field}")
+    expected_count = len(recipe.all_signals()) if recipe is not None else 0
+    if len(observation.recipe_matches) != expected_count:
+        raise ValueError(
+            "evaluated observation recipe_matches must exactly match the frozen recipe descriptor count"
+        )
+
+
+def verify_evaluated(
+    observation: EvaluatedObservation,
     *,
     expect: ExpectSpec | None = None,
     recipe: LoginRecipe | None = None,
 ) -> Verdict:
-    """Produce the D-12 verdict for one login attempt.
+    """Decide a strict, value-free login receipt using the canonical algorithm.
 
-    🚨 THE ONE DECISION. Every surface that must answer "did that login work?"
-    calls this — the Cloud Browser server executor, the local-Chrome executor,
-    and anything built next. A second classifier beside it is a defect: the
-    two drift, and the documented confidence model stops describing reality.
+    ``expect`` and ``recipe`` are authoritative server-side definitions.  An
+    evaluated caller supplies only their resulting match booleans, never a
+    descriptor, weight, or direction.
     """
     expect = expect or ExpectSpec()
+    _validate_evaluated_observation(observation, expect=expect, recipe=recipe)
 
     if recipe is not None:
-        recipe_signals = _recipe_signals(recipe, observation)
+        recipe_signals = _recipe_signals(recipe, observation.recipe_matches)
         if any(s.observed for s in recipe_signals):
             outcome, confidence, contradiction = _decide(recipe_signals)
             return Verdict(
@@ -440,14 +652,39 @@ def verify(
     )
 
 
+def verify(
+    observation: PageObservation,
+    *,
+    expect: ExpectSpec | None = None,
+    recipe: LoginRecipe | None = None,
+) -> Verdict:
+    """Adapt the established rich remote observation into the canonical receipt.
+
+    This remains the public API for existing Cloud Browser callers.  New local
+    receipt paths call :func:`verify_evaluated` directly, so both paths share
+    the one decision implementation above.
+    """
+    expect = expect or ExpectSpec()
+    return verify_evaluated(
+        _evaluate_page_observation(observation, expect=expect, recipe=recipe),
+        expect=expect,
+        recipe=recipe,
+    )
+
+
 __all__ = [
     "AMBIGUOUS_STRUCTURAL_REASONS",
     "AUTH_FLOW_URL_SEGMENTS",
     "CHALLENGE_URL_SEGMENTS",
+    "EXPECT_SIGNALS",
+    "FIXED_VERDICT_REASONS",
+    "GENERIC_STRUCTURAL_SIGNALS",
+    "EvaluatedObservation",
     "Outcome",
     "PageObservation",
     "Verdict",
     "VerdictSignal",
     "url_segments",
     "verify",
+    "verify_evaluated",
 ]

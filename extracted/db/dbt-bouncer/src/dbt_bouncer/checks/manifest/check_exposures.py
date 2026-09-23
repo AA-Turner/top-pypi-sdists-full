@@ -4,11 +4,14 @@ from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.check_framework.exceptions import NestedDict
-from dbt_bouncer.enums import ModelAccess
-from dbt_bouncer.utils import find_missing_meta_keys, is_description_populated
+from dbt_bouncer.enums import Criteria, ModelAccess
+from dbt_bouncer.utils import (
+    find_meta_keys_criteria_failure,
+    is_description_populated,
+)
 
 
-@check
+@check(code="EX001")
 def check_exposure_based_on_model(
     exposure,
     *,
@@ -62,12 +65,12 @@ def check_exposure_based_on_model(
         )
 
 
-@check
+@check(code="EX003")
 def check_exposure_based_on_view(
     exposure,
     ctx,
     *,
-    materializations_to_include: list[str] = ["ephemeral", "view"],  # noqa: B006
+    materializations_to_include: list[str] = ["ephemeral", "view"],  # ruff: ignore[mutable-argument-default]
 ):
     """Exposures should not be based on views.
 
@@ -126,7 +129,7 @@ def check_exposure_based_on_view(
         )
 
 
-@check
+@check(code="EX002")
 def check_exposure_based_on_non_public_models(exposure, ctx):
     """Exposures should be based on public models only.
 
@@ -173,7 +176,7 @@ def check_exposure_based_on_non_public_models(exposure, ctx):
         )
 
 
-@check
+@check(code="EX004")
 def check_exposure_description_populated(
     exposure, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
@@ -213,8 +216,10 @@ def check_exposure_description_populated(
         fail(f"`{exposure.name}` does not have a populated description.")
 
 
-@check
-def check_exposure_has_meta_keys(exposure, *, keys: NestedDict):
+@check(code="EX005")
+def check_exposure_has_meta_keys(
+    exposure, *, criteria: Criteria = Criteria.ALL, keys: NestedDict
+):
     """The `meta` config for exposures must have the specified keys.
 
     !!! info "Rationale"
@@ -222,6 +227,7 @@ def check_exposure_has_meta_keys(exposure, *, keys: NestedDict):
         The `meta` config is a flexible, project-defined dictionary used to track ownership, maturity levels, and other governance attributes. Requiring specific keys on exposures ensures that governance information is consistently captured for all downstream consumers, enabling automated reporting and access-control workflows that depend on these attributes.
 
     Parameters:
+        criteria (Literal["all", "any", "one"]): Whether the resource must have all, any, or exactly one of the specified keys. Default: `all`.
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
 
     Receives:
@@ -243,20 +249,18 @@ def check_exposure_has_meta_keys(exposure, *, keys: NestedDict):
         ```
 
     """
-    missing_keys = find_missing_meta_keys(
-        meta_config=exposure.meta or {}, required_keys=keys.model_dump()
+    failure = find_meta_keys_criteria_failure(
+        exposure.meta or {}, keys.model_dump(), criteria
     )
-    if missing_keys:
-        fail(
-            f"`{exposure.name}` is missing the following keys from the `meta` config: {[x.replace('>>', '') for x in missing_keys]}"
-        )
+    if failure:
+        fail(f"`{exposure.name}` {failure}")
 
 
-@check
+@check(code="EX006")
 def check_exposure_has_owner(
     exposure,
     *,
-    required_fields: list[str] = ["email"],  # noqa: B006
+    required_fields: list[str] = ["email"],  # ruff: ignore[mutable-argument-default]
 ):
     """Exposures must have owner information populated.
 

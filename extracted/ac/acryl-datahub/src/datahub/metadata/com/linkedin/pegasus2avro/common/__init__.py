@@ -77,6 +77,7 @@ from .....schema_classes import StatusClass
 from .....schema_classes import SubTypesClass
 from .....schema_classes import TagAssociationClass
 from .....schema_classes import TimeStampClass
+from .....schema_classes import UpstreamMetricsClass
 from .....schema_classes import VersionPropertiesClass
 from .....schema_classes import VersionTagClass
 from .....schema_classes import WindowDurationClass
@@ -152,6 +153,7 @@ Status = StatusClass
 SubTypes = SubTypesClass
 TagAssociation = TagAssociationClass
 TimeStamp = TimeStampClass
+UpstreamMetrics = UpstreamMetricsClass
 VersionProperties = VersionPropertiesClass
 VersionTag = VersionTagClass
 WindowDuration = WindowDurationClass

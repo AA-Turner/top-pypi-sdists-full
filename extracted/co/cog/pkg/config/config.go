@@ -75,6 +75,19 @@ type Concurrency struct {
 	Max int `json:"max,omitempty" yaml:"max"`
 }
 
+type Observability struct {
+	Config string   `json:"config,omitempty" yaml:"config,omitempty"`
+	Traces *Tracing `json:"traces,omitempty" yaml:"traces,omitempty"`
+}
+
+type Tracing struct {
+	Enabled           bool   `json:"enabled" yaml:"enabled"`
+	Sampler           string `json:"sampler,omitempty" yaml:"sampler,omitempty"`
+	SamplerArg        string `json:"sampler_arg,omitempty" yaml:"sampler_arg,omitempty"`
+	TraceHeader       string `json:"trace_header,omitempty" yaml:"trace_header,omitempty"`
+	TraceHeaderFormat string `json:"trace_header_format,omitempty" yaml:"trace_header_format,omitempty"`
+}
+
 // WeightSourceConfig describes where to import weights from.
 // This is the "source" sub-object inside a weights entry.
 type WeightSourceConfig struct {
@@ -106,14 +119,15 @@ func WeightNames(ws []WeightSource) []string {
 }
 
 type Config struct {
-	Build       *Build         `json:"build" yaml:"build"`
-	Image       string         `json:"image,omitempty" yaml:"image,omitempty"`
-	Model       string         `json:"model,omitempty" yaml:"model,omitempty"`
-	Predict     string         `json:"predict,omitempty" yaml:"predict"`
-	Train       string         `json:"train,omitempty" yaml:"train,omitempty"`
-	Concurrency *Concurrency   `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
-	Environment []string       `json:"environment,omitempty" yaml:"environment,omitempty"`
-	Weights     []WeightSource `json:"weights,omitempty" yaml:"weights,omitempty"`
+	Build         *Build         `json:"build" yaml:"build"`
+	Image         string         `json:"image,omitempty" yaml:"image,omitempty"`
+	Model         string         `json:"model,omitempty" yaml:"model,omitempty"`
+	Predict       string         `json:"predict,omitempty" yaml:"predict"`
+	Train         string         `json:"train,omitempty" yaml:"train,omitempty"`
+	Concurrency   *Concurrency   `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
+	Observability *Observability `json:"observability,omitempty" yaml:"observability,omitempty"`
+	Environment   []string       `json:"environment,omitempty" yaml:"environment,omitempty"`
+	Weights       []WeightSource `json:"weights,omitempty" yaml:"weights,omitempty"`
 
 	parsedEnvironment map[string]string
 }
@@ -198,6 +212,36 @@ func (c *Config) CUDABaseImageTag() (string, error) {
 
 func (c *Config) TorchVersion() (string, bool) {
 	return c.pythonPackageVersion("torch")
+}
+
+// ResolvedTorchWheel reports the torch wheel a GPU build will actually install: the exact
+// pinned version and the CUDA it was built against, read from the resolved package index
+// (e.g. .../whl/cu128 -> "12.8"). It mirrors PythonRequirementsForArch, so it reflects the
+// installed wheel rather than the raw requirement line, and falls back to Build.CUDA when the
+// resolved index carries no CUDA. Returns ok=false unless torch is pinned to one exact version.
+func (c *Config) ResolvedTorchWheel(goos string, goarch string) (torchVersion string, cuda string, ok bool) {
+	for _, pkg := range c.Build.pythonRequirementsContent {
+		if requirements.NormalizePackageName(requirements.PackageName(pkg)) != "torch" {
+			continue
+		}
+		resolved, _, extraIndexURLs, err := c.pythonPackageForArch(pkg, goos, goarch)
+		if err != nil {
+			return "", "", false
+		}
+		version, hasExact := requirements.ExactVersion(resolved)
+		if !hasExact {
+			return "", "", false
+		}
+		resolvedCUDA := c.Build.CUDA
+		for _, indexURL := range extraIndexURLs {
+			if derived, found := cudaVersionFromIndexURL(indexURL); found {
+				resolvedCUDA = derived
+				break
+			}
+		}
+		return version, resolvedCUDA, true
+	}
+	return "", "", false
 }
 
 func (c *Config) TorchvisionVersion() (string, bool) {

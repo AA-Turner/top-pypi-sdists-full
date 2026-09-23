@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite_toolkit
-Version: 0.8.219
+Version: 0.8.222
 Summary: Official Cognite Data Fusion tool for project templates and configuration deployment
 Author: Cognite AS
 Author-email: Cognite AS <support@cognite.com>
@@ -33,6 +33,7 @@ Requires-Dist: python-dateutil>=2.9.0
 Requires-Dist: pip>=25.0.1
 Requires-Dist: filelock>=3.18.0
 Requires-Dist: keyring>=25.0.0
+Requires-Dist: cognite-function-apps[cli]>=0.15.0 ; extra == 'run-function-app'
 Requires-Dist: sqlparse>=0.5.3 ; extra == 'sql'
 Requires-Dist: pyarrow>=20.0.0 ; extra == 'table'
 Requires-Dist: openpyxl>=3.1.5 ; extra == 'table'
@@ -42,6 +43,7 @@ Project-URL: Homepage, https://docs.cognite.com/cdf/deploy/cdf_toolkit/
 Project-URL: Changelog, https://github.com/cognitedata/toolkit/releases
 Project-URL: GitHub, https://github.com/cognitedata/toolkit
 Project-URL: Documentation, https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library
+Provides-Extra: run-function-app
 Provides-Extra: sql
 Provides-Extra: table
 Provides-Extra: v08

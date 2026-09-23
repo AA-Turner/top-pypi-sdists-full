@@ -9598,6 +9598,92 @@ class TestDevinCLIHooks:
                     case
                 )
 
+    # -- daemon-served CLAUDECODE marker --------------------------------
+    #
+    # The daemon installs only the allowlist-filtered forwarded env on its
+    # per-request HookIO; it never scrubs CLAUDECODE from its own long-lived
+    # os.environ. CLAUDECODE is a per-invocation marker, so for daemon-served
+    # requests its absence in the forwarded env means "did not come from a
+    # nested Claude Code host" and must NOT fall through to the daemon's
+    # ambient env. These tests guard the getenv(forwarded_only=True) fix.
+
+    def test_noop_guard_daemon_served_ignores_ambient_claudecode(self):
+        """A daemon that inherited CLAUDECODE into its own os.environ must not
+        poison every daemon-served request: the imported Claude hook stands
+        down for a pure Devin MCP/lifecycle call so only the tagged
+        ``--client devin-cli`` hook enforces. Regression guard for the
+        double-enforcement pathology the guard exists to prevent."""
+        # The daemon process inherited CLAUDECODE persistently; the invoking
+        # pure-Devin client did NOT forward it (it is a per-invocation marker).
+        daemon_env = self._clean_env(CLAUDECODE="1")
+        forwarded_env = {"DEVIN_PROJECT_DIR": "/repo"}
+        request_io = hook_io.HookIO(
+            env=forwarded_env,
+            argv=["/h/.claude/hook", "--client", "claude_code"],
+            cwd="/repo",
+            daemon_served=True,
+        )
+        with patch.dict(os.environ, daemon_env, clear=True):
+            with hook_io.scoped(request_io):
+                client = detect_client()
+                assert client is Client.CLAUDE_CODE
+                # mcp__* and lifecycle events on a daemon-served Devin request
+                # must stand down (True), not enforce alongside the tagged
+                # devin-cli hook.
+                assert (
+                    should_noop_for_devin(client, tool_name="mcp__linear__list_issues")
+                    is True
+                )
+                assert should_noop_for_devin(client, tool_name="") is True
+
+    def test_noop_guard_daemon_served_honors_forwarded_claudecode(self):
+        """A real nested Claude Code host that forwarded CLAUDECODE through the
+        daemon allowlist must keep enforcing its ``mcp__*`` and lifecycle
+        calls even when the daemon's own os.environ is clean. Confirms the
+        allowlist fast path still wins on the daemon-served path."""
+        # The daemon's own os.environ carries no marker.
+        daemon_env = self._clean_env()
+        forwarded_env = {"DEVIN_PROJECT_DIR": "/repo", "CLAUDECODE": "1"}
+        request_io = hook_io.HookIO(
+            env=forwarded_env,
+            argv=["/h/.claude/hook", "--client", "claude_code"],
+            cwd="/repo",
+            daemon_served=True,
+        )
+        with patch.dict(os.environ, daemon_env, clear=True):
+            with hook_io.scoped(request_io):
+                client = detect_client()
+                assert client is Client.CLAUDE_CODE
+                assert (
+                    should_noop_for_devin(client, tool_name="mcp__linear__list_issues")
+                    is False
+                )
+                assert should_noop_for_devin(client, tool_name="") is False
+
+    def test_noop_guard_inline_hook_io_still_reads_ambient_claudecode(self):
+        """Symmetric regression guard: an inline (non-daemon-served) HookIO
+        still falls through to os.environ for CLAUDECODE, so a real nested
+        Claude Code host keeps enforcing. The fix only narrows the
+        daemon-served fallback; the inline path is unchanged."""
+        env = self._clean_env(DEVIN_PROJECT_DIR="/repo", CLAUDECODE="1")
+        # The inline HookIO carries DEVIN_PROJECT_DIR but not the marker; the
+        # marker is read from os.environ on the inline path.
+        request_io = hook_io.HookIO(
+            env={"DEVIN_PROJECT_DIR": "/repo"},
+            argv=["/h/.claude/hook", "--client", "claude_code"],
+            cwd="/repo",
+            daemon_served=False,
+        )
+        with patch.dict(os.environ, env, clear=True):
+            with hook_io.scoped(request_io):
+                client = detect_client()
+                assert client is Client.CLAUDE_CODE
+                assert (
+                    should_noop_for_devin(client, tool_name="mcp__linear__list_issues")
+                    is False
+                )
+                assert should_noop_for_devin(client, tool_name="") is False
+
     # -- MCP source resolution ------------------------------------------
 
     _NATIVE = {"mcpServers": {"linear": {"url": "https://native/sse"}}}

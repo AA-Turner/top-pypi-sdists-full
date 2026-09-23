@@ -4,7 +4,7 @@ import re
 import tomllib
 import types
 import typing
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any
@@ -15,6 +15,7 @@ import yaml
 from pydantic import RootModel, ValidationError
 
 from dbt_bouncer.enums import CheckCategory, ConfigFileName, ConfigFileSource
+from dbt_bouncer.exceptions import DbtBouncerConfigError
 from dbt_bouncer.utils import compile_pattern, get_check_registry, load_config_from_yaml
 
 if TYPE_CHECKING:
@@ -24,6 +25,72 @@ if TYPE_CHECKING:
 _rebuilt_classes: set[str] = set()
 
 _CHECK_CATEGORIES = tuple(CheckCategory)
+
+# Rule codes are a two-letter prefix plus three digits (e.g. "MO001"); check
+# names are snake_case, so the shape alone distinguishes them.
+RULE_CODE_PATTERN = re.compile(r"^[A-Z]{2}\d{3}$")
+
+# Deprecated check names accepted for backwards compatibility. Rewritten to
+# their replacement (with a warning) before config validation, and removed in
+# the next major release.
+DEPRECATED_CHECK_NAME_ALIASES: dict[str, str] = {
+    "check_model_description_contains_regex_pattern": "check_model_description_contains_regexp_pattern",
+}
+
+
+def _suggest_closest(target: str, candidates: Iterable[str]) -> str:
+    """Return a did-you-mean sentence for the candidate closest to ``target``.
+
+    Returns:
+        str: ``Did you mean '<candidate>'?`` when the closest candidate is
+        within a Levenshtein distance of 3, else an empty string. The cap
+        avoids surfacing absurd suggestions for keys that resemble nothing.
+        The caller is responsible for surrounding punctuation and spacing.
+
+    """
+    best = min(
+        candidates,
+        key=lambda c: jellyfish.levenshtein_distance(c, target),
+        default=None,
+    )
+    if best is not None:
+        distance = jellyfish.levenshtein_distance(best, target)
+        if distance <= 3:
+            return f"Did you mean '{best}'?"
+    return ""
+
+
+def warn_deprecated_check_name(old_name: str, new_name: str) -> None:
+    """Log the standard deprecation warning for a renamed check.
+
+    Args:
+        old_name: The deprecated check name found in the user's input.
+        new_name: The replacement check name.
+
+    """
+    logging.warning(
+        f"Check name `{old_name}` is deprecated and will be removed in a future major release; use `{new_name}` instead."
+    )
+
+
+def apply_deprecated_check_name_aliases(config_file_contents: dict) -> dict:
+    """Rewrite deprecated check names to their replacements, warning per use.
+
+    Returns:
+        dict: The same mapping, mutated in place.
+
+    """
+    for category, checks in config_file_contents.items():
+        if not category.endswith("_checks") or not isinstance(checks, list):
+            continue
+        for c in checks:
+            if not isinstance(c, dict):
+                continue
+            new_name = DEPRECATED_CHECK_NAME_ALIASES.get(c.get("name"))
+            if new_name is not None:
+                warn_deprecated_check_name(c["name"], new_name)
+                c["name"] = new_name
+    return config_file_contents
 
 
 @lru_cache(maxsize=1)
@@ -82,9 +149,9 @@ def get_config_file_path(
         PurePath: Config file for dbt-bouncer.
 
     Raises:
-        RuntimeError: If no config file is found.
+        DbtBouncerConfigError: If no config file is found.
 
-    """  # noqa: D400, D415
+    """  # ruff: ignore[missing-trailing-period, missing-terminal-punctuation]
     logging.debug(f"{config_file=}")
     logging.debug(f"{config_file_source=}")
 
@@ -92,7 +159,7 @@ def get_config_file_path(
         logging.debug(f"Config file passed via command line: {config_file}")
         config_file_path = Path(config_file)
         if not config_file_path.exists():
-            raise RuntimeError(f"Config file not found: {config_file}")
+            raise DbtBouncerConfigError(f"Config file not found: {config_file}")
         return config_file
 
     if config_file_path_via_env_var := os.getenv("DBT_BOUNCER_CONFIG_FILE"):
@@ -136,7 +203,7 @@ def get_config_file_path(
 
         if pyproject_toml_dir is None:
             logging.debug("No pyproject.toml found.")
-            raise RuntimeError(
+            raise DbtBouncerConfigError(
                 "No config file found. Please provide a `dbt-bouncer.yml`, `dbt-bouncer.yaml`, `dbt-bouncer.toml`, or a `pyproject.toml` with a `[tool.dbt-bouncer]` section. Alternatively, pass the path via the `--config-file` flag.",
             )
 
@@ -157,7 +224,7 @@ def load_config_file_contents(
         Mapping[str, Any]: Config for dbt-bouncer.
 
     Raises:
-        RuntimeError: If the config file type is not supported or does not contain the expected keys.
+        DbtBouncerConfigError: If the config file type is not supported or does not contain the expected keys.
 
     """
     match config_file_path.suffix:
@@ -195,17 +262,17 @@ def load_config_file_contents(
                     logging.info(
                         "A `dbt-bouncer.yml` file has been created in the current directory with default settings."
                     )
-                    with Path.open(created_config_file, "w") as f:
+                    with Path.open(created_config_file, "w", encoding="utf-8") as f:
                         f.write(DEFAULT_DBT_BOUNCER_CONFIG)
 
                     return load_config_from_yaml(created_config_file)
 
                 else:
-                    raise RuntimeError(
+                    raise DbtBouncerConfigError(
                         "No configuration for `dbt-bouncer` could be found. You can pass the path to your config file via the `--config-file` flag. Alternatively, configure `pyproject.toml` or use a `dbt-bouncer.toml` file.",
                     )
         case _:
-            raise RuntimeError(
+            raise DbtBouncerConfigError(
                 f"Config file must be a `.toml`, `.yaml`, or `.yml` file. Got {config_file_path.suffix}."
             )
 
@@ -294,21 +361,49 @@ def lint_config_file(config_file_path: Path) -> list[dict[str, Any]]:
                     )
                     continue
 
-                if "name" not in check:
+                # Treat absent, null and empty values alike: all leave us with
+                # nothing to look up in the registry.
+                raw_name = check.get("name") or check.get("code")
+                if not raw_name:
                     issues.append(
                         {
                             "line": idx + 1,
-                            "message": "Check is missing required 'name' field",
+                            "message": "Check is missing required 'name' or 'code' field",
                             "severity": "error",
                         }
                     )
-                    continue  # Cannot validate the name if it's absent
+                    continue  # Cannot validate if absent
 
-                check_name = check["name"]
-                if check_name not in registry:
+                # The config is arbitrary user YAML, so a name may be any type.
+                # Report the type plainly instead of stringifying it and then
+                # offering a nearest-match suggestion for something that was
+                # never a name -- a list value would otherwise produce
+                # "Unknown check name '['check_model_names']'".
+                if not isinstance(raw_name, str):
+                    issues.append(
+                        {
+                            "line": idx + 1,
+                            "message": (
+                                f"Check 'name' must be a string, got "
+                                f"{type(raw_name).__name__}"
+                            ),
+                            "severity": "error",
+                        }
+                    )
+                    continue
+
+                check_name = raw_name
+
+                if check_name in DEPRECATED_CHECK_NAME_ALIASES:
+                    warn_deprecated_check_name(
+                        check_name, DEPRECATED_CHECK_NAME_ALIASES[check_name]
+                    )
+                elif check_name not in registry:
                     best_match = min(
                         registry.keys(),
-                        key=lambda k: jellyfish.levenshtein_distance(k, check_name),
+                        key=lambda k, target=check_name: jellyfish.levenshtein_distance(
+                            k, target
+                        ),
                         default=None,
                     )
                     suggestion = f" Did you mean '{best_match}'?" if best_match else ""
@@ -319,6 +414,119 @@ def lint_config_file(config_file_path: Path) -> list[dict[str, Any]]:
                             "severity": "error",
                         }
                     )
+
+    return issues
+
+
+def _resolve_loc_line(config_file_path: Path, loc: tuple[Any, ...]) -> int:
+    """Best-effort line number for a Pydantic error location in a YAML file.
+
+    Walks the YAML node tree (which carries source marks) along ``loc``.
+    Discriminated-union tags (check names) appear in ``loc`` but are not YAML
+    keys, so unresolvable string parts are skipped and the walk continues.
+
+    Returns:
+        int: 1-based line number of the deepest resolvable part, or 1 when the
+        file is not YAML or nothing resolves.
+
+    """
+    if config_file_path.suffix not in (".yml", ".yaml"):
+        return 1
+
+    try:
+        node = yaml.compose(  # type: ignore[possibly-missing-attribute]
+            config_file_path.read_text(),
+            Loader=yaml.CSafeLoader,  # type: ignore[possibly-missing-attribute]
+        )
+    except (OSError, yaml.YAMLError):
+        return 1
+
+    line = 1
+    for part in loc:
+        match node:
+            case yaml.MappingNode():
+                for key_node, value_node in node.value:
+                    if key_node.value == str(part):
+                        line = key_node.start_mark.line + 1
+                        node = value_node
+                        break
+                # An unmatched part (e.g. a union tag) is skipped; the walk
+                # continues from the current node.
+            case yaml.SequenceNode() if isinstance(part, int):
+                if part >= len(node.value):
+                    break
+                node = node.value[part]
+                line = node.start_mark.line + 1
+            case _:
+                break
+    return line
+
+
+def lint_config_file_deep(config_file_path: Path) -> list[dict[str, Any]]:
+    """Validate the config file against the full Pydantic model.
+
+    Complements ``lint_config_file``: the surface lint catches YAML syntax and
+    shape issues, this catches everything ``dbt-bouncer run`` would reject —
+    unknown keys, unknown check parameters, and mistyped parameter values.
+
+    Args:
+        config_file_path: Path to the config file.
+
+    Returns:
+        list[dict[str, Any]]: Issues found, each with 'line', 'message', and
+        'severity'.
+
+    """
+    issues: list[dict[str, Any]] = []
+
+    try:
+        config_file_contents = dict(
+            load_config_file_contents(
+                config_file_path, allow_default_config_file_creation=False
+            )
+        )
+    except DbtBouncerConfigError as e:
+        return [{"line": 1, "message": str(e), "severity": "error"}]
+
+    check_categories = [
+        k
+        for k in config_file_contents
+        if k.endswith("_checks") and config_file_contents.get(k) != []
+    ]
+
+    custom_checks_dir = None
+    if config_file_contents.get("custom_checks_dir"):
+        custom_checks_dir = (
+            Path(config_file_path).parent / config_file_contents["custom_checks_dir"]
+        )
+
+    try:
+        validate_conf(
+            check_categories=check_categories,
+            config_file_contents=config_file_contents,
+            custom_checks_dir=custom_checks_dir,
+        )
+    except DbtBouncerConfigError as e:
+        details = e.details or [{"loc": (), "message": m} for m in str(e).splitlines()]
+        for detail in details:
+            issues.append(
+                {
+                    "line": _resolve_loc_line(
+                        config_file_path, tuple(detail.get("loc", ()))
+                    ),
+                    "message": detail["message"],
+                    "severity": "error",
+                }
+            )
+    except Exception as e:
+        logging.warning(f"Unexpected error during config validation: {e}")
+        issues.append(
+            {
+                "line": 1,
+                "message": f"Unexpected error during config validation: {e}",
+                "severity": "error",
+            }
+        )
 
     return issues
 
@@ -432,6 +640,7 @@ def _construct_cached_check(
     return cls.model_construct(**data)
 
 
+@lru_cache(maxsize=1)
 def _get_lite_conf_class() -> type["DbtBouncerConfBase"]:
     """Return a lightweight Pydantic subclass of ``DbtBouncerConfBase``.
 
@@ -440,16 +649,12 @@ def _get_lite_conf_class() -> type["DbtBouncerConfBase"]:
     fields are typed as ``list[Any]``. Constructing this class is a sub-millisecond
     operation versus ~70ms for the full discriminated-union variant.
 
-    Cached on the function object since the class is interpreter-wide and immutable.
+    Cached for the interpreter's lifetime since the class is immutable.
 
     Returns:
         type[DbtBouncerConfBase]: A subclass with three ``list[Any]`` category fields.
 
     """
-    cached = getattr(_get_lite_conf_class, "_cls", None)
-    if cached is not None:
-        return cached
-
     from pydantic import Field, create_model
 
     from dbt_bouncer.configuration_file.parser import DbtBouncerConfBase
@@ -461,7 +666,6 @@ def _get_lite_conf_class() -> type["DbtBouncerConfBase"]:
         manifest_checks=(list[Any], Field(default=[])),
         run_results_checks=(list[Any], Field(default=[])),
     )
-    _get_lite_conf_class._cls = cls  # type: ignore[attr-defined]
     return cls
 
 
@@ -640,6 +844,246 @@ def _write_cached_conf(cache_path: Path, bouncer_config: "DbtBouncerConfBase") -
         logging.debug("Conf cache write failed.", exc_info=True)
 
 
+def _resolve_rule_code_entry(
+    entry: dict[str, Any], c_key: str, registry: dict[str, "type[BaseCheck]"]
+) -> set[str]:
+    """Fill an entry's ``name`` and ``code`` from a rule code, in place.
+
+    Returns:
+        set[str]: The check name and code resolved for this entry (may be empty).
+
+    """
+    cls = registry.get(c_key)
+    if cls is None:
+        return set()
+
+    added: set[str] = set()
+    name_field = cls.model_fields.get("name")
+    if name_field is not None:
+        args = typing.get_args(name_field.annotation)
+        if args:
+            entry["name"] = args[0]
+            added.add(args[0])
+    code_val = getattr(cls, "code", None)
+    if code_val is not None:
+        entry["code"] = code_val
+        added.add(code_val)
+    return added
+
+
+def _extract_configured_check_names(
+    check_categories,
+    config_file_contents: dict[str, Any],
+    custom_checks_dir: Path | None,
+) -> set[str]:
+    """Collect configured check names and resolve any rule codes to names.
+
+    Normalise each check entry in place: when an entry names a check by rule code,
+    fill in its ``name`` and ``code`` so validation and targeted module loading can
+    key on the name. Resolving a code needs the full registry, which imports every
+    check module -- the cost targeted loading exists to avoid -- so build the
+    registry only when a code is actually used.
+
+    Returns:
+        set[str]: The configured check names and codes.
+
+    """
+    registry: dict[str, type[BaseCheck]] | None = None
+    configured_check_names: set[str] = set()
+    entries = (
+        entry
+        for cat in check_categories
+        for entry in config_file_contents.get(cat, [])
+        if isinstance(entry, dict)
+    )
+    for entry in entries:
+        # A rule code may appear under either key, so match on its shape.
+        c_key = entry.get("name") or entry.get("code")
+        if not c_key:
+            continue
+        configured_check_names.add(c_key)
+        if not isinstance(c_key, str) or not RULE_CODE_PATTERN.match(c_key):
+            # A plain check name needs no resolution, and the check's own `code`
+            # field default fills the code in during validation.
+            continue
+        if registry is None:
+            registry = get_check_registry(custom_checks_dir)
+        configured_check_names |= _resolve_rule_code_entry(entry, c_key, registry)
+    return configured_check_names
+
+
+def _build_conf_class(
+    check_categories,
+    configured_check_names: set[str],
+    custom_checks_dir: Path | None,
+) -> "type[DbtBouncerConfBase]":
+    """Build and rebuild the ``DbtBouncerConf`` Pydantic class for the config.
+
+    Fast path: import only the modules that contain the configured checks.
+    Fallback (no names extracted): import every check module for the requested
+    categories.
+
+    Returns:
+        type[DbtBouncerConfBase]: The rebuilt config class, ready for validation.
+
+    """
+    if configured_check_names:
+        # Fast path: import only modules containing the configured checks.
+        from dbt_bouncer.configuration_file.parser import _create_conf_class
+        from dbt_bouncer.utils import get_check_objects_for_names
+
+        check_objects = get_check_objects_for_names(
+            frozenset(configured_check_names),
+            custom_checks_dir=custom_checks_dir,
+        )
+        DbtBouncerConf = _create_conf_class(  # ruff: ignore[non-lowercase-variable-in-function]
+            custom_checks_dir=custom_checks_dir,
+            check_categories=frozenset(check_categories),
+            check_objects=check_objects,
+        )
+    else:
+        # Fallback: no check names to extract, use full scan.
+        if CheckCategory.CATALOG_CHECKS in check_categories:
+            import dbt_bouncer.checks.catalog
+        if CheckCategory.MANIFEST_CHECKS in check_categories:
+            import dbt_bouncer.checks.manifest
+        if CheckCategory.RUN_RESULTS_CHECKS in check_categories:
+            import dbt_bouncer.checks.run_results  # ruff: ignore[unused-import]
+
+        from dbt_bouncer.configuration_file.parser import create_bouncer_conf_class
+
+        DbtBouncerConf = create_bouncer_conf_class(  # ruff: ignore[non-lowercase-variable-in-function]
+            custom_checks_dir=custom_checks_dir,
+            check_categories=frozenset(check_categories),
+        )
+
+    class_key = f"{DbtBouncerConf.__module__}.{DbtBouncerConf.__qualname__}"
+    if class_key not in _rebuilt_classes:
+        DbtBouncerConf.model_rebuild(_types_namespace=_get_stub_namespace())
+        _rebuilt_classes.add(class_key)
+    return DbtBouncerConf
+
+
+def _is_check_name_mismatch(msg: str) -> bool:
+    """Return whether a validation message reports an unknown check name.
+
+    Returns:
+        bool: True if the message is the discriminated-union tag-mismatch error.
+
+    """
+    return (
+        compile_pattern(
+            r"Input tag \S* found using 'name' does not match any of the expected tags: [\S\s]*",
+            flags=re.DOTALL,
+        ).match(msg)
+        is not None
+    )
+
+
+def _name_mismatch_detail(
+    error: Mapping[str, Any], loc: tuple[Any, ...], accepted_names: list[str]
+) -> dict[str, Any]:
+    """Build the detail for an unknown-check-name error, with a suggestion.
+
+    Returns:
+        dict[str, Any]: The error location and its formatted message.
+
+    """
+    incorrect_name = error["msg"][
+        error["msg"].find("tag") + 5 : error["msg"].find("found using") - 2
+    ]
+    # Unlike ``_suggest_closest``, no distance cap is applied here: a check entry
+    # must name a registered check, so the nearest registry entry is always the
+    # most useful pointer, even for a badly mangled name.
+    min_name = min(
+        accepted_names,
+        key=lambda name, target=incorrect_name: jellyfish.levenshtein_distance(
+            name, target
+        ),
+        default=None,
+    )
+    suggestion = f" Did you mean '{min_name}'?" if min_name else ""
+    return {
+        "loc": loc,
+        "message": f"Check '{incorrect_name}' does not match any of the expected checks.{suggestion}",
+    }
+
+
+def _extra_forbidden_detail(
+    error: Mapping[str, Any],
+    loc: tuple[Any, ...],
+    location: str,
+    conf_class: "type[DbtBouncerConfBase]",
+    check_registry: dict[str, "type[BaseCheck]"],
+) -> dict[str, Any]:
+    """Build the detail for an unknown-key error, suggesting the closest valid key.
+
+    For a top-level key the candidates come from the conf class, for a check-level
+    key from the check class named by the union tag in ``loc`` (e.g.
+    ("manifest_checks", 0, "check_x", key)).
+
+    Returns:
+        dict[str, Any]: The error location and its formatted message.
+
+    """
+    extra_key = str(loc[-1])
+    candidates: set[str] = set()
+    if len(loc) == 1:
+        candidates = set(conf_class.model_fields)
+    elif len(loc) >= 4:
+        check_cls = check_registry.get(str(loc[2]))
+        if check_cls is not None:
+            resource_field = getattr(check_cls, "iterate_over", None)
+            candidates = {
+                f for f in check_cls.model_fields if f not in ("index", resource_field)
+            }
+    suggestion = _suggest_closest(extra_key, candidates)
+    message = f"{location}: {error['msg']}"
+    if suggestion:
+        message = f"{message}. {suggestion}"
+    return {"loc": loc, "message": message}
+
+
+def _config_error_detail(
+    error: Mapping[str, Any],
+    conf_class: "type[DbtBouncerConfBase]",
+    check_registry: dict[str, "type[BaseCheck]"],
+    accepted_names: list[str],
+) -> dict[str, Any]:
+    """Build one human-readable ``{loc, message}`` detail for a validation error.
+
+    Returns:
+        dict[str, Any]: The error location and its formatted message.
+
+    """
+    loc = error["loc"]
+    location = " -> ".join(str(part) for part in loc)
+    if _is_check_name_mismatch(error["msg"]):
+        return _name_mismatch_detail(error, loc, accepted_names)
+    if error["type"] == "extra_forbidden":
+        return _extra_forbidden_detail(error, loc, location, conf_class, check_registry)
+    return {"loc": loc, "message": f"{location}: {error['msg']}"}
+
+
+def _config_validation_error_details(
+    e: ValidationError,
+    conf_class: "type[DbtBouncerConfBase]",
+    custom_checks_dir: Path | None,
+) -> list[dict[str, Any]]:
+    """Build one human-readable detail per problem in a Pydantic ``ValidationError``.
+
+    Returns:
+        list[dict[str, Any]]: The ``{loc, message}`` details, in error order.
+
+    """
+    check_registry = get_check_registry(custom_checks_dir)
+    accepted_names = list(check_registry.keys())
+    return [
+        _config_error_detail(error, conf_class, check_registry, accepted_names)
+        for error in e.errors()
+    ]
+
+
 def validate_conf(
     check_categories,  #: list[Literal["catalog_checks"], Literal["manifest_checks"], Literal["run_results_checks"]],
     config_file_contents: dict[str, Any],
@@ -651,17 +1095,15 @@ def validate_conf(
         DbtBouncerConf: The validated configuration.
 
     Raises:
-        RuntimeError: If the configuration is invalid.
+        DbtBouncerConfigError: If the configuration is invalid.
 
     """
     logging.info("Validating conf...")
 
-    # Extract check names from config to enable targeted module loading.
-    configured_check_names: set[str] = set()
-    for cat in check_categories:
-        for entry in config_file_contents.get(cat, []):
-            if isinstance(entry, dict) and "name" in entry:
-                configured_check_names.add(entry["name"])
+    config_file_contents = apply_deprecated_check_name_aliases(config_file_contents)
+    configured_check_names = _extract_configured_check_names(
+        check_categories, config_file_contents, custom_checks_dir
+    )
 
     cache_path: Path | None = None
     if _conf_cache_enabled():
@@ -683,73 +1125,18 @@ def validate_conf(
             logging.debug("Loaded validated conf from cache: %s", cache_path)
             return cached
 
-    if configured_check_names:
-        # Fast path: import only modules containing the configured checks.
-        from dbt_bouncer.configuration_file.parser import _create_conf_class
-        from dbt_bouncer.utils import get_check_objects_for_names
-
-        check_objects = get_check_objects_for_names(
-            frozenset(configured_check_names),
-            custom_checks_dir=custom_checks_dir,
-        )
-        DbtBouncerConf = _create_conf_class(  # noqa: N806
-            custom_checks_dir=custom_checks_dir,
-            check_categories=frozenset(check_categories),
-            check_objects=check_objects,
-        )
-    else:
-        # Fallback: no check names to extract, use full scan.
-        if CheckCategory.CATALOG_CHECKS in check_categories:
-            import dbt_bouncer.checks.catalog
-        if CheckCategory.MANIFEST_CHECKS in check_categories:
-            import dbt_bouncer.checks.manifest
-        if CheckCategory.RUN_RESULTS_CHECKS in check_categories:
-            import dbt_bouncer.checks.run_results  # noqa: F401
-
-        from dbt_bouncer.configuration_file.parser import create_bouncer_conf_class
-
-        DbtBouncerConf = create_bouncer_conf_class(  # noqa: N806
-            custom_checks_dir=custom_checks_dir,
-            check_categories=frozenset(check_categories),
-        )
-    class_key = f"{DbtBouncerConf.__module__}.{DbtBouncerConf.__qualname__}"
-    if class_key not in _rebuilt_classes:
-        DbtBouncerConf.model_rebuild(_types_namespace=_get_stub_namespace())
-        _rebuilt_classes.add(class_key)
+    DbtBouncerConf = _build_conf_class(  # ruff: ignore[non-lowercase-variable-in-function]
+        check_categories, configured_check_names, custom_checks_dir
+    )
 
     try:
         bouncer_config = DbtBouncerConf(**config_file_contents)
     except ValidationError as e:
-        accepted_names = list(get_check_registry(custom_checks_dir).keys())
-        error_message: list[str] = []
-        for error in e.errors():
-            if (
-                compile_pattern(
-                    r"Input tag \S* found using 'name' does not match any of the expected tags: [\S\s]*",
-                    flags=re.DOTALL,
-                ).match(error["msg"])
-                is not None
-            ):
-                incorrect_name = error["msg"][
-                    error["msg"].find("tag") + 5 : error["msg"].find("found using") - 2
-                ]
-                min_name = min(
-                    accepted_names,
-                    key=lambda name,
-                    target=incorrect_name: jellyfish.levenshtein_distance(name, target),
-                    default=None,
-                )
-                suggestion = f" Did you mean '{min_name}'?" if min_name else ""
-                error_message.append(
-                    f"{len(error_message) + 1}. Check '{incorrect_name}' does not match any of the expected checks.{suggestion}"
-                )
-            else:
-                location = " -> ".join(str(loc) for loc in error["loc"])
-                error_message.append(
-                    f"{len(error_message) + 1}. {location}: {error['msg']}"
-                )
-
-        raise RuntimeError("\n".join(error_message)) from e
+        details = _config_validation_error_details(e, DbtBouncerConf, custom_checks_dir)
+        raise DbtBouncerConfigError(
+            "\n".join(f"{i + 1}. {d['message']}" for i, d in enumerate(details)),
+            details=details,
+        ) from e
 
     if cache_path is not None:
         _write_cached_conf(cache_path, bouncer_config)

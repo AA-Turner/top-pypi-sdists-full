@@ -84,6 +84,20 @@ class Resolver:
 
         return exp.to_identifier(table_name)
 
+    def outer_resolvers(self) -> t.Iterator[Resolver]:
+        """Resolvers for the outer scopes a correlated subquery can reference, innermost first."""
+        scope = self.scope
+        while scope.can_be_correlated and scope.parent:
+            scope = scope.parent
+            yield Resolver(scope, self.schema, self._infer_schema)
+
+    @property
+    def has_unknown_sources(self) -> bool:
+        """Whether some source's columns can't be determined, e.g. a table missing from the schema."""
+        return any(
+            not columns or "*" in columns for columns in self._get_all_source_columns().values()
+        )
+
     @property
     def all_columns(self) -> set[str]:
         """All available columns of all sources in this scope"""
@@ -260,13 +274,15 @@ class Resolver:
 
         join_ancestor = column.find_ancestor(exp.Join, exp.Select)
 
-        if (
-            isinstance(join_ancestor, exp.Join)
-            and join_ancestor.alias_or_name in self.scope.selected_sources
-        ):
-            # Ensure that the found ancestor is a join that contains an actual source,
-            # e.g in Clickhouse `b` is an array expression in `a ARRAY JOIN b`
-            return join_ancestor
+        if isinstance(join_ancestor, exp.Join):
+            join_name = join_ancestor.alias_or_name
+            if (
+                join_name in self.scope.selected_sources
+                or join_name in self.scope.semi_or_anti_join_tables
+            ):
+                # Ensure that the found ancestor is a join that contains an actual source,
+                # e.g in Clickhouse `b` is an array expression in `a ARRAY JOIN b`
+                return join_ancestor
 
         return None
 

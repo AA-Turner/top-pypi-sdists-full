@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traits
-Version: 7.1.0
+Version: 7.2.0
 Summary: Observable typed attributes for Python classes
 Home-page: http://docs.enthought.com/traits
 Download-URL: https://pypi.python.org/pypi/traits
@@ -25,12 +25,12 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE-CC-BY-3.0.txt
 License-File: LICENSE.txt
 Provides-Extra: docs
-Requires-Dist: enthought-sphinx-theme; extra == "docs"
+Requires-Dist: enthought-sphinx-theme>=0.7.4; extra == "docs"
 Requires-Dist: Sphinx>=2.1.0; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Provides-Extra: test
@@ -39,8 +39,8 @@ Requires-Dist: flake8; extra == "test"
 Requires-Dist: flake8-ets; extra == "test"
 Requires-Dist: mypy; extra == "test"
 Requires-Dist: numpy; extra == "test"
+Requires-Dist: packaging; extra == "test"
 Requires-Dist: pyface; extra == "test"
-Requires-Dist: setuptools; extra == "test"
 Requires-Dist: Sphinx>=2.1.0; extra == "test"
 Requires-Dist: traitsui; extra == "test"
 Provides-Extra: examples
@@ -102,7 +102,7 @@ inherited by any subclass derived from the class.
 Dependencies
 ------------
 
-Traits requires Python >= 3.8.
+Traits requires Python >= 3.10.
 
 Traits has the following optional dependencies:
 

@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -23,7 +23,7 @@ def optional_import(name):
 
     Returns
     -------
-    None or module
+    None or types.ModuleType
         None if the module is not available, and the module otherwise.
 
     """
@@ -46,9 +46,9 @@ numpy_typing = optional_import("numpy.typing")
 requires_numpy_typing = unittest.skipIf(
     numpy_typing is None, "numpy.typing not available")
 
-pkg_resources = optional_import("pkg_resources")
-requires_pkg_resources = unittest.skipIf(
-    pkg_resources is None, "pkg_resources not available"
+packaging_version = optional_import("packaging.version")
+requires_packaging = unittest.skipIf(
+    packaging_version is None, "packaging not available"
 )
 
 pyface = optional_import("pyface")

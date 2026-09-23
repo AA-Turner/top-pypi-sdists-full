@@ -423,7 +423,7 @@ class TestTypeAnnotations(TestCase):
         ''', m.UndefinedName)
 
     @skipIf(version_info < (3, 14), 'new in Python 3.14')
-    def test_postponed_annotations_py314(self):
+    def test_postponed_annotations_py314(self):  # pragma: >=3.14 cover
         self.flakes('''
             def f(x: C) -> None: pass
             class C: pass
@@ -498,6 +498,12 @@ class TestTypeAnnotations(TestCase):
         maybe_int = cast('Optional[int]', 42)
         """)
 
+    def test_cast_named_argument(self):
+        self.flakes('''
+        from typing import cast, Optional
+        cast(typ='Optional[int]', val=42)
+        ''')
+
     def test_type_cast_literal_str_to_str(self):
         # Checks that our handling of quoted type annotations in the first
         # argument to `cast` doesn't cause issues when (only) the _second_
@@ -515,11 +521,17 @@ class TestTypeAnnotations(TestCase):
         maybe_int = tsac('Maybe[int]', 42)
         """)
 
+    def test_cast_only_one_undefined(self):
+        self.flakes('''
+        from typing import cast
+        cast(undefined, 0)
+        ''', m.UndefinedName)
+
     def test_quoted_TypeVar_constraints(self):
         self.flakes("""
         from typing import TypeVar, Optional
 
-        T = TypeVar('T', 'str', 'Optional[int]', bytes)
+        T = TypeVar('T', 'str', 'Optional[int]', bytes, infer_variance=True)
         """)
 
     def test_quoted_TypeVar_bound(self):
@@ -528,6 +540,50 @@ class TestTypeAnnotations(TestCase):
 
         T = TypeVar('T', bound='Optional[int]')
         S = TypeVar('S', int, bound='List[int]')
+        """)
+
+    def test_quoted_TypeVar_default(self):
+        self.flakes('''
+        from typing import TypeVar, Optional
+        T = TypeVar('T', default='Optional[int]')
+        ''')
+
+    def test_typevar_undefined_arg0(self):
+        self.flakes("""
+        from typing import TypeVar
+
+        T = TypeVar(T, int)
+        """, m.UndefinedName)
+
+    def test_newtype_quoted_types(self):
+        self.flakes("""
+        from typing import NewType
+        from u import C, D, E
+        NT1 = NewType("NT1", "C")
+        NT2 = NewType("NT2", tp="D")
+        # `invalid` isn't correct but we still parse it as non-annotation
+        NT3 = NewType("NT3", "E", invalid="F")
+        """)
+
+    def test_typevartuple_quoted_types(self):
+        self.flakes("""
+        from typing import TypeVarTuple
+        from u import C, D
+        Ts = TypeVarTuple("Ts", default="C", bound="D", infer_variance=True)
+        """)
+
+    def test_paramspec_quoted_types(self):
+        self.flakes("""
+        from typing import ParamSpec
+        from u import C, D
+        P = ParamSpec("P", default="C", bound="D", infer_variance=True)
+        """)
+
+    def test_assert_type_quoted_types(self):
+        self.flakes("""
+        from typing import assert_type
+        from u import C
+        assert_type(1, "C")
         """)
 
     def test_literal_type_typing(self):
@@ -691,13 +747,11 @@ class TestTypeAnnotations(TestCase):
             from typing import TypedDict, List, NamedTuple, TypeVar
 
             List[TypedDict("x", {"x": "Y"})]
-            List[TypedDict("x", x="Y")]
             List[NamedTuple("a", [("a", "Y")])]
-            List[NamedTuple("a", a="Y")]
             List[TypedDict("x", {"x": List["a"]})]
             List[TypeVar("A", bound="C")]
             List[TypeVar("A", List["C"])]
-        """, *[m.UndefinedName]*7)
+        """, *[m.UndefinedName]*5)
         self.flakes("""
             from typing import NamedTuple, TypeVar, cast
             from t import A, B, C, D, E
@@ -706,6 +760,41 @@ class TestTypeAnnotations(TestCase):
             TypeVar("A", bound=A["B"])
             TypeVar("A", A["D"])
             cast(A["E"], [])
+        """)
+
+    def test_namedtuple_kwargs(self):
+        if version_info >= (3, 15):  # pragma: >=3.15 cover
+            self.flakes('''
+            from typing import NamedTuple
+            from foo import T
+            NamedTuple("U", x="T")
+            ''', m.UnusedImport)
+        else:  # pragma: <3.15 cover
+            self.flakes('''
+            from typing import NamedTuple
+            from foo import T
+            NamedTuple("U", x="T")
+            ''')
+
+    def test_typeddict_kwargs(self):
+        if version_info >= (3, 13):  # pragma: >=3.13 cover
+            self.flakes('''
+            from typing import TypedDict
+            from foo import T
+            TypedDict("U", x="T")
+            ''', m.UnusedImport)
+        else:  # pragma: <3.13 cover
+            self.flakes('''
+            from typing import TypedDict
+            from foo import T
+            TypedDict("U", x="T")
+            ''')
+
+    def test_typeddict_key_value_ordering(self):
+        self.flakes("""
+        from typing import TypedDict
+        from u import V
+        TypedDict("TD", {"k": (y := "V"), y: "V"})
         """)
 
     def test_namedtypes_classes(self):
@@ -718,8 +807,16 @@ class TestTypeAnnotations(TestCase):
                 y: NamedTuple("v", [("vv", int)])
         """)
 
+    def test_namedtuple_non_tuple_args(self):
+        self.flakes("""
+        from typing import NamedTuple
+        x = ("a", int)
+        # x isn't unpacked or treated as a type
+        NT = NamedTuple("NT", [x])
+        """)
+
     @skipIf(version_info < (3, 11), 'new in Python 3.11')
-    def test_variadic_generics(self):
+    def test_variadic_generics(self):  # pragma: >=3.11 cover
         self.flakes("""
             from typing import Generic
             from typing import TypeVarTuple
@@ -734,7 +831,7 @@ class TestTypeAnnotations(TestCase):
         """)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_statements(self):
+    def test_type_statements(self):  # pragma: >=3.12 cover
         self.flakes("""
             type ListOrSet[T] = list[T] | set[T]
 
@@ -750,7 +847,7 @@ class TestTypeAnnotations(TestCase):
         """)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_parameters_functions(self):
+    def test_type_parameters_functions(self):  # pragma: >=3.12 cover
         self.flakes("""
             def f[T](t: T) -> T: return t
 
@@ -766,7 +863,7 @@ class TestTypeAnnotations(TestCase):
         """)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_parameters_do_not_escape_function_scopes(self):
+    def test_type_parameters_do_not_escape_function_scopes(self):  # pragma: >=3.12 cover
         self.flakes("""
             from x import g
 
@@ -777,7 +874,7 @@ class TestTypeAnnotations(TestCase):
         """, m.UndefinedName, m.UndefinedName)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_parameters_classes(self):
+    def test_type_parameters_classes(self):  # pragma: >=3.12 cover
         self.flakes("""
             class C[T](list[T]): pass
 
@@ -790,7 +887,7 @@ class TestTypeAnnotations(TestCase):
         """)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_parameters_do_not_escape_class_scopes(self):
+    def test_type_parameters_do_not_escape_class_scopes(self):  # pragma: >=3.12 cover
         self.flakes("""
             from x import g
 
@@ -801,13 +898,13 @@ class TestTypeAnnotations(TestCase):
         """, m.UndefinedName, m.UndefinedName)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_parameters_TypeVarTuple(self):
+    def test_type_parameters_TypeVarTuple(self):  # pragma: >=3.12 cover
         self.flakes("""
         def f[*T](*args: *T) -> None: ...
         """)
 
     @skipIf(version_info < (3, 12), 'new in Python 3.12')
-    def test_type_parameters_ParamSpec(self):
+    def test_type_parameters_ParamSpec(self):  # pragma: >=3.12 cover
         self.flakes("""
         from typing import Callable
 
@@ -818,7 +915,7 @@ class TestTypeAnnotations(TestCase):
         """)
 
     @skipIf(version_info < (3, 13), 'new in Python 3.13')
-    def test_type_parameter_defaults(self):
+    def test_type_parameter_defaults(self):  # pragma: >=3.13 cover
         self.flakes("""
         def f[T = int](u: T) -> T:
             return u

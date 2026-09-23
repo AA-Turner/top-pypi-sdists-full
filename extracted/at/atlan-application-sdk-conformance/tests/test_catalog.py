@@ -116,6 +116,121 @@ _WARN_JUSTIFYING_PHRASES = tuple(
 )
 
 
+_AUTOFIX_DENYING_PHRASES = tuple(
+    _word_boundary(phrase)
+    for phrase in (
+        "not autofixable",
+        "no autofix",
+        "route to residue",
+        "routes to residue",
+        "rather than an autofix",
+    )
+)
+
+#: Prose that claims a rule IS autofixable. The inverse blind spot: rewording a
+#: batch of "NOT autofixable:" openings in one pass is easy to land on a rule
+#: whose flag was False all along, producing the same contradiction upside down.
+_AUTOFIX_CLAIMING_PHRASES = tuple(
+    _word_boundary(phrase) for phrase in ("autofixable per-site", "is autofixable")
+)
+
+
+def _flat_prose(rule: RuleDefinition) -> str:
+    """Rationale + description, lowercased, with all whitespace collapsed.
+
+    Collapsing is load-bearing, not tidiness. These strings are hand-wrapped
+    across source lines, so a phrase is routinely split by a newline mid-way
+    ("findings route\nto residue"). Matching the raw text misses those silently
+    — the same class of blind spot as matching source text rather than the
+    concatenated literals, one level further down.
+    """
+    return re.sub(r"\s+", " ", f"{rule.rationale}\n{rule.full_description}").lower()
+
+
+def test_autofixable_rules_do_not_deny_their_own_autofixability() -> None:
+    """An ``autofixable = True`` rule's own prose must not say it is not.
+
+    The fleet classification (FND-2477) set ``autofixable`` as a structured
+    attribute across the catalog, but most of these paragraphs were written
+    before it existed and still open with "NOT autofixable:" or "findings route
+    to residue rather than an autofix". The generated doc renders the flag and
+    the prose side by side, so the page contradicts itself — and the remediation
+    lane reads the flag, so it picks the rule up regardless.
+
+    That is not a cosmetic mismatch. The lane is driven entirely by this flag,
+    so every one of these is a rule that tells an operator "act" and then tells
+    the engineer reading the doc "this cannot be acted on mechanically". The
+    honest form is to keep the flag (the rule IS in the auto-fixable lane) and
+    say what the prose actually means: the fix is per-site human judgement, not
+    a mechanical rewrite.
+
+    Generalises the same failure mode as
+    ``test_catalog_block_rules_carry_no_warn_justifying_prose``: an attribute
+    was changed and the paragraph explaining the old value was left behind.
+    """
+    rules = load_catalog()
+    offenders = [
+        (rule.id, phrase.pattern)
+        for rule in rules
+        if rule.autofixable
+        for phrase in _AUTOFIX_DENYING_PHRASES
+        if phrase.search(_flat_prose(rule))
+    ]
+    assert not offenders, (
+        "autofixable rules whose own prose denies it: "
+        f"{offenders} — say the fix needs per-site judgement rather than that "
+        "the rule is not autofixable, or set autofixable=False"
+    )
+
+
+def test_autofix_denying_phrases_do_not_over_match() -> None:
+    """The guard must not fire on prose that merely mentions autofixing."""
+    prose = "the autofix rewrites the call in place".lower()
+    assert not any(p.search(prose) for p in _AUTOFIX_DENYING_PHRASES)
+    canonical = (
+        "not autofixable: orjson is not a drop-in replacement",
+        "it stays advisory (warn, no autofix) because",
+        "findings route to residue instead",
+        "findings routes to residue instead",
+        "so findings go rather than an autofix",
+    )
+    for phrase, sample in zip(_AUTOFIX_DENYING_PHRASES, canonical, strict=True):
+        assert phrase.search(sample), f"{phrase.pattern!r} stopped matching {sample!r}"
+
+    # A phrase wrapped across source lines must still match once flattened —
+    # the case the guard missed on its first outing (P023).
+    wrapped = re.sub(
+        r"\s+", " ", "remediation is a restructure, so findings route\nto residue."
+    )
+    assert any(
+        p.search(wrapped) for p in _AUTOFIX_DENYING_PHRASES
+    ), "a newline-split phrase must match after whitespace collapse"
+
+
+def test_non_autofixable_rules_do_not_claim_to_be_autofixable() -> None:
+    """The same contradiction, upside down.
+
+    A rule carrying ``autofixable=False`` whose prose opens "Autofixable
+    per-site…" reads exactly as wrong on the generated page, and is the easier
+    of the two to introduce: rewording a batch of "NOT autofixable:" openings in
+    one pass lands on the rules whose flag was False all along. Both directions
+    are the same defect — the flag and the paragraph disagreeing — so both are
+    guarded.
+    """
+    offenders = [
+        (rule.id, phrase.pattern)
+        for rule in load_catalog()
+        if not rule.autofixable
+        for phrase in _AUTOFIX_CLAIMING_PHRASES
+        if phrase.search(_flat_prose(rule))
+    ]
+    assert not offenders, (
+        "non-autofixable rules whose prose claims otherwise: "
+        f"{offenders} — say 'Not a mechanical rewrite: …' rather than "
+        "'Autofixable per-site', or set autofixable=True"
+    )
+
+
 def test_catalog_block_rules_carry_no_warn_justifying_prose() -> None:
     """A BLOCK rule's own prose must not argue for WARN.
 
@@ -1300,6 +1415,35 @@ def test_non_app_loci_explain_themselves() -> None:
     )
 
 
+def test_rules_citing_a_suppression_as_compliant_license_it() -> None:
+    """A rule whose compliant example IS a suppression must say so in ``terminal_state``.
+
+    ``canonical_reference`` answers "what does correct look like here". When
+    that answer is an inline ``ignore[<ID>]``, the rule is stating that a
+    justified directive is the end state — but only ``terminal_state`` licenses
+    one. A remediation lane reads ``terminal_state``, finds nothing, strips the
+    directive and either re-opens settled work every cycle or applies a default
+    edit the reference app deliberately rejected.
+
+    E020 was exactly this: its reference named seven justified suppressions in
+    ``atlan-metabase-app`` as the compliant example while declaring no
+    ``terminal_state`` (FND-2547).
+    """
+    cites_suppression = re.compile(r"ignore\[[A-Z]\d+\]")
+    unlicensed = [
+        r.id
+        for r in load_catalog()
+        if r.canonical_reference
+        and cites_suppression.search(r.canonical_reference)
+        and not r.terminal_state
+    ]
+    assert not unlicensed, (
+        "these rules name an inline suppression as their compliant example but "
+        "declare no terminal_state to license it, so a remediation run cannot "
+        f"tell a deliberate carve-out from an unfixed violation: {unlicensed}"
+    )
+
+
 #: The only repos a canonical reference may name.  Three maintained reference
 #: apps (``docs/agents/canonical-apps.md``) plus the SDK itself for rules about
 #: SDK-owned surfaces.  ``atlan-hello-world-app`` is deliberately absent: it is
@@ -1368,6 +1512,69 @@ def test_canonical_references_name_something_checkable() -> None:
     assert not vague, (
         "canonical_reference must name a reference repo AND a concrete path: "
         f"{vague}"
+    )
+
+
+#: A ``canonical_reference`` that presents an inline suppression as the
+#: compliant shape ("… carries an inline ignore[D003] saying …").
+_REFERENCE_IS_A_SUPPRESSION = re.compile(
+    r"carr(?:y|ies|ied)\s+an\s+inline\s+(?:`?#?\s*conformance:\s*)?ignore\[",
+    re.IGNORECASE,
+)
+
+
+def test_reference_that_is_a_suppression_declares_a_terminal_state() -> None:
+    """If the compliant example IS a suppression, the rule must say so in the field.
+
+    A ``canonical_reference`` reading "… carries an inline ignore[X] explaining
+    why …" tells a reader that the directive is the end state. But the field
+    that a remediation lane actually consults for that is ``terminal_state``,
+    and when it is empty the lane sees a rule with findings and no declared
+    resting point — so it re-opens settled work every cycle, and a reviewer
+    cannot tell a deliberate carve-out from an unfixed violation.
+
+    Worse, prose is not load-bearing: the app that hosted the suppression can
+    delete it the moment the checker improves, and the reference then describes
+    a file state that no longer exists. D003 and S002 both hit this — D003's
+    reference described an ``ignore[D003]`` on ``aiomysql`` that the dialect-
+    string checker made unnecessary, and S002's described two directives an app
+    removed once the missing seam was reported.
+
+    So: cite a suppression as the compliant shape only alongside a
+    ``terminal_state`` that states the condition under which it is correct.
+    Better still, point the reference at code that needs no suppression.
+    """
+    offenders = [
+        r.id
+        for r in load_catalog()
+        if r.canonical_reference
+        and _REFERENCE_IS_A_SUPPRESSION.search(r.canonical_reference)
+        and not r.terminal_state
+    ]
+    assert not offenders, (
+        "canonical_reference presents an inline suppression as the compliant "
+        f"shape but no terminal_state says when that is correct: {offenders} — "
+        "either declare terminal_state, or point the reference at code that "
+        "needs no suppression"
+    )
+
+
+def test_reference_suppression_pattern_does_not_over_match() -> None:
+    """The guard must fire on the real shape and not on a passing mention."""
+    assert _REFERENCE_IS_A_SUPPRESSION.search(
+        "atlan-mysql-app pyproject.toml — aiomysql ... carries an inline "
+        "ignore[D003] saying SQLAlchemy loads it dynamically"
+    )
+    assert _REFERENCE_IS_A_SUPPRESSION.search(
+        "the two os.environ writes carry an inline ignore[S002] explaining that"
+    )
+    # A reference that merely says no suppression is needed must not trip it.
+    assert not _REFERENCE_IS_A_SUPPRESSION.search(
+        "app/handler.py preflight_check returns a typed row, which the rule "
+        "detects — no suppression needed"
+    )
+    assert not _REFERENCE_IS_A_SUPPRESSION.search(
+        "aiomysql is declared with no Python import and carries no suppression"
     )
 
 

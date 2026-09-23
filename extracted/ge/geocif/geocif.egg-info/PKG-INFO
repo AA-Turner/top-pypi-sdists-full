@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1044
+Version: 0.4.1047
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -328,15 +328,27 @@ shapefile usable (it has no ID column, and geoextract drops a country *silently*
 without one), and `data_prep/make_cropcal_config.py` generates the 145-country
 config.
 
-Alongside the rule-based method, the same targets are predicted by
-`catboost`, `cubist`, `tabpfn` and `tabicl` through the shared
-`ml.trainers.auto_train` factory, under three cross-validation schemes reported
-side by side: shuffled K-fold (leaky, the optimistic reference), leave-one-
-country-out, and grouped K-fold over 10 deg centroid tiles. Because the target is
-the calendar date, the rule-based delta and the model prediction error are the
-same quantity, so every method sits in one table. Metrics are also split by
-`CM_Group`: the original method was only ever exercised on AMIS countries, and
-327 of the 575 regions here are EW-only.
+Alongside the rule-based method, all **four** calendar days -- planting,
+mid-greenup, mid-greendown, harvest -- are predicted by `catboost`, `cubist`,
+`tabpfn` and `tabicl` through the shared `ml.trainers.auto_train` factory, from
+147 calendar-free features of the NDVI, temperature, rainfall, ESI and SMAP
+soil-moisture climatologies (rainfall regime and wet-season onset, thermal
+onset, moisture wetting-up and drawdown, ESI interannual spread). Two
+references sit in every table: the rule-based port for the two interior
+transitions (its difference and a model's prediction error are the same
+quantity) and an out-of-fold **climatology null** for all four (circular
+median per crop, hemisphere and season). Each target is regressed two ways --
+sine/cosine with `atan2`, and a signed offset from the NDVI steepest-rise day --
+and `metrics.csv` reports skill against the null with a spatial-tile bootstrap
+interval, under shuffled K-fold (leaky, the optimistic reference),
+leave-one-country-out and grouped K-fold over 10 deg centroid tiles, with the
+duplicate-calendar-row leakage each scheme permits stated in `cv_schemes.csv`.
+Metrics are also split by `CM_Group`: the original method was only ever
+exercised on AMIS countries, and 327 of the 575 regions here are EW-only.
+
+Output columns follow one vocabulary (`calendar_*_doy`, `satellite_*_doy`,
+`<transition>_diff_days`, ...); `score.modernise_columns` renames files written
+by earlier versions.
 
 This is a port of `GEOGLAM/Code/Code/CropCalendar/`. It reproduces the original
 numerics by default; `geocif/cropcal/DEVIATIONS.md` lists every intentional

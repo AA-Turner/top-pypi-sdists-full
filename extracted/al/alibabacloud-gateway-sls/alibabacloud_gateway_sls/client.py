@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # This file is auto-generated, don't edit it. Thanks.
+import re
+
 from alibabacloud_darabonba_encode_util.encoder import Encoder
 from alibabacloud_darabonba_signature_util.signer import Signer
 from Tea.exceptions import TeaException
@@ -14,6 +16,9 @@ from alibabacloud_gateway_sls_util.client import Client as SLS_UtilClient
 from alibabacloud_darabonba_map.client import Client as MapClient
 from alibabacloud_darabonba_array.client import Client as ArrayClient
 from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
+
+
+_SLS_ENDPOINT_PATTERN = re.compile(r'\A(?:https?://)?([a-z0-9-]+)\.(?:sls|log)\.aliyuncs\.com\Z')
 
 
 class Client(SPIClient):
@@ -53,6 +58,7 @@ class Client(SPIClient):
     ) -> None:
         config = context.configuration
         config.endpoint = self.get_endpoint(config.region_id, config.network, config.endpoint)
+        self.set_sign_v4_if_in_acdr(context)
 
     async def modify_configuration_async(
         self,
@@ -61,6 +67,7 @@ class Client(SPIClient):
     ) -> None:
         config = context.configuration
         config.endpoint = await self.get_endpoint_async(config.region_id, config.network, config.endpoint)
+        self.set_sign_v4_if_in_acdr(context)
 
     def modify_request(
         self,
@@ -123,6 +130,8 @@ class Client(SPIClient):
             'x-log-apiversion': '0.6.0'
         }, request.headers)
         request.headers['x-log-bodyrawsize'] = body_raw_size
+        if StringClient.equals(request.action, 'PullLogs'):
+            request.headers['accept'] = 'application/x-protobuf'
         self.set_default_accept_encoding(request.action, request.headers)
         self.build_request(context)
         # move param in path to query
@@ -201,6 +210,8 @@ class Client(SPIClient):
             'x-log-apiversion': '0.6.0'
         }, request.headers)
         request.headers['x-log-bodyrawsize'] = body_raw_size
+        if StringClient.equals(request.action, 'PullLogs'):
+            request.headers['accept'] = 'application/x-protobuf'
         await self.set_default_accept_encoding_async(request.action, request.headers)
         await self.build_request_async(context)
         # move param in path to query
@@ -348,7 +359,10 @@ class Client(SPIClient):
             uncompressed_data = response.body
             if not UtilClient.is_unset(bodyraw_size) and not UtilClient.is_unset(compress_type):
                 uncompressed_data = SLS_UtilClient.read_and_uncompress_block(response.body, compress_type, bodyraw_size)
-            if UtilClient.equal_string(request.body_type, 'binary'):
+            if StringClient.equals(request.action, 'PullLogs'):
+                body_bytes = UtilClient.read_as_bytes(uncompressed_data)
+                response.deserialized_body = SLS_UtilClient.deserialize_log_group_list_from_pb(body_bytes)
+            elif UtilClient.equal_string(request.body_type, 'binary'):
                 response.deserialized_body = uncompressed_data
             elif UtilClient.equal_string(request.body_type, 'byte'):
                 byt = UtilClient.read_as_bytes(uncompressed_data)
@@ -390,7 +404,10 @@ class Client(SPIClient):
             uncompressed_data = response.body
             if not UtilClient.is_unset(bodyraw_size) and not UtilClient.is_unset(compress_type):
                 uncompressed_data = await SLS_UtilClient.read_and_uncompress_block_async(response.body, compress_type, bodyraw_size)
-            if UtilClient.equal_string(request.body_type, 'binary'):
+            if StringClient.equals(request.action, 'PullLogs'):
+                body_bytes = await UtilClient.read_as_bytes_async(uncompressed_data)
+                response.deserialized_body = await SLS_UtilClient.deserialize_log_group_list_from_pb_async(body_bytes)
+            elif UtilClient.equal_string(request.body_type, 'binary'):
                 response.deserialized_body = uncompressed_data
             elif UtilClient.equal_string(request.body_type, 'byte'):
                 byt = await UtilClient.read_as_bytes_async(uncompressed_data)
@@ -889,3 +906,28 @@ class Client(SPIClient):
         # 2024-02-04T11:31:58Z
         date = StringClient.replace(date, '-', '', None)
         return StringClient.replace(date, ':', '', None)
+
+    def set_sign_v4_if_in_acdr(self, context: spi_models.InterceptorContext) -> None:
+        if context.request.signature_version:
+            return
+        config = context.configuration
+        region = config.region_id
+        if not region:
+            if not config.endpoint or '-acdr-ut-' not in config.endpoint:
+                return
+            region = self.parse_region(config.endpoint)
+        if '-acdr-ut-' in region:
+            if not config.region_id:
+                config.region_id = region
+            context.request.signature_version = 'v4'
+
+    def parse_region(self, endpoint: str) -> str:
+        """Return an empty string for nonstandard SLS endpoints."""
+        match = _SLS_ENDPOINT_PATTERN.match(endpoint or '')
+        if not match:
+            return ''
+        region = match.group(1)
+        for suffix in ('-intranet', '-share', '-vpc', '-internal'):
+            if region.endswith(suffix):
+                return region[:-len(suffix)]
+        return region

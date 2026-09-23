@@ -7,13 +7,13 @@ from dbt_bouncer.check_framework.exceptions import NestedDict
 from dbt_bouncer.enums import Criteria
 from dbt_bouncer.utils import (
     compile_pattern,
-    find_missing_meta_keys,
+    find_meta_keys_criteria_failure,
     get_clean_model_name,
     is_description_populated,
 )
 
 
-@check
+@check(code="SN001")
 def check_snapshot_description_populated(
     snapshot, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
@@ -55,8 +55,10 @@ def check_snapshot_description_populated(
         )
 
 
-@check
-def check_snapshot_has_meta_keys(snapshot, *, keys: NestedDict):
+@check(code="SN002")
+def check_snapshot_has_meta_keys(
+    snapshot, *, criteria: Criteria = Criteria.ALL, keys: NestedDict
+):
     """The `meta` config for snapshots must have the specified keys.
 
     !!! info "Rationale"
@@ -64,6 +66,7 @@ def check_snapshot_has_meta_keys(snapshot, *, keys: NestedDict):
         The `meta` config is a flexible, project-defined dictionary used to track ownership, maturity levels, PII classification, and other governance attributes. Requiring specific keys ensures that these attributes are consistently populated across all snapshots, enabling automated reporting, data cataloguing, and access-control workflows that depend on them.
 
     Parameters:
+        criteria (Literal["all", "any", "one"]): Whether the resource must have all, any, or exactly one of the specified keys. Default: `all`.
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
 
     Receives:
@@ -85,16 +88,15 @@ def check_snapshot_has_meta_keys(snapshot, *, keys: NestedDict):
         ```
 
     """
-    missing_keys = find_missing_meta_keys(
-        meta_config=snapshot.meta or {}, required_keys=keys.model_dump()
+    failure = find_meta_keys_criteria_failure(
+        snapshot.meta or {}, keys.model_dump(), criteria
     )
-    if missing_keys:
-        fail(
-            f"`{get_clean_model_name(snapshot.unique_id)}` is missing the following keys from the `meta` config: {[x.replace('>>', '') for x in missing_keys]}"
-        )
+    if failure:
+        display_name = get_clean_model_name(snapshot.unique_id)
+        fail(f"`{display_name}` {failure}")
 
 
-@check
+@check(code="SN003")
 def check_snapshot_has_tags(
     snapshot, *, criteria: Criteria = Criteria.ALL, tags: list[str]
 ):
@@ -128,18 +130,23 @@ def check_snapshot_has_tags(
 
     """
     resource_tags = snapshot.tags or []
-    if criteria == Criteria.ANY:
-        if not any(tag in resource_tags for tag in tags):
-            fail(f"`{snapshot.name}` does not have any of the required tags: {tags}.")
-    elif criteria == Criteria.ALL:
-        missing_tags = [tag for tag in tags if tag not in resource_tags]
-        if missing_tags:
-            fail(f"`{snapshot.name}` is missing required tags: {missing_tags}.")
-    elif criteria == Criteria.ONE and sum(tag in resource_tags for tag in tags) != 1:
-        fail(f"`{snapshot.name}` must have exactly one of the required tags: {tags}.")
+    match criteria:
+        case Criteria.ANY:
+            if not any(tag in resource_tags for tag in tags):
+                fail(
+                    f"`{snapshot.name}` does not have any of the required tags: {tags}."
+                )
+        case Criteria.ALL:
+            missing_tags = [tag for tag in tags if tag not in resource_tags]
+            if missing_tags:
+                fail(f"`{snapshot.name}` is missing required tags: {missing_tags}.")
+        case Criteria.ONE if sum(tag in resource_tags for tag in tags) != 1:
+            fail(
+                f"`{snapshot.name}` must have exactly one of the required tags: {tags}."
+            )
 
 
-@check
+@check(code="SN004")
 def check_snapshot_has_unique_key(snapshot):
     """Snapshots must have a `unique_key` configured.
 
@@ -170,7 +177,7 @@ def check_snapshot_has_unique_key(snapshot):
         )
 
 
-@check
+@check(code="SN005")
 def check_snapshot_names(snapshot, *, snapshot_name_pattern: str):
     """Snapshots must have a name that matches the supplied regex.
 
@@ -206,11 +213,11 @@ def check_snapshot_names(snapshot, *, snapshot_name_pattern: str):
         )
 
 
-@check
+@check(code="SN006")
 def check_snapshot_strategy(
     snapshot,
     *,
-    allowed_strategies: list[str] = ["check", "timestamp"],  # noqa: B006
+    allowed_strategies: list[str] = ["check", "timestamp"],  # ruff: ignore[mutable-argument-default]
 ):
     """Snapshots must use an allowed strategy and have the required strategy-specific configuration.
 

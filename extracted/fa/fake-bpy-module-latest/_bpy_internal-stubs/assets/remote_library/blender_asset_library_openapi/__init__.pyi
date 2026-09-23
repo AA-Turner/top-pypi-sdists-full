@@ -32,7 +32,6 @@ class AssetMetadataV1:
     preferred_import_method: typing.Any
     properties: typing.Any
     tags: typing.Any
-    webpage: typing.Any
 
 class AssetV1:
     """Representation of a single asset.Assets are always Blender data-blocks in some blend file. This asset

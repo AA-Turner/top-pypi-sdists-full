@@ -1092,7 +1092,6 @@ class DevRunner:
                     break
 
                 if choice == "r":
-                    await self._clear_state()
                     await self._clear_workspace_data()
                     self._force_fresh_next_run = True
 
@@ -1332,24 +1331,6 @@ class DevRunner:
                     return line
 
         return await loop.run_in_executor(None, _read)
-
-    async def _clear_state(self) -> None:
-        """Clear world state in Chronos DB so next run starts fresh."""
-        import httpx
-
-        session_id = self.config.session.session_id
-        if not session_id:
-            return
-        try:
-            base_url = settings.chronos_url.rstrip("/")
-            async with httpx.AsyncClient(timeout=10) as client:
-                await client.put(
-                    f"{base_url}/api/sessions/{session_id}/state",
-                    json={},
-                    headers={"X-API-Key": self.api_key},
-                )
-        except Exception as e:
-            _warn(f"Could not clear state: {e}")
 
     async def _clear_workspace_data(self) -> None:
         """Delete workspace data dirs on the world VM so next run starts clean."""

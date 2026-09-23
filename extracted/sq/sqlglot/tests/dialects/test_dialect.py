@@ -17,10 +17,11 @@ from sqlglot.dialects.duckdb import WS_CONTROL_CHARS_TO_DUCK
 from sqlglot.generator import logger as generator_logger
 from sqlglot.parser import logger as parser_logger
 from sqlglot.parsers.snowflake import SnowflakeParser
+from tests.helpers import is_compiled
 from collections.abc import Iterable
 import sqlglot.parsers.base as _base_module
 
-_PARSER_IS_COMPILED = getattr(_base_module, "__file__", "").endswith(".so")
+_PARSER_IS_COMPILED = is_compiled(_base_module)
 
 
 class Validator(unittest.TestCase):
@@ -2086,6 +2087,29 @@ class TestDialect(Validator):
         )
 
     def test_set_operators(self):
+        self.validate_all(
+            "SELECT * FROM a UNION SELECT * FROM b OFFSET 1",
+            write={
+                "": "SELECT * FROM a UNION SELECT * FROM b OFFSET 1",
+                "clickhouse": "SELECT * FROM (SELECT * FROM a UNION DISTINCT SELECT * FROM b) AS _l_0 OFFSET 1",
+                "tsql": "SELECT * FROM (SELECT * FROM a UNION SELECT * FROM b) AS _l_0 ORDER BY (SELECT NULL) OFFSET 1 ROWS",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM a UNION SELECT * FROM b ORDER BY x LIMIT 1 OFFSET 1",
+            write={
+                "": "SELECT * FROM a UNION SELECT * FROM b ORDER BY x LIMIT 1 OFFSET 1",
+                "clickhouse": "SELECT * FROM (SELECT * FROM a UNION DISTINCT SELECT * FROM b) AS _l_0 ORDER BY x NULLS FIRST LIMIT 1 OFFSET 1",
+                "tsql": "SELECT * FROM a UNION SELECT * FROM b ORDER BY x OFFSET 1 ROWS FETCH FIRST 1 ROWS ONLY",
+            },
+        )
+        self.validate_all(
+            "SELECT a FROM x UNION SELECT a FROM y FETCH FIRST 2 ROWS ONLY",
+            write={
+                "clickhouse": "SELECT * FROM (SELECT a FROM x UNION DISTINCT SELECT a FROM y) AS _l_0 LIMIT 2",
+                "tsql": "SELECT * FROM (SELECT a FROM x UNION SELECT a FROM y) AS _l_0 ORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH FIRST 2 ROWS ONLY",
+            },
+        )
         self.validate_all(
             "SELECT * FROM a UNION SELECT * FROM b ORDER BY x LIMIT 1",
             write={
@@ -5357,6 +5381,10 @@ FROM subquery2""",
         self.validate_identity("SELECT 1 OPERATOR(+) 2")
         self.validate_identity("SELECT 1 OPERATOR(+) /* foo */ 2")
         self.validate_identity("SELECT 1 OPERATOR(pg_catalog.+) 2")
+        self.validate_identity("SELECT 1 operator", "SELECT 1 AS operator")
+        self.validate_identity(
+            "SELECT 1 OPERATOR(+) 2 operator", "SELECT 1 OPERATOR(+) 2 AS operator"
+        )
 
     def test_json_keys(self):
         self.validate_all(
@@ -5446,3 +5474,8 @@ FROM subquery2""",
         result = parse_one("SELECT DOUBLE_IT(5)", dialect=MyDialect)
         self.assertIsInstance(result.expressions[0], exp.Mul)
         self.assertEqual(result.sql(), "SELECT 2 * 5")
+
+    def test_agg(self):
+        expression = self.validate_identity("SELECT AGG(m), AGG(m) AS x, AGG(t.m) FROM t")
+        self.assertIsInstance(expression.selects[0], exp.Agg)
+        self.assertEqual([s.output_name for s in expression.selects], ["m", "x", "m"])

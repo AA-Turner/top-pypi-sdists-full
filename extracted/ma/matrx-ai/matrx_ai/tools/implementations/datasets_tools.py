@@ -176,6 +176,40 @@ async def usertable_get_metadata(args: dict[str, Any], ctx: ToolContext) -> Tool
         )
 
 
+async def _rows_in_words(
+    table_id: str, rows: list[dict[str, Any]], ctx: ToolContext
+) -> list[dict[str, Any]]:
+    """Every ``relation`` cell of this page as the WORDS it means, not the id it stores.
+
+    A relation column holds a record's identifier and shows that record's name. Handing a
+    model the identifier is the same defect the screen had before OLD-TABLES-3, one layer
+    down. The resolver is injected by the host (``matrx_ai.configure(
+    relation_words_resolver=...)``) because the one implementation lives in matrx-records,
+    which depends on this package — see ``matrx_ai/tools/relation_words.py``.
+
+    Resolution runs under the OPERATING PERSON's identity (``ctx.user_id``) and never on a
+    privileged pool: a row this person may not open comes back withheld, never as a name.
+    """
+    from matrx_ai.tools.relation_words import resolve_relation_columns
+
+    try:
+        user_id = ctx.user_id
+    except Exception:  # noqa: BLE001 — no request identity ⇒ nothing to resolve AS
+        return rows
+
+    indexes = [i for i, row in enumerate(rows) if isinstance(row.get("data"), dict)]
+    if not indexes:
+        return rows
+    resolved = await resolve_relation_columns(
+        table_id, [rows[i]["data"] for i in indexes], user_id=user_id
+    )
+    if len(resolved) != len(indexes):
+        return rows
+    for position, index in enumerate(indexes):
+        rows[index] = {**rows[index], "data": resolved[position]}
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # get_personal_table_fields
 # ---------------------------------------------------------------------------
@@ -273,6 +307,7 @@ async def usertable_get_data(args: dict[str, Any], ctx: ToolContext) -> ToolResu
             }
             for r in rows
         ]
+        data = await _rows_in_words(table_id, data, ctx)
         page_count = len(data)
         data, cap = _bounded_dataset_rows(data)
         return _self_capped(
@@ -339,6 +374,7 @@ async def usertable_search_data(args: dict[str, Any], ctx: ToolContext) -> ToolR
             }
             for r in rows
         ]
+        data = await _rows_in_words(table_id, data, ctx)
         page_count = len(data)
         data, cap = _bounded_dataset_rows(data)
         return _self_capped(

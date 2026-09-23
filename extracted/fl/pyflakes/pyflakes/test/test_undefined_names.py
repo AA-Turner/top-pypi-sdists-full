@@ -8,8 +8,15 @@ class Test(TestCase):
     def test_undefined(self):
         self.flakes('bar', m.UndefinedName)
 
+    def test_call_of_attribute_of_undefined_name(self):
+        self.flakes('bar.baz()', m.UndefinedName)
+
     def test_definedInListComp(self):
         self.flakes('[a for a in range(10) if a]')
+
+    def test_multi_generator(self):
+        self.flakes('[a for a in range(10) for b in range(a)]')
+        self.flakes('[1 for a in range(10) for b in z]', m.UndefinedName)
 
     def test_undefinedInListComp(self):
         self.flakes('''
@@ -425,6 +432,12 @@ class Test(TestCase):
                         del o
                 o = False
         ''')
+
+    def test_del_special_variable(self):
+        self.flakes('''
+        def f():
+            del __tracebackhide__
+        ''', m.UndefinedName)
 
     def test_globalFromNestedScope(self):
         """Global names are available from nested scopes."""

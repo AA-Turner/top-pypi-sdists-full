@@ -236,12 +236,40 @@ def _should_use_durable_vfs() -> bool:
     return has_durable_backend()
 
 
+def _refuse_if_their_machine_is_down(tool_name: str, ctx: ToolContext) -> ToolResult | None:
+    """🚨 "NO BOX ATTACHED" AND "THEIR BOX IS DOWN" ARE DIFFERENT ANSWERS.
+
+    Every branch below this line is about to serve the durable VFS as a
+    substitute for a real filesystem. When nobody attached a box that is the
+    right answer — there is no box to be down, and the emulator is honest about
+    being what it is.
+
+    When the HOST has stamped an outage on this run, it is not. That stamp only
+    ever appears for a person whose machine is supposed to be up right now, and
+    serving them an emulator over their code library while they believe their
+    own files are being read is the silent degrade the sandbox hard-gate exists
+    to prevent — reaching them through the one door that gate cannot close,
+    because a conversation with NO binding raises no refusal and never should.
+
+    The refusal is one sentence the host wrote for the person, and it names
+    what the staff still can do. Called at the top of every durable-VFS branch;
+    ``test_a_tool_that_needs_the_box_says_so.py`` walks this file's AST and
+    fails if a branch is ever added without it.
+    """
+
+    from matrx_ai.tools.workspace_outage import refuse_if_workspace_is_down
+
+    return refuse_if_workspace_is_down(tool_name, ctx)
+
+
 async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsReadArgs(**args)
 
     # No sandbox + a durable VFS backend → serve from the durable code_files filesystem.
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_read", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_read(args, ctx)
@@ -341,6 +369,8 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsWriteArgs(**args)
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_write", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_write(args, ctx)
@@ -465,6 +495,8 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsListArgs(**args)
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_list", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_list(args, ctx)
@@ -601,6 +633,8 @@ async def fs_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsSearchArgs(**args)
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_search", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_search(args, ctx)
@@ -732,6 +766,8 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsPatchArgs(**args)
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_patch", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_patch(args, ctx)
@@ -912,6 +948,8 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsEditArgs(**args)
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_edit", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_edit(args, ctx)
@@ -1164,6 +1202,8 @@ async def fs_mkdir(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsMkdirArgs(**args)
     if _should_use_durable_vfs():
+        if (refusal := _refuse_if_their_machine_is_down("fs_mkdir", ctx)) is not None:
+            return refusal
         from matrx_ai.tools.implementations import vfs_filesystem
 
         return await vfs_filesystem.fs_mkdir(args, ctx)

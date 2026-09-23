@@ -57,6 +57,7 @@ __all__ = [
     "VerbalizedDecisionOverlay",
     "prepare_verbalized_decision",
     "finalize_verbalized_decision",
+    "restore_decision_turn_scope",
 ]
 
 #: Media part kinds a text-only decision holder cannot consume. The value is
@@ -573,7 +574,7 @@ class VerbalizedDecisionOverlay:
     question that was asked.
     """
 
-    __slots__ = ("batch", "message_index", "state", "model_name")
+    __slots__ = ("batch", "message_index", "state", "model_name", "suspended")
 
     def __init__(
         self,
@@ -585,6 +586,9 @@ class VerbalizedDecisionOverlay:
         self.batch = batch
         self.message_index = message_index
         self.state = state
+        #: What ``suspend_chat_furniture`` set aside for this one turn, put back
+        #: by ``restore_decision_turn_scope`` on every return path.
+        self.suspended: dict[str, Any] | None = None
         #: THE MODEL'S NAME, resolved by the catalog — never ``config.model``.
         #: ``config.model`` is whatever the caller named the model by, and an
         #: agent names it by its ai.model UUID, so a verbalized answer used to
@@ -593,6 +597,63 @@ class VerbalizedDecisionOverlay:
         #: wires, so the resolved ``profile.model_name`` is captured HERE,
         #: where the route is known, and carried to the finalizer.
         self.model_name = model_name
+
+
+# THE DECISION TURN IS ITS MESSAGE PARTS, AND NOTHING ELSE.
+#
+# A native decision route (TypeSafe System One) is sent the state object and
+# the questions — never the agent's tools, the org catalog, the surface intro or
+# memory. A text model asked the SAME part used to be sent everything a chat turn
+# carries: on 2026-09-23 the Sonnet twin of the feedback-triage agent paid
+# 45,739 input tokens for a decision the native holder answered in 729 — twenty
+# tool schemas (87 KB: its one attached tool plus nineteen platform-injected),
+# the membership catalog (18 KB) and the per-turn context block (5.6 KB). None of
+# it can change an answer that is bound to a strict schema, and every byte of it
+# is billed. The state already carries the authored instruction, so the system
+# channel is dropped too. The builder says this out loud ("Questions parts run
+# without tools; the attached tools are ignored for this turn") — it is never
+# silent.
+_SUSPENDED_FIELDS: tuple[tuple[str, Any], ...] = (
+    ("tools", list),
+    ("custom_tools", list),
+    ("internal_web_search", lambda: None),
+    ("system_instruction", lambda: None),
+)
+
+
+def suspend_chat_furniture(config: Any) -> dict[str, Any]:
+    """Set aside everything a chat turn adds beyond the message parts.
+
+    Returns what was set aside so ``restore_decision_turn_scope`` can put it
+    back: the config object may outlive this request (a conversation's config
+    is reused on the next turn), so the suspension is for THIS turn only.
+    """
+    suspended: dict[str, Any] = {}
+    for name, empty in _SUSPENDED_FIELDS:
+        if hasattr(config, name):
+            suspended[name] = getattr(config, name)
+            setattr(config, name, empty())
+    blocks = getattr(getattr(config, "messages", None), "_turn_context_blocks", None)
+    if isinstance(blocks, dict):
+        suspended["_turn_context_blocks"] = dict(blocks)
+        blocks.clear()
+    return suspended
+
+
+def restore_decision_turn_scope(config: Any, overlay: Any) -> None:
+    """Put back what ``suspend_chat_furniture`` set aside for the decision turn."""
+    suspended = getattr(overlay, "suspended", None)
+    if not suspended:
+        return
+    overlay.suspended = None
+    for name, value in suspended.items():
+        if name == "_turn_context_blocks":
+            blocks = getattr(getattr(config, "messages", None), "_turn_context_blocks", None)
+            if isinstance(blocks, dict):
+                blocks.clear()
+                blocks.update(value)
+            continue
+        setattr(config, name, value)
 
 
 def prepare_verbalized_decision(
@@ -666,7 +727,9 @@ def prepare_verbalized_decision(
             strict=True,
         ),
     ).model_dump(by_alias=True, exclude_none=True)
-    return VerbalizedDecisionOverlay(batch, index, state, model_name=model_name)
+    overlay = VerbalizedDecisionOverlay(batch, index, state, model_name=model_name)
+    overlay.suspended = suspend_chat_furniture(config)
+    return overlay
 
 
 def finalize_verbalized_decision(

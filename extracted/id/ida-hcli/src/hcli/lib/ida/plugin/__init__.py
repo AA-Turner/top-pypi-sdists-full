@@ -69,8 +69,9 @@ IdaVersion = Literal[
     # next versions, unreleased. names are guesses and not any sort of official announcement.
     # we should have these available so that older versions of hcli don't complain about new plugin support.
     "10.0",
-    "9.4",
+    "9.5",
     # released versions
+    "9.4",  #    2026-07
     "9.3",  #    2026-02
     "9.2",  #    2025-09
     "9.1",  #    2025-02
@@ -485,6 +486,167 @@ class PluginMetadata(BaseModel):
         description="User-configurable settings exposed by the plugin.",
     )
 
+    dependencies: list = Field(
+        default_factory=list,
+        description=(
+            "Plugins to install alongside this one. Each entry is either a "
+            "string (plugin reference: bare name, name==version, or name@host) "
+            "or an object with 'plugin' (string) and optional 'required' (bool, "
+            "default true). String entries are required by default. "
+            "Dependencies are resolved across all configured repositories. "
+            "Use name@host to pin a dependency to a specific repository and "
+            "avoid ambiguity."
+        ),
+        examples=[
+            ["go-runtime-detector", "go-string-extractor==1.2.0"],
+            [
+                "always-needed",
+                {"plugin": "nice-to-have", "required": False},
+                {"plugin": "also-needed==2.0.0", "required": True},
+            ],
+        ],
+        json_schema_extra={
+            "items": {
+                "oneOf": [
+                    {"type": "string"},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "plugin": {
+                                "type": "string",
+                                "description": "Plugin reference in the same format accepted for string entries.",
+                            },
+                            "required": {
+                                "type": "boolean",
+                                "default": True,
+                                "description": "Whether the parent needs this dependency to function.",
+                            },
+                        },
+                        "required": ["plugin"],
+                        "additionalProperties": False,
+                    },
+                ]
+            }
+        },
+    )
+
+    components: "list[str | IDAMetadataDescriptor]" = Field(
+        default_factory=list,
+        description=(
+            "Subdirectory names of plugins bundled inside this suite's archive. "
+            "Each entry is either a string (subdirectory name) or a full "
+            "IDAMetadataDescriptor object (expanded component metadata). "
+            "String entries must match a subdirectory containing its own "
+            "ida-plugin.json whose plugin.name matches the entry. Components "
+            "share the suite's lifecycle and are hidden from top-level plugin "
+            "listings."
+        ),
+        examples=[["hexrays-taint-engine", "hexrays-type-propagation"]],
+        json_schema_extra={
+            "items": {
+                "oneOf": [
+                    {"type": "string"},
+                    {
+                        "type": "object",
+                        "description": "Full IDAMetadataDescriptor for a pre-expanded component.",
+                        "properties": {
+                            "IDAMetadataDescriptorVersion": {"type": "integer", "const": 1},
+                            "plugin": {"type": "object"},
+                        },
+                        "required": ["IDAMetadataDescriptorVersion", "plugin"],
+                    },
+                ]
+            }
+        },
+    )
+
+    @field_validator("dependencies", mode="before")
+    @classmethod
+    def validate_dependency_specs(cls, raw: list) -> list:
+        from hcli.lib.ida.plugin.reference import DependencyEntry, parse_dependency_entry
+
+        entries: list[DependencyEntry] = []
+        seen_names: set[str] = set()
+        for item in raw:
+            entry = parse_dependency_entry(item)
+            name_lower = entry.reference.name.lower()
+            if name_lower in seen_names:
+                raise ValueError(f"duplicate dependency: '{entry.reference.name}'")
+            seen_names.add(name_lower)
+            entries.append(entry)
+        return entries
+
+    @field_serializer("dependencies")
+    def serialize_dependencies(self, entries: list) -> list:
+        from hcli.lib.ida.plugin.reference import DependencyEntry
+
+        result: list[str | dict] = []
+        for entry in entries:
+            # Guard for data constructed without going through model_validate.
+            if not isinstance(entry, DependencyEntry):
+                result.append(entry)
+                continue
+            spec = entry.format_spec()
+            if entry.required:
+                result.append(spec)
+            else:
+                result.append({"plugin": spec, "required": False})
+        return result
+
+    @field_validator("components", mode="before")
+    @classmethod
+    def parse_component_entries(cls, raw: list[typing.Any]) -> "list[str | IDAMetadataDescriptor]":
+        entries: list[str | IDAMetadataDescriptor] = []
+        for item in raw:
+            if isinstance(item, str):
+                entries.append(item)
+            elif isinstance(item, dict):
+                entries.append(IDAMetadataDescriptor.model_validate(item))
+            elif isinstance(item, IDAMetadataDescriptor):
+                entries.append(item)
+            else:
+                raise TypeError(f"component entry must be a string or object, got {type(item).__name__}")
+        return entries
+
+    @field_validator("components", mode="after")
+    @classmethod
+    def validate_component_names(
+        cls, entries: "list[str | IDAMetadataDescriptor]"
+    ) -> "list[str | IDAMetadataDescriptor]":
+        seen_names: set[str] = set()
+        for entry in entries:
+            if isinstance(entry, str):
+                name = entry
+                if "==" in name:
+                    raise ValueError(f"component entries must not contain version pins: '{name}'")
+                if "@" in name:
+                    raise ValueError(f"component entries must not contain host qualifiers: '{name}'")
+                if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+                    raise ValueError(
+                        f"component name must consist of ASCII letters, digits, underscores, and hyphens: '{name}'"
+                    )
+                if name.startswith(("_", "-")) or name.endswith(("_", "-")):
+                    raise ValueError(f"component name must not start or end with underscore or hyphen: '{name}'")
+            else:
+                name = entry.plugin.name
+            name_lower = name.lower()
+            if name_lower in seen_names:
+                raise ValueError("component names must be unique within a single manifest")
+            seen_names.add(name_lower)
+        return entries
+
+    @field_serializer("components")
+    def serialize_components(self, entries: "list[str | IDAMetadataDescriptor]") -> list[str | dict]:
+        result: list[str | dict] = []
+        for entry in entries:
+            if isinstance(entry, str):
+                result.append(entry)
+            elif isinstance(entry, IDAMetadataDescriptor):
+                result.append(entry.model_dump(mode="json", by_alias=True))
+            else:
+                result.append(entry)
+        return result
+
     @field_validator("name", mode="after")
     @classmethod
     def is_ok_name(cls, v: str) -> str:
@@ -608,6 +770,13 @@ class IDAMetadataDescriptor(BaseModel):
         description="Version of the IDA metadata descriptor schema. Must be `1`.",
     )
     plugin: PluginMetadata = Field(description="Plugin metadata.")
+
+
+def get_component_name(entry: str | IDAMetadataDescriptor) -> str:
+    """Extract the plugin name from a component entry (string or descriptor)."""
+    if isinstance(entry, str):
+        return entry
+    return entry.plugin.name
 
 
 class MinimalIDAPluginMetadata(BaseModel):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import warnings
@@ -21,6 +22,7 @@ from typing import (
     Type,
     Union,
     cast,
+    get_args,
 )
 
 import litellm
@@ -48,6 +50,7 @@ from langchain_core.messages import (
     FunctionMessageChunk,
     HumanMessage,
     HumanMessageChunk,
+    InvalidToolCall,
     SystemMessage,
     SystemMessageChunk,
     ToolCall,
@@ -59,6 +62,7 @@ from langchain_core.messages.ai import (
     OutputTokenDetails,
     UsageMetadata,
 )
+from langchain_core.messages.tool import invalid_tool_call
 from langchain_core.messages.utils import (
     convert_to_openai_data_block,
     is_data_content_block,
@@ -76,7 +80,6 @@ from langchain_core.outputs import (
 )
 from langchain_core.runnables import Runnable, RunnablePassthrough
 from langchain_core.tools import BaseTool
-from langchain_core.utils import get_from_dict_or_env, pre_init
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import TypeBaseModel, is_basemodel_subclass
 from litellm.types.utils import Delta
@@ -87,9 +90,84 @@ from langchain_litellm._version import __version__
 
 logger = logging.getLogger(__name__)
 
+# Per-call kwargs that decide WHERE litellm sends the request.
+_DESTINATION_KEYS = ("model", "custom_llm_provider")
+
+# A provider's key lives in the field named `<provider>_api_key`, so the mapping is
+# derived from the declared fields rather than restated. Only litellm provider ids
+# that do NOT follow that convention need an entry here.
+_PROVIDER_FIELD_ALIASES = {
+    "cohere_chat": "cohere",
+    "text-completion-openai": "openai",
+    "azure_text": "azure",
+}
+
+
+def _provider_api_key_field(
+    cls: Type[BaseModel], provider: Optional[str]
+) -> Optional[str]:
+    """Name the field holding this provider's key on ``cls``, or None if it has none.
+
+    Reading ``model_fields`` off the runtime class keeps this honest and lets a
+    subclass contribute a provider the base class does not declare.
+    """
+    if not provider:
+        return None
+    field = f"{_PROVIDER_FIELD_ALIASES.get(provider, provider)}_api_key"
+    return field if field in cls.model_fields else None
+
+
+def _get_field(source: Any, name: str) -> Any:
+    """Retrieve *name* by dict lookup or attribute access.
+
+    litellm hands a response over as a Pydantic model on one path and as the dict
+    `model_dump()` produced on another, so neither access alone reaches both.
+    """
+    if isinstance(source, dict):
+        return source.get(name)
+    return getattr(source, name, None)
+
+
+def _cost_metadata(response: Any) -> Dict[str, Any]:
+    """Name what a call cost, from whichever field litellm recorded it in.
+
+    A complete response carries the figure in `_hidden_params`; a stream leaves it
+    there unset and reports it under `usage` on the trailing usage chunk.
+    """
+    cost = _get_field(_get_field(response, "_hidden_params"), "response_cost")
+    if cost is None:
+        cost = _get_field(_get_field(response, "usage"), "cost")
+    return {"response_cost": cost} if cost is not None else {}
+
 
 class ChatLiteLLMException(Exception):
     """Exception raised for errors in the LiteLLM integration."""
+
+
+def _copy_containers(value: Any, memo: Optional[Dict[int, Any]] = None) -> Any:
+    """Copy dicts and lists recursively, leaving anything else shared.
+
+    Deep enough that a caller cannot mutate this model's configuration through the
+    params it is handed, and shallow enough not to fail on a client object or any
+    other value that cannot be copied. ``copy.copy`` rather than a fresh literal so
+    a defaultdict keeps its factory, and ``memo`` so a self-referential value ends.
+    """
+    memo = {} if memo is None else memo
+    if id(value) in memo:
+        return memo[id(value)]
+    if isinstance(value, dict):
+        copied_dict = copy.copy(value)
+        memo[id(value)] = copied_dict
+        for key, item in value.items():
+            copied_dict[key] = _copy_containers(item, memo)
+        return copied_dict
+    if isinstance(value, list):
+        copied_list = copy.copy(value)
+        memo[id(value)] = copied_list
+        for index, item in enumerate(value):
+            copied_list[index] = _copy_containers(item, memo)
+        return copied_list
+    return value
 
 
 def _create_retry_decorator(
@@ -111,29 +189,6 @@ def _create_retry_decorator(
     )
 
 
-def _inject_reasoning_content_into_content(
-    content: Any, reasoning_content: str
-) -> List[Dict[str, Any]]:
-    thinking_block = {"type": "thinking", "thinking": reasoning_content}
-    if isinstance(content, list):
-        has_thinking_block = any(
-            isinstance(block, dict)
-            and block.get("type") in ("thinking", "redacted_thinking")
-            for block in content
-        )
-        if has_thinking_block:
-            return content
-        return [thinking_block, *content]
-
-    if not content:
-        return [thinking_block]
-
-    if isinstance(content, str):
-        return [thinking_block, {"type": "text", "text": content}]
-
-    return [thinking_block, content]
-
-
 def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
     role = _dict["role"]
     if role == "user":
@@ -143,6 +198,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
 
         additional_kwargs = {}
         tool_calls = []
+        invalid_tool_calls: List[InvalidToolCall] = []
 
         if _dict.get("function_call"):
             additional_kwargs["function_call"] = dict(_dict["function_call"])
@@ -182,7 +238,20 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
                             try:
                                 func_args = json.loads(func_args)
                             except json.JSONDecodeError:
-                                pass  # Keep as string or empty if strictly required
+                                # Arguments that don't parse cannot be recovered,
+                                # so report the call as invalid rather than
+                                # dispatching the tool with no arguments. Matches
+                                # langchain_core's default_tool_parser, which keeps
+                                # the raw string for inspection.
+                                invalid_tool_calls.append(
+                                    invalid_tool_call(
+                                        name=func_name,
+                                        args=func_args,
+                                        id=tc_id,
+                                        error=None,
+                                    )
+                                )
+                                continue
 
                         # Ensure args is a dict (e.g., already parsed Dict from Vertex)
                         if not isinstance(func_args, dict):
@@ -199,9 +268,6 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
 
         if _dict.get("reasoning_content"):
             additional_kwargs["reasoning_content"] = _dict["reasoning_content"]
-            content = _inject_reasoning_content_into_content(
-                content, _dict["reasoning_content"]
-            )
 
         # Check standard field first, then fallback to Vertex specific field
         provider_specific_fields = _dict.get("provider_specific_fields")
@@ -212,7 +278,10 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
             additional_kwargs["provider_specific_fields"] = provider_specific_fields
 
         return AIMessage(
-            content=content, additional_kwargs=additional_kwargs, tool_calls=tool_calls
+            content=content,
+            additional_kwargs=additional_kwargs,
+            tool_calls=tool_calls,
+            invalid_tool_calls=invalid_tool_calls,
         )
 
     elif role == "system":
@@ -259,9 +328,6 @@ def _convert_delta_to_message_chunk(
         additional_kwargs["function_call"] = dict(function_call)
     if reasoning_content:
         additional_kwargs["reasoning_content"] = reasoning_content
-
-    if reasoning_content and (role == "assistant" or default_class == AIMessageChunk):
-        content = _inject_reasoning_content_into_content(content, reasoning_content)
 
     if provider_specific_fields is not None:
         additional_kwargs["provider_specific_fields"] = provider_specific_fields
@@ -380,7 +446,11 @@ def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
             message_dict["tool_calls"] = [
                 _lc_tool_call_to_openai_tool_call(tc) for tc in message.tool_calls
             ]
-        elif "tool_calls" in message.additional_kwargs:
+        # A call that failed to parse was never dispatched, so it must not go back:
+        # the provider fails the same parse on the same raw arguments.
+        elif (
+            "tool_calls" in message.additional_kwargs and not message.invalid_tool_calls
+        ):
             message_dict["tool_calls"] = message.additional_kwargs["tool_calls"]
         # Forward reasoning_content so LiteLLM can inject thinking blocks for
         # Anthropic while leaving OpenAI-bound messages clean.
@@ -414,19 +484,28 @@ class ChatLiteLLM(BaseChatModel):
     model_name: Optional[str] = None
     stream_options: Optional[Dict[str, Any]] = None
     """Model name to use."""
-    openai_api_key: Optional[str] = None
-    azure_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    replicate_api_key: Optional[str] = None
-    cohere_api_key: Optional[str] = None
-    openrouter_api_key: Optional[str] = None
-    api_key: Optional[str] = None
+    openai_api_key: Optional[str] = Field(default=None, repr=False)
+    azure_api_key: Optional[str] = Field(default=None, repr=False)
+    anthropic_api_key: Optional[str] = Field(default=None, repr=False)
+    replicate_api_key: Optional[str] = Field(default=None, repr=False)
+    cohere_api_key: Optional[str] = Field(default=None, repr=False)
+    openrouter_api_key: Optional[str] = Field(default=None, repr=False)
+    huggingface_api_key: Optional[str] = Field(default=None, repr=False)
+    together_ai_api_key: Optional[str] = Field(default=None, repr=False)
+    api_key: Optional[str] = Field(default=None, repr=False)
     streaming: bool = False
     api_base: Optional[str] = None
+    """Endpoint override for the upstream provider.
+
+    Also accepts ``base_url`` as an alias (normalized in ``validate_environment``)
+    for consistency with the rest of the LangChain ecosystem (e.g. ``ChatOpenAI``,
+    ``ChatAnthropic``) and with ``init_chat_model(..., base_url=...)``. A non-None
+    ``api_base`` wins; ``base_url`` fills in when ``api_base`` is unset or None,
+    so a config built from ``os.getenv`` still reaches the endpoint."""
     organization: Optional[str] = None
     custom_llm_provider: Optional[str] = None
     base_model: Optional[str] = None
-    extra_headers: Optional[Dict[str, str]] = None
+    extra_headers: Optional[Dict[str, str]] = Field(default=None, repr=False)
     request_timeout: Optional[Union[float, Tuple[float, float]]] = None
     temperature: Optional[float] = None
     """Run inference with this temperature. Must be in the closed
@@ -462,7 +541,7 @@ class ChatLiteLLM(BaseChatModel):
         set_model_value = self.model
         if self.model_name is not None:
             set_model_value = self.model_name
-        return {
+        params: Dict[str, Any] = {
             "model": set_model_value,
             "timeout": self.request_timeout,
             "max_tokens": self.max_tokens,
@@ -472,21 +551,149 @@ class ChatLiteLLM(BaseChatModel):
             "custom_llm_provider": self.custom_llm_provider,
             "num_ctx": self.num_ctx,
             "base_model": self.base_model,
-            **self.model_kwargs,
         }
+        # litellm rejects these for watsonx on key presence, so an unset one has
+        # to be absent rather than None.
+        for name, value in (("top_p", self.top_p), ("top_k", self.top_k)):
+            if value is not None:
+                params[name] = value
+        # Copy containers at every level: a caller mutating the returned params,
+        # however deeply, must not reach back into this instance's model_kwargs.
+        return {
+            **params,
+            **{
+                key: _copy_containers(value) for key, value in self.model_kwargs.items()
+            },
+        }
+
+    def _constructor_destination(self) -> Tuple[Optional[str], Optional[str]]:
+        """The model and provider this instance sends to when a call overrides neither.
+
+        ``model_kwargs`` is merged last into ``_default_params``, so an entry there
+        for ``model`` or ``custom_llm_provider`` is what actually reaches litellm
+        and must decide the credential too.
+        """
+        overrides = self.model_kwargs or {}
+        model = overrides.get("model") or (
+            self.model_name if self.model_name is not None else self.model
+        )
+        provider = overrides.get("custom_llm_provider") or self.custom_llm_provider
+        return model, provider
+
+    def _resolve_api_key(
+        self,
+        model: Optional[str] = None,
+        custom_llm_provider: Optional[str] = None,
+    ) -> Optional[str]:
+        """Resolve the key to send to litellm for this call.
+
+        ``api_key`` wins when set. Otherwise fall back to the provider-specific
+        field matching the provider, so a key supplied as, say,
+        ``openai_api_key`` is actually used rather than silently ignored.
+
+        ``model`` and ``custom_llm_provider`` are the EFFECTIVE values for this
+        call, either of which a caller may override per call. Both decide where
+        litellm sends the request, so both must decide which key travels with it.
+
+        Returns ``None`` when the caller configured nothing, leaving every
+        environment variable to litellm's own resolution.
+        """
+        if self.api_key:
+            return self.api_key
+        # A generic key supplied through model_kwargs is as provider-agnostic and as
+        # explicit as the field, so it takes the same precedence rather than being
+        # replaced by a provider-scoped resolution when a call redirects.
+        explicit = (self.model_kwargs or {}).get("api_key")
+        if explicit:
+            return explicit
+
+        # With no provider-scoped key set there is nothing to attribute, and asking
+        # litellm to attribute a proxy deployment name costs a banner on stdout.
+        fields = type(self).model_fields
+        if not any(
+            getattr(self, name, None) for name in fields if name.endswith("_api_key")
+        ):
+            return None
+
+        default_model, default_provider = self._constructor_destination()
+        provider = custom_llm_provider or default_provider
+        if not provider:
+            effective_model = model or default_model
+            if not effective_model:
+                return None
+            try:
+                _, provider, _, _ = litellm.get_llm_provider(model=effective_model)
+            except litellm.BadRequestError:
+                # The one expected failure: litellm cannot attribute this model, so
+                # defer to its own credential resolution rather than guess.
+                logger.debug(
+                    "No provider attributed to %r; leaving api_key unset.",
+                    effective_model,
+                )
+                return None
+
+        field = _provider_api_key_field(type(self), provider)
+        if field is None:
+            return None
+        return getattr(self, field, None) or None
+
+    def _merge_call_params(
+        self, params: Dict[str, Any], kwargs: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Merge per-call kwargs over the client params, rescoping the destination.
+
+        ``_client_params`` is built from constructor state, so every value in it
+        that depends on WHERE the request goes — the credential, the endpoint, the
+        organization, the provider-specific headers, the cost-tracking model — is
+        resolved against the constructor's destination. A caller may redirect the
+        request per call with ``model`` or ``custom_llm_provider``.
+
+        Only the provider-scoped credential is INFERRED from that destination, so only
+        it is re-resolved when the destination changes. ``api_base``, ``organization``
+        and ``extra_headers`` exist because a caller set them, so they survive a
+        redirect untouched, and a pinned ``api_base`` holds the credential with it:
+        choosing an endpoint and a key together is choosing them for each other.
+
+        A ``None`` override means "not supplied", matching how litellm reads params.
+        """
+        merged = {**params, **kwargs}
+
+        # None means omitted: fall back rather than sending a null destination.
+        for key in _DESTINATION_KEYS:
+            if key in kwargs and kwargs[key] is None:
+                merged[key] = params.get(key)
+
+        redirected = {
+            key: kwargs[key] for key in _DESTINATION_KEYS if kwargs.get(key) is not None
+        }
+        if not redirected:
+            return merged
+
+        # A caller who pinned an endpoint and supplied a key chose them together, so
+        # a redirect must not swap one of them for a provider-scoped key.
+        if kwargs.get("api_key") is None and merged.get("api_base") is None:
+            merged["api_key"] = self._resolve_api_key(
+                model=redirected.get("model"),
+                custom_llm_provider=redirected.get("custom_llm_provider"),
+            )
+        return merged
 
     @property
     def _client_params(self) -> Dict[str, Any]:
         """Get the per-call parameters passed to litellm.completion."""
         creds: Dict[str, Any] = {
-            "timeout": self.request_timeout,
             "api_base": self.api_base,
-            "api_key": self.api_key,
+            "api_key": self._resolve_api_key(),
             "organization": self.organization,
+            "extra_headers": self.extra_headers,
         }
-        if self.extra_headers is not None:
-            creds["extra_headers"] = self.extra_headers
-        return {**self._default_params, **creds}
+        # Only override a default that is actually configured. An unset credential
+        # would otherwise clobber the same key supplied through model_kwargs, and
+        # litellm treats a missing param and a None one identically anyway.
+        return {
+            **self._default_params,
+            **{key: value for key, value in creds.items() if value is not None},
+        }
 
     def completion_with_retry(
         self, run_manager: Optional[CallbackManagerForLLMRun] = None, **kwargs: Any
@@ -518,42 +725,47 @@ class ChatLiteLLM(BaseChatModel):
         self._add_version("langchain-litellm", __version__)
         return self
 
-    @pre_init
-    def validate_environment(cls, values: Dict) -> Dict:
-        """Validate api key, python package exists, temperature, top_p, and top_k."""
-        values["openai_api_key"] = get_from_dict_or_env(
-            values, "openai_api_key", "OPENAI_API_KEY", default=""
-        )
-        values["azure_api_key"] = get_from_dict_or_env(
-            values, "azure_api_key", "AZURE_API_KEY", default=""
-        )
-        values["anthropic_api_key"] = get_from_dict_or_env(
-            values, "anthropic_api_key", "ANTHROPIC_API_KEY", default=""
-        )
-        values["replicate_api_key"] = get_from_dict_or_env(
-            values, "replicate_api_key", "REPLICATE_API_KEY", default=""
-        )
-        values["openrouter_api_key"] = get_from_dict_or_env(
-            values, "openrouter_api_key", "OPENROUTER_API_KEY", default=""
-        )
-        values["cohere_api_key"] = get_from_dict_or_env(
-            values, "cohere_api_key", "COHERE_API_KEY", default=""
-        )
-        values["huggingface_api_key"] = get_from_dict_or_env(
-            values, "huggingface_api_key", "HUGGINGFACE_API_KEY", default=""
-        )
-        values["together_ai_api_key"] = get_from_dict_or_env(
-            values, "together_ai_api_key", "TOGETHERAI_API_KEY", default=""
-        )
+    @model_validator(mode="before")
+    @classmethod
+    def validate_environment(cls, values: Any) -> Any:
+        """Normalize the base_url alias, collect credentials, and check the ranges.
+
+        A ``mode="before"`` validator sees only what the caller passed, so pydantic's
+        own ``model_fields_set`` stays truthful and langchain-core can tell a chosen
+        ``streaming=False`` from the default.
+        """
+        if not isinstance(values, dict):
+            return values
+
+        # A config built from JSON or os.getenv carries None for an unset value.
+        # Dropping it leaves the default in place without marking the field set.
+        for name in [key for key, value in values.items() if value is None]:
+            field = cls.model_fields.get(name)
+            if field is None or field.is_required():
+                continue
+            if type(None) not in get_args(field.annotation):
+                del values[name]
+
+        # Accept `base_url` as an alias for `api_base` for cross-provider
+        # consistency (e.g. `init_chat_model(..., base_url=...)`). Without this,
+        # `base_url` is silently dropped by Pydantic's `extra="ignore"`. The
+        # explicit `api_base` takes precedence when both are provided.
+        base_url = values.pop("base_url", None)
+        if base_url is not None and values.get("api_base") is None:
+            values["api_base"] = base_url
+
         values["client"] = litellm
 
-        if values["temperature"] is not None and not 0 <= values["temperature"] <= 2:
+        if (
+            values.get("temperature") is not None
+            and not 0 <= values["temperature"] <= 2
+        ):
             raise ValueError("temperature must be in the range [0.0, 2.0]")
 
-        if values["top_p"] is not None and not 0 <= values["top_p"] <= 1:
+        if values.get("top_p") is not None and not 0 <= values["top_p"] <= 1:
             raise ValueError("top_p must be in the range [0.0, 1.0]")
 
-        if values["top_k"] is not None and values["top_k"] <= 0:
+        if values.get("top_k") is not None and values["top_k"] <= 0:
             raise ValueError("top_k must be positive")
 
         return values
@@ -574,7 +786,10 @@ class ChatLiteLLM(BaseChatModel):
             return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop)
-        params = {**params, **kwargs}
+        params = self._merge_call_params(params, kwargs)
+        # This branch parses a mapping, so it must not inherit stream=True from a
+        # streaming=True instance that the caller overrode with stream=False.
+        params["stream"] = False
         response = self.completion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
         )
@@ -590,6 +805,7 @@ class ChatLiteLLM(BaseChatModel):
                 message.response_metadata = {
                     "model_name": self.model_name or self.model,
                     "model_provider": "litellm",
+                    **_cost_metadata(response),
                 }
                 message.usage_metadata = usage_metadata
             gen = ChatGeneration(
@@ -632,13 +848,16 @@ class ChatLiteLLM(BaseChatModel):
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
-        params = {**params, **kwargs, "stream": True}
-        if self.stream_options is not None:
-            params["stream_options"] = self.stream_options
-        else:
-            params["stream_options"] = {"include_usage": True}
+        params = {**self._merge_call_params(params, kwargs), "stream": True}
+        if "stream_options" not in kwargs:
+            params["stream_options"] = (
+                self.stream_options
+                if self.stream_options is not None
+                else {"include_usage": True}
+            )
         default_chunk_class = AIMessageChunk
         first_chunk_yielded = False
+        cost_named = False
 
         for chunk in self.completion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
@@ -652,6 +871,11 @@ class ChatLiteLLM(BaseChatModel):
             if "usage" in chunk and chunk["usage"]:
                 usage_metadata = _create_usage_metadata(chunk["usage"])
 
+            # Read while `chunk` is still the raw response: both the usage-only
+            # branch below and the content path need it. A cost named on two
+            # chunks cannot be merged, since langchain raises on two floats.
+            cost_metadata = {} if cost_named else _cost_metadata(chunk)
+
             # Handle empty choices (usage-only chunks)
             if len(chunk["choices"]) == 0:
                 if usage_metadata:
@@ -659,6 +883,10 @@ class ChatLiteLLM(BaseChatModel):
                     chunk_obj = default_chunk_class(
                         content="", usage_metadata=usage_metadata
                     )
+                    # A stream reports its cost here, on a chunk with no content.
+                    if cost_metadata:
+                        chunk_obj.response_metadata.update(cost_metadata)
+                        cost_named = True
                     cg_chunk = ChatGenerationChunk(message=chunk_obj)
                     if run_manager:
                         run_manager.on_llm_new_token("", chunk=cg_chunk)
@@ -666,6 +894,7 @@ class ChatLiteLLM(BaseChatModel):
                 continue
 
             delta = chunk["choices"][0]["delta"]
+            finish_reason = chunk["choices"][0].get("finish_reason")
 
             # Inject Root Metadata into Delta
             root_metadata = chunk.get("provider_specific_fields")
@@ -687,6 +916,14 @@ class ChatLiteLLM(BaseChatModel):
                     "model_provider": "litellm",
                 }
                 first_chunk_yielded = True
+
+            if finish_reason is not None and isinstance(chunk, AIMessageChunk):
+                chunk.response_metadata["finish_reason"] = finish_reason
+
+            # Some providers attach the usage, and so the cost, to a content chunk.
+            if cost_metadata and isinstance(chunk, AIMessageChunk):
+                chunk.response_metadata.update(cost_metadata)
+                cost_named = True
 
             default_chunk_class = chunk.__class__
             cg_chunk = ChatGenerationChunk(message=chunk)
@@ -702,13 +939,16 @@ class ChatLiteLLM(BaseChatModel):
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
-        params = {**params, **kwargs, "stream": True}
-        if self.stream_options is not None:
-            params["stream_options"] = self.stream_options
-        else:
-            params["stream_options"] = {"include_usage": True}
+        params = {**self._merge_call_params(params, kwargs), "stream": True}
+        if "stream_options" not in kwargs:
+            params["stream_options"] = (
+                self.stream_options
+                if self.stream_options is not None
+                else {"include_usage": True}
+            )
         default_chunk_class = AIMessageChunk
         first_chunk_yielded = False
+        cost_named = False
 
         async for chunk in await self.acompletion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
@@ -722,12 +962,21 @@ class ChatLiteLLM(BaseChatModel):
             if "usage" in chunk and chunk["usage"]:
                 usage_metadata = _create_usage_metadata(chunk["usage"])
 
+            # Read while `chunk` is still the raw response: both the usage-only
+            # branch below and the content path need it. A cost named on two
+            # chunks cannot be merged, since langchain raises on two floats.
+            cost_metadata = {} if cost_named else _cost_metadata(chunk)
+
             # Handle empty choices (usage-only chunks)
             if len(chunk["choices"]) == 0:
                 if usage_metadata:
                     chunk_obj = default_chunk_class(
                         content="", usage_metadata=usage_metadata
                     )
+                    # A stream reports its cost here, on a chunk with no content.
+                    if cost_metadata:
+                        chunk_obj.response_metadata.update(cost_metadata)
+                        cost_named = True
                     cg_chunk = ChatGenerationChunk(message=chunk_obj)
                     if run_manager:
                         await run_manager.on_llm_new_token("", chunk=cg_chunk)
@@ -735,6 +984,7 @@ class ChatLiteLLM(BaseChatModel):
                 continue
 
             delta = chunk["choices"][0]["delta"]
+            finish_reason = chunk["choices"][0].get("finish_reason")
 
             # Inject Root Metadata into Delta
             root_metadata = chunk.get("provider_specific_fields")
@@ -756,6 +1006,14 @@ class ChatLiteLLM(BaseChatModel):
                     "model_provider": "litellm",
                 }
                 first_chunk_yielded = True
+
+            if finish_reason is not None and isinstance(chunk, AIMessageChunk):
+                chunk.response_metadata["finish_reason"] = finish_reason
+
+            # Some providers attach the usage, and so the cost, to a content chunk.
+            if cost_metadata and isinstance(chunk, AIMessageChunk):
+                chunk.response_metadata.update(cost_metadata)
+                cost_named = True
 
             default_chunk_class = chunk.__class__
             cg_chunk = ChatGenerationChunk(message=chunk)
@@ -779,7 +1037,10 @@ class ChatLiteLLM(BaseChatModel):
             return await agenerate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop)
-        params = {**params, **kwargs}
+        params = self._merge_call_params(params, kwargs)
+        # This branch parses a mapping, so it must not inherit stream=True from a
+        # streaming=True instance that the caller overrode with stream=False.
+        params["stream"] = False
         response = await self.acompletion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
         )
@@ -1022,10 +1283,14 @@ class ChatLiteLLM(BaseChatModel):
         against ``ls_provider`` to decide whether reported token counts should be
         trusted. Without this override, ``ls_provider`` would be absent and that
         middleware check would always short-circuit.
+
+        ``ls_model_name`` resolves ``kwargs["model"]`` first because ``_generate``
+        merges per-call kwargs over the default params, so a ``model`` passed to
+        ``bind`` or ``invoke`` is the model actually requested.
         """
         params = super()._get_ls_params(stop=stop, **kwargs)
         params["ls_provider"] = "litellm"
-        params["ls_model_name"] = self.model_name or self.model
+        params["ls_model_name"] = kwargs.get("model") or self.model_name or self.model
         return params
 
     @property
@@ -1040,35 +1305,28 @@ def _create_usage_metadata(token_usage: Any) -> UsageMetadata:
     a Pydantic `Usage` model (non-streaming path, where
     `ModelResponse.get("usage")` returns the raw model).
 
-    Both are handled uniformly via `_get`.
+    Both are handled uniformly via `_get_field`.
     """
-
-    def _get(obj: Any, key: str) -> Any:
-        """Retrieve *key* via dict lookup or attribute access."""
-        if isinstance(obj, dict):
-            return obj.get(key)
-        return getattr(obj, key, None)
-
-    input_tokens = int(_get(token_usage, "prompt_tokens") or 0)
-    output_tokens = int(_get(token_usage, "completion_tokens") or 0)
-    _raw_total = _get(token_usage, "total_tokens")
+    input_tokens = int(_get_field(token_usage, "prompt_tokens") or 0)
+    output_tokens = int(_get_field(token_usage, "completion_tokens") or 0)
+    _raw_total = _get_field(token_usage, "total_tokens")
     total_tokens = (
         int(_raw_total) if _raw_total is not None else (input_tokens + output_tokens)
     )
 
     # ── input token details (cache) ───────────────────────────────────────
-    cache_read = _get(token_usage, "cache_read_input_tokens")
-    cache_creation = _get(token_usage, "cache_creation_input_tokens")
+    cache_read = _get_field(token_usage, "cache_read_input_tokens")
+    cache_creation = _get_field(token_usage, "cache_creation_input_tokens")
 
     # Fallback: some providers nest cache info inside prompt_tokens_details
     # instead of top-level keys.
     if cache_read is None or cache_creation is None:
-        prompt_details = _get(token_usage, "prompt_tokens_details")
+        prompt_details = _get_field(token_usage, "prompt_tokens_details")
         if prompt_details is not None:
             if cache_read is None:
-                cache_read = _get(prompt_details, "cached_tokens")
+                cache_read = _get_field(prompt_details, "cached_tokens")
             if cache_creation is None:
-                cache_creation = _get(prompt_details, "cache_creation_tokens")
+                cache_creation = _get_field(prompt_details, "cache_creation_tokens")
 
     input_token_details: dict = {
         "cache_read": int(cache_read) if cache_read is not None else None,
@@ -1076,9 +1334,9 @@ def _create_usage_metadata(token_usage: Any) -> UsageMetadata:
     }
 
     # ── output token details (reasoning) ──────────────────────────────────
-    completion_details = _get(token_usage, "completion_tokens_details")
+    completion_details = _get_field(token_usage, "completion_tokens_details")
     reasoning = (
-        _get(completion_details, "reasoning_tokens")
+        _get_field(completion_details, "reasoning_tokens")
         if completion_details is not None
         else None
     )

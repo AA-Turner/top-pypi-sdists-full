@@ -736,6 +736,26 @@ class BaseMediaGeneration(ABC):
                 usage_basis, unified_config, kwargs, raw, assets, synthetic_input, synthetic_output
             )
             billing_kind = f"synthetic:{usage_basis}"
+            if real_usage is not None:
+                # The provider METERED this call in tokens and we priced it per
+                # unit anyway: the real input tokens are dropped (recorded 0) and
+                # the output column carries the 1,000,000-per-asset sentinel. That
+                # is exactly how every Gemini image-native call recorded
+                # "input 0 / output 1,000,000" at a flat $0.067 whatever the
+                # resolution. The catalog row is wrong, not the call — scream so
+                # the offering moves to token pricing (token_billed + components).
+                from matrx_ai.config.usage_config import _warn_billing_once
+
+                _warn_billing_once(
+                    model,
+                    self.provider,
+                    f"{self.modality} tier uses usage_basis={usage_basis!r} but the "
+                    f"provider reported real token usage {real_usage!r}",
+                    "billed the synthetic per-unit count and discarded the provider's "
+                    "metered tokens. Fix: set this offering to token pricing "
+                    "(usage_basis NULL, token_billed true, component_prices for "
+                    "modality-priced output) — see ai_090.",
+                )
         elif real_usage is not None:
             # Raw token billing ($/1M tokens) with real provider usage —
             # gpt-image-*, Gemini image-native.
@@ -898,12 +918,49 @@ class BaseMediaGeneration(ABC):
 
         await emitter.send_data(MediaBlockData(block=block))
 
+    # ------------------------------------------------------------------
+    # Image-generation reference roles (subject / character / style / mask /
+    # edit_target / composition_control). Vocabulary + gate:
+    # matrx_ai/media/image_reference_roles.py.
+    # ------------------------------------------------------------------
+
+    def image_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """The reference-image roles THIS adapter can put on the wire for this
+        request. Default: none — a roled image on an adapter that never learned
+        roles is refused by name, never sent as an unlabeled image."""
+        return frozenset()
+
+    def enforce_image_reference_roles(
+        self, unified_config: UnifiedConfig, profile: Any
+    ) -> None:
+        """Refuse BEFORE the paid call when a roled reference image does not
+        fit the model's catalog limits or this route's transport."""
+        if self.modality != "image":
+            return
+        from matrx_ai.media.image_reference_roles import (
+            collect_role_images,
+            enforce_image_roles,
+        )
+
+        role_images = collect_role_images(unified_config.messages)
+        if not role_images:
+            return
+        capabilities = getattr(profile, "capabilities", None)
+        limits = getattr(capabilities, "image_reference_limits", None) or {}
+        enforce_image_roles(
+            role_images,
+            limits=limits,
+            transport=self.image_role_transport(unified_config),
+            model=getattr(profile, "model_name", None) or unified_config.model or "this model",
+        )
+
     async def execute(
         self,
         unified_config: UnifiedConfig,
         profile: ResolvedCallProfile,
         debug: bool = False,
     ) -> UnifiedResponse:
+        self.enforce_image_reference_roles(unified_config, profile)
         return await self._await_paid_completion(
             self._execute_to_completion(unified_config, profile, debug)
         )

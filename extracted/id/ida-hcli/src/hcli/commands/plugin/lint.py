@@ -178,6 +178,128 @@ def _lint_metadata(metadata: IDAMetadataDescriptor, source_name: str) -> int:
                 )
                 recommendation_count += 1
 
+    recommendation_count += _check_dependency_specs(metadata, source_name)
+    recommendation_count += _check_expanded_components(metadata, source_name)
+
+    return recommendation_count
+
+
+def _is_github_host(url: str) -> bool:
+    from urllib.parse import urlparse
+
+    return (urlparse(url).hostname or "").lower() in ("github.com", "www.github.com")
+
+
+def _check_dependency_specs(metadata: IDAMetadataDescriptor, source_name: str) -> int:
+    from hcli.lib.ida.plugin.reference import DependencyEntry
+
+    recommendation_count = 0
+    warn_bare = not _is_github_host(metadata.plugin.host)
+    for i, entry in enumerate(metadata.plugin.dependencies):
+        if not isinstance(entry, DependencyEntry):
+            console.print(
+                f"[red]Error[/red] ({source_name}): plugin.dependencies[{i}]: unexpected type {type(entry).__name__}"
+            )
+            recommendation_count += 1
+            continue
+        ref = entry.reference
+        if warn_bare and ref.host is None:
+            console.print(
+                f"[yellow]Recommendation[/yellow] ({source_name}): plugin.dependencies[{i}]: "
+                f"use name@host format ('{ref.name}@<host>') to avoid ambiguity across repositories"
+            )
+            recommendation_count += 1
+    return recommendation_count
+
+
+def _check_expanded_components(metadata: IDAMetadataDescriptor, source_name: str) -> int:
+    recommendation_count = 0
+    for i, entry in enumerate(metadata.plugin.components):
+        if isinstance(entry, IDAMetadataDescriptor):
+            console.print(
+                f"[red]Error[/red] ({source_name}): plugin.components[{i}]: "
+                f"contains expanded metadata object for '{entry.plugin.name}'; "
+                f"use the string form in authored archives"
+            )
+            recommendation_count += 1
+    return recommendation_count
+
+
+def _check_components_in_directory(plugin_path: Path, metadata: IDAMetadataDescriptor, source_name: str) -> int:
+    from hcli.lib.ida.plugin.components import (
+        find_undeclared_plugins_in_directory,
+        walk_component_tree_from_directory,
+    )
+
+    recommendation_count = 0
+
+    undeclared = find_undeclared_plugins_in_directory(plugin_path)
+    for ud_path, ud_meta in undeclared:
+        console.print(
+            f"[yellow]Warning[/yellow] ({source_name}): "
+            f"subdirectory '{ud_path.name}' contains ida-plugin.json "
+            f"(plugin '{ud_meta.plugin.name}') but is not declared as a component"
+        )
+        recommendation_count += 1
+
+    if not metadata.plugin.components:
+        return recommendation_count
+
+    try:
+        tree = walk_component_tree_from_directory(plugin_path)
+    except ValueError as e:
+        console.print(f"[red]Error[/red] ({source_name}): component validation failed: {e}")
+        return recommendation_count + 1
+
+    seen_names: set[str] = {metadata.plugin.name}
+    for _, comp_meta in tree:
+        comp_source = f"{source_name}:{comp_meta.plugin.name}"
+        if comp_meta.plugin.name in seen_names:
+            console.print(f"[red]Error[/red] ({comp_source}): duplicate component name '{comp_meta.plugin.name}'")
+            recommendation_count += 1
+        seen_names.add(comp_meta.plugin.name)
+        recommendation_count += _lint_metadata(comp_meta, comp_source)
+
+    return recommendation_count
+
+
+def _check_components_in_archive(
+    zip_data: bytes, metadata_path: Path, metadata: IDAMetadataDescriptor, source_name: str
+) -> int:
+    from hcli.lib.ida.plugin.components import (
+        find_undeclared_plugins_in_archive,
+        walk_component_tree_from_archive,
+    )
+
+    recommendation_count = 0
+
+    undeclared = find_undeclared_plugins_in_archive(zip_data, metadata_path, metadata)
+    for ud_path, ud_meta in undeclared:
+        console.print(
+            f"[yellow]Warning[/yellow] ({source_name}): "
+            f"archive contains plugin '{ud_meta.plugin.name}' "
+            f"that is not declared as a component"
+        )
+        recommendation_count += 1
+
+    if not metadata.plugin.components:
+        return recommendation_count
+
+    try:
+        tree = walk_component_tree_from_archive(zip_data, metadata_path, metadata)
+    except ValueError as e:
+        console.print(f"[red]Error[/red] ({source_name}): component validation failed: {e}")
+        return recommendation_count + 1
+
+    seen_names: set[str] = {metadata.plugin.name}
+    for _, comp_meta in tree:
+        comp_source = f"{source_name}:{comp_meta.plugin.name}"
+        if comp_meta.plugin.name in seen_names:
+            console.print(f"[red]Error[/red] ({comp_source}): duplicate component name '{comp_meta.plugin.name}'")
+            recommendation_count += 1
+        seen_names.add(comp_meta.plugin.name)
+        recommendation_count += _lint_metadata(comp_meta, comp_source)
+
     return recommendation_count
 
 
@@ -221,7 +343,35 @@ def _lint_plugin_directory(plugin_path: Path) -> int:
 
     recommendation_count += _lint_metadata(metadata, str(plugin_path))
     recommendation_count += _lint_readme_in_directory(plugin_path, str(plugin_path))
+    recommendation_count += _check_components_in_directory(plugin_path, metadata, str(plugin_path))
 
+    return recommendation_count
+
+
+def _check_root_manifest_at_top_level(
+    plugins_found: list[tuple[Path, IDAMetadataDescriptor]],
+    source_name: str,
+) -> int:
+    if len(plugins_found) <= 1:
+        return 0
+
+    from hcli.lib.ida.plugin import get_component_name
+
+    referenced_as_component: set[str] = set()
+    for _, meta in plugins_found:
+        referenced_as_component.update(get_component_name(e) for e in meta.plugin.components)
+
+    roots = [(path, meta) for path, meta in plugins_found if meta.plugin.name not in referenced_as_component]
+    recommendation_count = 0
+    for root_path, root_meta in roots:
+        parts = root_path.parts
+        if len(parts) != 2:
+            console.print(
+                f"[red]Error[/red] ({source_name}): root manifest for '{root_meta.plugin.name}' "
+                f"is at '{root_path}' but should be at the archive's top level "
+                f"(e.g., '{root_meta.plugin.name}/ida-plugin.json')"
+            )
+            recommendation_count += 1
     return recommendation_count
 
 
@@ -268,6 +418,8 @@ def _lint_plugin_archive(zip_data: bytes, source_name: str) -> int:
         recommendation_count += 1
         return recommendation_count
 
+    recommendation_count += _check_root_manifest_at_top_level(plugins_found, source_name)
+
     for metadata_path, metadata in plugins_found:
         plugin_source_name = f"{source_name}:{metadata_path}"
 
@@ -297,6 +449,7 @@ def _lint_plugin_archive(zip_data: bytes, source_name: str) -> int:
 
         recommendation_count += _lint_metadata(metadata, plugin_source_name)
         recommendation_count += _lint_readme_in_archive(zip_data, metadata_path, plugin_source_name)
+        recommendation_count += _check_components_in_archive(zip_data, metadata_path, metadata, plugin_source_name)
 
     return recommendation_count
 

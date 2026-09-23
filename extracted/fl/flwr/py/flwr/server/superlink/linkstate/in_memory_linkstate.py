@@ -52,6 +52,7 @@ from flwr.superlink.federation import FederationManager
 
 from .utils import (
     check_node_availability_for_in_message,
+    create_user_prompt_message,
     generate_rand_int_from_bytes,
     verify_found_message_replies,
     verify_message_ids,
@@ -162,14 +163,15 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
             federation_id = self.run_ids[message.metadata.run_id].run.federation_id
 
             # Validate destination node ID
-            dst_node = self.nodes.get(message.metadata.dst_node_id)
-            if (
+            dst_node_id = message.metadata.dst_node_id
+            dst_node = self.nodes.get(dst_node_id)
+            if dst_node_id != SUPERLINK_NODE_ID and (
                 # Node must exist
                 dst_node is None
                 # Node must be online or offline
                 or dst_node.status not in (NodeStatus.ONLINE, NodeStatus.OFFLINE)
                 # Node must belong to the same federation
-                or not self.federation_manager.has_node(dst_node.node_id, federation_id)
+                or not self.federation_manager.has_node(dst_node_id, federation_id)
             ):
                 log(
                     ERROR,
@@ -222,17 +224,24 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
                 src_node_id = message.metadata.src_node_id
                 dst_node_id = message.metadata.dst_node_id
                 federation_id = self.run_ids[message.metadata.run_id].run.federation_id
-                filtered = self.federation_manager.filter_nodes(
-                    {src_node_id, dst_node_id},
-                    federation_id,
-                )
-                if len(filtered) != 2:  # Not both nodes are in the federation
-                    invalid_msg_ids.add(msg_id)
+                if src_node_id != dst_node_id:
+                    filtered = self.federation_manager.filter_nodes(
+                        {src_node_id, dst_node_id},
+                        federation_id,
+                    )
+                    if len(filtered) != 2:  # Not both nodes are in the federation
+                        invalid_msg_ids.add(msg_id)
 
             # Delete all invalid messages
             self.delete_messages(invalid_msg_ids)
 
-    def get_message_ins(self, node_id: int, limit: int | None) -> list[Message]:
+    def get_message_ins(
+        self,
+        node_id: int,
+        limit: int | None,
+        *,
+        run_id: int | None = None,
+    ) -> list[Message]:
         """Get all Messages that have not been delivered yet."""
         if limit is not None and limit < 1:
             raise AssertionError("`limit` must be >= 1")
@@ -246,6 +255,7 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
                 if (
                     (msg_ins := self.message_ins_store.get(msg_id))
                     and msg_ins.metadata.dst_node_id == node_id
+                    and (run_id is None or msg_ins.metadata.run_id == run_id)
                     and msg_ins.metadata.delivered_at == ""
                 ):
                     message_ins_list.append(msg_ins)
@@ -362,6 +372,7 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
             ret = verify_message_ids(
                 inquired_message_ids=message_ids,
                 found_message_ins_dict=found_message_ins_dict,
+                run_id=run_id,
                 current_time=current,
             )
 
@@ -393,6 +404,9 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
                     message_res = self.message_res_store[message_res_id]
                     if message_res.metadata.delivered_at == "":
                         message_res_found.append(message_res)
+            found_message_res_ids = {
+                message.metadata.message_id for message in message_res_found
+            }
             tmp_ret_dict = verify_found_message_replies(
                 inquired_message_ids=message_ids,
                 found_message_ins_dict=found_message_ins_dict,
@@ -405,6 +419,10 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
             delivered_at = now().isoformat()
             for message_res in message_res_found:
                 message_res.metadata.delivered_at = delivered_at
+
+            for message in ret.values():
+                if message.metadata.message_id not in found_message_res_ids:
+                    self._store_generated_message(message)
 
         return list(ret.values())
 
@@ -475,12 +493,15 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
         """
         return len(self.message_res_store)
 
-    def create_node(
+    def create_node(  # pylint: disable=too-many-arguments
         self,
         owner_aid: str,
         owner_name: str,
         public_key: bytes,
         heartbeat_interval: float,
+        *,
+        location: str | None = None,
+        name: str | None = None,
     ) -> int:
         """Create, store in the link state, and return `node_id`."""
         # Sample a random int64 as node_id
@@ -508,6 +529,8 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
                 online_until=None,
                 heartbeat_interval=heartbeat_interval,
                 public_key=public_key,
+                location=location,
+                name=name,
             )
             self.node_public_key_to_node_id[public_key] = node_id
             self.owner_to_node_ids.setdefault(owner_aid, set()).add(node_id)
@@ -655,6 +678,7 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
         series_description: str | None = None,
         connector_refs: Sequence[str] = (),
         initial_task_event: TaskEvent | None = None,
+        user_prompt: str | None = None,
     ) -> int:
         """Create a new run."""
         if isinstance(connector_refs, str) or any(
@@ -736,6 +760,10 @@ class InMemoryLinkState(LinkState, InMemoryCoreState):  # pylint: disable=R0902,
                 model_ref=None,
                 connector_ref=None,
             )
+            if primary_task_type == TaskType.AGENT_APP and user_prompt is not None:
+                message = create_user_prompt_message(run_id, user_prompt)
+                self.store_message_ins(message)
+                self._store_generated_message(message)
             if initial_task_event is not None:
                 initial_task_event.id = self._next_task_event_id
                 initial_task_event.timestamp = current

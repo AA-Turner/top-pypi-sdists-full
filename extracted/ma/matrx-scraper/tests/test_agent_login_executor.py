@@ -216,7 +216,9 @@ async def test_four_distinguishable_verdicts_with_confidence_and_signals():
         SyntheticPage(
             after=PageObservation(
                 url="https://console.aws.amazon.com/home",
+                url_probe_known=True,
                 present_selectors=frozenset({"#acct"}),
+                selector_probe_known=True,
                 login_form_present=False,
             )
         ),
@@ -231,7 +233,11 @@ async def test_four_distinguishable_verdicts_with_confidence_and_signals():
         _basic_spec(failure_selector="#error-message"),
         FakeResolver(values),
         FakeWorker(),
-        SyntheticPage(after=PageObservation(present_selectors=frozenset({"#error-message"}))),
+        SyntheticPage(
+            after=PageObservation(
+                present_selectors=frozenset({"#error-message"}), selector_probe_known=True
+            )
+        ),
         FakeCapturer(),
     )
     assert r.outcome == "rejected"
@@ -241,7 +247,11 @@ async def test_four_distinguishable_verdicts_with_confidence_and_signals():
         _basic_spec(challenge_selector="#mfacode"),
         FakeResolver(values),
         FakeWorker(),
-        SyntheticPage(after=PageObservation(present_selectors=frozenset({"#mfacode"}))),
+        SyntheticPage(
+            after=PageObservation(
+                present_selectors=frozenset({"#mfacode"}), selector_probe_known=True
+            )
+        ),
         FakeCapturer(),
     )
     assert r.outcome == "challenged"
@@ -275,7 +285,9 @@ async def test_challenged_is_not_failure_and_unknown_is_not_success():
         SyntheticPage(
             after=PageObservation(
                 url="https://signin.aws.amazon.com/mfa",
+                url_probe_known=True,
                 present_selectors=frozenset({"#mfacode"}),
+                selector_probe_known=True,
                 login_form_present=False,
             )
         ),
@@ -292,7 +304,10 @@ async def test_challenged_is_not_failure_and_unknown_is_not_success():
         FakeResolver(values),
         FakeWorker(),
         SyntheticPage(
-            after=PageObservation(present_selectors=frozenset({"#acct", "#error-message"}))
+            after=PageObservation(
+                present_selectors=frozenset({"#acct", "#error-message"}),
+                selector_probe_known=True,
+            )
         ),
         FakeCapturer(),
     )
@@ -308,7 +323,16 @@ async def test_low_confidence_success_proceeds_but_flagged():
         _basic_spec(),
         FakeResolver(values),
         FakeWorker(),
-        SyntheticPage(after=PageObservation(login_form_present=False), before_form=True),
+        SyntheticPage(
+            after=PageObservation(
+                login_form_present=False,
+                url_before="https://id.test/signin",
+                    url="https://app.test/home",
+                    url_probe_known=True,
+                    selector_probe_known=True,
+            ),
+            before_form=True,
+        ),
         FakeCapturer(),
     )
     assert r.outcome == "authenticated"
@@ -345,7 +369,9 @@ async def test_recipe_supersedes_and_records_override():
         spec,
         FakeResolver({"username": SECRET_USERNAME, "password": SECRET_PASSWORD}),
         worker,
-        SyntheticPage(after=PageObservation(present_selectors=frozenset({"#acct"}))),
+        SyntheticPage(
+            after=PageObservation(present_selectors=frozenset({"#acct"}), selector_probe_known=True)
+        ),
         FakeCapturer(),
         recipe=recipe,
     )
@@ -380,7 +406,9 @@ async def test_no_plaintext_secret_in_any_agent_visible_channel():
         _basic_spec(success_selector="#acct"),
         FakeResolver(values),
         worker,
-        SyntheticPage(after=PageObservation(present_selectors=frozenset({"#acct"}))),
+        SyntheticPage(
+            after=PageObservation(present_selectors=frozenset({"#acct"}), selector_probe_known=True)
+        ),
         capturer,
     )
     # The result the agent receives, serialized, contains NO secret and DOES carry
@@ -410,7 +438,9 @@ async def test_recipe_mfa_challenge_class():
             {"account_id": "1234", "username": SECRET_USERNAME, "password": SECRET_PASSWORD}
         ),
         FakeWorker(),
-        SyntheticPage(after=PageObservation(present_selectors=frozenset({"#mfacode"}))),
+        SyntheticPage(
+            after=PageObservation(present_selectors=frozenset({"#mfacode"}), selector_probe_known=True)
+        ),
         FakeCapturer(),
         recipe=AWS_IAM_CONSOLE_RECIPE,
     )

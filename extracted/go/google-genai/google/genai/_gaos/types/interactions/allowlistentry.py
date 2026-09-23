@@ -38,7 +38,9 @@ class AllowlistEntryParam(TypedDict):
     r"""A single domain allowlist rule with optional header injection."""
 
     domain: str
-    r"""Domain to allow outbound requests to. Supports wildcards (e.g. '*.googleapis.com'). Use '*' to allow all domains."""
+    r"""Domain to allow outbound requests to. Supports wildcards (e.g.
+    '*.googleapis.com'). Use '*' to allow all domains.
+    """
     credential: NotRequired[str]
     r"""Optional. Reference to a server-managed Credential resource by ID."""
     transform: NotRequired[TransformParam]
@@ -49,7 +51,9 @@ class AllowlistEntry(BaseModel):
     r"""A single domain allowlist rule with optional header injection."""
 
     domain: str
-    r"""Domain to allow outbound requests to. Supports wildcards (e.g. '*.googleapis.com'). Use '*' to allow all domains."""
+    r"""Domain to allow outbound requests to. Supports wildcards (e.g.
+    '*.googleapis.com'). Use '*' to allow all domains.
+    """
 
     credential: Optional[str] = None
     r"""Optional. Reference to a server-managed Credential resource by ID."""

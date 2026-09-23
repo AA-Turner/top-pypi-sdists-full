@@ -33,7 +33,7 @@ class GetInteractionByIDServerErrorData(BaseModel):
 
 @dataclass(unsafe_hash=True)
 class GetInteractionByIDServerError(GenAiError):
-    r"""Error getting interaction"""
+    r"""Server Error"""
 
     data: GetInteractionByIDServerErrorData = field(hash=False)
 
@@ -56,7 +56,7 @@ class GetInteractionByIDClientErrorData(BaseModel):
 
 @dataclass(unsafe_hash=True)
 class GetInteractionByIDClientError(GenAiError):
-    r"""Error getting interaction"""
+    r"""Client Error"""
 
     data: GetInteractionByIDClientErrorData = field(hash=False)
 

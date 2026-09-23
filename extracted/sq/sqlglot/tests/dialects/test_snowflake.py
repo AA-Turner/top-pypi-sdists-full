@@ -13,6 +13,44 @@ class TestSnowflake(Validator):
     maxDiff = None
     dialect = "snowflake"
 
+    def test_set_operation_top(self):
+        for op in ("UNION", "UNION ALL", "INTERSECT", "EXCEPT"):
+            with self.subTest(op=op):
+                self.validate_all(
+                    f"SELECT TOP 1 1 AS x {op} SELECT TOP 1 2 AS x",
+                    write={
+                        "snowflake": f"(SELECT 1 AS x LIMIT 1) {op} (SELECT 2 AS x LIMIT 1)",
+                        "duckdb": f"(SELECT 1 AS x LIMIT 1) {op} (SELECT 2 AS x LIMIT 1)",
+                        "tsql": f"SELECT TOP 1 1 AS x {op} SELECT TOP 1 2 AS x",
+                    },
+                )
+
+        for source, expected in (
+            (
+                "SELECT TOP 1 1 AS x UNION ALL SELECT TOP 1 2 AS x UNION ALL SELECT TOP 1 3 AS x",
+                "(SELECT 1 AS x LIMIT 1) UNION ALL (SELECT 2 AS x LIMIT 1) UNION ALL (SELECT 3 AS x LIMIT 1)",
+            ),
+            (
+                "SELECT 1 AS x UNION ALL SELECT TOP 0 2 AS x",
+                "SELECT 1 AS x UNION ALL (SELECT 2 AS x LIMIT 0)",
+            ),
+            (
+                "SELECT TOP 1 1 AS x UNION ALL SELECT TOP 1 2 AS x ORDER BY x DESC LIMIT 1 OFFSET 1",
+                "(SELECT 1 AS x LIMIT 1) UNION ALL (SELECT 2 AS x LIMIT 1) ORDER BY x DESC LIMIT 1 OFFSET 1",
+            ),
+            (
+                "SELECT TOP 1 1 AS x UNION ALL SELECT TOP 1 2 AS x FETCH FIRST 1 ROW ONLY",
+                "(SELECT 1 AS x LIMIT 1) UNION ALL (SELECT 2 AS x LIMIT 1) FETCH FIRST 1 ROWS ONLY",
+            ),
+            (
+                "SELECT TOP 1 1 AS x UNION ALL SELECT 2 AS x LIMIT 1",
+                "(SELECT 1 AS x LIMIT 1) UNION ALL SELECT 2 AS x LIMIT 1",
+            ),
+        ):
+            with self.subTest(source=source):
+                self.validate_identity(source, expected)
+                self.validate_identity(expected)
+
     def test_snowflake(self):
         ast = parse_one("BLA(x) FILTER (WHERE x = 5)")
         self.assertEqual(
@@ -782,6 +820,15 @@ class TestSnowflake(Validator):
         self.validate_identity("WITH x AS (SELECT 1 AS foo) SELECT IDENTIFIER('foo') FROM x")
         self.validate_identity("SELECT IDENTIFIER($my_function_name)()")
         self.validate_identity("SELECT IDENTIFIER('speed_of_light')()")
+
+        for sql, name in (
+            ("SELECT * FROM IDENTIFIER(:tbl)", "tbl"),
+            ("SELECT * FROM IDENTIFIER($tbl)", "tbl"),
+            ("SELECT * FROM IDENTIFIER('mytable')", "mytable"),
+        ):
+            table = self.validate_identity(sql).find(exp.Table)
+            self.assertIsInstance(table.this, exp.DynamicIdentifier)
+            self.assertEqual(table.name, name)
         self.validate_all(
             "SELECT IDENTIFIER('my_func')(1, 2)",
             write={
@@ -3535,7 +3582,9 @@ class TestSnowflake(Validator):
             "SELECT $1, $2, metadata$filename FROM @mystage (PATTERN => '.*data-100.*')"
         )
         self.validate_identity("SELECT * FROM '@external/location' (FILE_FORMAT => 'path.to.csv')")
-        self.validate_identity("PUT file:///dir/tmp.csv @%table", check_command_warning=True)
+        self.validate_identity(
+            "PUT file:///dir/tmp.csv @%table", "PUT 'file:///dir/tmp.csv' @%table"
+        )
         self.validate_identity("SELECT * FROM (SELECT a FROM @foo)")
         self.validate_identity(
             "SELECT * FROM (SELECT * FROM '@external/location' (FILE_FORMAT => 'path.to.csv'))"
@@ -4547,6 +4596,19 @@ class TestSnowflake(Validator):
         self.validate_identity(
             "CREATE OR REPLACE FUNCTION repro_fn() RETURNS INT LANGUAGE PYTHON HANDLER = 'fn' RUNTIME_VERSION='3.11' PACKAGES=() AS '\\ndef fn():\\n    return 1\\n'"
         )
+
+    def test_rollback_as_identifier(self):
+        self.validate_identity("SELECT rollback FROM t")
+        self.validate_identity(
+            "WITH rollback(rollback) AS (SELECT 1) SELECT rollback.rollback FROM rollback"
+        )
+        self.validate_identity("SELECT ROLLBACK(3)")
+        self.validate_identity("SELECT 1 rollback", "SELECT 1 AS rollback")
+        self.validate_identity(
+            "SELECT rollback.x FROM (SELECT 1 AS x) rollback",
+            "SELECT rollback.x FROM (SELECT 1 AS x) AS rollback",
+        )
+        self.assertIsInstance(self.parse_one("ROLLBACK WORK"), exp.Rollback)
 
     def test_stored_procedures(self):
         self.validate_identity("CALL a.b.c(x, y)", check_command_warning=True)
@@ -5753,12 +5815,15 @@ SINGLE = TRUE""",
         # validate identity for different args and properties
         self.validate_identity("PUT 'file:///dir/tmp.csv' @s1/test")
 
-        # the unquoted URI variant is not fully supported yet
-        self.validate_identity("PUT file:///dir/tmp.csv @%table", check_command_warning=True)
+        ast = self.validate_identity(
+            "PUT file:///dir/tmp.csv @%table", "PUT 'file:///dir/tmp.csv' @%table"
+        ).assert_is(exp.Put)
+        self.assertEqual(ast.this, exp.Literal.string("file:///dir/tmp.csv"))
+        self.assertEqual(ast.args["target"], exp.Var(this="@%table"))
         self.validate_identity(
             "PUT file:///dir/tmp.csv @s1/test PARALLEL=1 AUTO_COMPRESS=FALSE source_compression=gzip OVERWRITE=TRUE",
-            check_command_warning=True,
-        )
+            "PUT 'file:///dir/tmp.csv' @s1/test PARALLEL=1 AUTO_COMPRESS=FALSE source_compression=gzip OVERWRITE=TRUE",
+        ).assert_is(exp.Put)
 
     def test_get_from_stage(self):
         self.validate_identity('GET @"my_DB"."schEMA1"."MYstage" \'file:///dir/tmp.csv\'')

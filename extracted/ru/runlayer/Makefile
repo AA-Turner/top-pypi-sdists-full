@@ -30,7 +30,7 @@ version-bump:
 	fi
 
 test:
-	uv run pytest
+	uv run pytest -n auto
 
 test-e2e:
 	uv run pytest tests/e2e -m e2e -v --tb=short -n auto

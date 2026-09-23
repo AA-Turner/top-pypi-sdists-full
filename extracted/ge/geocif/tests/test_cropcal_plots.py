@@ -54,15 +54,15 @@ def test_figure_set_mirrors_plots_into_csvs(tmp_path):
     figures = plots.FigureSet(tmp_path)
     frame = pd.DataFrame({"a": [1, 2, 3]})
     figures.record("plots", "diagnostic_x", frame)
-    figures.record("maps", "delta_midgreenup_world", frame)
+    figures.record("maps", "difference_midgreenup_world", frame)
     lookup = figures.write_lookup()
 
     assert (tmp_path / "csvs" / "plots" / "diagnostic_x.csv").is_file()
-    assert (tmp_path / "csvs" / "maps" / "delta_midgreenup_world.csv").is_file()
+    assert (tmp_path / "csvs" / "maps" / "difference_midgreenup_world.csv").is_file()
     assert lookup is not None and lookup.name == "lookup_plots_csvs.csv"
 
     rows = pd.read_csv(lookup)
-    assert set(rows["plot"]) == {"plots/diagnostic_x.png", "maps/delta_midgreenup_world.png"}
+    assert set(rows["plot"]) == {"plots/diagnostic_x.png", "maps/difference_midgreenup_world.png"}
     for _, row in rows.iterrows():
         assert (tmp_path / row["csv"]).is_file()
 
@@ -78,9 +78,9 @@ def _scored_frame(n=12):
             "crop": [crops[i % 3] for i in range(n)],
             "season": 1,
             "cm_group": ["AMIS", "EW"] * (n // 2),
-            "combined_delta": rng.uniform(0, 90, n),
-            "delta_midgreenup_signed": rng.uniform(-60, 60, n),
-            "delta_midgreendown_signed": rng.uniform(-60, 60, n),
+            "combined_abs_diff_days": rng.uniform(0, 90, n),
+            "midgreenup_diff_days": rng.uniform(-60, 60, n),
+            "midgreendown_diff_days": rng.uniform(-60, 60, n),
         }
     )
 
@@ -89,8 +89,8 @@ def _summary_frame():
     return pd.DataFrame(
         {
             "crop": ["All", "maize", "winter_wheat", "rice"],
-            "pct_works": [60.0, 58.0, 52.0, 55.0],
-            "pct_works_subset": [70.0, 73.0, 50.0, 67.0],
+            "pct_within_tolerance": [60.0, 58.0, 52.0, 55.0],
+            "pct_within_tolerance_subset": [70.0, 73.0, 50.0, 67.0],
         }
     )
 
@@ -119,11 +119,11 @@ def test_map_csv_is_written_even_without_a_boundary_file(tmp_path):
         tmp_path, _scored_frame(), diagnostics=[],
         summary=_summary_frame(), boundary_file=None,
     )
-    world = tmp_path / "csvs" / "maps" / "delta_midgreenup_world.csv"
+    world = tmp_path / "csvs" / "maps" / "difference_midgreenup_world.csv"
     assert world.is_file()
     table = pd.read_csv(world)
     assert {"key", "value"} <= set(table.columns)
-    assert not (tmp_path / "maps" / "delta_midgreenup_world.png").exists()
+    assert not (tmp_path / "maps" / "difference_midgreenup_world.png").exists()
 
 
 def test_filenames_lead_with_the_figure_type(tmp_path):
@@ -139,7 +139,7 @@ def test_filenames_lead_with_the_figure_type(tmp_path):
         assert not name.startswith("_")
         assert "_by_" not in name and "_all_" not in name and "_with_" not in name
     assert any(n.startswith("agreement_") for n in names)
-    assert any(n.startswith("delta_") for n in names)
+    assert any(n.startswith("difference_") for n in names)
 
 
 def test_maps_use_the_signed_difference_not_the_legacy_delta(tmp_path):
@@ -151,8 +151,8 @@ def test_maps_use_the_signed_difference_not_the_legacy_delta(tmp_path):
     import inspect
 
     source = inspect.getsource(plots.render_all)
-    assert "delta_midgreenup_signed" in source
-    assert '"delta_midgreenup"' not in source
+    assert "midgreenup_diff_days" in source
+    assert "diff_legacy_days" not in source
 
 
 # --------------------------------------------------------------------------

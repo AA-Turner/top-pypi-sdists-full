@@ -122,7 +122,6 @@ import subprocess  # noqa: S404 - the determinism check is *about* separate inte
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Final, Literal
 
@@ -162,7 +161,7 @@ from matrice_analytics.engine.manifest.models import (
     resolve_source,
 )
 from matrice_analytics.engine.primitives import REGISTRY
-from matrice_analytics.engine.runtime.session import Session
+from matrice_analytics.engine.runtime.session import CLOSE_SEVERITY, Session
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from matrice_analytics.engine.manifest.loader import CustomImpl
@@ -401,6 +400,7 @@ class SuiteResult:
 # The app under test
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True, slots=True)
 class _AppUnderTest:
     """A normalised app: the manifest, its custom code, and how to reload it."""
@@ -428,7 +428,9 @@ def _resolve_app(app: str | os.PathLike[str] | AppManifest | LoadedApp) -> _AppU
     manifest does not load" as a red check rather than blowing up during collection.
     """
     if isinstance(app, AppManifest):
-        return _AppUnderTest(manifest=app, custom={}, ref=None, source=f"<in-memory manifest {app.app.id}>")
+        return _AppUnderTest(
+            manifest=app, custom={}, ref=None, source=f"<in-memory manifest {app.app.id}>"
+        )
     if isinstance(app, LoadedApp):
         return _AppUnderTest(
             manifest=app.manifest,
@@ -519,7 +521,13 @@ class FramePlan:
         return (
             ("quiet", self.quiet_frames, 0, 0.0, 0.0),
             ("ramp", self.ramp_frames, self.ramp_count, self.ramp_area, self.ramp_confidence),
-            ("escalate", self.escalate_frames, self.escalate_count, self.escalate_area, self.escalate_confidence),
+            (
+                "escalate",
+                self.escalate_frames,
+                self.escalate_count,
+                self.escalate_area,
+                self.escalate_confidence,
+            ),
             ("clear", self.clear_frames, 0, 0.0, 0.0),
         )
 
@@ -637,7 +645,9 @@ def frame_plan(manifest: AppManifest) -> FramePlan:
     # a track surviving the ramp->escalate transition to accumulate across both: that survival
     # is a tracker-continuity detail this module should not need to depend on for correctness.
     dwell_frames = _clamp_int(
-        math.ceil(_dwell_time_bound(manifest) / FRAME_STEP_SECONDS) + 4, confirm + 4, _MAX_COUNT * 10
+        math.ceil(_dwell_time_bound(manifest) / FRAME_STEP_SECONDS) + 4,
+        confirm + 4,
+        _MAX_COUNT * 10,
     )
     # The clear phase needs close_after_empty_frames PLUS however long a lingering dwell
     # session takes to actually reap -- see _dwell_timeout_bound.
@@ -656,7 +666,9 @@ def frame_plan(manifest: AppManifest) -> FramePlan:
     lowest_bound, highest_bound = _threshold_bounds(manifest)
     ramp_count = _clamp_int(math.ceil(lowest_bound) + 2, _MIN_COUNT, _MAX_COUNT)
     escalate_count = _clamp_int(
-        max(math.ceil(highest_bound) + 2, ramp_count + max(3, ramp_count // 2)), _MIN_COUNT, _MAX_COUNT
+        max(math.ceil(highest_bound) + 2, ramp_count + max(3, ramp_count // 2)),
+        _MIN_COUNT,
+        _MAX_COUNT,
     )
 
     ramp_area, escalate_area = _area_targets(manifest)
@@ -667,7 +679,9 @@ def frame_plan(manifest: AppManifest) -> FramePlan:
         if isinstance(stage, IncidentQuantiseConfig) and stage.strategy == "count_based":
             threshold = stage.count_threshold or 1
             lowest = min(rung.percentage for rung in stage.levels)
-            ramp_count = _clamp_int(max(ramp_count, math.ceil(threshold * (lowest + 5) / 100)), _MIN_COUNT, _MAX_COUNT)
+            ramp_count = _clamp_int(
+                max(ramp_count, math.ceil(threshold * (lowest + 5) / 100)), _MIN_COUNT, _MAX_COUNT
+            )
             escalate_count = _clamp_int(max(escalate_count, threshold), ramp_count, _MAX_COUNT)
 
     zone_names, line_names = _geometry_names(manifest)
@@ -933,7 +947,9 @@ def _detections(
             "ymax": _round(y + side),
         }
         for label in labels:
-            produced.append({"category": label, "confidence": _round(confidence), "bounding_box": dict(box)})
+            produced.append(
+                {"category": label, "confidence": _round(confidence), "bounding_box": dict(box)}
+            )
     return tuple(produced)
 
 
@@ -1188,7 +1204,9 @@ def _check_schema(resolved: _AppUnderTest) -> CheckResult:
         except ValueError as exc:
             problems.append(str(exc))
         if metric.agg_type not in legal_agg:
-            problems.append(f"{where}.agg_type {metric.agg_type!r} is not in the contract vocabulary {sorted(legal_agg)}")
+            problems.append(
+                f"{where}.agg_type {metric.agg_type!r} is not in the contract vocabulary {sorted(legal_agg)}"
+            )
         if metric.category not in legal_category:
             problems.append(
                 f"{where}.category {metric.category!r} is not in the contract vocabulary {sorted(legal_category)}"
@@ -1255,7 +1273,9 @@ def _check_schema(resolved: _AppUnderTest) -> CheckResult:
     )
 
 
-def _declared_severities(manifest: AppManifest, severity_from: str | Mapping[str, Any]) -> tuple[str, ...]:
+def _declared_severities(
+    manifest: AppManifest, severity_from: str | Mapping[str, Any]
+) -> tuple[str, ...]:
     """Every severity string one ``severity_from`` can produce.
 
     Three shapes: a fixed level, a quantiser stage (its ladder's rungs), or metric thresholds
@@ -1365,7 +1385,7 @@ def _silent_buckets_for(
             continue
         stage = next((s for s in manifest.pipeline if s.stage_name == resolved.stage), None)
         if stage is None:
-            stage = next((s for s in manifest.pipeline if s.PRIMITIVE == resolved.stage), None)
+            stage = next((s for s in manifest.pipeline if resolved.stage == s.PRIMITIVE), None)
         if stage is not None:
             silent |= stage.silent_buckets(zoned=zoned)
     return frozenset(silent)
@@ -1421,10 +1441,16 @@ def check_metric_presence(manifest: AppManifest, run: SyntheticRun) -> CheckResu
             continue
         wrong_agg = sorted({str(entry.get("agg_type")) for entry in entries} - {metric.agg_type})
         if wrong_agg:
-            problems.append(f"{where} was published with agg_type {wrong_agg}, not {metric.agg_type!r}")
-        wrong_category = sorted({str(entry.get("category")) for entry in entries} - {metric.category})
+            problems.append(
+                f"{where} was published with agg_type {wrong_agg}, not {metric.agg_type!r}"
+            )
+        wrong_category = sorted(
+            {str(entry.get("category")) for entry in entries} - {metric.category}
+        )
         if wrong_category:
-            problems.append(f"{where} was published with category {wrong_category}, not {metric.category!r}")
+            problems.append(
+                f"{where} was published with category {wrong_category}, not {metric.category!r}"
+            )
 
         zones = {str(entry.get("zone")) for entry in entries}
         if metric.zone in {"global", "collapsed"}:
@@ -1445,9 +1471,7 @@ def check_metric_presence(manifest: AppManifest, run: SyntheticRun) -> CheckResu
             # `global` is not an emission zone once the app partitions, so its absence is what
             # "zoned" means here -- the same test `Session._resolve_emission_zones` encodes.
             zoned = GLOBAL_ZONE not in run.emission_zones
-            expected = set(run.emission_zones) - _silent_buckets_for(
-                manifest, metric, zoned=zoned
-            )
+            expected = set(run.emission_zones) - _silent_buckets_for(manifest, metric, zoned=zoned)
             missing = sorted(expected - zones)
             if missing:
                 problems.append(
@@ -1605,7 +1629,9 @@ def _metric_entry_problems(key: str, entry: Any, spec: Any) -> list[str]:
             f"publishes, so the dashboard's label would describe a different number"
         )
     if entry.category is not None and entry.category != spec.category:
-        problems.append(f"{where} category is {entry.category!r} but app.yaml declares {spec.category!r}")
+        problems.append(
+            f"{where} category is {entry.category!r} but app.yaml declares {spec.category!r}"
+        )
     if entry.unit != spec.unit and not (entry.unit is None and spec.unit is None):
         problems.append(
             f"{where} unit is {entry.unit!r} but app.yaml declares {spec.unit!r}; alert thresholds "
@@ -1740,7 +1766,9 @@ def check_dashboard_reachability(
                 continue  # check 4 owns that failure; do not report it twice
             for binding in bindings:
                 if binding.data_source == "tracking_class":
-                    wanted.setdefault(binding.token, []).append(f"widgets.json[{index}] ({widget.key})")
+                    wanted.setdefault(binding.token, []).append(
+                        f"widgets.json[{index}] ({widget.key})"
+                    )
         for token in sorted(set(wanted) - categories):
             problems.append(
                 f"{', '.join(wanted[token])} plots tracking class {token!r}, but no window "
@@ -1770,6 +1798,70 @@ def check_dashboard_reachability(
 # ---------------------------------------------------------------------------
 # Check 6 -- incident lifecycle
 # ---------------------------------------------------------------------------
+
+
+def _check_one_occurrence(
+    where: str, occurrence: list[dict[str, Any]]
+) -> tuple[list[str], bool, bool]:
+    """Check the messages of a single incident occurrence against the lifecycle contract.
+
+    Split out of :func:`check_incident_lifecycle`, which was over the 120-line cap
+    (INC-2026-147) before this loop body grew. Returns its problems plus whether the occurrence
+    changed severity at all and whether it closed, which the caller aggregates.
+    """
+    problems: list[str] = []
+    first = occurrence[0]
+    if str(first.get("end_time", "")):
+        problems.append(
+            f"{where} was first emitted already closed (end_time={first.get('end_time')!r}); an "
+            f'occurrence opens with end_time "" -- the backend derives status from it'
+        )
+    start_times = {str(entry.get("start_time", "")) for entry in occurrence}
+    if len(start_times) > 1:
+        problems.append(
+            f"{where} was emitted with {len(start_times)} different start_times {sorted(start_times)}; "
+            f"the backend does find-or-create on incident_id, so one occurrence has one start"
+        )
+    types = {str(entry.get("incident_type", "")) for entry in occurrence}
+    if len(types) > 1:
+        problems.append(f"{where} was emitted under {len(types)} incident_types {sorted(types)}")
+
+    # A downward severity change is NOT a problem (MLAPP-282). This used to be flagged on the
+    # strength of contract §3.4's "the backend ignores a downward severity change"; the live
+    # alert timeline renders `Critical -> Medium`, and both legacy incident machines have always
+    # published downward changes without checking direction. See `IncidentLifecycle`.
+    #
+    # The closing message is excluded from the progression: it carries `CLOSE_SEVERITY` as an end
+    # signal rather than as a reading. Including it would make every closed incident look like it
+    # de-escalated to the bottom of the ladder, and would let a close alone satisfy the
+    # `escalated` counter, making the caller's expects-escalation check vacuous.
+    graded = [entry for entry in occurrence if not str(entry.get("end_time", ""))]
+    ranks = [_severity_rank(str(entry.get("severity_level", ""))) for entry in graded]
+    escalated = len(set(ranks)) > 1
+
+    closings = [index for index, entry in enumerate(occurrence) if str(entry.get("end_time", ""))]
+    if not closings:
+        return problems, escalated, False
+
+    if len(closings) > 1:
+        problems.append(
+            f"{where} was closed {len(closings)} times; only the last message closes it"
+        )
+    if closings[-1] != len(occurrence) - 1:
+        problems.append(
+            f"{where} emitted {len(occurrence) - 1 - closings[-1]} message(s) after closing"
+        )
+    end_time = str(occurrence[closings[-1]].get("end_time", ""))
+    start_time = str(occurrence[0].get("start_time", ""))
+    if end_time < start_time:
+        problems.append(f"{where} closes at {end_time} which is before it opened at {start_time}")
+    closing_severity = str(occurrence[closings[-1]].get("severity_level", ""))
+    if closing_severity != CLOSE_SEVERITY:
+        problems.append(
+            f"{where} closed carrying severity {closing_severity!r}; the close is an end "
+            f"signal and carries {CLOSE_SEVERITY!r} in all three incident state machines"
+        )
+    return problems, escalated, True
 
 
 def check_incident_lifecycle(manifest: AppManifest, run: SyntheticRun) -> CheckResult:
@@ -1841,45 +1933,12 @@ def check_incident_lifecycle(manifest: AppManifest, run: SyntheticRun) -> CheckR
     closed = 0
     escalated = 0
     for incident_id in order:
-        occurrence = by_id[incident_id]
-        where = f"incident {incident_id}"
-        first = occurrence[0]
-        if str(first.get("end_time", "")):
-            problems.append(
-                f"{where} was first emitted already closed (end_time={first.get('end_time')!r}); an "
-                f"occurrence opens with end_time \"\" -- the backend derives status from it"
-            )
-        start_times = {str(entry.get("start_time", "")) for entry in occurrence}
-        if len(start_times) > 1:
-            problems.append(
-                f"{where} was emitted with {len(start_times)} different start_times {sorted(start_times)}; "
-                f"the backend does find-or-create on incident_id, so one occurrence has one start"
-            )
-        types = {str(entry.get("incident_type", "")) for entry in occurrence}
-        if len(types) > 1:
-            problems.append(f"{where} was emitted under {len(types)} incident_types {sorted(types)}")
-
-        ranks = [_severity_rank(str(entry.get("severity_level", ""))) for entry in occurrence]
-        for previous, current in pairwise(ranks):
-            if current < previous:
-                problems.append(
-                    f"{where} de-escalated ({previous} -> {current}); the backend ignores a downward "
-                    f"severity change entirely, so emitting one is a message that does nothing"
-                )
-        if len(set(ranks)) > 1:
-            escalated += 1
-
-        closings = [index for index, entry in enumerate(occurrence) if str(entry.get("end_time", ""))]
-        if closings:
-            closed += 1
-            if len(closings) > 1:
-                problems.append(f"{where} was closed {len(closings)} times; only the last message closes it")
-            if closings[-1] != len(occurrence) - 1:
-                problems.append(f"{where} emitted {len(occurrence) - 1 - closings[-1]} message(s) after closing")
-            end_time = str(occurrence[closings[-1]].get("end_time", ""))
-            start_time = str(occurrence[0].get("start_time", ""))
-            if end_time < start_time:
-                problems.append(f"{where} closes at {end_time} which is before it opened at {start_time}")
+        found, did_escalate, did_close = _check_one_occurrence(
+            f"incident {incident_id}", by_id[incident_id]
+        )
+        problems.extend(found)
+        escalated += int(did_escalate)
+        closed += int(did_close)
 
     if entries and not closed:
         problems.append(
@@ -2118,7 +2177,9 @@ def _digest_in_subprocess(ref: str, *, seed: str, timeout: float) -> dict[str, A
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"PYTHONHASHSEED={seed}: the run did not finish within {timeout}s") from exc
+        raise RuntimeError(
+            f"PYTHONHASHSEED={seed}: the run did not finish within {timeout}s"
+        ) from exc
 
     if completed.returncode != 0:
         raise RuntimeError(
@@ -2127,13 +2188,19 @@ def _digest_in_subprocess(ref: str, *, seed: str, timeout: float) -> dict[str, A
         )
     lines = [line for line in completed.stdout.splitlines() if line.strip()]
     if not lines:
-        raise RuntimeError(f"PYTHONHASHSEED={seed}: the interpreter printed nothing.\nstderr:\n{completed.stderr}")
+        raise RuntimeError(
+            f"PYTHONHASHSEED={seed}: the interpreter printed nothing.\nstderr:\n{completed.stderr}"
+        )
     try:
         record = json.loads(lines[-1])
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"PYTHONHASHSEED={seed}: could not read the digest line {lines[-1]!r}: {exc}") from exc
+        raise RuntimeError(
+            f"PYTHONHASHSEED={seed}: could not read the digest line {lines[-1]!r}: {exc}"
+        ) from exc
     if not isinstance(record, dict) or "digest" not in record:
-        raise RuntimeError(f"PYTHONHASHSEED={seed}: the digest line is not a digest record: {lines[-1]!r}")
+        raise RuntimeError(
+            f"PYTHONHASHSEED={seed}: the digest line is not a digest record: {lines[-1]!r}"
+        )
     return record
 
 
@@ -2159,6 +2226,38 @@ def _digest_record(ref: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # The suite
 # ---------------------------------------------------------------------------
+
+
+def _no_folder(name: str) -> CheckResult:
+    return CheckResult(
+        name=name,
+        status="skipped",
+        reason="no app folder (in-memory manifest), so there are no uploaded files to check",
+    )
+
+
+def _no_files(name: str) -> CheckResult:
+    return CheckResult(
+        name=name,
+        status="skipped",
+        reason=(
+            "no metrics.json, widgets.json or post_processing_config.json beside app.yaml; "
+            "the app cannot be published without them, but nothing here can be checked"
+        ),
+    )
+
+
+#: One line per entry in :data:`CHECK_NAMES`, shown in the test report. Static, so it is built
+#: once at import rather than per call.
+_CHECK_DESCRIPTIONS: Final[dict[str, str]] = {
+    CHECK_SCHEMA: "the manifest loads, every source resolves, every enum is legal, every primitive exists",
+    CHECK_CONFORMANCE: "synthesised detections through a real Session; all six contract §7 checks",
+    CHECK_METRICS: "every declared metric appears in results-agg.metrics[] with its declared shape",
+    CHECK_APP_CONFIG: "metrics.json, widgets.json and post_processing_config.json agree with app.yaml",
+    CHECK_REACHABILITY: "every key the dashboard asks for is one a real run publishes (PY-1b)",
+    CHECK_INCIDENTS: "open -> escalate -> close, stable incident_id, monotonic timestamps",
+    CHECK_DETERMINISM: "byte-identical payloads in two subprocesses with different PYTHONHASHSEED (PY-9)",
+}
 
 
 def suite_checks(
@@ -2196,17 +2295,25 @@ def suite_checks(
         return CheckResult(
             name=name,
             status="failed",
-            problems=(f"the manifest did not load, so this check could not run: {resolved.load_error}",),
+            problems=(
+                f"the manifest did not load, so this check could not run: {resolved.load_error}",
+            ),
         )
 
     def schema() -> CheckResult:
         return _check_schema(resolved)
 
     def conformance() -> CheckResult:
-        return unloadable(CHECK_CONFORMANCE) if manifest is None else check_contract_conformance(run())
+        return (
+            unloadable(CHECK_CONFORMANCE) if manifest is None else check_contract_conformance(run())
+        )
 
     def metrics() -> CheckResult:
-        return unloadable(CHECK_METRICS) if manifest is None else check_metric_presence(manifest, run())
+        return (
+            unloadable(CHECK_METRICS)
+            if manifest is None
+            else check_metric_presence(manifest, run())
+        )
 
     def config() -> AppConfigBundle | None:
         if resolved.root is None:
@@ -2215,45 +2322,34 @@ def suite_checks(
             cache_config["config"] = load_app_config(resolved.root)
         return cache_config["config"]
 
-    def no_folder(name: str) -> CheckResult:
-        return CheckResult(
-            name=name,
-            status="skipped",
-            reason="no app folder (in-memory manifest), so there are no uploaded files to check",
-        )
-
-    def no_files(name: str) -> CheckResult:
-        return CheckResult(
-            name=name,
-            status="skipped",
-            reason=(
-                "no metrics.json, widgets.json or post_processing_config.json beside app.yaml; "
-                "the app cannot be published without them, but nothing here can be checked"
-            ),
-        )
+    def needs_config(
+        name: str, check: Callable[[AppManifest, AppConfigBundle], CheckResult]
+    ) -> CheckResult:
+        """The guard `app_config` and `reachability` share: loaded, has a folder, has files."""
+        if manifest is None:
+            return unloadable(name)
+        bundle = config()
+        if bundle is None:
+            return _no_folder(name)
+        if bundle.none_present:
+            return _no_files(name)
+        return check(manifest, bundle)
 
     def app_config() -> CheckResult:
-        if manifest is None:
-            return unloadable(CHECK_APP_CONFIG)
-        bundle = config()
-        if bundle is None:
-            return no_folder(CHECK_APP_CONFIG)
-        if bundle.none_present:
-            return no_files(CHECK_APP_CONFIG)
-        return check_app_config_files(manifest, bundle)
+        return needs_config(CHECK_APP_CONFIG, check_app_config_files)
 
     def reachability() -> CheckResult:
-        if manifest is None:
-            return unloadable(CHECK_REACHABILITY)
-        bundle = config()
-        if bundle is None:
-            return no_folder(CHECK_REACHABILITY)
-        if bundle.none_present:
-            return no_files(CHECK_REACHABILITY)
-        return check_dashboard_reachability(manifest, bundle, run())
+        return needs_config(
+            CHECK_REACHABILITY,
+            lambda man, bundle: check_dashboard_reachability(man, bundle, run()),
+        )
 
     def incidents() -> CheckResult:
-        return unloadable(CHECK_INCIDENTS) if manifest is None else check_incident_lifecycle(manifest, run())
+        return (
+            unloadable(CHECK_INCIDENTS)
+            if manifest is None
+            else check_incident_lifecycle(manifest, run())
+        )
 
     def determinism() -> CheckResult:
         return check_determinism(resolved.ref, seeds=seeds)
@@ -2267,27 +2363,19 @@ def suite_checks(
         CHECK_INCIDENTS: incidents,
         CHECK_DETERMINISM: determinism,
     }
-    descriptions: dict[str, str] = {
-        CHECK_SCHEMA: "the manifest loads, every source resolves, every enum is legal, every primitive exists",
-        CHECK_CONFORMANCE: "synthesised detections through a real Session; all six contract §7 checks",
-        CHECK_METRICS: "every declared metric appears in results-agg.metrics[] with its declared shape",
-        CHECK_APP_CONFIG: "metrics.json, widgets.json and post_processing_config.json agree with app.yaml",
-        CHECK_REACHABILITY: "every key the dashboard asks for is one a real run publishes (PY-1b)",
-        CHECK_INCIDENTS: "open -> escalate -> close, stable incident_id, monotonic timestamps",
-        CHECK_DETERMINISM: "byte-identical payloads in two subprocesses with different PYTHONHASHSEED (PY-9)",
-    }
-
     checks: list[GeneratedCheck] = []
     for name in CHECK_NAMES:
         reason = skips.get(name)
         body = bodies[name] if reason is None else _skipped(name, reason)
-        checks.append(GeneratedCheck(name=name, description=descriptions[name], run=body))
+        checks.append(GeneratedCheck(name=name, description=_CHECK_DESCRIPTIONS[name], run=body))
     return tuple(checks)
 
 
 def _skipped(name: str, reason: str) -> Callable[[], CheckResult]:
     def body() -> CheckResult:
-        return CheckResult(name=name, status="skipped", reason=f"tests.skip in the manifest: {reason}")
+        return CheckResult(
+            name=name, status="skipped", reason=f"tests.skip in the manifest: {reason}"
+        )
 
     return body
 

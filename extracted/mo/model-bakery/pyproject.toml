@@ -1,22 +1,89 @@
 [build-system]
-requires = ["uv_build>=0.9.26,<0.12.0"]
+requires = ["uv_build>=0.9.26,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+exclude-newer = "7 days"
 
 [tool.uv.build-backend]
 module-root = ""
 
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["model_bakery"]
+omit = ["model_bakery/_types.py"]
+
+[tool.coverage.paths]
+source = [
+    "model_bakery",
+    ".tox/**/site-packages/model_bakery",
+]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ty.rules]
+unresolved-attribute = "ignore"
+possibly-missing-attribute = "ignore"
+unused-ignore-comment = "ignore"
+unused-type-ignore-comment = "ignore"
+
+[tool.pytest.ini_options]
+addopts = "--tb=short -rxs --nomigrations"
+
+[tool.ruff.lint]
+select = [
+    "S",
+    "B",
+    "C",
+    "SIM",
+    "I",
+    "E",
+    "W",
+    "F",
+    "D",
+    "UP",
+    "RUF100",
+]
+ignore = [
+    "B904",
+    "E501",
+    "S101",
+    "D1",
+    "D212",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*.py" = ["S"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = true
+section-order = [
+    "future",
+    "standard-library",
+    "django",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+force-wrap-aliases = true
+
+[tool.ruff.lint.isort.sections]
+django = ["django"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [project]
 name = "model-bakery"
-version = "1.24.0"
+version = "1.24.1"
 description = "Smart object creation facility for Django."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-authors = [
-    { name = "berin", email = "bernardoxhc@gmail.com" },
-    { name = "amureki", email = "amureki@hey.com" },
-]
 keywords = [
     "django",
     "factory",
@@ -28,6 +95,7 @@ classifiers = [
     "Framework :: Django",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -40,9 +108,15 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development",
 ]
-dependencies = [
-    "django>=5.2",
-]
+dependencies = ["django>=5.2"]
+
+[[project.authors]]
+name = "berin"
+email = "bernardoxhc@gmail.com"
+
+[[project.authors]]
+name = "amureki"
+email = "amureki@hey.com"
 
 [project.optional-dependencies]
 docs = [
@@ -51,6 +125,9 @@ docs = [
     "myst-parser",
 ]
 
+[project.urls]
+Homepage = "https://github.com/model-bakers/model_bakery"
+
 [dependency-groups]
 tests = [
     "coverage[toml]",
@@ -58,9 +135,7 @@ tests = [
     "pytest",
     "pytest-django",
 ]
-typing = [
-    "ty>=0.0.17",
-]
+typing = ["ty>=0.0.17"]
 lint = [
     "black",
     "ruff",
@@ -71,77 +146,12 @@ docs = [
     "sphinx-rtd-theme",
     "myst-parser",
 ]
-dev = [
-    { include-group = "tests" },
-    { include-group = "typing" },
-    { include-group = "lint" },
-]
 
-[project.urls]
-Homepage = "https://github.com/model-bakers/model_bakery"
+[[dependency-groups.dev]]
+include-group = "tests"
 
-[tool.coverage.run]
-branch = true
-parallel = true
-source = [
-    "model_bakery",
-]
-omit = [
-    "model_bakery/_types.py",
-]
+[[dependency-groups.dev]]
+include-group = "typing"
 
-[tool.coverage.paths]
-source = [
-    "model_bakery",
-    ".tox/**/site-packages/model_bakery",
-]
-
-[tool.coverage.report]
-show_missing = true
-
-[tool.ty.rules]
-# Django dynamic attributes (.objects, ._meta, etc.)
-# TODO: remove these two ignores when ty adds better Django support
-#  https://github.com/astral-sh/ty/issues/1018
-unresolved-attribute = "ignore"
-possibly-missing-attribute = "ignore"
-# Allow `# type: ignore` comments (mypy syntax) without warnings
-unused-ignore-comment = "ignore"
-unused-type-ignore-comment = "ignore"
-
-[tool.pytest.ini_options]
-addopts = "--tb=short -rxs --nomigrations"
-
-[tool.ruff.lint]
-select = [
-    "S", # flake8-bandit
-    "B", # flake8-bugbear
-    "C", # flake8-comprehensions
-    "SIM", # flake8-simplify
-    "I", # isort
-    "E", # pycodestyle errors
-    "W", # pycodestyle warnings
-    "F", # pyflakes
-    "D", # pydocstyle
-    "UP", # pyupgrade
-    "RUF100", # Unused noqa directive
-]
-
-ignore = ["B904", "E501", "S101", "D1", "D212"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/test_*.py" = [
-    "S",
-]
-
-[tool.ruff.lint.isort]
-combine-as-imports=true
-split-on-trailing-comma=true
-section-order = ["future", "standard-library", "django", "third-party", "first-party", "local-folder"]
-force-wrap-aliases=true
-
-[tool.ruff.lint.isort.sections]
-django = ["django"]
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+[[dependency-groups.dev]]
+include-group = "lint"

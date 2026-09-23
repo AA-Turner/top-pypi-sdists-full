@@ -161,7 +161,11 @@ class AuthError(bb.Union):
     corresponding ``get_*`` method.
 
     :ivar AuthError.invalid_access_token:
-        The access token is invalid.
+        The access token is invalid. This can happen if the access token has
+        been revoked by Dropbox or the user. To fix this, you should
+        re-authenticate the user. Note: Access tokens that are not returned
+        exactly as provisioned will return this error. Be sure not to truncate
+        or otherwise malform access tokens provided by Dropbox.
     :ivar AuthError.invalid_select_user:
         The user specified in 'Dropbox-API-Select-User' is no longer on the
         team.
@@ -296,8 +300,7 @@ class InvalidAccountTypeError(bb.Union):
     corresponding ``get_*`` method.
 
     :ivar InvalidAccountTypeError.endpoint:
-        Current account type doesn't have permission to access this route
-        endpoint.
+        Current account type doesn't have permission to access this endpoint.
     :ivar InvalidAccountTypeError.feature:
         Current account type doesn't have permission to access this feature.
     """
@@ -879,10 +882,7 @@ TokenScopeError._all_fields_ = [("required_scope", TokenScopeError.required_scop
 UnauthorizedAccountIdUsageError.unauthorized_account_ids.validator = bv.List(bv.String())
 UnauthorizedAccountIdUsageError._all_field_names_ = set(["unauthorized_account_ids"])
 UnauthorizedAccountIdUsageError._all_fields_ = [
-    (
-        "unauthorized_account_ids",
-        UnauthorizedAccountIdUsageError.unauthorized_account_ids.validator,
-    )
+    ("unauthorized_account_ids", UnauthorizedAccountIdUsageError.unauthorized_account_ids.validator)
 ]
 
 RateLimitError.retry_after.default = 1

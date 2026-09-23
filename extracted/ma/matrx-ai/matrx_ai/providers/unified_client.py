@@ -321,6 +321,42 @@ def _strip_chat_decorations_if_non_fc(config: Any, caps: ResolvedModelCapabiliti
     si = getattr(config, "system_instruction", None)
     if isinstance(si, SystemInstruction):
         si.strip_chat_decorations()
+        _return_opening_turn_to_the_prompt(config, si)
+
+
+def _return_opening_turn_to_the_prompt(config: Any, si: Any) -> None:
+    """A non-chat model's prompt IS the user text — put the opening turn back.
+
+    ``UnifiedConfig.lift_opening_turn`` moves an agent definition's seeded
+    opening turn into the system channel only for chat models, but it decides
+    before the model's capabilities are always resolved. An image / TTS / video
+    model folds its prompt from the latest user text and would lose the
+    author's template, so at dispatch — where the capability is known for every
+    path — it is prepended to that text again, exactly as the old merge sent it.
+    """
+    opening = (getattr(si, "opening_turn", "") or "").strip()
+    if not opening:
+        return
+    from matrx_ai.config.enums import Role
+    from matrx_ai.config.unified_content import TextContent
+
+    messages = getattr(config, "messages", None)
+    for message in reversed(list(messages or [])):
+        if getattr(message, "role", None) != Role.USER:
+            continue
+        for block in message.content:
+            if isinstance(block, TextContent) and not (block.metadata or {}).get("role"):
+                block.text = f"{opening}\n{block.text}" if block.text else opening
+                break
+        else:
+            message.content.insert(0, TextContent(text=opening))
+        si.opening_turn = ""
+        vcprint(
+            "[unified_client] a non-chat model received an agent's opening turn in the "
+            "system channel; it was returned to the prompt text, where this model reads it.",
+            color="yellow",
+        )
+        return
 
 
 # The one TTS wire route whose provider ships a NATIVE pronunciation dictionary
@@ -451,6 +487,40 @@ def reset_provider_client_cache() -> None:
 # private metadata key rather than client state because UnifiedAIClient
 # instances are shared across concurrent requests — one client, many turns.
 _VERBALIZED_DECISION_KEY = "__verbalized_decision"
+
+
+_DECISION_TEXT_GATE_KEY = "__verbalized_decision_emitter"
+
+
+def _install_decision_text_gate(config: Any) -> None:
+    """Keep a verbalized decision's raw answer text off the live stream.
+
+    Installed only once the overlay exists, so no other request's emitter is
+    ever wrapped. The original emitter rides the request's private metadata
+    and ``_restore_decision_text_gate`` puts it back on every return path.
+    """
+    from matrx_connect.context.app_context import set_app_context, try_get_app_context
+
+    from matrx_ai.decisions.emit import VerbalizedDecisionTextGate
+
+    ctx = try_get_app_context()
+    emitter = getattr(ctx, "emitter", None) if ctx is not None else None
+    if emitter is None or isinstance(emitter, VerbalizedDecisionTextGate):
+        return
+    config.metadata[_DECISION_TEXT_GATE_KEY] = emitter
+    set_app_context(ctx.with_overrides(emitter=VerbalizedDecisionTextGate(emitter)))
+
+
+def _restore_decision_text_gate(request: Any) -> None:
+    metadata = getattr(getattr(request, "config", None), "metadata", None)
+    if not isinstance(metadata, dict) or _DECISION_TEXT_GATE_KEY not in metadata:
+        return
+    from matrx_connect.context.app_context import set_app_context, try_get_app_context
+
+    original = metadata.pop(_DECISION_TEXT_GATE_KEY)
+    ctx = try_get_app_context()
+    if ctx is not None:
+        set_app_context(ctx.with_overrides(emitter=original))
 
 
 async def _catalog_cost_of(usage: Any) -> float:
@@ -595,9 +665,20 @@ class UnifiedAIClient:
         to survive every return path the dispatch has.
         """
         from matrx_ai.decisions.emit import emit_decision_answers
-        from matrx_ai.decisions.translate import finalize_verbalized_decision
+        from matrx_ai.decisions.translate import (
+            finalize_verbalized_decision,
+            restore_decision_turn_scope,
+        )
 
-        response = await self._execute_dispatch(request)
+        try:
+            response = await self._execute_dispatch(request)
+        finally:
+            _restore_decision_text_gate(request)
+            _pending = getattr(request.config, "metadata", None)
+            if isinstance(_pending, dict) and _VERBALIZED_DECISION_KEY in _pending:
+                # The decision turn ran without tools, system channel or
+                # per-turn context; the conversation's config gets them back.
+                restore_decision_turn_scope(request.config, _pending[_VERBALIZED_DECISION_KEY])
         metadata = getattr(request.config, "metadata", None)
         overlay = (
             metadata.pop(_VERBALIZED_DECISION_KEY, None) if isinstance(metadata, dict) else None
@@ -787,6 +868,7 @@ class UnifiedAIClient:
             if not isinstance(config.metadata, dict):
                 config.metadata = {}
             config.metadata[_VERBALIZED_DECISION_KEY] = _decision_overlay
+            _install_decision_text_gate(config)
 
         # Media fallback: convert any media this provider/model can't accept
         # (e.g. extract a PDF to text) BEFORE dispatch, emitting an inline stream

@@ -4,7 +4,7 @@ import asyncio
 import base64
 import uuid
 from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
@@ -29,6 +29,14 @@ if TYPE_CHECKING:  # circular-by-design: catalog.models imports providers.resolv
 
 
 _AUDIO_STREAM_DONE = object()
+
+
+def _audio_b64(response: Any) -> str:
+    """The base64 audio on a with-timestamps response (SDK field ``audio_base_64``)."""
+    value = getattr(response, "audio_base_64", None) or getattr(response, "audio_base64", None)
+    if not value:
+        raise ValueError("ElevenLabs returned a timestamped response with no audio.")
+    return value
 _ELEVENLABS_MP3_OUTPUT_FORMAT = "mp3_44100_128"
 
 
@@ -197,6 +205,14 @@ class ElevenLabsChat:
         emitter: Emitter,
         matrx_model_name: str,
     ) -> UnifiedResponse:
+        from matrx_ai.speech.compile import find_speech_script
+
+        script = find_speech_script(unified_config)
+        if script is not None:
+            return await self._execute_speech_script(
+                unified_config, profile, emitter, matrx_model_name, script
+            )
+
         tts = unified_config.tts_voice_config
         if not tts or not tts.is_configured:
             raise ValueError(
@@ -392,6 +408,211 @@ class ElevenLabsChat:
                 color="cyan",
             )
 
+        return await self._save_and_emit(
+            all_audio_bytes=all_audio_bytes,
+            batched_inputs=batched_inputs,
+            tts=tts,
+            codec=codec,
+            mime_type=mime_type,
+            model=model,
+            matrx_model_name=matrx_model_name,
+            emitter=emitter,
+            stream_id=stream_id,
+            seq=seq,
+            emit_mp3_chunks=emit_mp3_chunks,
+            is_dialogue=tts.is_dialogue,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Speech-script path (typed-message ``speech_script`` part)           #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _output_format_for(audio_format: str | None) -> tuple[str, str, str]:
+        """(sdk output_format, codec, mime) for a canonical audio_format value."""
+        raw = (audio_format or "mp3").lower()
+        if "_" in raw:
+            output_format = raw
+            codec = raw.split("_", 1)[0]
+        else:
+            codec = raw if raw in {"mp3", "wav", "pcm", "ulaw", "opus"} else "mp3"
+            output_format = {
+                "mp3": _ELEVENLABS_MP3_OUTPUT_FORMAT,
+                "wav": "wav_44100",
+                "pcm": "pcm_44100",
+                "ulaw": "ulaw_8000",
+                "opus": "opus_48000_128",
+            }[codec]
+        mime = {
+            "mp3": "audio/mpeg",
+            "wav": "audio/wav",
+            "pcm": "audio/pcm",
+            "ulaw": "audio/basic",
+            "alaw": "audio/basic",
+            "opus": "audio/opus",
+        }.get(codec, "audio/mpeg")
+        return output_format, codec, mime
+
+    async def _execute_speech_script(
+        self,
+        unified_config: UnifiedConfig,
+        profile: ResolvedCallProfile,
+        emitter: Emitter,
+        matrx_model_name: str,
+        script: Any,
+    ) -> UnifiedResponse:
+        """Perform a speech script: Text-to-Dialogue for several turns on a
+        dialogue model, the single-voice endpoint otherwise — both with
+        timestamps, so word alignment rides back on the audio part."""
+        from matrx_ai.speech.alignment import alignment_to_words, merge_timelines
+        from matrx_ai.speech.compile import compile_elevenlabs, script_metadata
+
+        compiled = compile_elevenlabs(script, unified_config, profile)
+        for note in compiled.notes:
+            await emitter.send_info(
+                InfoPayload(code="tts_adjustment", system_message=note, user_message=note)
+            )
+
+        model = profile.provider_model_id
+        output_format, codec, mime_type = self._output_format_for(unified_config.audio_format)
+        stream_id = self._tts_stream_id()
+        endpoint = "text-to-dialogue" if compiled.use_dialogue else "text-to-speech"
+        total_chars = sum(len(t["text"]) for t in compiled.turns)
+        vcprint(
+            f"[ElevenLabs TTS] speech_script model={model} endpoint={endpoint} "
+            f"turns={len(compiled.turns)} chars={total_chars}",
+            color="blue",
+        )
+        await emitter.send_info(
+            InfoPayload(
+                code="tts_generating",
+                system_message=f"Generating audio ({len(compiled.turns)} turns, {endpoint})...",
+                user_message="Generating audio...",
+            )
+        )
+        stamp_call_meta(provider="elevenlabs", model=matrx_model_name, is_streaming=False)
+        try:
+            await emit_explicit_context_analysis(
+                provider="elevenlabs",
+                method="POST",
+                url=(
+                    f"https://api.elevenlabs.io/v1/text-to-dialogue/with-timestamps?model_id={model}"
+                    if compiled.use_dialogue
+                    else f"https://api.elevenlabs.io/v1/text-to-speech/{{voice_id}}/with-timestamps?model_id={model}"
+                ),
+                headers={"Content-Type": "application/json"},
+                body={"inputs": compiled.turns, "model_id": model},
+                is_streaming=False,
+                model=matrx_model_name,
+            )
+        except Exception:
+            pass
+
+        client = self.client
+
+        def _call_dialogue() -> Any:
+            kwargs: dict[str, Any] = {
+                "inputs": compiled.turns,
+                "model_id": model,
+                "output_format": output_format,
+            }
+            if compiled.language_code:
+                kwargs["language_code"] = compiled.language_code
+            return client.text_to_dialogue.convert_with_timestamps(
+                **route_undeclared_params(
+                    client.text_to_dialogue.convert_with_timestamps, kwargs, provider="elevenlabs"
+                )
+            )
+
+        def _call_turn(turn: dict[str, str]) -> Any:
+            kwargs: dict[str, Any] = {
+                "voice_id": turn["voice_id"],
+                "text": turn["text"],
+                "model_id": model,
+                "output_format": output_format,
+            }
+            if compiled.language_code:
+                kwargs["language_code"] = compiled.language_code
+            if compiled.speed is not None:
+                from elevenlabs.types import VoiceSettings
+
+                kwargs["voice_settings"] = VoiceSettings(speed=compiled.speed)
+            return client.text_to_speech.convert_with_timestamps(
+                **route_undeclared_params(
+                    client.text_to_speech.convert_with_timestamps, kwargs, provider="elevenlabs"
+                )
+            )
+
+        loop = asyncio.get_running_loop()
+        segments: list[tuple[bytes, Any, str | None]] = []
+        if compiled.use_dialogue:
+            response = await loop.run_in_executor(None, _call_dialogue)
+            segments.append((base64.b64decode(_audio_b64(response)), response, None))
+        else:
+            for turn in compiled.turns:
+                response = await loop.run_in_executor(None, _call_turn, turn)
+                segments.append(
+                    (base64.b64decode(_audio_b64(response)), response, turn["voice_id"])
+                )
+
+        all_audio_bytes = b"".join(chunk for chunk, _, _ in segments)
+        seq = 0
+        if codec == "mp3" and all_audio_bytes:
+            await self._emit_audio_stream_chunk(
+                emitter, stream_id=stream_id, seq=seq, data=all_audio_bytes
+            )
+            seq = 1
+
+        timeline = merge_timelines(
+            [(response, voice_id) for _, response, voice_id in segments]
+        )
+        alignment = {
+            "source": "elevenlabs",
+            "words": alignment_to_words(timeline["characters"]),
+            "voice_segments": timeline["voice_segments"],
+        }
+
+        return await self._save_and_emit(
+            all_audio_bytes=all_audio_bytes,
+            batched_inputs=[compiled.turns],
+            tts=None,
+            codec=codec,
+            mime_type=mime_type,
+            model=model,
+            matrx_model_name=matrx_model_name,
+            emitter=emitter,
+            stream_id=stream_id,
+            seq=seq,
+            emit_mp3_chunks=codec == "mp3",
+            is_dialogue=compiled.use_dialogue,
+            extra_audio_metadata={
+                "alignment": alignment,
+                "speech_script": script_metadata(script),
+            },
+        )
+
+    async def _save_and_emit(
+        self,
+        *,
+        all_audio_bytes: bytes,
+        batched_inputs: list[list[dict]],
+        tts: Any,
+        codec: str,
+        mime_type: str,
+        model: str,
+        matrx_model_name: str,
+        emitter: Emitter,
+        stream_id: str,
+        seq: int,
+        emit_mp3_chunks: bool,
+        is_dialogue: bool,
+        extra_audio_metadata: dict[str, Any] | None = None,
+    ) -> UnifiedResponse:
+        """Persist the audio, bill it, and emit the canonical media + stream-end events.
+
+        One tail for the plain path and the speech-script path, so both land
+        the same envelope, the same metadata, and the same live events.
+        """
         await emitter.send_info(
             InfoPayload(
                 code="tts_saving",
@@ -435,7 +656,7 @@ class ElevenLabsChat:
             voice_name=voice_name,
             char_count=total_chars,
             audio_format=codec,
-            is_dialogue=tts.is_dialogue,
+            is_dialogue=is_dialogue,
         )
 
         envelope = await save_media_envelope_async(
@@ -456,7 +677,10 @@ class ElevenLabsChat:
             mime_type=mime_type,
             file_size=envelope.size_bytes,
             duration_ms=envelope.duration_ms,
-            metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+            metadata={
+                "generation": gen_meta.model_dump(exclude_none=True),
+                **(extra_audio_metadata or {}),
+            },
         )
         msg = UnifiedMessage(role="assistant", content=[audio_content])
 
@@ -489,7 +713,10 @@ class ElevenLabsChat:
             "size_bytes": envelope.size_bytes,
             "visibility": envelope.visibility,
             "duration_ms": envelope.duration_ms,
-            "metadata": {"generation": gen_meta.model_dump(exclude_none=True)},
+            "metadata": {
+                "generation": gen_meta.model_dump(exclude_none=True),
+                **(extra_audio_metadata or {}),
+            },
         }
         url_set = {
             "url": envelope.url,

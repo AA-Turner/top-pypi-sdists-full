@@ -155,9 +155,22 @@ class OpenAIChat:
         from matrx_ai.catalog.resolve import resolve_tts_voice
         from matrx_ai.config.dictionary_config import apply_tts_dictionary
 
+        from matrx_ai.speech.compile import compile_openai, find_speech_script
+
         tts = unified_config.tts_voice_config
         model = profile.provider_model_id
-        voice = resolve_tts_voice(profile, tts._primary_voice() if tts else None)
+        script = find_speech_script(unified_config)
+        compiled = compile_openai(script, unified_config, profile) if script is not None else None
+        if compiled is not None:
+            for note in compiled.notes:
+                from matrx_connect.context.events import InfoPayload
+
+                await emitter.send_info(
+                    InfoPayload(code="tts_adjustment", system_message=note, user_message=note)
+                )
+            voice = compiled.voice
+        else:
+            voice = resolve_tts_voice(profile, tts._primary_voice() if tts else None)
 
         # OpenAI TTS supports: mp3, opus, aac, flac, wav, pcm
         valid_formats = {"mp3", "opus", "aac", "flac", "wav", "pcm"}
@@ -175,7 +188,9 @@ class OpenAIChat:
 
         # Multi-speaker configs collapse to a single voice for OpenAI.
         # Strip speaker labels (e.g. "Alex: ") so they aren't read aloud.
-        if tts:
+        if compiled is not None:
+            input_text = compiled.input_text
+        elif tts:
             input_text = tts.strip_speaker_labels(input_text)
 
         # Custom Dictionary pronunciation floor — OpenAI TTS `input` is plain text
@@ -189,12 +204,31 @@ class OpenAIChat:
         vcprint(f"[OpenAI TTS] model={model} voice={voice} format={audio_format}", color="blue")
 
         stamp_call_meta(provider="openai", model=matrx_model_name, is_streaming=False)
-        response = await self.client.audio.speech.create(
-            model=model,
-            voice=voice,
-            input=input_text,
-            response_format=audio_format,
+        speech_kwargs: dict[str, Any] = {
+            "model": model,
+            "voice": voice,
+            "input": input_text,
+            "response_format": audio_format,
+        }
+        # performance_direction → `instructions` (gpt-4o-mini-tts reads free
+        # text delivery direction there); speed → `speed`.
+        from matrx_ai.speech.compile import direction_supported
+
+        direction = (
+            compiled.instructions
+            if compiled is not None
+            else (
+                unified_config.performance_direction
+                if direction_supported(profile)
+                else None
+            )
         )
+        if direction:
+            speech_kwargs["instructions"] = direction
+        speed = compiled.speed if compiled is not None else unified_config.speech_speed
+        if speed is not None:
+            speech_kwargs["speed"] = speed
+        response = await self.client.audio.speech.create(**speech_kwargs)
 
         audio_bytes = response.content
 
@@ -256,6 +290,10 @@ class OpenAIChat:
         )
 
         unified_response = UnifiedResponse(messages=[msg], usage=usage)
+        if script is not None:
+            from matrx_ai.speech.compile import attach_script_to_audio
+
+            attach_script_to_audio(unified_response, unified_config)
 
         from matrx_connect.context.data_types import MediaBlockData
         from matrx_connect.context.media_block import cloud_file_to_media_block

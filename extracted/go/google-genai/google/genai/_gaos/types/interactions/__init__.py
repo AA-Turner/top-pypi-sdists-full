@@ -317,6 +317,7 @@ if TYPE_CHECKING:
     from .ragretrievalconfig import RagRetrievalConfig, RagRetrievalConfigParam
     from .ragstoreconfig import RagStoreConfig, RagStoreConfigParam
     from .ranking import Ranking, RankingParam
+    from .rankservice import RankService, RankServiceParam
     from .responseformat import ResponseFormat, ResponseFormatParam
     from .responsemodality import ResponseModality
     from .retrieval import Retrieval, RetrievalParam, RetrievalRetrievalType
@@ -349,6 +350,7 @@ if TYPE_CHECKING:
     )
     from .source import Source, SourceParam, SourceType
     from .speakerconfig import SpeakerConfig, SpeakerConfigParam
+    from .speechannotation import SpeechAnnotation, SpeechAnnotationParam
     from .speechconfig import SpeechConfig, SpeechConfigParam
     from .staticmediaprocessing import StaticMediaProcessing, StaticMediaProcessingParam
     from .status import Status, StatusParam
@@ -702,6 +704,8 @@ __all__ = [
     "RagRetrievalConfigParam",
     "RagStoreConfig",
     "RagStoreConfigParam",
+    "RankService",
+    "RankServiceParam",
     "Ranking",
     "RankingParam",
     "Resolution",
@@ -737,6 +741,8 @@ __all__ = [
     "SourceType",
     "SpeakerConfig",
     "SpeakerConfigParam",
+    "SpeechAnnotation",
+    "SpeechAnnotationParam",
     "SpeechConfig",
     "SpeechConfigParam",
     "SpeechConfigUnion",
@@ -1117,6 +1123,8 @@ _dynamic_imports: dict[str, str] = {
     "RagStoreConfigParam": ".ragstoreconfig",
     "Ranking": ".ranking",
     "RankingParam": ".ranking",
+    "RankService": ".rankservice",
+    "RankServiceParam": ".rankservice",
     "ResponseFormat": ".responseformat",
     "ResponseFormatParam": ".responseformat",
     "ResponseModality": ".responsemodality",
@@ -1151,6 +1159,8 @@ _dynamic_imports: dict[str, str] = {
     "SourceType": ".source",
     "SpeakerConfig": ".speakerconfig",
     "SpeakerConfigParam": ".speakerconfig",
+    "SpeechAnnotation": ".speechannotation",
+    "SpeechAnnotationParam": ".speechannotation",
     "SpeechConfig": ".speechconfig",
     "SpeechConfigParam": ".speechconfig",
     "StaticMediaProcessing": ".staticmediaprocessing",

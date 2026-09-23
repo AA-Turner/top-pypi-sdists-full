@@ -35,6 +35,7 @@ from schemathesis.cli.output import (
     print_lines,
 )
 from schemathesis.config import ProjectConfig, ReportFormat
+from schemathesis.core import SpecificationKind
 from schemathesis.core.output import decode_response_text, prepare_response_payload
 from schemathesis.core.result import Ok
 from schemathesis.core.timing import Instant
@@ -93,27 +94,81 @@ def bold(option: str) -> str:
     return click.style(option, bold=True)
 
 
+def _is_graphql(ctx: ExecutionContext) -> bool:
+    return ctx.specification is not None and ctx.specification.kind is SpecificationKind.GRAPHQL
+
+
+# Methods that most often create a resource, in the order they are preferred when several
+# operations could supply the same one.
+_CREATING_METHODS = ("post", "put", "patch")
+
+
+def _preferred_producer(labels: set[str]) -> str:
+    """The one producer worth naming: a creating method first, then the shortest label."""
+
+    def rank(label: str) -> tuple[int, int, str]:
+        method = label.split(" ", 1)[0].lower()
+        order = _CREATING_METHODS.index(method) if method in _CREATING_METHODS else len(_CREATING_METHODS)
+        return (order, len(label), label)
+
+    return min(labels, key=rank)
+
+
 def _missing_test_data_advice(
-    label: str, *, linked: set[str], stateful_ran: bool, exercised: set[str]
-) -> tuple[str, str]:
-    """What actually stands between this operation and real data, and the tip that addresses it."""
-    if label not in linked:
+    label: str,
+    *,
+    linked: set[str],
+    stateful_ran: bool,
+    exercised: set[str],
+    producers: dict[str, set[str]],
+    parameterless: set[str],
+) -> tuple[str, str, str]:
+    """What actually stands between this operation and real data, and the tip that addresses it.
+
+    The cause is given for one operation and for several, because the group it belongs to is only
+    known once every operation has been asked.
+    """
+    if label in parameterless:
+        # Nothing was generated for it, so no value can be the reason the path was not found.
         return (
+            "This operation declares no parameters, so an empty request was all there was to send",
+            "These operations declare no parameters, so an empty request was all there was to send",
+            "💡 Check `--url`, and whether the schema describes everything these operations need",
+        )
+    if label not in linked:
+        # The inferred graph knows more than the declared links do.
+        candidates = producers.get(label)
+        if candidates:
+            producer = _preferred_producer(candidates)
+            return (
+                f"No links point to this operation - {producer} appears to supply the data it needs",
+                f"No links point to these operations - {producer} appears to supply the data they need",
+                f"💡 Add a link from {producer}, or supply the identifiers it returns in your config file",
+            )
+        if candidates is not None:
+            return (
+                "No links point to this operation - nothing in the schema appears to supply the data it needs",
+                "No links point to these operations - nothing in the schema appears to supply the data they need",
+                "💡 Schemathesis found no operation that creates this data - create it outside the test run and supply the identifiers in your config file",
+            )
+        return (
+            "No links point to this operation",
             "No links point to these operations",
             "💡 Provide realistic parameter values in your config file so tests can access existing resources",
         )
     if not stateful_ran:
-        return (
-            "Reachable via links, but stateful testing did not run",
-            "💡 Enable the `stateful` phase so declared links can supply real identifiers",
-        )
+        cause = "Reachable via links, but stateful testing did not run"
+        return (cause, cause, "💡 Enable the `stateful` phase so declared links can supply real identifiers")
     if label not in exercised:
         return (
+            "Reachable via links, but stateful testing never reached it",
             "Reachable via links, but stateful testing never reached them",
             "💡 Raise `phases.stateful.max-steps` or run longer so stateful testing reaches these operations",
         )
+    cause = "Reached via links, but the linked data was not usable"
     return (
-        "Reached via links, but the linked data was not usable",
+        cause,
+        cause,
         "💡 Check the operations that create this data - their responses do not yield usable identifiers",
     )
 
@@ -398,10 +453,10 @@ class UnitTestProgressManager:
     def _get_status_icon(self, default_icon: str = "🕛") -> str:
         return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default=default_icon)
 
-    def get_completion_message(self, default_icon: str = "🕛") -> str:
+    def get_completion_message(self, icon: str | None = None) -> str:
         """Complete the phase and return status message."""
         duration = format_duration(self.elapsed_ms)
-        icon = self._get_status_icon(default_icon)
+        icon = icon or self._get_status_icon()
 
         message = self._get_stats_message(live=False) or "No tests were run"
         if self.is_interrupted:
@@ -925,7 +980,8 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         from rich.padding import Padding
         from rich.text import Text
 
-        icon = "🚫" if status == Status.ERROR else "🕛"
+        # A phase errors without any operation erroring once the server stops accepting connections.
+        icon = "🚫" if status == Status.ERROR else None
         self.console.print(Padding(Text(manager.get_completion_message(icon), style="white"), BLOCK_PADDING))
         self.console.print()
 
@@ -1150,13 +1206,28 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         self._print_warning_tips(tips)
 
     def _display_missing_test_data_block(self, ctx: ExecutionContext) -> None:
-        """Display 404-ed operations grouped by what would actually make them reachable."""
+        """Display operations nothing ever served, grouped by what would actually make them reachable."""
+        if _is_graphql(ctx):
+            self._print_warning_header(
+                "Missing test data",
+                len(ctx.warnings.missing_test_data),
+                "operation",
+                " never returned data, preventing tests from reaching your API's core logic",
+            )
+            self._print_items(ctx.warnings.missing_test_data)
+            self._print_warning_tips(["💡 Supply argument values via a fuzz dictionary so queries can return data"])
+            return
         linked = ctx.warnings.linked_operations or set()
         stateful_ran = ctx.phases[PhaseName.STATEFUL_TESTING][0] != Status.SKIP
-        groups: dict[tuple[str, str], set[str]] = {}
+        groups: dict[tuple[str, str, str], set[str]] = {}
         for label in ctx.warnings.missing_test_data:
             advice = _missing_test_data_advice(
-                label, linked=linked, stateful_ran=stateful_ran, exercised=ctx.warnings.stateful_exercised
+                label,
+                linked=linked,
+                stateful_ran=stateful_ran,
+                exercised=ctx.warnings.stateful_exercised,
+                producers=ctx.warnings.resource_producers or {},
+                parameterless=ctx.warnings.parameterless,
             )
             groups.setdefault(advice, set()).add(label)
 
@@ -1167,15 +1238,47 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             " repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
         )
         if len(groups) == 1:
-            (_, tip), labels = next(iter(groups.items()))
+            (_, _, tip), labels = next(iter(groups.items()))
             self._print_items(labels)
             self._print_warning_tips([tip])
             return
-        for (cause, tip), labels in sorted(groups.items()):
-            plural = "" if len(labels) == 1 else "s"
-            click.echo(_style(f"{cause} ({len(labels)} operation{plural}):", fg="yellow"))
+        for (one, many, tip), labels in sorted(groups.items()):
+            # The list that follows says how many there are when there is more than one.
+            heading = f"{one}:" if len(labels) == 1 else f"{many} ({len(labels)} operations):"
+            click.echo(_style(heading, fg="yellow"))
             self._print_items(labels)
             self._print_warning_tips([tip])
+
+    def _display_low_valid_rate_block(self, ctx: ExecutionContext) -> None:
+        """Report the share of requests each operation accepted, and what turned the rest away."""
+        self._print_warning_header(
+            "Low valid-input rate",
+            len(ctx.warnings.low_valid_rate_reported),
+            "operation",
+            " accepted few of the requests sent to it, leaving the logic behind them untested",
+        )
+        unreachable_dominates = False
+        for label in sorted(ctx.warnings.low_valid_rate_reported):
+            for phase, rate in sorted(ctx.warnings.valid_rates.get(label, {}).items()):
+                if rate.accepted and rate.rate < ctx.config.warnings.low_valid_rate.threshold:
+                    if rate.unreachable > rate.rejected:
+                        unreachable_dominates = True
+                        cause = f"{rate.unreachable} not found"
+                    else:
+                        cause = f"{rate.rejected} rejected"
+                    click.echo(
+                        _style(
+                            f"  - {label} ({phase}): {rate.rate:.0%} accepted ({rate.accepted}/{rate.total}, {cause})",
+                            fg="yellow",
+                        )
+                    )
+        if _is_graphql(ctx):
+            tip = "💡 Most requests came back with errors; supply argument values via a fuzz dictionary"
+        elif unreachable_dominates:
+            tip = "💡 Most requests addressed resources that do not exist; supply identifiers via examples or a dictionary"
+        else:
+            tip = "💡 Most requests were refused on their data; the schema likely omits constraints the API enforces"
+        self._print_warning_tips([tip])
 
     def display_warnings(self, ctx: ExecutionContext) -> None:
         display_section_name("WARNINGS")
@@ -1252,6 +1355,9 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 suffix_text=" contain regex patterns Schemathesis cannot use as written",
                 tips=["💡 Supply examples for these operations, or narrow the pattern"],
             )
+
+        if ctx.warnings.low_valid_rate_reported:
+            self._display_low_valid_rate_block(ctx)
 
         if ctx.warnings.unresolvable_reference:
             self._display_detailed_warning_block(
@@ -1368,7 +1474,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 len(ctx.warnings.missing_test_data),
                 "Missing valid test data",
                 "operation",
-                "repeatedly returned 404 responses",
+                "never returned data" if _is_graphql(ctx) else "repeatedly returned 404 responses",
             ),
             (
                 len(ctx.warnings.validation_mismatch),
@@ -1412,6 +1518,12 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 "Unresolvable references",
                 "operation",
                 "had parts of the schema skipped",
+            ),
+            (
+                len(ctx.warnings.low_valid_rate_reported),
+                "Low valid-input rate",
+                "operation",
+                "accepted few of the requests sent to it",
             ),
         )
         for count, title, entity_name, suffix_text in entries:

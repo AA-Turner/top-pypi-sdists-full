@@ -158,8 +158,7 @@ use crate::coords::Coords3D;
 use crate::dg_fft::ideal_bond_length;
 use crate::distance_geometry_v2::{
     self, BoundsConformance, DistanceBoundAdjustment, EmbedFailureCause, EmbedParameters,
-    EmbedStats, EmbedWithAdjustmentsFailure, bounds_conformance, mol_has_declared_stereo,
-    truncate_coords,
+    EmbedStats, EmbedWithAdjustmentsFailure, bounds_conformance, truncate_coords,
 };
 use crate::etkdg_knowledge::{
     PairBoundAdjustment, TorsionKnowledgeConfig, TorsionKnowledgeError, TorsionKnowledgeReport,
@@ -169,7 +168,7 @@ use crate::etkdg_knowledge::{
 };
 use crate::minimize::{
     ForceFieldBridgeError, ForceFieldPolicy, MAX_SANE_BOND_LENGTH, MinimizeConfig,
-    PolicyMinimizeResult, minimize_with_policy_gated,
+    PolicyMinimizeResult, minimize_with_policy_gated, minimize_with_policy_gated_with_constraint,
 };
 use crate::stereo_constraints::{
     RepairRejectionReason, RepairedElement, StereoElement, StereoVerification, repair_stereo,
@@ -292,9 +291,11 @@ pub struct PipelineV2Config {
     ///
     /// Requires `embed.enforce_chirality: true` (`InvalidConfiguration` otherwise
     /// -- same precedent as every other flag here that only makes sense combined
-    /// with it). A no-op, byte-identical to `false`, for any molecule with no
-    /// declared stereo at all. See `ROADMAP.md`'s `#291` entry ("Phase 0.5") for
-    /// the measurement this design is based on. Default `false`.
+    /// with it). Expansion is activated only when a declared tetrahedral center
+    /// has an implicit H; E/Z-only molecules and tetrahedral centers without an
+    /// implicit H stay on the original heavy-atom path. See
+    /// `ROADMAP.md`'s `#291` entry ("Phase 0.5") for the measurement this design is
+    /// based on. Default `false`.
     pub expand_implicit_h_through_pipeline: bool,
 }
 
@@ -312,7 +313,7 @@ impl PipelineV2Config {
             stereo_policy: StereoPolicy::Ignore,
             fail_on_unevaluable_stereo: false,
             force_field_policy,
-            force_field_max_iterations: 200,
+            force_field_max_iterations: 300,
             gate_mmff94_torsion_oop: false,
             gate_mmff94_stretch_bend: false,
             ring_torsion_policy: RingTorsionApplicationPolicy::FailClosed,
@@ -845,10 +846,14 @@ pub fn embed_pipeline_v2(
     let orig_mol: &Molecule = mol;
     let original_atom_count = orig_mol.atom_count();
     let use_expanded_geometry =
-        config.expand_implicit_h_through_pipeline && mol_has_declared_stereo(orig_mol);
+        config.expand_implicit_h_through_pipeline && mol_needs_expanded_stereo_geometry(orig_mol);
     let expanded_mol_storage: Molecule;
     let mol: &Molecule = if use_expanded_geometry {
-        expanded_mol_storage = chematic_chem::add_hydrogens(orig_mol);
+        expanded_mol_storage = if mol_needs_full_hydrogen_expansion(orig_mol) {
+            chematic_chem::add_hydrogens(orig_mol)
+        } else {
+            chematic_chem::add_stereocenter_hydrogens(orig_mol)
+        };
         &expanded_mol_storage
     } else {
         orig_mol
@@ -1061,15 +1066,57 @@ pub fn embed_pipeline_v2(
         max_steps: config.force_field_max_iterations,
         ..MinimizeConfig::default()
     };
-    let t0 = Instant::now();
-    let force_field = match minimize_with_policy_gated(
+    let authoritative_before_force_field = verify_authoritative_final_stereo(
+        orig_mol,
         mol,
-        coords,
-        config.force_field_policy,
-        &ff_config,
-        config.gate_mmff94_torsion_oop,
-        config.gate_mmff94_stretch_bend,
-    ) {
+        &coords,
+        use_expanded_geometry,
+        original_atom_count,
+    );
+    let reconcile_expanded_and_returned_stereo = use_expanded_geometry
+        && config.stereo_policy != StereoPolicy::Ignore
+        && stereo_after_repair.is_fully_satisfied()
+        && authoritative_before_force_field.n_violations() > 0;
+    let preserves_declared_stereo = |candidate: &Coords3D| {
+        let authoritative = verify_authoritative_final_stereo(
+            orig_mol,
+            mol,
+            candidate,
+            use_expanded_geometry,
+            original_atom_count,
+        );
+        verify_stereo(mol, candidate).is_fully_satisfied()
+            // The expanded working molecule can contain a real H whose
+            // direction disagrees with the heavy-only verifier's estimated
+            // phantom H before relaxation. Permit that pre-existing
+            // violation to relax, but never accept a step that makes any
+            // returned stereocenter geometrically unevaluable.
+            && authoritative.n_unevaluable() == 0
+    };
+    let minimize_force_field = |coords: Coords3D| {
+        if !reconcile_expanded_and_returned_stereo {
+            minimize_with_policy_gated(
+                mol,
+                coords,
+                config.force_field_policy,
+                &ff_config,
+                config.gate_mmff94_torsion_oop,
+                config.gate_mmff94_stretch_bend,
+            )
+        } else {
+            minimize_with_policy_gated_with_constraint(
+                mol,
+                coords,
+                config.force_field_policy,
+                &ff_config,
+                config.gate_mmff94_torsion_oop,
+                config.gate_mmff94_stretch_bend,
+                &preserves_declared_stereo,
+            )
+        }
+    };
+    let t0 = Instant::now();
+    let force_field = match minimize_force_field(coords) {
         Ok(r) => r,
         Err(e) => {
             timings.force_field_ms = t0.elapsed().as_millis() as u64;
@@ -1168,14 +1215,7 @@ pub fn embed_pipeline_v2(
                     // `authoritative_final_stereo`.
                     let mut repaired_coords = outcome.coords;
                     if use_expanded_geometry
-                        && let Ok(relaxed) = minimize_with_policy_gated(
-                            mol,
-                            repaired_coords.clone(),
-                            config.force_field_policy,
-                            &ff_config,
-                            config.gate_mmff94_torsion_oop,
-                            config.gate_mmff94_stretch_bend,
-                        )
+                        && let Ok(relaxed) = minimize_force_field(repaired_coords.clone())
                         && verify_stereo(mol, &relaxed.coords).n_violations() == 0
                     {
                         repaired_coords = relaxed.coords;
@@ -1312,6 +1352,42 @@ pub fn embed_pipeline_v2(
 fn pipeline_config_is_invalid(config: &PipelineV2Config) -> bool {
     config.embed.materialize_implicit_h_for_chirality
         || (config.expand_implicit_h_through_pipeline && !config.embed.enforce_chirality)
+}
+
+/// True only when a declared tetrahedral center uses an implicit H. E/Z
+/// declarations do not need hydrogen coordinates, so keeping E/Z-only
+/// molecules on the heavy-atom path avoids the all-H distance-geometry/MMFF94
+/// cost without weakening tetrahedral geometry. A narrower ring-only rule was
+/// measured and rejected because four ordinary implicit-H centers developed
+/// gross clashes on the 265-molecule gate.
+fn mol_needs_expanded_stereo_geometry(mol: &Molecule) -> bool {
+    (0..mol.atom_count()).any(|i| {
+        let center = AtomIdx(i as u32);
+        let atom = mol.atom(center);
+        atom.chirality.is_tetrahedral() && mol.implicit_hydrogen_count(center) > 0
+    })
+}
+
+/// Multi-ring junction stereocenters retain the full explicit-H treatment.
+/// Their coupled ring geometry is the class for which materializing only the
+/// stereocenter H can leave heavy-only final verification inconsistent with
+/// the minimized internal graph. Ordinary implicit-H centers use the much
+/// smaller selective expansion.
+fn mol_needs_full_hydrogen_expansion(mol: &Molecule) -> bool {
+    let rings = chematic_perception::find_sssr(mol);
+    (0..mol.atom_count()).any(|i| {
+        let center = AtomIdx(i as u32);
+        let atom = mol.atom(center);
+        atom.chirality.is_tetrahedral()
+            && mol.implicit_hydrogen_count(center) > 0
+            && rings
+                .rings()
+                .iter()
+                .filter(|ring| ring.contains(&center))
+                .take(2)
+                .count()
+                >= 2
+    })
 }
 
 /// Whether a torsion-knowledge potential can be applied to the molecule's
@@ -1635,6 +1711,35 @@ mod tests {
         let result = embed_pipeline_v2(&mol, &config)
             .expect("2-butanol must still succeed with the flag on");
         assert!(result.final_stereo.is_fully_satisfied());
+        assert_eq!(
+            result.force_field.coords.atom_count(),
+            mol.atom_count() + 1,
+            "ordinary stereocenters should materialize only their declared implicit H"
+        );
+    }
+
+    #[test]
+    fn multi_ring_implicit_h_center_keeps_full_hydrogen_expansion() {
+        let fused = parse("CC1(C)[C@H](C(=O)O)N2C(=O)C(C/C=C/C=O)[C@H]2S1(=O)=O")
+            .expect("fused stereocenter fixture");
+        let ordinary = parse("C[C@H](O)CC").expect("ordinary stereocenter fixture");
+
+        assert!(mol_needs_full_hydrogen_expansion(&fused));
+        assert!(!mol_needs_full_hydrogen_expansion(&ordinary));
+    }
+
+    #[test]
+    fn expand_implicit_h_through_pipeline_is_noop_for_ez_only_molecule() {
+        let mol = parse("C/C=C\\C").unwrap();
+        let mut config = PipelineV2Config::stereo_safe(ForceFieldPolicy::Mmff94BondAngleStrict);
+        config.embed.random_seed = 0;
+        let result = embed_pipeline_v2(&mol, &config).expect("declared E/Z must remain supported");
+        assert!(result.final_stereo.is_fully_satisfied());
+        assert_eq!(
+            result.force_field.coords.atom_count(),
+            mol.atom_count(),
+            "E/Z-only molecules do not need explicit-H expansion"
+        );
     }
 
     #[test]
@@ -1706,6 +1811,27 @@ mod tests {
                 assert_eq!(perceived_code, code);
             }
         }
+    }
+
+    #[test]
+    fn stereo_safe_mmff94_keeps_fused_ring_stereo_evaluable_during_minimization() {
+        // A6 regression: unconstrained MMFF94 minimization crossed atom 16's
+        // fused-ring chiral boundary, while rejecting every crossing proposal
+        // also rejected an initial heavy-only phantom-H mismatch at atom 10.
+        // The stereo-safe line search must preserve the expanded assignment,
+        // allow that pre-existing violation to relax, and forbid a transition
+        // through unevaluable returned geometry.
+        let mol = parse("C[C@]12CCC3C(CC=C4C[C@@H](O)[C@H]5COC[C@]43C5)C1CC[C@@H]2OC1CC1").unwrap();
+        let mut config = PipelineV2Config::stereo_safe(ForceFieldPolicy::Mmff94BondAngleStrict);
+        config.embed.random_seed = 20_260_801;
+        config.force_field_max_iterations = 300;
+        config.ring_torsion_policy = RingTorsionApplicationPolicy::DiagnosticOnly;
+
+        let result = embed_pipeline_v2(&mol, &config)
+            .expect("stereo-safe MMFF94 must retain this fused-ring molecule");
+        assert!(result.final_stereo.is_fully_satisfied());
+        assert_eq!(result.final_validation.gross_clash_count, 0);
+        assert!(result.final_validation.sound);
     }
 
     #[test]

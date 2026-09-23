@@ -42,7 +42,7 @@ from typing import Literal
 
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.content_ir.sdk import kind
-from pydantic import JsonValue
+from pydantic import ConfigDict, Field, JsonValue
 
 # ── shared pieces ────────────────────────────────────────────────────────────
 
@@ -421,6 +421,52 @@ class EditError(KindSubModel):
 # ── the kind ─────────────────────────────────────────────────────────────────
 
 
+class KeptRetiredTopic(KindSubModel):
+    """An upsert never revives: a slug already `retired`/`rejected` was not written."""
+
+    slug: str
+    status: str
+    #: says how to revive it on purpose (`patch` with status active).
+    message: str | None = None
+
+
+class RefusedPlace(KindSubModel):
+    """A node the geography rule refused: its name is a place, not a topic."""
+
+    slug: str
+    name: str | None = None
+    reason: str | None = None
+
+
+class ProposedRegionValue(KindSubModel):
+    """`propose_as_facet`: the region facet value to create instead of the branch."""
+
+    facet: str
+    slug: str
+    name: str | None = None
+    reason: str | None = None
+
+
+class LiftedChild(KindSubModel):
+    """A child whose parent this call did not write, lifted to the nearest survivor."""
+
+    slug: str
+    #: the parent it named.
+    from_: str | None = Field(default=None, alias="from")
+    #: the ancestor it now hangs under (null = the map roots).
+    to: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+
+class KeptFacetValue(KindSubModel):
+    """`set_facet`: a higher source (human > agent > mapper) already holds this facet."""
+
+    source: str | None = None
+    value: str | None = None
+    reason: str | None = None
+
+
 @kind(
     "topical_map_result",
     label="Topical Map Result",
@@ -473,6 +519,16 @@ class TopicalMapResult(KindModel):
 
     # write reports
     created: list[str] | None = None
+    #: `patch`: slugs brought back from retired/rejected on purpose.
+    revived: list[str] | None = None
+    #: `upsert` / `replace_section` / `split` / `create_map` (ROUND 26, the geography
+    #: rule): the policy applied, what it refused, the region values it proposes
+    #: instead, retired slugs it would not revive, and children it re-parented.
+    geography_policy: str | None = None
+    geography_refused: list[RefusedPlace] | None = None
+    region_values_proposed: list[ProposedRegionValue] | None = None
+    kept_retired: list[KeptRetiredTopic] | None = None
+    children_lifted: list[LiftedChild] | None = None
     updated: list[str] | None = None
     unchanged: list[str] | None = None
     moved_in: list[str] | None = None
@@ -494,6 +550,10 @@ class TopicalMapResult(KindModel):
     children_reparented: int | None = None
     #: `set_facet`.
     facet: str | None = None
+    #: `set_facet`: the source the write carried.
+    source: str | None = None
+    #: `set_facet`: a higher source already holds this facet; settled, never retried.
+    kept_existing: KeptFacetValue | None = None
     value: str | None = None
     cleared: str | None = None
     #: `map_pages`.

@@ -15,6 +15,8 @@ use indoc::{formatdoc, indoc};
 use insta::assert_snapshot;
 use serde_json::json;
 use std::path::Path;
+#[cfg(unix)]
+use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 use url::Url;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -531,7 +533,7 @@ async fn add_git_private_rate_limited_by_github_rest_api_429_response() -> Resul
         .add()
         .arg(format!("uv-private-pypackage @ git+https://{token}@github.com/astral-test/uv-private-pypackage"))
         .env(EnvVars::UV_GITHUB_FAST_PATH_URL, server.uri())
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true"), @"
+        .env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true"), @"
     exit_code: 0 (success)
     ----- stderr -----
     Resolved 2 packages in [TIME]
@@ -8472,6 +8474,227 @@ fn remove_include_default_groups() -> Result<()> {
     Ok(())
 }
 
+/// A failed removal must not leave the manifest inconsistent with its lockfile.
+#[test]
+fn remove_locked_reverts_project() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig"]
+    "#})?;
+    context.lock().assert().success();
+    let pyproject = context.read("pyproject.toml");
+    let lock = context.read("uv.lock");
+
+    uv_snapshot!(context.filters(), context.remove().arg("iniconfig").arg("--locked").arg("--no-sync"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("pyproject.toml"), pyproject);
+    assert_eq!(context.read("uv.lock"), lock);
+    Ok(())
+}
+
+/// An unchanged, read-only workspace manifest must not prevent restoring the member.
+#[test]
+#[cfg(unix)]
+fn add_locked_readonly_workspace() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let workspace = context.temp_dir.child("pyproject.toml");
+    workspace.write_str(indoc! {r#"
+        [tool.uv.workspace]
+        members = ["member"]
+    "#})?;
+    context
+        .temp_dir
+        .child("member/pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "member"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+    "#})?;
+    context.lock().assert().success();
+    let member = context.read("member/pyproject.toml");
+    let lock = context.read("uv.lock");
+    fs_err::set_permissions(&workspace, Permissions::from_mode(0o444))?;
+
+    uv_snapshot!(context.filters(), context.add().arg("iniconfig").arg("--package").arg("member").arg("--locked").arg("--no-sync"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+
+    hint: To update the lockfile, run `uv lock`.
+    ");
+    assert_eq!(context.read("member/pyproject.toml"), member);
+    assert_eq!(context.read("uv.lock"), lock);
+    Ok(())
+}
+
+/// Frozen edits must not read the lockfile.
+#[test]
+#[cfg(unix)]
+fn add_remove_frozen_unreadable_lockfile() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+    "#})?;
+    let lock = context.temp_dir.child("uv.lock");
+    lock.write_str("unreadable lockfile\n")?;
+    fs_err::set_permissions(&lock, Permissions::from_mode(0o000))?;
+
+    uv_snapshot!(context.filters(), context.add().arg("iniconfig").arg("--frozen"), @"
+    exit_code: 0 (success)
+    ");
+    assert_snapshot!(context.read("pyproject.toml"), @r#"
+    [project]
+    name = "project"
+    version = "0.1.0"
+    requires-python = ">=3.12"
+    dependencies = [
+        "iniconfig",
+    ]
+    "#);
+    uv_snapshot!(context.filters(), context.remove().arg("iniconfig").arg("--frozen"), @"
+    exit_code: 0 (success)
+    ");
+    assert_snapshot!(context.read("pyproject.toml"), @r#"
+    [project]
+    name = "project"
+    version = "0.1.0"
+    requires-python = ">=3.12"
+    dependencies = []
+    "#);
+    fs_err::set_permissions(&lock, Permissions::from_mode(0o644))?;
+    assert_snapshot!(context.read("uv.lock"), @"
+    unreadable lockfile
+    ");
+    Ok(())
+}
+
+/// Restore both files when syncing fails after resolution has written a lockfile.
+#[test]
+fn remove_version_build_failure_reverts_project() -> Result<()> {
+    for args in [
+        &["remove", "iniconfig"][..],
+        &["version", "--bump", "minor"][..],
+    ] {
+        for locked in [false, true] {
+            let context = uv_test::test_context!("3.12");
+            context
+                .temp_dir
+                .child("pyproject.toml")
+                .write_str(indoc! {r#"
+                [project]
+                name = "project"
+                version = "0.1.0"
+                requires-python = ">=3.12"
+                dependencies = ["iniconfig"]
+
+                [build-system]
+                requires = []
+                build-backend = "backend"
+                backend-path = ["."]
+            "#})?;
+            context.temp_dir.child("backend.py").write_str(indoc! {r#"
+                from pathlib import Path
+
+                def build_editable(*args, **kwargs):
+                    Path(__file__).with_name("built").touch()
+                    raise RuntimeError("build failed")
+            "#})?;
+            if locked {
+                context.lock().assert().success();
+            }
+            let pyproject = context.read("pyproject.toml");
+            let lock = locked.then(|| context.read("uv.lock"));
+
+            context.command().args(args).assert().code(1);
+            assert!(context.temp_dir.join("built").exists(), "{args:?}");
+            assert_eq!(context.read("pyproject.toml"), pyproject, "{args:?}");
+            assert_eq!(
+                fs_err::read_to_string(context.temp_dir.join("uv.lock")).ok(),
+                lock,
+                "{args:?}"
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Interrupt during a build, after the manifest and lockfile have both been written.
+#[test]
+#[cfg(unix)]
+fn edit_interrupt_reverts_project() -> Result<()> {
+    for args in [
+        &["add", "iniconfig", "--dev"][..],
+        &["remove", "iniconfig"][..],
+        &["version", "--bump", "minor"][..],
+    ] {
+        for locked in [false, true] {
+            let context = uv_test::test_context!("3.12");
+            context
+                .temp_dir
+                .child("pyproject.toml")
+                .write_str(indoc! {r#"
+                [project]
+                name = "project"
+                version = "0.1.0"
+                requires-python = ">=3.12"
+                dependencies = ["iniconfig"]
+
+                [build-system]
+                requires = []
+                build-backend = "backend"
+                backend-path = ["."]
+            "#})?;
+            context.temp_dir.child("backend.py").write_str(indoc! {r#"
+                import os
+                import signal
+                import time
+
+                def build_editable(*args, **kwargs):
+                    os.kill(os.getppid(), signal.SIGINT)
+                    time.sleep(1)
+                    raise RuntimeError("build interrupted")
+            "#})?;
+            if locked {
+                context.lock().assert().success();
+            }
+            let pyproject = context.read("pyproject.toml");
+            let lock = locked.then(|| context.read("uv.lock"));
+
+            context.command().args(args).assert().code(130);
+            assert_eq!(context.read("pyproject.toml"), pyproject, "{args:?}");
+            assert_eq!(
+                fs_err::read_to_string(context.temp_dir.join("uv.lock")).ok(),
+                lock,
+                "{args:?}"
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Revert changes to the `pyproject.toml` and `uv.lock` when the `add` operation fails.
 #[test]
 fn fail_to_add_revert_project() -> Result<()> {
@@ -8515,7 +8738,7 @@ fn fail_to_add_revert_project() -> Result<()> {
     error: Failed to add dependencies
       cause: Failed to build `child @ file://[TEMP_DIR]/child`
       cause: The build backend returned an error
-      cause: Call to `setuptools.build_meta.build_wheel` failed (exit status: 1)
+      cause: Call to `setuptools.build_meta.get_requires_for_build_wheel` failed (exit status: 1)
 
              [stderr]
              Traceback (most recent call last):
@@ -8615,7 +8838,7 @@ fn fail_to_edit_revert_project() -> Result<()> {
     error: Failed to add dependencies
       cause: Failed to build `child @ file://[TEMP_DIR]/child`
       cause: The build backend returned an error
-      cause: Call to `setuptools.build_meta.build_wheel` failed (exit status: 1)
+      cause: Call to `setuptools.build_meta.get_requires_for_build_wheel` failed (exit status: 1)
 
              [stderr]
              Traceback (most recent call last):
@@ -8726,7 +8949,7 @@ fn fail_to_add_revert_workspace_root() -> Result<()> {
     error: Failed to add dependencies
       cause: Failed to build `broken @ file://[TEMP_DIR]/broken`
       cause: The build backend returned an error
-      cause: Call to `setuptools.build_meta.build_editable` failed (exit status: 1)
+      cause: Call to `setuptools.build_meta.get_requires_for_build_editable` failed (exit status: 1)
 
              [stderr]
              Traceback (most recent call last):
@@ -8842,7 +9065,7 @@ fn fail_to_add_revert_workspace_member() -> Result<()> {
     error: Failed to add dependencies
       cause: Failed to build `broken @ file://[TEMP_DIR]/broken`
       cause: The build backend returned an error
-      cause: Call to `setuptools.build_meta.build_editable` failed (exit status: 1)
+      cause: Call to `setuptools.build_meta.get_requires_for_build_editable` failed (exit status: 1)
 
              [stderr]
              Traceback (most recent call last):
@@ -13558,7 +13781,7 @@ async fn add_unexpected_error_code() -> Result<()> {
     })?;
 
     uv_snapshot!(context.filters(), context.add().arg("anyio").arg("--index").arg(server.uri())
-        .env(EnvVars::UV_TEST_NO_HTTP_RETRY_DELAY, "true")
+        .env(EnvVars::UV_INTERNAL__TEST_NO_HTTP_RETRY_DELAY, "true")
         .env(EnvVars::UV_HTTP_RETRIES, "1"), @"
     exit_code: 2 (failure)
     ----- stderr -----

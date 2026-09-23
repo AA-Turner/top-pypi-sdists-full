@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: mistral_common
-Version: 1.11.7
+Version: 1.12.0
 Summary: Mistral-common is a library of common utilities for Mistral AI.
 Author-email: Mistral AI <oss@mistral.ai>
 License-Expression: Apache-2.0
 Requires-Python: <3.15,>=3.10.0
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: pydantic<3.0,>=2.7; python_version <= "3.13"
 Requires-Dist: pydantic<3.0,>=2.12; python_version >= "3.14"
 Requires-Dist: jsonschema>=4.21.1
@@ -42,6 +43,7 @@ Requires-Dist: click>=8.1.0; extra == "server"
 Requires-Dist: uvloop>=0.22.1; python_version >= "3.14" and extra == "server"
 Provides-Extra: all
 Requires-Dist: mistral_common[audio,guidance,hf-hub,image,opencv,sentencepiece,server]; extra == "all"
+Dynamic: license-file
 
 <div align="center">
 
@@ -56,7 +58,7 @@ Requires-Dist: mistral_common[audio,guidance,hf-hub,image,opencv,sentencepiece,s
 [![Tests](https://img.shields.io/github/actions/workflow/status/mistralai/mistral-common/lint_build_test.yaml?label=tests&branch=main)](https://github.com/mistralai/mistral-common/actions/workflows/lint_build_test.yaml)
 [![Documentation](https://img.shields.io/website?url=https%3A%2F%2Fmistralai.github.io%2Fmistral-common%2F&up_message=online&down_message=offline&label=docs)](https://mistralai.github.io/mistral-common/)
 [![Python version](https://img.shields.io/badge/dynamic/json?query=info.requires_python&label=python&url=https%3A%2F%2Fpypi.org%2Fpypi%2Fmistral-common%2Fjson)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENCE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
 </div>
 
@@ -106,11 +108,11 @@ pip install "mistral-common[image,audio,hf-hub,sentencepiece,server]"
 
 For more information, please refer to the [documentation](https://mistralai.github.io/mistral-common/).
 
-## How to contribute ?
+## How to contribute?
 
-We welcome contributions to this library. All of our features are tested to ensure best usage. But if you encounter a bug, find difficulties in using `mistral-common`, please open an issue on our [GitHub repository](https://github.com/mistralai/mistral-common/issues).
+We welcome contributions to this library. Please read our [contribution guide](CONTRIBUTING.md) first. If you encounter a bug, have difficulties using `mistral-common`, or want to propose a feature, search the existing issues and open an issue on our [GitHub repository](https://github.com/mistralai/mistral-common/issues) before starting work.
 
-If you want to contribute to the code, please fork the repository and open a pull request. We will review your changes and merge them if they are relevant to the library.
+If you want to contribute code after the issue discussion, you may fork the repository and open a pull request. We will review changes that are relevant to the library and meet the contribution guidelines.
 
 ```sh
 # Clone the repository
@@ -128,6 +130,6 @@ uv run pre-commit install
 
 ## License
 
-This library is licensed under the Apache 2.0 License. See the [LICENCE](./LICENCE) file for more information.
+This library is licensed under the Apache 2.0 License. See the [LICENSE](./LICENSE) file for more information.
 
 *You must not use this library or our models in a manner that infringes, misappropriates, or otherwise violates any third party’s rights, including intellectual property rights.*

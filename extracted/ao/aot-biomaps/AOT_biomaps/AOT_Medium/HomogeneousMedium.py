@@ -54,9 +54,11 @@ class HomogeneousMedium(Medium):
         if bg_medium == 'air':
             bg_c = 343.0
             bg_rho = 1.2
+            bg_BonA = 0.0
         elif bg_medium == 'water':
             bg_c = self.params.acoustic['medium']['c0']
             bg_rho = self.params.acoustic['medium']['density']
+            bg_BonA = self.params.acoustic['medium'].get('BonA', 5.2)
         else:
             raise ValueError(f"[AOT-biomaps] Unsupported background medium: {bg_medium}. Supported options are 'air' and 'water'.")
 
@@ -68,7 +70,7 @@ class HomogeneousMedium(Medium):
         # 5. Fill the Phantom Background
         c_map[x_start:x_end, z_start:z_end] = self.params.acoustic['medium']['c0']
         rho_map[x_start:x_end, z_start:z_end] = self.params.acoustic['medium']['density']
-        BonA_map[x_start:x_end, z_start:z_end] = self.params.acoustic['medium'].get('BonA', 6.0)
+        BonA_map = np.full((Nx, Nz), bg_BonA, dtype=np.float32)
 
         is_absorbing = self.params.acoustic['medium'].get('isAbsorbingMedium', False)
 

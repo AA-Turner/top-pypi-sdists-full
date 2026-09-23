@@ -45,6 +45,11 @@ DEFAULT_MAX_SECTIONS_PER_RESULT = 200
 #: usual 0.7 "act on it" bar on purpose: holding back a section the agent needed
 #: costs a re-fetch round trip, showing one it did not costs a few thousand
 #: characters.
+#: KNOB MIRROR of platform.feature_knob "tools.result_gate" "section_relevance_threshold"
+#: The registry row is the authority — `RESULT_GATE_KNOB_KEYS` reads it through
+#: the host on every gated result — and this value must be available WITHOUT a
+#: database read because it is a frozen dataclass field default that matrx-ai
+#: standalone (no Postgres, no host reader) still has to answer with.
 DEFAULT_SECTION_RELEVANCE_THRESHOLD = 0.6
 
 #: field name on :class:`ResultGateLimits` → knob key. The key IS the field name;

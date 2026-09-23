@@ -11,6 +11,7 @@ import pytest
 
 from cx_Freeze._compat import (
     ABI_THREAD,
+    IS_ARM_64,
     IS_CONDA,
     IS_MINGW,
     IS_WINDOWS,
@@ -18,7 +19,7 @@ from cx_Freeze._compat import (
 from cx_Freeze.dep_parser import PEParser
 
 if TYPE_CHECKING:
-    from .conftest import TempPackage
+    from tests.conftest import TempPackage
 
 SOURCE = """
 test_manifest.py
@@ -89,10 +90,12 @@ if IS_WINDOWS:
     else:
         if ABI_THREAD == "":
             if sys.version_info[:2] <= (3, 13):
-                LIEF_VERSIONS.append("0.16.0")
+                if not IS_ARM_64:
+                    LIEF_VERSIONS.append("0.16.0")
                 LIEF_VERSIONS.append("0.16.6")
             if sys.version_info[:2] <= (3, 14):
-                LIEF_VERSIONS.append("0.17.0")
+                if not IS_ARM_64:
+                    LIEF_VERSIONS.append("0.17.0")
                 LIEF_VERSIONS.append("0.17.6")
         LIEF_VERSIONS.append("1.0.0")
 elif IS_MINGW:

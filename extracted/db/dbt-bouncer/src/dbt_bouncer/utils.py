@@ -17,7 +17,8 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from dbt_bouncer.enums import CheckCategory
+from dbt_bouncer.enums import CheckCategory, Criteria
+from dbt_bouncer.exceptions import DbtBouncerConfigError
 from dbt_bouncer.types import MetaConfig, MissingMetaKeys, RequiredMetaKey
 
 if TYPE_CHECKING:
@@ -60,7 +61,7 @@ def create_github_comment_file(
         comment_file = "github-comment.md"
 
     logging.info(f"Writing comment for GitHub to {comment_file}...")
-    with Path.open(Path(comment_file), "w") as f:
+    with Path.open(Path(comment_file), "w", encoding="utf-8") as f:
         f.write(md_formatted_comment)
 
 
@@ -107,6 +108,42 @@ def resource_in_path(check: "BaseCheck", resource: Any) -> bool:
     if not object_in_path(check.include, resource.original_file_path):
         return False
     return not object_excluded_by_path(check.exclude, resource.original_file_path)
+
+
+def find_meta_keys_criteria_failure(
+    meta_config: MetaConfig,
+    required_keys: list[Any],
+    criteria: Criteria,
+    config_label: str = "meta",
+) -> str | None:
+    """Evaluate required keys against a presence criteria.
+
+    A top-level entry in ``required_keys`` is satisfied when checking it alone
+    yields no missing keys (nested specs must be fully present).
+
+    Returns:
+        str | None: A failure-message fragment (without the resource name), or
+            None when the criteria is met.
+
+    """
+    if criteria == Criteria.ALL:
+        missing = find_missing_meta_keys(
+            meta_config=meta_config, required_keys=required_keys
+        )
+        if missing:
+            return f"is missing the following keys from the `{config_label}` config: {[x.replace('>>', '') for x in missing]}"
+        return None
+
+    satisfied = [
+        entry
+        for entry in required_keys
+        if not find_missing_meta_keys(meta_config=meta_config, required_keys=[entry])
+    ]
+    if criteria == Criteria.ANY and not satisfied:
+        return f"does not have any of the required keys in the `{config_label}` config: {required_keys}"
+    if criteria == Criteria.ONE and len(satisfied) != 1:
+        return f"must have exactly one of the required keys in the `{config_label}` config: {required_keys}"
+    return None
 
 
 def find_missing_meta_keys(
@@ -182,6 +219,45 @@ def flatten(
     return flattened
 
 
+def _reject_class_based_check(cls: type, source: str) -> None:
+    """Raise if ``cls`` is a hand-written ``BaseCheck`` subclass, not one built by ``@check``.
+
+    The ``@check`` decorator always assigns ``iterate_over`` directly onto the
+    class it generates (``cls.iterate_over = iterate_over`` in
+    ``check_framework/decorator.py``) -- even when the value is ``None``, for
+    a context-only check. A class written by hand and subclassed from
+    ``BaseCheck`` never has ``iterate_over`` in its own ``__dict__``, since it
+    only ever inherits the ``ClassVar`` default from the base class. That
+    presence-in-``__dict__`` check is therefore a reliable way to tell a
+    legacy, hand-written check apart from a decorator-generated one, even
+    though ``getattr(cls, "iterate_over", ...)`` alone cannot (both can
+    legitimately be ``None``).
+
+    Non-``BaseCheck`` classes (e.g. lightweight stand-ins used in tests) are
+    left alone -- this guard only concerns itself with the class-based check
+    framework that was removed in v4.
+
+    Args:
+        cls: The discovered class to check.
+        source: A human-readable origin for ``cls`` (a module's dotted name,
+            or a file path) included in the error message.
+
+    Raises:
+        DbtBouncerConfigError: If ``cls`` was not produced by the ``@check``
+            decorator.
+
+    """
+    from dbt_bouncer.check_framework.base import BaseCheck
+
+    if issubclass(cls, BaseCheck) and "iterate_over" not in cls.__dict__:
+        raise DbtBouncerConfigError(
+            f"`{cls.__name__}` in `{source}` is a hand-written class-based check. "
+            "Class-based checks were removed in dbt-bouncer v4; define it with the "
+            "`@check` decorator instead "
+            "(see `dbt_bouncer.check_framework.decorator.check`)."
+        )
+
+
 def _extract_checks_from_module(
     module: Any, module_name: str, check_objects: list[type["BaseCheck"]]
 ) -> None:
@@ -205,6 +281,9 @@ def _extract_checks_from_module(
             and name.startswith("Check")
             and obj.__module__ == module_name
         ):
+            _reject_class_based_check(
+                obj, getattr(module, "__file__", None) or module_name
+            )
             check_objects.append(obj)
 
 
@@ -226,7 +305,7 @@ def _load_custom_checks(
             appended.
 
     Raises:
-        Warns if a custom check file fails to load (the file is skipped).
+        DbtBouncerConfigError: If a custom check file fails to import.
 
     """
     logging.debug(f"{custom_checks_dir=}")
@@ -235,6 +314,18 @@ def _load_custom_checks(
             f for f in custom_checks_dir.glob("*/*.py") if f.is_file()
         ]
         logging.debug(f"{custom_check_files=}")
+
+        # Files placed directly in the top level are not discovered by the
+        # `*/*.py` glob. Warn the user so these files are not silently ignored.
+        top_level = [f for f in custom_checks_dir.glob("*.py") if f.is_file()]
+        if top_level:
+            top_level_names = [str(f) for f in top_level]
+            logging.warning(
+                f"Found Python file(s) directly in the custom checks directory "
+                f"that were not loaded: {top_level_names}. A custom check file "
+                f"must be in a subdirectory (for example "
+                f"`{custom_checks_dir}/models/my_check.py`) to be discovered."
+            )
 
         for check_file in custom_check_files:
             # Use a unique module name to avoid conflicts
@@ -261,11 +352,14 @@ def _load_custom_checks(
                 OSError,
                 SyntaxError,
             ) as e:
-                logging.warning(
-                    f"Failed to load custom check file `{check_file}`: {e}. "
-                    "This file will be skipped."
-                )
+                # A configured custom check that cannot import must fail the run.
+                # A silent skip keeps the run green while the check never loads.
                 logging.debug("Custom check load traceback:", exc_info=True)
+                raise DbtBouncerConfigError(
+                    f"Failed to load custom check file `{check_file}`: {e}. "
+                    "A custom check that cannot be imported must not be skipped "
+                    "silently."
+                ) from e
     else:
         logging.warning(
             f"Custom checks directory `{custom_checks_dir}` does not exist."
@@ -273,6 +367,32 @@ def _load_custom_checks(
 
 
 _ENTRY_POINT_GROUP = "dbt_bouncer.checks"
+
+
+@lru_cache(maxsize=1)
+def _check_entry_points() -> tuple[Any, ...]:
+    """Return the ``dbt_bouncer.checks`` entry points, scanned once per process.
+
+    ``entry_points()`` re-reads the metadata of every installed distribution on
+    each call, and three separate call sites need it during a single run. The
+    installed set cannot change while the process runs, so the scan is cached.
+
+    Returns:
+        tuple[Any, ...]: The entry points in the ``dbt_bouncer.checks`` group.
+
+    """
+    return tuple(entry_points(group=_ENTRY_POINT_GROUP))
+
+
+@lru_cache(maxsize=1)
+def _check_entry_point_names() -> tuple[str, ...]:
+    """Return the sorted names of the ``dbt_bouncer.checks`` entry points.
+
+    Returns:
+        tuple[str, ...]: Sorted entry point names, used in cache-key digests.
+
+    """
+    return tuple(sorted(ep.name for ep in _check_entry_points()))
 
 
 def _load_entry_point_checks(check_objects: list[type["BaseCheck"]]) -> None:
@@ -291,7 +411,7 @@ def _load_entry_point_checks(check_objects: list[type["BaseCheck"]]) -> None:
             appended.
 
     """
-    eps = entry_points(group=_ENTRY_POINT_GROUP)
+    eps = _check_entry_points()
     for ep in eps:
         # dbt-bouncer registers its own check packages in this group; loading
         # them here would import every internal check module, defeating the
@@ -306,6 +426,7 @@ def _load_entry_point_checks(check_objects: list[type["BaseCheck"]]) -> None:
             target = ep.load()
 
             if inspect.isclass(target) and target.__name__.startswith("Check"):
+                _reject_class_based_check(target, target.__module__)
                 check_objects.append(target)
             elif inspect.ismodule(target):
                 # Check if it's a package (has __path__) — walk submodules
@@ -345,12 +466,6 @@ _CATEGORY_TO_SUBDIR: dict[str, str] = {c.value: c.directory for c in CheckCatego
 
 _SUBDIR_TO_CATEGORY: dict[str, str] = {v: k for k, v in _CATEGORY_TO_SUBDIR.items()}
 
-# Modules that live under ``checks/`` but define no check classes. These are
-# skipped during discovery so their import side effects don't fire — notably
-# ``common.py`` is a backward-compat shim that emits a DeprecationWarning on
-# import (see ``checks/common.py``).
-_NON_CHECK_MODULES: set[str] = {"common.py"}
-
 
 def _build_check_module_map() -> dict[str, dict[str, str]]:
     """Build a mapping of check_name -> {module, category} by scanning check modules.
@@ -367,9 +482,6 @@ def _build_check_module_map() -> dict[str, dict[str, str]]:
     mapping: dict[str, dict[str, str]] = {}
 
     for check_file in (f for f in checks_dir.glob("**/*.py") if f.is_file()):
-        if check_file.name in _NON_CHECK_MODULES:
-            continue
-
         index = check_file.parts.index("checks")
         module_name = ".".join(
             ["dbt_bouncer", "checks", *check_file.parts[index + 1 :]]
@@ -401,6 +513,12 @@ def _build_check_module_map() -> dict[str, dict[str, str]]:
                             "module": module_name,
                             "category": category,
                         }
+                code_val = getattr(obj, "code", None)
+                if code_val is not None:
+                    mapping[code_val] = {
+                        "module": module_name,
+                        "category": category,
+                    }
 
     return mapping
 
@@ -463,8 +581,7 @@ def _compute_cache_fingerprint(
     if custom_checks_dir is not None and custom_checks_dir.exists():
         _hash_py_tree(h, custom_checks_dir)
 
-    ep_names = sorted(ep.name for ep in entry_points(group=_ENTRY_POINT_GROUP))
-    for name in ep_names:
+    for name in _check_entry_point_names():
         h.update(name.encode())
 
     return h.hexdigest()[:8]
@@ -502,7 +619,7 @@ def compute_conf_cache_key(
     if custom_checks_dir is not None and custom_checks_dir.exists():
         _hash_py_tree(h, custom_checks_dir)
 
-    for name in sorted(ep.name for ep in entry_points(group=_ENTRY_POINT_GROUP)):
+    for name in _check_entry_point_names():
         h.update(name.encode())
 
     h.update(orjson.dumps(config_file_contents, option=orjson.OPT_SORT_KEYS))
@@ -711,12 +828,9 @@ def get_check_objects(
     else:
         check_files = [f for f in checks_dir.glob("**/*.py") if f.is_file()]
     for check_file in check_files:
-        if check_file.name in _NON_CHECK_MODULES:
-            continue
-
         index = check_file.parts.index("checks")
         module_name = ".".join(
-            ["dbt_bouncer", "checks"] + list(check_file.parts[index + 1 :])  # noqa: RUF005
+            ["dbt_bouncer", "checks"] + list(check_file.parts[index + 1 :])  # ruff: ignore[collection-literal-concatenation]
         )[:-3]  # Remove .py suffix
         try:
             module = importlib.import_module(module_name)
@@ -773,6 +887,9 @@ def get_check_registry(
             args = typing.get_args(name_field.annotation)
             if args:
                 registry[args[0]] = cls
+        code_val = getattr(cls, "code", None)
+        if code_val is not None:
+            registry[code_val] = cls
     return registry
 
 
@@ -817,7 +934,7 @@ def get_package_version_number(version_string: str) -> "Version":
     Returns:
             Version: The version object.
 
-    """  # noqa: D205
+    """  # ruff: ignore[missing-blank-line-after-summary]
     from packaging.version import Version as PyPIVersion
     from semver import Version
 
@@ -853,19 +970,19 @@ def load_config_from_yaml(config_file: Path) -> Mapping[str, Any]:
         Mapping[str, Any]: Dict object.
 
     Raises:
-        FileNotFoundError: If the config file does not exist.
+        DbtBouncerConfigError: If the config file does not exist.
 
     """
     config_path = Path().cwd() / config_file
     logging.debug(f"Loading config from {config_path}...")
     if (
         not config_path.exists()
-    ):  # Shouldn't be needed as click should have already checked this
-        raise FileNotFoundError(f"No config file found at {config_path}.")
+    ):  # Shouldn't be needed as Typer should have already checked this
+        raise DbtBouncerConfigError(f"No config file found at {config_path}.")
 
     import yaml
 
-    with Path.open(config_path, "r") as f:
+    with Path.open(config_path, "r", encoding="utf-8") as f:
         conf = yaml.load(f, Loader=yaml.CSafeLoader)  # type: ignore[possibly-missing-attribute]
 
     logging.info(f"Loaded config from {config_file}...")

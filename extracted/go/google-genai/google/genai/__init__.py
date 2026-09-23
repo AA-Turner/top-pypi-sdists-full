@@ -25,11 +25,11 @@ from .client import Client
 
 __version__ = version.__version__
 
-__all__ = ['Client', 'credentials', 'interactions', 'types']
+__all__ = ['Client', 'credentials', 'interactions', 'types', 'voices']
 
 
 def __getattr__(name: str) -> Any:
-  if name in ('credentials', 'interactions'):
+  if name in ('credentials', 'interactions', 'voices'):
     module = importlib.import_module(f'.{name}', __name__)
     globals()[name] = module
     return module

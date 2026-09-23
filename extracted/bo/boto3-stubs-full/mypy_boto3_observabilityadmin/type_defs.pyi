@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping, Sequence
-from typing import Union
+from datetime import datetime
+from typing import Any, Union
 
 from .literals import (
     ActionType,
     CentralizationFailureReasonType,
+    ContextGraphStatusType,
     EncryptedLogGroupStrategyType,
     EncryptionConflictResolutionStrategyType,
     EncryptionScopeType,
@@ -73,6 +75,8 @@ __all__ = (
     "ConfigurationSummaryTypeDef",
     "CreateCentralizationRuleForOrganizationInputTypeDef",
     "CreateCentralizationRuleForOrganizationOutputTypeDef",
+    "CreateDatasetIntegrationInputTypeDef",
+    "CreateDatasetIntegrationOutputTypeDef",
     "CreateS3TableIntegrationInputTypeDef",
     "CreateS3TableIntegrationOutputTypeDef",
     "CreateTelemetryPipelineInputTypeDef",
@@ -82,7 +86,9 @@ __all__ = (
     "CreateTelemetryRuleInputTypeDef",
     "CreateTelemetryRuleOutputTypeDef",
     "DataSourceTypeDef",
+    "DatasetIntegrationSummaryTypeDef",
     "DeleteCentralizationRuleForOrganizationInputTypeDef",
+    "DeleteDatasetIntegrationInputTypeDef",
     "DeleteS3TableIntegrationInputTypeDef",
     "DeleteTelemetryPipelineInputTypeDef",
     "DeleteTelemetryRuleForOrganizationInputTypeDef",
@@ -97,6 +103,8 @@ __all__ = (
     "FilterTypeDef",
     "GetCentralizationRuleForOrganizationInputTypeDef",
     "GetCentralizationRuleForOrganizationOutputTypeDef",
+    "GetDatasetIntegrationInputTypeDef",
+    "GetDatasetIntegrationOutputTypeDef",
     "GetS3TableIntegrationInputTypeDef",
     "GetS3TableIntegrationOutputTypeDef",
     "GetTelemetryEnrichmentStatusOutputTypeDef",
@@ -113,6 +121,9 @@ __all__ = (
     "ListCentralizationRulesForOrganizationInputPaginateTypeDef",
     "ListCentralizationRulesForOrganizationInputTypeDef",
     "ListCentralizationRulesForOrganizationOutputTypeDef",
+    "ListDatasetIntegrationsInputPaginateTypeDef",
+    "ListDatasetIntegrationsInputTypeDef",
+    "ListDatasetIntegrationsOutputTypeDef",
     "ListResourceTelemetryForOrganizationInputPaginateTypeDef",
     "ListResourceTelemetryForOrganizationInputTypeDef",
     "ListResourceTelemetryForOrganizationOutputTypeDef",
@@ -174,6 +185,8 @@ __all__ = (
     "UntagResourceInputTypeDef",
     "UpdateCentralizationRuleForOrganizationInputTypeDef",
     "UpdateCentralizationRuleForOrganizationOutputTypeDef",
+    "UpdateDatasetIntegrationInputTypeDef",
+    "UpdateDatasetIntegrationOutputTypeDef",
     "UpdateTelemetryPipelineInputTypeDef",
     "UpdateTelemetryRuleForOrganizationInputTypeDef",
     "UpdateTelemetryRuleForOrganizationOutputTypeDef",
@@ -227,6 +240,7 @@ class CentralizationRuleSummaryTypeDef(TypedDict):
     FailureReason: NotRequired[CentralizationFailureReasonType]
     TagPropagationStatus: NotRequired[TagPropagationStatusType]
     TagPropagationFailureReason: NotRequired[TagPropagationFailureReasonType]
+    ContextGraphStatus: NotRequired[ContextGraphStatusType]
     DestinationAccountId: NotRequired[str]
     DestinationRegion: NotRequired[str]
 
@@ -254,6 +268,10 @@ class ResponseMetadataTypeDef(TypedDict):
     RetryAttempts: int
     HostId: NotRequired[str]
 
+class CreateDatasetIntegrationInputTypeDef(TypedDict):
+    RoleArn: str
+    Tags: NotRequired[Mapping[str, str]]
+
 class EncryptionTypeDef(TypedDict):
     SseAlgorithm: SSEAlgorithmType
     KmsKeyArn: NotRequired[str]
@@ -261,8 +279,17 @@ class EncryptionTypeDef(TypedDict):
 class TelemetryPipelineConfigurationTypeDef(TypedDict):
     Body: str
 
+class DatasetIntegrationSummaryTypeDef(TypedDict):
+    Arn: str
+    RoleArn: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+
 class DeleteCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
+
+class DeleteDatasetIntegrationInputTypeDef(TypedDict):
+    Arn: str
 
 class DeleteS3TableIntegrationInputTypeDef(TypedDict):
     Arn: str
@@ -306,6 +333,9 @@ class SingleHeaderTypeDef(TypedDict):
 class GetCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
 
+class GetDatasetIntegrationInputTypeDef(TypedDict):
+    Arn: str
+
 class GetS3TableIntegrationInputTypeDef(TypedDict):
     Arn: str
 
@@ -336,6 +366,10 @@ class PaginatorConfigTypeDef(TypedDict):
 class ListCentralizationRulesForOrganizationInputTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     AllRegions: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListDatasetIntegrationsInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -441,6 +475,10 @@ class UntagResourceInputTypeDef(TypedDict):
     ResourceARN: str
     TagKeys: Sequence[str]
 
+class UpdateDatasetIntegrationInputTypeDef(TypedDict):
+    Arn: str
+    RoleArn: str
+
 class ValidationErrorTypeDef(TypedDict):
     Message: NotRequired[str]
     Reason: NotRequired[str]
@@ -459,12 +497,14 @@ class CentralizationRuleSourceOutputTypeDef(TypedDict):
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
     SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
+    SourceContextGraphConfiguration: NotRequired[dict[str, Any]]
 
 class CentralizationRuleSourceTypeDef(TypedDict):
     Regions: Sequence[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
     SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
+    SourceContextGraphConfiguration: NotRequired[Mapping[str, Any]]
 
 class ConditionTypeDef(TypedDict):
     ActionCondition: NotRequired[ActionConditionTypeDef]
@@ -479,6 +519,13 @@ class ConfigurationSummaryTypeDef(TypedDict):
 
 class CreateCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     RuleArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateDatasetIntegrationOutputTypeDef(TypedDict):
+    Arn: str
+    RoleArn: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateS3TableIntegrationOutputTypeDef(TypedDict):
@@ -498,6 +545,13 @@ class CreateTelemetryRuleOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetDatasetIntegrationOutputTypeDef(TypedDict):
+    Arn: str
+    RoleArn: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTelemetryEnrichmentStatusOutputTypeDef(TypedDict):
@@ -525,6 +579,13 @@ class StopTelemetryEnrichmentOutputTypeDef(TypedDict):
 
 class UpdateCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     RuleArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateDatasetIntegrationOutputTypeDef(TypedDict):
+    Arn: str
+    RoleArn: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
@@ -560,6 +621,11 @@ class UpdateTelemetryPipelineInputTypeDef(TypedDict):
 
 class ValidateTelemetryPipelineConfigurationInputTypeDef(TypedDict):
     Configuration: TelemetryPipelineConfigurationTypeDef
+
+class ListDatasetIntegrationsOutputTypeDef(TypedDict):
+    DatasetIntegrationSummaries: list[DatasetIntegrationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
@@ -598,6 +664,9 @@ class ListS3TableIntegrationsOutputTypeDef(TypedDict):
 class ListCentralizationRulesForOrganizationInputPaginateTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     AllRegions: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDatasetIntegrationsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListResourceTelemetryForOrganizationInputPaginateTypeDef(TypedDict):
@@ -755,6 +824,7 @@ class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     FailureReason: CentralizationFailureReasonType
     TagPropagationStatus: TagPropagationStatusType
     TagPropagationFailureReason: TagPropagationFailureReasonType
+    ContextGraphStatus: ContextGraphStatusType
     CentralizationRule: CentralizationRuleOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

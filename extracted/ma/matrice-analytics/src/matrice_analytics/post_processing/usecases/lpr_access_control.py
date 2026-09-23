@@ -16,9 +16,10 @@ class LicensePlateAccessControlConfig(LicensePlateMonitorConfig):
     relative to the base profile. A missed read costs almost nothing: the vehicle
     is stationary and the next frame gets another attempt.
 
-    ``confidence_threshold`` is intentionally left at the base value -- ``process``
-    overwrites it with a literal 0.37 on every call, so setting it here would be
-    silently discarded. See ``_apply_profile_gates``.
+    ``confidence_threshold`` is configurable per deployment and is no longer overwritten
+    by ``process``. This profile leaves the dataclass default alone deliberately: the gate
+    belongs in the deployment config next to the camera it was tuned against, not baked
+    into the class.
     """
 
     usecase: str = "lpr_access_control"

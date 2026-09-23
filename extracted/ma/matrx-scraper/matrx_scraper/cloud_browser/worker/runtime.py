@@ -170,15 +170,30 @@ async def _upload_checkpoint_file(target: M.PresignedUpload, path: str, size: in
     an iterator with an explicit ``Content-Length`` — S3 rejects a chunked
     presigned PUT, and httpx honours a caller-supplied length instead of
     adding ``Transfer-Encoding``.
+
+    🚨 The body MUST be an ASYNC iterator. httpx decides sync-vs-async from the
+    body it is handed: a plain generator makes the request a sync request and
+    ``AsyncClient`` refuses it with ``RuntimeError: Attempted to send an sync
+    request with an AsyncClient instance`` — before a single byte leaves the
+    worker. That is what shipped on 2026-09-20 with the streaming save, so
+    EVERY production checkpoint upload failed (``uploaded=False manifest=False``)
+    and every browser stop answered HTTP 500 ``checkpoint_failed``. Reads run in
+    a thread so a multi-hundred-megabyte profile never blocks the event loop.
+    Guard: ``tests/test_cloud_browser_checkpoint_upload.py`` — it drives a REAL
+    ``httpx.AsyncClient`` over ``MockTransport``; a test that replaces
+    ``httpx.AsyncClient`` with a fake cannot see this class of bug at all.
     """
 
-    def _chunks():  # noqa: ANN202
-        with open(path, "rb") as handle:
+    async def _chunks():  # noqa: ANN202
+        handle = await asyncio.to_thread(open, path, "rb")
+        try:
             while True:
-                block = handle.read(_CHECKPOINT_CHUNK_BYTES)
+                block = await asyncio.to_thread(handle.read, _CHECKPOINT_CHUNK_BYTES)
                 if not block:
                     return
                 yield block
+        finally:
+            await asyncio.to_thread(handle.close)
 
     headers = {**dict(target.headers or {}), "Content-Length": str(size)}
     try:
@@ -196,6 +211,42 @@ async def _upload_checkpoint_file(target: M.PresignedUpload, path: str, size: in
         response.headers.get("x-amz-request-id") or "",
     )
     return False
+
+
+#: What each command is DOING, for the command ceiling's ``stage``. Names the
+#: work, not the wire word: a caller reading ``humanize_type`` knows the
+#: per-keystroke loop was still running, which ``type_text`` alone does not say.
+_STAGE_BY_COMMAND: dict[str, str] = {
+    "navigate": "navigate_load",
+    "wait_for": "wait_for_visible",
+    "click": "plain_click",
+    "type_text": "plain_type",
+    "fill": "plain_fill",
+    "select_option": "select_option",
+    "get_element": "read_element",
+    "query_selectors": "read_elements",
+    "get_text": "read_text",
+    "get_html": "read_html",
+    "screenshot": "screenshot",
+    "scroll": "scroll",
+    "eval_js": "eval_js",
+    "press_key": "press_key",
+}
+
+#: Commands whose humanised form is a different, much slower animal — the loops
+#: that made a ceiling necessary in the first place.
+_HUMANISED_STAGE: dict[str, str] = {
+    "click": "humanize_click",
+    "type_text": "humanize_type",
+    "fill": "humanize_type",
+    "scroll": "humanize_scroll",
+}
+
+
+def _stage_for(name: str, human: bool) -> str:
+    if human and name in _HUMANISED_STAGE:
+        return _HUMANISED_STAGE[name]
+    return _STAGE_BY_COMMAND.get(name, f"command:{name}")
 
 
 class _TrackedPage:
@@ -396,6 +447,11 @@ class BrowserWorker:
         #: How the watchdog ends the process; a test injects a recorder.
         self._end_process: Callable[[], None] = _send_self_sigterm
         self._command_lock = asyncio.Lock()
+        #: What the command plane is doing RIGHT NOW. Read by the command
+        #: ceiling so a ``command_deadline_exceeded`` names the stage it
+        #: died in (``humanize_type``, ``wait_for_visible``,
+        #: ``navigate_load``) instead of only reporting that time passed.
+        self._command_stage: str = "idle"
 
         # Access / lease
         self._access_valid = True
@@ -1555,11 +1611,40 @@ class BrowserWorker:
 
         started = _now()
         self._in_flight += 1
+        self._command_stage = "await_command_lock"
         try:
-            async with self._command_lock:
-                result, active_id, result_class, human_required = await self._execute_command(
-                    request
-                )
+            # 🚨 THE COMMAND CEILING (``M.COMMAND_TOTAL_TIMEOUT_SECONDS``).
+            # Covers BOTH waiting for ``_command_lock`` and running the command
+            # under it, because a caller cannot tell those apart and both used
+            # to be unbounded. ``asyncio.timeout`` cancels the body, so the
+            # ``async with`` below releases the lock on its way out and the next
+            # command is servable; without it one humanised 1078-character
+            # ``type_text`` held the lock for 149 s (the client gives up at 65).
+            async with asyncio.timeout(M.COMMAND_TOTAL_TIMEOUT_SECONDS):
+                async with self._command_lock:
+                    result, active_id, result_class, human_required = await self._execute_command(
+                        request
+                    )
+        except TimeoutError:
+            stage = self._command_stage
+            self._command_stage = "idle"
+            logger.warning(
+                "command ceiling reached after %.1fs during %s; releasing the command lock",
+                M.COMMAND_TOTAL_TIMEOUT_SECONDS,
+                stage,
+            )
+            return self._error_reply(
+                M.CommandResponse,
+                WorkerProtocolError(
+                    "command_deadline_exceeded",
+                    message=(
+                        f"the browser was still running {stage} when the worker gave up "
+                        f"after {M.COMMAND_TOTAL_TIMEOUT_SECONDS:.0f}s; nothing is stuck and "
+                        "the next command is servable"
+                    ),
+                    stage=stage,
+                ),
+            )
         except WorkerProtocolError as err:
             return self._error_reply(M.CommandResponse, err)
         finally:
@@ -1567,6 +1652,7 @@ class BrowserWorker:
             # WorkerProtocolError: a leaked count here made every later drain
             # wait out its full timeout and abandon the "in-flight" command.
             self._in_flight -= 1
+        self._command_stage = "idle"
         self._last_activity = _now()
 
         facts = self._build_event_facts(request, started, result_class)
@@ -1613,6 +1699,7 @@ class BrowserWorker:
     async def _execute_command(self, request: M.CommandRequest) -> tuple[Any, str | None, str, Any]:
         cmd = request.command
         name = cmd.command
+        self._command_stage = f"resolve_page:{name}"
         if name not in C.KNOWN_COMMANDS:
             raise WorkerProtocolError(
                 "command_not_supported", message="unknown command discriminator"
@@ -1668,6 +1755,7 @@ class BrowserWorker:
             )
 
         result = await self._run_action(name, cmd, rid, mgr)
+        self._command_stage = "login_form_detection"
         result_class = self._classify_result(result)
         if self._episode is not None and name == "navigate":
             self._episode.navigation_count += 1
@@ -1759,6 +1847,7 @@ class BrowserWorker:
     async def _run_action(self, name: str, cmd: Any, rid: str, mgr: BrowserSessionManager) -> Any:
         # CB-013: pointer and key events shaped like a person's, per run policy.
         human = bool(self._policy.humanize_input) if self._policy is not None else False
+        self._command_stage = _stage_for(name, human)
         if name == "navigate":
             return await A.navigate(
                 cmd.url,

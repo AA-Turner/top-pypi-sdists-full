@@ -1,21 +1,22 @@
 Metadata-Version: 2.4
 Name: fastembed
-Version: 0.8.0
+Version: 0.8.1
 Summary: Fast, light, accurate library built for retrieval embedding generation
-License: Apache License
+License: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
 Keywords: vector,embedding,neural,search,qdrant,sentence-transformers
 Author: Qdrant Team
 Author-email: info@qdrant.tech
 Requires-Python: >=3.10.0
-Classifier: License :: Other/Proprietary License
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: huggingface-hub (>=0.20,<2.0)
 Requires-Dist: loguru (>=0.7.2,<0.8.0)
 Requires-Dist: mmh3 (>=4.1.0,<6.0.0)

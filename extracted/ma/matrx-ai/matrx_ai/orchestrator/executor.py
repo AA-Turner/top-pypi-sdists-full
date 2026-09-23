@@ -296,6 +296,34 @@ async def _spine_stop_reason() -> str | None:
         return None
 
 
+def _subtree_budget_stop_reason() -> str | None:
+    """Poll THIS SUBTREE's own time budget — the per-child axis the tree-wide
+    controls structurally cannot provide (they resolve at the root, so a budget
+    there bounds the person's whole turn). Carried on the forked AppContext
+    metadata by whoever launched the child, so it reaches this loop, its tools
+    and its own children with no registry and no DB read. Best-effort and
+    non-raising like every other boundary poll: an unreadable context allows
+    the work. See ``matrx_ai.orchestrator.subtree_budget``."""
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        from matrx_ai.orchestrator.subtree_budget import (
+            SUBTREE_BUDGET_STOP_MARKER,
+            subtree_stop_reason,
+        )
+
+        ctx = try_get_app_context()
+        if ctx is None:
+            return None
+        reason = subtree_stop_reason(getattr(ctx, "metadata", None))
+        if not reason:
+            return None
+        return f"{SUBTREE_BUDGET_STOP_MARKER}: {reason}"
+    except Exception as exc:  # noqa: BLE001 — a budget blip must never break the loop
+        vcprint(f"[Executor] subtree budget check failed (allowing): {exc}", color="yellow")
+        return None
+
+
 def _spine_meter_call(usage) -> None:
     """Hand one billed provider call's usage to the host-injected spine meter hook
     (detached write inside the hook — zero hot-path cost). Best-effort, never raises."""
@@ -320,7 +348,7 @@ def _strip_ephemeral_for_storage(config: UnifiedConfig) -> None:
     """
     from matrx_ai.instructions.core import SystemInstruction
 
-    config.messages.detach_ephemeral_from_last_user()
+    config.messages.clear_turn_context()
     # The first turn's context block is part of the system prompt that becomes
     # the durable conversation prefix.  Later turns never receive a system
     # block (the host places fresh context on the user message instead).
@@ -915,8 +943,6 @@ async def _flush_assistant_message_mid_loop(
 
     content_blocks: list[dict[str, Any]] = []
     for msg in messages:
-        if msg.is_ephemeral_only():
-            continue
         storage = msg.to_storage_dict()
         if storage.get("content"):
             content_blocks.extend(storage["content"])
@@ -979,8 +1005,6 @@ async def _flush_assistant_message_mid_loop(
             _t_role_str = _t_role.value if hasattr(_t_role, "value") else _t_role
             if _t_role_str != "user":
                 trigger_msg = None
-        if trigger_msg is not None and trigger_msg.is_ephemeral_only():
-            trigger_msg = None
         if trigger_msg is not None:
             user_reserved_id = reserved_messages.get(trigger_position) or reserved_messages.get(
                 str(trigger_position)
@@ -2232,23 +2256,17 @@ async def _finalize_and_persist(
     if _coord is not None:
         await _coord.finalize(reason="request_final_commit")
 
-    # Authoritative cost rollup. After this owner's final commit, every
-    # cx_request row sharing user_request_id is durable — the parent's turns AND
-    # every sub-agent's (child coordinators committed on join). Re-SUM them into
-    # cx_user_request so the one-user-click total reflects the whole tree, never
-    # just the last finalize's contribution (the in-memory last-write-wins
-    # clobber). Owner-only: a sub-agent (parent_request_id set) skips this — only
-    # the request owner sees the complete set of rows. Idempotent + non-fatal.
+    # cx_user_request totals are DERIVED by the chat.request _propagate_totals
+    # trigger — atomically, per child row. Nothing here may write them: a
+    # read-SUM-then-write rollup queued through the coordinator erased every
+    # child committed between its read and its flush (guard:
+    # scripts/check_user_request_totals_derived.py).
     from matrx_connect import try_get_app_context as _try_ctx_for_rollup
 
     _rollup_ctx = _try_ctx_for_rollup()
     _is_request_owner = _rollup_ctx is None or not getattr(_rollup_ctx, "parent_request_id", None)
     if _is_request_owner and req_id and _is_valid_uuid_str(req_id):
-        from matrx_ai.db.persistence import apply_authoritative_user_request_rollup
-
-        await apply_authoritative_user_request_rollup(req_id)
-
-        # The whole tree is durable and rolled up — drop its tree-wide dollar
+        # The whole tree is durable — drop its tree-wide dollar
         # budget accumulator so the process-local map can't grow without bound.
         # Owner-only: a sub-agent must NOT release the shared accumulator while
         # siblings may still be spending against it.
@@ -3881,23 +3899,22 @@ async def _execute_until_complete_inner(
                 _trigger_role.value if hasattr(_trigger_role, "value") else _trigger_role
             )
             if _trigger_role_str == "user" and not getattr(_trigger_msg, "id", None):
-                if not _trigger_msg.is_ephemeral_only():
-                    _reserve_user_row = True
-                    _trigger_storage = _trigger_msg.to_storage_dict()
-                    _trigger_user_content = validate_message_content(
-                        _trigger_storage.get("content") or []
+                _reserve_user_row = True
+                _trigger_storage = _trigger_msg.to_storage_dict()
+                _trigger_user_content = validate_message_content(
+                    _trigger_storage.get("content") or []
+                )
+                _trigger_pristine_user_content = _trigger_storage.get("user_content")
+                if _trigger_pristine_user_content is not None:
+                    _trigger_pristine_user_content = validate_message_content(
+                        _trigger_pristine_user_content
                     )
-                    _trigger_pristine_user_content = _trigger_storage.get("user_content")
-                    if _trigger_pristine_user_content is not None:
-                        _trigger_pristine_user_content = validate_message_content(
-                            _trigger_pristine_user_content
-                        )
-                    # Only flip to 'active' when we actually have content blocks
-                    # to write. An empty list would leave the row equivalent to
-                    # the legacy placeholder; let the downstream UPDATE finalize
-                    # it in that (unexpected) case.
-                    if _trigger_user_content:
-                        _trigger_user_status = "active"
+                # Only flip to 'active' when we actually have content blocks
+                # to write. An empty list would leave the row equivalent to
+                # the legacy placeholder; let the downstream UPDATE finalize
+                # it in that (unexpected) case.
+                if _trigger_user_content:
+                    _trigger_user_status = "active"
 
         if _reserve_user_row:
             user_msg_id = str(uuid4())
@@ -3987,16 +4004,24 @@ async def _execute_until_complete_inner(
     _interrupt_fence = len(current_request.config.messages)
 
     while iteration < max_iterations:
-        # TWO independent stop layers, polled at every iteration boundary:
+        # THREE independent stop layers, polled at every iteration boundary:
         # 1) the in-process RequestControlRegistry (instant, this process only);
         # 2) the runtime-spine control row (durable + cross-process: POST /cancel
-        #    stamps it, and the tree dollar budget / deadline live there too).
+        #    stamps it, and the tree dollar budget / deadline live there too) —
+        #    always resolved at the TREE ROOT, so it bounds the whole turn;
+        # 3) THIS SUBTREE's own time budget, which bounds only the child run it
+        #    was attached to (and that run's own children). The root layer
+        #    cannot express this: a deadline there stops the parent as well.
+        # All three exit through the same graceful path below — the tool in hand
+        # already finished, its messages are kept, and the best answer so far is
+        # persisted and returned. Nothing paid for is ever thrown away.
         _stop_reason: str | None = None
         _poll_request_id = current_request.request_id or getattr(exec_ctx, "request_id", None)
         if _is_request_cancelled(_poll_request_id):
             _stop_reason = "Request cancelled before the next provider call."
         else:
-            _spine_reason = await _spine_stop_reason()
+            _subtree_reason = _subtree_budget_stop_reason()
+            _spine_reason = _subtree_reason or await _spine_stop_reason()
             if _spine_reason:
                 _stop_reason = f"Request stopped by execution control: {_spine_reason}"
         if _stop_reason:

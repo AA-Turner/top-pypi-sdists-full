@@ -35,6 +35,16 @@ def _call_row_key(conversation_id: Any, call_id: Any) -> str | None:
     return f"{conversation_id}:{call_id}"
 
 
+class DelegationNotDurable(RuntimeError):
+    """A tool call was told to park for a human and the park is not on disk.
+
+    Raised by ``ToolExecutionLogger.delegate_durably``. Never caught to be
+    ignored: every park site treats it as "abort the handoff and tell the person
+    nothing is waiting", because a link into a turn that is not really suspended
+    is a promise the system cannot keep.
+    """
+
+
 # Lazy access to persistence.queue_helpers — breaks the matrx_ai.persistence
 # ↔ matrx_ai.tools circular import (tools/handle_tool_calls is imported via
 # matrx_ai.tools, which queue_helpers transitively reaches via cx_managers).
@@ -751,6 +761,99 @@ class ToolExecutionLogger:
             if target_instance_id:
                 update_data["target_instance_id"] = target_instance_id
         await self._update_row(row_id, update_data)
+
+    # ------------------------------------------------------------------
+    # Phase 1b′: delegate_durably — THE ONLY SANCTIONED WAY TO PARK A CALL.
+    # ------------------------------------------------------------------
+
+    async def delegate_durably(
+        self,
+        row_id: str,
+        *,
+        expires_at: datetime,
+        allow_desktop_target: bool = True,
+        reason: str,
+    ) -> None:
+        """Park a tool call, commit the park, and PROVE it is on disk.
+
+        🚨 WHY THIS EXISTS. ``log_delegated`` is a QUEUED write. Every consumer
+        of a parked turn — ``_resolve_resume_user_request_id``,
+        ``_require_answered_delegated_resume_target``, the outstanding-calls
+        409, ``expire_delegated_calls`` — keys on
+        ``is_client_delegated = true``. A park whose UPDATE never lands is
+        therefore not "a park with one column missing": it is a turn that can
+        never be resumed and can never expire, and NOTHING used to notice.
+
+        Measured on production 2026-09-22 (``chat.tool_call``
+        ``67693383-0065-4976-90c8-5212f57aa812``, ``ask_person``): the park
+        reported success, the person was texted a link, they answered it, the
+        call resolved — and the row read ``is_client_delegated=false``,
+        ``expires_at=NULL``, ``runtime_execution_id=NULL``. The turn never
+        resumed. The park had been queued onto an ISOLATED standalone
+        coordinator while the row's own INSERT was still pending on the
+        caller's request coordinator; the row lookup saw the uncommitted INSERT
+        through the inherited ORM session stack, the UPDATE ran on the
+        standalone's own transaction and matched zero rows, and a zero-row
+        UPDATE is silent.
+
+        So the ordering is fixed here, once, for every caller:
+
+        1. **The flip rides the coordinator that owns the row.** Inside a live
+           request the queued UPDATE coalesces after the row's INSERT — the
+           executor's proven two-step. Only a genuinely cold caller (a human
+           returning days later, no lane) gets a standalone.
+        2. **Commit before returning** — the pre-suspend finalize, so the row is
+           on disk before anybody is handed a link into this turn.
+        3. **Read it back and prove it.** A park that cannot be proven raises
+           ``DelegationNotDurable``; every caller already treats a park failure
+           as "abort, tell the person nothing is waiting", which is the only
+           honest outcome.
+        """
+        coordinator = None
+        try:
+            from matrx_ai.persistence.queue_helpers import get_coordinator
+
+            coordinator = get_coordinator()
+        except Exception:  # noqa: BLE001 — no coordinator is a valid state, not a failure
+            coordinator = None
+
+        if coordinator is not None:
+            await self.log_delegated(
+                row_id, expires_at=expires_at, allow_desktop_target=allow_desktop_target
+            )
+            await coordinator.finalize(reason=f"{reason}_pre_client_delegation_commit")
+        else:
+            from matrx_ai.persistence import standalone_coordinator
+
+            async with standalone_coordinator(reason=reason):
+                await self.log_delegated(
+                    row_id, expires_at=expires_at, allow_desktop_target=allow_desktop_target
+                )
+
+        await self.assert_delegated_on_disk(row_id, reason=reason)
+
+    @staticmethod
+    async def assert_delegated_on_disk(row_id: str, *, reason: str) -> None:
+        """Read the row back and refuse to call an unwritten park a park."""
+        rows = await _cxm().tool_call.filter_items(id=row_id)
+        row = rows[0] if rows else None
+        if row is None:
+            raise DelegationNotDurable(
+                f"{reason}: chat.tool_call {row_id!r} does not exist after the "
+                "delegation write — the turn is NOT parked."
+            )
+        status = str(getattr(row, "status", "") or "")
+        is_delegated = bool(getattr(row, "is_client_delegated", False))
+        expires_at_on_disk = getattr(row, "expires_at", None)
+        if status == "delegated" and is_delegated and expires_at_on_disk is not None:
+            return
+        raise DelegationNotDurable(
+            f"{reason}: the delegation write for chat.tool_call {row_id!r} did not "
+            f"land — the row reads status={status!r}, "
+            f"is_client_delegated={is_delegated}, expires_at={expires_at_on_disk!r}. "
+            "A turn in this state can never be resumed and can never expire, so the "
+            "park is refused rather than reported."
+        )
 
     @staticmethod
     def _runtime_execution_id() -> str | None:

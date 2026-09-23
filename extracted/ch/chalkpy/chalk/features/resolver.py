@@ -4120,7 +4120,7 @@ def parse_and_register_stream_resolver(
     message: Optional[Type[Any]] = None,
     sql_query: Optional[str] = None,
     owner: Optional[str] = None,
-    parse: Optional[Callable[[T], Any]] = None,
+    parse: Optional[Callable[[Any], Any]] = None,
     keys: Optional[Dict[str, Any]] = None,
     timestamp: Optional[str] = None,
     caller_line: Optional[int] = None,

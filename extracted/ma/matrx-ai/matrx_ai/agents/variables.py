@@ -25,6 +25,10 @@ class AgentVariable(BaseModel):
     # ``aidream.api.utils.scope_binding_resolution.resolve_scope_bindings``. Shape:
     # ``{contextItemId, scopeTypeId, itemKey, onMissing}`` (camelCase from the FE).
     binding: dict[str, Any] | None = None
+    # Control binding (controls as first-class variables). When set, this variable's
+    # resolved value is the value of the model control ``control["key"]`` for the run
+    # — see ``matrx_ai.agents.control_bindings``. Shape: ``{"key": "aspect_ratio"}``.
+    control: dict[str, Any] | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -118,6 +122,7 @@ class AgentVariable(BaseModel):
             help_text=var_def.get("helpText"),
             custom_component=var_def.get("customComponent"),
             binding=var_def.get("binding"),
+            control=var_def.get("control"),
         )
 
     @staticmethod
@@ -150,6 +155,7 @@ class AgentVariable(BaseModel):
             "help_text": self.help_text,
             "custom_component": self.custom_component,
             "binding": self.binding,
+            "control": self.control,
         }
 
 

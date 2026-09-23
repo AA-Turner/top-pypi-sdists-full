@@ -13,6 +13,9 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Literal
 
+from arcade_core.catalog import ToolCatalog
+from arcade_core.resource_schema import TextResourceContents as CatalogTextContents
+
 from arcade_mcp_server.exceptions import NotFoundError, ResourceError
 from arcade_mcp_server.managers.base import ComponentManager
 from arcade_mcp_server.types import (
@@ -78,6 +81,15 @@ def make_text_handler(text: str) -> Callable[[str], str]:
     return handler
 
 
+def make_static_handler(body: str | bytes) -> Callable[[str], str | bytes]:
+    """Create a handler that returns a body resolved ahead of time."""
+
+    def handler(_uri: str) -> str | bytes:
+        return body
+
+    return handler
+
+
 def make_file_handler(path: str | Path) -> Callable[[str], str | bytes]:
     """Create a handler that reads a file, returning text or bytes."""
     file_path = Path(path)
@@ -111,6 +123,20 @@ class ResourceManager(ComponentManager[str, Resource]):
         self.duplicate_policy: DuplicatePolicy = duplicate_policy
         self.multiple_match_policy: MultipleMatchPolicy = multiple_match_policy
 
+    async def load_from_catalog(self, catalog: ToolCatalog) -> None:
+        """Serve every resource the catalog's toolkits declared."""
+        for registered in catalog.resources:
+            resource = Resource.model_validate(
+                registered.resource.model_dump(by_alias=True, exclude_none=True)
+            )
+            contents = registered.contents
+            body: str | bytes = (
+                contents.text
+                if isinstance(contents, CatalogTextContents)
+                else base64.b64decode(contents.blob)
+            )
+            await self.add_resource(resource, handler=make_static_handler(body))
+
     async def list_resources(self) -> list[Resource]:
         return await self.registry.list()
 
@@ -120,18 +146,20 @@ class ResourceManager(ComponentManager[str, Resource]):
     async def read_resource(self, uri: str) -> list[ResourceContents]:
         handler = self._resource_handlers.get(uri)
         if handler:
-            # Look up the registered resource's mimeType so we can propagate it
+            # A host reads a document's rendering contract off this response, so
+            # the registered resource's own _meta travels with its mime type.
             mime_type: str | None = None
+            meta: dict[str, Any] | None = None
             try:
                 registered: Resource = await self.registry.get(uri)
-                mime_type = registered.mimeType
+                mime_type, meta = registered.mimeType, registered.meta
             except KeyError:
                 pass
 
             result = handler(uri)
             if hasattr(result, "__await__"):
                 result = await result
-            return self._coerce_result(uri, mime_type, result)
+            return self._coerce_result(uri, mime_type, result, meta)
 
         # Try template matching before giving up — collect all matches
         matches: list[tuple[str, re.Match[str]]] = []
@@ -156,37 +184,56 @@ class ResourceManager(ComponentManager[str, Resource]):
             tmpl_str, match = matches[0]
             params = match.groupdict()
             tmpl_handler = self._template_handlers[tmpl_str]
-            mime_type = self._templates[tmpl_str].mimeType
+            template = self._templates[tmpl_str]
             result = tmpl_handler(uri, **params)
             if hasattr(result, "__await__"):
                 result = await result
-            return self._coerce_result(uri, mime_type, result)
+            return self._coerce_result(uri, template.mimeType, result, template.meta)
 
         try:
-            _ = await self.registry.get(uri)
+            placeholder = await self.registry.get(uri)
         except KeyError as _e:
             raise NotFoundError(f"Resource '{uri}' not found")
 
-        return [TextResourceContents(uri=uri, text="")]  # static placeholder
+        # Registered with no handler, so there is no body to serve. The rendering
+        # contract still belongs to the resource and still travels.
+        return [TextResourceContents(uri=uri, text="", _meta=placeholder.meta)]
 
     @staticmethod
-    def _coerce_result(uri: str, mime_type: str | None, result: Any) -> list[ResourceContents]:
-        """Convert a handler return value into a list of ResourceContents."""
+    def _coerce_result(
+        uri: str,
+        mime_type: str | None,
+        result: Any,
+        meta: dict[str, Any] | None = None,
+    ) -> list[ResourceContents]:
+        """Convert a handler return value into a list of ResourceContents.
+
+        A handler that builds its own contents objects owns their ``_meta`` and is
+        left alone; everything else is given the registered resource's.
+        """
         if isinstance(result, bytes):
             blob = base64.b64encode(result).decode("ascii")
-            return [BlobResourceContents(uri=uri, mimeType=mime_type, blob=blob)]
+            return [BlobResourceContents(uri=uri, mimeType=mime_type, blob=blob, _meta=meta)]
         elif isinstance(result, str):
-            return [TextResourceContents(uri=uri, mimeType=mime_type, text=result)]
+            return [TextResourceContents(uri=uri, mimeType=mime_type, text=result, _meta=meta)]
         elif isinstance(result, dict):
             if "text" in result:
-                return [TextResourceContents(uri=uri, mimeType=mime_type, text=result["text"])]
+                return [
+                    TextResourceContents(
+                        uri=uri, mimeType=mime_type, text=result["text"], _meta=meta
+                    )
+                ]
             if "blob" in result:
-                return [BlobResourceContents(uri=uri, mimeType=mime_type, blob=result["blob"])]
-            return [ResourceContents(uri=uri, mimeType=mime_type)]
+                return [
+                    BlobResourceContents(
+                        uri=uri, mimeType=mime_type, blob=result["blob"], _meta=meta
+                    )
+                ]
+            return [ResourceContents(uri=uri, mimeType=mime_type, _meta=meta)]
         elif isinstance(result, list):
             return result
         else:
-            return [TextResourceContents(uri=uri, mimeType=mime_type, text=str(result))]
+            return [TextResourceContents(uri=uri, mimeType=mime_type, text=str(result), _meta=meta)]
 
     async def add_resource(
         self, resource: Resource, handler: Callable[[str], Any] | None = None

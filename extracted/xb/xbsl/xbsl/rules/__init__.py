@@ -5,7 +5,7 @@ xbsl.engine.register_file_rule / register_project_rule decorators. Listed here a
 modules that need to be imported (and thereby activated).
 """
 
-# Tier A – structure and YAML:
+# Tier A - structure and YAML:
 from . import (  # noqa: F401
     component_props,
     duplicate_subtree,
@@ -16,7 +16,7 @@ from . import (  # noqa: F401
     yaml_schema,
 )
 
-# Tier B – text and conventions:
+# Tier B - text and conventions:
 from . import (  # noqa: F401
     comment_conditions,
     comment_doc_marker,
@@ -27,7 +27,7 @@ from . import (  # noqa: F401
     whitespace,
 )
 
-# Tier C – code structure, basic syntax and local variables:
+# Tier C - code structure, basic syntax and local variables:
 from . import (  # noqa: F401
     annotations_dup,
     assignments,
@@ -53,7 +53,7 @@ from . import (  # noqa: F401
     undefined_names,
 )
 
-# Tiers B/C – platform code-writing conventions:
+# Tiers B/C - platform code-writing conventions:
 from . import (  # noqa: F401
     style_conditions,
     style_layout,
@@ -67,8 +67,9 @@ from . import (  # noqa: F401
     style_variables,
 )
 
-# Tier D – semantics over stdlib, forms and the metamodel:
+# Tier D - semantics over stdlib, forms and the metamodel:
 from . import (  # noqa: F401
+    access_key_handler_flavour,
     binding_types,
     bound_properties,
     form_components,
@@ -133,3 +134,9 @@ from . import unused_return_value  # noqa: F401
 from . import captured_local_write  # noqa: F401
 
 from . import missing_return  # noqa: F401
+
+from . import platform_translation_shadow  # noqa: F401
+
+from . import procedure_value  # noqa: F401
+
+from . import contract_parameters  # noqa: F401

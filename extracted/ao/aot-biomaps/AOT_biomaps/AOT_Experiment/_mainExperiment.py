@@ -19,7 +19,6 @@ import warnings
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib as mpl
-from IPython.display import HTML
 from scipy.ndimage import zoom
 
 # Optional cupy import for GPU acceleration

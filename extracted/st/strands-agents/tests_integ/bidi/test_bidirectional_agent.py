@@ -13,10 +13,10 @@ import os
 import pytest
 
 from strands import tool
-from strands.experimental.bidi.agent.agent import BidiAgent
+from strands.experimental.bidi.agent import BidiAgent
 from strands.experimental.bidi.hooks import BidiResponseCompleteEvent
 from strands.experimental.bidi.models import GoogleGeminiLiveModel, OpenAIRealtimeModel
-from strands.experimental.bidi.types.events import BidiResponseCompleteEvent as BidiResponseCompleteStreamEvent
+from strands.experimental.bidi.types import BidiResponseCompleteEvent as BidiResponseCompleteStreamEvent
 
 from .context import BidirectionalTestContext
 from .hook_utils import HookEventCollector
@@ -64,13 +64,6 @@ PROVIDER_CONFIGS = {
         "model_factory": create_bedrock_nova_sonic_model,
         "model_kwargs": {"region": "us-east-1"},  # Uses v2 by default
         "silence_duration": 2.5,  # Nova Sonic needs 2+ seconds of silence
-        "env_vars": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
-        "skip_reason": "AWS credentials not available",
-    },
-    "bedrock_nova_sonic_v1": {
-        "model_factory": create_bedrock_nova_sonic_model,
-        "model_kwargs": {"model_id": "amazon.nova-sonic-v1:0", "region": "us-east-1"},
-        "silence_duration": 2.5,  # Nova Sonic v1 needs 2+ seconds of silence
         "env_vars": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
         "skip_reason": "AWS credentials not available",
     },

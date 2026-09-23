@@ -154,9 +154,12 @@ ${'привет'}
         except:
             html_error = exceptions.html_error_template().render()
             assert "RuntimeError: test" in html_error.decode("utf-8")
-            assert "foo = &quot;日本&quot;" in html_error.decode(
-                "utf-8"
-            ) or "foo = &#34;日本&#34;" in html_error.decode("utf-8")
+            assert (
+                "foo = &quot;日本&quot;" in html_error.decode("utf-8")
+                or "foo = &#34;日本&#34;" in html_error.decode("utf-8")
+                # pygments 2.21.0 renders " and ' literally
+                or 'foo = "日本"' in html_error.decode("utf-8")
+            )
 
     def test_py_unicode_error_html_error_template(self):
         try:
@@ -222,9 +225,12 @@ ${foobar}
             "foo.html", """# -*- coding: utf-8 -*-\n${'привет' + foobar}"""
         )
 
-        assert "&#39;привет&#39;</span>" in l.get_template(
-            "foo.html"
-        ).render().decode("utf-8")
+        rendered = l.get_template("foo.html").render().decode("utf-8")
+        assert (
+            "&#39;привет&#39;</span>" in rendered
+            # pygments 2.21.0 renders " and ' literally
+            or "'привет'</span>" in rendered
+        )
 
     @requires_no_pygments_exceptions
     def test_utf8_format_exceptions_no_pygments(self):
@@ -272,6 +278,8 @@ ${foobar}
         assert (
             "".join(reversed(");touq&rab;touq&(oof")) in html_error
             or "".join(reversed(");43#&rab;43#&(oof")) in html_error
+            # pygments 2.21.0 renders " and ' literally
+            or "".join(reversed(')"rab"(oof')) in html_error
         )
 
     def test_tback_no_trace_from_py_file(self):

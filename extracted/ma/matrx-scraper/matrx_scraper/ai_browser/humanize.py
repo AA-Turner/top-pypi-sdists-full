@@ -38,6 +38,8 @@ import random
 import weakref
 from typing import Any
 
+from matrx_scraper.ai_browser.readiness import element_readiness
+
 logger = logging.getLogger(__name__)
 
 # ── timing constants (seconds) ──────────────────────────────────────────────
@@ -183,13 +185,27 @@ class HumanInput:
         _pointer[self.page] = (x, y)
 
     async def _target_box(self, selector: str, timeout_ms: int) -> dict[str, float] | None:
-        locator = self.page.locator(selector).first
-        await locator.wait_for(state="visible", timeout=timeout_ms)
-        await locator.scroll_into_view_if_needed(timeout=timeout_ms)
-        box = await locator.bounding_box()
-        if not box or box["width"] < 1 or box["height"] < 1:
-            return None
-        return box
+        """The aim-able box for ``selector``, or None with a WARNING saying why.
+
+        Readiness is NOT decided here — it comes from the one shared definition
+        in ``readiness.py``, which is also what ``actions.get_element`` reports.
+        Returning None (rather than raising) is what makes the documented
+        degrade-loudly contract real: the caller falls back to the plain
+        Playwright action. A ``wait_for`` TIMEOUT used to escape this function,
+        propagate out of ``HumanInput.type_text`` and be swallowed by the blanket
+        ``except Exception`` in ``actions.type_text`` — so on the COMMONEST
+        failure the promised fallback never ran and the promised WARNING was
+        never logged.
+        """
+        verdict = await element_readiness(self.page, selector, timeout_ms=timeout_ms)
+        if verdict.usable and verdict.box is not None:
+            return verdict.box
+        logger.warning(
+            "humanize: %r is not aim-able (%s); falling back to the plain Playwright action",
+            selector,
+            verdict.reason,
+        )
+        return None
 
     async def click(self, selector: str, *, timeout_ms: int) -> bool:
         """Move, dwell, press, release on ``selector``. Returns False (after a

@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -39,7 +39,7 @@ class ObserverExceptionHandler:
 
         Parameters
         ----------
-        event : object
+        event : any object
             An event object emitted by the notification.
         """
         _logger.exception(
@@ -95,7 +95,7 @@ class ObserverExceptionHandlerStack:
 
         Parameters
         ----------
-        event : object
+        event : any object
             An event object emitted by the notification.
         """
         _, excp, _ = sys.exc_info()

@@ -1,4 +1,4 @@
-# (C) Copyright 2005-2025 Enthought, Inc., Austin, TX
+# (C) Copyright 2005-2026 Enthought, Inc., Austin, TX
 # All rights reserved.
 #
 # This software is provided without warranty under the terms of the BSD
@@ -11,6 +11,8 @@
 """ This module provides functions to be advertised in the distribution
 entry points.
 """
+
+import importlib.resources
 
 
 def introduction(request):
@@ -27,12 +29,10 @@ def introduction(request):
     -------
     response : dict
     """
-    import pkg_resources
-
     return dict(
         version=1,
         name="Traits Introduction",
-        root=(
-            pkg_resources.resource_filename("traits", "examples/introduction")
+        root=str(
+            importlib.resources.files("traits.examples") / "introduction"
         ),
     )

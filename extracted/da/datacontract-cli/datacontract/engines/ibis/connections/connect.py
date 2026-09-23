@@ -12,6 +12,8 @@ wrapped with the ibis duckdb backend. Only the Spark-session server types
 from __future__ import annotations
 
 import logging
+import struct
+import sys
 import typing
 
 from open_data_contract_standard.model import OpenDataContractStandard, Server
@@ -193,6 +195,9 @@ def connect_ibis(
 
     if server_type == "impala":
         return _connect_impala(ibis, server, config)
+
+    if server_type == "exasol":
+        return _connect_exasol(ibis, server, config)
 
     if server_type in LINT_ONLY_SERVER_TYPES:
         _unsupported(
@@ -640,12 +645,29 @@ def _materialize_attached_table(con, catalog: str, database: str | None, model: 
         logger.warning("Could not read MySQL table '%s': %s", model, last_error)
 
 
+# pyodbc pre-connect attribute for an Entra ID access token (SQL_COPT_SS_ACCESS_TOKEN).
+SQL_COPT_SS_ACCESS_TOKEN = 1256
+
+
 def _connect_sqlserver(ibis, server: Server, config: Config):
-    return ibis.mssql.connect(**_sqlserver_connection_kwargs(server, config))
+    # Not ibis.mssql.connect: it sends UID/PWD even as None (refused next to an
+    # access token) and brace-escapes only the password, not host/database/driver.
+    import pyodbc
+
+    kwargs = _sqlserver_connection_kwargs(server, config)
+    host, port = kwargs.pop("host"), kwargs.pop("port")
+    kwargs["server"] = f"{host},{port}"
+    for key in ("server", "database", "driver", "user", "password"):
+        if kwargs[key] is None:
+            del kwargs[key]  # pyodbc would send a literal DATABASE=None
+        else:
+            kwargs[key] = "{" + kwargs[key].replace("}", "}}") + "}"
+    con = pyodbc.connect(**kwargs)
+    return ibis.mssql.from_connection(con)
 
 
 def _sqlserver_connection_kwargs(server: Server, config: Config) -> dict:
-    """Build the ``ibis.mssql.connect`` kwargs, selecting the auth mode from env vars.
+    """Build the ``pyodbc.connect`` kwargs, selecting the auth mode from env vars.
 
     ``DATACONTRACT_SQLSERVER_AUTHENTICATION`` picks the mode (default ``sql``):
 
@@ -653,15 +675,15 @@ def _sqlserver_connection_kwargs(server: Server, config: Config) -> dict:
     - ``windows`` — Windows integrated auth (Kerberos/NTLM), no credentials
     - ``ActiveDirectoryPassword`` — Entra ID with ``USERNAME`` / ``PASSWORD``
     - ``ActiveDirectoryServicePrincipal`` — Entra ID with ``CLIENT_ID`` / ``CLIENT_SECRET``
-    - ``ActiveDirectoryInteractive`` — Entra ID browser login (``USERNAME`` as a hint)
-    - ``cli`` — reuse an ``az login`` session via the Azure default credential chain
+    - ``ActiveDirectoryInteractive`` — Entra ID browser login (``USERNAME`` as a hint), Windows only
+    - ``cli`` — reuse an ``az login`` session (token passed as a pre-connect attribute)
 
     The legacy ``DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION=true`` is equivalent to
     ``windows``, and applies only when ``DATACONTRACT_SQLSERVER_AUTHENTICATION`` is
     unset — an explicitly chosen mode always wins. Extra keys (``Authentication``,
-    ``Trusted_Connection``, ``Encrypt``, ``TrustServerCertificate``) are forwarded
-    verbatim by ibis to ``pyodbc.connect`` and become connection-string attributes,
-    so they use the ODBC spellings.
+    ``Trusted_Connection``, ``Encrypt``, ``TrustServerCertificate``) become
+    connection-string attributes, so they use the ODBC spellings. ``cli`` sets
+    ``attrs_before``, a pre-connect attribute rather than a connection-string keyword.
     """
     driver = _get_custom_property(server, "driver") or config.get_sqlserver_driver()
 
@@ -703,10 +725,9 @@ def _sqlserver_connection_kwargs(server: Server, config: Config) -> dict:
     if authentication == "windows":
         kwargs["Trusted_Connection"] = "yes"
     elif authentication == "cli":
-        # DefaultAzureCredential includes the Azure CLI session (requires ODBC
-        # Driver 18.1+). Suppress ibis's no-credentials Trusted_Connection default.
-        kwargs["Authentication"] = "ActiveDirectoryDefault"
-        kwargs["Trusted_Connection"] = "no"
+        # The ODBC driver has no Azure-CLI mode: pass an `az login` token as a
+        # pre-connect attribute (must not be combined with UID/PWD/Trusted_Connection).
+        kwargs["attrs_before"] = {SQL_COPT_SS_ACCESS_TOKEN: _azure_cli_access_token()}
     elif authentication == "activedirectoryserviceprincipal":
         kwargs["Authentication"] = "ActiveDirectoryServicePrincipal"
         kwargs["user"] = config.get_sqlserver_client_id(required=True)
@@ -716,6 +737,17 @@ def _sqlserver_connection_kwargs(server: Server, config: Config) -> dict:
         kwargs["user"] = config.get_sqlserver_username(required=True)
         kwargs["password"] = config.get_sqlserver_password(required=True)
     elif authentication == "activedirectoryinteractive":
+        if sys.platform != "win32":
+            raise DataContractException(
+                type="sqlserver-connection",
+                name="unsupported_authentication",
+                reason=(
+                    "DATACONTRACT_SQLSERVER_AUTHENTICATION=ActiveDirectoryInteractive is only supported by the "
+                    "Microsoft ODBC driver on Windows. On macOS/Linux use cli (az login) or "
+                    "ActiveDirectoryServicePrincipal."
+                ),
+                engine="datacontract-cli",
+            )
         kwargs["Authentication"] = "ActiveDirectoryInteractive"
         kwargs["Trusted_Connection"] = "no"
         username = config.get_sqlserver_username()
@@ -726,6 +758,33 @@ def _sqlserver_connection_kwargs(server: Server, config: Config) -> dict:
         kwargs["password"] = config.get_sqlserver_password(required=True)
 
     return kwargs
+
+
+def _azure_cli_access_token() -> bytes:
+    try:
+        from azure.core.exceptions import ClientAuthenticationError
+        from azure.identity import AzureCliCredential
+    except ImportError as exc:
+        raise DataContractException(
+            type="sqlserver-connection",
+            name="azure_identity_extra_missing",
+            reason="Install the extra datacontract-cli[sqlserver,azure] to use DATACONTRACT_SQLSERVER_AUTHENTICATION=cli",
+            engine="datacontract-cli",
+            original_exception=exc,
+        )
+    try:
+        token = AzureCliCredential().get_token("https://database.windows.net/.default").token
+    except ClientAuthenticationError as exc:
+        raise DataContractException(
+            type="sqlserver-connection",
+            name="azure_cli_login_required",
+            reason=f"DATACONTRACT_SQLSERVER_AUTHENTICATION=cli needs an az login session: {exc.message}",
+            engine="datacontract-cli",
+            original_exception=exc,
+        )
+    # The driver expects UTF-16LE bytes prefixed with their 4-byte little-endian length.
+    raw = token.encode("utf-16-le")
+    return struct.pack("<i", len(raw)) + raw
 
 
 def _connect_athena(ibis, server: Server, config: Config):
@@ -812,6 +871,44 @@ def _connect_trino(ibis, server: Server, config: Config):
             ),
             engine="datacontract-cli",
         )
+
+
+def _connect_exasol(ibis, server: Server, config: Config):
+    import ssl
+
+    from datacontract.engines.ibis.connections.exasol_patch import apply_exasol_compatibility_patch
+
+    host = config.get_exasol_host() or server.host
+    # pyexasol takes the certificate policy as a host suffix: `host/<sha256>` pins the
+    # certificate, `host/nocertcheck` skips verification.
+    if fingerprint := config.get_exasol_fingerprint():
+        host = f"{host}/{fingerprint}"
+    elif not config.get_exasol_validate_certificate():
+        host = f"{host}/nocertcheck"
+    # ibis defaults to CERT_NONE; restore pyexasol's own default of verifying the
+    # certificate unless a suffix replaces that check.
+    cert_reqs = ssl.CERT_NONE if host and "/" in host else ssl.CERT_REQUIRED
+    kwargs = dict(
+        host=host,
+        port=config.get_exasol_port() or (int(server.port) if server.port else 8563),
+        user=config.get_exasol_username(required=True),
+        password=config.get_exasol_password(required=True),
+        websocket_sslopt={"cert_reqs": cert_reqs},
+    )
+    schema = config.get_exasol_schema() or server.schema_
+    if schema:
+        kwargs["schema"] = schema
+
+    try:
+        con = ibis.exasol.connect(**kwargs)
+    except Exception as e:
+        # pyexasol renders its errors as a multi-line block; the run reports only the first line.
+        message = getattr(e, "message", None)
+        if isinstance(message, str):
+            raise ConnectionError(message) from e
+        raise
+    apply_exasol_compatibility_patch(con)
+    return con
 
 
 def _get_custom_property(server: Server, name: str):

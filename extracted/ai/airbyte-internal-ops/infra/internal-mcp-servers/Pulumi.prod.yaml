@@ -16,4 +16,4 @@ config:
   # Non-secret Zendesk settings for the Ops MCP get_zendesk_ticket tool. The API
   # token itself is a Secret Manager secret (internal-ops-zendesk-api-token).
   internal-mcp-servers:zendesk-subdomain: airbyte1416
-  internal-mcp-servers:zendesk-email: aj@airbyte.io
+  internal-mcp-servers:zendesk-email: support.ops@airbyte.io

@@ -656,6 +656,7 @@ fn finish_molecule_with_flags(
     // none skipped, so indices line up 1:1 — safe to copy side-channel
     // metadata wholesale. (This rebuild previously dropped stereo_groups and
     // stereo_neighbor_order silently; closing that here too.)
+    builder.copy_r_groups_from(mol);
     builder.copy_stereo_groups_from(mol);
     builder.copy_stereo_from(mol);
     builder.copy_bond_directions_from(mol);
@@ -954,6 +955,17 @@ pub fn aromatic_ring_list(mol: &Molecule) -> Vec<Vec<AtomIdx>> {
     } else {
         mol
     };
+    aromatic_ring_list_preperceived(mol)
+}
+
+/// Return aromatic rings from a molecule whose aromaticity flags are already
+/// authoritative, without running another perception model.
+///
+/// This is used by compatibility profiles that deliberately apply a narrower
+/// aromaticity model which can validly produce zero aromatic atoms. Calling
+/// [`aromatic_ring_list`] in that case would otherwise interpret the absence
+/// of flags as "not perceived yet" and replace the chosen model.
+pub fn aromatic_ring_list_preperceived(mol: &Molecule) -> Vec<Vec<AtomIdx>> {
     let mut rings = all_ring_list_inner(mol);
     append_small_chordless_aromatic_cycles(mol, &mut rings);
     rings

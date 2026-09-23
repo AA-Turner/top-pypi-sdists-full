@@ -52,11 +52,10 @@ class Credentials(BaseSDK):
         extra_query: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.CredentialListResponse:
-        r"""Lists credentials for a project.
+        r"""Lists credentials.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param page_size: Optional. Maximum number of credentials to return.
-            If unspecified, defaults to 50. Maximum is 1000.
         :param page_token: Optional. Pagination token.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
@@ -122,10 +121,6 @@ class Credentials(BaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.CredentialListResponse, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
@@ -135,6 +130,10 @@ class Credentials(BaseSDK):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.CredentialListResponse, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -147,7 +146,7 @@ class Credentials(BaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="sync"),
         )
@@ -208,10 +207,10 @@ class Credentials(BaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param body:
-        :param api_version: Which version of the API to use.
+        :param body: Required. The request body.
+        :param api_version: API version for request routing.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
         :param extra_body: Additional JSON object fields to merge into request bodies.
@@ -235,9 +234,9 @@ class Credentials(BaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param client_id: Required. OAuth2 client ID.
         :param client_secret: Required. Input only. OAuth2 client secret. Write-only; never returned in responses.
         :param id:
@@ -266,9 +265,9 @@ class Credentials(BaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param id:
         :param injection_location: Required. Locations where the environment variable can be injected in
             outgoing HTTP requests. Must contain at least one location.
@@ -299,9 +298,9 @@ class Credentials(BaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param header_name: Optional. Header name to inject the token into. Defaults to
             'Authorization'.
         :param id:
@@ -329,9 +328,9 @@ class Credentials(BaseSDK):
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         **body_kwargs: Any,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param client_id: Required. OAuth2 client ID.
         :param client_secret: Required. Input only. OAuth2 client secret. Write-only; never returned in responses.
         :param id:
@@ -370,9 +369,9 @@ class Credentials(BaseSDK):
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         **body_kwargs: Any,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param client_id: Required. OAuth2 client ID.
         :param client_secret: Required. Input only. OAuth2 client secret. Write-only; never returned in responses.
         :param id:
@@ -569,10 +568,6 @@ class Credentials(BaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.Credential, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
@@ -582,6 +577,10 @@ class Credentials(BaseSDK):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.Credential, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -594,7 +593,7 @@ class Credentials(BaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="sync"),
         )
@@ -652,10 +651,11 @@ class Credentials(BaseSDK):
         extra_query: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> interactions.Empty:
-        r"""Deletes a credential. Fails if referenced by active triggers.
+        r"""Deletes a credential.
 
-        :param id: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-        :param api_version: Which version of the API to use.
+        :param id: Required. Resource ID segment making up resource `name`. It identifies the resource
+            within its parent collection as described in https://google.aip.dev/122.
+        :param api_version: API version for request routing.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
         :param timeout: Override the default request timeout configuration for this method in seconds
@@ -719,10 +719,6 @@ class Credentials(BaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    interactions.Empty, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
@@ -732,6 +728,10 @@ class Credentials(BaseSDK):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    interactions.Empty, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -744,7 +744,7 @@ class Credentials(BaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="sync"),
         )
@@ -802,10 +802,11 @@ class Credentials(BaseSDK):
         extra_query: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Gets metadata of a single credential (no secret fields).
+        r"""Gets a credential by ID.
 
-        :param id: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-        :param api_version: Which version of the API to use.
+        :param id: Required. Resource ID segment making up resource `name`. It identifies the resource
+            within its parent collection as described in https://google.aip.dev/122.
+        :param api_version: API version for request routing.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
         :param timeout: Override the default request timeout configuration for this method in seconds
@@ -869,10 +870,6 @@ class Credentials(BaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.Credential, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
@@ -882,6 +879,10 @@ class Credentials(BaseSDK):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.Credential, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -894,7 +895,7 @@ class Credentials(BaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="sync"),
         )
@@ -958,9 +959,10 @@ class Credentials(BaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param id: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-        :param body:
-        :param api_version: Which version of the API to use.
+        :param id: Required. Resource ID segment making up resource `name`. It identifies the resource
+            within its parent collection as described in https://google.aip.dev/122.
+        :param body: Required. The request body.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
@@ -988,7 +990,7 @@ class Credentials(BaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param client_id: Optional. OAuth2 client ID.
         :param client_secret: Optional. Input only. OAuth2 client secret. Write-only; never returned in responses.
@@ -1020,7 +1022,7 @@ class Credentials(BaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param injection_location: Optional. Locations where the environment variable can be injected in
             outgoing HTTP requests.
@@ -1054,7 +1056,7 @@ class Credentials(BaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param header_name: Optional. Header name to inject the token into. Defaults to
             'Authorization'.
@@ -1086,7 +1088,7 @@ class Credentials(BaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param client_id: Optional. OAuth2 client ID.
         :param client_secret: Optional. Input only. OAuth2 client secret. Write-only; never returned in responses.
@@ -1129,7 +1131,7 @@ class Credentials(BaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param client_id: Optional. OAuth2 client ID.
         :param client_secret: Optional. Input only. OAuth2 client secret. Write-only; never returned in responses.
@@ -1330,10 +1332,6 @@ class Credentials(BaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.Credential, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
@@ -1343,6 +1341,10 @@ class Credentials(BaseSDK):
                 http_res_text = utils.stream_to_text(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.Credential, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -1355,7 +1357,7 @@ class Credentials(BaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="sync"),
         )
@@ -1460,11 +1462,10 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_query: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.CredentialListResponse:
-        r"""Lists credentials for a project.
+        r"""Lists credentials.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param page_size: Optional. Maximum number of credentials to return.
-            If unspecified, defaults to 50. Maximum is 1000.
         :param page_token: Optional. Pagination token.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
@@ -1530,10 +1531,6 @@ class AsyncCredentials(AsyncBaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         async def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.CredentialListResponse, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
@@ -1543,6 +1540,10 @@ class AsyncCredentials(AsyncBaseSDK):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.CredentialListResponse, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -1555,7 +1556,7 @@ class AsyncCredentials(AsyncBaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="async"),
         )
@@ -1619,10 +1620,10 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param body:
-        :param api_version: Which version of the API to use.
+        :param body: Required. The request body.
+        :param api_version: API version for request routing.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
         :param extra_body: Additional JSON object fields to merge into request bodies.
@@ -1646,9 +1647,9 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param client_id: Required. OAuth2 client ID.
         :param client_secret: Required. Input only. OAuth2 client secret. Write-only; never returned in responses.
         :param id:
@@ -1677,9 +1678,9 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param id:
         :param injection_location: Required. Locations where the environment variable can be injected in
             outgoing HTTP requests. Must contain at least one location.
@@ -1710,9 +1711,9 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_body: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param header_name: Optional. Header name to inject the token into. Defaults to
             'Authorization'.
         :param id:
@@ -1740,9 +1741,9 @@ class AsyncCredentials(AsyncBaseSDK):
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         **body_kwargs: Any,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param client_id: Required. OAuth2 client ID.
         :param client_secret: Required. Input only. OAuth2 client secret. Write-only; never returned in responses.
         :param id:
@@ -1781,9 +1782,9 @@ class AsyncCredentials(AsyncBaseSDK):
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         **body_kwargs: Any,
     ) -> credentials.Credential:
-        r"""Creates a credential.
+        r"""Creates a new credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param client_id: Required. OAuth2 client ID.
         :param client_secret: Required. Input only. OAuth2 client secret. Write-only; never returned in responses.
         :param id:
@@ -1980,10 +1981,6 @@ class AsyncCredentials(AsyncBaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         async def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.Credential, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
@@ -1993,6 +1990,10 @@ class AsyncCredentials(AsyncBaseSDK):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.Credential, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -2005,7 +2006,7 @@ class AsyncCredentials(AsyncBaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="async"),
         )
@@ -2066,10 +2067,11 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_query: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> interactions.Empty:
-        r"""Deletes a credential. Fails if referenced by active triggers.
+        r"""Deletes a credential.
 
-        :param id: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-        :param api_version: Which version of the API to use.
+        :param id: Required. Resource ID segment making up resource `name`. It identifies the resource
+            within its parent collection as described in https://google.aip.dev/122.
+        :param api_version: API version for request routing.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
         :param timeout: Override the default request timeout configuration for this method in seconds
@@ -2133,10 +2135,6 @@ class AsyncCredentials(AsyncBaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         async def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    interactions.Empty, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
@@ -2146,6 +2144,10 @@ class AsyncCredentials(AsyncBaseSDK):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    interactions.Empty, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -2158,7 +2160,7 @@ class AsyncCredentials(AsyncBaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="async"),
         )
@@ -2219,10 +2221,11 @@ class AsyncCredentials(AsyncBaseSDK):
         extra_query: Optional[Mapping[str, Any]] = None,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> credentials.Credential:
-        r"""Gets metadata of a single credential (no secret fields).
+        r"""Gets a credential by ID.
 
-        :param id: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-        :param api_version: Which version of the API to use.
+        :param id: Required. Resource ID segment making up resource `name`. It identifies the resource
+            within its parent collection as described in https://google.aip.dev/122.
+        :param api_version: API version for request routing.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
         :param timeout: Override the default request timeout configuration for this method in seconds
@@ -2286,10 +2289,6 @@ class AsyncCredentials(AsyncBaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         async def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.Credential, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
@@ -2299,6 +2298,10 @@ class AsyncCredentials(AsyncBaseSDK):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.Credential, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -2311,7 +2314,7 @@ class AsyncCredentials(AsyncBaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="async"),
         )
@@ -2378,9 +2381,10 @@ class AsyncCredentials(AsyncBaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param id: Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-        :param body:
-        :param api_version: Which version of the API to use.
+        :param id: Required. Resource ID segment making up resource `name`. It identifies the resource
+            within its parent collection as described in https://google.aip.dev/122.
+        :param body: Required. The request body.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param extra_headers: Additional headers to set or replace on requests.
         :param extra_query: Additional query parameters to append to requests.
@@ -2408,7 +2412,7 @@ class AsyncCredentials(AsyncBaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param client_id: Optional. OAuth2 client ID.
         :param client_secret: Optional. Input only. OAuth2 client secret. Write-only; never returned in responses.
@@ -2440,7 +2444,7 @@ class AsyncCredentials(AsyncBaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param injection_location: Optional. Locations where the environment variable can be injected in
             outgoing HTTP requests.
@@ -2474,7 +2478,7 @@ class AsyncCredentials(AsyncBaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param header_name: Optional. Header name to inject the token into. Defaults to
             'Authorization'.
@@ -2506,7 +2510,7 @@ class AsyncCredentials(AsyncBaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param client_id: Optional. OAuth2 client ID.
         :param client_secret: Optional. Input only. OAuth2 client secret. Write-only; never returned in responses.
@@ -2549,7 +2553,7 @@ class AsyncCredentials(AsyncBaseSDK):
     ) -> credentials.Credential:
         r"""Updates a credential.
 
-        :param api_version: Which version of the API to use.
+        :param api_version: API version for request routing.
         :param update_mask: Optional. The list of fields to update.
         :param client_id: Optional. OAuth2 client ID.
         :param client_secret: Optional. Input only. OAuth2 client secret. Write-only; never returned in responses.
@@ -2750,10 +2754,6 @@ class AsyncCredentials(AsyncBaseSDK):
             retry_config = (retries, ["408", "409", "429", "5XX"])
 
         async def _speakeasy_parse_response(http_res):
-            if utils.match_response(http_res, "200", "application/json"):
-                return unmarshal_json_response(
-                    credentials.Credential, http_res, validate=False
-                )
             if utils.match_response(http_res, "4XX", "*"):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
@@ -2763,6 +2763,10 @@ class AsyncCredentials(AsyncBaseSDK):
                 http_res_text = await utils.stream_to_text_async(http_res)
                 raise errors.GenAiDefaultError(
                     "API error occurred", http_res, http_res_text
+                )
+            if utils.match_response(http_res, "default", "application/json"):
+                return unmarshal_json_response(
+                    credentials.Credential, http_res, validate=False
                 )
 
             raise errors.GenAiDefaultError("Unexpected response received", http_res)
@@ -2775,7 +2779,7 @@ class AsyncCredentials(AsyncBaseSDK):
             security_source=get_security_from_env(
                 self.sdk_configuration.security, types.Security
             ),
-            tags=None,
+            tags=["credentials"],
             extensions=None,
             response=ResponseContext(mode=_speakeasy_response_mode, execution="async"),
         )

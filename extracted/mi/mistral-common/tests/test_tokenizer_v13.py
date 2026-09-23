@@ -1,6 +1,6 @@
 import pytest
 
-from mistral_common.exceptions import InvalidAssistantMessageException, TokenizerException
+from mistral_common.exceptions import TokenizerException
 from mistral_common.protocol.instruct.chunk import (
     AudioChunk,
     AudioURLChunk,
@@ -10,6 +10,7 @@ from mistral_common.protocol.instruct.chunk import (
 from mistral_common.protocol.instruct.messages import (
     AssistantMessage,
     BaseMessage,
+    ChatMessage,
     SystemMessage,
     ToolMessage,
     UserMessage,
@@ -25,6 +26,7 @@ from mistral_common.tokens.tokenizers.mistral import MistralTokenizer
 from mistral_common.tokens.tokenizers.tekken import SpecialTokenPolicy, Tekkenizer
 from tests.fixtures.audio import get_dummy_audio_chunk, get_dummy_audio_url_chunk
 from tests.test_tekken import get_special_tokens, quick_vocab
+from tests.utils import decode_keep
 
 
 @pytest.fixture(scope="module")
@@ -206,7 +208,8 @@ def test_end_to_end_v13(
     # This does validation, normalization and encoding
     tokenized_v13 = mistral_tokenizer_v13.encode_chat_completion(chat_completion_request)
     assert isinstance(tokenized_v13, Tokenized)
-    assert tokenized_v13.text == EXPECTED_TEXT_V13, tokenized_v13.text
+    text = decode_keep(mistral_tokenizer_v13, tokenized_v13)
+    assert text == EXPECTED_TEXT_V13, text
 
 
 def test_end_to_end_v13_wrong_order(
@@ -231,7 +234,30 @@ def test_end_to_end_v13_wrong_order(
     # This does validation, normalization and encoding
     tokenized_v13 = mistral_tokenizer_v13.encode_chat_completion(chat_completion_request)
     assert isinstance(tokenized_v13, Tokenized)
-    assert tokenized_v13.text == EXPECTED_TEXT_V13_FROM_WRONG_ORDER, tokenized_v13.text
+    text = decode_keep(mistral_tokenizer_v13, tokenized_v13)
+    assert text == EXPECTED_TEXT_V13_FROM_WRONG_ORDER, text
+
+
+@pytest.mark.parametrize("tool_call_id", ["x", "call/id-1"])
+def test_encode_chat_completion_with_arbitrary_tool_call_id(
+    v13_tekkenizer: InstructTokenizerV13, tool_call_id: str
+) -> None:
+    mistral_tokenizer = MistralTokenizer(
+        instruct_tokenizer=v13_tekkenizer,
+        validator=MistralRequestValidatorV13(),
+        request_normalizer=InstructRequestNormalizerV13.normalizer(),
+    )
+    request = ChatCompletionRequest[ChatMessage](
+        messages=[
+            UserMessage(content="a"),
+            AssistantMessage(tool_calls=[ToolCall(id=tool_call_id, function=FunctionCall(name="f", arguments="{}"))]),
+            ToolMessage(content="b", tool_call_id=tool_call_id),
+        ]
+    )
+
+    tokenized = mistral_tokenizer.encode_chat_completion(request)
+
+    assert tokenized.text == "<s>[INST]a[/INST][TOOL_CALLS]f[ARGS]{}</s>[TOOL_RESULTS]b[/TOOL_RESULTS]"
 
 
 def test_encode_tool_message(v13_tekkenizer: InstructTokenizerV13) -> None:
@@ -294,46 +320,19 @@ def test_encode_think_chunk(v13_tekkenizer_think: InstructTokenizerV13) -> None:
         ),
     ],
 )
-@pytest.mark.parametrize("continue_final_message", [True, False])
 def test_tokenize_assistant_message(
-    v13_tekkenizer_think: InstructTokenizerV13, message: AssistantMessage, expected: str, continue_final_message: bool
+    v13_tekkenizer_think: InstructTokenizerV13, message: AssistantMessage, expected: str
 ) -> None:
-    if not continue_final_message:
-        tokens = v13_tekkenizer_think.encode_assistant_message(
-            message, is_before_last_user_message=False, continue_message=continue_final_message
-        )
-        if not message.prefix:
-            expected += "</s>"
-    else:
-        if message.prefix:
-            with pytest.raises(
-                InvalidAssistantMessageException,
-                match="`continue_message` is only supported for assistant messages that have `prefix=False`.",
-            ):
-                v13_tekkenizer_think.encode_assistant_message(
-                    message, is_before_last_user_message=False, continue_message=continue_final_message
-                )
-            return
-        tokens = v13_tekkenizer_think.encode_assistant_message(
-            message, is_before_last_user_message=False, continue_message=continue_final_message
-        )
+    tokens = v13_tekkenizer_think.encode_assistant_message(message, is_before_last_user_message=False)
+    if not message.prefix:
+        expected += "</s>"
     assert v13_tekkenizer_think.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP) == expected
 
 
 def test_tokenize_assistant_message_error(v13_tekkenizer: InstructTokenizerV13) -> None:
     with pytest.raises(TokenizerException, match=r"Invalid assistant message"):
         v13_tekkenizer.encode_assistant_message(
-            AssistantMessage(content="", tool_calls=[]), is_before_last_user_message=False, continue_message=False
-        )
-
-    with pytest.raises(
-        InvalidAssistantMessageException,
-        match="`continue_message` is only supported for assistant messages that have `prefix=False`.",
-    ):
-        v13_tekkenizer.encode_assistant_message(
-            AssistantMessage(content="z", tool_calls=[], prefix=True),
-            is_before_last_user_message=False,
-            continue_message=True,
+            AssistantMessage(content="", tool_calls=[]), is_before_last_user_message=False
         )
 
 
@@ -395,19 +394,19 @@ def test_encode_chat_completion_request_with_sp_and_audio(
         instruct_tokenizer=v13_tekkenizer_audio, validator=validator, request_normalizer=request_normalizer
     )
     encoded = mistral_tokenizer_v13.encode_chat_completion(ChatCompletionRequest(messages=messages))
-    assert encoded.text == "<s>[SYSTEM_PROMPT]hello[/SYSTEM_PROMPT][INST][BEGIN_AUDIO][AUDIO][AUDIO][/INST]"
+    text = decode_keep(mistral_tokenizer_v13, encoded)
+    assert text == "<s>[SYSTEM_PROMPT]hello[/SYSTEM_PROMPT][INST][BEGIN_AUDIO][AUDIO][AUDIO][/INST]"
     assert len(encoded.audios) == 1
 
 
-def test_encode_chat_completion_continue_final_message(v13_tekkenizer: InstructTokenizerV13) -> None:
+def test_encode_chat_completion_prefixed_final_message(v13_tekkenizer: InstructTokenizerV13) -> None:
     request_normalizer = InstructRequestNormalizerV13.normalizer()
     validator = MistralRequestValidatorV13()
     mistral_tokenizer = MistralTokenizer(
         instruct_tokenizer=v13_tekkenizer, validator=validator, request_normalizer=request_normalizer
     )
     request: ChatCompletionRequest = ChatCompletionRequest(
-        messages=[UserMessage(content="a"), AssistantMessage(content="b")],
-        continue_final_message=True,
+        messages=[UserMessage(content="a"), AssistantMessage(content="b", prefix=True)],
     )
     encoded = mistral_tokenizer.encode_chat_completion(request)
 

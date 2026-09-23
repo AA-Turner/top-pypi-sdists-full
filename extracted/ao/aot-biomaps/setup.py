@@ -79,7 +79,7 @@ def get_install_requires():
 
 setup(
     name='aot-biomaps',
-    version='2.9.918',
+    version='2.9.920',
     packages=find_packages(),
     package_dir={'': '.'},
     include_package_data=True,
@@ -101,6 +101,8 @@ setup(
         'console_scripts': ['aot-biomaps = AOT_biomaps.__main__:main'],
     }
 )
+
+
 
 
 

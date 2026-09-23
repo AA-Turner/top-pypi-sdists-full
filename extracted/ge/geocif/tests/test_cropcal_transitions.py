@@ -268,7 +268,7 @@ def test_leading_flat_run_is_inert_on_a_fitted_curve():
 def test_agreement_classes_are_right_closed(delta, expected):
     """One scheme only. The original also built a left-closed pd.cut set of
     columns that disagreed at every boundary."""
-    assert score.agreement_class(delta) == expected
+    assert score.classify_agreement(delta) == expected
 
 
 def test_assessment_requires_both_transitions():
@@ -280,13 +280,14 @@ def test_assessment_requires_both_transitions():
         gdd=np.full(366, 5.0),
     )
     both = score.score_region(rs_midgreenup=110, rs_midgreendown=210, **common)
-    assert both["Assessment"] == score.ALGO_WORKS
-    assert both["Assessment_midgreenup"] == score.ALGO_WORKS
+    assert both["within_tolerance"] == score.ALGO_WORKS
+    assert both["midgreenup_within_tolerance"] == score.ALGO_WORKS
 
     one = score.score_region(rs_midgreenup=110, rs_midgreendown=10, **common)
-    assert np.isnan(one["Assessment"])
-    assert one["Assessment_midgreenup"] == score.ALGO_WORKS
-    assert np.isnan(one["Assessment_midgreendown"])
+    # A miss is an explicit 0; NaN is reserved for "no difference to test".
+    assert one["within_tolerance"] == 0
+    assert one["midgreenup_within_tolerance"] == score.ALGO_WORKS
+    assert one["midgreendown_within_tolerance"] == 0
 
 
 def test_algo_works_is_one_because_the_summary_depends_on_it():

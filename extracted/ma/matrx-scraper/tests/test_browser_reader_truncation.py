@@ -71,6 +71,29 @@ class FakeElement:
         return None
 
 
+class FakeLocator:
+    """The page contract the ONE readiness definition uses
+    (``ai_browser/readiness.py``). These fakes stand for a page where the
+    selector matches a real, visible field."""
+
+    def __init__(self, box: dict[str, float] | None) -> None:
+        self._box = box
+
+    @property
+    def first(self) -> "FakeLocator":
+        return self
+
+    async def wait_for(self, *, state: str, timeout: float) -> None:
+        if self._box is None:
+            raise TimeoutError("not visible")
+
+    async def scroll_into_view_if_needed(self, *, timeout: float) -> None:
+        return None
+
+    async def bounding_box(self) -> dict[str, float] | None:
+        return self._box
+
+
 class FakePage:
     def __init__(
         self,
@@ -98,6 +121,9 @@ class FakePage:
 
     async def inner_text(self, selector: str = "body") -> str:
         return self._text
+
+    def locator(self, selector: str) -> FakeLocator:
+        return FakeLocator({"x": 8.0, "y": 40.0, "width": 240.0, "height": 28.0})
 
     async def query_selector(self, selector: str) -> FakeElement | None:
         return self._element

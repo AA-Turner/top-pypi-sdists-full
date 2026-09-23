@@ -334,6 +334,25 @@ def test_mmff94_charges_length():
     assert len(charges) == m.heavy_atoms
 
 
+def test_mmff94_bounded_analytic_gradient_matches_energy_difference():
+    """The Python validation surface must differentiate its documented energy."""
+    m = chematic.from_smiles("CCCC").add_hydrogens()
+    coords = m.generate_3d()
+    gradient = m.mmff94_bounded_analytic_gradient(coords)
+    assert len(gradient) == len(coords)
+
+    delta = 1e-5
+    plus = [point.copy() for point in coords]
+    minus = [point.copy() for point in coords]
+    plus[0][0] += delta
+    minus[0][0] -= delta
+    expected = (
+        m.mmff94_energy_breakdown(plus)["total"]
+        - m.mmff94_energy_breakdown(minus)["total"]
+    ) / (2.0 * delta)
+    assert abs(gradient[0][0] - expected) < 4e-5 * (1.0 + abs(expected))
+
+
 def test_balaban_j_positive():
     """Balaban J should be positive for non-trivial graphs."""
     m = chematic.from_smiles("CC(=O)Oc1ccccc1C(=O)O")
@@ -366,6 +385,49 @@ def test_top_k_similar_sorted():
     hits = chematic.top_k_similar("c1ccccc1", db, k=4)
     scores = [s for _, s in hits]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_similarity_search_indices_survive_invalid_smiles():
+    """Search and diversity APIs must return original input positions."""
+    db = ["C1(", "c1ccccc1", "C1(", "CCO"]
+
+    assert chematic.top_k_similar("c1ccccc1", db, k=2)[0][0] == 1
+    assert chematic.top_k_similar_fp("c1ccccc1", db, k=2)[0][0] == 1
+    assert set(chematic.maxmin_picks(db, 2)) == {1, 3}
+
+    clustered = {idx for cluster in chematic.butina_cluster(db, 0.4) for idx in cluster}
+    assert clustered == {1, 3}
+
+    query = chematic.from_smiles("CCO")
+    assert [idx for idx, _ in chematic.shape_screen(query, ["C1(", "CCO"])] == [1]
+
+
+def test_top_k_similar_fp_rejects_unknown_profile():
+    with pytest.raises(ValueError, match="unsupported fingerprint type"):
+        chematic.top_k_similar_fp("CCO", ["CCO"], fp="ecpf4")
+
+
+def test_byte_tanimoto_contract_is_consistent():
+    """Empty sets are identical and malformed widths never become zero scores."""
+    assert chematic.tanimoto(b"", b"") == 1.0
+    assert chematic.tanimoto_pharmacophore_3d(b"", b"") == 1.0
+    assert chematic.tanimoto_slice(b"", [b""]) == [1.0]
+    assert chematic.tanimoto_matrix([b""], [b""]) == [[1.0]]
+    assert chematic.nearest_neighbors_from_fp(b"\x00", [b"\x00", b"\x01"], k=2) == [
+        (0, 1.0)
+    ]
+    assert chematic.nearest_neighbors_from_fp(b"\x00", [b"\x00\x00"], k=0) == []
+
+    with pytest.raises(ValueError, match="same length"):
+        chematic.tanimoto(b"\x01", b"\x01\x00")
+    with pytest.raises(ValueError, match="same length"):
+        chematic.tanimoto_pharmacophore_3d(b"\x01", b"\x01\x00")
+    with pytest.raises(ValueError, match=r"db\[0\]"):
+        chematic.tanimoto_slice(b"\x01", [b"\x01\x00"])
+    with pytest.raises(ValueError, match=r"fps_a\[0\].*fps_b\[0\]"):
+        chematic.tanimoto_matrix([b"\x01"], [b"\x01\x00"])
+    with pytest.raises(ValueError, match=r"db_fps\[0\]"):
+        chematic.nearest_neighbors_from_fp(b"\x01", [b"\x01\x00"])
 
 
 def test_center_on_origin_centroid():

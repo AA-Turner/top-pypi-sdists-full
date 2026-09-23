@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: flake8
-Version: 7.3.0
+Version: 7.4.0
 Summary: the modular source code checker: pep8 pyflakes and co
 Home-page: https://github.com/pycqa/flake8
 Author: Tarek Ziade
@@ -12,7 +12,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Flake8
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -20,12 +19,12 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: mccabe<0.8.0,>=0.7.0
-Requires-Dist: pycodestyle<2.15.0,>=2.14.0
-Requires-Dist: pyflakes<3.5.0,>=3.4.0
+Requires-Dist: pycodestyle<2.16.0,>=2.15.0
+Requires-Dist: pyflakes<4.1.0,>=4.0.0
 
 .. image:: https://github.com/PyCQA/flake8/workflows/main/badge.svg
    :target: https://github.com/PyCQA/flake8/actions?query=workflow%3Amain

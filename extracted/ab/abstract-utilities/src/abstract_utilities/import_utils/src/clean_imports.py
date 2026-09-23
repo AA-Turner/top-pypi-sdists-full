@@ -1,6 +1,7 @@
 from ..imports import (
     imports,
     os,
+    re,
     get_args,
     load_dotenv,
     jsonify,
@@ -133,7 +134,6 @@ from ...safe_utils import (
     join_path,
 )
 def is_local_import(line):
-    print(line)
     imports_from_import_pkg = clean_imports(line)
 def try_is_file(file_path):
     try:
@@ -214,7 +214,8 @@ def get_all_imports(text=None,file_path=None,import_pkg_js=None):
     is_from_group = False
     import_pkg_js = ensure_import_pkg_js(import_pkg_js,file_path=file_path)
     for line in lines:
-        
+        if "managers.comfy.imagegen.schemas" in line and file_path != os.path.abspath(__file__) :
+            input(file_path)
         if line.startswith(IMPORT_TAG) and ' from ' not in line:
             
             cleaned_import_list = get_cleaned_import_list(line)
@@ -288,17 +289,49 @@ def get_clean_imports_from_files(files):
     for file in files:
         import_pkg_js = get_all_imports(file,import_pkg_js=import_pkg_js)
     return get_clean_import_string(import_pkg_js)
-def get_dot_fro_line(line,dirname):
-    from_line = line.split(FROM_TAG)[-1]
-    dot_fro = ""
-    for char in from_line:
-        if  char != '.':
-            line = f"from {dot_fro}{eatAll(from_line,'.')}"
+def get_dot_fro_line(line: str, file_path: str) -> str:
+    """
+    Follows leading dots up the directory tree starting from file_path.
+    Does not require sysroot or hardcoded paths.
+    """
+    if not line.startswith("from ."):
+        return line
+
+    match = re.match(r"^from\s+(\.+)([\w\.]*)\s+import\s+(.*)$", line.strip())
+    if not match:
+        return line
+
+    dots, remainder, after_import = match.groups()
+    num_dots = len(dots)
+
+    # 1 dot = file's directory. Each extra dot goes up one additional level.
+    target_dir = os.path.dirname(os.path.abspath(file_path))
+    for _ in range(num_dots - 1):
+        target_dir = os.path.dirname(target_dir)
+
+    # If remainder exists (e.g. 'imagegen.schemas'), join it to target_dir
+    if remainder:
+        rel_subpath = os.path.join(*remainder.split("."))
+        target_path = os.path.join(target_dir, rel_subpath)
+    else:
+        target_path = target_dir
+
+    # Detect package boundaries by scanning up for __init__.py
+    # to reconstruct the true dotted package name without external sysroot
+    cursor = target_dir
+    pkg_parts = []
+    while os.path.isfile(os.path.join(cursor, "__init__.py")):
+        pkg_parts.insert(0, os.path.basename(cursor))
+        parent = os.path.dirname(cursor)
+        if parent == cursor:
             break
-        dirname = os.path.dirname(dirname)
-        dirbase = os.path.basename(dirname)
-        dot_fro = f"{dirbase}.{dot_fro}"
-    return line
+        cursor = parent
+
+    if remainder:
+        pkg_parts.append(remainder)
+
+    resolved_dotted = ".".join(pkg_parts)
+    return f"from {resolved_dotted} import {after_import}"
 def get_dot_fro_lines(lines,file_path,all_imps):
     for line in lines:
         if line.startswith(FROM_TAG):
@@ -348,46 +381,56 @@ def convert_to_sysroot_relative(import_pkg, file_path, sysroot):
 
     return f"{dots}{import_pkg}"
 
-import os
 
 def rewrite_import_with_sysroot(line, file_path, sysroot):
     """
-    Rewrite imports like:
-        from imports.constants import <names>
-    into:
-        from <relative_path>.imports.constants import <names>
-    Where <relative_path> is computed relative to sysroot.
+    Rewrite imports by locating the actual package inside the sysroot.
+    Validates the full package path to prevent false matches.
     """
-
     line = line.rstrip()
     if not line.startswith("from "):
         return line
 
-    # Split import structure
     try:
         after_from = line[len("from "):]
         pkg, after_import = after_from.split(" import ", 1)
     except ValueError:
-        return line  # Not a normal from X import Y
+        return line
 
-    # Absolute paths
-    file_dir = os.path.dirname(os.path.abspath(file_path))
+    if not sysroot:
+        return line
+
     sysroot = os.path.abspath(sysroot)
+    pkg_parts = pkg.lstrip('.').split('.')
+    
+    for root, dirs, files in os.walk(sysroot):
+        # Skip hidden and virtualenv directories to avoid false positives and speed up search
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('__pycache__', 'venv', 'env', 'node_modules')]
+        
+        # Check for the deepest matching module path first
+        # e.g., for A.B.C, check A/B/C.py, then A/B.py (if C is a class inside B.py)
+        for i in range(len(pkg_parts), 0, -1):
+            sub_parts = pkg_parts[:i]
+            path_prefix = os.path.join(*sub_parts)
+            
+            check_dir = os.path.join(root, path_prefix)
+            check_py = f"{check_dir}.py"
+            
+            # Strict verification: Does this exact file or directory actually exist here?
+            if os.path.isfile(check_py) or os.path.isdir(check_dir):
+                rel_root = os.path.relpath(root, sysroot)
+                
+                if rel_root == ".":
+                    true_dotted = pkg
+                else:
+                    # Convert OS path separators to Python dot notation
+                    dotted_prefix = ".".join(p for p in rel_root.split(os.sep) if p)
+                    true_dotted = f"{dotted_prefix}.{pkg}"
+                
+                return f"from {true_dotted} import {after_import}"
 
-    # Compute relative path
-    relpath = os.path.relpath(file_dir, sysroot)
-
-    # Turn filesystem path into dotted python path
-    if relpath == ".":
-        dotted = ""
-    else:
-        dotted = ".".join(part for part in relpath.split(os.sep) if part)
-
-    # Import path you want to append the old import to
-    new_pkg = f"{dotted}.{pkg}".lstrip('.')
-
-    # Build final rewritten import
-    return f"from {new_pkg} import {after_import}"
+    # Return unchanged if no physical match is found in sysroot
+    return line
 
 def trace_all_imports(file_path, sysroot=None):
     import_pkg_js = {}
@@ -400,6 +443,7 @@ def trace_all_imports(file_path, sysroot=None):
         if sysroot:
             new_lines = []
             for line in lines:
+                
                 new_lines.append(rewrite_import_with_sysroot(line, file, sysroot))
             text = "\n".join(new_lines)
 

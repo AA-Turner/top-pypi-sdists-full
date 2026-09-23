@@ -58,12 +58,11 @@ from typing import Any
 
 import sqlalchemy.exc
 from pyexasol.exceptions import (
-    ExaAuthError,
     ExaCommunicationError,
+    ExaConcurrencyError,
+    ExaConnectionError,
     ExaError,
     ExaQueryError,
-    ExaRequestError,
-    ExaRuntimeError,
 )
 from sqlalchemy import (
     Connection,
@@ -602,21 +601,21 @@ ischema_names = {
 
 
 class EXACompiler(compiler.SQLCompiler):
-    extract_map = util.update_copy(
-        compiler.SQLCompiler.extract_map,
-        {
-            "month": "%m",
-            "day": "%d",
-            "year": "%Y",
-            "second": "%S",
-            "hour": "%H",
-            "doy": "%j",
-            "minute": "%M",
-            "epoch": "%s",
-            "dow": "%w",
-            "week": "%W",
-        },
+    # Fields Exasol's EXTRACT accepts: YEAR, MONTH, DAY for DATE; TIMESTAMP and
+    # INTERVAL DAY TO SECOND add HOUR, MINUTE, SECOND. See the Exasol EXTRACT reference:
+    # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/extract.htm
+    _supported_extract_fields = frozenset(
+        {"year", "month", "day", "hour", "minute", "second"}
     )
+
+    def visit_extract(self, extract, **kw):
+        if extract.field.lower() not in self._supported_extract_fields:
+            raise sa_exc.CompileError(
+                f"EXTRACT field '{extract.field}' is not supported "
+                f"supported fields are: {self._supported_extract_fields}."
+                "by the Exasol dialect"
+            )
+        return super().visit_extract(extract, **kw)
 
     def visit_now_func(self, fn, **kw):
         return "CURRENT_TIMESTAMP"
@@ -1496,14 +1495,16 @@ class EXADialect(default.DefaultDialect):
         try:
             return super().do_execute(cursor, statement, parameters, context)
 
-        # Query-specific server errors
+        # PyExasol version 2.4.1 and newer already perform this mapping in the DB-API
+        # layer. This can be removed only after
+        # https://github.com/exasol/pyexasol/issues/411 is resolved and a new
+        # PyExasol release containing the fix has been published. Tracked in
+        # https://github.com/exasol/sqlalchemy-exasol/issues/814.
         except ExaQueryError as e:
             raise sa_exc.ProgrammingError(statement, parameters, e) from e
-
-        # Connection/auth/request/transport problems
-        except (ExaAuthError, ExaRequestError, ExaCommunicationError) as e:
+        except (ExaConnectionError, ExaCommunicationError) as e:
             raise sa_exc.OperationalError(statement, parameters, e) from e
-
-        # Everything else from pyexasol
-        except (ExaRuntimeError, ExaError) as e:
+        except ExaConcurrencyError as e:
+            raise sa_exc.InterfaceError(statement, parameters, e) from e
+        except ExaError as e:
             raise sa_exc.DatabaseError(statement, parameters, e) from e

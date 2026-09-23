@@ -136,9 +136,8 @@ pub fn process_file_with_formatter(
     // unless --show-full-path is set, normalized either way.
     let display_path = resolve_display_path(file_path, show_full_path, project_root);
 
-    // Call the original process_file_inner to get warnings, original line ending, and FileIndex
-    let (
-        all_warnings,
+    let ProcessFileResult {
+        warnings: all_warnings,
         mut content,
         total_warnings,
         fixable_warnings,
@@ -148,7 +147,8 @@ pub fn process_file_with_formatter(
         file_index_reused,
         errored,
         inline_config_warning,
-    ) = process_file_inner(
+        lossy,
+    } = process_file_with_index(
         file_path,
         rule_sets,
         verbose,
@@ -177,17 +177,38 @@ pub fn process_file_with_formatter(
         };
     }
 
-    if rumdl_lib::merge_conflict::detect_configured(&content, config, Some(Path::new(file_path))).is_some() {
-        if !output_format.is_batch() {
+    // A file that is not valid UTF-8 is reported but never fixed or written: its
+    // content is a lossy decoding, not the bytes on disk. A merge conflict
+    // protects the whole document the same way.
+    if lossy
+        || rumdl_lib::merge_conflict::detect_for_rules(
+            &content,
+            &rule_sets.selected,
+            config,
+            Some(Path::new(file_path)),
+        )
+        .is_some()
+    {
+        if !output_format.is_batch() && !all_warnings.is_empty() {
             let formatted = formatter.format_warnings_with_content(&all_warnings, &display_path, &content);
-            if fix_mode == crate::FixMode::Check {
-                let _ = output_writer.writeln(&formatted);
-            } else if !silent {
-                eprintln!("{formatted}");
-            }
+            // Report it where this run reports its findings, so `--stderr` and
+            // `--silent` reach it like any other. The exception is a preview
+            // whose stdout is an applyable patch and nothing else: a notice
+            // about a file it leaves alone belongs beside that patch, not in it.
+            // `check --diff` is the human report that lists both, so it keeps
+            // the notice with its findings.
+            let stdout_is_a_patch = diff && fix_mode != crate::FixMode::Check && output_format.carries_diff();
+            let written = if stdout_is_a_patch {
+                output_writer.write_error(&formatted)
+            } else {
+                output_writer.writeln(&formatted)
+            };
+            written.unwrap_or_else(|e| {
+                eprintln!("Error writing output: {e}");
+            });
         }
         return FileProcessResult {
-            has_issues: true,
+            has_issues: total_warnings > 0,
             issues_found: total_warnings,
             content_changed: false,
             summary_issues_fixed: 0,
@@ -704,7 +725,7 @@ fn apply_auxiliary_fixes(
             &config.code_block_tools,
             config.get_flavor_for_file(Path::new(file_path)),
         );
-        match processor.format_with_config(content, config, Some(Path::new(file_path))) {
+        match processor.format_for_rules(content, &rule_sets.selected, config, Some(Path::new(file_path))) {
             Ok(output) => {
                 if output.content != *content {
                     *content = output.content;
@@ -846,6 +867,9 @@ pub struct ProcessFileResult {
     pub errored: bool,
     /// An inline disable comment referenced an unknown rule name.
     pub inline_config_warning: bool,
+    /// The file is not valid UTF-8: `content` is a lossy decoding (or empty,
+    /// for a binary file), so nothing may be fixed or written back.
+    pub lossy: bool,
 }
 
 pub struct CacheHashes {
@@ -871,54 +895,6 @@ impl CacheHashes {
         );
         blake3::hash(material.as_bytes()).to_hex().to_string()
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn process_file_inner(
-    file_path: &str,
-    rule_sets: &RuleSets,
-    verbose: bool,
-    quiet: bool,
-    silent: bool,
-    config: &rumdl_config::Config,
-    cache: Option<std::sync::Arc<LintCache>>,
-    workspace_index: Option<std::sync::Arc<rumdl_lib::workspace_index::WorkspaceIndex>>,
-    cache_hashes: Option<&CacheHashes>,
-) -> (
-    Vec<rumdl_lib::rule::LintWarning>,
-    String,
-    usize,
-    usize,
-    rumdl_lib::utils::LineEnding,
-    rumdl_lib::utils::NormalizedLineEndingMap,
-    rumdl_lib::workspace_index::FileIndex,
-    bool,
-    bool,
-    bool,
-) {
-    let result = process_file_with_index(
-        file_path,
-        rule_sets,
-        verbose,
-        quiet,
-        silent,
-        config,
-        cache,
-        workspace_index,
-        cache_hashes,
-    );
-    (
-        result.warnings,
-        result.content,
-        result.total_warnings,
-        result.fixable_warnings,
-        result.original_line_ending,
-        result.line_ending_map,
-        result.file_index,
-        result.file_index_reused,
-        result.errored,
-        result.inline_config_warning,
-    )
 }
 
 /// Process a file and return both warnings and FileIndex for cross-file aggregation
@@ -961,28 +937,67 @@ pub fn process_file_with_index(
         // empty-content early returns spread this template); those paths have no
         // inline warning.
         inline_config_warning: false,
+        lossy: false,
     };
 
-    // Read file content efficiently
-    let mut content =
-        match rumdl_lib::time_function!("file: read content", crate::read_file_efficiently(Path::new(file_path))) {
-            Ok(content) => content,
-            Err(e) => {
-                if !silent {
-                    eprintln!("Error reading file {file_path}: {e}");
-                }
-                // A read failure is a tool error, not a clean result: flag it so
-                // the run exits with the tool-error code instead of reporting
-                // the file as having no issues.
+    let bytes = match rumdl_lib::time_function!("file: read content", std::fs::read(file_path)) {
+        Ok(bytes) => Ok(bytes),
+        Err(error) => Err(error.to_string()),
+    };
+    // Invalid UTF-8 is linted from a lossy decoding and reported by MD094; a
+    // binary file gets MD094's single finding instead. A Rust source file is
+    // not Markdown, and one that is not UTF-8 is not Rust either.
+    let decoded = bytes.and_then(|bytes| match String::from_utf8(bytes) {
+        Err(error) if is_rust_source(Path::new(file_path)) => Err(error.utf8_error().to_string()),
+        decoded => Ok(decoded),
+    });
+    let decoded = match decoded {
+        Ok(decoded) => decoded,
+        Err(error) => {
+            if !silent {
+                eprintln!("Error reading file {file_path}: Failed to read file {file_path}: {error}");
+            }
+            // A read failure is a tool error, not a clean result: flag it so
+            // the run exits with the tool-error code instead of reporting the
+            // file as having no issues.
+            return ProcessFileResult {
+                errored: true,
+                ..empty_result
+            };
+        }
+    };
+    let (mut content, invalid_utf8) = match decoded {
+        Ok(content) => (content, None),
+        Err(error) => match rumdl_lib::encoding::decode(error.as_bytes()) {
+            rumdl_lib::encoding::Decoded::Lossy { text, invalid } => (text, Some(invalid)),
+            rumdl_lib::encoding::Decoded::Binary { utf16 } => {
+                let warnings: Vec<_> = rumdl_lib::encoding::detect_binary_for_rules(
+                    utf16,
+                    &rule_sets.selected,
+                    config,
+                    Some(Path::new(file_path)),
+                )
+                .into_iter()
+                .collect();
                 return ProcessFileResult {
-                    errored: true,
+                    total_warnings: warnings.len(),
+                    warnings,
+                    lossy: true,
                     ..empty_result
                 };
             }
-        };
+            rumdl_lib::encoding::Decoded::Utf8(_) => unreachable!("from_utf8 rejected these bytes"),
+        },
+    };
+    let lossy = invalid_utf8.is_some();
+    // The cache and index reuse key on the decoded text, which cannot tell two
+    // files apart whose invalid bytes differ, so a lossy file bypasses both.
+    let cache = if lossy { None } else { cache };
 
     // Do this before normalization, caching, parsing, or invoking external tools.
-    if let Some(conflict) = rumdl_lib::merge_conflict::detect_configured(&content, config, Some(Path::new(file_path))) {
+    if let Some(conflict) =
+        rumdl_lib::merge_conflict::detect_for_rules(&content, &rule_sets.selected, config, Some(Path::new(file_path)))
+    {
         return ProcessFileResult {
             warnings: vec![conflict],
             total_warnings: 1,
@@ -1022,6 +1037,15 @@ pub fn process_file_with_index(
     // needs it too, and that runs ahead of the cache lookup.
     let ignored_rules_for_file = config.get_ignored_rules_for_file(Path::new(file_path));
 
+    // A mode that drops the outer document's rules does not drop MD094: a file
+    // whose bytes are not UTF-8 is owed that finding whatever else this run is
+    // doing, the way the binary branch above owes it from `selected`. Decided
+    // here because the inline-config validation below has to agree with the rule
+    // set the lint pass gets, or it warns that an enable of an active rule does
+    // nothing.
+    let restore_encoding_guard =
+        lossy && rumdl_lib::encoding::guard_missing_from_document_rules(&rule_sets.selected, &rule_sets.document);
+
     // Detect unknown rule names in inline disable comments. The result feeds the
     // exit code under --deny-config-warnings, so it is computed even when
     // --silent suppresses the printed notices.
@@ -1032,7 +1056,10 @@ pub fn process_file_with_index(
         let mut inline_warnings = rumdl_lib::inline_config::validate_inline_config_rules(&content, flavor);
         // Also flag inline enables that cannot take effect in either the outer
         // document or configured fenced Markdown during this operation.
-        let active_rules = rule_sets.configuration_relevant_rule_names(config);
+        let mut active_rules = rule_sets.configuration_relevant_rule_names(config);
+        if restore_encoding_guard {
+            active_rules.insert(rumdl_lib::encoding::RULE_NAME.to_string());
+        }
         inline_warnings.extend(rumdl_lib::inline_config::validate_inline_enables_against_active_rules(
             &content,
             flavor,
@@ -1135,7 +1162,7 @@ pub fn process_file_with_index(
                     (
                         rumdl_lib::time_function!(
                             "cache hit: build file index",
-                            rumdl_lib::build_file_index_only_with_config(
+                            rumdl_lib::build_file_index_only_for_selection(
                                 &content,
                                 &rule_sets.document,
                                 flavor,
@@ -1159,6 +1186,7 @@ pub fn process_file_with_index(
                     file_index_reused,
                     errored: false,
                     inline_config_warning,
+                    lossy: false,
                 };
             }
             Err(reason) => {
@@ -1178,11 +1206,29 @@ pub fn process_file_with_index(
     // index it builds. Handing it a pre-filtered set instead erased this file's
     // headings from the workspace, so a link elsewhere pointing at one of them
     // reported as broken.
+    //
+    // Restoring the encoding guard to that set, rather than reporting it from
+    // here, keeps per-file ignores, inline comments, severity and the report cap
+    // with the pipeline that already implements them.
+    let mut document_set_with_guard;
+    let document_set: &[Box<dyn rumdl_lib::rule::Rule>] = if restore_encoding_guard {
+        document_set_with_guard = rule_sets
+            .document
+            .iter()
+            .map(|rule| dyn_clone::clone_box(&**rule))
+            .collect::<Vec<_>>();
+        document_set_with_guard.push(Box::new(rumdl_lib::encoding::MD094InvalidEncoding));
+        &document_set_with_guard
+    } else {
+        &rule_sets.document
+    };
+
     let (warnings_result, file_index) = rumdl_lib::time_function!(
         "file: lint and index",
-        rumdl_lib::document_run::DocumentRun::new(&content, &rule_sets.document, config)
+        rumdl_lib::document_run::DocumentRun::new(&content, document_set, config)
             .file_path(Path::new(file_path))
             .verbose(verbose)
+            .invalid_utf8(invalid_utf8.as_deref())
             .analyze_raw()
     );
 
@@ -1273,6 +1319,7 @@ pub fn process_file_with_index(
         file_index_reused: false,
         errored: false,
         inline_config_warning,
+        lossy,
     }
 }
 
@@ -1636,6 +1683,7 @@ fn process_rust_file_doc_comments(
         // Rust doc-comment linting does not process markdown inline disable
         // comments (the rust path returns before that detection runs).
         inline_config_warning: false,
+        lossy: false,
     }
 }
 

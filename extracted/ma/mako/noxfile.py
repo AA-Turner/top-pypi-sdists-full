@@ -60,15 +60,17 @@ def lint(session: nox.Session) -> None:
 
     session.install(*nox.project.dependency_groups(pyproject, "lint"))
 
-    session.run(
-        "flake8p",
+    file_paths = [
         "./mako/",
         "./test/",
         "./examples/",
-        "setup.py",
+        "./tools/",
         "noxfile.py",
-    )
-    session.run("black", "--check", ".")
+        "setup.py",
+        "doc/build/conf.py",
+    ]
+    session.run("flake8p", *file_paths)
+    session.run("black", "--check", *file_paths)
 
 
 @nox.session(name="pep484")

@@ -11,11 +11,13 @@ import itertools
 import logging
 import math
 import os
+import sys
 import threading
 import warnings
 import weakref
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Unpack, cast
+from typing import TYPE_CHECKING, Any, Protocol, TextIO, Unpack, cast
 
 import numpy as np
 import pandas as pd
@@ -52,6 +54,7 @@ from pyramids.dataset.dataset import (
     _invalidate_cached_accessors,
 )
 from pyramids.dataset.engines._read_window import resolve_read_window
+from pyramids.dataset.engines.analysis import _DERIVE_NO_DATA
 from pyramids.dataset.engines.io import _caller_stacklevel
 from pyramids.dataset.transform import GeoTransform
 from pyramids.netcdf._axis import detect_axis_indices
@@ -60,6 +63,7 @@ from pyramids.netcdf._lazy import apply_unpack, build_lazy_array
 from pyramids.netcdf._mdim import (
     GEOSTATIONARY_PROJECTION,
     axis_flips,
+    copy_band_values_map,
     dataset_is_geostationary,
     needs_x_flip,
     needs_y_flip,
@@ -85,6 +89,8 @@ from pyramids.netcdf.cf import (
 )
 from pyramids.netcdf.engines import interop as _interop
 from pyramids.netcdf.engines import variables as _variables
+from pyramids.netcdf.engines.combine import concat as _concat
+from pyramids.netcdf.engines.combine import merge as _merge
 from pyramids.netcdf.engines.interop import Interop
 from pyramids.netcdf.engines.selection import Selection
 from pyramids.netcdf.engines.variables import Variables
@@ -99,6 +105,7 @@ from pyramids.netcdf.plot_options import CoordinateSpec, FacetSpec, Selectors
 from pyramids.netcdf.utils import (
     _read_attributes,
     create_time_conversion_func,
+    is_cf_time_units,
     read_cf_attributes,
 )
 
@@ -167,6 +174,14 @@ class _LazyVariableDict(dict):
     of any rank). A `LabeledArray` entry is frozen before it is cached (see
     `LabeledArray.freeze`), because every later lookup hands out that same
     object; `get_variable` itself returns a fresh, writeable one each call.
+
+    **Read-through, never written to.** Every mutating entry point `dict` offers is refused
+    with a `TypeError` from :meth:`_refuse` — `__setitem__`, `__delitem__`, `update`,
+    `setdefault`, `pop`, `popitem`, `clear` and `|=`. Overriding the first two was not
+    enough: CPython implements the rest in C against the underlying storage, so each reaches
+    the load cache without passing through either override, and every door has to be closed
+    by name. `|` is left alone, because it builds a new plain `dict` rather than mutating
+    this one. The internal cache fill calls `dict.__setitem__` directly and so is unaffected.
 
     Note:
         This class is **not thread-safe**. Concurrent access from
@@ -255,12 +270,151 @@ class _LazyVariableDict(dict):
     def __iter__(self):
         return iter(self._names)
 
+    def _refuse(self, verb: str) -> TypeError:
+        """The refusal every mutating method raises.
+
+        Args:
+            verb: What the caller was trying to do, for the message.
+
+        Returns:
+            TypeError: To be raised by the caller.
+        """
+        return TypeError(
+            f"{type(self).__name__} is a read-through view of the store's variables, not "
+            f"a writable mapping, so {verb} is refused: it would reach the load cache "
+            f"while `_names` — what `in`, `len` and iteration all answer from — knew "
+            f"nothing about it, leaving the container disagreeing with itself. Add or "
+            f"replace a variable with add_variable() / set_variable(), and drop one with "
+            f"remove_variable()."
+        )
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Refuse. The mapping reads the store; it does not write to it.
+
+        It subclasses `dict` to cache what it has loaded, which made a write land in that
+        cache while `_names` knew nothing about it: `nc["X"]` returned the injected value
+        while `"X" in nc` was `False` and `list(nc)` did not mention it.
+
+        The internal cache fill calls `dict.__setitem__` directly and so is unaffected.
+
+        Args:
+            key: Ignored.
+            value: Ignored.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse(f"assigning {key!r}")
+
+    def __delitem__(self, key: str) -> None:
+        """Refuse, for the reason :meth:`__setitem__` gives.
+
+        Args:
+            key: Ignored.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse(f"deleting {key!r}")
+
+    # Overriding `__setitem__` and `__delitem__` is not enough. CPython implements the rest
+    # of `dict`'s mutators in C against the underlying storage, so `update`, `setdefault`,
+    # `pop`, `popitem`, `clear` and `|=` all reach the cache without passing through either
+    # override — `nc.variables.update({"GHOST": ...})` made `nc["GHOST"]` resolve while
+    # `"GHOST" in nc` stayed `False`, which is the exact inconsistency the refusal exists
+    # to prevent. Every door has to be closed by name.
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        """Refuse, for the reason :meth:`__setitem__` gives.
+
+        Args:
+            *args: Ignored.
+            **kwargs: Ignored.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse("update()")
+
+    def setdefault(self, *args: Any, **kwargs: Any) -> Any:
+        """Refuse, for the reason :meth:`__setitem__` gives.
+
+        Args:
+            *args: Ignored.
+            **kwargs: Ignored.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse("setdefault()")
+
+    def pop(self, *args: Any, **kwargs: Any) -> Any:
+        """Refuse, for the reason :meth:`__delitem__` gives.
+
+        Args:
+            *args: Ignored.
+            **kwargs: Ignored.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse("pop()")
+
+    def popitem(self) -> Any:
+        """Refuse, for the reason :meth:`__delitem__` gives.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse("popitem()")
+
+    def clear(self) -> None:
+        """Refuse, for the reason :meth:`__delitem__` gives.
+
+        Nothing would go *missing*: `_names` is what `in`, `len` and iteration answer from,
+        so an emptied cache still reports every variable and reloads each on next access.
+        What breaks is identity — `variables["x"] is variables["x"]` stops holding — and that
+        is the guarantee a frozen `LabeledArray` entry exists to provide: a caller holding the
+        object it was handed would be comparing against one the mapping has since replaced.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse("clear()")
+
+    # `dict.__or__` is inherited and returns a plain `dict`, which a checker reads as
+    # incompatible with refusing `|=` here. The mismatch is the point: `|` builds a new
+    # dict and is harmless, `|=` mutates this one and is not.
+    def __ior__(self, other: Any) -> _LazyVariableDict:  # type: ignore[misc]
+        """Refuse, for the reason :meth:`__setitem__` gives.
+
+        The annotation deliberately does **not** line up with the inherited `dict.__or__`,
+        which returns a plain `dict`. mypy reports `Signatures of "__ior__" and "__or__" are
+        incompatible  [misc]` for that, and the `type: ignore[misc]` on the signature is what
+        silences it — the mismatch is the point, since `|` is harmless and `|=` is not.
+        Nothing is ever returned either way, because this always raises.
+
+        Args:
+            other: Ignored.
+
+        Returns:
+            _LazyVariableDict: Never returns.
+
+        Raises:
+            TypeError: Always.
+        """
+        raise self._refuse("|=")
+
     # This lazy view returns materialized lists rather than live dict
     # views (callers iterate variable names/datasets, not a changing
     # mapping), so the return types deliberately diverge from dict/Mapping.
     def keys(self) -> list[str]:  # type: ignore[override]
-        """The data-variable names, in store order. Reads nothing."""
-        return self._names
+        """The data-variable names, in store order. Reads nothing.
+
+        A **copy**: `_names` is what `__iter__`, `__len__`, `__contains__`, `values`
+        and `items` are all driven from, so handing the list itself out would let
+        `nc.variables.keys().append(...)` corrupt every one of them at once.
+        """
+        return list(self._names)
 
     def values(self) -> list[NetCDF | LabeledArray]:  # type: ignore[override]
         """Every variable, loading each: a `NetCDF` per raster variable, a `LabeledArray` else."""
@@ -341,8 +495,25 @@ _REDUCERS: dict[str, tuple[Any, Any]] = {
     "max": (np.nanmax, np.max),
     "std": (np.nanstd, np.std),
     "var": (np.nanvar, np.var),
+    "median": (np.nanmedian, np.median),
+    "prod": (np.nanprod, np.prod),
+    "quantile": (np.nanquantile, np.quantile),
 }
-"""Per-operation `(skipna_func, plain_func)` pairs for :meth:`NetCDF.reduce`."""
+"""Per-operation `(skipna_func, plain_func)` pairs for the statistics `NetCDF.reduce` and
+`NetCDF.coarsen` compute. Under `skipna`, `NetCDF._reduce_axis` runs the first on float64, so
+the result is float64; without it, the second runs on the raw values in the dtype numpy gives
+that reduction — the `min` of an `int16` band stays `int16`. `quantile` is the one that takes
+an extra argument, `q`."""
+
+_COUNTING_REDUCERS: frozenset[str] = frozenset({"count", "all", "any"})
+"""Reductions answering a count or a truth flag rather than a float statistic.
+
+They cannot share the float rule in `NetCDF._reduce_axis` — cast to float64, turn gaps into
+NaN, restore the sentinel on an all-gap column — because a count is an integer that is never
+missing and a flag is a boolean GDAL has no band type for."""
+
+_FLAG_NO_DATA = 255
+"""The no-data value of a `uint8` 0/1 flag band: the value the comparison operators declare."""
 
 # GDAL's WKT ``PROJECTION`` node value for the CF geostationary projection
 # (set by ``osr.SpatialReference.SetGEOS`` / reconstructed from a
@@ -786,6 +957,42 @@ def _same_value(left: Any, right: Any) -> bool:
         return bool(left == right) or _both_nan(left, right)
     except (TypeError, ValueError):
         return _both_nan(left, right)
+
+
+def _same_coordinates(left: Any, right: Any) -> bool:
+    """Whether two band dimensions' coordinate values are the same, position by position.
+
+    Compared with `_same_value`, so two `nan` stamps at the same position agree — a
+    variable with a missing stamp must still line up with itself — and text stamps compare
+    by value. `np.array_equal` gets the first wrong without `equal_nan=True` and raises on
+    text with it.
+
+    Args:
+        left: One operand's coordinate values.
+        right: The other operand's.
+
+    Returns:
+        bool: `True` when both have the same length and every position holds the same value.
+
+    Examples:
+        - A `nan` stamp matches itself, and a different stamp does not:
+            ```python
+            >>> _same_coordinates([0.0, float("nan"), 12.0], [0.0, float("nan"), 12.0])
+            True
+            >>> _same_coordinates([0.0, 6.0], [0.0, 12.0])
+            False
+
+            ```
+        - Text stamps and mixed integer/float stamps compare by value:
+            ```python
+            >>> _same_coordinates(["00:00", "06:00"], ["00:00", "06:00"])
+            True
+            >>> _same_coordinates([0, 6], [0.0, 6.0])
+            True
+
+            ```
+    """
+    return len(left) == len(right) and all(map(_same_value, left, right))
 
 
 def _both_nan(left: Any, right: Any) -> bool:
@@ -1561,6 +1768,387 @@ def _variable_summary(nc: NetCDF) -> str:
     return "\n".join(lines)
 
 
+class _HasDtype(Protocol):
+    """The one member `_variable_dtype` reads from a raster variable.
+
+    Structural rather than `NetCDF` so the annotation states the *whole* dependency: this
+    helper reads a band-type list and nothing else, and a reader should not have to open
+    the body to learn that a 200-member class is not required.
+
+    It buys nothing for the tests, which is what an earlier version of this docstring
+    claimed — `[tool.mypy] exclude` skips `tests/`, so a stub satisfies a nominal
+    annotation there just as happily. `_open_variable` is annotated nominally and is
+    stubbed by its tests in exactly the same way.
+    """
+
+    @property
+    def dtype(self) -> list[str]:
+        """One entry per band."""
+
+
+class _HasRasterShape(_HasDtype, Protocol):
+    """What `_variable_nbytes` needs on top of the dtype: a cell count.
+
+    `band_count` is every non-spatial dimension flattened together, so this product is the
+    whole cube rather than one plane.
+    """
+
+    @property
+    def rows(self) -> int:
+        """Raster height."""
+
+    @property
+    def columns(self) -> int:
+        """Raster width."""
+
+    @property
+    def band_count(self) -> int:
+        """Every non-spatial dimension, flattened."""
+
+
+def _summarised(value: Any, limit: int = 120) -> str:
+    """One attribute value, flattened to a single printable line.
+
+    An `info()` summary imitates `ncdump -h`, whose shape is one attribute per line. A
+    netCDF attribute is arbitrary text and need not cooperate: a ROMS store carries a
+    `CPP_options` value over a thousand characters, and an `NLM_LBC` containing raw
+    newlines that split one attribute across dozens of lines.
+
+    Args:
+        value: The attribute value, of any type.
+        limit: Longest rendering to keep before truncating. Defaults to 120.
+
+    Returns:
+        str: The `repr`, with any real control characters collapsed to spaces, truncated
+        with an ellipsis when it exceeds `limit`. Escape sequences `repr` itself produced
+        are left as they are. A truncation that cut a quoted `repr` gets its closing quote
+        back, so the `:key = <value> ;` line `info` prints still parses — which makes a
+        truncated result `limit + 4` characters for a quoted value and `limit + 3` for one
+        that does not end in a quote, such as a list's.
+
+    Examples:
+        - A short value is its ordinary `repr`:
+
+          ```python
+          >>> from pyramids.netcdf.netcdf import _summarised
+          >>> _summarised("CF-1.6")
+          "'CF-1.6'"
+          >>> _summarised(6371229.0)
+          '6371229.0'
+
+          ```
+        - A string's newline is already escaped by `repr`, so it arrives as one line
+          and is kept exactly as written:
+
+          ```python
+          >>> from pyramids.netcdf.netcdf import _summarised
+          >>> print(_summarised("first" + chr(10) + "second"))
+          'first\\nsecond'
+
+          ```
+        - A backslash survives. Stripping the escape sequence instead, which this used
+          to do, ate part of any Windows path it was given:
+
+          ```python
+          >>> from pyramids.netcdf.netcdf import _summarised
+          >>> print(_summarised("C:" + chr(92) + "new" + chr(92) + "data"))
+          'C:\\\\new\\\\data'
+
+          ```
+        - A value whose *repr* really does span lines is collapsed, since that is the
+          one that breaks the summary's shape:
+
+          ```python
+          >>> import numpy as np
+          >>> from pyramids.netcdf.netcdf import _summarised
+          >>> chr(10) in _summarised(np.arange(40).reshape(8, 5))
+          False
+
+          ```
+        - An over-long value is cut, and says so:
+
+          ```python
+          >>> from pyramids.netcdf.netcdf import _summarised
+          >>> rendered = _summarised("x" * 500, limit=20)
+          >>> rendered[-4:]
+          "...'"
+          >>> len(rendered)
+          24
+
+          ```
+
+    See Also:
+        NetCDF.info: The only caller, which renders one attribute per line with this.
+    """
+    # Only *real* control characters are collapsed. Replacing the two-character
+    # backslash-n escape instead -- which this did -- corrupts any value holding a
+    # backslash: a Windows path came back with part of a directory name eaten. It was
+    # never needed either, because `repr` already escapes a string's newlines, so a
+    # string attribute is one line before it arrives. What can still span lines is a
+    # non-string repr, such as an array's.
+    rendered = repr(value)
+    for control in ("\n", "\r", "\t"):
+        rendered = rendered.replace(control, " ")
+    if len(rendered) > limit:
+        # `repr` opens and closes with the same character, and `info` prints these inside a
+        # `:key = <value> ;` line that imitates `ncdump -h`. Truncating bare left an opening
+        # quote with nothing to match it, so the line no longer parsed as a quoted value.
+        # Tested on the *last* character, not the first: `repr(b"...")` opens with `b'`, so
+        # a leading-character test misses it and leaves the quote unmatched.
+        closing = rendered[-1] if rendered[-1:] in {"'", '"'} else ""
+        rendered = rendered[:limit] + "..." + closing
+    return rendered
+
+
+def _open_variable(nc: NetCDF, name: str) -> NetCDF | LabeledArray | None:
+    """One variable, or `None` when the store will not hand it over.
+
+    Introspection has to describe what it can rather than stop at the first name that
+    refuses. A **classic** container enumerates its variables from the subdataset list,
+    which can name an array GDAL then declines to open — `cf__12v__1d4-2d5-3d2-4d1__y-asc.nc`
+    reports `precipitation_flux` and raises `RuntimeError: ... does not exist in the file
+    system` on the way in. That is a defect in the classic enumeration, not in the caller,
+    and it must not take `info()` down with it.
+
+    Args:
+        nc: The container to read from.
+        name: A name `variable_names` reported.
+
+    Returns:
+        NetCDF | LabeledArray | None: The variable, or `None` when it cannot be opened.
+
+    Warns:
+        UserWarning: Once per name that will not open, carrying the name, the exception type
+            and its message. The refusal is never silent: the three exceptions caught here
+            have sources beyond the classic-enumeration wart — a `/vsicurl/` store raises
+            `RuntimeError` on a transient network failure, and `get_variable` raises
+            `ValueError` for more reasons than a bad name — so silence would make a remote
+            read that half-failed indistinguishable from a store with a known-bad name list,
+            both surfacing only as a quietly smaller `nbytes`.
+
+    Examples:
+        - The refusal this exists for, and a name from the same store that does open:
+
+          ```python
+          >>> from pyramids.netcdf import NetCDF
+          >>> from pyramids.netcdf.netcdf import _open_variable
+          >>> nc = NetCDF.read_file(
+          ...     "tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc",
+          ...     open_as_multi_dimensional=False,
+          ... )
+          >>> _open_variable(nc, "precipitation_flux") is None
+          True
+          >>> _open_variable(nc, "area").rows
+          128
+
+          ```
+        - A name the store never had is the same `None`, not a `KeyError`:
+
+          ```python
+          >>> from pyramids.netcdf import NetCDF
+          >>> from pyramids.netcdf.netcdf import _open_variable
+          >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+          >>> _open_variable(nc, "nope") is None
+          True
+
+          ```
+
+    See Also:
+        NetCDF.dtypes: Types the names this returns, and reports `"unknown"` for a `None`.
+        NetCDF.nbytes: Sizes them, and counts a `None` as `0`.
+    """
+    try:
+        variable = nc[name]
+    except (RuntimeError, KeyError, ValueError) as refusal:
+        # Narrow *and* loud. The classic-enumeration wart below is the case this exists
+        # for, but these three exceptions have other sources — a `/vsicurl/` store raises
+        # `RuntimeError` on a transient network failure, and `get_variable` raises
+        # `ValueError` for more reasons than a bad name. Silence would render a remote
+        # read that half-failed indistinguishable from a store with a known-bad name list,
+        # and both would come back as a quietly smaller `nbytes`.
+        warnings.warn(
+            f"{name!r} could not be opened, so it is reported as an unknown type and "
+            f"sized as 0 bytes: "
+            f"{type(refusal).__name__}: {refusal}. On a classic container this is usually "
+            f"the subdataset list naming a variable by its standard_name — reopen with "
+            f"open_as_multi_dimensional=True. Otherwise the read itself failed.",
+            UserWarning,
+            stacklevel=3,
+        )
+        variable = None
+    return variable
+
+
+def _variable_dtype(variable: _HasDtype | LabeledArray) -> str:
+    """The dtype of one variable, whichever kind :meth:`NetCDF.get_variable` returned.
+
+    A raster subset reports `dtype` as one entry **per band**, all the same because a band is
+    a slice of one array; the first is taken. A `LabeledArray` has no `dtype` of its own and
+    is read from the array it holds.
+
+    Args:
+        variable: A raster subset or a `LabeledArray`.
+
+    Returns:
+        str: The numpy dtype name, `"unknown"` for a subset reporting no bands.
+
+    Examples:
+        - A raster variable reports one name, not the per-band list it carries:
+
+          ```python
+          >>> from pyramids.netcdf import NetCDF
+          >>> from pyramids.netcdf.netcdf import _variable_dtype
+          >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+          >>> len(nc["temperature"].dtype)
+          12
+          >>> _variable_dtype(nc["temperature"])
+          'float64'
+
+          ```
+        - A `LabeledArray` is read from the array it holds:
+
+          ```python
+          >>> from pyramids.netcdf import NetCDF
+          >>> from pyramids.netcdf.netcdf import _variable_dtype
+          >>> nc = NetCDF.read_file("tests/data/netcdf/ugrid__6v__1d5-2d1.nc")
+          >>> _variable_dtype(nc["n_nodes_per_face"])
+          'int64'
+
+          ```
+
+    See Also:
+        _variable_nbytes: Sizes a variable using this.
+    """
+    if isinstance(variable, LabeledArray):
+        name = str(np.asarray(variable.values).dtype)
+    else:
+        per_band = variable.dtype
+        name = str(per_band[0]) if per_band else "unknown"
+    return name
+
+
+def _variable_nbytes(variable: _HasRasterShape | LabeledArray) -> int:
+    """One variable's size in bytes, from its shape and dtype rather than its data.
+
+    `rows * columns * band_count` is the whole cell count, not a plane's: GDAL flattens every
+    non-spatial dimension into the bands axis, so a `(time, level, lat, lon)` cube reports
+    `band_count` as `time * level`. Nothing is read — a `LabeledArray` is the one case whose
+    array is already in memory, and there `nbytes` is simply its own.
+
+    Args:
+        variable: A raster subset or a `LabeledArray`.
+
+    Returns:
+        int: The byte count, `0` for a variable whose dtype cannot be named.
+
+    Examples:
+        - A 12-band 5x6 float64 cube is 2880 bytes, and nothing is read to say so:
+
+          ```python
+          >>> from pyramids.netcdf import NetCDF
+          >>> from pyramids.netcdf.netcdf import _variable_nbytes
+          >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+          >>> variable = nc["temperature"]
+          >>> variable.band_count, variable.rows, variable.columns
+          (12, 5, 6)
+          >>> _variable_nbytes(variable)
+          2880
+
+          ```
+        - A `LabeledArray` is sized from the array it already holds:
+
+          ```python
+          >>> from pyramids.netcdf import NetCDF
+          >>> from pyramids.netcdf.netcdf import _variable_nbytes
+          >>> nc = NetCDF.read_file("tests/data/netcdf/ugrid__6v__1d5-2d1.nc")
+          >>> nc["node_lon"].values.shape
+          (16,)
+          >>> _variable_nbytes(nc["node_lon"])
+          64
+
+          ```
+
+    See Also:
+        _variable_dtype: Where the item size comes from.
+    """
+    if isinstance(variable, LabeledArray):
+        size = int(np.asarray(variable.values).nbytes)
+    else:
+        cells = int(variable.rows) * int(variable.columns) * int(variable.band_count)
+        kind = _variable_dtype(variable)
+        # `np.dtype("unknown")` is a TypeError, and `_variable_dtype` documents `"unknown"`
+        # as its answer for a subset reporting no bands — so the size of a variable whose
+        # type cannot be named has to be 0 here, not an exception out of `nc.nbytes`.
+        size = 0 if kind == "unknown" else cells * int(np.dtype(kind).itemsize)
+    return size
+
+
+def _with_receiver(receiver: NetCDF | None, objs: Any) -> list:
+    """The cubes a join should read: `objs`, after the receiver when there is one.
+
+    Args:
+        receiver: The cube the join was reached through, or `None` for a class call.
+        objs: The cubes the caller passed.
+
+    Returns:
+        list: The cubes to join, in order.
+    """
+    cubes = list(objs)
+    return cubes if receiver is None else [receiver, *cubes]
+
+
+class _joins_cubes:  # noqa: N801
+    """Descriptor for the two joins: callable on the class, and on a cube.
+
+    `NetCDF.concat([a, b], "time")` is the canonical spelling, but
+    `first.concat([second], "time")` is a natural reading of "join this cube with that
+    one" — and as a plain `classmethod` it silently returned only `second`, because a
+    classmethod cannot see the instance it was reached through. Here it can: an instance
+    call puts the receiver at the front of the list, so both spellings answer the same
+    cube.
+
+    The wrapped function takes the receiver as its first parameter — the cube it was
+    reached through, or `None` for a class call — and `_with_receiver` turns that into
+    the list to join.
+    """
+
+    def __init__(self, function: Callable) -> None:
+        """Wrap the join.
+
+        Args:
+            function: The join, taking `(objs, ...)`.
+        """
+        self._function = function
+        self.__doc__ = function.__doc__
+
+    def __get__(self, instance: Any, owner: type | None = None) -> Callable:
+        """Bind the join to the class or to a cube.
+
+        Args:
+            instance: The cube it was reached through, or `None` for a class call.
+            owner: The class.
+
+        Returns:
+            Callable: The join, with the receiver prepended on an instance call.
+        """
+
+        def call(*args: Any, **kwargs: Any) -> NetCDF:
+            """Join, with the receiver threaded in as the wrapped function's first argument.
+
+            Args:
+                *args: Passed through.
+                **kwargs: Passed through.
+
+            Returns:
+                NetCDF: The joined cube.
+            """
+            return cast("NetCDF", self._function(instance, *args, **kwargs))
+
+        call.__doc__ = self._function.__doc__
+        call.__name__ = self._function.__name__
+        return call
+
+
 class NetCDF(Dataset):
     """NetCDF.
 
@@ -1688,14 +2276,26 @@ class NetCDF(Dataset):
             self._is_md_array = False
             self._is_subset = False
         # Caches (invalidated by _replace_raster, add_variable, remove_variable)
-        self._cached_variables: dict[str, NetCDF | LabeledArray] | None = None
+        self._cached_variables: _LazyVariableDict | None = None
         self._cached_meta_data: NetCDFMetadata | None = None
         # Memoised `geotransform`; see that property. Cleared wherever
         # `_geotransform` is reassigned, so the two cannot disagree.
         self._derived_geotransform: tuple | None = None
+        # The grid a rebuild was told to produce, when its coordinates cannot describe it — a
+        # spatial axis one cell long carries no spacing to derive one from. `get_variable` hands
+        # it to the variables it builds, which have no coordinate arrays of their own, the
+        # `geotransform` property answers it ahead of deriving one, and `_restore_stamped_grid`
+        # replays it over whatever `_update_inplace` or `_replace_raster` re-derived.
+        self._stamped_geotransform: tuple | None = None
         # Origin-tracking attributes set by get_variable (RT-4)
         self._parent_nc: NetCDF | None = None
         self._source_var_name: str | None = None
+        # True on a raster rebuilt cell by cell in memory (`where`, `fillna`, the null
+        # flags): it keeps `_source_var_name` so it is still called what it is called,
+        # but its values are its own and no longer live at `file::source_var_name`. A
+        # lazy read, which reopens that path, has to refuse it rather than reach for a
+        # store that does not hold these cells.
+        self._rebuilt_in_memory: bool = False
         # ARC-12: a group view shares the parent container's open dataset and
         # records the "/"-joined path to its working sub-group here. None (the
         # default) means this container is rooted at the dataset's root group;
@@ -1717,6 +2317,11 @@ class NetCDF(Dataset):
         # True once the AsClassicDataset view has been replaced by a window-readable MEM raster
         # (see _materialize_md_view). Tracks the raster, so _update_inplace carries it over.
         self._md_view_materialized: bool = False
+        # The raster `get_variable` built from the store, while this variable still holds it (see
+        # `_reads_as_its_store`). Dropped by `close()` and by a swap to another raster through
+        # `_update_inplace` or `_replace_raster`, so it neither keeps the source file open nor keeps
+        # a replaced copy of the values alive; `_materialize_md_view` moves it to its MEM copy.
+        self._store_raster: gdal.Dataset | None = None
         # True once a geostationary scan-angle geotransform has been rescaled to
         # metres on this cube; tells the `geotransform` property to trust the
         # stored geotransform instead of re-deriving radian spacing from x/y.
@@ -1739,6 +2344,11 @@ class NetCDF(Dataset):
         self._band_dim_values: list[Any] | None = None
         self._band_dim_names: tuple[str, ...] = ()
         self._band_dim_values_map: dict[str, list[Any] | None] = {}
+        # `(units, calendar)` of the band dimensions whose units are CF time units (not a level's
+        # `millibar`), carried by a result computed in memory, and by a variable `get_variable`
+        # built, so their stamps still decode without a store to read them from (see
+        # `_time_attr_candidates`).
+        self._band_dim_time_attrs: dict[str, tuple[str, str]] = {}
         self._band_dim_sizes: tuple[int, ...] = ()
         self._variable_attrs: dict[str, Any] = {}
         self._scale: float | None = None
@@ -1758,24 +2368,27 @@ class NetCDF(Dataset):
         """Release every GDAL handle this container holds, then close the base.
 
         A NetCDF container keeps more open GDAL references than the single
-        ``self._raster`` that :meth:`Dataset.close` drops:
+        `self._raster` that :meth:`Dataset.close` drops:
 
         * cached per-variable child objects (:attr:`_cached_variables`), each
-          with its own ``_raster`` and SWIG MDArray / root-group references;
-        * the ``_gdal_md_arr_ref`` / ``_gdal_rg_ref`` views that keep an
+          with its own `_raster` and SWIG MDArray / root-group references;
+        * the `_gdal_md_arr_ref` / `_gdal_rg_ref` views that keep an
           extracted variable's C++ backing alive;
-        * the ``_parent_nc`` back-reference forming a refcount cycle with the
-          parent's variable cache.
+        * the `_parent_nc` back-reference forming a refcount cycle with the
+          parent's variable cache;
+        * a variable's `_store_raster`, the record of the raster `get_variable` built, which
+          (unless copied into memory) reads the store and so holds a file-backed store's file
+          open.
 
         This override closes the cached children and drops every extra reference
         before deferring to :meth:`Dataset.close`. It then runs a single
-        :func:`gc.collect`: a spatial op (``crop`` / ``to_crs`` / ``reduce``)
-        extracts variables whose ``AsClassicDataset`` view, MDArray and root
+        :func:`gc.collect`: a spatial op (`crop` / `to_crs` / `reduce`)
+        extracts variables whose `AsClassicDataset` view, MDArray and root
         group form a **reference cycle among the GDAL SWIG wrappers** that plain
         refcounting cannot reclaim. Without the collect those wrappers keep the
-        source file open, so on Windows a later ``os.replace`` / ``os.remove``
-        fails with ``PermissionError`` until the caller forces a GC themselves
-        (#564). Doing it here makes ``close()`` honour its contract — the file is
+        source file open, so on Windows a later `os.replace` / `os.remove`
+        fails with `PermissionError` until the caller forces a GC themselves
+        (#564). Doing it here makes `close()` honour its contract — the file is
         unlocked immediately. Safe to call more than once.
         """
         # Release handles parked by this container's lazy reads (#727): a lazy dask array can be held
@@ -1800,6 +2413,10 @@ class NetCDF(Dataset):
         self._view_source = None
         self._warp_source = None
         self._parent_nc = None
+        # Unless copied into memory, the raster `get_variable` recorded reads the store (the
+        # `AsClassicDataset` view of a multidimensional open, or the file itself opened classic), so
+        # keeping it would keep a file-backed store's file open.
+        self._store_raster = None
         self._cached_meta_data = None
         # Drop and close the reopened geolocation-source handle (a base Dataset over
         # NETCDF:"<file>":<var>, memoised by `_geolocation_source`). Left open it keeps the source
@@ -1834,6 +2451,15 @@ class NetCDF(Dataset):
         right for a swap that leaves the values alone. An in-place compute
         (`apply` / `fill` with `inplace=True`) writes physical values, so it
         calls `_spend_packing` after this swap to drop them.
+
+        The record of the raster `get_variable` built (`_store_raster`) is kept only when `src`
+        is that raster, as the `epsg` setter passes it. Any other `src` drops it, so the variable
+        stops streaming a reduction from its store and the replaced raster is not kept alive.
+
+        The rebuild measures its geotransform and cell size from `src`, which is not the grid a
+        collapsed spatial axis was stamped with, so `_restore_stamped_grid` runs once the
+        snapshot is back: the stamp itself is in `preserved`, but the cell size derived from it
+        is not.
         """
         preserved = {
             "_is_md_array": self._is_md_array,
@@ -1854,9 +2480,14 @@ class NetCDF(Dataset):
             "_band_dim_names": self._band_dim_names,
             "_band_dim_values_map": self._band_dim_values_map,
             "_band_dim_sizes": self._band_dim_sizes,
+            "_band_dim_time_attrs": self._band_dim_time_attrs,
+            "_stamped_geotransform": self._stamped_geotransform,
             "_variable_attrs": self._variable_attrs,
             "_scale": self._scale,
             "_offset": self._offset,
+            # The record survives only a swap to the raster it names (the `epsg` setter's); any other
+            # raster is not the one `get_variable` built, and the replaced one must not be kept alive.
+            "_store_raster": self._store_raster if src is self._store_raster else None,
         }
         # Rebuild via the concrete subclass (Container / Variable) so an
         # in-place update never downgrades the instance's type back to the base NetCDF.
@@ -1867,6 +2498,7 @@ class NetCDF(Dataset):
         )
         self.__dict__.update(new.__dict__)
         self.__dict__.update(preserved)
+        self._restore_stamped_grid()
         # collaborators in `new.__dict__` point at
         # `new` via `weakref.proxy`; re-bind to a proxy of `self`
         # so callers using `self.spatial.crop(...)` after this update
@@ -2039,13 +2671,15 @@ class NetCDF(Dataset):
     @property
     def x(self) -> np.typing.NDArray:
         """x-coordinate/longitude."""
-        # X_coordinate = upper-left corner x + index * cell size + cell-size/2
+        # Returns the stored x/lon coordinate variable (see `lon`); only when the file
+        # has no such coordinate does it fall back to the geotransform-derived axis.
         return self.lon
 
     @property
     def y(self) -> np.typing.NDArray:
         """y-coordinate/latitude."""
-        # Y_coordinate = upper-left corner y - index * cell size - cell-size/2
+        # Returns the stored y/lat coordinate variable (see `lat`); only when the file
+        # has no such coordinate does it fall back to the geotransform-derived axis.
         return self.lat
 
     @property
@@ -2073,6 +2707,13 @@ class NetCDF(Dataset):
         Computes from lon/lat coordinate arrays if available.
         Falls back to the parent GDAL GetGeoTransform() otherwise.
 
+        A stamped grid is the other exception, and takes precedence over every case below: an
+        operation that rebuilt this raster was told what grid it produced
+        (`_stamped_geotransform`), because a spatial axis left one cell long carries no spacing
+        for the coordinates to describe. This is what keeps the grid right after a swap cleared
+        the memoised value; the matching `cell_size`, which no property re-derives, is put back
+        by `_restore_stamped_grid`.
+
         Geostationary scan-angle datasets are the exception: once their
         ``x`` / ``y`` radians have been rescaled to metres on read (see
         :meth:`_normalize_geostationary_geotransform`), re-deriving the
@@ -2087,6 +2728,8 @@ class NetCDF(Dataset):
             a north-up raster. Units follow the dataset CRS (degrees for
             geographic, metres for projected, including rescaled geostationary).
         """
+        if self._stamped_geotransform is not None:
+            return self._stamped_geotransform
         if self._geostationary_scaled:
             return self._geotransform
         if self.lon is not None and self.lat is not None:
@@ -2124,6 +2767,35 @@ class NetCDF(Dataset):
                 -y_cell,
             )
         return self._geotransform
+
+    def _restore_stamped_grid(self) -> None:
+        """Put a stamped grid back after the raster it describes was rebuilt.
+
+        An operation that collapses a spatial axis knows the grid it produced and records it in
+        `_stamped_geotransform`, because the rebuilt store cannot describe it: one coordinate
+        value carries no spacing. The two places that re-derive the raster's state from the
+        raster they were handed call this right after doing so: `_update_inplace` (the `epsg`
+        setter, an in-place `apply`) and `_replace_raster` (a copying `add_variable`). Both
+        compute the geotransform and the cell size from that raster, which is the source's grid
+        and not the stamped one.
+
+        `_cell_size` is what this alone puts back — leave it out and a weighted result reports
+        the replacement raster's width, `1.0` where the stamp says `1.25`, while its variables
+        still say `1.25`. `geotransform` recovers without help, since `_compute_geotransform`
+        answers the stamp before deriving anything.
+
+        Carrying an auxiliary variable onto a result does **not** arrive here:
+        `_carry_aux_variables` uses `add_variable(copy=False)`, which mutates the raster in
+        place. That still drops the memoised `_derived_geotransform`, but `_geotransform` and
+        `_cell_size` survive it and the derivation that follows answers the stamp, so the grid
+        needs no restoring on that path.
+
+        A no-op on any raster that was never stamped, which is every raster read from a file.
+        """
+        if self._stamped_geotransform is not None:
+            self._geotransform = self._stamped_geotransform
+            self._derived_geotransform = self._stamped_geotransform
+            self._cell_size = GeoTransform(*self._stamped_geotransform).cell_size
 
     def _is_geostationary(self) -> bool:
         """True when the dataset CRS is the CF geostationary projection.
@@ -2878,7 +3550,1135 @@ class NetCDF(Dataset):
         return self._get_variable_names()
 
     @property
-    def variables(self) -> dict[str, NetCDF | LabeledArray]:
+    def data_vars(self) -> _LazyVariableDict:
+        """xarray's name for :attr:`variables` — a **mapping**, as xarray's is.
+
+        Deliberately not an alias of :attr:`variable_names`, which is a *list*, for the
+        reason :attr:`dims` gives at length: aliasing a mapping name onto a list is the
+        `variables`-shaped collision this class is trying to avoid, and `data_vars` is the
+        spelling a reader arriving from xarray reaches for first. `ds.data_vars["t2m"]` and
+        `ds.data_vars.items()` both work in xarray, and both work here.
+
+        Iterating it still yields the names, so `list(nc.data_vars)` and `len(nc.data_vars)`
+        read the same as they would against a list.
+
+        **Read-through, not writable.** `nc.data_vars["x"] = ...` raises `TypeError`: the
+        mapping caches what it has loaded, so a write would be visible to `nc["x"]` and
+        invisible to `in`, `len` and iteration. Use `add_variable` / `set_variable` /
+        `remove_variable`.
+
+        **Differs from xarray** in what the values are: each is a `NetCDF` subset or a
+        `LabeledArray`, where xarray's are `DataArray`s.
+
+        Returns:
+            _LazyVariableDict: Name to variable, loading each on first access.
+
+        Examples:
+            - Iterating yields the names, as it does in xarray:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> list(nc.data_vars)
+              ['area', 'msk_rgn', 'pr', 'tas', 'ua']
+              >>> len(nc.data_vars)
+              5
+
+              ```
+            - Indexing reaches the variable, which is what the list form could not do:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> nc.data_vars["ua"].band_count
+              17
+
+              ```
+            - So does `items()`, for a pass over names and variables together:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> [name for name, var in nc.data_vars.items() if var.band_count > 1]
+              ['ua']
+
+              ```
+
+        See Also:
+            NetCDF.variables: The canonical member.
+            NetCDF.variable_names: The names alone, as a list.
+            NetCDF.dtypes: The same names, mapped to their types.
+        """
+        return self.variables
+
+    @property
+    def dims(self) -> dict[str, int]:
+        """Dimension name to length — a **mapping**, as xarray's `Dataset.dims` is.
+
+        Deliberately not an alias of :attr:`dimension_names`, which is a *list*. Aliasing a
+        mapping name onto a list would be a second `variables`-shaped collision: a reader
+        coming from xarray writes `nc.dims["time"]` and would silently get a list index.
+        The list keeps its own name; this returns what the xarray spelling promises, which
+        makes it an alias of :attr:`dimension_sizes` — the same mapping under xarray's name
+        for it, built afresh on every call rather than handed out as one shared object.
+
+        **Differs from xarray** in two ways, and the second is a moving target:
+
+        - It is a plain `dict` where xarray hands back a frozen mapping, so a write —
+          `nc.dims["lat"] = 1` — succeeds against that throwaway and is silently discarded
+          rather than raising. Change an axis through the store, not through this.
+        - **xarray is deprecating `Dataset.dims` as a mapping.** As of 2026.7.0 it returns
+          a `FrozenMappingWarningOnValuesAccess` that warns when the *values* are read, on
+          its way to returning a set of dimension *names*. When that lands, the member this
+          one is named after will be closer to :attr:`dimension_names` than to this.
+          :attr:`sizes` is the spelling that stays a name-to-length mapping on both sides,
+          and is the one to reach for in code meant to last.
+
+        This member is not following it: `dims` as a mapping is what a reader arriving
+        today expects, and matching a set of names would bring straight back the collision
+        the name was chosen to avoid.
+
+        Inherits :attr:`dimension_sizes`' contract on a **variable subset**, where it is `{}`:
+        a subset has no root group to enumerate dimensions from. :attr:`dimension_names` falls
+        back to the names cached when the subset was built and so still reports them, which is
+        the one place the two disagree about more than their shape.
+
+        A **classic** container (`open_as_multi_dimensional=False`) has no root group either,
+        so it is `{}` there too however many variables the store holds — and there
+        :attr:`dimension_names` has no cache to fall back on and answers `None`.
+
+        Returns:
+            dict[str, int]: Dimension name to its length. `{}` on a variable subset and on a
+            classic container.
+
+        Examples:
+            - Keys are the names, values the lengths:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.dims["time"], sorted(nc.dims) == sorted(nc.dimension_names)
+              (4, True)
+
+              ```
+            - A variable subset reports none, while its names survive:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc["temperature"].dims
+              {}
+              >>> nc["temperature"].dimension_names[:2]
+              ['time', 'pressure_level']
+
+              ```
+
+        See Also:
+            NetCDF.dimension_sizes: The canonical member, and where the subset rule comes from.
+            NetCDF.dimension_names: The names alone, as a list.
+        """
+        return self.dimension_sizes
+
+    @property
+    def sizes(self) -> dict[str, int]:
+        """xarray's other name for :attr:`dimension_sizes`. Read-only alias.
+
+        **Differs from xarray** in the same way :attr:`dims` does: a plain `dict`, not a
+        `Frozen`, so a write is silently discarded rather than refused. It is also `{}`
+        wherever `dims` is — on a variable subset and on a classic container, neither of
+        which has a root group to enumerate dimensions from.
+
+        Returns:
+            dict[str, int]: Dimension name to its length. `{}` on a variable subset and on a
+            classic container.
+
+        Examples:
+            - Look up one axis's length:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> nc.sizes["plev"], nc.sizes["lat"]
+              (17, 128)
+
+              ```
+            - Size the grid a variable is defined on:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.sizes["lat"] * nc.sizes["lon"]
+              30
+
+              ```
+
+        See Also:
+            NetCDF.dimension_sizes: The canonical member.
+            NetCDF.dims: The same mapping, under xarray's other name for it.
+        """
+        return self.dimension_sizes
+
+    @property
+    def attrs(self) -> dict[str, Any]:
+        """xarray's name for :attr:`global_attributes`. Read-only alias.
+
+        On a **classic** container (`open_as_multi_dimensional=False`) there is no root group
+        to read, and :attr:`global_attributes` falls back to GDAL's `GetMetadata()`. What
+        comes back then is not the root group's attribute list: the global attributes are
+        prefixed (`NC_GLOBAL#Conventions`), every variable's own attributes are folded in
+        under their own prefix (`temperature#units`), and GDAL's synthetic `NETCDF_DIM_*`
+        entries are added. Key by the prefixed spelling there, or open the store in MDIM mode.
+
+        Returns:
+            dict[str, Any]: The root group's attributes, or GDAL's whole metadata dictionary
+            on a classic container.
+
+        Examples:
+            - Read the root group's attributes:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.attrs
+              {'Conventions': 'CF-1.6'}
+
+              ```
+            - Ask a busier store which convention it follows:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> nc.attrs["Conventions"]
+              'CF-1.0'
+              >>> len(nc.attrs) > 10
+              True
+
+              ```
+            - The same store read classically answers under GDAL's prefixed keys instead:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file(
+              ...     "tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc",
+              ...     open_as_multi_dimensional=False,
+              ... )
+              >>> nc.attrs["NC_GLOBAL#Conventions"], nc.attrs["temperature#units"]
+              ('CF-1.6', 'K')
+
+              ```
+
+        See Also:
+            NetCDF.global_attributes: The canonical member, and the setters
+                `set_global_attribute` / `delete_global_attribute`.
+        """
+        return self.global_attributes
+
+    @property
+    def coords(self) -> dict[str, np.typing.NDArray]:
+        """Every dimension's stored coordinate, as `{name: ndarray}`.
+
+        Built from :meth:`get_dimension_values`, so the storage-order contract lives in one
+        place: a **spatial** axis comes back as the file stores it, which for a
+        south-to-north file is the reverse of the raster's north-up rows. A dimension with
+        no indexing variable is omitted rather than mapped to `None`.
+
+        The keys come from :attr:`dimension_names`, **not** from :attr:`dims` — on a variable
+        subset `dims` is `{}` while the names survive, so reading `dims` here would drop the
+        axes a subset can still report. `set(nc.coords) <= set(nc.dimension_names)` is
+        therefore the invariant, and it is the one to rely on. The subset inclusion is strict
+        in practice, and by more than one axis: a subset tracks only its **band** dimensions,
+        so *every* spatial axis answers `None` from :meth:`get_dimension_values` and drops out
+        — the x axis as much as the y, and whether or not either was renamed. A subset of a
+        `(time, level, lat, lon)` cube therefore reports `time` and `level` only. The renaming
+        of the y axis to the window it was cut with (`subset_lat_4_-1_5`) is real but
+        incidental; a store whose subset keeps both axis names loses both coordinates just the
+        same. A spatial axis's cell centres come from the geotransform instead, via
+        :meth:`~pyramids.dataset.transform.GeoTransform.x_axis` /
+        :meth:`~pyramids.dataset.transform.GeoTransform.y_axis`.
+
+        A **classic** container (`open_as_multi_dimensional=False`) has no dimension names at
+        all — :attr:`dimension_names` is `None` there, not a list, so the invariant above has
+        nothing to hold over and this answers `{}` however many variables the store enumerates.
+
+        Values are read when this is called, one array per dimension; the arrays are small
+        (one per axis, not per cell) but this is not free.
+
+        **Differs from xarray**, whose `coords[name]` is a `DataArray` carrying its own
+        `dims` and `attrs`. These are bare arrays: `nc.coords["lat"].values` is an
+        `AttributeError`, because the array *is* the values. They are also **undecoded**: a
+        CF time axis stays the raw offsets its `units` count, not `datetime64`.
+
+        Returns:
+            dict[str, numpy.ndarray]: Dimension name to its stored coordinate. `{}` on a
+            classic container.
+
+        Examples:
+            - Read the axes the store actually indexes:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> sorted(nc.coords)
+              ['lat', 'lon', 'pressure_level', 'time']
+              >>> nc.coords["lat"].tolist()
+              [40.0, 41.0, 42.0, 43.0, 44.0]
+              >>> nc.coords["time"].tolist()
+              [0.0, 6.0, 12.0, 18.0]
+
+              ```
+            - Find which index a label sits at, which is what the mapping is for:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.coords["pressure_level"].tolist().index(850.0)
+              1
+
+              ```
+            - A dimension with no indexing variable is absent, not `None`:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> "bnds" in nc.dims, "bnds" in nc.coords
+              (True, False)
+
+              ```
+            - A subset keeps only its band axes. Here neither spatial axis was renamed, and
+              both drop out all the same:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__20v__1d3-3d17__y-desc.nc")
+              >>> subset = nc["tcw"]
+              >>> subset.dimension_names
+              ['time', 'latitude', 'longitude']
+              >>> sorted(subset.coords)
+              ['time']
+              >>> subset.get_dimension_values("longitude") is None
+              True
+
+              ```
+
+        See Also:
+            NetCDF.get_dimension_values: The per-name accessor this reads.
+            NetCDF.to_xarray: Which *decodes* a CF time axis, where this does not.
+        """
+        values = {}
+        for name in self.dimension_names or []:
+            stored = self.get_dimension_values(name)
+            if stored is not None:
+                values[name] = stored
+        return values
+
+    @property
+    def dtypes(self) -> dict[str, str]:
+        """Each data variable's dtype, as `{name: dtype}`.
+
+        One entry per **distinct** name in :attr:`variable_names` — a list that a classic
+        container can repeat, as the "Differs from xarray" note below spells out — so a
+        variable subset, which enumerates none, reports `{}`.
+
+        **No data variable's array is read.** For a raster variable the type comes from the
+        band description. Opening one does read its *coordinate* axes — one small array per
+        dimension, never one per cell — which is what "reads no pixels" means here.
+
+        A variable with **no raster plane** is the exception: it comes back as a
+        `LabeledArray`, and building one materialises the variable's own array. So on a
+        store of 1-D or non-numeric variables this reads each of them, and the arrays stay
+        in the :attr:`variables` cache afterwards. The type reported is then the
+        materialised array's, which for a string variable is `'object'` rather than any
+        type the store uses.
+
+        A name the store enumerates but will not open reports `"unknown"` rather than
+        raising. That happens on a **classic** container, whose subdataset enumeration can
+        report an array GDAL then declines to open; introspection describes what it can
+        instead of stopping at the first such name.
+
+        **Differs from xarray** in two ways: the values are `str`, not `numpy.dtype`
+        objects, so `nc.dtypes["t2m"] == np.float64` is `False` where xarray's is `True` —
+        compare `np.dtype(nc.dtypes["t2m"])` instead. And being a mapping it is keyed by
+        **unique** name, while :attr:`variable_names` is a list that a classic container
+        can repeat: on `cf__40v__1d28-2d9-3d3__nc4.nc` opened classically that list has 12
+        entries and 9 distinct names, so `len(nc.dtypes)` is 9 while `len(nc)` is 12.
+
+        Returns:
+            dict[str, str]: Variable name to the dtype of its first band, or to the
+                `LabeledArray`'s own dtype for a variable with no raster plane.
+
+        Warns:
+            UserWarning: Once per name reported `"unknown"`, naming it and the refusal
+                behind it. Once per *distinct* name, not once per occurrence — the walk is
+                over `dict.fromkeys(variable_names)`, so a classic container that enumerates
+                the same name twice still warns about it once.
+
+        Examples:
+            - One entry per data variable:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> nc.dtypes["ua"], nc.dtypes["msk_rgn"]
+              ('float32', 'int32')
+
+              ```
+            - Pick out the variables that are not floating point:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> [name for name, kind in nc.dtypes.items() if "int" in kind]
+              ['msk_rgn']
+
+              ```
+            - Read classically, the same store types the names GDAL will not open `unknown`
+              and carries on with the rest:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file(
+              ...     "tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc",
+              ...     open_as_multi_dimensional=False,
+              ... )
+              >>> nc.dtypes["precipitation_flux"], nc.dtypes["area"]
+              ('unknown', 'float32')
+
+              ```
+
+        See Also:
+            NetCDF.nbytes: Sized from these dtypes and the dimension lengths.
+            NetCDF.variable_names: The names these are keyed by.
+        """
+        # A plain loop over distinct names, not a comprehension over the raw list. The list
+        # can repeat a name on a classic container, which made this re-open — and re-warn
+        # about — the same unopenable variable once per occurrence; and the generator frame
+        # a comprehension adds pushed `_open_variable`'s warning off the caller's line and
+        # onto this file's.
+        types: dict[str, str] = {}
+        for name in dict.fromkeys(self.variable_names):
+            variable = _open_variable(self, name)
+            types[name] = "unknown" if variable is None else _variable_dtype(variable)
+        return types
+
+    @property
+    def nbytes(self) -> int:
+        """The size of every data variable in bytes, computed rather than read.
+
+        From each variable's shape and dtype. **Data variables only** — xarray's `nbytes`
+        counts its coordinates too, so the two differ by the size of the coordinate arrays.
+
+        Three things to know before trusting the number:
+
+        - A **raster** variable is sized without reading a single cell, which is the point:
+          a cube far larger than memory can still be sized. Its coordinate axes are read —
+          one small array per dimension — because opening a variable resolves them.
+        - A variable with **no raster plane** is a `LabeledArray`, and building one
+          materialises its array — so those are read, not computed. A string variable is
+          then counted as 8 bytes per Python object pointer, which bears no relation to
+          the characters stored.
+        - A **packed** variable is sized by its *stored* band type, not by what
+          :meth:`read_array` returns. Reading an `int16` store that unpacks to `float64`
+          costs four times this figure, not one.
+
+        See :attr:`dtypes` for the same caveats on the types.
+
+        It sizes what :attr:`variable_names` enumerates, which on a **variable subset** is
+        nothing: `nc["t2m"].nbytes` is `0`, not that variable's own size. Size a single
+        variable from its shape and :attr:`dtype` instead.
+
+        Sized over **distinct** names, so this and :attr:`dtypes` agree on what "the data
+        variables" are: a classic container's enumeration can report the same name twice,
+        and summing the list would count that variable twice.
+
+        A name the store enumerates but will not open — see :attr:`dtypes` — contributes
+        `0` and a `UserWarning` naming it. The shortfall can be large rather than marginal:
+        a **classic** container's subdataset list can name a variable by its `standard_name`
+        (`precipitation_flux` for `pr`), which GDAL then declines to open, so the three
+        largest cubes of `cf__12v__1d4-2d5-3d2-4d1__y-asc.nc` contribute nothing and the
+        total is 9.7% of the real size. Open the store multidimensionally to size it.
+
+        Returns:
+            int: The total, `0` for a container with no data variables.
+
+        Examples:
+            - A 12-band 5x6 float64 cube is 2880 bytes:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.nbytes
+              2880
+
+              ```
+            - Decide whether a store is worth reading, without reading it:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> round(nc.nbytes / 1024**2, 2)
+              2.62
+
+              ```
+
+        See Also:
+            NetCDF.dtypes: The types this sizes from.
+            NetCDF.dims: The lengths it sizes over.
+        """
+        total = 0
+        unsized = []
+        # `dict.fromkeys` rather than the list: a classic container's enumeration can
+        # report a name twice, and `dtypes` is keyed uniquely. Summing the list would size
+        # the repeat twice and make the two members disagree about what "the data
+        # variables" are. Order is preserved, which `set` would not do.
+        for name in dict.fromkeys(self.variable_names):
+            variable = _open_variable(self, name)
+            if variable is None:
+                unsized.append(name)
+            else:
+                total += _variable_nbytes(variable)
+        if unsized:
+            # Silence here would be the worst of the three options. The shortfall is not
+            # marginal: on `cf__12v__1d4-2d5-3d2-4d1__y-asc.nc` opened classically the
+            # enumeration names the three real cubes by `standard_name`
+            # (`precipitation_flux` for `pr`), none of which GDAL will open, so the total
+            # comes to 9.7% of the true figure while looking like an ordinary answer.
+            warnings.warn(
+                f"nbytes excludes {len(unsized)} variable(s) the store enumerates but "
+                f"will not open, so the total is lower than the real size: "
+                f"{sorted(unsized)}. This happens on a classic container, whose "
+                f"subdataset list can name an array by its standard_name; open the store "
+                f"with open_as_multi_dimensional=True to size it properly.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return total
+
+    def info(self, buf: TextIO | None = None) -> None:
+        """Print a summary of the container: dimensions, variables and attributes.
+
+        Calls :attr:`dtypes`, so it inherits that member's caveat: a variable with no
+        raster plane is materialised to report its type.
+
+        On a **grouped** store the `dimensions:` section lists only the root group's, which
+        is what :attr:`dimension_sizes` reports, while the variable lines reference each
+        group's own axis of the same name — `none__35v__1d35__groups-nc4.nc` declares one
+        `recNum` and then names `recNum` on 29 variables whose lengths differ. Faithful to
+        the members it prints, but not something `ncdump -h` would emit.
+
+        A **classic** container (`open_as_multi_dimensional=False`) has no multidim group
+        behind it, and three parts of the report thin out as a result:
+
+        - Every variable is printed with an **empty axis list**, because the per-variable
+          dimension names are read from that group.
+        - The `dimensions:` section is **empty** — :attr:`dimension_sizes` is enumerated from
+          the same group — so `variables:` follows it immediately, however many variables the
+          store holds.
+        - A name the classic subdataset list reports but GDAL declines to open is typed
+          `unknown`, from :attr:`dtypes`, rather than taking the whole summary down.
+
+        The attribute block grows rather than thins: :attr:`attrs` falls back to GDAL's
+        `GetMetadata()` there, so a global attribute is spelled `:NC_GLOBAL#Conventions = …`
+        and every variable's own attributes (`:temperature#units = …`) and GDAL's synthetic
+        `NETCDF_DIM_*` entries are listed alongside them.
+
+        Args:
+            buf: An open text stream to write to. Defaults to `sys.stdout`, matching
+                xarray's `info`.
+
+        Warns:
+            UserWarning: Once per name typed `unknown`, raised through :attr:`dtypes`. A
+                summary that reports three `unknown` lines has warned three times, so a
+                caller filtering warnings rather than reading the report still learns the
+                store's enumeration is unreliable.
+
+        Examples:
+            - The whole summary of a small store. The real output indents with tabs, as
+              `ncdump -h` does; they are expanded here so the example reads:
+
+              ```python
+              >>> import io
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> report = io.StringIO()
+              >>> nc.info(report)
+              >>> print(report.getvalue().expandtabs(4), end="")
+              pyramids.NetCDF {
+              dimensions:
+                  time = 4 ;
+                  pressure_level = 3 ;
+                  lat = 5 ;
+                  lon = 6 ;
+              variables:
+                  float64 temperature(time, pressure_level, lat, lon) ;
+              <BLANKLINE>
+              // global attributes:
+                  :Conventions = 'CF-1.6' ;
+              }
+
+              ```
+            - Capture it instead of printing, to search or log it:
+
+              ```python
+              >>> import io
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> report = io.StringIO()
+              >>> nc.info(report)
+              >>> [line.strip() for line in report.getvalue().splitlines() if "ua(" in line]
+              ['float32 ua(time, plev, lat, lon) ;']
+
+              ```
+            - The same store read classically: no dimension lines, and no axes on a variable:
+
+              ```python
+              >>> import io
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file(
+              ...     "tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc",
+              ...     open_as_multi_dimensional=False,
+              ... )
+              >>> report = io.StringIO()
+              >>> nc.info(report)
+              >>> lines = report.getvalue().splitlines()
+              >>> [line.expandtabs(4) for line in lines[:4]]
+              ['pyramids.NetCDF {', 'dimensions:', 'variables:', '    float32 area() ;']
+              >>> [line.strip() for line in lines if "precipitation_flux" in line]
+              ['unknown precipitation_flux() ;']
+
+              ```
+
+        See Also:
+            NetCDF.dtypes: The per-variable types this prints.
+            NetCDF.dims: The dimension lengths it prints.
+        """
+        stream = sys.stdout if buf is None else buf
+        # `None` on a classic container, which has no multidim group to read axes from;
+        # `_variable_dim_names` would reach `None.OpenMDArray` and raise `AttributeError`.
+        rg = self._working_group()
+        types = self.dtypes
+        # The names come from `types`, which `dtypes` has just built from its own walk.
+        # Reading `variable_names` again would re-query `GetMDArrayNames()` and re-run CF
+        # classification — the expensive half of the summary on a large store — and any
+        # disagreement between the two walks would surface as a bare `KeyError` from the
+        # `types[name]` below, out of a read-only method. `dtypes` is already keyed by
+        # distinct name, so this is distinct too.
+        names = list(types)
+        lines = ["pyramids.NetCDF {", "dimensions:"]
+        lines += [f"\t{name} = {size} ;" for name, size in self.dimension_sizes.items()]
+        lines.append("variables:")
+        for name in names:
+            # The variable's own axes, read from the store rather than from the subset
+            # `get_variable` hands back: a subset renames its y dimension to the window it was
+            # cut with (`subset_lat_4_-1_5`), which is not a name this file has.
+            axes = "" if rg is None else ", ".join(self._variable_dim_names(rg, name))
+            lines.append(f"\t{types[name]} {name}({axes}) ;")
+        lines.append("")
+        lines.append("// global attributes:")
+        # An attribute value is arbitrary text: a ROMS store carries a `CPP_options` over
+        # 1,000 characters and an `NLM_LBC` full of newlines, either of which destroys the
+        # `ncdump -h` shape this is imitating. Collapsed to one line and truncated.
+        lines += [
+            f"\t:{key} = {_summarised(value)} ;" for key, value in self.attrs.items()
+        ]
+        lines.append("}")
+        print("\n".join(lines), file=stream)
+
+    def get(self, name: str, default: Any = None) -> Any:
+        """The variable called `name`, or `default` when the container has no such variable.
+
+        Args:
+            name: A data-variable name.
+            default: What to return when `name` is absent. Defaults to `None`.
+
+        Returns:
+            NetCDF | LabeledArray | Any: The variable — a `NetCDF` subset or a
+            `LabeledArray` — or `default` when there is no such name. Annotated `Any`
+            because `default` is unconstrained; a checker cannot narrow it further.
+
+        Raises:
+            RuntimeError: `name` **is** one of the data variables but GDAL refuses to open
+                it. Only a **classic** container reaches this — its subdataset enumeration
+                can report an array that will not open — and `default` does not cover it, so
+                a name being present is not on its own a guarantee of a value. :attr:`dtypes`
+                and :attr:`nbytes` do swallow the refusal; this does not.
+
+        Examples:
+            - A miss returns the default rather than raising:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.get("nope", "absent")
+              'absent'
+
+              ```
+            - A hit returns the variable, so it can be used straight away:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.get("temperature").band_count
+              12
+
+              ```
+            - With no default, a miss is `None` — enough to branch on:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.get("nope") is None
+              True
+
+              ```
+
+        See Also:
+            NetCDF.__getitem__: The same lookup, raising `KeyError` on a miss.
+        """
+        return self.variables.get(name, default)
+
+    def __getitem__(self, name: str) -> NetCDF | LabeledArray:
+        """The variable called `name` — `nc["t2m"]`, the first thing an xarray user tries.
+
+        Delegates to :attr:`variables`, so it is the same lazy, cached object
+        :meth:`get_variable` returns and the refusal message is the one that mapping
+        already gives.
+
+        Args:
+            name: A data-variable name, as :attr:`variable_names` lists it.
+
+        Returns:
+            NetCDF | LabeledArray: A `NetCDF` subset for a raster variable, a
+            `LabeledArray` for one with no raster plane.
+
+        Raises:
+            KeyError: `name` is not a data variable. `get_variable` raises `ValueError` for
+                the same miss; the mapping protocol has to raise `KeyError` for `in`, `get`
+                and `dict(nc)` to behave, so the two spellings differ deliberately here.
+            RuntimeError: `name` is enumerated but GDAL refuses to open it. Reachable on a
+                **classic** container, whose subdataset list can report an array that is not
+                there. :attr:`dtypes` and :attr:`nbytes` swallow that refusal so introspection
+                survives it; indexing lets it through.
+
+        Examples:
+            - Reach a variable by name:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc["temperature"].band_count
+              12
+
+              ```
+            - A name the store does not hold at all is a bare `KeyError`:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc["nope"]
+              Traceback (most recent call last):
+                  ...
+              KeyError: 'nope'
+
+              ```
+            - A name the store *does* hold, but not as a data variable, is told apart: the
+              message names the accessor that will read it, and that accessor does:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> try:
+              ...     nc["lat_bnds"]
+              ... except KeyError as miss:
+              ...     print(miss.args[0].split(";")[0])
+              'lat_bnds' is not a data variable, so it is not a key of `variables`
+              >>> nc.get_variable("lat_bnds").shape
+              (1, 128, 2)
+
+              ```
+
+        Read-only: `nc["t2m"] = other` raises `TypeError`, because a store is written
+        through named methods rather than by item assignment.
+
+        See Also:
+            NetCDF.get_variable: The same lookup, raising `ValueError` instead.
+            NetCDF.variables: The mapping this reads.
+            NetCDF.add_variable: Writes a new variable; `set_variable` replaces one and
+                `remove_variable` drops one.
+        """
+        return self.variables[name]
+
+    def __array__(self, dtype: Any = None, copy: Any = None) -> np.ndarray:
+        """Refuse to become an array. Read one with :meth:`read_array` instead.
+
+        :meth:`__iter__` and :meth:`__len__` make every `NetCDF` look like a sequence to
+        NumPy, which would otherwise convert one by looping it. That answer is wrong in two
+        different ways, and the second is dangerous:
+
+        - a **container** yields its variable *names*, so `np.asarray(nc)` would build an
+          array of strings — visibly not data;
+        - a **variable** yields nothing at all, because a variable holds no data variables
+          of its own. NumPy would see an empty sequence, and `np.mean(nc["ua"])` would
+          answer `nan` for a cube of 557,056 real values rather than raise.
+
+        The second is why this refuses rather than documents. `nan` is what a reader gets
+        from averaging nothing, it looks like a legitimate result, and it can travel a long
+        way before anyone questions it. Before the mapping protocol existed NumPy could not
+        interpret a `NetCDF` at all and raised, which was the right answer; this restores it.
+
+        The same judgement :meth:`Dataset.__bool__` already makes for `if nc:` — there is no
+        honest single answer, so decline to invent one.
+
+        `dtype=object` is the one request that is honoured: boxing a dataset in an object
+        array reads nothing and invents nothing — the object is stored as itself — and it
+        worked before the mapping protocol existed, so `np.array([nc], dtype=object)` still
+        gives `(1,)` rather than starting to raise.
+
+        Args:
+            dtype: Requested dtype. `object` boxes the dataset; anything else is refused.
+            copy: NumPy 2's copy-semantics flag. Accepted so the call signature matches;
+                unused, since nothing is ever copied.
+
+        Returns:
+            numpy.ndarray: A 0-d object array holding this dataset, for `dtype=object`.
+
+        Raises:
+            TypeError: For any other dtype, including the default.
+
+        Examples:
+            - The refusal names the way to get the data:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> np.asarray(nc["temperature"])
+              Traceback (most recent call last):
+                  ...
+              TypeError: a NetCDF cannot be converted to an array directly...
+
+              ```
+            - Reading the variable works, and is what the message points at:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc["temperature"].read_array().shape
+              (12, 5, 6)
+
+              ```
+            - Iterating and indexing are untouched — only the value coercion is refused:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> list(nc), len(nc)
+              (['temperature'], 1)
+
+              ```
+            - Boxing in an object array still works, and holds the dataset itself:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> boxed = np.array([nc], dtype=object)
+              >>> boxed.shape
+              (1,)
+              >>> boxed[0] is nc
+              True
+
+              ```
+
+        See Also:
+            NetCDF.read_array: Reads a variable's values as an array.
+            NetCDF.coords: The coordinate axes, which are ordinary arrays.
+            NetCDF.__iter__: What iterating a container yields, and why it is not data.
+        """
+        if dtype is not None and np.dtype(dtype) == object:
+            # Boxing a dataset in an object array is not a coercion — nothing is read and
+            # nothing is invented, the object is stored as itself. It worked before the
+            # mapping protocol existed and there is no reason for this to take it away.
+            box = np.empty((), dtype=object)
+            box[()] = self
+            return box
+        raise TypeError(
+            "a NetCDF cannot be converted to an array directly — a container holds many "
+            "variables and a variable holds none of its own, so iterating either gives "
+            "names or nothing rather than values. Read the data with "
+            'nc["name"].read_array(), or take an axis from nc.coords["lat"].'
+        )
+
+    def __contains__(self, name: object) -> bool:
+        """Whether `name` is one of this container's data variables.
+
+        Args:
+            name: The name to look for. A non-string is simply absent.
+
+        Returns:
+            bool: `True` when :attr:`variable_names` lists it.
+
+        Examples:
+            - Membership follows `variable_names`, not the store's whole array list — `lat`
+              is a dimension coordinate, so it has values but is not a member, and those
+              values come from :attr:`coords` rather than from an item lookup:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> "temperature" in nc, "lat" in nc, "nope" in nc
+              (True, False, False)
+              >>> nc.coords["lat"].tolist()
+              [40.0, 41.0, 42.0, 43.0, 44.0]
+
+              ```
+            - Guard a lookup with it, which is what the protocol is for:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> [name for name in ("tas", "rsds", "pr") if name in nc]
+              ['tas', 'pr']
+
+              ```
+
+        See Also:
+            NetCDF.variable_names: What membership is decided against.
+            NetCDF.coords: Where a dimension coordinate such as `lat` is read from —
+                `get_variable` will **not** take it, and raises `ValueError` if asked.
+            NetCDF.get_variable: Reads the *other* kind of non-member — a bounds or
+                curvilinear-coordinate array such as `lat_bnds`, which the store declares
+                and this enumeration still leaves out.
+        """
+        return name in self.variables
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate the **data-variable names**, in store order.
+
+        Data variables only, matching :attr:`variables` and :attr:`variable_names` — a
+        dimension coordinate such as `lat` is not yielded, so `list(nc)` and
+        `nc.variable_names` agree. That choice is the one place this class could have
+        collided with xarray twice over: `xarray.Dataset.__iter__` yields data variables
+        too, but `xarray.Dataset.variables` includes coordinates while this class's does
+        not. (Spelled out because `Dataset` is also the name of this class's own base,
+        which has neither member.)
+
+        **This made a container look like a sequence to everything that duck-types.**
+        Before these dunders existed, a `NetCDF` had neither `__iter__` nor `__len__`, so
+        NumPy treated it as an opaque object and `isinstance(nc, Iterable)` was `False`.
+        Both changed:
+
+        | expression | before | now |
+        |---|---|---|
+        | `isinstance(nc, Iterable / Sized / Container)` | `False` | `True` |
+        | `np.asarray(nc)` | a 0-d object box | raises — see :meth:`__array__` |
+        | `np.asarray(nc["t2m"])` | raises | raises |
+
+        Left alone, NumPy would have converted a container by looping it — yielding an array
+        of the *names* — and a variable into an empty array, since a variable yields nothing.
+        :meth:`__array__` refuses both. A container's coercion therefore changes from a
+        useless value to an error, and a variable's stays an error, which is the one that
+        mattered: `np.mean` over that empty array answered `nan`. `isinstance(nc, Mapping)`
+        and `isinstance(nc, Sequence)` are both still `False`.
+
+        The change that remains is the `isinstance` row, and it has one practical
+        consequence: a helper that accepts "anything iterable" used to reject a container
+        outright and now accepts it, receiving a list of name strings. Gate on
+        `isinstance(x, NetCDF)` first where that matters.
+
+        `bool(nc)` is unaffected — :meth:`Dataset.__bool__` still refuses to collapse a
+        raster to one truth value, and wins over `__len__`; use `len(nc) == 0` to ask
+        whether a container is empty.
+
+        Yields:
+            str: Each data-variable name.
+
+        Examples:
+            - Iterating yields the names, in store order:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> list(nc)
+              ['area', 'msk_rgn', 'pr', 'tas', 'ua']
+
+              ```
+            - A dimension coordinate is not among them, which is the whole choice:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> list(nc)
+              ['temperature']
+              >>> sorted(nc.dims)
+              ['lat', 'lon', 'pressure_level', 'time']
+
+              ```
+
+        See Also:
+            NetCDF.variable_names: The list this yields from.
+            NetCDF.dims: The dimensions, which iteration deliberately skips.
+        """
+        return iter(self.variables)
+
+    def __len__(self) -> int:
+        """How many data variables the container holds.
+
+        `bool(nc)` does **not** follow from this: :meth:`Dataset.__bool__` takes precedence
+        over `__len__` and raises, because a raster's truth value is ambiguous. Ask
+        `len(nc) == 0` for "does this container hold any variables". See :meth:`__iter__`
+        for the rest of what adding these dunders changed about protocol dispatch.
+
+        Returns:
+            int: `len(variable_names)`. Reads no data.
+
+        Examples:
+            - Count what the store offers:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> len(nc)
+              5
+
+              ```
+            - A store with one variable counts one, though it declares four dimensions:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> len(nc), len(nc.dims)
+              (1, 4)
+
+              ```
+
+        See Also:
+            NetCDF.variable_names: What is counted.
+        """
+        return len(self.variables)
+
+    def keys(self) -> list[str]:
+        """The data-variable names, in store order. Reads nothing.
+
+        **Differs from xarray**, whose `keys()` is a live `KeysView` that tracks the
+        dataset. This is a snapshot: a copy, taken when you call it, which is why it is safe
+        to sort or reverse in place.
+
+        Returns:
+            list[str]: The same names as :attr:`variable_names`, as a fresh list.
+
+        Examples:
+            - A list, not a view, matching the mapping it delegates to:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> nc.keys()
+              ['temperature']
+
+              ```
+            - A fresh copy each call, so reordering it in place disturbs nothing:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> names = nc.keys()
+              >>> names.reverse()
+              >>> names
+              ['ua', 'tas', 'pr', 'msk_rgn', 'area']
+              >>> list(nc)
+              ['area', 'msk_rgn', 'pr', 'tas', 'ua']
+
+              ```
+
+        See Also:
+            NetCDF.variable_names: The canonical list.
+            NetCDF.items: The same names, paired with their variables.
+        """
+        return self.variables.keys()
+
+    def values(self) -> list[NetCDF | LabeledArray]:
+        """Every variable, loading each one.
+
+        Loading is eager and all-or-nothing: the list is built by indexing every name, so
+        one variable that will not open takes the whole call down. Iterate
+        :attr:`variable_names` and index yourself when you need to survive that.
+
+        Returns:
+            list[NetCDF | LabeledArray]: A `NetCDF` per raster variable, a `LabeledArray`
+            for the rest, in store order.
+
+        Raises:
+            RuntimeError: GDAL refuses one of the enumerated variables. Reachable on a
+                **classic** container, whose subdataset list can name an array that will not
+                open — see :meth:`__getitem__`, which raises it one variable at a time.
+
+        Examples:
+            - Each entry is the variable itself, so its properties are to hand:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> [variable.band_count for variable in nc.values()]
+              [1, 1, 1, 1, 17]
+
+              ```
+            - Reduce over them, which is what having the objects is for:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__5v__1d4-4d1__y-asc.nc")
+              >>> max(variable.rows for variable in nc.values())
+              5
+
+              ```
+
+        See Also:
+            NetCDF.items: The same variables, paired with their names.
+            NetCDF.keys: The names alone, which reads nothing.
+        """
+        return self.variables.values()
+
+    def items(self) -> list[tuple[str, NetCDF | LabeledArray]]:
+        """`(name, variable)` for every variable, loading each.
+
+        Eager in the same all-or-nothing way :meth:`values` is: every name is indexed before
+        any pair is returned.
+
+        Returns:
+            list[tuple[str, NetCDF | LabeledArray]]: Pairs in store order.
+
+        Raises:
+            RuntimeError: GDAL refuses one of the enumerated variables — the `values`
+                failure mode, since this loads the same objects.
+
+        Examples:
+            - Unpackable in a loop, as a mapping's items are:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> [(name, variable.band_count) for name, variable in nc.items()]
+              [('area', 1), ('msk_rgn', 1), ('pr', 1), ('tas', 1), ('ua', 17)]
+
+              ```
+            - Filter on a property of the variable rather than on its name:
+
+              ```python
+              >>> from pyramids.netcdf import NetCDF
+              >>> nc = NetCDF.read_file("tests/data/netcdf/cf__12v__1d4-2d5-3d2-4d1__y-asc.nc")
+              >>> [name for name, variable in nc.items() if variable.band_count > 1]
+              ['ua']
+
+              ```
+
+        See Also:
+            NetCDF.keys: The names alone, which reads nothing.
+            NetCDF.values: The variables alone.
+        """
+        return self.variables.items()
+
+    @property
+    def variables(self) -> _LazyVariableDict:
         """All data variables as a lazy dict of `{name: subset}`.
 
         Variables are loaded on first access per key, not all at once.
@@ -2892,8 +4692,10 @@ class NetCDF(Dataset):
         before reaching for a raster method.
 
         Returns:
-            dict[str, NetCDF | LabeledArray]: Mapping from variable name to its
-            subset.
+            _LazyVariableDict: Mapping from variable name to its subset. The concrete type
+            is internal and not exported — treat it as a read-through
+            `Mapping[str, NetCDF | LabeledArray]` whose `keys`, `values` and `items` return
+            lists rather than views, and which refuses writes.
 
         Examples:
             - A store with a grid and a profile axis yields one of each kind:
@@ -4128,7 +5930,30 @@ class NetCDF(Dataset):
         )
 
     def _read_array_lazy(self, chunks: Any, lock: Any, masked: bool) -> ArrayLike:
-        """Lazy (dask) read via ``build_lazy_array``; rejects unsupported combos."""
+        """The dask read, through `build_lazy_array`, once the request can be served.
+
+        A lazy read reopens the variable from its store, so it needs a path and a name to
+        reopen — and it needs the store to still hold the cells being asked for. A raster
+        rebuilt in memory by `where`, `fillna`, `isnull` or `notnull` keeps the name it is
+        called by, for labelling, but its values are its own; without the flag it carries
+        that read reached for `file::name` and failed inside GDAL with a bare
+        `No such file or directory`.
+
+        Args:
+            chunks: The dask chunk specification.
+            lock: The read lock handed to `build_lazy_array`.
+            masked: Whether the caller asked for a masked array, which this read has no
+                answer for.
+
+        Returns:
+            ArrayLike: The dask array.
+
+        Raises:
+            NotImplementedError: `masked=True` was combined with `chunks=`.
+            ValueError: There is no variable name to reopen — the receiver is a container
+                rather than a variable — or the variable was rebuilt in memory, so the
+                store no longer holds these cells. Read it eagerly instead.
+        """
         if masked:
             raise NotImplementedError(
                 "read_array(masked=True) is not supported together with "
@@ -4146,6 +5971,13 @@ class NetCDF(Dataset):
                 "Lazy read requires a variable name; pass "
                 "`variable=` on the container or call read_array "
                 "on a subset from `get_variable()`."
+            )
+        if self._rebuilt_in_memory:
+            raise ValueError(
+                f"Lazy read reopens the variable from its store, and {var_name!r} was "
+                f"rebuilt in memory (by where(), fillna(), isnull() or notnull()), so "
+                f"the store no longer holds these cells. Read it eagerly with "
+                f"read_array()."
             )
         # Thread the eager-resolved raster plane (and its flips) into the lazy build so a variable
         # whose latitude/longitude is not the trailing pair -- selected via `x_dim`/`y_dim` or CF
@@ -4244,12 +6076,12 @@ class NetCDF(Dataset):
     def _preserve_netcdf_metadata(self, result: Dataset) -> NetCDF:
         """Wrap a Dataset result as a NetCDF, preserving variable-subset metadata.
 
-        When spatial operations (crop, to_crs, resample) are called on a
-        NetCDF variable subset, the parent `Dataset` mixin returns a
-        plain `Dataset`. This helper re-wraps the result as a `NetCDF`
-        and copies over the variable-specific attributes so that methods
-        like `sel()`, `read_array(unpack=True)`, and further spatial
-        operations continue to work with consistent return types.
+        Some operations on a variable subset build their result as a plain `Dataset` — a
+        crop, the `sel` / `isel` cut — and this helper re-wraps it as a `Variable`. Others
+        (`to_crs`, `resample`, `warped_view`) already return this class, and that object is
+        labelled in place and returned. Either way the variable-specific attributes are
+        copied over so that methods like `sel()`, `read_array(unpack=True)`, and further
+        spatial operations continue to work with consistent return types.
 
         The canonical multi-band-dim fields (`_band_dim_names`,
         `_band_dim_values_map`, `_band_dim_sizes`) are propagated, and the
@@ -4259,6 +6091,10 @@ class NetCDF(Dataset):
         staleness guard lives: it nullifies the primary coordinate values when
         they are provably stale for the new band count (e.g. after a
         band-shrinking operation outside `sel()`).
+
+        The coordinate lists are copied, not shared (`copy_band_values_map`), and the band
+        dimensions' units are resolved into `_band_dim_time_attrs`, so the result still
+        decodes its time stamps.
 
         Args:
             result: The `Dataset` (or `NetCDF`) returned by a parent
@@ -4285,7 +6121,7 @@ class NetCDF(Dataset):
         wrapped._is_subset = self._is_subset
         wrapped._band_dim_names = self._band_dim_names
         wrapped._band_dim_sizes = self._band_dim_sizes
-        wrapped._band_dim_values_map = dict(self._band_dim_values_map)
+        wrapped._band_dim_values_map = copy_band_values_map(self._band_dim_values_map)
         # Re-derive the legacy primary-dim view from the canonical fields against the
         # wrapped result's live band count: a band-shrinking spatial op may have
         # diverged the band count from the cached coords, so the staleness guard lives
@@ -4303,6 +6139,7 @@ class NetCDF(Dataset):
         wrapped._offset = self._offset
         wrapped._parent_nc = self._parent_nc
         wrapped._source_var_name = self._source_var_name
+        wrapped._band_dim_time_attrs = self._resolved_band_dim_time_attrs()
         # A wrapped subset reopens the parent file on unpickle, so it must carry
         # the parent's captured GDAL open options too (#1025).
         wrapped._open_options = self._open_options
@@ -5512,9 +7349,265 @@ class NetCDF(Dataset):
         mem = self._apply_to_all_variables(operation, op_kwargs, warn_demoted=False)
         return cast("NetCDF", mem._persist_to(path))
 
-    def reduce(self, *args, **kwargs) -> NetCDF:
+    def reduce(
+        self,
+        dim: str,
+        how: str = "mean",
+        *,
+        groupby: list | tuple | str | None = None,
+        skipna: bool = True,
+        q: float | None = None,
+    ) -> NetCDF:
         """Facade — :meth:`Selection.reduce <pyramids.netcdf.engines.selection.Selection.reduce>`."""
-        return self.selection.reduce(*args, **kwargs)
+        return self.selection.reduce(dim, how, groupby=groupby, skipna=skipna, q=q)
+
+    def coarsen(
+        self,
+        dim: str,
+        window: int,
+        *,
+        how: str = "mean",
+        boundary: str = "exact",
+        skipna: bool = True,
+        q: float | None = None,
+    ) -> NetCDF:
+        """Facade — :meth:`Selection.coarsen <pyramids.netcdf.engines.selection.Selection.coarsen>`."""
+        return self.selection.coarsen(
+            dim, window, how=how, boundary=boundary, skipna=skipna, q=q
+        )
+
+    def rolling(
+        self,
+        dim: str,
+        window: int,
+        *,
+        how: str = "mean",
+        center: bool = False,
+        min_periods: int | None = None,
+        q: float | None = None,
+    ) -> NetCDF:
+        """Facade — :meth:`Selection.rolling <pyramids.netcdf.engines.selection.Selection.rolling>`."""
+        return self.selection.rolling(
+            dim, window, how=how, center=center, min_periods=min_periods, q=q
+        )
+
+    def diff(self, dim: str, n: int = 1, *, label: str = "upper") -> NetCDF:
+        """Facade — :meth:`Selection.diff <pyramids.netcdf.engines.selection.Selection.diff>`."""
+        return self.selection.diff(dim, n, label=label)
+
+    def cumsum(self, dim: str, *, skipna: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.cumsum <pyramids.netcdf.engines.selection.Selection.cumsum>`."""
+        return self.selection.cumsum(dim, skipna=skipna)
+
+    def shift(self, dim: str, periods: int = 1, *, fill_value: Any = None) -> NetCDF:
+        """Facade — :meth:`Selection.shift <pyramids.netcdf.engines.selection.Selection.shift>`."""
+        return self.selection.shift(dim, periods, fill_value=fill_value)
+
+    def ffill(self, dim: str, *, limit: int | None = None) -> NetCDF:
+        """Facade — :meth:`Selection.ffill <pyramids.netcdf.engines.selection.Selection.ffill>`."""
+        return self.selection.ffill(dim, limit=limit)
+
+    def bfill(self, dim: str, *, limit: int | None = None) -> NetCDF:
+        """Facade — :meth:`Selection.bfill <pyramids.netcdf.engines.selection.Selection.bfill>`."""
+        return self.selection.bfill(dim, limit=limit)
+
+    def dropna(
+        self, dim: str, *, how: str = "any", thresh: int | None = None
+    ) -> NetCDF:
+        """Facade — :meth:`Selection.dropna <pyramids.netcdf.engines.selection.Selection.dropna>`."""
+        return self.selection.dropna(dim, how=how, thresh=thresh)
+
+    def interpolate_na(
+        self,
+        dim: str,
+        method: str = "linear",
+        *,
+        limit: int | None = None,
+        use_coordinate: bool = True,
+    ) -> NetCDF:
+        """Facade — :meth:`Selection.interpolate_na <pyramids.netcdf.engines.selection.Selection.interpolate_na>`."""
+        return self.selection.interpolate_na(
+            dim, method, limit=limit, use_coordinate=use_coordinate
+        )
+
+    def to_dataframe(self, *, variables: Any = None, dropna: bool = False):
+        """Facade — :meth:`Interop.to_dataframe <pyramids.netcdf.engines.interop.Interop.to_dataframe>`."""
+        return self.interop.to_dataframe(variables=variables, dropna=dropna)
+
+    @_joins_cubes
+    def concat(self, objs: Any, dim: str) -> NetCDF:
+        """Join cubes end to end along one of their dimensions.
+
+        Two halves of a time series becoming the whole. Every cube must be on the same
+        grid, carry the same variables, and agree on every dimension but `dim`; the joined
+        dimension's coordinates are laid end to end in the order the cubes were given.
+
+        See :meth:`merge` for the other join — several variables on one grid, rather than
+        one set of variables over a longer axis.
+
+        Every cube's gaps stay gaps: the result declares the first cube's no-data value
+        and the other cubes' gaps are rewritten to it. The one cell this cannot get right
+        is a later cube holding the first cube's sentinel as a real measurement, which is
+        then read as missing — change one of the sentinels before joining such cubes.
+
+        Callable either way: `NetCDF.concat([first, second], dim)` joins the list, and
+        `first.concat([second], dim)` joins the receiver ahead of it. The two answer the
+        same cube.
+
+        Args:
+            objs: The cubes, containers or variables, in the order they are joined. On an
+                instance call the receiver comes first, ahead of these.
+            dim: The non-spatial dimension to join along.
+
+        Returns:
+            NetCDF: One container holding the joined cubes.
+
+        Raises:
+            ValueError: `objs` is empty, the cubes carry different variables, or a variable
+                lacks `dim` or disagrees on another dimension.
+            AlignmentError: The cubes are not on the same grid.
+
+        Examples:
+            - Two halves of a four-step cube, joined back into it:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> geo_ref = GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326)
+              >>> first = NetCDF.from_array(
+              ...     np.array([1.0, 2.0]).reshape(2, 1, 1), geo_ref=geo_ref,
+              ...     variable_name="t", dims=ExtraDimensions(name="time", values=[0.0, 6.0]),
+              ... )
+              >>> second = NetCDF.from_array(
+              ...     np.array([3.0, 4.0]).reshape(2, 1, 1), geo_ref=geo_ref,
+              ...     variable_name="t", dims=ExtraDimensions(name="time", values=[12.0, 18.0]),
+              ... )
+              >>> whole = NetCDF.concat([first, second], "time")
+              >>> whole.get_variable("t").read_array().ravel().tolist()
+              [1.0, 2.0, 3.0, 4.0]
+              >>> whole.get_variable("t")._band_dim_values_map["time"]
+              [0.0, 6.0, 12.0, 18.0]
+
+              ```
+            - The same join reached through the first cube, which goes at the front:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> geo_ref = GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326)
+              >>> first = NetCDF.from_array(
+              ...     np.array([1.0, 2.0]).reshape(2, 1, 1), geo_ref=geo_ref,
+              ...     variable_name="t", dims=ExtraDimensions(name="time", values=[0.0, 6.0]),
+              ... )
+              >>> second = NetCDF.from_array(
+              ...     np.array([3.0, 4.0]).reshape(2, 1, 1), geo_ref=geo_ref,
+              ...     variable_name="t", dims=ExtraDimensions(name="time", values=[12.0, 18.0]),
+              ... )
+              >>> first.concat([second], "time").get_variable("t").read_array().ravel().tolist()
+              [1.0, 2.0, 3.0, 4.0]
+
+              ```
+        """
+        return _concat(_with_receiver(self, objs), dim)
+
+    @_joins_cubes
+    def merge(self, objs: Any, *, compat: str = "no_conflicts") -> NetCDF:
+        """Put the variables of several cubes side by side on the grid they share.
+
+        **Not** `DatasetCollection.merge`, which means a *spatial mosaic written to a
+        destination file* — several rasters covering neighbouring ground becoming one. This
+        is the other operation: one grid, several variables. See :meth:`concat` for joining
+        along a dimension instead.
+
+        Callable either way: `NetCDF.merge([first, second])` merges the list, and
+        `first.merge([second])` merges the receiver ahead of it.
+
+        No dimension is joined here, so the copies of a variable have to agree about every
+        one of them, coordinates included — two measurements a hundred hours apart are
+        refused rather than fused into one step carrying the first's stamp. Use
+        :meth:`concat` to put them end to end instead.
+
+        Args:
+            objs: The cubes, containers or variables, all on the same grid. On an
+                instance call the receiver comes first, ahead of these.
+            compat: What to do with a variable more than one cube carries.
+                `"no_conflicts"` (default) is xarray's rule: the copies fill each other's
+                gaps, and only a cell both of them hold a *different* value in is a
+                conflict. A value borrowed into a band that cannot hold it widens that
+                band rather than being truncated into it. `"override"` takes the first
+                cube's copy as it stands, gaps and all, without reading any other.
+
+        Returns:
+            NetCDF: One container holding the union of the variables.
+
+        Raises:
+            ValueError: `objs` is empty, `compat` is unknown, two copies of a variable are
+                stamped differently along a band dimension, or two cubes disagree about a
+                cell they both judged.
+            AlignmentError: The cubes are not on the same grid.
+
+        Examples:
+            - Two single-variable cubes becoming one container of both:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import GeoReference, NetCDF
+              >>> geo_ref = GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326)
+              >>> rain = NetCDF.from_array(
+              ...     np.ones((1, 1)), geo_ref=geo_ref, variable_name="rain"
+              ... )
+              >>> temp = NetCDF.from_array(
+              ...     np.zeros((1, 1)), geo_ref=geo_ref, variable_name="temp"
+              ... )
+              >>> sorted(NetCDF.merge([rain, temp]).variable_names)
+              ['rain', 'temp']
+
+              ```
+            - The same merge reached through the first cube:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import GeoReference, NetCDF
+              >>> geo_ref = GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326)
+              >>> rain = NetCDF.from_array(
+              ...     np.ones((1, 1)), geo_ref=geo_ref, variable_name="rain"
+              ... )
+              >>> temp = NetCDF.from_array(
+              ...     np.zeros((1, 1)), geo_ref=geo_ref, variable_name="temp"
+              ... )
+              >>> sorted(rain.merge([temp]).variable_names)
+              ['rain', 'temp']
+
+              ```
+        """
+        return _merge(_with_receiver(self, objs), compat=compat)
+
+    def weighted(
+        self,
+        weights: Any,
+        dims: Any = None,
+        *,
+        how: str = "mean",
+        skipna: bool = True,
+    ) -> NetCDF:
+        """Facade — :meth:`Selection.weighted <pyramids.netcdf.engines.selection.Selection.weighted>`."""
+        return self.selection.weighted(weights, dims, how=how, skipna=skipna)
+
+    def argmin(self, dim: str, *, skipna: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.argmin <pyramids.netcdf.engines.selection.Selection.argmin>`."""
+        return self.selection.argmin(dim, skipna=skipna)
+
+    def argmax(self, dim: str, *, skipna: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.argmax <pyramids.netcdf.engines.selection.Selection.argmax>`."""
+        return self.selection.argmax(dim, skipna=skipna)
+
+    def idxmin(self, dim: str, *, skipna: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.idxmin <pyramids.netcdf.engines.selection.Selection.idxmin>`."""
+        return self.selection.idxmin(dim, skipna=skipna)
+
+    def idxmax(self, dim: str, *, skipna: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.idxmax <pyramids.netcdf.engines.selection.Selection.idxmax>`."""
+        return self.selection.idxmax(dim, skipna=skipna)
 
     @staticmethod
     def _is_file_backed(var: NetCDF) -> bool:
@@ -5544,18 +7637,37 @@ class NetCDF(Dataset):
     def _materialize_variable_array(var: NetCDF, lazy: bool = False) -> Any:
         """Read a variable as `(*band_dim_sizes, rows, cols)` (or `(rows, cols)`).
 
-        With `lazy=True` and dask installed, returns a chunked `dask.array` in that same layout
-        without ever holding the whole variable in RAM — `reduce` streams its reducer over it and
-        computes only the (small) reduced result (ARC-47). The chunked read already keeps each
-        non-spatial dim as its own leading axis, so no reshape is needed. Falls back to the eager
-        read (undoing `read_array`'s singleton-band squeeze and GDAL's row-major band flatten) when
-        `lazy` is False or dask (the `[lazy]` extra) is not installed.
+        With `lazy=True`, dask (the `[lazy]` extra) installed, and a file-backed variable that still
+        reads as its store, returns a chunked `dask.array` in that same layout without ever holding
+        the whole variable in RAM: every operation along a band dimension runs its numpy calls over
+        the chunks rather than over one resident array (ARC-47). What that saves depends on the
+        member. `reduce`, `coarsen`, the extremum locators and `weighted` collapse the dimension, so
+        only the (small) result is ever held. `rolling`, `cumsum` and `shift` answer a result the
+        size of the input, and `diff` one step shorter, so the chunks are still read a chunk at a
+        time but the answer itself is as large as the variable. The chunked read already keeps each
+        non-spatial dim as its own leading axis, so no reshape is needed. Otherwise it
+        reads eagerly, undoing `read_array`'s singleton-band squeeze and GDAL's row-major band
+        flatten.
 
         Because the streamed reduce tree-reduces per chunk via dask while the eager path reduces in a
         single pass, a file-backed `mean`/`sum`/`std`/`var` can differ from the same in-memory reduce
         in the last ULPs (floating-point non-associativity) — equal to `np.allclose`, not bit-for-bit.
+
+        Only a variable that still reads as its store is streamed (`_reads_as_its_store`): the
+        chunked read rebuilds the store's variable from the parent file, so anything derived from it
+        — a `sel` / `isel` cut, a crop, `to_crs`, `resample`, `warped_view`, an operator result, an
+        in-place `apply` / `fill` / `change_no_data_value` — is read eagerly from its own raster
+        instead.
+
+        Args:
+            var: The variable to read.
+            lazy: Whether a streamed read may be returned.
+
+        Returns:
+            numpy.ndarray | dask.array.Array: The values, laid out `(*band_dim_sizes, rows, cols)`
+            for a variable with band dimensions.
         """
-        if lazy and NetCDF._is_file_backed(var):
+        if lazy and NetCDF._is_file_backed(var) and NetCDF._reads_as_its_store(var):
             # Only stream a genuinely file-backed variable: an in-memory container has no file for the
             # chunk graph to reopen and is already fully in RAM, so streaming saves nothing. Checking
             # file-backing up front (rather than a broad except) lets a real file-backed read error
@@ -5571,21 +7683,102 @@ class NetCDF(Dataset):
             arr = unflatten_band_axes(arr, var._band_dim_names, var._band_dim_sizes)
         return cast("np.typing.NDArray", arr)
 
+    @staticmethod
+    def _reads_as_its_store(var: NetCDF) -> bool:
+        """Whether `var` still holds the raster `get_variable` built for it from its store.
+
+        The chunked read that streams a reduction rebuilds a variable from its parent file and its
+        name, so it describes `var` only while `var` is that store variable, unchanged.
+        `get_variable` records the raster it built (`_store_raster`), and a variable streams only
+        while it still holds that very object:
+
+        - every derivation returns a new object with no record — a `sel` / `isel` cut, `to_crs`,
+          `warped_view`, `resample`, a crop, an operator result;
+        - an in-place `apply`, `fill` or `change_no_data_value` swaps a new raster in through
+          `_update_inplace`, and `_replace_raster` swaps one in directly; both drop the record
+          (it becomes `None`). The `epsg` setter hands `_update_inplace` the same raster, so the
+          record is kept and still matches;
+        - `close()` drops the record too;
+        - `_materialize_md_view` does carry it, because it copies the view's values unchanged, so
+          a variable whose view a `resample`, `to_crs` or crop copied as a side effect keeps
+          streaming. A geostationary variable is copied by that method while `get_variable`
+          builds it, and streams because `get_variable` records the raster after that copy.
+
+        The GDAL driver alone cannot tell these apart: a warped variable is a `VRT` over the
+        store and must not stream, while a materialized whole variable is `MEM` and may.
+
+        Args:
+            var: The variable about to be read.
+
+        Returns:
+            bool: `True` when `var`'s raster is the one `get_variable` recorded.
+        """
+        store_raster = getattr(var, "_store_raster", None)
+        return store_raster is not None and var._raster is store_raster
+
     def _resolve_group_positions(
         self, dim: str, groupby: list | tuple | str | None
     ) -> list[np.typing.NDArray] | None:
         """Resolve `groupby` into ordered lists of source index positions.
 
-        Returns ``None`` for the collapse case (``groupby is None``).
+        A frequency groups the steps of `dim` by calendar window, skipping empty windows, over the
+        stamps `_group_stamps` decodes. They are decoded through `get_time_variable` when this
+        object holds no coordinates of its own for `dim`, and through `_decode_time_labels` when
+        it does, which finds the units its store declares or those a derived result carries. A
+        container whose stored axis has no units of its own — one rebuilt by any operation along
+        a band dimension, `reduce` and `coarsen` included — falls back to decoding its
+        dimension's values with the units it carries. A sequence of labels groups equal labels,
+        in first-appearance order.
+
+        Args:
+            dim: The band dimension being grouped.
+            groupby: `None` to collapse `dim`, a pandas offset alias such as `"1D"`, or one label
+                per step of `dim`.
+
+        Returns:
+            list[numpy.ndarray] | None: One ascending array of positions per group, or `None`
+            when `groupby` is `None`.
+
+        Raises:
+            ValueError: `groupby` is a frequency and no time coordinate of `dim` decodes.
+
+        Examples:
+            - Labels group their steps in first-appearance order:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> var = NetCDF.from_array(
+              ...     np.arange(4.0).reshape(4, 1, 1),
+              ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326),
+              ...     variable_name="t",
+              ...     dims=ExtraDimensions(name="time", values=[0.0, 6.0, 24.0, 30.0]),
+              ... ).get_variable("t")
+              >>> [p.tolist() for p in var._resolve_group_positions("time", ["b", "a", "b", "a"])]
+              [[0, 2], [1, 3]]
+
+              ```
+            - A frequency needs stamps with time units, which these raw hours lack:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> var = NetCDF.from_array(
+              ...     np.arange(2.0).reshape(2, 1, 1),
+              ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326),
+              ...     variable_name="t",
+              ...     dims=ExtraDimensions(name="time", values=[0.0, 6.0]),
+              ... ).get_variable("t")
+              >>> var._resolve_group_positions("time", "1D")
+              Traceback (most recent call last):
+                ...
+              ValueError: Cannot group dimension 'time' by frequency '1D': no decodable time coordinate found.
+
+              ```
         """
         positions: list[np.ndarray] | None = None
         if isinstance(groupby, str):
-            # Full-resolution timestamps: the default "%Y-%m-%d" truncates to
-            # whole days, which would collapse every sub-daily frequency
-            # ("1H"/"3H"/"6H") into a single per-day bucket.
-            times = self.get_time_variable(
-                var_name=dim, time_format="%Y-%m-%d %H:%M:%S"
-            )
+            times = self._group_stamps(dim)
             if times is None:
                 raise ValueError(
                     f"Cannot group dimension {dim!r} by frequency {groupby!r}: "
@@ -5610,6 +7803,50 @@ class NetCDF(Dataset):
             positions = [np.array(members[label]) for label in order]
         return positions
 
+    def _group_stamps(self, dim: str) -> list[str] | None:
+        """The decoded stamps of `dim`, to the second, that a frequency groups by.
+
+        Full-resolution timestamps: the default `"%Y-%m-%d"` truncates to whole days, which would
+        collapse every sub-daily frequency (`"1H"`, `"3H"`, `"6H"`) into a single per-day bucket.
+
+        - Coordinates of its own for `dim` (a variable keeps its own, possibly selected, raw
+          stamps but not the root group's units) are decoded with the units its store declares,
+          or that a derived result carries (`_time_attr_candidates`).
+        - A container decodes its stored axis the same way: with the units its own metadata
+          declares, or, for one rebuilt by an operation along a band dimension (`reduce`,
+          `coarsen`, `rolling`, ...) that stores its axis without units, with the units it
+          carries in `_band_dim_time_attrs`.
+        - A variable without coordinates of its own falls back to `get_time_variable`, which
+          reads its own metadata.
+
+        Every branch but the last decodes leniently, so a stamp that does not convert (a NaN, an
+        infinity) gives `None`, as it does for a variable, rather than raising out of the
+        conversion.
+
+        Args:
+            dim: The band dimension.
+
+        Returns:
+            list[str] | None: One `"%Y-%m-%d %H:%M:%S"` stamp per step of `dim`, or `None` when
+            no time coordinate of `dim` decodes.
+        """
+        instant = "%Y-%m-%d %H:%M:%S"
+        own_values = self._band_dim_values_map.get(dim)
+        if own_values is not None:
+            times = self._decode_time_labels(
+                dim, list(own_values), instant, strict=False
+            )
+        elif not self._band_dim_names:
+            stored = self.get_dimension_values(dim)
+            times = (
+                None
+                if stored is None
+                else self._decode_time_labels(dim, list(stored), instant, strict=False)
+            )
+        else:
+            times = self.get_time_variable(var_name=dim, time_format=instant)
+        return times
+
     def _reduce_variable_array(
         self,
         arr,
@@ -5622,10 +7859,11 @@ class NetCDF(Dataset):
         ndv,
         groupby,
         group_positions,
+        q=None,
     ):
         """Reduce one variable's array along `axis`; return new array + dims."""
         if group_positions is None:
-            new_arr = self._reduce_axis(arr, axis, how, skipna, ndv)
+            new_arr = self._reduce_axis(arr, axis, how, skipna, ndv, q)
             new_band_names = [name for name in band_names if name != dim]
             new_values_map = {name: values_map.get(name) for name in new_band_names}
         else:
@@ -5637,7 +7875,7 @@ class NetCDF(Dataset):
                 )
             slices = [
                 self._reduce_axis(
-                    np.take(arr, positions, axis=axis), axis, how, skipna, ndv
+                    np.take(arr, positions, axis=axis), axis, how, skipna, ndv, q
                 )
                 for positions in group_positions
             ]
@@ -5653,25 +7891,98 @@ class NetCDF(Dataset):
         return new_arr, new_band_names, new_values_map
 
     @staticmethod
-    def _reduce_axis(arr, axis, how, skipna, ndv):
-        """Apply one reduction over `axis`, masking NoData when `skipna`."""
-        nan_func, plain_func = _REDUCERS[how]
-        if skipna:
-            data = arr.astype("float64")
-            if ndv is not None:
-                data = np.where(data == ndv, np.nan, data)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                out = nan_func(data, axis=axis)
-            # nansum/nanstd/nanvar return 0 (not NaN) for an all-NoData slice,
-            # so detect fully-masked positions explicitly and restore NoData for
-            # every reducer rather than leaking a spurious 0.
-            all_masked = np.all(np.isnan(data), axis=axis)
-            fill = ndv if ndv is not None else np.nan
-            out = np.where(np.isnan(out) | all_masked, fill, out)
-            result = out
+    def _reduce_axis(arr, axis, how, skipna, ndv, q=None):
+        """Apply one reduction over `axis`, masking no-data when `skipna`.
+
+        `count`, `all` and `any` go to `_count_axis`; every other `how` is looked up in
+        `_REDUCERS`. Under `skipna` the values are cast to float64 and the sentinel and NaN
+        are skipped, and a column with no valid cell, or whose statistic comes out NaN,
+        answers `ndv` (NaN when `ndv` is `None`). Without `skipna` numpy's plain function
+        reduces the raw values, sentinel and NaN included, in the dtype numpy gives it.
+
+        Args:
+            arr: The unflattened array, numpy or dask.
+            axis: The axis to reduce.
+            how: A key of `_REDUCERS`, or `"count"`, `"all"` or `"any"`.
+            skipna: Whether the sentinel and NaN are skipped.
+            ndv: The sentinel as it appears in `arr`, or `None` — unpacked, for a CF-packed
+                variable read unpacked (`_read_no_data`).
+            q: Forwarded as `q=` to the `_REDUCERS` function whenever it is not `None`, so
+                it must stay `None` for every statistic but `quantile`; `Selection.reduce`
+                and `Selection.coarsen` refuse it before calling. The counting reductions
+                ignore it.
+
+        Returns:
+            The reduced array, a dask array when `arr` is one: float64 for a statistic
+            under `skipna`, `int64` for `count`, `uint8` for `all` / `any`.
+
+        Raises:
+            KeyError: `how` is in neither registry.
+            TypeError: `q` is given with a statistic whose numpy function takes no `q`.
+        """
+        if how in _COUNTING_REDUCERS:
+            result = NetCDF._count_axis(arr, axis, how, skipna, ndv)
         else:
-            result = plain_func(arr, axis=axis)
+            nan_func, plain_func = _REDUCERS[how]
+            extra = {} if q is None else {"q": q}
+            if skipna:
+                data = arr.astype("float64")
+                if ndv is not None:
+                    data = np.where(data == ndv, np.nan, data)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    out = nan_func(data, axis=axis, **extra)
+                # nansum and nanprod return a number (0 and 1), not NaN, for an
+                # all-NoData slice, so detect fully-masked positions explicitly and
+                # restore NoData for every reducer rather than leaking a spurious 0 or 1.
+                all_masked = np.all(np.isnan(data), axis=axis)
+                fill = ndv if ndv is not None else np.nan
+                out = np.where(np.isnan(out) | all_masked, fill, out)
+                result = out
+            else:
+                result = plain_func(arr, axis=axis, **extra)
+        return result
+
+    @staticmethod
+    def _count_axis(arr, axis, how, skipna, ndv):
+        """Count the valid cells along `axis`, or test them for truth.
+
+        A cell is valid when it is neither NaN nor `ndv`. `count` answers
+        an `int64` count of them — 0 for a column with none — whatever `skipna` says, since
+        a count has nothing to skip. `all` and `any` answer a `uint8` 0/1 flag: with `skipna`
+        a gap is neutral (true for `all`, false for `any`) and a column with no valid cell
+        answers `_FLAG_NO_DATA`; without it the raw values are tested, where a non-zero
+        sentinel and NaN are both true, as they are to numpy.
+
+        Args:
+            arr: The unflattened array, numpy or dask.
+            axis: The axis to reduce.
+            how: `"count"`, `"all"` or `"any"`.
+            skipna: Whether gaps are skipped, for `all`/`any`.
+            ndv: The sentinel as it appears in `arr`, or `None`. For a CF-packed variable read
+                unpacked that is the unpacked `_FillValue`, not the stored one — every caller
+                passes it that way (`_read_no_data`).
+
+        Returns:
+            The reduced array: `int64` for `count`, `uint8` for `all`/`any`.
+        """
+        valid = np.ones_like(arr, dtype=bool)
+        if np.issubdtype(arr.dtype, np.floating):
+            valid = ~np.isnan(arr)
+        if ndv is not None:
+            valid = valid & (arr != ndv)
+        if how == "count":
+            result = np.sum(valid, axis=axis, dtype=np.int64)
+        else:
+            test = np.all if how == "all" else np.any
+            if skipna:
+                gap = how == "all"
+                flags = test(np.where(valid, arr != 0, gap), axis=axis)
+                result = np.where(
+                    np.any(valid, axis=axis), flags.astype(np.uint8), _FLAG_NO_DATA
+                ).astype(np.uint8)
+            else:
+                result = test(arr != 0, axis=axis).astype(np.uint8)
         return result
 
     def _stack_reduced_variable(
@@ -5889,6 +8200,10 @@ class NetCDF(Dataset):
         resolved_crs = self._get_crs()
         if resolved_crs and mem.GetSpatialRef() is None:
             mem.SetProjection(resolved_crs)
+        # The copy holds the view's values unchanged, so a variable that read as its store before
+        # still does; carry the record `_reads_as_its_store` checks across the swap.
+        if self._raster is getattr(self, "_store_raster", None):
+            self._store_raster = mem
         self._raster = mem
         # The MEM copy owns its data; drop the SWIG views that backed the AsClassicDataset.
         self._gdal_md_arr_ref = None
@@ -6249,9 +8564,35 @@ class NetCDF(Dataset):
             result = self._preserve_netcdf_metadata(result)._persist_to(path)
         return cast("NetCDF", result)
 
-    def sel(self, *args, **kwargs) -> NetCDF:
-        """Facade — :meth:`Selection.sel <pyramids.netcdf.engines.selection.Selection.sel>`."""
-        return self.selection.sel(*args, **kwargs)
+    def isel(self, **indexers: Any) -> NetCDF:
+        """Facade — :meth:`Selection.isel <pyramids.netcdf.engines.selection.Selection.isel>`.
+
+        Args:
+            **indexers: `dimension=selector` pairs; see the engine method.
+
+        Returns:
+            NetCDF: The variable holding the selected bands.
+        """
+        return self.selection.isel(**indexers)
+
+    def sel(
+        self,
+        *,
+        method: str | None = None,
+        tolerance: float | None = None,
+        **kwargs: Any,
+    ) -> NetCDF:
+        """Facade — :meth:`Selection.sel <pyramids.netcdf.engines.selection.Selection.sel>`.
+
+        Args:
+            method: `None` for an exact match, `"nearest"` to snap.
+            tolerance: The furthest a `"nearest"` snap may travel.
+            **kwargs: `dimension=selector` pairs; see the engine method.
+
+        Returns:
+            NetCDF: The variable holding the selected bands.
+        """
+        return self.selection.sel(method=method, tolerance=tolerance, **kwargs)
 
     @classmethod
     def read_file(  # type: ignore[override]
@@ -6697,11 +9038,12 @@ class NetCDF(Dataset):
         """Decode already-read raw time values into formatted date strings.
 
         Unlike :meth:`get_time_variable`, which reads the *full* stored axis, this
-        decodes the specific ``raw_values`` handed to it, using the CF ``units`` /
-        ``calendar`` for ``var_name`` resolved from this cube's own dimension
-        metadata or, failing that, its parent container's. A variable subset built
+        decodes the specific `raw_values` handed to it, using the first `(units, calendar)`
+        pair for `var_name` whose units parse, in the order `_time_attr_candidates` yields
+        them: this cube's own dimension metadata, its parent container's, then the units a
+        result computed in memory carries. A variable subset built
         by :meth:`get_variable` keeps its (possibly subsetted) raw coordinate values
-        in ``_band_dim_values_map`` but loses the root group's dimension attributes,
+        in `_band_dim_values_map` but loses the root group's dimension attributes,
         so its own metadata is empty while the parent still carries the units —
         which is why the animate frame labels came back as raw integers (#1013).
         Decoding the passed values (not the parent's full axis) keeps the labels
@@ -6711,30 +9053,21 @@ class NetCDF(Dataset):
             var_name: Name of the time coordinate / dimension.
             raw_values: The raw coordinate values to decode (one per frame).
             time_format: strftime format for the output strings. Defaults to
-                ``"%Y-%m-%d"``.
-            strict: When ``True`` (the default) a coordinate value the converter
+                `"%Y-%m-%d"`.
+            strict: When `True` (the default) a coordinate value the converter
                 cannot handle propagates, so a malformed axis is not hidden behind
-                raw labels. When ``False`` it returns ``None`` instead, which is what
+                raw labels. When `False` it returns `None` instead, which is what
                 a selection needs: an axis that cannot be decoded simply has no labels
                 and the stored-value path still answers.
 
         Returns:
-            list[str] or None: One formatted string per value, or ``None`` when no
-            parseable ``units`` attribute is available on this cube or its parent
-            (including a present-but-unparseable one — a non-CF ``units`` string
-            degrades to raw labels rather than raising out of a plot).
+            list[str] or None: One formatted string per value, or `None` when no
+            candidate's `units` parses (a present-but-unparseable one — a non-CF
+            `units` string — degrades to raw labels rather than raising out of a
+            plot), or, with `strict=False`, when a value does not convert.
         """
         labels: list[str] | None = None
-        for owner in (self, getattr(self, "_parent_nc", None)):
-            if owner is None:
-                continue
-            time_dim = owner.meta_data.get_dimension(var_name)
-            if time_dim is None:
-                continue
-            units = time_dim.attrs.get("units")
-            if units is None:
-                continue
-            calendar = time_dim.attrs.get("calendar", "standard")
+        for units, calendar in self._time_attr_candidates(var_name):
             try:
                 func = create_time_conversion_func(
                     units, time_format, calendar=calendar
@@ -6766,6 +9099,118 @@ class NetCDF(Dataset):
                     labels = None
             break
         return labels
+
+    def _time_attr_candidates(self, var_name: str) -> Iterator[tuple[str, str]]:
+        """Every `(units, calendar)` this object can find for dimension `var_name`, nearest first.
+
+        The dimension's `units` / `calendar` attributes come first from this object's metadata
+        and then its parent's, which is where a `get_variable` subset finds them. After those
+        come the attributes carried alongside the band labels (`_band_dim_time_attrs`), on this
+        object and then its parent: a result computed in memory — an operator result, a
+        reduction, a coarsening — has no store of its own, and carries its operand's units that
+        way so its stamps still decode. Only CF time units (`<period> since <origin>`, as
+        `is_cf_time_units` decides) are yielded: a pressure level in `millibar` has units, but
+        they neither decode a stamp nor say whether two operands' levels are the same axis.
+
+        A closed owner's metadata is skipped rather than read, since a closed dataset refuses
+        that read: a variable taken inside a `with` block carries the units `get_variable`
+        resolved while its container was open, and finds them that way. A pair already yielded
+        is not yielded again.
+
+        Args:
+            var_name: The dimension.
+
+        Yields:
+            tuple[str, str]: `(units, calendar)`, the calendar defaulting to `"standard"`.
+        """
+        owners = (self, getattr(self, "_parent_nc", None))
+        # Generators, so a caller taking only the nearest pair reads no further owner.
+        found = itertools.chain(
+            (NetCDF._declared_time_attrs(owner, var_name) for owner in owners),
+            (NetCDF._carried_time_attrs(owner, var_name) for owner in owners),
+        )
+        seen: set[tuple[str, str]] = set()
+        for pair in found:
+            if pair is not None and pair not in seen:
+                seen.add(pair)
+                yield pair
+
+    @staticmethod
+    def _declared_time_attrs(owner: Any, var_name: str) -> tuple[str, str] | None:
+        """The CF time `(units, calendar)` `owner`'s metadata declares for `var_name`.
+
+        Args:
+            owner: The object whose metadata is read, or `None`.
+            var_name: The dimension.
+
+        Returns:
+            tuple[str, str] | None: The pair, the calendar defaulting to `"standard"`; `None`
+            when there is no owner, the owner is closed (its metadata cannot be read), it has no
+            such dimension, or the dimension's units are not CF time units.
+        """
+        time_dim = (
+            None
+            if owner is None or owner._raster is None
+            else owner.meta_data.get_dimension(var_name)
+        )
+        pair: tuple[str, str] | None = None
+        if time_dim is not None and is_cf_time_units(time_dim.attrs.get("units")):
+            pair = (time_dim.attrs["units"], time_dim.attrs.get("calendar", "standard"))
+        return pair
+
+    @staticmethod
+    def _carried_time_attrs(owner: Any, var_name: str) -> tuple[str, str] | None:
+        """The CF time `(units, calendar)` `owner` carries for `var_name` in `_band_dim_time_attrs`.
+
+        Args:
+            owner: The object whose carried units are read, or `None`.
+            var_name: The dimension.
+
+        Returns:
+            tuple[str, str] | None: The carried pair, or `None` when there is no owner, it
+            carries nothing for `var_name`, or what it carries is not CF time units.
+        """
+        carried = getattr(owner, "_band_dim_time_attrs", {}).get(var_name)
+        return carried if carried is not None and is_cf_time_units(carried[0]) else None
+
+    def _resolved_band_dim_time_attrs(self) -> dict[str, tuple[str, str]]:
+        """The nearest `(units, calendar)` of each band dimension that has one.
+
+        What a derived result, and a variable `get_variable` builds, carries in
+        `_band_dim_time_attrs`, resolved here from wherever this object finds it, so the carrier
+        does not depend on this object or its parent staying alive, or staying open.
+
+        Returns:
+            dict[str, tuple[str, str]]: `{dimension: (units, calendar)}` for the band dimensions
+            whose units are CF time units; a pressure level in `millibar` is left out.
+
+        Examples:
+            - Time units are resolved, a level's `millibar` is not:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> var = NetCDF.from_array(
+              ...     np.ones((2, 2, 1, 1)),
+              ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326),
+              ...     variable_name="t",
+              ...     dims=ExtraDimensions(dims=[("time", [0.0, 6.0]), ("level", [1000, 850])]),
+              ... ).get_variable("t")
+              >>> var._band_dim_time_attrs = {
+              ...     "time": ("hours since 2000-01-01", "standard"),
+              ...     "level": ("millibar", "standard"),
+              ... }
+              >>> var._resolved_band_dim_time_attrs()
+              {'time': ('hours since 2000-01-01', 'standard')}
+
+              ```
+        """
+        resolved: dict[str, tuple[str, str]] = {}
+        for name in self._band_dim_names:
+            nearest = next(iter(self._time_attr_candidates(name)), None)
+            if nearest is not None:
+                resolved[name] = nearest
+        return resolved
 
     @property
     def dimension_sizes(self) -> dict[str, int]:
@@ -6844,7 +9289,7 @@ class NetCDF(Dataset):
         * On a **root container** the coordinate variable is read from the store, for
           any dimension it declares. A subset asked for a dimension it does not track —
           its spatial axes — has no coordinate variable to read and answers ``None``;
-          those come from the geotransform (:meth:`get_x_lon_dimension_array`).
+          those come from the geotransform (:meth:`~pyramids.dataset.transform.GeoTransform.x_axis`).
 
         Values are the **stored** ones, matching what :meth:`sel` matches against and what
         ``to_xarray(decode_times=False).coords`` reports for the same file. A CF time axis
@@ -6855,9 +9300,9 @@ class NetCDF(Dataset):
         the raster's. Pyramids presents rasters north-up, but a south-to-north file stores
         its latitudes ascending, so ``get_dimension_values("lat")`` comes back
         ``[40, 41, …, 44]`` while :meth:`read_array`'s row 0 is the lat-44 row. Do not
-        index raster rows with this — :meth:`get_y_lat_dimension_array` builds the row
-        centres from the geotransform, in raster order. The values here answer "what does
-        this file store", which is the question :meth:`sel` and the CF metadata ask.
+        index raster rows with this — :meth:`~pyramids.dataset.transform.GeoTransform.y_axis`
+        builds the row centres from the geotransform, in raster order. The values here answer
+        "what does this file store", which is the question :meth:`sel` and the CF metadata ask.
 
         Args:
             name: Dimension name, as listed by :attr:`dimension_names` /
@@ -8167,6 +10612,20 @@ class NetCDF(Dataset):
             cube, md_arr_ref if rg is not None else None, spatial_dim_indices
         )
         cube = self._georeference_index_subset(cube)
+        # Take the band dimensions' time units now, while this container is open, so the variable,
+        # and anything derived from it, still decodes its stamps (a date `sel`, a frequency
+        # `reduce`) after the container is closed.
+        cube._band_dim_time_attrs = cube._resolved_band_dim_time_attrs()
+        # A container rebuilt by an operation knows the grid it produced; a variable of it holds
+        # no coordinate arrays, so it would otherwise fall back to the index space of the view.
+        if self._stamped_geotransform is not None:
+            cube._stamped_geotransform = self._stamped_geotransform
+            cube._geotransform = self._stamped_geotransform
+            cube._derived_geotransform = self._stamped_geotransform
+            cube._cell_size = GeoTransform(*self._stamped_geotransform).cell_size
+        # Record the raster built from the store, after every step above that may replace it, so a
+        # streamed read is used only while this variable still reads as its store.
+        cube._store_raster = cube._raster
         return cube
 
     @staticmethod
@@ -8787,24 +11246,466 @@ class NetCDF(Dataset):
 
     @staticmethod
     def _copy_band_dim_metadata(dst: Any, src: Any) -> None:
-        """Copy the band-dimension bookkeeping from ``src`` onto ``dst``.
+        """Copy the band-dimension bookkeeping from `src` onto `dst`.
 
-        Carries the multi-band-dim fields (``_band_dim_names`` / ``_band_dim_values_map``
-        / ``_band_dim_sizes``) and re-derives the legacy single-band-dim view
-        (``_band_dim_name`` / ``_band_dim_values``) from them via
+        Carries the multi-band-dim fields (`_band_dim_names` / `_band_dim_values_map`
+        / `_band_dim_sizes`) and re-derives the legacy single-band-dim view
+        (`_band_dim_name` / `_band_dim_values`) from them via
         :meth:`_derive_primary_band_view`, so a derived view keeps the same non-spatial
-        axis layout. The values map is shallow-copied so the two objects don't share a
-        mutable dict.
+        axis layout. The values map is copied together with its coordinate lists
+        (`copy_band_values_map`), so editing one object's stamps leaves the other's alone, and
+        `src`'s band-dimension units are resolved into `dst._band_dim_time_attrs`, so `dst`
+        still decodes its stamps without a store of its own.
+
+        Args:
+            dst: The object to label, such as an operator result.
+            src: The object whose band layout describes `dst`.
         """
         dst._band_dim_names = src._band_dim_names
-        dst._band_dim_values_map = dict(src._band_dim_values_map)
+        dst._band_dim_values_map = copy_band_values_map(src._band_dim_values_map)
         dst._band_dim_sizes = src._band_dim_sizes
+        dst._band_dim_time_attrs = src._resolved_band_dim_time_attrs()
         dst._band_dim_name, dst._band_dim_values = NetCDF._derive_primary_band_view(
             dst._band_dim_names,
             dst._band_dim_values_map,
             dst._band_dim_sizes,
             dst._band_count,
         )
+
+    def combine(
+        self,
+        other: Dataset,
+        func: Callable[[np.ndarray, np.ndarray], np.ndarray],
+        *,
+        band: int | None = None,
+        no_data_value: Any = _DERIVE_NO_DATA,
+    ) -> Dataset:
+        """Combine two rasters cell by cell, keeping the operands' band dimensions.
+
+        Delegates to `Dataset.combine`. Its engine, `Analysis._combine`, checks the band
+        layouts through `_combine_layout_source` once the grids and band counts are known to
+        agree and before any pixel is read, then labels the result with the band dimensions —
+        names, sizes and coordinates — through `_label_combined`, so a combined
+        `(time, pressure_level)` variable can still be passed to `sel`, `isel` or anything else
+        that reads that layout. The operators `+`, `-`, `*`, `/`, `<`, `<=`, `>` and `>=`
+        between two variables reach this method, so they keep the labels too; `==` and `!=`
+        stay Python's identity comparison and never get here. A scalar operand (`var * 2`,
+        `2 - var`) reaches the same engine without passing through here, and keeps them as well.
+
+        The labels come from this variable when it has them, and from `other` when only it
+        does. What one operand lacks, the other supplies, so no label is lost to the order the
+        operands are written in: a dimension without coordinates on one side takes the other
+        side's coordinates with their time units, and agreeing coordinates without time units
+        take the ones the other side has. Where both sides have agreeing coordinates, this
+        variable's are kept, in its own units: hours `[0, 6]` plus days `[0, 0.25]` since one
+        origin comes back as hours `[0, 6]`, the reverse as days `[0, 0.25]`, the same instants.
+
+        When both carry band dimensions, their names and sizes must match, or the planes do not
+        pair up and the call is refused. Their coordinate values may differ: two cuts of one
+        variable at different steps (`sel(time=6.0) - sel(time=0.0)`, a tendency
+        `isel(time=slice(1, None)) - isel(time=slice(None, -1))`) combine, and a dimension
+        whose coordinates disagree keeps its name and length but comes back without
+        coordinates, since neither operand's stamps describe the result. `isel` still reaches
+        it; `sel` by value on that dimension raises `ValueError`. Where both operands carry CF
+        time units for a dimension and the units differ, the stamps are compared as decoded
+        time instants, to the microsecond — hours `[0, 6]` and days `[0, 0.25]` since the same
+        origin are one axis, while milliseconds `[0, 400]` and seconds `[0, 0.9]` are not. Only CF
+        time units count: levels in `millibar` against levels in `hPa` compare their raw values,
+        as every other case does. A coordinate-less dimension on either side is not compared.
+        The check runs only when `band` is `None` and the two grids and band counts agree.
+
+        Args:
+            other: The second operand, on this variable's grid.
+            func: Binary callable applied to the operands' matching cells.
+            band: Zero-based band to combine, or `None` for every band. A single band
+                cannot carry a multi-band layout, so passing one skips the layout check and
+                leaves the result without band dimensions.
+            no_data_value: Sentinel for the result, as documented on
+                `Analysis.combine`. Left unset it is derived — NaN for a floating result,
+                none at all for an integer result that masked nothing.
+
+        Returns:
+            Dataset: The combined raster, on this variable's grid and of this variable's
+            class. When `band` is `None` it carries the band dimensions of whichever
+            operand supplied them, with the coordinates and time units that operand lacks
+            taken from the other.
+
+        Raises:
+            ValueError: `band` is `None`, both operands carry band dimensions, their grids
+                and band counts agree, and their dimension names or sizes differ. Differing
+                coordinate values are not refused. Operands whose band counts differ skip the
+                check and are refused by `Dataset.combine` with its own message.
+            AlignmentError: The operands do not share a grid, raised by `Dataset.combine`.
+                A grid mismatch is reported as this whether or not the band layouts also
+                disagree, since the layouts are only compared on a shared grid.
+
+        Examples:
+            - The combined variable can still be selected by coordinate:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> nc = NetCDF.from_array(
+              ...     np.ones((2, 3, 4, 5)),
+              ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 4.0, 0.0, -1.0), epsg=4326),
+              ...     variable_name="t",
+              ...     dims=ExtraDimensions(dims=[("time", [0.0, 6.0]), ("level", [1, 2, 3])]),
+              ... )
+              >>> var = nc.get_variable("t")
+              >>> total = var.combine(var, np.add)
+              >>> total._band_dim_names, total._band_dim_sizes
+              (('time', 'level'), (2, 3))
+              >>> total.sel(time=6.0).band_count
+              3
+
+              ```
+            - Two steps of one variable subtract, and `time` comes back without coordinates:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> var = NetCDF.from_array(
+              ...     np.arange(4.0).reshape(2, 2, 1, 1),
+              ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326),
+              ...     variable_name="t",
+              ...     dims=ExtraDimensions(dims=[("time", [0.0, 6.0]), ("level", [1, 2])]),
+              ... ).get_variable("t")
+              >>> change = var.sel(time=6.0) - var.sel(time=0.0)
+              >>> change._band_dim_values_map
+              {'time': None, 'level': [1, 2]}
+              >>> change.read_array().ravel().tolist()
+              [2.0, 2.0]
+
+              ```
+            - An operand without `time` coordinates takes the other operand's, in either order:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> var = NetCDF.from_array(
+              ...     np.arange(4.0).reshape(2, 2, 1, 1),
+              ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326),
+              ...     variable_name="t",
+              ...     dims=ExtraDimensions(dims=[("time", [0.0, 6.0]), ("level", [1, 2])]),
+              ... ).get_variable("t")
+              >>> change = var.sel(time=6.0) - var.sel(time=0.0)
+              >>> later = var.sel(time=6.0)
+              >>> change._band_dim_values_map
+              {'time': None, 'level': [1, 2]}
+              >>> (change + later)._band_dim_values_map
+              {'time': [6.0], 'level': [1, 2]}
+              >>> (later + change)._band_dim_values_map
+              {'time': [6.0], 'level': [1, 2]}
+              >>> (change + later).sel(time=6.0).read_array().ravel().tolist()
+              [4.0, 5.0]
+
+              ```
+            - Operands whose dimension names differ are refused:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> geo = GeoReference(geo=(0.0, 1.0, 0.0, 4.0, 0.0, -1.0), epsg=4326)
+              >>> by_time = NetCDF.from_array(
+              ...     np.ones((2, 4, 5)), geo_ref=geo, variable_name="t",
+              ...     dims=ExtraDimensions(name="time", values=[0.0, 6.0]),
+              ... ).get_variable("t")
+              >>> by_step = NetCDF.from_array(
+              ...     np.ones((2, 4, 5)), geo_ref=geo, variable_name="t",
+              ...     dims=ExtraDimensions(name="step", values=[0.0, 6.0]),
+              ... ).get_variable("t")
+              >>> by_time.combine(by_step, np.add)  # doctest: +IGNORE_EXCEPTION_DETAIL
+              Traceback (most recent call last):
+                ...
+              ValueError: the operands' band dimensions do not line up
+
+              ```
+        """
+        return super().combine(other, func, band=band, no_data_value=no_data_value)
+
+    def _combine_layout_source(
+        self, other: Any, band: int | None
+    ) -> tuple[NetCDF | None, list[str], NetCDF | None]:
+        """Check the operands' band layouts for `Analysis._combine` and name what to copy.
+
+        Every route to a combined raster ends in `Analysis._combine` — the `combine` facade,
+        `analysis.combine` called directly, and every operator through `combine` or `_fold` — so
+        the check and the labelling live here and in `_label_combined`, not on any one door.
+
+        Args:
+            other: The right operand, or `None` when a scalar operator folds this variable with
+                itself (`Analysis._fold`), which leaves no second layout to compare or fill from.
+            band: The single band being combined, or `None` for all of them.
+
+        Returns:
+            tuple[NetCDF | None, list[str], NetCDF | None]: The operand whose layout describes
+            the result, the dimensions whose coordinates the operands disagree on, and the
+            partner `_label_combined` fills missing labels from: `other`, when this variable
+            describes the result and `other` is a different `NetCDF` object that carries band
+            dimensions too, else `None` (so `var + var` and a fold name none).
+            `(None, [], None)` when a single band is combined, since one band cannot carry a
+            multi-band layout.
+
+        Raises:
+            ValueError: As `_band_layout_source` raises.
+        """
+        layout: tuple[NetCDF | None, list[str], NetCDF | None] = (None, [], None)
+        if band is None:
+            layout_source, disagreeing = self._band_layout_source(other)
+            paired = (
+                layout_source is self
+                and other is not self
+                and isinstance(other, NetCDF)
+                and bool(other._band_dim_names)
+            )
+            layout = (layout_source, disagreeing, other if paired else None)
+        return layout
+
+    def _label_combined(self, result: Any, source: Any) -> None:
+        """Copy the band layout onto the raster `Analysis._combine` built.
+
+        Dimensions the operands disagree on keep their name and length and lose their
+        coordinates, and the units carried for them in `_band_dim_time_attrs`, since neither
+        operand's stamps describe the result. Every other dimension takes its labels from
+        whichever operand has them, so whether it comes back labelled, and which steps its
+        labels name, does not depend on operand order: a dimension without coordinates on the
+        layout source takes the partner's, with the partner's units, and agreeing coordinates
+        without time units take the partner's units (`_fill_band_label`). Where both have
+        agreeing coordinates, the layout source's raw values and units are kept, so hours
+        `[0, 6]` and days `[0, 0.25]` since one origin keep whichever came first.
+
+        Args:
+            result: The combined raster.
+            source: What `_combine_layout_source` returned: the source operand, the
+                disagreeing dimensions, and the partner to fill missing labels from, or `None`.
+        """
+        layout_source, disagreeing, partner = source
+        NetCDF._label_result_bands(result, layout_source)
+        labelled = (
+            (disagreeing or partner is not None)
+            and isinstance(result, NetCDF)
+            and tuple(result._band_dim_names) == tuple(layout_source._band_dim_names)
+        )
+        if labelled:
+            partner_units = (
+                {} if partner is None else partner._resolved_band_dim_time_attrs()
+            )
+            for name in result._band_dim_names:
+                if name in disagreeing:
+                    result._band_dim_values_map[name] = None
+                    result._band_dim_time_attrs.pop(name, None)
+                elif partner is not None:
+                    NetCDF._fill_band_label(result, partner, name, partner_units)
+            result._band_dim_name, result._band_dim_values = (
+                NetCDF._derive_primary_band_view(
+                    result._band_dim_names,
+                    result._band_dim_values_map,
+                    result._band_dim_sizes,
+                    result._band_count,
+                )
+            )
+
+    @staticmethod
+    def _fill_band_label(
+        result: NetCDF,
+        partner: NetCDF,
+        name: str,
+        partner_units: dict[str, tuple[str, str]],
+    ) -> None:
+        """Give `result`'s dimension `name` the labels `partner` has and `result` lacks.
+
+        Coordinates and their units travel together, so one operand's units never describe the
+        other operand's stamps:
+
+        - `result` has no coordinates and `partner` has them: take `partner`'s coordinates and
+          `partner`'s units, or no units when `partner_units` has none for `name`;
+        - both have coordinates (they agree, or `name` would have been unlabelled) and only
+          `partner` carries units: take those units;
+        - `partner` has no coordinates: leave `result` as it is, units included.
+
+        Args:
+            result: The labelled result, edited in place.
+            partner: The operand that did not label `result`.
+            name: The band dimension.
+            partner_units: `partner`'s resolved units, `{dimension: (units, calendar)}`.
+        """
+        theirs = partner._band_dim_values_map.get(name)
+        if theirs is not None and result._band_dim_values_map.get(name) is None:
+            result._band_dim_values_map[name] = list(theirs)
+            result._band_dim_time_attrs.pop(name, None)
+            if name in partner_units:
+                result._band_dim_time_attrs[name] = partner_units[name]
+        elif (
+            theirs is not None
+            and name not in result._band_dim_time_attrs
+            and name in partner_units
+        ):
+            result._band_dim_time_attrs[name] = partner_units[name]
+
+    def _band_layout_source(self, other: Any) -> tuple[NetCDF | None, list[str]]:
+        """The operand whose band dimensions describe a combined result, and where they disagree.
+
+        Args:
+            other: The second operand of `combine`, any raster; only a `NetCDF` carries
+                band dimensions.
+
+        Returns:
+            tuple[NetCDF | None, list[str]]: This variable when it carries band dimensions, else
+            `other` when it is a `NetCDF` that does, else `None`; and the dimensions whose
+            coordinate values the two operands disagree on (empty unless both carry band
+            dimensions on a shared grid with the same band count).
+
+        Raises:
+            ValueError: Both operands carry band dimensions, share a grid and a band count,
+                and their dimension names or sizes differ. With differing grids or band counts
+                the check is skipped, so `Dataset.combine` reports that more basic mismatch
+                with its own error.
+        """
+        theirs = other if isinstance(other, NetCDF) and other._band_dim_names else None
+        mine = self if self._band_dim_names else None
+        disagreeing: list[str] = []
+        if (
+            mine is not None
+            and theirs is not None
+            and self.band_count == other.band_count
+            and self.spatial.same_grid(other)
+        ):
+            difference = NetCDF._band_layout_difference(self, other)
+            if difference is not None:
+                raise ValueError(
+                    f"the operands' band dimensions do not line up: {difference}. "
+                    f"Select or rearrange one operand so both describe the same planes "
+                    f"before combining them."
+                )
+            disagreeing = NetCDF._disagreeing_coordinates(self, other)
+        return (mine if mine is not None else theirs), disagreeing
+
+    @staticmethod
+    def _band_layout_difference(left: NetCDF, right: NetCDF) -> str | None:
+        """Describe how two operands' band dimension names or sizes disagree.
+
+        Coordinate values are not compared here: operands that differ only in them still pair
+        plane for plane, and `_disagreeing_coordinates` decides which dimensions lose them.
+
+        Args:
+            left: The left operand.
+            right: The right operand.
+
+        Returns:
+            str | None: A phrase naming the mismatch — the names first, then the sizes — or
+            `None` when both agree.
+        """
+        left_names, right_names = (
+            tuple(left._band_dim_names),
+            tuple(right._band_dim_names),
+        )
+        left_sizes, right_sizes = (
+            tuple(left._band_dim_sizes),
+            tuple(right._band_dim_sizes),
+        )
+        difference = None
+        if left_names != right_names:
+            difference = f"{list(left_names)} against {list(right_names)}"
+        elif left_sizes != right_sizes:
+            difference = (
+                f"sizes {dict(zip(left_names, left_sizes))} against "
+                f"{dict(zip(right_names, right_sizes))}"
+            )
+        return difference
+
+    @staticmethod
+    def _disagreeing_coordinates(left: NetCDF, right: NetCDF) -> list[str]:
+        """The band dimensions whose coordinate values name different steps on the two operands.
+
+        Expects the two layouts to agree in names and sizes. A dimension without coordinates on
+        either side is skipped. When both operands find CF time units for a dimension (the
+        nearest pair `_time_attr_candidates` yields) and the `(units, calendar)` pairs differ,
+        its stamps are compared as decoded time instants, to the microsecond — hours `[0, 6]`
+        and days `[0, 0.25]` since one origin agree, the same raw hours since two origins do
+        not — and a stamp that will not decode counts as a disagreement. Otherwise — units on one
+        side or neither, the same pair on both, or units that are not time units (`millibar`
+        against `hPa`), which are never candidates — the raw values are compared with
+        `_same_coordinates`. One object passed as both operands (`var + var`) agrees with itself
+        at once, without looking up any units.
+
+        Args:
+            left: The left operand.
+            right: The right operand.
+
+        Returns:
+            list[str]: The disagreeing dimensions, in the operands' order.
+
+        Examples:
+            - Hours and days since one origin name the same instants; other hours do not:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+              >>> def variable(stamps, units):
+              ...     var = NetCDF.from_array(
+              ...         np.ones((2, 1, 1)),
+              ...         geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 1.0, 0.0, -1.0), epsg=4326),
+              ...         variable_name="t",
+              ...         dims=ExtraDimensions(name="time", values=stamps),
+              ...     ).get_variable("t")
+              ...     var._band_dim_time_attrs = {"time": (units, "standard")}
+              ...     return var
+              >>> hours = variable([0.0, 6.0], "hours since 2000-01-01")
+              >>> days = variable([0.0, 0.25], "days since 2000-01-01")
+              >>> NetCDF._disagreeing_coordinates(hours, days)
+              []
+              >>> later = variable([0.0, 12.0], "hours since 2000-01-01")
+              >>> NetCDF._disagreeing_coordinates(hours, later)
+              ['time']
+
+              ```
+        """
+        disagreeing: list[str] = []
+        # An operand agrees with itself: `var + var` and `var.combine(var, ...)` pass one object
+        # twice. A scalar operator's fold never gets here: `Analysis._combine` hands the hook no
+        # other operand.
+        for name in () if left is right else left._band_dim_names:
+            left_values = left._band_dim_values_map.get(name)
+            right_values = right._band_dim_values_map.get(name)
+            if left_values is None or right_values is None:
+                continue
+            left_units = next(iter(left._time_attr_candidates(name)), None)
+            right_units = next(iter(right._time_attr_candidates(name)), None)
+            if left_units is None or right_units is None or left_units == right_units:
+                agree = _same_coordinates(left_values, right_values)
+            else:
+                # To the microsecond, the finest step the converters resolve: sub-second axes are
+                # real (a nanoseconds axis is decoded at microsecond resolution).
+                instant = "%Y-%m-%d %H:%M:%S.%f"
+                left_labels = left._decode_time_labels(
+                    name, list(left_values), instant, strict=False
+                )
+                right_labels = right._decode_time_labels(
+                    name, list(right_values), instant, strict=False
+                )
+                agree = left_labels is not None and left_labels == right_labels
+            if not agree:
+                disagreeing.append(name)
+        return disagreeing
+
+    @staticmethod
+    def _label_result_bands(result: Any, source: NetCDF | None) -> None:
+        """Copy `source`'s band dimensions onto an operator result that can carry them.
+
+        Nothing is copied when `source` is `None`, when `result` is not a `NetCDF` (such as
+        `NotImplemented` or a plain `Dataset`), or when the two band counts differ, so a
+        single-band `combine(..., band=0)` result stays unlabelled.
+
+        Args:
+            result: What the operator or `combine` returned.
+            source: The operand whose layout describes the result, or `None`.
+        """
+        if (
+            source is not None
+            and isinstance(result, NetCDF)
+            and result.band_count == source.band_count
+        ):
+            NetCDF._copy_band_dim_metadata(result, source)
 
     def _replace_raster(self, new_raster: gdal.Dataset):
         """Replace the internal GDAL dataset, flushing the old one if different.
@@ -8815,15 +11716,22 @@ class NetCDF(Dataset):
         old handle (or a ``get_group()`` view of it) must keep a valid, unmutated
         dataset, which is why the variable-mutation ops copy-and-swap instead of
         mutating in place (#143). Do not change this to close the old raster.
+
+        The geotransform and cell size re-derived here are `new_raster`'s, which is not the grid
+        a collapsed spatial axis was stamped with, so `_restore_stamped_grid` puts a stamp back
+        over them. A copying `add_variable` on a weighted result is the route that needs it.
         """
         old = self._raster
         if old is not None and old is not new_raster:
             old.FlushCache()
         # RasterBase state
         self._raster = new_raster
+        if new_raster is not self._store_raster:
+            self._store_raster = None
         self._derived_geotransform = None
         self._geotransform = new_raster.GetGeoTransform()
         self._cell_size = GeoTransform(*self._geotransform).cell_size
+        self._restore_stamped_grid()
         self._file_name = new_raster.GetDescription()
         # Clear the borrowed container CRS *before* re-deriving the EPSG: it is
         # keyed to the variables behind the OLD raster, and `_get_epsg` reads
@@ -9087,6 +11995,7 @@ class NetCDF(Dataset):
         result._is_subset = False
         result._parent_nc = None
         result._source_var_name = None
+        result._rebuilt_in_memory = False
         result._md_array_dims = self._md_array_dims
         result._geostationary_scaled = self._geostationary_scaled
         result._variable_attrs = self._variable_attrs

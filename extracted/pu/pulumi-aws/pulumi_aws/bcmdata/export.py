@@ -27,7 +27,7 @@ class ExportArgs:
         """
         The set of arguments for constructing a Export resource.
 
-        :param pulumi.Input['ExportExportArgs'] export: The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        :param pulumi.Input['ExportExportArgs'] export: Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         if export is not None:
@@ -41,7 +41,7 @@ class ExportArgs:
     @pulumi.getter
     def export(self) -> pulumi.Input[Optional['ExportExportArgs']]:
         """
-        The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         """
         return pulumi.get(self, "export")
 
@@ -84,7 +84,7 @@ class _ExportState:
 
         :param pulumi.Input[_builtins.str] arn: ARN for this export.
                * `export[0].export_arn` - ARN for this export.
-        :param pulumi.Input['ExportExportArgs'] export: The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        :param pulumi.Input['ExportExportArgs'] export: Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         if arn is not None:
@@ -115,7 +115,7 @@ class _ExportState:
     @pulumi.getter
     def export(self) -> pulumi.Input[Optional['ExportExportArgs']]:
         """
-        The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         """
         return pulumi.get(self, "export")
 
@@ -160,9 +160,9 @@ class Export(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 export: pulumi.Input[Optional[Union['ExportExportArgs', 'ExportExportArgsDict']]] = None,
+                 export: pulumi.Input[Optional[Union['ExportExportArgs', 'ExportExportArgsDict', 'outputs.ExportExport']]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['ExportTimeoutsArgs', 'ExportTimeoutsArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['ExportTimeoutsArgs', 'ExportTimeoutsArgsDict', 'outputs.ExportTimeouts']]] = None,
                  __props__=None):
         """
         Resource for managing an AWS BCM Data Exports Export.
@@ -227,7 +227,7 @@ class Export(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['ExportExportArgs', 'ExportExportArgsDict']] export: The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        :param pulumi.Input[Union['ExportExportArgs', 'ExportExportArgsDict', 'outputs.ExportExport']] export: Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         ...
@@ -312,9 +312,9 @@ class Export(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 export: pulumi.Input[Optional[Union['ExportExportArgs', 'ExportExportArgsDict']]] = None,
+                 export: pulumi.Input[Optional[Union['ExportExportArgs', 'ExportExportArgsDict', 'outputs.ExportExport']]] = None,
                  tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 timeouts: pulumi.Input[Optional[Union['ExportTimeoutsArgs', 'ExportTimeoutsArgsDict']]] = None,
+                 timeouts: pulumi.Input[Optional[Union['ExportTimeoutsArgs', 'ExportTimeoutsArgsDict', 'outputs.ExportTimeouts']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -340,10 +340,10 @@ class Export(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             arn: pulumi.Input[Optional[_builtins.str]] = None,
-            export: pulumi.Input[Optional[Union['ExportExportArgs', 'ExportExportArgsDict']]] = None,
+            export: pulumi.Input[Optional[Union['ExportExportArgs', 'ExportExportArgsDict', 'outputs.ExportExport']]] = None,
             tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            timeouts: pulumi.Input[Optional[Union['ExportTimeoutsArgs', 'ExportTimeoutsArgsDict']]] = None) -> 'Export':
+            timeouts: pulumi.Input[Optional[Union['ExportTimeoutsArgs', 'ExportTimeoutsArgsDict', 'outputs.ExportTimeouts']]] = None) -> 'Export':
         """
         Get an existing Export resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -353,7 +353,7 @@ class Export(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] arn: ARN for this export.
                * `export[0].export_arn` - ARN for this export.
-        :param pulumi.Input[Union['ExportExportArgs', 'ExportExportArgsDict']] export: The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        :param pulumi.Input[Union['ExportExportArgs', 'ExportExportArgsDict', 'outputs.ExportExport']] export: Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -380,7 +380,7 @@ class Export(pulumi.CustomResource):
     @pulumi.getter
     def export(self) -> pulumi.Output[Optional['outputs.ExportExport']]:
         """
-        The details of the export, including data query, name, description, and destination configuration.  See the `export` argument reference below.
+        Details of the export, including data query, name, description, and destination configuration. See the `export` block below.
         """
         return pulumi.get(self, "export")
 

@@ -471,7 +471,7 @@ async def test_run_agent_marks_contained_incomplete_handoff_for_rewind(output, s
     emitter = _RecordingEmitter()
     set_app_context(AppContext(emitter=emitter, user_id="u1"))
 
-    async def execute(user_input=None):
+    async def execute(user_input=None, *, max_iterations=None):
         return SimpleNamespace(
             output=output,
             assistant_response=None,

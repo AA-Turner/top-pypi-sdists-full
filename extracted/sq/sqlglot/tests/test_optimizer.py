@@ -134,6 +134,11 @@ class TestOptimizer(unittest.TestCase):
                 "a": "INT",
                 "b": "INT",
             },
+            # non-nullable columns, for rewrites that are only valid when a value can't be NULL
+            "nn": {
+                "a": exp.DataType.build("INT", nullable=False),
+                "b": exp.DataType.build("INT", nullable=False),
+            },
             "y": {
                 "b": "INT",
                 "c": "INT",
@@ -1400,6 +1405,23 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             "SELECT :expressions,item_id /* description */",
         )
 
+    def test_simplify_coalesce_null_fallback(self):
+        for predicate in (
+            "COALESCE(a, NULL, 1) = 1",
+            "1 = COALESCE(a, NULL, 1)",
+            "0 < COALESCE(a, NULL, -1)",
+            "COALESCE(a, NULL, b, 3) = 3",
+            "COALESCE(a, NULL, NULL, 1) = 1",
+            "COALESCE(a, NULL) = 1",
+        ):
+            with self.subTest(predicate=predicate):
+                sql = f"SELECT {predicate} FROM x"
+                simplified = simplify(parse_one(sql, read="duckdb"), dialect="duckdb")
+                self.assertEqual(
+                    self.conn.execute(sql).fetchall(),
+                    self.conn.execute(simplified.sql(dialect="duckdb")).fetchall(),
+                )
+
     def test_simplify_nested(self):
         sql = """
         SELECT x, 1 + 1
@@ -2180,7 +2202,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             level="warning",
         )
 
-    def test_traverse_union_invalid_operand(self):
+    def test_traverse_set_operation_invalid_operand(self):
         for invalid_side, expression in (
             ("left", exp.Union(this=exp.column("a"), expression=exp.select("1"))),
             ("right", exp.Union(this=exp.select("1"), expression=exp.column("a"))),
@@ -3105,6 +3127,47 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         scope_t, scope_y = build_scope(query).cte_scopes
         self.assertEqual(set(scope_t.cte_sources), {"t"})
         self.assertEqual(set(scope_y.cte_sources), {"t", "y"})
+
+    def test_pushdown_projections_keeps_positionally_aliased_columns(self):
+        # A column list on a derived table, CTE or LATERAL names the source's columns by
+        # position, so the projections it covers can't be pruned or the names would shift
+        for sql, expected in (
+            (
+                "SELECT t.c FROM (SELECT a, b FROM x) AS t(c, d)",
+                "SELECT t.c FROM (SELECT a, b FROM x) AS t(c, d)",
+            ),
+            (
+                "SELECT t.c FROM ((SELECT a, b FROM x)) AS t(c, d)",
+                "SELECT t.c FROM ((SELECT a, b FROM x)) AS t(c, d)",
+            ),
+            (
+                "SELECT t.c FROM (SELECT a, b FROM x UNION ALL SELECT b, c FROM y) AS t(c, d)",
+                "SELECT t.c FROM (SELECT a, b FROM x UNION ALL SELECT b, c FROM y) AS t(c, d)",
+            ),
+            (
+                "WITH t(c, d) AS (SELECT a, b FROM x) SELECT c FROM t",
+                "WITH t(c, d) AS (SELECT a, b FROM x) SELECT c FROM t",
+            ),
+            (
+                "SELECT t.c FROM LATERAL (SELECT a, b FROM x) AS t(c, d)",
+                "SELECT t.c FROM LATERAL (SELECT a, b FROM x) AS t(c, d)",
+            ),
+            # BY NAME merges the operands by column name, so positions don't map onto them
+            (
+                "WITH t(c) AS (SELECT a, b FROM x UNION ALL BY NAME SELECT b, a FROM x) SELECT c FROM t",
+                "WITH t(c) AS (SELECT a, b FROM x UNION ALL BY NAME SELECT b, a FROM x) SELECT c FROM t",
+            ),
+            # Columns beyond the list keep their own names and are pruned as usual
+            (
+                "SELECT t.c FROM (SELECT a, b FROM x) AS t(c)",
+                "SELECT t.c FROM (SELECT a FROM x) AS t(c)",
+            ),
+        ):
+            with self.subTest(sql):
+                expression = optimizer.pushdown_projections.pushdown_projections(
+                    parse_one(sql), schema=self.schema
+                )
+                self.assertEqual(expression.sql(), expected)
 
     def test_pushdown_projections_keeps_recursive_cte_self_referenced_columns(self):
         # The recursive term joins on t.link, which the outer query never

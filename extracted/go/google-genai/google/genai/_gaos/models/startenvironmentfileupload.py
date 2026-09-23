@@ -35,7 +35,7 @@ from typing_extensions import Annotated, NotRequired, TypedDict
 
 class StartEnvironmentFileUploadGlobalsTypedDict(TypedDict):
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
 
 class StartEnvironmentFileUploadGlobals(BaseModel):
@@ -43,7 +43,7 @@ class StartEnvironmentFileUploadGlobals(BaseModel):
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -72,7 +72,7 @@ class StartEnvironmentFileUploadRequestParam(TypedDict):
     x_goog_upload_header_content_type: str
     r"""MIME type of the file that will be uploaded to the session URL."""
     api_version: NotRequired[str]
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
     extract: NotRequired[bool]
     r"""Optional. If true, treats the uploaded file as a tar/tar.gz archive and unpacks it into `path`."""
     overwrite: NotRequired[bool]
@@ -112,7 +112,7 @@ class StartEnvironmentFileUploadRequest(BaseModel):
         Optional[str],
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ] = None
-    r"""Which version of the API to use."""
+    r"""API version for request routing."""
 
     extract: Annotated[
         Optional[bool],

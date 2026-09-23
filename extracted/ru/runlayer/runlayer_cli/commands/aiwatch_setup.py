@@ -38,7 +38,11 @@ from runlayer_cli.hook_install.daemon_lifecycle import (
     ensure_daemon_unit,
     ensure_scan_unit,
 )
-from runlayer_cli.hook_install.llm_routing import reconcile_routing, unroute
+from runlayer_cli.hook_install.llm_routing import (
+    probe_gateway,
+    reconcile_routing,
+    unroute,
+)
 from runlayer_cli.install_window import InstallWindowState, install_window_state
 from runlayer_cli.mdm_config import (
     ManagedConfig,
@@ -352,6 +356,7 @@ def _llm_routing_step(
             base_url=_configured_llm_routing_base_url(managed),
             scope=scope,
             fetch_decision=fetch_decision,
+            probe=probe_gateway,
         )
         if outcome is None:
             typer.secho(

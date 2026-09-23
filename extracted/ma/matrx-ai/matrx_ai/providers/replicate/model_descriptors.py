@@ -30,7 +30,7 @@ Drop a model: remove both.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from matrx_ai.config import UnifiedConfig
@@ -188,9 +188,26 @@ class ModelDescriptor:
     from_output: Callable[[Any, "ModelDescriptor"], list[GeneratedAsset]] | None = None
     notes: str = ""
     default_mime: str = ""
+    # Image-generation reference roles -> the input key that carries each.
+    # A key in ``list_keys`` takes a list; several roles may share one list
+    # (the prompt then carries an "Image N is the ..." legend). A role not
+    # named here is refused by name before the paid call.
+    role_keys: dict[str, str] = field(default_factory=dict)
+    list_keys: frozenset[str] = frozenset()
 
     def build_input(self, config: UnifiedConfig, controls: Any) -> dict[str, Any]:
         """Model input dict = structural media wiring + catalog params."""
+        from matrx_ai.media.image_reference_roles import (
+            collect_role_images,
+            ordered_role_images,
+            resolve_roled,
+            with_legend,
+        )
+
+        roled = resolve_roled(
+            ordered_role_images(collect_role_images(config.messages), self.role_keys),
+            _mediaref_url,
+        )
         start = _start_image_url(config) if (self.start_key or self.start_in_refs) else None
         end = _end_image_url(config) if self.end_key else None
         refs = _reference_urls(config) if self.refs_key else []
@@ -216,6 +233,22 @@ class ModelDescriptor:
                 out[self.refs_key] = refs[: self.refs_max] if self.refs_max else refs
         if end and self.end_key:
             out[self.end_key] = end
+        if roled:
+            legend: list[tuple[str, Any]] = []
+            lists: dict[str, list[str]] = {}
+            for role, url in roled:
+                key = self.role_keys[role]
+                if key in self.list_keys:
+                    lists.setdefault(key, []).append(url)
+                    if key == self.refs_key and self.start_in_refs:
+                        legend.append((role, url))
+                else:
+                    out[key] = url
+            for key, urls in lists.items():
+                existing = out.get(key) or []
+                out[key] = urls + [u for u in existing if u not in urls]
+            if legend:
+                out[self.prompt_key] = with_legend(out.get(self.prompt_key) or "", legend)
         return out
 
 
@@ -224,30 +257,50 @@ class ModelDescriptor:
 # ---------------------------------------------------------------------------
 
 
+_FLAT_ROLES = ("edit_target", "subject", "character", "style")
+
+
+def _flat(key: str) -> dict[str, Any]:
+    """Every flat-list reference role rides one input list (legend in prompt)."""
+    return {"role_keys": dict.fromkeys(_FLAT_ROLES, key), "list_keys": frozenset({key})}
+
+
+# Ideogram v3 on Replicate: native inpainting (image + mask) and a native
+# style-reference list (schema read 2026-09-22 from the Replicate model API).
+_IDEOGRAM_ROLES: dict[str, Any] = {
+    "role_keys": {
+        "edit_target": "image",
+        "mask": "mask",
+        "style": "style_reference_images",
+    },
+    "list_keys": frozenset({"style_reference_images"}),
+}
+
+
 _IMAGE_MODELS: list[ModelDescriptor] = [
-    # FLUX 2: start image under ``image_input``, refs under
-    # ``reference_images`` (max 8). safety_tolerance is a catalog processor
-    # (has_image_input context caps it at 2).
+    # FLUX 2: ONE ``input_images`` list (max 8) — schema read 2026-09-22; the
+    # earlier ``image_input`` / ``reference_images`` keys do not exist on
+    # these models and were silently ignored by Replicate.
     ModelDescriptor(
         "black-forest-labs/flux-2-pro", "image",
-        start_key="image_input", refs_key="reference_images", refs_max=8,
+        refs_key="input_images", refs_max=8, start_in_refs=True, **_flat("input_images"),
     ),
     ModelDescriptor(
         "black-forest-labs/flux-2-max", "image",
-        start_key="image_input", refs_key="reference_images", refs_max=8,
+        refs_key="input_images", refs_max=8, start_in_refs=True, **_flat("input_images"),
     ),
     ModelDescriptor(
         "black-forest-labs/flux-2-flex", "image",
-        start_key="image_input", refs_key="reference_images", refs_max=8,
+        refs_key="input_images", refs_max=8, start_in_refs=True, **_flat("input_images"),
     ),
     # gpt-image: start + references ride ONE ``input_images`` list (max 16).
     ModelDescriptor(
         "openai/gpt-image-2", "image",
-        refs_key="input_images", refs_max=16, start_in_refs=True,
+        refs_key="input_images", refs_max=16, start_in_refs=True, **_flat("input_images"),
     ),
     ModelDescriptor(
         "openai/gpt-image-1.5", "image",
-        refs_key="input_images", refs_max=16, start_in_refs=True,
+        refs_key="input_images", refs_max=16, start_in_refs=True, **_flat("input_images"),
     ),
     # Imagen 4 is text-only on Replicate.
     ModelDescriptor("google/imagen-4", "image"),
@@ -256,21 +309,22 @@ _IMAGE_MODELS: list[ModelDescriptor] = [
     # nano-banana: start + references ride ONE ``image_input`` list (max 14).
     ModelDescriptor(
         "google/nano-banana-2", "image",
-        refs_key="image_input", refs_max=14, start_in_refs=True,
+        refs_key="image_input", refs_max=14, start_in_refs=True, **_flat("image_input"),
     ),
     ModelDescriptor(
         "google/nano-banana-pro", "image",
-        refs_key="image_input", refs_max=14, start_in_refs=True,
+        refs_key="image_input", refs_max=14, start_in_refs=True, **_flat("image_input"),
     ),
-    ModelDescriptor("ideogram-ai/ideogram-v3-turbo", "image"),
-    ModelDescriptor("ideogram-ai/ideogram-v3", "image"),
-    ModelDescriptor("ideogram-ai/ideogram-v3-balanced", "image"),
-    ModelDescriptor("ideogram-ai/ideogram-v3-quality", "image"),
+    ModelDescriptor("ideogram-ai/ideogram-v3-turbo", "image", **_IDEOGRAM_ROLES),
+    ModelDescriptor("ideogram-ai/ideogram-v3", "image", **_IDEOGRAM_ROLES),
+    ModelDescriptor("ideogram-ai/ideogram-v3-balanced", "image", **_IDEOGRAM_ROLES),
+    ModelDescriptor("ideogram-ai/ideogram-v3-quality", "image", **_IDEOGRAM_ROLES),
     ModelDescriptor("recraft-ai/recraft-v4", "image"),
     ModelDescriptor("recraft-ai/recraft-v4-svg", "image", default_mime="image/svg+xml"),
+    # Seedream 4.5: ONE ``image_input`` list (schema read 2026-09-22).
     ModelDescriptor(
         "bytedance/seedream-4.5", "image",
-        start_key="image", refs_key="reference_images",
+        refs_key="image_input", refs_max=14, start_in_refs=True, **_flat("image_input"),
     ),
 ]
 

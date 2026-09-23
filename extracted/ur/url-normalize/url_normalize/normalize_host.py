@@ -24,6 +24,9 @@ def normalize_host(host: str, charset: str = DEFAULT_CHARSET) -> str:
 
     """
     host = force_unicode(host, charset)
+    if host.startswith("[") and host.endswith("]"):
+        address, separator, zone = host.partition("%")
+        return address.lower() + separator + zone
     host = host.lower()
     host = host.strip(".")
 
@@ -31,8 +34,8 @@ def normalize_host(host: str, charset: str = DEFAULT_CHARSET) -> str:
     parts = host.split(".")
     try:
         # Process each label separately to handle mixed unicode/ascii domains
-        parts = [idna.encode(p, uts46=True).decode(charset) for p in parts if p]
+        parts = [idna.encode(p, uts46=True).decode("ascii") for p in parts if p]
         return ".".join(parts)
     except idna.IDNAError:
         # Fallback to direct encoding if IDNA2008 processing fails
-        return host.encode("idna").decode(charset)
+        return host.encode("idna").decode("ascii")

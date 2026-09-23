@@ -49,6 +49,10 @@ class BaseAdapterExtension(abc.ABC):
     """Whether connections acquired on worker threads should be released after each use, or held
     for the duration of the thread's lifetime (until close() is called)."""
     SHOULD_RELEASE_CONNECTION: bool = False
+    RELEASE_CONNECTION_AFTER_PREWARM: bool = False
+    """Whether prewarmed connections are released back to the adapter's pool after warming, rather than
+    held for the thread's lifetime. Allows for prewarming even when SHOULD_RELEASE_CONNECTION is True.
+    """
 
     SYSTEM_METADATA_CATALOGS: t.ClassVar[t.List[str]] = []
     """Catalogs that should not have their last modified / view definition tracked"""
@@ -65,6 +69,9 @@ class BaseAdapterExtension(abc.ABC):
     """
 
     _CONNECTION_BARRIER_TIMEOUT_SECONDS: float = 2.0
+    _INITIAL_CONNECTION_TIMEOUT_SECONDS: float = 120.0
+    _RELEASE_ALL_TIMEOUT_SECONDS: float = 5.0
+    """Maximum time teardown waits for executor release tasks to finish"""
 
     def __init__(
         self,
@@ -154,20 +161,54 @@ class BaseAdapterExtension(abc.ABC):
         Doing this as early as possible is useful since establishing a new connection
         has a considerable overhead. This method is non-blocking and ensures connections
         are available by the time the actual work starts.
+
+        Prewarming is skipped for adapters that do not require named connections and for
+        adapters that release each connection, unless a pool keeps them available for later reuse.
         """
-        if not self.REQUIRES_NAMED_CONNECTION or self.SHOULD_RELEASE_CONNECTION:
+        if not self.REQUIRES_NAMED_CONNECTION:
             return
 
+        if self.SHOULD_RELEASE_CONNECTION and not self.RELEASE_CONNECTION_AFTER_PREWARM:
+            return
+
+        self._prewarm_connections()
+
+    def _prewarm_connections(self) -> None:
+        """Open one connection per executor thread in parallel, with an initial connection established first.
+
+        One initial connection opens and authenticates before the rest, so that auth methods
+        backed by a credential cache have it populated by the first connection. This helps
+        prevent each connection triggering a fresh authentication flow for each prewarm
+        connection.
+        """
         num_workers = self._max_workers
         barrier = threading.Barrier(num_workers)
 
-        def _prewarm_connection(name: str) -> None:
+        initial_connection = threading.Event()
+
+        def _prewarm_connection(name: str, is_initial_connection: bool) -> None:
             prewarm_start_time = time.perf_counter()
             try:
+                if not is_initial_connection:
+                    initial_finished = initial_connection.wait(
+                        timeout=self._INITIAL_CONNECTION_TIMEOUT_SECONDS
+                    )
+                    if not initial_finished:
+                        events.fire_debug_event(
+                            "Initial prewarm connection did not finish within {}s; proceeding to open remaining connections",
+                            self._INITIAL_CONNECTION_TIMEOUT_SECONDS,
+                        )
                 self._ensure_thread_connection(name)
                 # Force execution of a query in case if the connection is established lazily
                 self.execute("SELECT 1")
             finally:
+                if is_initial_connection:
+                    # Unblock remaining connections if the initial prewarm connection fails
+                    # so other connections do not hang
+                    initial_connection.set()
+                if self.RELEASE_CONNECTION_AFTER_PREWARM:
+                    self._release_thread_connection()
+
                 prewarm_end_time = time.perf_counter()
                 try:
                     barrier.wait(timeout=self._CONNECTION_BARRIER_TIMEOUT_SECONDS)
@@ -181,11 +222,14 @@ class BaseAdapterExtension(abc.ABC):
                 )
 
         for i in range(num_workers):
-            self._executor.submit(_prewarm_connection, f"run_cache_prewarm_{i}")
+            self._executor.submit(_prewarm_connection, f"run_cache_prewarm_{i}", i == 0)
 
     def close(self) -> None:
-        self._release_all_connections()
-        self._executor.shutdown(wait=True)
+        all_released = False
+        try:
+            all_released = self._release_all_connections()
+        finally:
+            self._executor.shutdown(wait=all_released, cancel_futures=not all_released)
 
     def rollback(self) -> None:
         self.adapter.connections.rollback_if_open()
@@ -930,7 +974,7 @@ class BaseAdapterExtension(abc.ABC):
         self.adapter.release_connection()
         self._thread_local.connection_acquired = False
 
-    def _release_all_connections(self) -> None:
+    def _release_all_connections(self) -> bool:
         """Release all connections that were acquired on executor threads.
 
         Uses a barrier to ensure every thread in the pool participates exactly once,
@@ -938,7 +982,7 @@ class BaseAdapterExtension(abc.ABC):
         another thread (with a connection) gets none.
         """
         if not self.REQUIRES_NAMED_CONNECTION:
-            return
+            return True
 
         num_workers = self._max_workers
         barrier = threading.Barrier(num_workers)
@@ -953,8 +997,19 @@ class BaseAdapterExtension(abc.ABC):
                     pass
 
         futures = [self._executor.submit(_release_on_thread) for _ in range(num_workers)]
-        for f in futures:
-            f.result()
+        done, not_done = wait(futures, timeout=self._RELEASE_ALL_TIMEOUT_SECONDS)
+        for future in done:
+            future.result()
+
+        if not_done:
+            events.fire_debug_event(
+                "Timed out releasing {} of {} thread connection(s) during teardown",
+                len(not_done),
+                num_workers,
+            )
+            return False
+
+        return True
 
     def _build_fqn_from_row(self, catalog: str, schema: str, name: str) -> str:
         """Build FQN string from individual components.

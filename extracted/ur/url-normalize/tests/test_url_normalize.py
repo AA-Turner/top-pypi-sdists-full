@@ -80,7 +80,7 @@ def test_url_normalize_no_changes_expected(value: str) -> None:
         ("http://example.com", "http://example.com/"),
         ("http://example.com/?b&a", "http://example.com/?b&a"),
         ("http://example.com/?q=%5c", "http://example.com/?q=%5C"),
-        ("http://example.com/?q=%C7", "http://example.com/?q=%EF%BF%BD"),
+        ("http://example.com/?q=%C7", "http://example.com/?q=%C7"),
         ("http://example.com/?q=C%CC%A7", "http://example.com/?q=%C3%87"),
         ("http://EXAMPLE.COM/", "http://example.com/"),
         ("http://example.com/%7Ejane", "http://example.com/~jane"),
@@ -161,3 +161,47 @@ def test_url_normalize_with_default_domain_and_scheme() -> None:
     actual = url_normalize(url, default_scheme="http", default_domain="example.com")
 
     assert actual == expected
+
+
+@pytest.mark.parametrize("component", ["/{value}", "/?q={value}", "/#{value}"])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("%ff", "%FF"),
+        ("%C7", "%C7"),
+        ("%E0%A4%A", "%E0%A4%25A"),
+        ("%FFe%CC%81", "%FF%C3%A9"),
+        ("e%CC%81", "%C3%A9"),
+        ("%EF%BF%BD", "%EF%BF%BD"),
+    ],
+)
+def test_url_normalize_preserves_invalid_utf8_octets(component, value, expected):
+    """Preserve invalid octets while normalizing valid Unicode to NFC."""
+    prefix = "https://example.com"
+    normalized = prefix + component.format(value=expected)
+    assert url_normalize(prefix + component.format(value=value)) == normalized
+    assert url_normalize(normalized) == normalized
+
+
+@pytest.mark.parametrize("prefix", [" ", "\t", "\r\n", "\u00a0"])
+@pytest.mark.parametrize("default_domain", [None, "default.example"])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("http://example.com/path ", "http://example.com/path%20"),
+        ("//x:443/path ", "https://x/path%20"),
+        ("example.com/?q=x ", "https://example.com/?q=x%20"),
+        ("/path ", "/path%20"),
+        ("", ""),
+        ("-", "-"),
+    ],
+)
+def test_url_normalize_strips_leading_whitespace_before_defaults(
+    prefix, default_domain, value, expected
+):
+    """Ignore leading whitespace before default-domain and scheme selection."""
+    if default_domain and value.startswith("/") and not value.startswith("//"):
+        expected = f"https://{default_domain}{expected}"
+    actual = url_normalize(prefix + value, default_domain=default_domain)
+    assert actual == expected
+    assert url_normalize(actual, default_domain=default_domain) == expected

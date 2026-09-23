@@ -3,8 +3,8 @@ from montecarlodata.queries.common import GQL
 # Queries related to onboarding
 
 TEST_PRESTO_CRED_MUTATION = """
-mutation testPrestoCredentials($catalog:String, $host:String, $httpScheme:String, $password:String, $port:Int, $schema:String, $sslOptions:SslInputOptions, $user:String, $connectionOptions:ConnectionTestOptions) {
-  testPrestoCredentials(catalog:$catalog, host:$host, httpScheme:$httpScheme, password:$password, port:$port, schema:$schema, sslOptions: $sslOptions, user:$user, connectionOptions:$connectionOptions) {
+mutation testPrestoCredentials($catalog:String, $metadataCatalogId:String, $host:String, $httpScheme:String, $password:String, $port:Int, $schema:String, $sslOptions:SslInputOptions, $user:String, $connectionOptions:ConnectionTestOptions) {
+  testPrestoCredentials(catalog:$catalog, metadataCatalogId:$metadataCatalogId, host:$host, httpScheme:$httpScheme, password:$password, port:$port, schema:$schema, sslOptions: $sslOptions, user:$user, connectionOptions:$connectionOptions) {
     key
   }
 }

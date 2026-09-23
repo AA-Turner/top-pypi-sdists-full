@@ -16,8 +16,10 @@ import torch
 import platform
 import os
 import fnmatch
+from contextlib import nullcontext
 
 _IS_MAC = platform.system() == 'Darwin'
+_HAS_DEVICE_CONTEXT = hasattr(torch.device, '__enter__')
 
 try:
     from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names, NodePathTracer
@@ -57,7 +59,7 @@ FEAT_INTER_FILTERS = [
     'tiny_vit', 'vovnet', 'tresnet', 'rexnet', 'resnetv2', 'repghost', 'repvit', 'pvt_v2', 'nextvit', 'nest',
     'mambaout', 'inception_next', 'inception_v4', 'hgnet', 'gcvit', 'focalnet', 'efficientformer_v2', 'edgenext',
     'davit', 'rdnet', 'convnext', 'pit', 'starnet', 'shvit', 'fasternet', 'swiftformer', 'ghostnet', 'naflexvit',
-    'csatv2', 'cpubone', 'lcnetv2', 'lowformer'
+    'csatv2', 'cpubone', 'lcnetv2', 'lowformer', 'qwen3_vit', 'iformer', 'efficientvim', 'deepseek_vit'
 ]
 
 # transformer / hybrid models don't support full set of spatial / feature APIs and/or have spatial output.
@@ -66,7 +68,7 @@ NON_STD_FILTERS = [
     'convit_*', 'levit*', 'visformer*', 'deit*', 'xcit_*', 'crossvit_*', 'beit*', 'aimv2*', 'swiftformer_*',
     'poolformer_*', 'volo_*', 'sequencer2d_*', 'mvitv2*', 'gcvit*', 'efficientformer*', 'sam_hiera*',
     'eva_*', 'flexivit*', 'eva02*', 'samvit_*', 'efficientvit_m*', 'tiny_vit_*', 'hiera_*', 'vitamin*', 'test_vit*',
-    'gemma4_vit*',
+    'gemma4_vit*', 'qwen3_vit*', 'efficientvim*', 'deepseek_vit*',
 ]
 NUM_NON_STD = len(NON_STD_FILTERS)
 
@@ -77,14 +79,15 @@ if 'GITHUB_ACTIONS' in os.environ:
         '*efficientnet_l2*', '*resnext101_32x48d', '*in21k', '*152x4_bitm', '*101x3_bitm', '*50x3_bitm',
         '*nfnet_f3*', '*nfnet_f4*', '*nfnet_f5*', '*nfnet_f6*', '*nfnet_f7*', '*efficientnetv2_xl*',
         '*resnetrs350*', '*resnetrs420*', 'xcit_large_24_p8*', '*huge*', '*giant*', '*gigantic*',
-        '*enormous*', 'maxvit_xlarge*', 'regnet*1280', 'regnet*2560', '*_1b_*', '*_3b_*', '*_7b_*']
-    NON_STD_EXCLUDE_FILTERS = ['*huge*', '*giant*',  '*gigantic*', '*enormous*', '*_1b_*', '*_3b_*', '*_7b_*']
+        '*enormous*', 'maxvit_xlarge*', 'regnet*1280', 'regnet*2560', '*_1b_*', '*_3b_*', '*_5b_*', '*_7b_*']
+    NON_STD_EXCLUDE_FILTERS = [
+        '*huge*', '*giant*',  '*gigantic*', '*enormous*', '*_1b_*', '*_3b_*', '*_5b_*', '*_7b_*']
 else:
-    EXCLUDE_FILTERS = ['*enormous*', '*_7b_*']
-    NON_STD_EXCLUDE_FILTERS = ['*gigantic*', '*enormous*', '*_3b_*', '*_7b_*']
+    EXCLUDE_FILTERS = ['*enormous*', '*_5b_*', '*_7b_*']
+    NON_STD_EXCLUDE_FILTERS = ['*gigantic*', '*enormous*', '*_3b_*', '*_5b_*', '*_7b_*']
 
 EXCLUDE_JIT_FILTERS = [
-    'hiera_*', '*naflex*', '*_7b_*', 'hrnet*', 'dpn*', 'densenet*', 'selecsls*',
+    'hiera_*', '*naflex*', '*_5b_*', '*_7b_*', 'hrnet*', 'dpn*', 'densenet*', 'selecsls*',
     # gemma4_vit shares NaFlex's ``Union[Tensor, Dict[str, Tensor]]`` forward signature,
     # which TorchScript cannot narrow (``Unknown type name 'dict'``).
     'gemma4_vit*',
@@ -233,9 +236,11 @@ def test_model_backward(model_name, batch_size):
     num_grad = sum([x.grad.numel() for x in model.parameters() if x.grad is not None])
 
     if encoder_only:
-        output_fmt = getattr(model, 'output_fmt', 'NCHW')
-        feat_axis = get_channel_dim(output_fmt)
-        assert outputs.shape[feat_axis] == model.num_features, f'unpooled feature dim {outputs.shape[feat_axis]} != model.num_features {model.num_features}'
+        feat_axis = getattr(model, 'feature_dim', None)
+        if feat_axis is None:
+            feat_axis = get_channel_dim(getattr(model, 'output_fmt', 'NCHW'))
+        output_features = getattr(model, 'out_features', None) or model.num_features
+        assert outputs.shape[feat_axis] == output_features, f'encoder output dim != {output_features}'
     else:
         assert outputs.shape[-1] == 42
     assert num_params == num_grad, 'Some parameters are missing gradients'
@@ -278,16 +283,26 @@ def _assert_reset_classifier_preserves_parent_device_dtype(model):
     assert all(module.training == expected_training for module in model.modules())
 
 
+@pytest.fixture
+def cfg_device():
+    # Config tests only inspect structure and shapes; retain real tensors on older torch.
+    return 'meta' if _HAS_DEVICE_CONTEXT else torch_device
+
+
 @pytest.mark.cfg
 @pytest.mark.timeout(timeout360)
-@pytest.mark.parametrize('model_name', list_models(
-    exclude_filters=EXCLUDE_FILTERS + NON_STD_FILTERS, include_tags=True))
+@pytest.mark.parametrize(
+    'model_name',
+    list_models(
+        exclude_filters=EXCLUDE_FILTERS + NON_STD_FILTERS,
+        include_tags=True,
+    ),
+)
 @pytest.mark.parametrize('batch_size', [1])
-def test_model_default_cfgs(model_name, batch_size):
-    """Run a single forward pass with each model"""
-    model = create_model(model_name, pretrained=False)
-    model.eval()
-    model.to(torch_device)
+def test_model_default_cfgs(model_name, batch_size, cfg_device):
+    """Check config metadata and feature/head shapes without allocating weights on modern torch."""
+    with torch.device(cfg_device) if _HAS_DEVICE_CONTEXT else nullcontext():
+        model = create_model(model_name, pretrained=False, device=cfg_device, dtype=torch.float32).eval()
     assert getattr(model, 'num_classes') >= 0
     assert getattr(model, 'num_features') > 0
     assert getattr(model, 'head_hidden_size') > 0
@@ -305,7 +320,7 @@ def test_model_default_cfgs(model_name, batch_size):
             not any([fnmatch.fnmatch(model_name, x) for x in EXCLUDE_FILTERS]):
         # output sizes only checked if default res <= 448 * 448 to keep resource down
         input_size = tuple([min(x, MAX_FWD_OUT_SIZE) for x in input_size])
-        input_tensor = torch.randn((batch_size, *input_size), device=torch_device)
+        input_tensor = torch.randn((batch_size, *input_size), device=cfg_device)
 
         # test forward_features (always unpooled) & forward_head w/ pre_logits
         outputs = model.forward_features(input_tensor)
@@ -318,7 +333,6 @@ def test_model_default_cfgs(model_name, batch_size):
         # test forward after deleting the classifier, output should be poooled, size(-1) == model.num_features
         model.reset_classifier(0)
         assert model.num_classes == 0, f'Expected num_classes to be 0 after reset_classifier(0), but got {model.num_classes}'
-        model.to(torch_device)
         outputs = model.forward(input_tensor)
         assert len(outputs.shape) == 2
         assert outputs.shape[1] == model.head_hidden_size, f'feature dim w/ removed classifier {outputs.shape[1]} != model.head_hidden_size {model.head_hidden_size}'
@@ -327,15 +341,16 @@ def test_model_default_cfgs(model_name, batch_size):
         # test model forward after removing pooling and classifier
         if not isinstance(model, EARLY_POOL_MODELS):
             model.reset_classifier(0, '')  # reset classifier and disable global pooling
-            model.to(torch_device)
             outputs = model.forward(input_tensor)
             assert len(outputs.shape) == 4
             assert outputs.shape[spatial_axis[0]] == pool_size[0] and outputs.shape[spatial_axis[1]] == pool_size[1]
 
         # test classifier + global pool deletion via __init__
         if 'pruned' not in model_name and not isinstance(model, EARLY_POOL_MODELS):
-            model = create_model(model_name, pretrained=False, num_classes=0, global_pool='').eval()
-            model.to(torch_device)
+            # Explicit factory kwargs must also work without the device context.
+            model = create_model(
+                model_name, pretrained=False, num_classes=0, global_pool='', device=cfg_device, dtype=torch.float32,
+            ).eval()
             outputs = model.forward(input_tensor)
             assert len(outputs.shape) == 4
             assert outputs.shape[spatial_axis[0]] == pool_size[0] and outputs.shape[spatial_axis[1]] == pool_size[1]
@@ -360,14 +375,14 @@ def test_model_default_cfgs(model_name, batch_size):
 
 
 @pytest.mark.cfg
+@pytest.mark.cfg_nonstd
 @pytest.mark.timeout(timeout360)
 @pytest.mark.parametrize('model_name', list_models(filter=NON_STD_FILTERS, exclude_filters=NON_STD_EXCLUDE_FILTERS, include_tags=True))
 @pytest.mark.parametrize('batch_size', [1])
-def test_model_default_cfgs_non_std(model_name, batch_size):
-    """Run a single forward pass with each model"""
-    model = create_model(model_name, pretrained=False)
-    model.eval()
-    model.to(torch_device)
+def test_model_default_cfgs_non_std(model_name, batch_size, cfg_device):
+    """Check non-standard model config metadata and feature/head shapes."""
+    with torch.device(cfg_device) if _HAS_DEVICE_CONTEXT else nullcontext():
+        model = create_model(model_name, pretrained=False, device=cfg_device, dtype=torch.float32).eval()
     assert getattr(model, 'num_classes') >= 0
     assert getattr(model, 'num_features') > 0
     assert getattr(model, 'head_hidden_size') > 0
@@ -379,7 +394,7 @@ def test_model_default_cfgs_non_std(model_name, batch_size):
         _assert_reset_classifier_preserves_parent_device_dtype(model)
         pytest.skip("Fixed input size model > limit.")
 
-    input_tensor = torch.randn((batch_size, *input_size), device=torch_device)
+    input_tensor = torch.randn((batch_size, *input_size), device=cfg_device)
     feat_dim = getattr(model, 'feature_dim', None)
 
     outputs = model.forward_features(input_tensor)
@@ -396,7 +411,6 @@ def test_model_default_cfgs_non_std(model_name, batch_size):
     # test forward after deleting the classifier, output should be poooled, size(-1) == model.num_features
     model.reset_classifier(0)
     assert model.num_classes == 0, f'Expected num_classes to be 0 after reset_classifier(0), but got {model.num_classes}'
-    model.to(torch_device)
     outputs = model.forward(input_tensor)
     if isinstance(outputs,  (tuple, list)):
         outputs = outputs[0]
@@ -405,8 +419,10 @@ def test_model_default_cfgs_non_std(model_name, batch_size):
     assert outputs.shape[feat_dim] == model.head_hidden_size, 'pooled num_features != config'
     assert outputs.shape == outputs_pre.shape
 
-    model = create_model(model_name, pretrained=False, num_classes=0).eval()
-    model.to(torch_device)
+    # Explicit factory kwargs must also work without the device context.
+    model = create_model(
+        model_name, pretrained=False, num_classes=0, device=cfg_device, dtype=torch.float32,
+    ).eval()
     outputs = model.forward(input_tensor)
     if isinstance(outputs, (tuple, list)):
         outputs = outputs[0]
@@ -486,9 +502,7 @@ def test_model_forward_torchscript(model_name, batch_size):
     assert not torch.isnan(outputs).any(), 'Output included NaNs'
 
 
-EXCLUDE_FEAT_FILTERS = [
-    '*pruned*',  # hopefully fix at some point
-] + NON_STD_FILTERS
+EXCLUDE_FEAT_FILTERS = NON_STD_FILTERS[:]
 if 'GITHUB_ACTIONS' in os.environ:  # and 'Linux' in platform.system():
     # GitHub Linux runner is slower and hits memory limits sooner than MacOS, exclude bigger models
     EXCLUDE_FEAT_FILTERS += ['*resnext101_32x32d', '*resnext101_32x16d']
@@ -527,7 +541,7 @@ def test_model_forward_features(model_name, batch_size):
 
 @pytest.mark.features
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize('model_name', list_models(module=FEAT_INTER_FILTERS, exclude_filters=EXCLUDE_FILTERS + ['*pruned*']))
+@pytest.mark.parametrize('model_name', list_models(module=FEAT_INTER_FILTERS, exclude_filters=EXCLUDE_FILTERS))
 @pytest.mark.parametrize('batch_size', [1])
 def test_model_forward_intermediates_features(model_name, batch_size):
     """Run a single forward pass with each model in feature extraction mode"""
@@ -558,7 +572,7 @@ def test_model_forward_intermediates_features(model_name, batch_size):
 
 @pytest.mark.features
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize('model_name', list_models(module=FEAT_INTER_FILTERS, exclude_filters=EXCLUDE_FILTERS + ['*pruned*']))
+@pytest.mark.parametrize('model_name', list_models(module=FEAT_INTER_FILTERS, exclude_filters=EXCLUDE_FILTERS))
 @pytest.mark.parametrize('batch_size', [1])
 def test_model_forward_intermediates(model_name, batch_size):
     """Run a single forward pass with each model in feature extraction mode"""
@@ -592,7 +606,7 @@ def test_model_forward_intermediates(model_name, batch_size):
         assert not torch.isnan(o).any()
 
     output2 = model.forward_features(inpt)
-    assert torch.allclose(output, output2)
+    torch.testing.assert_close(output, output2, rtol=1e-5, atol=1e-8)
 
     # Test that grad-checkpointing, if supported
     try:
@@ -605,7 +619,7 @@ def test_model_forward_intermediates(model_name, batch_size):
             inpt,
             output_fmt=output_fmt,
         )
-        assert torch.allclose(output, output3, rtol=1e-4, atol=1e-5), 'Output does not match'
+        torch.testing.assert_close(output, output3, rtol=1e-4, atol=1e-5)
 
 
 
@@ -714,6 +728,11 @@ def test_model_backward_fx(model_name, batch_size):
         pytest.skip("Fixed input size model > limit.")
 
     model = create_model(model_name, pretrained=False, num_classes=42)
+    encoder_only = model.num_classes == 0
+    feat_axis = getattr(model, 'feature_dim', None) if encoder_only else -1
+    if feat_axis is None:
+        feat_axis = get_channel_dim(getattr(model, 'output_fmt', 'NCHW'))
+    output_features = (getattr(model, 'out_features', None) or model.num_features) if encoder_only else 42
     model.train()
     num_params = sum([x.numel() for x in model.parameters()])
     if 'GITHUB_ACTIONS' in os.environ and num_params > 100e6:
@@ -728,7 +747,7 @@ def test_model_backward_fx(model_name, batch_size):
         assert x.grad is not None, f'No gradient for {n}'
     num_grad = sum([x.grad.numel() for x in model.parameters() if x.grad is not None])
 
-    assert outputs.shape[-1] == 42
+    assert outputs.shape[feat_axis] == output_features
     assert num_params == num_grad, 'Some parameters are missing gradients'
     assert not torch.isnan(outputs).any(), 'Output included NaNs'
 
@@ -1053,6 +1072,55 @@ def test_naflexvit_key_only_attn_mask_output_parity(global_pool):
 
     assert torch.equal(full_out, compact_out)
 
+
+@pytest.mark.base
+@pytest.mark.parametrize('num_kv_heads', [4, 2, (4, 2, 4)])
+@pytest.mark.parametrize('attn_only_layer_scale', [False, True])
+def test_naflexvit_sapiens2_conversion(num_kv_heads, attn_only_layer_scale):
+    from timm.models.naflexvit import batch_patchify, checkpoint_filter_fn
+
+    common_kwargs = dict(
+        img_size=(32, 48), patch_size=8, embed_dim=32, depth=3, num_heads=4,
+        num_kv_heads=num_kv_heads, num_classes=0, attn_only_layer_scale=attn_only_layer_scale,
+        rope_shift_coords=0.1, rope_jitter_coords=1.1, rope_grid_offset=0.25,
+    )
+    eva = create_model('vit_base_patch16_sapiens2', use_naflex=False, **common_kwargs)
+    naflex = create_model('vit_base_patch16_sapiens2', use_naflex=True, **common_kwargs)
+    naflex.load_state_dict(checkpoint_filter_fn(eva.state_dict(), naflex), strict=True)
+
+    images = torch.randn(2, 3, 32, 48)
+    patches, grid = batch_patchify(images, (8, 8))
+    coord = torch.stack(torch.meshgrid(torch.arange(grid[0]), torch.arange(grid[1]), indexing='ij'), dim=-1)
+    coord = coord.reshape(1, -1, 2).expand(images.shape[0], -1, -1)
+    valid = torch.ones(patches.shape[:2], dtype=torch.bool)
+    # Include padding to exercise NaFlex attention masking with grouped KV heads.
+    patches = torch.nn.functional.pad(patches, (0, 0, 0, 3))
+    coord = torch.nn.functional.pad(coord, (0, 0, 0, 3))
+    valid = torch.nn.functional.pad(valid, (0, 3))
+
+    for training in (False, True):
+        eva.train(training)
+        naflex.train(training)
+        # Match train-time coordinate augmentation draws across the three input paths.
+        torch.manual_seed(123)
+        reference = eva.forward_features(images)
+        torch.manual_seed(123)
+        actual_images = naflex.forward_features(images)
+        torch.manual_seed(123)
+        actual_patches = naflex.forward_features(patches, patch_coord=coord, patch_valid=valid)['patches']
+        actual_patches = actual_patches[:, :reference.shape[1]]
+        torch.testing.assert_close(actual_images, reference, rtol=2e-5, atol=2e-6)
+        torch.testing.assert_close(actual_patches, reference, rtol=2e-5, atol=2e-6)
+
+        if training:
+            loss_weight = torch.randn_like(reference)
+            (reference * loss_weight).mean().backward()
+            (actual_patches * loss_weight).mean().backward()
+            reference_grads = checkpoint_filter_fn({k: p.grad for k, p in eva.named_parameters()}, naflex)
+            for name, parameter in naflex.named_parameters():
+                torch.testing.assert_close(parameter.grad, reference_grads[name], rtol=2e-4, atol=2e-6)
+
+
 def test_gemma4_forward_intermediates_dict_output():
     """gemma4_vit dict-output intermediates match the NaFlexVit contract (API symmetry):
     'image_intermediates' / 'image_features' / 'patch_valid' aligned with the token sequence."""
@@ -1076,3 +1144,232 @@ def test_gemma4_forward_intermediates_dict_output():
     assert torch.equal(out['patch_valid'], valid)
     assert torch.allclose(out['image_features'], final)
     assert len(out['image_intermediates']) == len(inter)
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name,encoder_pool', [
+    ('gemma4_vit_167m', ''),
+    ('gemma4_vit_167m', 'soft'),
+    ('qwen3_vit_88m', ''),
+    ('qwen3_vit_88m_merge', 'merge'),
+    ('deepseek_vit_412m', ''),
+    ('deepseek_vit_412m_align', 'align'),
+])
+def test_vit_classifier_encoder_hooks(model_name, encoder_pool):
+    kwargs = dict(num_classes=5, embed_dim=32, depth=1, num_heads=2, encoder_pool=encoder_pool)
+    if model_name.startswith('gemma4'):
+        kwargs.update(head_dim=16, intermediate_size=64, position_embedding_size=16, pooling_kernel_size=2)
+    elif model_name.startswith('deepseek'):
+        kwargs.update(patch_size=8, out_features=48)
+    model = create_model(model_name, **kwargs).eval()
+    events = []
+    model.encoder.register_forward_pre_hook(lambda *args: events.append('encoder_pre'))
+    model.encoder.register_forward_hook(lambda *args: events.append('encoder_post'))
+    if encoder_pool in ('merge', 'align'):
+        projector = model.encoder.merger if encoder_pool == 'merge' else model.encoder.aligner
+        projector.fc2.register_forward_hook(lambda *args: events.append('fc2_post'))
+        projector.register_forward_hook(lambda *args: events.append('projector_post'))
+    with torch.no_grad():
+        output = model(torch.randn(2, 3, 64, 96))
+    if encoder_pool in ('merge', 'align'):
+        expected_events = ['encoder_pre', 'fc2_post', 'projector_post', 'encoder_post']
+    else:
+        expected_events = ['encoder_pre', 'encoder_post']
+    assert events == expected_events
+    assert output.shape == (2, 5)
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name, kwargs', [
+    ('qwen3_vit_88m_merge', dict(embed_dim=32, depth=1, num_heads=4, pos_embed_grid_size=4)),
+    ('deepseek_vit_412m_align', dict(embed_dim=32, depth=1, num_heads=4, patch_size=8, out_features=48)),
+    ('iformer_t', dict(dims=(16, 24, 32, 48), depths=(1, 1, 3, 3), attn_groups=(0, 0, 1, 1),
+                       layer_scale_init_value=1e-6)),
+    ('efficientvim_m1_dist', dict(embed_dim=(16, 24, 32), depths=(1, 1, 1), state_dim=(4, 4, 4))),
+])
+def test_model_init_weights_after_to_empty(model_name, kwargs):
+    if not hasattr(torch.nn.Module, 'to_empty'):
+        pytest.skip('to_empty requires a newer PyTorch version')
+    model = create_model(
+        model_name, device='meta', dtype=torch.float64, num_classes=5, **kwargs,
+    )
+    assert all(p.device.type == 'meta' and p.dtype == torch.float64 for p in model.parameters())
+    model = model.to_empty(device='cpu').eval()
+    # Poison storage so missed resets cannot pass just because uninitialized values happen to be finite.
+    with torch.no_grad():
+        for tensor in list(model.parameters()) + list(model.buffers()):
+            if tensor.is_floating_point():
+                tensor.fill_(float('nan'))
+    model.init_weights()
+    for name, tensor in list(model.named_parameters()) + list(model.named_buffers()):
+        assert torch.isfinite(tensor).all(), name
+    if model_name.startswith('qwen'):
+        torch.testing.assert_close(model.encoder.blocks[0].norm1.weight, torch.ones(32, dtype=torch.float64))
+    assert torch.isfinite(model(torch.randn(1, 3, 64, 64, dtype=torch.float64))).all()
+
+
+_VIT_ENCODER_CASES = [
+    (
+        'gemma4_vit_167m',
+        'soft',
+        'pooler.',
+        dict(
+            head_dim=8,
+            intermediate_size=64,
+            position_embedding_size=16,
+            pooling_kernel_size=2,
+        ),
+    ),
+    ('qwen3_vit_88m', 'merge', 'merger.', dict(out_features=48, pos_embed_grid_size=4)),
+    ('deepseek_vit_412m', 'align', 'aligner.', dict(out_features=48)),
+]
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name, pool, pool_prefix, model_kwargs', _VIT_ENCODER_CASES)
+@pytest.mark.parametrize('use_pool', [False, True])
+def test_vit_classifier_checkpoint(model_name, pool, pool_prefix, model_kwargs, use_pool):
+    kwargs = dict(embed_dim=32, depth=2, num_heads=4, patch_size=8, **model_kwargs)
+    encoder = create_model(model_name + '_enc', global_pool=pool, **kwargs)
+    model = create_model(model_name, num_classes=5, encoder_pool=pool if use_pool else '', **kwargs)
+    filter_fn = importlib.import_module(type(model).__module__).checkpoint_filter_fn_classifier
+    # Different values, including norms, ensure missing loads cannot match default initialization.
+    with torch.no_grad():
+        for parameter in encoder.parameters():
+            parameter.uniform_(-0.5, 0.5)
+    encoder_state = encoder.state_dict()
+    state = filter_fn(encoder_state, model)
+    result = model.load_state_dict(state, strict=False)
+    assert set(result.missing_keys) == {'head.weight', 'head.bias'}
+    assert not result.unexpected_keys
+    expected = {k: v for k, v in encoder_state.items() if use_pool or not k.startswith(pool_prefix)}
+    torch.testing.assert_close(model.encoder.state_dict(), expected)
+    # Native classifier checkpoints retain encoder parameters and their separately named head.
+    torch.testing.assert_close(filter_fn(model.state_dict(), model), model.state_dict())
+    if model_name.startswith('deepseek'):
+        # DeepSeek's bare norm/head belong to the LLM when a vision namespace is present.
+        source = {k if k.startswith(pool_prefix) else f'vision.{k}': v for k, v in encoder_state.items()}
+        source.update({'norm.weight': torch.ones(64), 'head.weight': torch.ones(64, 64)})
+        state = filter_fn(source, model)
+        result = model.load_state_dict(state, strict=False)
+        assert set(result.missing_keys) == {'head.weight', 'head.bias'}
+        assert not result.unexpected_keys
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name, pool, pool_prefix, model_kwargs', _VIT_ENCODER_CASES)
+def test_vit_classifier_pruned_features(model_name, pool, pool_prefix, model_kwargs):
+    from timm.models._features import FeatureGetterNet
+
+    model = create_model(
+        model_name,
+        embed_dim=32,
+        depth=2,
+        num_heads=4,
+        patch_size=8,
+        num_classes=5,
+        encoder_pool=pool,
+        **model_kwargs,
+    ).eval()
+    x = torch.randn(2, 3, 64, 96)
+    with torch.no_grad():
+        expected = model.forward_intermediates(x, indices=[0], norm=True, intermediates_only=True)
+    getter = FeatureGetterNet(model, out_indices=[0], norm=True)
+    torch.testing.assert_close(getter(x), expected)
+    assert not any(n.startswith(pool_prefix) for n, _ in model.encoder.named_parameters())
+    assert len(model.encoder.blocks) == len(getter.feature_info.channels()) == 1
+    sum(t.square().mean() for t in getter(x)).backward()
+    for name, parameter in getter.named_parameters():
+        if parameter.requires_grad:
+            assert parameter.grad is not None, f'No gradient for {name}'
+    if not any(fnmatch.fnmatch(model_name, pattern) for pattern in EXCLUDE_JIT_FILTERS):
+        torch.testing.assert_close(torch.jit.script(getter)(x), expected)
+    model.reset_classifier(5)
+    assert model(x).shape == (2, 5)
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name', ['efficientvim_m1', 'efficientvim_m1_dist'])
+def test_efficientvim_branch_features(model_name):
+    model = create_model(
+        model_name, num_classes=5, embed_dim=(16, 24, 32), depths=(1, 1, 1), state_dim=(4, 4, 4),
+    ).eval()
+    x = torch.randn(2, 3, 64, 96)
+    with torch.no_grad():
+        features = model.forward_features(x)
+        assert [t.shape[1] for t in features] == [16, 24, 32, 32]
+        torch.testing.assert_close(model(x), model.forward_head(features))
+        pre_logits = model.forward_head(features, pre_logits=True)
+        assert pre_logits.shape == (2, model.head_hidden_size)
+        expected = model.forward_intermediates(x, indices=[0, 1], norm=True, intermediates_only=True)
+        model.prune_intermediate_layers([0, 1])
+        actual = model.forward_intermediates(x, norm=True, intermediates_only=True)
+        torch.testing.assert_close(actual, expected)
+        assert model(x).shape == (2, model.num_features)
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name, kwargs', [
+    ('efficientvim_m1', dict(embed_dim=(16, 24, 32), depths=(1, 1, 1), state_dim=(4, 4, 4))),
+    ('efficientvim_m1_dist', dict(embed_dim=(16, 24, 32), depths=(1, 1, 1), state_dim=(4, 4, 4))),
+    ('iformer_t', dict(dims=(16, 24, 32, 48), depths=(1, 1, 3, 3), attn_groups=(0, 0, 1, 1))),
+])
+def test_mobile_model_fusion_features(model_name, kwargs):
+    from copy import deepcopy
+    from timm.models._features import FeatureGetterNet
+    from timm.utils import reparameterize_model
+
+    model = create_model(model_name, num_classes=5, **kwargs).eval()
+    # Exercise learned BN statistics and nonuniform gates, not just their initial values.
+    for module in model.modules():
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            torch.nn.init.uniform_(module.running_mean, -0.2, 0.2)
+            torch.nn.init.uniform_(module.running_var, 0.5, 1.5)
+            torch.nn.init.uniform_(module.weight, 0.5, 1.5)
+            torch.nn.init.uniform_(module.bias, -0.2, 0.2)
+        if hasattr(module, 'alpha'):
+            torch.nn.init.uniform_(module.alpha, -1, 1)
+    x = torch.randn(2, 3, 64, 96)
+    fused = reparameterize_model(model)
+    assert any(isinstance(m, torch.nn.modules.batchnorm._BatchNorm) for m in model.modules())
+    assert not any(isinstance(m, torch.nn.modules.batchnorm._BatchNorm) for m in fused.modules())
+    with torch.no_grad():
+        torch.testing.assert_close(fused(x), model(x), atol=2e-5, rtol=2e-5)
+        torch.testing.assert_close(reparameterize_model(fused)(x), fused(x), atol=0, rtol=0)
+    for norm, indices in [(False, [0, 1]), (True, [0, -1])]:
+        expected = model.forward_intermediates(x, indices=indices, norm=norm, intermediates_only=True)
+        getter = FeatureGetterNet(deepcopy(model), out_indices=indices, norm=norm).eval()
+        torch.testing.assert_close(getter(x), expected)
+        fused_getter = reparameterize_model(getter)
+        torch.testing.assert_close(fused_getter(x), expected, atol=2e-5, rtol=2e-5)
+        torch.testing.assert_close(torch.jit.script(fused_getter)(x), fused_getter(x))
+        getter.train()
+        sum(t.square().mean() for t in getter(x)).backward()
+        assert all(p.grad is not None for p in getter.parameters() if p.requires_grad)
+        # Resetting a classifier after pruning must use the retained feature width.
+        getter.model.reset_classifier(7, global_pool='avg')
+        assert getter.model(x).shape == (2, 7)
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('model_name', [
+    'levit_128s', 'levit_conv_128s', 'efficientformer_l1', 'efficientformerv2_s0', 'tiny_vit_5m_224', 'efficientvit_m0',
+])
+def test_eval_refreshes_attention_bias_cache(model_name):
+    # A model that stays in eval mode while its weights change (e.g. an EMA copy between validation runs)
+    # must not keep using the attention biases cached from the previous weights once eval() is called again.
+    model = create_model(model_name).eval()
+    attn_modules = [m for m in model.modules() if hasattr(m, 'attention_bias_cache')]
+    assert attn_modules
+    x = torch.randn(1, *model.pretrained_cfg['input_size'])
+    with torch.no_grad():
+        model(x)
+        for m in attn_modules:
+            m.attention_biases.normal_()
+        model.eval()
+        model(x)
+        for m in attn_modules:
+            torch.testing.assert_close(
+                m.get_attention_biases(x.device),
+                m.attention_biases[:, m.attention_bias_idxs],
+            )

@@ -208,6 +208,27 @@ class ConversationRunner:
         for iteration in range(1, self._max + 1):
             iterations = iteration
 
+            # THIS SUBTREE's own time budget — the per-child axis the engine
+            # controls cannot express (ensure_can_proceed resolves the TREE
+            # ROOT, so a deadline there bounds the whole turn). Same boundary,
+            # same graceful settle: whatever this run produced is kept.
+            from matrx_ai.orchestrator.subtree_budget import subtree_stop_reason
+
+            try:
+                from matrx_connect.context.app_context import try_get_app_context
+
+                _ctx = try_get_app_context()
+                _subtree = (
+                    subtree_stop_reason(getattr(_ctx, "metadata", None))
+                    if _ctx is not None
+                    else None
+                )
+            except Exception:  # noqa: BLE001 — a budget blip must never break the loop
+                _subtree = None
+            if _subtree:
+                settled = await self._engine.cancel(execution.id, cost=run_cost)
+                return self._result(settled, conversation_id, iterations, run_cost, child_ids)
+
             # budget / per-quantity limit / cancel / deadline — checked every turn
             try:
                 await self._engine.ensure_can_proceed(execution.id)

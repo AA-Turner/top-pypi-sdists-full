@@ -2,8 +2,8 @@
 
 #include "Python.h"
 #include "libheif/heif.h"
-#if !LIBHEIF_HAVE_VERSION(1,23,1)
-    #error "pillow_heif requires libheif >= 1.23.1"
+#if !LIBHEIF_HAVE_VERSION(1,23,4)
+    #error "pillow_heif requires libheif >= 1.23.4"
 #endif
 #include "libheif/heif_tiling.h"
 #include "libheif/heif_properties.h"
@@ -55,6 +55,8 @@ int check_error(struct heif_error error) {
 }
 
 int __PyDict_SetItemString(PyObject *p, const char *key, PyObject *val) {
+    if (!val)
+        return -1;
     int r = PyDict_SetItemString(p, key, val);
     Py_DECREF(val);
     return r;
@@ -1319,9 +1321,24 @@ static PyObject* _CtxImage_metadata(CtxImageObject* self, void* closure) {
                     free(meta_ids);
                     return NULL;
                 }
-                __PyDict_SetItemString(meta_item_info, "type", PyUnicode_FromString(type));
-                __PyDict_SetItemString(meta_item_info, "content_type", PyUnicode_FromString(content_type));
-                __PyDict_SetItemString(meta_item_info, "data", PyBytes_FromStringAndSize((char*)data, size));
+                if (!type)
+                    type = "";
+                if (!content_type)
+                    content_type = "";
+                // the item type is a raw 4CC, it is not always valid UTF-8
+                if (__PyDict_SetItemString(
+                        meta_item_info, "type", PyUnicode_DecodeLatin1(type, strlen(type), NULL)) < 0 ||
+                    __PyDict_SetItemString(
+                        meta_item_info, "content_type",
+                        PyUnicode_DecodeLatin1(content_type, strlen(content_type), NULL)) < 0 ||
+                    __PyDict_SetItemString(
+                        meta_item_info, "data", PyBytes_FromStringAndSize((char*)data, size)) < 0) {
+                    Py_DECREF(meta_item_info);
+                    free(data);
+                    Py_DECREF(meta_list);
+                    free(meta_ids);
+                    return NULL;
+                }
             }
             free(data);
             if (!meta_item_info) {
@@ -1512,7 +1529,7 @@ static PyObject* _CtxImage_depth_image_list(CtxImageObject* self, void* closure)
         return PyErr_NoMemory();
 
     n_images = heif_image_handle_get_list_of_depth_image_IDs(self->handle, images_ids, n_images);
-    PyObject* images_list = PyList_New(n_images);
+    PyObject* images_list = PyList_New(0);
     if (!images_list) {
         free(images_ids);
         return NULL;
@@ -1523,11 +1540,23 @@ static PyObject* _CtxImage_depth_image_list(CtxImageObject* self, void* closure)
             self->handle, images_ids[i], self->remove_stride, self->hdr_to_16bit, self->file_bytes,
             self->decoder_id);
         if (!ctx_depth_image) {
+            if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
+                Py_DECREF(images_list);
+                free(images_ids);
+                return NULL;
+            }
+            // libheif reports an item it could not parse (e.g. an unsupported item type) when the handle
+            // is requested: skip such depth images
+            PyErr_Clear();
+            continue;
+        }
+        int append_error = PyList_Append(images_list, ctx_depth_image);
+        Py_DECREF(ctx_depth_image);
+        if (append_error) {
             Py_DECREF(images_list);
             free(images_ids);
             return NULL;
         }
-        PyList_SET_ITEM(images_list, i, ctx_depth_image);
     }
     free(images_ids);
     return images_list;
@@ -1563,12 +1592,48 @@ static PyObject* _CtxImage_get_aux_image(CtxImageObject* self, PyObject* arg_ima
     );
 }
 
+static PyObject* _CtxImage_get_thumbnail(CtxImageObject* self, PyObject* arg_index) {
+    long index = PyLong_AsLong(arg_index);
+    if (index == -1 && PyErr_Occurred())
+        return NULL;
+    int n_thumbnails = heif_image_handle_get_number_of_thumbnails(self->handle);
+    if (index < 0 || index >= n_thumbnails) {
+        PyErr_Format(PyExc_IndexError, "invalid thumbnail index: %ld", index);
+        return NULL;
+    }
+    heif_item_id* thumbnail_ids = (heif_item_id*)malloc(n_thumbnails * sizeof(heif_item_id));
+    if (!thumbnail_ids)
+        return PyErr_NoMemory();
+    n_thumbnails = heif_image_handle_get_list_of_thumbnail_IDs(self->handle, thumbnail_ids, n_thumbnails);
+    if (index >= n_thumbnails) {
+        free(thumbnail_ids);
+        PyErr_Format(PyExc_IndexError, "invalid thumbnail index: %ld", index);
+        return NULL;
+    }
+    heif_item_id thumbnail_id = thumbnail_ids[index];
+    free(thumbnail_ids);
+
+    struct heif_image_handle* handle;
+    if (check_error(heif_image_handle_get_thumbnail(self->handle, thumbnail_id, &handle)))
+        return NULL;
+    enum heif_colorspace colorspace;
+    enum heif_chroma chroma;
+    if (check_error(heif_image_handle_get_preferred_decoding_colorspace(handle, &colorspace, &chroma))) {
+        heif_image_handle_release(handle);
+        return NULL;
+    }
+    return _CtxImage(
+        handle, self->hdr_to_8bit, self->bgr_mode, self->remove_stride, self->hdr_to_16bit, 0, self->file_bytes,
+        self->decoder_id, colorspace, chroma
+    );
+}
+
 static PyObject* _get_aux_type(const struct heif_image_handle* aux_handle) {
     const char* aux_type_c = NULL;
     struct heif_error error = heif_image_handle_get_auxiliary_type(aux_handle, &aux_type_c);
     if (check_error(error))
         return NULL;
-    PyObject *aux_type = PyUnicode_FromString(aux_type_c);
+    PyObject *aux_type = PyUnicode_DecodeLatin1(aux_type_c, strlen(aux_type_c), NULL);
     heif_image_handle_release_auxiliary_type(aux_handle, &aux_type_c);
     return aux_type;
 }
@@ -1690,6 +1755,68 @@ static PyObject* _CtxImage_camera_extrinsic_matrix_rot(CtxImageObject* self, voi
     return Py_BuildValue("(ddddddddd)", rot[0], rot[1], rot[2], rot[3], rot[4], rot[5], rot[6], rot[7], rot[8]);
 }
 
+static PyObject* _CtxImage_item_id(CtxImageObject* self, void* closure) {
+    return PyLong_FromUnsignedLong(heif_image_handle_get_item_id(self->handle));
+}
+
+static PyObject* _CtxImage_transformations(CtxImageObject* self, void* closure) {
+    struct heif_context* ctx = heif_image_handle_get_context(self->handle);
+    if (!ctx)
+        return PyErr_NoMemory();
+    heif_item_id item_id = heif_image_handle_get_item_id(self->handle);
+    heif_property_id* property_ids = NULL;
+    int n_properties = heif_item_get_transformation_properties(ctx, item_id, NULL, 0);
+    if (n_properties > 0) {
+        property_ids = (heif_property_id*)malloc(n_properties * sizeof(heif_property_id));
+        if (!property_ids) {
+            heif_context_free(ctx);
+            return PyErr_NoMemory();
+        }
+        n_properties = heif_item_get_transformation_properties(ctx, item_id, property_ids, n_properties);
+    }
+    int width = heif_image_handle_get_ispe_width(self->handle);
+    int height = heif_image_handle_get_ispe_height(self->handle);
+    PyObject* transformations = PyList_New(0);
+    for (int i = 0; transformations && i < n_properties; i++) {
+        PyObject* transformation;
+        enum heif_item_property_type type = heif_item_get_property_type(ctx, item_id, property_ids[i]);
+        if (type == heif_item_property_type_transform_rotation) {
+            int angle = heif_item_get_property_transform_rotation_ccw(ctx, item_id, property_ids[i]);
+            if (angle == 90 || angle == 270) {
+                int rotated_width = height;
+                height = width;
+                width = rotated_width;
+            }
+            transformation = Py_BuildValue("(si)", "irot", angle);
+        }
+        else if (type == heif_item_property_type_transform_mirror)
+            transformation = Py_BuildValue(
+                "(si)", "imir", (int)heif_item_get_property_transform_mirror(ctx, item_id, property_ids[i])
+            );
+        else if (type == heif_item_property_type_transform_crop) {
+            int left, top, right, bottom;
+            heif_item_get_property_transform_crop_borders(
+                ctx, item_id, property_ids[i], width, height, &left, &top, &right, &bottom
+            );
+            transformation = Py_BuildValue("(siiiiii)", "clap", left, top, right, bottom, width, height);
+            width -= left + right;
+            height -= top + bottom;
+        }
+        else
+            continue;
+        if (!transformation || PyList_Append(transformations, transformation) < 0)
+            Py_CLEAR(transformations);
+        Py_XDECREF(transformation);
+    }
+    free(property_ids);
+    heif_context_free(ctx);
+    if (!transformations)
+        return NULL;
+    PyObject* result = PyList_AsTuple(transformations);
+    Py_DECREF(transformations);
+    return result;
+}
+
 /* =========== CtxImage properties available to Python Part ======== */
 
 static struct PyGetSetDef _CtxImage_getseters[] = {
@@ -1713,12 +1840,15 @@ static struct PyGetSetDef _CtxImage_getseters[] = {
     {"camera_intrinsic_matrix", (getter)_CtxImage_camera_intrinsic_matrix, NULL, NULL, NULL},
     {"camera_extrinsic_matrix_rot", (getter)_CtxImage_camera_extrinsic_matrix_rot, NULL, NULL, NULL},
     {"tiling", (getter)_CtxImage_tiling, NULL, NULL, NULL},
+    {"item_id", (getter)_CtxImage_item_id, NULL, NULL, NULL},
+    {"transformations", (getter)_CtxImage_transformations, NULL, NULL, NULL},
     {NULL, NULL, NULL, NULL, NULL}
 };
 
 static struct PyMethodDef _CtxImage_methods[] = {
     {"get_aux_image", (PyCFunction)_CtxImage_get_aux_image, METH_O},
     {"get_aux_type", (PyCFunction)_CtxImage_get_aux_type, METH_O},
+    {"get_thumbnail", (PyCFunction)_CtxImage_get_thumbnail, METH_O},
     {NULL, NULL}
 };
 
@@ -1771,6 +1901,37 @@ static PyObject* _CtxWrite(PyObject* self, PyObject* args) {
     ctx_write->size = 0;
     ctx_write->data = NULL;
     return (PyObject*)ctx_write;
+}
+
+static PyObject* _entity_groups(struct heif_context* ctx) {
+    int n_groups = 0;
+    struct heif_entity_group* groups = heif_context_get_entity_groups(ctx, 0, 0, &n_groups);
+    PyObject* groups_list = PyList_New(n_groups);
+    if (!groups_list) {
+        heif_entity_groups_release(groups, n_groups);
+        return NULL;
+    }
+    for (int i = 0; i < n_groups; i++) {
+        PyObject* group = PyDict_New();
+        PyObject* entities = PyList_New(groups[i].num_entities);
+        if (!group || !entities) {
+            Py_XDECREF(group);
+            Py_XDECREF(entities);
+            Py_DECREF(groups_list);
+            heif_entity_groups_release(groups, n_groups);
+            return NULL;
+        }
+        for (uint32_t k = 0; k < groups[i].num_entities; k++)
+            PyList_SET_ITEM(entities, k, PyLong_FromUnsignedLong(groups[i].entities[k]));
+        uint32_t type = groups[i].entity_group_type;
+        char fourcc[4] = {(char)(type >> 24), (char)(type >> 16), (char)(type >> 8), (char)type};
+        __PyDict_SetItemString(group, "id", PyLong_FromUnsignedLong(groups[i].entity_group_id));
+        __PyDict_SetItemString(group, "type", PyUnicode_DecodeLatin1(fourcc, 4, NULL));
+        __PyDict_SetItemString(group, "entities", entities);
+        PyList_SET_ITEM(groups_list, i, group);
+    }
+    heif_entity_groups_release(groups, n_groups);
+    return groups_list;
 }
 
 static PyObject* _load_file(PyObject* self, PyObject* args) {
@@ -1860,8 +2021,16 @@ static PyObject* _load_file(PyObject* self, PyObject* args) {
         }
     }
     free(images_ids);
+    PyObject* entity_groups = _entity_groups(heif_ctx);
     heif_context_free(heif_ctx);
-    return images_list;
+    if (!entity_groups) {
+        Py_DECREF(images_list);
+        return NULL;
+    }
+    PyObject* result = PyTuple_Pack(2, images_list, entity_groups);
+    Py_DECREF(images_list);
+    Py_DECREF(entity_groups);
+    return result;
 }
 
 static PyObject* _get_lib_info(PyObject* self) {

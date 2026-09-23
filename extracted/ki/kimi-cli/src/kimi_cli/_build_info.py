@@ -1,1 +1,1 @@
-BUILD_SHA = "github.com/MoonshotAI/kimi-cli@5c7db06c24a1"
+BUILD_SHA = "github.com/MoonshotAI/kimi-cli@9ab1286b8fe4"

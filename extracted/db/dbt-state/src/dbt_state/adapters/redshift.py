@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import time
 import typing as t
 from collections import defaultdict
 from concurrent.futures import Future
@@ -28,6 +27,14 @@ from dbt_state.utils import set_invocation_context
 class RedshiftAdapterExtension(BaseAdapterExtension):
     DEFAULT_SCHEMA_NAME = "public"
     SHOULD_RELEASE_CONNECTION: bool = True
+    RELEASE_CONNECTION_AFTER_PREWARM: bool = True
+    """Redshift releases each prewarmed connection back to dbt's pool. Subsequent
+    connection_named() calls reuse pool connections regardless of name, so both SHOW TABLES
+    and sys_query_detail threads benefit from pre-established connections.
+
+    Only warms the default catalog. Non-default catalog adapters are created lazily and
+    cannot be pre-warmed at this stage.
+    """
     SYSTEM_METADATA_SCHEMAS: t.ClassVar[t.List[str]] = ["information_schema", "pg_catalog"]
     IMPLEMENTS_CUSTOM_CLONE: bool = True
 
@@ -44,6 +51,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
         self._catalog_adapters: t.Dict[str, SQLAdapter] = {}
+        self._catalog_adapters_lock: threading.Lock = threading.Lock()
 
     @property
     def supports_view_last_modified(self) -> bool:
@@ -113,42 +121,6 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
                 conn.handle.rollback()
             except Exception as e:
                 events.fire_debug_event("Failed to rollback Redshift connection: {}", str(e))
-
-    def prewarm_connections(self) -> None:
-        """Eagerly acquire connections on every executor thread.
-
-        The base class skips pre-warming when SHOULD_RELEASE_CONNECTION=True, but Redshift
-        benefits from it: connections are acquired and then released back to dbt's pool.
-        Subsequent connection_named() calls reuse pool connections regardless of name, so both
-        SHOW TABLES and sys_query_detail threads benefit from pre-established connections.
-
-        Only warms the default catalog. Non-default catalog adapters
-        are created lazily and cannot be pre-warmed at this stage.
-        """
-        num_workers = self._max_workers
-        barrier = threading.Barrier(num_workers)
-
-        def _prewarm_connection(name: str) -> None:
-            prewarm_start_time = time.perf_counter()
-            try:
-                self._ensure_thread_connection(name)
-                self.execute("SELECT 1")
-            finally:
-                self._release_thread_connection()
-                prewarm_end_time = time.perf_counter()
-                try:
-                    barrier.wait(timeout=self._CONNECTION_BARRIER_TIMEOUT_SECONDS)
-                except threading.BrokenBarrierError:
-                    pass
-                events.fire_debug_event(
-                    "Prewarming connection {} took {} seconds, waiting on other threads took {} seconds",
-                    name,
-                    prewarm_end_time - prewarm_start_time,
-                    time.perf_counter() - prewarm_end_time,
-                )
-
-        for i in range(num_workers):
-            self._executor.submit(_prewarm_connection, f"run_cache_prewarm_{i}")
 
     def clone(
         self,
@@ -544,49 +516,51 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
         if not table_batch:
             return ViewFetchResult(definitions=[])
 
-        queries = []
-        # redshift supports cross-database queries, need to group/query by catalog
-        for catalog, tables in group_tables_by_catalog(table_batch, self.default_catalog).items():
-            filter_expr = build_information_schema_filter(tables, ("table_schema", "table_name"))
-            query = f"""
-            SELECT
-                table_catalog,
-                table_schema,
-                table_name,
-                view_definition
-            FROM {catalog}.information_schema.views
-            WHERE {self._sql(filter_expr)}
-            """
-
-            queries.append(query)
-
-        query = "UNION ALL\n".join(queries)
-
         view_definitions = []
-        result_rows = self.execute(query, fetch=True).rows
+        for catalog, tables in group_tables_by_catalog(table_batch, self.default_catalog).items():
+            views = self._fetch_views_from_catalog(catalog, tables)
+            for view_catalog, schema, name, view_definition in views:
+                fqn = self._build_fqn_from_row(view_catalog, schema, name)
 
-        for catalog, schema, name, view_definition in result_rows:
-            fqn = self._build_fqn_from_row(catalog, schema, name)
-            # information_schema.views only populates view_defintions for the owner.
-            # For non-owners, the row will still populate, but with view_defintion as NULL.
-            if view_definition is None:
-                events.fire_debug_event(
-                    "Object definition is NULL for {}, skipping. This is typically caused by insufficient permissions to fetch the object's DDL.",
-                    fqn,
-                )
-                continue
+                # information_schema.views only populates view_defintions for the owner.
+                # For non-owners, the row will still populate, but with view_defintion as NULL.
+                if view_definition is None:
+                    events.fire_debug_event(
+                        "Object definition is NULL for {}, skipping. This is typically caused by insufficient permissions to fetch the object's DDL.",
+                        fqn,
+                    )
+                    continue
 
-            view_definitions.append(
-                ViewDefinition(
-                    fqn=fqn,
-                    definition=view_definition,
-                    dialect=self.dialect,
-                    default_catalog=catalog,
-                    default_schema=schema,
+                view_definitions.append(
+                    ViewDefinition(
+                        fqn=fqn,
+                        definition=view_definition,
+                        dialect=self.dialect,
+                        default_catalog=view_catalog,
+                        default_schema=schema,
+                    )
                 )
-            )
 
         return ViewFetchResult(definitions=view_definitions)
+
+    def _fetch_views_from_catalog(
+        self, catalog: str, tables: t.Collection[exp.Table]
+    ) -> t.Sequence[tuple]:
+        filter_expr = build_information_schema_filter(tables, ("table_schema", "table_name"))
+        query = f"""
+        SELECT
+            table_catalog,
+            table_schema,
+            table_name,
+            view_definition
+        FROM information_schema.views
+        WHERE {self._sql(filter_expr)}
+        """
+
+        catalog_adapter = self._get_or_create_catalog_adapter(catalog)
+        with catalog_adapter.connection_named(catalog):
+            _, agate_result = catalog_adapter.execute(query, fetch=True)
+        return agate_result.rows
 
     @override
     def cache_view_definition(self, table: exp.Table, definition: str, default_schema: str) -> None:
@@ -613,8 +587,9 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
         if catalog == self.default_catalog.lower():
             return self.adapter
 
-        if catalog not in self._catalog_adapters:
-            creds = self.adapter.config.credentials.replace(database=catalog)
-            config = replace(self.adapter.config, credentials=creds)
-            self._catalog_adapters[catalog] = type(self.adapter)(config, get_context("spawn"))
-        return self._catalog_adapters[catalog]
+        with self._catalog_adapters_lock:
+            if catalog not in self._catalog_adapters:
+                creds = self.adapter.config.credentials.replace(database=catalog)
+                config = replace(self.adapter.config, credentials=creds)
+                self._catalog_adapters[catalog] = type(self.adapter)(config, get_context("spawn"))
+            return self._catalog_adapters[catalog]

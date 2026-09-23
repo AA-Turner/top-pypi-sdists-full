@@ -5,9 +5,9 @@ import argparse
 import enum
 import functools
 import logging
+from collections.abc import Callable
 from collections.abc import Sequence
 from typing import Any
-from typing import Callable
 
 from flake8 import utils
 from flake8.plugins.finder import Plugins
@@ -165,7 +165,7 @@ class Option:
             if long_option_name is _ARG.NO:
                 raise ValueError(
                     "When specifying parse_from_config=True, "
-                    "a long_option_name must also be specified."
+                    "a long_option_name must also be specified.",
                 )
             self.config_name = long_option_name[2:].replace("-", "_")
 

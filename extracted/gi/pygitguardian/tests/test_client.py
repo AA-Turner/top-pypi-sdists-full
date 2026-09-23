@@ -1,8 +1,6 @@
 import json
-import os
 import re
 import tarfile
-import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -70,7 +68,15 @@ from pygitguardian.models import (
 )
 from pygitguardian.models_utils import CursorPaginatedResponse
 
-from .conftest import create_client, my_vcr
+from .conftest import create_client, create_secret_incident_payload, my_vcr
+from .fixture_members import (
+    EMAIL_PREFIX,
+    MANAGER_EMAIL,
+    expendable_member,
+    fixture_manager,
+    fixture_members,
+    members_parameters,
+)
 from .utils import get_source, get_team
 
 
@@ -754,82 +760,7 @@ def test_retrieve_secret_incident(client: GGClient):
         url=client._url_from_endpoint("incidents/secrets/3759", "v1"),
         status=200,
         match=[matchers.query_param_matcher({"with_occurrences": 20})],
-        json={
-            "id": 3759,
-            "date": "2019-08-22T14:15:22Z",
-            "detector": {
-                "name": "slack_bot_token",
-                "display_name": "Slack Bot Token",
-                "nature": "specific",
-                "family": "apikey",
-                "detector_group_name": "slackbot_token",
-                "detector_group_display_name": "Slack Bot Token",
-            },
-            "secret_hash": "Ri9FjVgdOlPnBmujoxP4XPJcbe82BhJXB/SAngijw/juCISuOMgPzYhV28m6OG24",
-            "hmsl_hash": "05975add34ddc9a38a0fb57c7d3e676ffed57080516fc16bf8d8f14308fedb86",
-            "gitguardian_url": "https://dashboard.gitguardian.com/workspace/1/incidents/3899",
-            "regression": False,
-            "status": "IGNORED",
-            "assignee_id": 309,
-            "assignee_email": "eric@gitguardian.com",
-            "occurrences_count": 4,
-            "secret_presence": {
-                "files_requiring_code_fix": 1,
-                "files_pending_merge": 1,
-                "files_fixed": 1,
-                "outside_vcs": 1,
-                "removed_outside_vcs": 0,
-                "in_vcs": 3,
-                "removed_in_vcs": 0,
-            },
-            "ignore_reason": "test_credential",
-            "triggered_at": "2019-05-12T09:37:49Z",
-            "ignored_at": "2019-08-24T14:15:22Z",
-            "ignorer_id": 309,
-            "ignorer_api_token_id": "fdf075f9-1662-4cf1-9171-af50568158a8",
-            "resolver_id": 395,
-            "resolver_api_token_id": "fdf075f9-1662-4cf1-9171-af50568158a8",
-            "secret_revoked": False,
-            "severity": "high",
-            "validity": "valid",
-            "resolved_at": None,
-            "share_url": "https://dashboard.gitguardian.com/share/incidents/11111111-1111-1111-1111-111111111111",
-            "tags": ["FROM_HISTORICAL_SCAN", "SENSITIVE_FILE"],
-            "custom_tags": [
-                {
-                    "id": "9df8c1c9-7367-4c77-a0f0-9f2d4b22bdda",
-                    "key": "commiter",
-                    "value": "leaky mcgee",
-                },
-                {
-                    "id": "1aa3ae34-f9f0-42e1-a687-9fed877a9037",
-                    "key": "confrence",
-                    "value": "grrcon",
-                },
-                {
-                    "id": "2cade8a1-71ff-46d2-bbe3-c2bf71437ae7",
-                    "key": "confrence test",
-                    "value": "hacktivity",
-                },
-            ],
-            "feedback_list": [
-                {
-                    "created_at": "2021-05-20T12:40:55.662949Z",
-                    "updated_at": "2021-05-20T12:40:55.662949Z",
-                    "member_id": 42,
-                    "email": "eric@gitguardian.com",
-                    "answers": [
-                        {
-                            "type": "boolean",
-                            "field_ref": "actual_secret_yes_no",
-                            "field_label": "Is it an actual secret?",
-                            "boolean": True,
-                        }
-                    ],
-                }
-            ],
-            "occurrences": None,
-        },
+        json=create_secret_incident_payload(),
     )
 
     result = client.retrieve_secret_incident(3759)
@@ -854,6 +785,11 @@ def test_retrieve_secret_incident(client: GGClient):
             id="2cade8a1-71ff-46d2-bbe3-c2bf71437ae7",
             key="confrence test",
             value="hacktivity",
+        ),
+        CustomTag(
+            id="3dade8a1-71ff-46d2-bbe3-c2bf71437ae8",
+            key="no value",
+            value=None,
         ),
     ]
 
@@ -1438,19 +1374,19 @@ def test_search_member(client: GGClient):
 @my_vcr.use_cassette("test_update_member.yaml", ignore_localhost=False)
 def test_update_member(client: GGClient):
     """
-    GIVEN a client
+    GIVEN the fixture manager of the test workspace
     WHEN calling PATCH /members/{id} endpoint with a payload
     THEN it returns the updated member
     """
-
-    # This assumes there is at least one manager in the first page of members
-    members = client.list_members(MembersParameters(access_level=AccessLevel.MANAGER))
+    members = client.list_members(members_parameters(access_level=AccessLevel.MANAGER))
     assert isinstance(members, CursorPaginatedResponse), "Could not fetch members"
 
+    manager = fixture_manager(members.data)
+    if manager is None:
+        pytest.skip(f"{MANAGER_EMAIL} is not a manager, run the setup script")
+
     result = client.update_member(
-        UpdateMember(
-            id=members.data[0].id, access_level=AccessLevel.MEMBER, active=False
-        )
+        UpdateMember(id=manager.id, access_level=AccessLevel.MEMBER, active=False)
     )
 
     assert isinstance(result, Member), result
@@ -1462,19 +1398,16 @@ def test_update_member(client: GGClient):
 @my_vcr.use_cassette("test_delete_member.yaml", ignore_localhost=False)
 def test_delete_member(client: GGClient):
     """
-    GIVEN a client
+    GIVEN a fixture member of the test workspace
     WHEN calling DELETE /members/{id} endpoint
     THEN the member is deleted
     """
-    # To be able to quickly recreate the membership, the email of the member to delete
-    # can be provided via an env var
-    email = os.environ.get("DELETE_MEMBER_EMAIL")
-    members = client.list_members(MembersParameters(access_level=AccessLevel.MEMBER))
+    members = client.list_members(members_parameters(access_level=AccessLevel.MEMBER))
     assert isinstance(members, CursorPaginatedResponse), "Could not fetch members"
 
-    member = next(
-        (member for member in members.data if member.email == email), members.data[0]
-    )
+    member = expendable_member(members.data)
+    if member is None:
+        pytest.skip(f"No member left with an email starting with {EMAIL_PREFIX}")
 
     result = client.delete_member(DeleteMemberParameters(id=member.id))
 
@@ -1701,28 +1634,24 @@ def test_search_team_members(client: GGClient):
 @my_vcr.use_cassette("test_create_team_member.yaml", ignore_localhost=False)
 def test_create_team_member(client: GGClient):
     """
-    GIVEN a client
+    GIVEN a fixture member outside the first team
     WHEN calling POST /teams/{id}/members endpoint
     THEN a member is created
     """
-
-    all_members = client.list_members()
-    assert isinstance(
-        all_members, CursorPaginatedResponse
-    ), "Could not fetch members from GitGuardian"
+    members = client.list_members(members_parameters())
+    assert isinstance(members, CursorPaginatedResponse), "Could not fetch members"
 
     team = get_team()
     team_members = client.list_team_members(team.id)
     assert isinstance(
         team_members, CursorPaginatedResponse
     ), "Could not fetch team members from GitGuardian"
-    team_members_ids = {team_member.member_id for team_member in team_members.data}
+    in_team = {team_member.member_id for team_member in team_members.data}
 
-    # This assumes there is at least one member in the first page of team members that
-    # does not belong to the retrieved team
-    member_to_add = next(
-        member for member in all_members.data if member.id not in team_members_ids
-    )
+    candidates = [m for m in fixture_members(members.data) if m.id not in in_team]
+    if not candidates:
+        pytest.skip("Every fixture member is in the team, run the setup script")
+    member_to_add = candidates[0]
 
     result = client.create_team_member(
         team.id,
@@ -1737,28 +1666,24 @@ def test_create_team_member(client: GGClient):
 @my_vcr.use_cassette("test_create_team_member_parameters.yaml", ignore_localhost=False)
 def test_create_team_member_without_mail(client: GGClient):
     """
-    GIVEN a client
+    GIVEN a fixture member outside the first team
     WHEN calling POST /teams/{id}/members endpoint
     THEN a member is created
     """
-
-    all_members = client.list_members()
-    assert isinstance(
-        all_members, CursorPaginatedResponse
-    ), "Could not fetch members from GitGuardian"
+    members = client.list_members(members_parameters())
+    assert isinstance(members, CursorPaginatedResponse), "Could not fetch members"
 
     team = get_team()
     team_members = client.list_team_members(team.id)
     assert isinstance(
         team_members, CursorPaginatedResponse
     ), "Could not fetch team members from GitGuardian"
-    team_members_ids = {team_member.member_id for team_member in team_members.data}
+    in_team = {team_member.member_id for team_member in team_members.data}
 
-    # This assumes there is at least one member in the first page of team members that
-    # does not belong to the retrieved team
-    member_to_add = next(
-        member for member in all_members.data if member.id not in team_members_ids
-    )
+    candidates = [m for m in fixture_members(members.data) if m.id not in in_team]
+    if not candidates:
+        pytest.skip("Every fixture member is in the team, run the setup script")
+    member_to_add = candidates[0]
 
     result = client.create_team_member(
         team.id,
@@ -1772,15 +1697,13 @@ def test_create_team_member_without_mail(client: GGClient):
 @my_vcr.use_cassette("test_delete_team_member.yaml", ignore_localhost=False)
 def test_delete_team_member(client: GGClient):
     """
-    GIVEN a client
+    GIVEN a fixture member of the first team
     WHEN calling DELETE /teams/{id}/members/{id} endpoint
     THEN a member is deleted
     """
-
-    all_members = client.list_members()
-    assert isinstance(
-        all_members, CursorPaginatedResponse
-    ), "Could not fetch members from GitGuardian"
+    members = client.list_members(members_parameters())
+    assert isinstance(members, CursorPaginatedResponse), "Could not fetch members"
+    fixture_ids = {member.id for member in fixture_members(members.data)}
 
     team = get_team()
     team_members = client.list_team_members(
@@ -1790,8 +1713,10 @@ def test_delete_team_member(client: GGClient):
         team_members, CursorPaginatedResponse
     ), "Could not fetch team members from GitGuardian"
 
-    team_member = team_members.data[0]
-    result = client.delete_team_member(team.id, team_member.id)
+    candidates = [tm for tm in team_members.data if tm.member_id in fixture_ids]
+    if not candidates:
+        pytest.skip("No fixture member in the team, run the setup script")
+    result = client.delete_team_member(team.id, candidates[0].id)
 
     assert result is None
 
@@ -1958,6 +1883,42 @@ def test_delete_invitation(client: GGClient):
     assert result is None
 
 
+def make_ai_discovery(
+    *, machine_id: str, server: str, configuration: str, url: str, agent: str
+) -> AIDiscovery:
+    """One HTTP server configured for one agent whose hooks are installed."""
+    return AIDiscovery(
+        user=UserInfo(
+            user_email="toto@gitguardian.com",
+            hostname="toto-laptop",
+            username="toto",
+            machine_id=machine_id,
+        ),
+        discovery_duration=0.5,
+        servers=[
+            MCPServer(
+                name=server,
+                configurations=[
+                    MCPConfiguration(
+                        name=configuration,
+                        agent=agent,
+                        scope=MCPConfiguration.Scope.USER,
+                        transport=MCPConfiguration.Transport.HTTP,
+                        url=url,
+                    )
+                ],
+            )
+        ],
+        agents=[
+            AgentInfo(
+                name=agent,
+                hooks_installed=True,
+                hooks_command=f"ggshield hooks install {agent}",
+            )
+        ],
+    )
+
+
 @my_vcr.use_cassette("test_send_ai_discovery.yaml", ignore_localhost=False)
 def test_send_ai_discovery(client: GGClient):
     """
@@ -1967,35 +1928,12 @@ def test_send_ai_discovery(client: GGClient):
     """
 
     result = client.send_ai_discovery(
-        AIDiscovery(
-            user=UserInfo(
-                user_email="toto@gitguardian.com",
-                hostname="toto-laptop",
-                username="toto",
-                machine_id="1234567890",
-            ),
-            discovery_duration=0.5,
-            servers=[
-                MCPServer(
-                    name="mcp-server-1",
-                    configurations=[
-                        MCPConfiguration(
-                            name="mcp-configuration-1",
-                            agent="cursor",
-                            scope=MCPConfiguration.Scope.USER,
-                            transport=MCPConfiguration.Transport.HTTP,
-                            url="https://mcp-server-1.com",
-                        )
-                    ],
-                )
-            ],
-            agents=[
-                AgentInfo(
-                    name="cursor",
-                    hooks_installed=True,
-                    hooks_command="ggshield hooks install cursor",
-                )
-            ],
+        make_ai_discovery(
+            machine_id="1234567890",
+            server="mcp-server-1",
+            configuration="mcp-configuration-1",
+            url="https://mcp-server-1.com",
+            agent="cursor",
         )
     )
 
@@ -2039,28 +1977,43 @@ def test_log_mcp_activities_bulk_posts_to_correct_endpoint(
 ):
     """
     GIVEN a ggclient
+    AND an MCP inventory registered through a discovery
     WHEN calling log_mcp_activities_bulk with a list of MCPActivityRequest
     THEN a POST is made to the bulk endpoint
     AND an MCPActivityBulkResponse is returned with ingested/duplicate counts
     """
-    # Fresh, per-run-unique events so the cassette-less release run
-    # (`scripts/release run-tests`) always ingests them: a stale timestamp is
-    # rejected by the backfill window and repeated events are deduplicated.
-    # Cassette replay matches on method+url (see conftest.my_vcr), so the
-    # request body here does not affect recorded-cassette runs.
+    machine_id = "pygitguardian-bulk-machine"
+    server_url = "https://mcp-server-bulk.com"
+
+    # Bulk ingestion only accepts instances and servers already known from a
+    # discovery; a dedicated machine leaves the other tests' inventory untouched.
+    discovery = client.send_ai_discovery(
+        make_ai_discovery(
+            machine_id=machine_id,
+            server="mcp-server-bulk",
+            configuration="mcp-configuration-bulk",
+            url=server_url,
+            agent="claude-code",
+        )
+    )
+    assert isinstance(discovery, AIDiscovery), discovery
+
     recent = datetime.now(timezone.utc) - timedelta(hours=1)
     activities = [
         MCPActivityRequest(
-            user=UserInfo(hostname="h", username="u", machine_id=uuid.uuid4().hex),
-            tool="t",
-            server="s",
+            user=UserInfo(
+                hostname="toto-laptop", username="toto", machine_id=machine_id
+            ),
+            tool=tool,
+            # Servers are keyed by their URL, not by the name the discovery reported.
+            server=server_url,
             agent="claude-code",
             model="m",
             cwd="/tmp",
             input={},
             timestamp=recent,
         )
-        for _ in range(2)
+        for tool in ("read_file", "write_file")
     ]
 
     result = client.log_mcp_activities_bulk(activities)

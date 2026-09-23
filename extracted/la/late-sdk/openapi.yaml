@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.33.0"
+  version: "1.53.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -772,6 +772,14 @@ components:
         that account. Retry after the window resets rather than retrying
         immediately; repeated calls while exhausted do not succeed and keep the
         budget spent.
+
+        Google Ads: writes and reports run on one developer token shared by
+        every Google Ads account on Zernio, and Google refills its daily
+        operations quota once a day (around 14:03 UTC). When it is exhausted
+        the envelope has `code: rate_limited`, `platform: google`,
+        `details.quotaScope: DEVELOPER` (`ACCOUNT` when it is your own ad
+        account's quota), `details.resetsAt` (ISO instant of the refill) and
+        `Retry-After` counting down to it. Retrying earlier cannot succeed.
       headers:
         Retry-After:
           description: 'Seconds remaining until the upstream quota resets.'
@@ -1273,7 +1281,7 @@ components:
         EXACTLY ONE of the two shapes:
 
         - Single-creative: `headline`, `body`, and one of `imageUrl` / `video`,
-          OR `existingPostId` / `objectStoryId` to reuse an organic post.
+          OR `platformPostId` / `objectStoryId` to reuse an organic post.
         - Multi-creative: a non-empty `creatives[]` array. Top-level
           creative fields must NOT be set on this shape.
 
@@ -1305,14 +1313,30 @@ components:
             On the multi-creative shape, each ad's Meta name gets a
             " #N" suffix (1-indexed) so Ads Manager shows them as a
             numbered batch.
+        campaignName:
+          type: string
+          maxLength: 255
+          description: 'Exact name for the campaign this request provisions. Omitted keeps `<name> - Campaign`. Ignored with `adSetId` (the ad set already has a campaign).'
+        adSetName:
+          type: string
+          maxLength: 255
+          description: 'Exact name for the ad set this request provisions. Omitted keeps `<name> - Ad Set`. Ignored with `adSetId`.'
+        platformPostId:
+          type: string
+          minLength: 1
+          description: 'Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.'
         existingPostId:
           type: string
           minLength: 1
-          description: 'Messaging and CTWA only. Platform post or reel ID, resolved like boost platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.'
+          deprecated: true
+          description: 'Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.'
         objectStoryId:
           type: string
           pattern: '^\d+_\d+$'
-          description: 'Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with existingPostId and fresh creative fields.'
+          description: 'Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.'
+        pageId:
+          type: string
+          description: 'Facebook Page the ad runs as, when the connection was granted several Pages. Defaults to the Page bound to the connection. Any Page granted to the connection is accepted; other ids answer 400 listing the granted Pages. Same semantics as `pageId` on POST /v1/ads/create.'
         whatsappPhoneNumber:
           type: string
           pattern: '^\+[1-9]\d{6,14}$'
@@ -1392,20 +1416,25 @@ components:
             `body` / `imageUrl` / `video`): setting both is a 400,
             unlike `POST /v1/ads/create` where the top-level fields
             are silently ignored in multi-creative mode. Each entry
-            supplies headline, body, and image/video, or an existingPostId or
+            supplies headline, body, and image/video, or a platformPostId or
             objectStoryId reference. Fresh and existing creatives can be mixed.
           items:
             type: object
             description: 'Supply headline, body, and image/video, or exactly one existing post reference. References cannot be combined with fresh creative fields.'
             properties:
+              platformPostId:
+                type: string
+                minLength: 1
+                description: 'Messaging and CTWA only. Platform post or reel ID, the same input boostPost takes as platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.'
               existingPostId:
                 type: string
                 minLength: 1
-                description: 'Messaging and CTWA only. Platform post or reel ID, resolved like boost platformPostId. Facebook IDs become object_story_id; Instagram IDs become source_instagram_media_id using the connected Instagram identity. Mutually exclusive with objectStoryId and fresh creative fields.'
+                deprecated: true
+                description: 'Alias of platformPostId, kept for existing callers. Sending both with different values is a 400.'
               objectStoryId:
                 type: string
                 pattern: '^\d+_\d+$'
-                description: 'Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with existingPostId and fresh creative fields.'
+                description: 'Messaging and CTWA only. Raw Facebook pageId_postId reference, used as object_story_id even with an Instagram account. Mutually exclusive with platformPostId and fresh creative fields.'
               creativeFeatures:
                 $ref: '#/components/schemas/MetaCreativeFeatures'
                 description: 'Replaces the top-level creativeFeatures map for this item. Omit to inherit; an empty object clears inherited enrollment choices.'
@@ -2133,7 +2162,7 @@ components:
         notFollowingMessage:
           type: string
           maxLength: 1000
-          description: 'Sent to a commenter we know does not follow (followerStatus=follower). Omit to stay silent on a keyword comment; a confirm tap always gets an answer.'
+          description: "Sent to a commenter we know does not follow (followerStatus=follower), and after a confirm tap that does not unlock the DM. When following is what would unlock it, the message carries the confirm button so they can re-check once they follow; above 640 characters it goes out as plain text without the button. Omit to stay silent on a keyword comment; a confirm tap always gets an answer (a default message is used)."
     DmButton:
       type: object
       description: |
@@ -7808,6 +7837,15 @@ components:
             OAuth connector tokens (AI assistants and MCP clients) resolve
             against the same registry, but their groups are not settable yet:
             treat an authorized connector as full access.
+        createdBy:
+          type: [object, "null"]
+          description: >-
+            The team member who created this key. For the team owner's
+            listing this can be any team member; for a non-owner it is always
+            themselves, since a non-owner only ever sees their own keys.
+          properties:
+            id: { type: string }
+            email: { type: string }
     ConnectedApp:
       type: object
       description: |
@@ -13321,11 +13359,11 @@ paths:
             Zernio-synthesized from daily follower snapshots (cross-platform parity):
               - followers_gained
               - followers_lost
-        - name: since
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: until
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: |
@@ -13333,6 +13371,16 @@ paths:
             so the fetch is internally clamped to 3 days ago; any requested range extending
             beyond that returns zero values for the tail days. The response's dateRange.until
             field reflects your requested value.
+        - name: since
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: until
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
         - name: metricType
           in: query
           schema:
@@ -13350,7 +13398,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/InstagramAccountInsightsResponse'
         '400':
-          description: Bad request (invalid accountId / metrics / metricType / date range, or account is not a YouTube account)
+          description: 'Bad request (invalid accountId / metrics / metricType / date range, or account is not a YouTube account)'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402':
           description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
@@ -13430,14 +13478,24 @@ paths:
             Zernio-synthesized from daily follower snapshots:
               - followers_gained
               - followers_lost
-        - name: since
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: until
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: End date (YYYY-MM-DD). Defaults to today.
+        - name: since
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: until
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
         - name: metricType
           in: query
           schema:
@@ -13524,14 +13582,24 @@ paths:
             Zernio-synthesized:
               - followers_gained  (sum of positive daily follower deltas)
               - followers_lost    (sum of absolute negative daily deltas)
-        - name: since
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: until
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: End date (YYYY-MM-DD). Defaults to today.
+        - name: since
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: until
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
         - name: metricType
           in: query
           schema:
@@ -13549,7 +13617,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/InstagramAccountInsightsResponse'
         '400':
-          description: Bad request (invalid accountId / metrics / metricType / date range, or account is not a TikTok account)
+          description: 'Bad request (invalid accountId / metrics / metricType / date range, or account is not a TikTok account)'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402':
           description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
@@ -13580,19 +13648,29 @@ paths:
           required: true
           schema: { type: string }
           description: The Zernio account ID for the YouTube account
-        - name: startDate
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: endDate
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: |
             End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
-            (YouTube finalizes analytics with a ~3-day delay). An explicit endDate is honored
+            (YouTube finalizes analytics with a ~3-day delay). An explicit toDate is honored
             up to today: days inside the delay window are provisional and may still be revised
             by YouTube (see provisionalSince in the response), and days YouTube has not
             processed yet are omitted from dailyViews.
+        - name: startDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: endDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
       responses:
         '200':
           description: Daily views breakdown
@@ -13636,7 +13714,7 @@ paths:
                     scopeStatus:
                       hasAnalyticsScope: true
         '400':
-          description: Bad request (missing or invalid parameters)
+          description: 'Bad request (missing or invalid parameters)'
           content:
             application/json:
               schema:
@@ -13725,18 +13803,28 @@ paths:
           required: true
           schema: { type: string }
           description: The Zernio account ID for the YouTube account
-        - name: startDate
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to the video's publish date (lifetime curve).
-        - name: endDate
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: |
             End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
-            (YouTube finalizes analytics with a ~3-day delay). An explicit endDate is honored
+            (YouTube finalizes analytics with a ~3-day delay). An explicit toDate is honored
             up to today: days inside the delay window are provisional and may still be revised
             by YouTube (see provisionalSince in the response).
+        - name: startDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: endDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
       responses:
         '200':
           description: Audience retention curve
@@ -13773,7 +13861,7 @@ paths:
                     scopeStatus:
                       hasAnalyticsScope: true
         '400':
-          description: Bad request (missing or invalid parameters)
+          description: 'Bad request (missing or invalid parameters)'
           content:
             application/json:
               schema:
@@ -13904,14 +13992,24 @@ paths:
             the Page is enrolled. "unavailableMetrics" covers the narrower case where Meta returned no
             bucket for the metric at all ("no_data") or rejected the request outright, and the metric is
             then omitted from "metrics" rather than reported as 0.
-        - name: since
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: until
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: End date (YYYY-MM-DD). Defaults to today.
+        - name: since
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: until
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
         - name: metricType
           in: query
           schema:
@@ -14143,14 +14241,24 @@ paths:
             follows_and_unfollows) are total_value only. This is an Instagram Graph API limitation,
             not a Zernio limitation - the IG API does not return time-series data for these metrics.
             For a daily running follower count, use /v1/analytics/instagram/follower-history instead.
-        - name: since
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: until
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: End date (YYYY-MM-DD). Defaults to today.
+        - name: since
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: until
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
         - name: metricType
           in: query
           schema:
@@ -14221,7 +14329,7 @@ paths:
                             value: 7500
                     dataDelay: "Data may be delayed up to 48 hours"
         '400':
-          description: Bad request (invalid parameters)
+          description: 'Bad request (invalid parameters)'
           content:
             application/json:
               schema:
@@ -14291,14 +14399,24 @@ paths:
               - follower_count   : per-day raw follower count
               - followers_gained : sum of positive daily deltas
               - followers_lost   : sum of absolute negative daily deltas
-        - name: since
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
-        - name: until
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: End date (YYYY-MM-DD). Defaults to today.
+        - name: since
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: until
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
         - name: metricType
           in: query
           schema:
@@ -14316,7 +14434,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/InstagramAccountInsightsResponse'
         '400':
-          description: Bad request (invalid accountId / metrics / date range, or account is not an Instagram account)
+          description: 'Bad request (invalid accountId / metrics / date range, or account is not an Instagram account)'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402':
           description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
@@ -14475,20 +14593,30 @@ paths:
           description: |
             Comma-separated list of demographic dimensions: age, gender, country.
             Defaults to all three if omitted.
-        - name: startDate
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: |
             Start date in YYYY-MM-DD format. Defaults to 90 days ago, or to the video's
             publish date (lifetime) when videoId is provided.
-        - name: endDate
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: |
             End date (YYYY-MM-DD). Defaults to 3 days ago, the newest fully finalized day
-            (YouTube finalizes analytics with a ~3-day delay). An explicit endDate is honored
+            (YouTube finalizes analytics with a ~3-day delay). An explicit toDate is honored
             up to today: days inside the delay window are provisional and may still be revised
             by YouTube (see provisionalSince in the response).
+        - name: startDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: endDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
       responses:
         '200':
           description: Demographic insights data
@@ -14551,7 +14679,7 @@ paths:
                       endDate: "2026-07-13"
                     note: "Age/gender values are viewer percentages (0-100). Country values are view counts. Data based on signed-in viewers only, with 2-3 day delay."
         '400':
-          description: Bad request (invalid parameters or not a YouTube account)
+          description: 'Bad request (invalid parameters or not a YouTube account)'
           content:
             application/json:
               schema:
@@ -15183,14 +15311,24 @@ paths:
             BUSINESS_IMPRESSIONS_MOBILE_MAPS, BUSINESS_IMPRESSIONS_MOBILE_SEARCH,
             BUSINESS_CONVERSATIONS, BUSINESS_DIRECTION_REQUESTS, CALL_CLICKS, WEBSITE_CLICKS,
             BUSINESS_BOOKINGS, BUSINESS_FOOD_ORDERS, BUSINESS_FOOD_MENU_CLICKS
-        - name: startDate
+        - name: fromDate
           in: query
           schema: { type: string, format: date }
           description: Start date (YYYY-MM-DD). Defaults to 30 days ago. Max 18 months back.
-        - name: endDate
+        - name: toDate
           in: query
           schema: { type: string, format: date }
           description: End date (YYYY-MM-DD). Defaults to today.
+        - name: startDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: endDate
+          in: query
+          deprecated: true
+          schema: { type: string, format: date }
+          description: 'Alias of toDate, kept for existing callers'
       responses:
         '200':
           description: Performance metrics with daily time series
@@ -15252,7 +15390,7 @@ paths:
                             value: 8
                     dataDelay: "Data may be delayed 2-3 days"
         '400':
-          description: Invalid parameters
+          description: 'Invalid parameters'
           content:
             application/json:
               schema:
@@ -16836,13 +16974,17 @@ paths:
       operationId: listPosts
       tags: [Posts]
       summary: List posts
-      description: Returns a paginated list of posts. Published posts include platformPostUrl with the public URL on each platform.
+      description: 'Returns a paginated list of posts. Published posts include platformPostUrl with the public URL on each platform. A query parameter that is not listed here returns 400 naming it and the accepted parameters, so a misspelled filter never silently returns the unfiltered list.'
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 500, default: 10 }
           description: 'Page size. Values above the maximum return 400 rather than being clamped.'
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+          description: 'Row offset. Takes precedence over page when both are sent; the response pagination.page is derived from it.'
         - name: source
           in: query
           schema: { type: string, enum: [zernio, external], default: zernio }
@@ -16866,14 +17008,24 @@ paths:
           in: query
           schema: { type: string }
           description: 'Filter posts to those created by a specific team user (24-char hex ObjectId).'
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+          description: 'Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400. The same name the other date-window filters use (ads, analytics).'
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+          description: 'Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400. The same name the other date-window filters use (ads, analytics).'
         - name: dateFrom
           in: query
+          deprecated: true
           schema: { type: string, format: date }
-          description: 'Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.'
+          description: 'Alias of fromDate, kept for existing callers'
         - name: dateTo
           in: query
+          deprecated: true
           schema: { type: string, format: date }
-          description: 'Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.'
+          description: 'Alias of toDate, kept for existing callers'
         - name: includeHidden
           in: query
           schema: { type: boolean, default: false }
@@ -19968,7 +20120,10 @@ paths:
       operationId: listApiKeys
       tags: [API Keys]
       summary: List keys
-      description: Returns all API keys for the authenticated user. Keys are returned with a preview only, not the full key value.
+      description: >-
+        Returns API keys with a preview only, not the full key value. For a
+        regular team member this is their own keys; for the team owner this is
+        every team member's keys, each carrying a `createdBy` field.
       responses:
         '200':
           description: API keys
@@ -19990,6 +20145,7 @@ paths:
                     scope: "full"
                     profileIds: []
                     permission: "read-write"
+                    createdBy: { id: "6507a1b2c3d4e5f6a7b8c9d0", email: "owner@example.com" }
                   - id: "6507a1b2c3d4e5f6a7b8c9d1"
                     name: "Analytics Read-Only"
                     keyPreview: "sk_87654321...12345678"
@@ -20001,6 +20157,7 @@ paths:
                         name: "Main Brand"
                         color: "#ffeda0"
                     permission: "read"
+                    createdBy: { id: "6507a1b2c3d4e5f6a7b8c9d2", email: "member@example.com" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
     post:
@@ -20090,7 +20247,9 @@ paths:
       operationId: deleteApiKey
       tags: [API Keys]
       summary: Delete key
-      description: Permanently revokes and deletes an API key.
+      description: >-
+        Permanently revokes and deletes an API key. The team owner can revoke
+        any team member's key; a non-owner member can only revoke their own.
       parameters:
         - name: keyId
           in: path
@@ -20423,7 +20582,7 @@ paths:
           description: 'Hosted signup page only (`signup=hosted`, WhatsApp): hex colour (`#RRGGBB`) for the primary button and step accents. Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without `signup=hosted`.'
         - name: language
           in: query
-          schema: { type: string, enum: [en, es] }
+          schema: { type: string, enum: [en, es, pt-BR] }
           description: 'Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`.'
       security:
         - bearerAuth: []
@@ -20644,10 +20803,15 @@ paths:
             numeric sponsored-account id), `googleads` (bare customer id digits)
             and `twitter` (X Ads, base36 account id). `tiktok` scopes advertisers
             at OAuth and `pinterest` has no ads discovery, so both ignore it.
-            Meta ids are additionally validated against the connected token;
-            unreachable IDs return 400. Setting a scope also removes already
-            synced ads from de-scoped ad accounts. For multiple accounts use
-            `adAccountIds` instead.
+            Meta ids are additionally validated against the connected token:
+            an id the token cannot see returns 400 `invalid_field_value`, and an
+            id it can see but that Meta marks unusable for ads (disabled, closed,
+            under risk review, settlement pending) returns 400 `ad_account_unusable`
+            with `details.accountStatus` (Meta's `account_status`) and, when Meta
+            gives one, `details.disableReason`. Unsettled and in-grace accounts
+            are accepted, matching the `selectable` flag of `GET /v1/ads/accounts`.
+            Setting a scope also removes already synced ads from de-scoped ad
+            accounts. For multiple accounts use `adAccountIds` instead.
           example: act_1330190928038136
         - name: adAccountIds
           in: query
@@ -24385,15 +24549,20 @@ paths:
                   type: string
                   description: Required state formatted as {userId}-{profileId}. Get userId from GET /v1/users and profileId from GET /v1/profiles.
                   example: "6507a1b2c3d4e5f6a7b8c9d0-6507a1b2c3d4e5f6a7b8c9d1"
+                redirect_url:
+                  type: string
+                  format: uri
+                  description: 'Optional URL to redirect to after successful connection. Used when the state carries no redirect (a state minted by GET /v1/connect/bluesky with redirect_url already carries one, and that one wins).'
                 redirectUri:
                   type: string
                   format: uri
-                  description: Optional URL to redirect to after successful connection
+                  deprecated: true
+                  description: 'Alias of redirect_url, kept for existing callers'
             example:
               identifier: "yourhandle.bsky.social"
               appPassword: "xxxx-xxxx-xxxx-xxxx"
               state: "6507a1b2c3d4e5f6a7b8c9d0-6507a1b2c3d4e5f6a7b8c9d1"
-              redirectUri: "https://yourapp.com/connected"
+              redirect_url: "https://yourapp.com/connected"
       responses:
         '200':
           description: Bluesky connected successfully
@@ -24447,13 +24616,19 @@ paths:
                 state:
                   type: string
                   description: Optional state passthrough for the connect flow.
+                redirect_url:
+                  type: string
+                  format: uri
+                  description: 'Optional URL to redirect to after successful connection, echoed back as redirectUrl.'
                 redirectUri:
                   type: string
                   format: uri
-                  description: Optional URL to redirect to after successful connection
+                  deprecated: true
+                  description: 'Alias of redirect_url, kept for existing callers'
             example:
               apiKey: "sk-ads-xxxxxxxxxxxxxxxxxxxx"
               profileId: "6507a1b2c3d4e5f6a7b8c9d0"
+              redirect_url: "https://yourapp.com/connected"
       responses:
         '200':
           description: OpenAI Ads connected successfully
@@ -24776,9 +24951,9 @@ paths:
                 phoneNumberId: { type: string }
                 isCoexistence: { type: boolean, description: 'Number is also live in the WhatsApp Business app' }
                 expectedPhoneNumber: { type: string, description: 'Rejects the connect when Meta returns a different number' }
-                redirectUrl:
+                redirect_url:
                   type: string
-                  description: 'Hosted signup page only. When present, the response also carries `redirectUrl`, the URL the user should land on, with the outcome mapped exactly like the redirect flow (success params, or `error` and `platform` with the same values). Must be an absolute http(s) URL or a custom app scheme.'
+                  description: 'Hosted signup page only. When present, the response also carries `redirectUrl`, the URL the user should land on, with the outcome mapped exactly like the redirect flow (success params, or `error` and `platform` with the same values). Must be an absolute http(s) URL or a custom app scheme. The legacy spelling `redirectUrl` remains accepted as an alias.'
                 echoConnectToken: { type: boolean, description: 'Hosted signup page only. Append the connect token to the success redirect, as the redirect flow does for API-key callers.' }
       responses:
         '200':
@@ -24798,7 +24973,7 @@ paths:
                       displayName: { type: string }
                       isActive: { type: boolean }
                       selectedPhoneNumber: { type: string }
-                  redirectUrl: { type: string, description: 'Present only when `redirectUrl` was sent; also present on error responses.' }
+                  redirectUrl: { type: string, description: 'Present only when `redirect_url` was sent; also present on error responses.' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
@@ -24840,7 +25015,7 @@ paths:
                     properties:
                       brandName: { type: [string, "null"] }
                       primaryColor: { type: [string, "null"], description: 'Hex colour, #RRGGBB' }
-                      language: { type: [string, "null"], enum: [en, es, null] }
+                      language: { type: [string, "null"], enum: [en, es, pt-BR, null] }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/connect/discord:
@@ -25401,7 +25576,7 @@ paths:
             type: string
             enum: [TOTAL, DAILY]
             default: TOTAL
-        - name: startDate
+        - name: fromDate
           in: query
           required: false
           description: Start date (YYYY-MM-DD). If omitted, returns lifetime analytics.
@@ -25409,7 +25584,7 @@ paths:
             type: string
             format: date
           example: "2024-01-01"
-        - name: endDate
+        - name: toDate
           in: query
           required: false
           description: End date (YYYY-MM-DD, exclusive). Defaults to today if omitted.
@@ -25417,6 +25592,22 @@ paths:
             type: string
             format: date
           example: "2024-01-31"
+        - name: startDate
+          in: query
+          required: false
+          deprecated: true
+          schema:
+            type: string
+            format: date
+          description: 'Alias of fromDate, kept for existing callers'
+        - name: endDate
+          in: query
+          required: false
+          deprecated: true
+          schema:
+            type: string
+            format: date
+          description: 'Alias of toDate, kept for existing callers'
         - name: metrics
           in: query
           required: false
@@ -25523,7 +25714,7 @@ paths:
                     note: "Daily breakdown of analytics across all posts. MEMBERS_REACHED is not available with DAILY aggregation per LinkedIn API limitations."
                     lastUpdated: "2025-01-15T10:30:00.000Z"
         '400':
-          description: Invalid request
+          description: 'Invalid request'
           content:
             application/json:
               schema:
@@ -25531,7 +25722,8 @@ paths:
                 properties:
                   error: { type: string }
                   code: { type: string }
-                  validOptions: { type: array, items: { type: string } }
+                  param: { type: string, description: 'The query parameter at fault on a validation failure' }
+                  type: { type: string }
               examples:
                 not_linkedin:
                   summary: Not a LinkedIn account
@@ -25543,26 +25735,13 @@ paths:
                   value:
                     error: "Aggregate analytics only available for LinkedIn personal accounts. Organization accounts can use per-post analytics via /v1/analytics."
                     code: "organization_not_supported"
-                invalid_aggregation:
-                  summary: Invalid aggregation type
+                invalid_parameter:
+                  summary: 'Invalid aggregation, metrics or date window (standard error envelope)'
                   value:
-                    error: "Invalid aggregation type. Must be one of: TOTAL, DAILY"
-                    code: "invalid_aggregation"
-                    validOptions: ["TOTAL", "DAILY"]
-                invalid_date:
-                  summary: Invalid date format
-                  value:
-                    error: "Invalid date format. Use YYYY-MM-DD format."
-                    code: "invalid_date_format"
-                    example:
-                      startDate: "2024-01-01"
-                      endDate: "2024-01-31"
-                invalid_metrics:
-                  summary: Invalid metrics requested
-                  value:
-                    error: "Invalid metrics: INVALID_METRIC. Valid options: IMPRESSION, MEMBERS_REACHED, REACTION, COMMENT, RESHARE, POST_SAVE, POST_SEND"
-                    code: "invalid_metrics"
-                    validOptions: ["IMPRESSION", "MEMBERS_REACHED", "REACTION", "COMMENT", "RESHARE", "POST_SAVE", "POST_SEND"]
+                    error: "fromDate must be on or before toDate"
+                    code: "invalid_field_value"
+                    param: "fromDate"
+                    type: "invalid_request_error"
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402':
           description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
@@ -28992,7 +29171,7 @@ paths:
       tags: [Webhooks]
       summary: Update webhook
       description: |
-        Update an existing webhook configuration. All fields except `_id` are optional; only provided fields will be updated.
+        Update an existing webhook configuration. All fields except `webhookId` are optional; only provided fields will be updated. `webhookId` is the same name the other /v1/webhooks operations use (logs, redeliver, test); the deprecated `_id` is still accepted in its place.
 
         When provided, `name` must be 1-50 characters, `url` must be a valid URL, and `events` must contain at least one event. Whitespace is trimmed from `url` before validation.
 
@@ -29023,12 +29202,14 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - _id
               properties:
+                webhookId:
+                  type: string
+                  description: 'Webhook ID to update. Required unless the deprecated `_id` is sent instead.'
                 _id:
                   type: string
-                  description: Webhook ID to update (required)
+                  deprecated: true
+                  description: 'Alias of webhookId, kept for existing callers'
                 name:
                   type: string
                   description: Webhook name (1-50 characters). Must be non-empty if provided.
@@ -29107,10 +29288,18 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: webhookId
+          in: query
+          required: false
+          description: 'Webhook ID to delete, the same name the other /v1/webhooks operations use (logs, redeliver, test). Required unless the deprecated `id` is sent instead.'
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
         - name: id
           in: query
-          required: true
-          description: Webhook ID to delete
+          required: false
+          deprecated: true
+          description: 'Alias of webhookId, kept for existing callers'
           schema:
             type: string
             pattern: '^[a-fA-F0-9]{24}$'
@@ -29123,7 +29312,7 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean }
-        '400': { description: 'Webhook ID missing or not a valid ID' }
+        '400': { description: 'webhookId missing or not a valid ID, or a query parameter this endpoint does not know (the message lists the accepted ones; nothing is silently ignored)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
 
@@ -29367,6 +29556,8 @@ paths:
       description: |
         Unified logs endpoint. Returns logs for publishing, connections, webhooks, and messaging.
         Filter by type, platform, status, and time range. Logs are retained for 90 days.
+        Legacy query aliases remain accepted: `account_id` for `accountId`, `request_id` for `requestId`,
+        `status_code` for `statusCode`, `api_key_id` for `apiKeyId`, and `include_read_receipts` for `includeReadReceipts`.
       security:
         - bearerAuth: []
       parameters:
@@ -29424,7 +29615,7 @@ paths:
             type: integer
             minimum: 0
             default: 0
-        - name: account_id
+        - name: accountId
           in: query
           description: Filter by connected account ID
           schema:
@@ -29434,7 +29625,7 @@ paths:
           description: Filter webhook logs by event (e.g. post.published, message.received)
           schema:
             type: string
-        - name: request_id
+        - name: requestId
           in: query
           description: Correlation ID. Returns every log spawned by a single API request
           schema:
@@ -29451,17 +29642,17 @@ paths:
           schema:
             type: string
             format: date-time
-        - name: status_code
+        - name: statusCode
           in: query
           description: Filter by exact HTTP status code (api_request logs)
           schema:
             type: integer
-        - name: api_key_id
+        - name: apiKeyId
           in: query
           description: Filter by the API key that made the request (api_request logs)
           schema:
             type: string
-        - name: include_read_receipts
+        - name: includeReadReceipts
           in: query
           description: Include message.read / message.delivered events (hidden by default for messaging logs)
           schema:
@@ -29549,6 +29740,7 @@ paths:
                         type: integer
                       hasMore:
                         type: boolean
+        '400': { description: "Invalid filter value. Unknown parameters are ignored on this list; the histogram, facets and export routes reject them." }
         '401': { $ref: '#/components/responses/Unauthorized' }
   # Unified Inbox Endpoints
   /v1/inbox/conversations:
@@ -33747,11 +33939,17 @@ paths:
           required: true
           schema: { type: string }
           description: The account ID whose X token is used for the lookup
-        - name: id
+        - name: tweetId
           in: query
           required: true
           schema: { type: string }
-          description: 'Numeric tweet ID or a tweet URL (e.g. https://x.com/user/status/123...)'
+          description: 'Numeric tweet ID or a tweet URL (e.g. https://x.com/user/status/123...). The same name the other /v1/twitter operations use (retweet, bookmark).'
+        - name: id
+          in: query
+          required: false
+          deprecated: true
+          schema: { type: string }
+          description: 'Alias of tweetId, kept for existing callers'
       responses:
         '200':
           description: The resolved tweet
@@ -33783,7 +33981,7 @@ paths:
                       retweetCount: { type: integer }
                       quoteCount: { type: integer }
                       platform: { type: string, example: twitter }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400': { description: 'Missing or malformed tweetId or accountId, or a query parameter this endpoint does not know (the message lists the accepted ones; nothing is silently ignored)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { description: 'X API spend cap reached for this billing period' }
         '403': { description: 'X analytics capability not enabled for this account (code X_ANALYTICS_NOT_ENABLED), or the tweet author is protected or suspended' }
@@ -34023,6 +34221,10 @@ paths:
                             name: { type: string }
                             profileImage: { type: [string, "null"] }
                         rating: { type: integer }
+                        recommendationType:
+                          type: [string, "null"]
+                          enum: [positive, negative, null]
+                          description: 'Facebook recommendation: positive means recommends, negative means does not recommend. Null or absent when unavailable; absent for other platforms. Independent of the numeric rating.'
                         text: { type: string }
                         created: { type: string, format: date-time }
                         hasReply: { type: boolean }
@@ -38656,8 +38858,10 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: country, in: query, required: false, schema: { type: string, default: US } }
-        - { name: type, in: query, required: false, description: "Number type; defaults to the country's WhatsApp-safe type", schema: { type: string } }
-        - { name: prefix, in: query, required: false, description: Area code, schema: { type: string } }
+        - { name: numberType, in: query, required: false, description: "Number type; defaults to the country's WhatsApp-safe type (the same name as on purchase, availability and kyc)", schema: { type: string, enum: [local, mobile, national, toll_free] } }
+        - { name: areaCode, in: query, required: false, description: "Area code or national dialing code the number must start with, e.g. 415 or 91", schema: { type: string } }
+        - { name: type, in: query, required: false, deprecated: true, description: "Alias of numberType, kept for existing callers", schema: { type: string } }
+        - { name: prefix, in: query, required: false, deprecated: true, description: "Alias of areaCode, kept for existing callers", schema: { type: string } }
         - { name: locality, in: query, required: false, description: City, schema: { type: string } }
         - { name: contains, in: query, required: false, description: Pattern to match within the number, schema: { type: string } }
         - { name: sms, in: query, required: false, schema: { type: boolean }, description: "true narrows the pool to SMS-capable numbers. Each result still carries its full `features` list for per-number capability badging." }
@@ -38682,7 +38886,7 @@ paths:
                         features: { type: array, items: { type: string }, description: "Provider capability list for this number (e.g. voice, sms, mms)." }
                         locality: { type: string, description: "Town or rate center the number belongs to, as the carrier names it (e.g. WACO)." }
                         bestEffort: { type: boolean, description: "true when the carrier added this number because too few matched your filters, so it may be outside the requested prefix or locality." }
-        '400': { description: Country not available }
+        '400': { description: "Country not offerable, numberType outside the four offered, or a query parameter this endpoint does not know (the message lists the accepted ones; nothing is silently ignored)." }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/phone-numbers/availability:
@@ -39084,8 +39288,10 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: country, in: query, required: false, schema: { type: string, default: US } }
-        - { name: type, in: query, required: false, description: "Number type; defaults to the country's WhatsApp-safe type", schema: { type: string } }
-        - { name: prefix, in: query, required: false, description: Area code, schema: { type: string } }
+        - { name: numberType, in: query, required: false, description: "Number type; defaults to the country's WhatsApp-safe type (the same name as on purchase, availability and kyc)", schema: { type: string, enum: [local, mobile, national, toll_free] } }
+        - { name: areaCode, in: query, required: false, description: "Area code or national dialing code the number must start with, e.g. 415 or 91", schema: { type: string } }
+        - { name: type, in: query, required: false, deprecated: true, description: "Alias of numberType, kept for existing callers", schema: { type: string } }
+        - { name: prefix, in: query, required: false, deprecated: true, description: "Alias of areaCode, kept for existing callers", schema: { type: string } }
         - { name: locality, in: query, required: false, description: City, schema: { type: string } }
         - { name: contains, in: query, required: false, description: Pattern to match within the number, schema: { type: string } }
         - { name: limit, in: query, required: false, schema: { type: integer, default: 20, maximum: 100 } }
@@ -39107,7 +39313,7 @@ paths:
                         phoneNumber: { type: string }
                         locality: { type: string }
                         bestEffort: { type: boolean }
-        '400': { description: Country not available }
+        '400': { description: "Country not offerable, numberType outside the four offered, or a query parameter this endpoint does not know (the message lists the accepted ones; nothing is silently ignored)." }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/whatsapp/phone-numbers/availability:
@@ -39542,6 +39748,10 @@ paths:
                 profileId: { type: string }
                 country: { type: string, minLength: 2, maxLength: 2, description: ISO 3166-1 alpha-2 country code (must be a regulated/KYC country). }
                 areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Area code (NDC) the eventual number must be in. Hard constraint carried by the link; the end customer filling the form makes no area choice. Options come from GET /v1/phone-numbers/availability (areaOptions).' }
+                language:
+                  type: string
+                  enum: [en, es, pt-BR]
+                  description: 'Language of the hosted page: its copy, the carrier requirement texts (translated once per country and cached), the pre-submit review notes and the status emails to the end customer. Omitted: the browser language of the end customer, falling back to English. The end customer can also switch with `?lang=` on the page.'
                 branding:
                   type: object
                   description: Optional white-label of the hosted page the end customer sees.
@@ -40522,6 +40732,10 @@ paths:
                 profileId: { type: string }
                 country: { type: string, minLength: 2, maxLength: 2, description: ISO 3166-1 alpha-2 country code (must be a regulated/KYC country). }
                 areaCode: { type: string, pattern: '^\d{1,4}$', description: 'Area code (NDC) the eventual number must be in. Hard constraint carried by the link; the end customer filling the form makes no area choice. Options come from GET /v1/phone-numbers/availability (areaOptions).' }
+                language:
+                  type: string
+                  enum: [en, es, pt-BR]
+                  description: 'Language of the hosted page: its copy, the carrier requirement texts (translated once per country and cached), the pre-submit review notes and the status emails to the end customer. Omitted: the browser language of the end customer, falling back to English. The end customer can also switch with `?lang=` on the page.'
                 branding:
                   type: object
                   description: Optional white-label of the hosted page the end customer sees.
@@ -45229,11 +45443,13 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
-        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Defaults to 30 days ago." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "Defaults to today." }
         - { name: campaignId, in: query, schema: { type: string }, description: "Numeric Google campaign id filter." }
-        - { name: adGroupId, in: query, schema: { type: string }, description: "Numeric Google ad group id filter." }
+        - { name: adSetId, in: query, schema: { type: string }, description: "Platform ad set ID (Google ad group). Same value as adSetId on listAdKeywords and /ad-sets/{adSetId}/assets." }
+        - { name: adGroupId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adSetId, kept for existing callers." }
         - { name: pageToken, in: query, schema: { type: string }, description: "Cursor from paging.nextPageToken of the previous page." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -45292,7 +45508,8 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
-        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Defaults to 30 days ago." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "Defaults to today." }
       responses:
@@ -45339,7 +45556,8 @@ paths:
               required: [accountId, name, type]
               properties:
                 accountId: { type: string, description: "Google ads SocialAccount id." }
-                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+                adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+                customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
                 name: { type: string, minLength: 1, maxLength: 255 }
                 type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
                 targetCpa: { type: number, exclusiveMinimum: 0, description: "Required when type is TARGET_CPA, in the account's currency units." }
@@ -45394,7 +45612,8 @@ paths:
               required: [accountId]
               properties:
                 accountId: { type: string, description: "Google ads SocialAccount id." }
-                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+                adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+                customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
                 name: { type: string, minLength: 1, maxLength: 255 }
                 type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
                 targetCpa: { type: number, exclusiveMinimum: 0 }
@@ -45437,7 +45656,8 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
-        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Leads created at/after this day." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "Leads created at/before this day." }
         - { name: leadType, in: query, schema: { type: string, enum: [PHONE_CALL, MESSAGE, BOOKING] } }
@@ -45504,7 +45724,8 @@ paths:
       parameters:
         - { name: leadId, in: path, required: true, schema: { type: string }, description: "Numeric lead id from /v1/ads/local-services/leads." }
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
-        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Defaults to the account's connected customer." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
         - { name: pageToken, in: query, schema: { type: string }, description: "Cursor from paging.nextPageToken of the previous page." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -46156,7 +46377,8 @@ paths:
         - { name: campaignId, in: path, required: true, schema: { type: string }, description: "Numeric Google platform campaign id." }
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio Google Ads SocialAccount id: resolves the customer id + refresh token." }
         - { name: platform, in: query, required: true, schema: { type: string, enum: [google] }, description: "Required: campaign IDs are not globally unique. Only \"google\" is supported today." }
-        - { name: customerId, in: query, required: false, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Required when the connection has multiple Google Ads accounts; optional (and inferred) when it has only one." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple Google Ads accounts; optional (and inferred) when it has only one." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -46170,7 +46392,7 @@ paths:
                       campaignId: { type: string }
                   - $ref: '#/components/schemas/CampaignBidding'
         '400':
-          description: "Invalid input (accountId, customerId, or a non-numeric campaignId), or a platform other than \"google\""
+          description: "Invalid input (accountId, adAccountId, or a non-numeric campaignId), or a platform other than \"google\""
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: "Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans."
@@ -46942,7 +47164,8 @@ paths:
                 campaignId: { type: string, description: "Google platform campaign ID (numeric) the ad group is created under." }
                 name: { type: string, minLength: 1, maxLength: 255 }
                 status: { type: string, enum: [ACTIVE, PAUSED], default: PAUSED }
-                customerId: { type: string, description: "Numeric Google Ads customer id. Only required when the connection has more than one." }
+                adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only). Only required when the connection has more than one." }
+                customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '201':
@@ -47045,6 +47268,10 @@ paths:
         automatically (`syncAfter: false` to skip). Creative settings returned by Meta,
         including explicit promotion metadata and creativeFeatures, are preserved when the
         native copy requires a creative rebuild. Metadata Meta does not return cannot be recovered.
+        When Meta refuses the native copy with its capability error (code 3), which happens for
+        some creatives built by other tools, the ad is rebuilt instead: a new creative from the
+        source's returned spec and a new ad in the target ad set, carrying the source name,
+        status option, rename options and tracking specs.
       security:
         - bearerAuth: []
       parameters:
@@ -47072,6 +47299,10 @@ paths:
                 renamePrefix: { type: string }
                 renameSuffix: { type: string }
                 syncAfter: { type: boolean, default: true }
+                reuseSourceCreative:
+                  type: boolean
+                  default: false
+                  description: 'Point the copy at the source ad''s creative object instead of copying it, so the copy keeps the same Facebook post, the same Instagram media, their existing likes, comments and shares, and the full creative setup (text variations included). This is what Ads Manager''s "show existing reactions, comments and shares" does. Meta''s native copy always publishes new posts. A creative belongs to one ad account, so `adSetId` must be in the source ad''s account. 400 when the source ad has no creative yet.'
       responses:
         '200':
           description: Ad duplicated
@@ -47999,12 +48230,19 @@ paths:
           type: string
           pattern: ^[a-fA-F0-9]{24}$
           description: "Zernio Google Ads connection id."
-      - name: customerId
+      - name: adAccountId
         in: query
         schema:
           type: string
           pattern: ^\d+$
-          description: "Google customer id without dashes. Required when the connection has multiple customers."
+          description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+      - name: customerId
+        in: query
+        deprecated: true
+        schema:
+          type: string
+          pattern: ^\d+$
+          description: "Alias of adAccountId, kept for existing callers"
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -48113,10 +48351,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 sitelinks:
                   type: array
                   items:
@@ -48141,7 +48384,7 @@ paths:
                 \ and description2 must be supplied together."
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               sitelinks:
               - text: Pricing
                 linkUrl: https://zernio.com/pricing
@@ -48225,10 +48468,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 updates:
                   type: array
                   items:
@@ -48237,7 +48485,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               updates:
               - assetResourceName: customers/1234567890/assets/123
                 calloutAsset:
@@ -48299,10 +48547,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 assetResourceNames:
                   type: array
                   items:
@@ -48315,7 +48568,7 @@ paths:
                   minItems: 1
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               assetResourceNames:
               - customers/1234567890/assets/123
               campaignAssetResourceNames:
@@ -48372,12 +48625,19 @@ paths:
           type: string
           pattern: ^[a-fA-F0-9]{24}$
           description: "Zernio Google Ads connection id."
-      - name: customerId
+      - name: adAccountId
         in: query
         schema:
           type: string
           pattern: ^\d+$
-          description: "Google customer id without dashes. Required when the connection has multiple customers."
+          description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+      - name: customerId
+        in: query
+        deprecated: true
+        schema:
+          type: string
+          pattern: ^\d+$
+          description: "Alias of adAccountId, kept for existing callers"
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -48486,10 +48746,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 sitelinks:
                   type: array
                   items:
@@ -48598,10 +48863,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 updates:
                   type: array
                   items:
@@ -48672,10 +48942,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 assetResourceNames:
                   type: array
                   items:
@@ -48965,7 +49240,8 @@ paths:
               required: [accountId]
               properties:
                 accountId: { type: string, description: "Zernio googleads SocialAccount id." }
-                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts." }
+                adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only)." }
+                customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
                 seedKeywords: { type: array, items: { type: string, maxLength: 80 }, minItems: 1, maxItems: 20, description: "Seed terms. Provide these, seedUrl, or both." }
                 seedUrl: { type: string, format: uri, description: "Landing page to mine for ideas. Provide this, seedKeywords, or both." }
                 countries: { type: array, items: { type: string, minLength: 2, maxLength: 2 }, minItems: 1, maxItems: 10, description: "ISO 3166-1 alpha-2 country codes. Omitted = worldwide." }
@@ -49021,7 +49297,8 @@ paths:
               required: [accountId, keywords]
               properties:
                 accountId: { type: string, description: "Zernio googleads SocialAccount id." }
-                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts." }
+                adAccountId: { type: string, description: "Platform ad account ID (Google customer ID, digits only)." }
+                customerId: { type: string, deprecated: true, description: "Alias of adAccountId, kept for existing callers" }
                 keywords: { type: array, items: { type: string, maxLength: 80 }, minItems: 1, maxItems: 1000 }
                 countries: { type: array, items: { type: string, minLength: 2, maxLength: 2 }, minItems: 1, maxItems: 10, description: "ISO 3166-1 alpha-2 country codes. Omitted = worldwide." }
                 languageConstantId: { type: string, default: "1000", description: "Google languageConstant id (1000 = English)." }
@@ -49067,7 +49344,7 @@ paths:
         **Google Ads (googleads)**: raw GAQL passthrough. Send any read-only GAQL SELECT via `query`
         (campaign/keyword/search-term/geo/demographic/asset/shopping resources, `change_event`, any
         `segments.*`) and rows come back verbatim (camelCase, counters as strings). Results are paged
-        at a fixed 10,000 rows; follow `paging.nextPageToken` with `pageToken`. `customerId` is only
+        at a fixed 10,000 rows; follow `paging.nextPageToken` with `pageToken`. `adAccountId` (alias `customerId`) is only
         needed when the connection has several Google Ads accounts. Semantic validation is Google's:
         an invalid query returns a 400 carrying Google's message (note: selecting `segments.date`
         requires a finite date filter).
@@ -49077,7 +49354,8 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant); its platform selects the Meta or Google contract." }
         - { name: objectId, in: query, schema: { type: string }, description: "Meta only (required there): insights node (act_<n>, campaign id, ad set id or ad id)." }
         - { name: query, in: query, schema: { type: string, maxLength: 10000 }, description: "Google only (required there): the GAQL SELECT statement to run." }
-        - { name: customerId, in: query, schema: { type: string }, description: "Google only: numeric customer id (no dashes) when the connection has several Google Ads accounts." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Google only: platform ad account ID (Google customer ID, digits only) when the connection has several Google Ads accounts." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
         - { name: pageToken, in: query, schema: { type: string }, description: "Google only: cursor from paging.nextPageToken of the previous page." }
         - { name: level, in: query, schema: { type: string, enum: [ad, adset, campaign, account] }, description: Row granularity }
         - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set." }
@@ -50953,13 +51231,21 @@ paths:
             type: "string"
             pattern: "^[a-fA-F0-9]{24}$"
             description: "Zernio SocialAccount id."
-        - name: "customerId"
+        - name: "adAccountId"
           in: "query"
           required: false
           schema:
             type: "string"
             pattern: "^\\d+$"
-            description: "Connected Google Ads customer id, without dashes. Required when the connection has multiple customers."
+            description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+        - name: "customerId"
+          in: "query"
+          deprecated: true
+          required: false
+          schema:
+            type: "string"
+            pattern: "^\\d+$"
+            description: "Alias of adAccountId, kept for existing callers"
         - name: "platform"
           in: "query"
           required: false
@@ -51052,10 +51338,15 @@ paths:
                   type: "string"
                   pattern: "^[a-fA-F0-9]{24}$"
                   description: "Zernio SocialAccount id."
-                customerId:
+                adAccountId:
                   type: "string"
                   pattern: "^\\d+$"
-                  description: "Connected Google Ads customer id, without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: "string"
+                  deprecated: true
+                  pattern: "^\\d+$"
+                  description: "Alias of adAccountId, kept for existing callers"
                 platform:
                   type: "string"
                   enum:
@@ -51081,7 +51372,7 @@ paths:
                   description: "Full desired keyword set. Bare strings use broad match. Send [] to clear the list."
             example:
               accountId: "69ce75d483e990e1c01ccfe4"
-              customerId: "9122445560"
+              adAccountId: "9122445560"
               name: "Excluded searches"
               keywords:
                 - "free"
@@ -51157,13 +51448,21 @@ paths:
             type: "string"
             pattern: "^[a-fA-F0-9]{24}$"
             description: "Zernio SocialAccount id."
-        - name: "customerId"
+        - name: "adAccountId"
           in: "query"
           required: false
           schema:
             type: "string"
             pattern: "^\\d+$"
-            description: "Connected Google Ads customer id, without dashes. Required when the connection has multiple customers."
+            description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+        - name: "customerId"
+          in: "query"
+          deprecated: true
+          required: false
+          schema:
+            type: "string"
+            pattern: "^\\d+$"
+            description: "Alias of adAccountId, kept for existing callers"
         - name: "platform"
           in: "query"
           required: false
@@ -51276,10 +51575,15 @@ paths:
                   type: "string"
                   pattern: "^[a-fA-F0-9]{24}$"
                   description: "Zernio SocialAccount id."
-                customerId:
+                adAccountId:
                   type: "string"
                   pattern: "^\\d+$"
-                  description: "Connected Google Ads customer id, without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: "string"
+                  deprecated: true
+                  pattern: "^\\d+$"
+                  description: "Alias of adAccountId, kept for existing callers"
                 platform:
                   type: "string"
                   enum:
@@ -51299,7 +51603,7 @@ paths:
                   description: "Nonempty list name, trimmed before use."
             example:
               accountId: "69ce75d483e990e1c01ccfe4"
-              customerId: "9122445560"
+              adAccountId: "9122445560"
               name: "Excluded searches renamed"
       responses:
         "200":
@@ -51360,13 +51664,21 @@ paths:
             type: "string"
             pattern: "^[a-fA-F0-9]{24}$"
             description: "Zernio SocialAccount id."
-        - name: "customerId"
+        - name: "adAccountId"
           in: "query"
           required: false
           schema:
             type: "string"
             pattern: "^\\d+$"
-            description: "Connected Google Ads customer id, without dashes. Required when the connection has multiple customers."
+            description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+        - name: "customerId"
+          in: "query"
+          deprecated: true
+          required: false
+          schema:
+            type: "string"
+            pattern: "^\\d+$"
+            description: "Alias of adAccountId, kept for existing callers"
         - name: "platform"
           in: "query"
           required: false
@@ -51450,10 +51762,15 @@ paths:
                   type: "string"
                   pattern: "^[a-fA-F0-9]{24}$"
                   description: "Zernio SocialAccount id."
-                customerId:
+                adAccountId:
                   type: "string"
                   pattern: "^\\d+$"
-                  description: "Connected Google Ads customer id, without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: "string"
+                  deprecated: true
+                  pattern: "^\\d+$"
+                  description: "Alias of adAccountId, kept for existing callers"
                 platform:
                   type: "string"
                   enum:
@@ -51474,7 +51791,7 @@ paths:
                   description: "Full desired keyword set. Bare strings use broad match. Send [] to clear the list."
             example:
               accountId: "69ce75d483e990e1c01ccfe4"
-              customerId: "9122445560"
+              adAccountId: "9122445560"
               keywords:
                 - "free"
                 - text: "jobs"
@@ -51715,12 +52032,19 @@ paths:
           type: string
           pattern: ^[a-fA-F0-9]{24}$
           description: "Zernio Google Ads connection id."
-      - name: customerId
+      - name: adAccountId
         in: query
         schema:
           type: string
           pattern: ^\d+$
-          description: "Google customer id without dashes. Required when the connection has multiple customers."
+          description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+      - name: customerId
+        in: query
+        deprecated: true
+        schema:
+          type: string
+          pattern: ^\d+$
+          description: "Alias of adAccountId, kept for existing callers"
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -51789,10 +52113,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 callouts:
                   type: array
                   items:
@@ -51803,7 +52132,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               callouts:
               - Fast setup
       responses:
@@ -51865,10 +52194,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 updates:
                   type: array
                   items:
@@ -51895,7 +52229,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               updates:
               - assetResourceName: customers/1234567890/assets/123
                 calloutAsset:
@@ -51951,16 +52285,21 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 assetId:
                   type: string
                   pattern: ^\d+$
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               assetId: '123'
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -52009,12 +52348,19 @@ paths:
           type: string
           pattern: ^[a-fA-F0-9]{24}$
           description: "Zernio Google Ads connection id."
-      - name: customerId
+      - name: adAccountId
         in: query
         schema:
           type: string
           pattern: ^\d+$
-          description: "Google customer id without dashes. Required when the connection has multiple customers."
+          description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+      - name: customerId
+        in: query
+        deprecated: true
+        schema:
+          type: string
+          pattern: ^\d+$
+          description: "Alias of adAccountId, kept for existing callers"
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -52094,10 +52440,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 sitelinks:
                   type: array
                   items:
@@ -52106,7 +52457,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               sitelinks:
               - text: Pricing
                 linkUrl: https://zernio.com/pricing
@@ -52182,10 +52533,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 updates:
                   type: array
                   items:
@@ -52227,7 +52583,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               updates:
               - assetResourceName: customers/1234567890/assets/123
                 sitelinkAsset:
@@ -52285,16 +52641,21 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 assetId:
                   type: string
                   pattern: ^\d+$
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               assetId: '123'
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -52343,12 +52704,19 @@ paths:
           type: string
           pattern: ^[a-fA-F0-9]{24}$
           description: "Zernio Google Ads connection id."
-      - name: customerId
+      - name: adAccountId
         in: query
         schema:
           type: string
           pattern: ^\d+$
-          description: "Google customer id without dashes. Required when the connection has multiple customers."
+          description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+      - name: customerId
+        in: query
+        deprecated: true
+        schema:
+          type: string
+          pattern: ^\d+$
+          description: "Alias of adAccountId, kept for existing callers"
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -52425,10 +52793,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 structuredSnippets:
                   type: array
                   items:
@@ -52437,7 +52810,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               structuredSnippets:
               - header: Types
                 values:
@@ -52525,10 +52898,15 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 updates:
                   type: array
                   items:
@@ -52548,7 +52926,7 @@ paths:
                   maxItems: 20
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               updates:
               - assetResourceName: customers/1234567890/assets/123
                 structuredSnippetAsset:
@@ -52608,16 +52986,21 @@ paths:
                   type: string
                   pattern: ^[a-fA-F0-9]{24}$
                   description: "Zernio Google Ads connection id."
-                customerId:
+                adAccountId:
                   type: string
                   pattern: ^\d+$
-                  description: "Google customer id without dashes. Required when the connection has multiple customers."
+                  description: "Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers."
+                customerId:
+                  type: string
+                  deprecated: true
+                  pattern: ^\d+$
+                  description: "Alias of adAccountId, kept for existing callers"
                 assetId:
                   type: string
                   pattern: ^\d+$
             example:
               accountId: 64b1f0c8a1b2c3d4e5f60718
-              customerId: '1234567890'
+              adAccountId: '1234567890'
               assetId: '123'
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -53057,6 +53440,11 @@ paths:
         `instagramAccountId`, `destinationType`, `whatsappPhoneNumber` and `adSetId`
         are Meta-only and return 400 on other platforms.
 
+        `accountId` may be a Facebook, Instagram or Meta ads (business login)
+        connection. A business-login connection has no posting account, so pass
+        the post as `platformPostId` (Facebook `pageId_postId` or an Instagram
+        media id); a Zernio `postId` is a 400 there.
+
         **Messaging boosts (Meta).** Use `goal: engagement` with
         `callToAction: WHATSAPP_MESSAGE`, `MESSAGE_PAGE`, or `INSTAGRAM_MESSAGE`.
         The CTA implies WHATSAPP, MESSENGER, or INSTAGRAM_DIRECT respectively;
@@ -53094,7 +53482,7 @@ paths:
               properties:
                 creativeFeatures: { $ref: '#/components/schemas/MetaCreativeFeatures' }
                 postId: { type: string, description: Zernio post ID (provide this or platformPostId) }
-                platformPostId: { type: string, description: Platform post ID (alternative to postId) }
+                platformPostId: { type: string, description: 'Platform post ID (alternative to postId). Meta: a Page post id (`<pageId>_<postId>` or the bare post id) or an Instagram media id. On a Meta Ads business-login connection (platform metaads) the id is resolved live: an Instagram media id is boosted as that media, running as the Instagram account that owns it.' }
                 accountId: { type: string, description: "Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter) or a googleads account. TikTok: the TikTok Ads connection (platform tiktokads) is accepted too when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected; such a call must use platformPostId, not postId." }
                 adAccountId: { type: string, description: Platform ad account ID }
                 name: { type: string, maxLength: 255 }
@@ -53105,9 +53493,12 @@ paths:
                 existingCampaignId: { type: string, description: "TikTok only. Create the ad group and the Spark ad under this existing TikTok campaign instead of creating a new campaign. The campaign keeps its own status and objective (the objective must fit `goal`). Cannot be combined with adSetId or smartPlus. On Meta use POST /v1/ads/create with existingCampaignId." }
                 identityId: { type: string, description: "TikTok only. The identity the ad runs as (the profile shown on the ad), from GET /v1/ads/tiktok-identities. Default: the connected TikTok account's own identity. Must be authorized on the advertiser or the call fails naming the available ones." }
                 identityType: { type: string, enum: [TT_USER, CUSTOMIZED_USER, BC_AUTH_TT], description: "TikTok only. Type of identityId; resolved from the advertiser's identity list when omitted." }
+                budgetAmount: { type: number, description: "Budget in whole currency units, the same flat field as POST /v1/ads/create. Required unless adSetId is set. Minimum varies: TikTok=$20, Pinterest=$5, others=$1" }
+                budgetType: { type: string, enum: [daily, lifetime], description: "Goes together with budgetAmount. lifetime requires schedule.endDate." }
                 budget:
                   type: object
-                  description: "Required unless adSetId is set."
+                  deprecated: true
+                  description: "Alias of budgetAmount + budgetType, kept for existing callers"
                   required: [amount, type]
                   properties:
                     amount: { type: number, description: "Minimum varies: TikTok=$20, Pinterest=$5, others=$1" }
@@ -53116,11 +53507,21 @@ paths:
                 destinationType: { type: string, enum: [INSTAGRAM_PROFILE, WEBSITE, ON_AD, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT], description: "Meta only. Ad-set destination_type: where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Independent of plain link CTAs and their goal. A messaging callToAction selects its destination automatically; an explicit destinationType must then match. Lead ads use ON_AD." }
                 whatsappPhoneNumber: { type: string, pattern: '^\+[1-9]\d{6,14}$', description: 'Meta WhatsApp only. E.164 number already paired with the Page. Omit to use the default pairing. Requires WHATSAPP_MESSAGE callToAction. Stored as creative.whatsappPhoneNumber on the ad.' }
                 currency: { type: string, minLength: 3, maxLength: 3, example: USD, description: "ISO 4217 currency code matching the ad account's currency. Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is)." }
+                startDate:
+                  type: string
+                  format: date-time
+                  description: 'Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set''s `start_time`. When omitted the ad starts delivering immediately. Same field as on POST /v1/ads/create.'
+                endDate:
+                  type: string
+                  format: date-time
+                  description: 'Ad-set end time (ISO 8601), mapped to the ad set''s `end_time`. Required for lifetime budgets. Same field as on POST /v1/ads/create.'
                 schedule:
                   type: object
+                  deprecated: true
+                  description: 'Alias of the top-level `startDate` / `endDate`, kept for existing callers. Sending both forms with differing values is a 400.'
                   properties:
-                    startDate: { type: string, format: date-time }
-                    endDate: { type: string, format: date-time, description: Required for lifetime budgets }
+                    startDate: { type: string, format: date-time, deprecated: true, description: 'Alias of startDate, kept for existing callers' }
+                    endDate: { type: string, format: date-time, deprecated: true, description: 'Alias of endDate, kept for existing callers' }
                 targeting:
                   type: object
                   description: |
@@ -53360,26 +53761,37 @@ paths:
                 promotedObject:
                   type: object
                   description: |
-                    TikTok-only on this endpoint. The pixel a Website Conversion ad group
-                    optimizes toward, so a Spark Ad built from an existing organic post can
-                    optimize for a conversion instead of only engagement or traffic.
+                    Meta and TikTok. What the conversion ad set optimizes toward, so a boost
+                    of an existing organic post can run for a conversion instead of only
+                    engagement or traffic. Required when `goal` is `conversions` (Meta also
+                    `lead_conversion`); ignored on goals that do not optimize for a conversion.
 
-                    Required when `goal` is `conversions`, and BOTH fields are required:
-                    TikTok refuses a conversion ad group with no pixel ("Please select a
-                    pixel") and equally one that has a pixel but no event ("Select a pixel
-                    event."), because the event is what the ad group optimizes toward. Ignored
-                    on every other goal, since only a WEB_CONVERSIONS ad group accepts them.
+                    Meta: `pixelId` + `customEventType` (a commerce event such as PURCHASE
+                    under `conversions`, a leads-class event such as LEAD under
+                    `lead_conversion`), or `customConversionId` to optimize against a Custom
+                    Conversion, or `customEventType: OTHER` + `customEventStr` for a pixel
+                    custom event. Becomes the ad set `promoted_object`; without it Meta
+                    rejects the ad set ("Please select a promoted object", subcode 1815430).
+                    With `adSetId` the existing ad set already carries it.
 
-                    Combine freely with `platformPostId` + `sparkAuthCode`: the pixel lives on
-                    the ad group and the Spark item on the creative, so they never conflict.
-                  required: [pixelId, customEventType]
+                    TikTok: BOTH `pixelId` and `customEventType` are required. TikTok refuses
+                    a conversion ad group with no pixel ("Please select a pixel") and one
+                    with a pixel but no event ("Select a pixel event."). Combine freely with
+                    `platformPostId` + `sparkAuthCode`: the pixel lives on the ad group and
+                    the Spark item on the creative.
                   properties:
                     pixelId:
                       type: string
-                      description: 'TikTok Pixel. Either the numeric pixel id or the alphanumeric pixel code from Events Manager, which is resolved for you.'
+                      description: 'Meta Pixel id, or TikTok Pixel (numeric id or the alphanumeric pixel code from Events Manager, resolved for you).'
                     customEventType:
                       type: string
-                      description: 'Optimization event, as a TikTok optimization_event code (e.g. ON_WEB_ORDER, SHOPPING, FORM) or the exact event name shown in Events Manager, which is resolved to its code. The event must already exist on that pixel, or TikTok rejects the ad group.'
+                      description: 'Meta: standard pixel event (PURCHASE, LEAD, ...) or OTHER with customEventStr. TikTok: optimization_event code (e.g. ON_WEB_ORDER, SHOPPING, FORM) or the exact event name shown in Events Manager, resolved to its code; the event must already exist on that pixel.'
+                    customEventStr:
+                      type: string
+                      description: 'Meta only. Pixel custom event name as it appears in Events Manager; requires customEventType OTHER.'
+                    customConversionId:
+                      type: string
+                      description: 'Meta only. Custom Conversion to optimize against, instead of pixelId + customEventType.'
                 dsaBeneficiary:
                   type: string
                   maxLength: 100
@@ -54033,8 +54445,7 @@ paths:
                   description: |
                     Meta only. Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the
                     ad set's `start_time`. When omitted the ad starts delivering immediately. For lifetime
-                    budgets Meta also requires `endDate`. (Same `schedule.startDate` semantics already
-                    available on `POST /v1/ads/boost`.)
+                    budgets Meta also requires `endDate`. Same field as on `POST /v1/ads/boost`.
                 pageId:
                   type: string
                   description: |
@@ -55513,6 +55924,7 @@ paths:
                         type: { type: string, description: "What the result is (e.g. city, region, country, zip, metro, location, interest, behavior, income, industry, jobFunction, seniority, companySize)." }
                         path: { type: array, items: { type: string }, description: "Optional breadcrumb of parent labels (e.g. ['United States', 'California', 'Los Angeles']). Disambiguates same-named results." }
                         audienceSize: { type: [integer, "null"], description: "Optional estimated reachable users for this option, when the platform returns it." }
+                        countryCode: { type: string, description: "ISO-3166 alpha-2 of the country a sub-country geo result (city, region, zip, metro) belongs to, when the platform reports it (Meta does). Useful to know whether a location falls under the EU DSA disclosure rules before creating the ad." }
         '400':
           description: Missing or invalid query parameters
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -57280,9 +57692,9 @@ paths:
         included when Google has them for that action's type, e.g. `WEBPAGE`.
         Google-only; other platforms return `501`. Requires the Ads add-on.
 
-        `customerId` is optional: when omitted, it is resolved from the connection's
+        `adAccountId` (alias `customerId`) is optional: when omitted, it is resolved from the connection's
         accessible Google Ads customers, and the call fails with `400` when more than
-        one is accessible (pass `customerId` to disambiguate).
+        one is accessible (pass `adAccountId` to disambiguate).
 
         The list itself is cached for the quota window (1 hour fresh, up to 7 days
         last-good; the cache key does not vary on `type`). The response carries
@@ -57292,7 +57704,8 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "SocialAccount _id (must be a googleads account)." }
-        - { name: customerId, in: query, required: false, schema: { type: string }, description: "Google Ads customer id (digits only). Resolved automatically when the connection has exactly one accessible customer." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Platform ad account ID (Google customer ID, digits only). Resolved automatically when the connection has exactly one accessible customer." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for existing callers" }
         - { name: type, in: query, required: false, schema: { type: string }, description: "Filter by Google's ConversionActionType enum (e.g. WEBPAGE, UPLOAD_CLICKS)." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -57342,9 +57755,13 @@ paths:
                 accountId:
                   type: string
                   description: SocialAccount ID. Must be a `googleads` account.
+                adAccountId:
+                  type: string
+                  description: "Platform ad account ID (Google customer ID, digits only). Resolved automatically when the connection has exactly one accessible customer."
                 customerId:
                   type: string
-                  description: "Google Ads customer id (digits only). Resolved automatically when the connection has exactly one accessible customer."
+                  deprecated: true
+                  description: "Alias of adAccountId, kept for existing callers"
                 name:
                   type: string
                   minLength: 1
@@ -58264,14 +58681,17 @@ paths:
       description: |-
         Creates a click-to-message ad; `destination` selects where the tapped ad opens a
         conversation: WhatsApp, the Page's Messenger inbox or the linked Instagram account's Direct inbox.
+        `destinations` puts two or three of them on one ad set and lets Meta pick the app per viewer.
         The ad set is created with the matching destination_type and
         CONVERSATIONS optimization; the campaign objective defaults to OUTCOME_ENGAGEMENT.
         Supports single-creative and multi-creative shapes. Supersedes POST /v1/ads/ctwa
         (deprecated, equivalent to `destination: whatsapp`).
-        Existing posts and reels are supported through `existingPostId` or
-        `objectStoryId`, either per creative or at the top level. Omit fresh
+        Existing posts and reels are supported through `platformPostId` (alias
+        `existingPostId`) or `objectStoryId`, either per creative or at the top level. Omit fresh
         media and copy for that creative. Optional `whatsappPhoneNumber` selects
         a number already paired with the Page (WhatsApp destination only).
+        `accountId` is a Facebook, Instagram or Meta ads (business login) connection;
+        `pageId` picks the Page when that connection was granted several.
       security:
         - bearerAuth: []
       requestBody:
@@ -58282,12 +58702,20 @@ paths:
               allOf:
                 - $ref: '#/components/schemas/CtwaAdRequestBody'
                 - type: object
-                  required: [destination]
                   properties:
                     destination:
                       type: string
                       enum: [whatsapp, messenger, instagram_direct]
-                      description: Where the conversation opens when the ad is tapped.
+                      description: 'Where the conversation opens when the ad is tapped. Set this OR `destinations`, not both.'
+                    destinations:
+                      type: array
+                      minItems: 2
+                      maxItems: 3
+                      uniqueItems: true
+                      items:
+                        type: string
+                        enum: [whatsapp, messenger, instagram_direct]
+                      description: 'Two or three messaging apps on ONE ad set, like Ads Manager''s "all messaging apps": the ad set gets Meta''s combined destination_type (e.g. MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP) and the creative one CTA per app, so Meta opens the app each viewer is likeliest to answer from. WhatsApp in the list still needs the Page paired with a WhatsApp Business number. With `adSetId`, the existing ad set must already use that combined destination_type. Set this OR `destination`, not both.'
             example:
               accountId: '69ca62446cb7b8cf4cb13603'
               adAccountId: act_757082720485182
@@ -58400,15 +58828,15 @@ paths:
 
         Supports two mutually-exclusive shapes:
 
-        - **Single-creative**: supply top-level `headline`, `body`, and one of `imageUrl` / `video`, or an `existingPostId` / `objectStoryId` reference. Creates 1 campaign + 1 ad set + 1 ad.
+        - **Single-creative**: supply top-level `headline`, `body`, and one of `imageUrl` / `video`, or a `platformPostId` / `objectStoryId` reference. Creates 1 campaign + 1 ad set + 1 ad.
 
         - **Multi-creative**: supply a `creatives[]` array with N entries (each carrying fresh media and copy or an existing post reference). Creates 1 campaign + 1 ad set + N ads sharing budget and targeting so Meta A/Bs the creatives inside a single auction instead of fragmenting budget across N parallel campaigns. Recommended when launching multiple creative variants for the same campaign.
 
         **Attach shape.** Send `adSetId` (with either creative shape) to add the ads to an EXISTING messaging ad set instead of building a campaign, so the ad set keeps its learning phase, the way to refresh a CTWA creative without resetting delivery. The ad set then owns budget, targeting and schedule, so `budgetAmount`, `budgetType`, `endDate`, `objective`, `countries`, `interests` and `audienceId` are rejected with a 400 alongside it rather than silently dropped. The target ad set's `destination_type` must match the ad's destination (a WhatsApp ad needs a `WHATSAPP` ad set), otherwise Meta would accept an ad that never delivers.
 
         Prerequisites enforced by Meta (surfaced as platform_error on failure): the Facebook Page must be paired with a verified WhatsApp Business number, the WhatsApp Business Account must be business-verified, and the Meta access token must carry ads_management.
-        Existing posts and reels are supported through `existingPostId` or
-        `objectStoryId`, either per creative or at the top level. Omit fresh
+        Existing posts and reels are supported through `platformPostId` (alias
+        `existingPostId`) or `objectStoryId`, either per creative or at the top level. Omit fresh
         media and copy for that creative. Optional `whatsappPhoneNumber` selects
         a number already paired with the Page (WhatsApp destination only).
       security:
@@ -61085,11 +61513,17 @@ paths:
             type: 'string'
             pattern: '^[a-fA-F0-9]{24}$'
           description: 'Zernio SocialAccount ID.'
-        - name: 'advertiserId'
+        - name: 'adAccountId'
           in: 'query'
           schema:
             type: 'string'
-          description: 'Advertiser belonging to this connection.'
+          description: 'Platform ad account ID (TikTok advertiser id, digits only). Defaults to the first advertiser on the connection.'
+        - name: 'advertiserId'
+          in: 'query'
+          deprecated: true
+          schema:
+            type: 'string'
+          description: 'Alias of adAccountId, kept for existing callers'
         - name: 'code'
           in: 'query'
           schema:

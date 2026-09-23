@@ -33,6 +33,8 @@ from matrx_graph.content_ir.envelope import KIND_KEY
 from matrx_ai.config.citations import NormalizedCitation
 from matrx_ai.db.content_types.data_ref import DataRef
 from matrx_ai.decisions.kinds import DecisionAnswer, DecisionQuestion, DecisionUsage
+from matrx_ai.speech.kinds import SpeechScript, SpeechTurn
+from matrx_ai.media.image_reference_roles import ImageReferenceRole
 
 # ---------------------------------------------------------------------------
 # Base
@@ -216,6 +218,13 @@ class _StoredMediaPartBase(_MessagePartBase):
     # external URI into `url` when that's the only reference present.
     mime_type: str | None = None
     size_bytes: int | None = None
+    # The cld_files row facts `media_config._promote_row_facts` lifts onto the
+    # stored block (0387fc600c): the client reads them to pick the right image
+    # lane. Declared here because a stored block carrying them failed the
+    # generated MessagePart guard and the whole assistant message rendered as
+    # "This section could not be displayed" (2026-09-22).
+    visibility: str | None = None
+    cdn_url: str | None = None
 
     @classmethod
     def __get_pydantic_json_schema__(
@@ -275,6 +284,9 @@ class ImageMediaPart(_StoredMediaPartBase):
     kind: Literal["image"] = "image"
     width: int | None = None
     height: int | None = None
+    # Image-generation reference role. Absent = a plain image the model sees.
+    # Vocabulary + the refusal gate: matrx_ai/media/image_reference_roles.py.
+    role: ImageReferenceRole | None = None
 
 
 class AudioMediaPart(_StoredMediaPartBase):
@@ -728,6 +740,36 @@ class DecisionAnswersPart(_MessagePartBase):
 
 
 # ---------------------------------------------------------------------------
+# SpeechScriptPart
+# Stored as: { "type": "speech_script", "__kind": "speech_script",
+#              "turns": [ {speaker, voice?, text, direction?, pause_after_ms?} ] }
+#
+# The text-to-speech authoring part: ordered spoken turns. One turn is single-
+# speaker speech; several are a dialogue. The turn model is the registered
+# `speech_script` kind's own (`matrx_ai.speech.kinds`), so the part, the kind,
+# the registry row and the generated TypeScript validate ONE shape. The model's
+# speaker cap is checked at translation (`matrx_ai.speech.compile`), because the
+# same script is valid for one model and refused by another.
+# ---------------------------------------------------------------------------
+
+
+class SpeechScriptPart(_MessagePartBase):
+    type: Literal["speech_script"] = "speech_script"
+    kind: Literal["speech_script"] = Field(
+        default="speech_script",
+        alias=KIND_KEY,
+        serialization_alias=KIND_KEY,
+    )
+    turns: list[SpeechTurn] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _one_voice_per_speaker(self) -> "SpeechScriptPart":
+        # The kind owns the rule; running it here keeps one statement of it.
+        SpeechScript(turns=self.turns)
+        return self
+
+
+# ---------------------------------------------------------------------------
 # Persisted union + validated request-side union
 # ---------------------------------------------------------------------------
 
@@ -756,6 +798,7 @@ MessagePart = (
     | ContextInputPart
     | DecisionQuestionsPart
     | DecisionAnswersPart
+    | SpeechScriptPart
 )
 
 
@@ -812,6 +855,7 @@ class UserImageMediaPart(_UserMediaInputPartBase):
     kind: Literal["image"] = "image"
     width: int | None = None
     height: int | None = None
+    role: ImageReferenceRole | None = None
 
 
 class UserAudioMediaPart(_UserMediaInputPartBase):
@@ -880,6 +924,7 @@ _UserInputPartModel = (
     | ContextInputPart
     | DecisionQuestionsPart
     | DecisionAnswersPart
+    | SpeechScriptPart
 )
 
 _MEDIA_TYPE_ALIASES: dict[str, str] = {
@@ -993,6 +1038,7 @@ MESSAGE_PART_REGISTRY: dict[str, type[_MessagePartBase]] = {
     "input_context": ContextInputPart,
     "decision_questions": DecisionQuestionsPart,
     "decision_answers": DecisionAnswersPart,
+    "speech_script": SpeechScriptPart,
 }
 
 # All concrete (non-media-union) types for codegen
@@ -1025,6 +1071,7 @@ MESSAGE_PART_MODELS: list[type[_MessagePartBase]] = [
     ContextInputPart,
     DecisionQuestionsPart,
     DecisionAnswersPart,
+    SpeechScriptPart,
 ]
 
 
@@ -1112,7 +1159,7 @@ def validate_message_content(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # field name, so a persisted decision_answers row came back keyed
         # `kind` and NO client could resolve it to its kind component (the
         # __kind law: the marker is part of the data). The only aliases in this
-        # module are those two markers, so this changes nothing else.
+        # module are the kind markers, so this changes nothing else.
         validated.append(part.model_dump(mode="json", exclude_none=True, by_alias=True))
 
     return validated

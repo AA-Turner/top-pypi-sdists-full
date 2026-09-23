@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: clickhouse-connect
-Version: 1.8.0
+Version: 1.9.0
 Summary: ClickHouse Database Core Driver for Python, Pandas, and Superset
 Home-page: https://github.com/ClickHouse/clickhouse-connect
 Author: ClickHouse Inc.
 Author-email: clients@clickhouse.com
-License: Apache-2.0
+License-Expression: Apache-2.0
 Keywords: clickhouse,superset,sqlalchemy,http,driver
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,6 +25,9 @@ Requires-Dist: lz4; python_version < "3.14"
 Requires-Dist: lz4>=4.4.5; python_version >= "3.14"
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy<3.0,>=1.4.40; extra == "sqlalchemy"
+Provides-Extra: sqlalchemy-async
+Requires-Dist: sqlalchemy[asyncio]<3.0,>=2.0.44; extra == "sqlalchemy-async"
+Requires-Dist: aiohttp>=3.9.0; extra == "sqlalchemy-async"
 Provides-Extra: alembic
 Requires-Dist: sqlalchemy<3.0,>=1.4.40; extra == "alembic"
 Requires-Dist: alembic>=1.18; extra == "alembic"
@@ -57,8 +59,8 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
+Dynamic: license-expression
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -104,8 +106,13 @@ When creating a Superset Data Source, either use the provided connection dialog,
 ### SQLAlchemy Implementation
 
 ClickHouse Connect includes a lightweight SQLAlchemy dialect implementation focused on compatibility with **Superset**
-and **SQLAlchemy Core**. Both SQLAlchemy 1.4 and 2.x are supported. SQLAlchemy 1.4 compatibility is maintained
-because Apache Superset currently requires `sqlalchemy>=1.4,<2`.
+and **SQLAlchemy Core**. The synchronous dialect supports SQLAlchemy 1.4 and 2.x. SQLAlchemy 1.4 compatibility is
+maintained because Apache Superset currently requires `sqlalchemy>=1.4,<2`.
+
+Async SQLAlchemy usage is available with SQLAlchemy 2.0.44 and later. Install
+`clickhouse-connect[sqlalchemy-async]` and use `clickhousedb+async://` with `create_async_engine()`. Results are
+buffered. Server-side cursors are not supported. Always await the async engine's `dispose()` method during shutdown
+instead of calling `engine.sync_engine.dispose()`.
 
 Supported features include:
 - Basic query execution via SQLAlchemy Core
@@ -139,6 +146,13 @@ To get started, install the Alembic extra:
 ```bash
 pip install clickhouse-connect[alembic]
 ```
+
+For Alembic with the async SQLAlchemy dialect, install `clickhouse-connect[alembic,sqlalchemy-async]`, run
+`alembic init -t async alembic`, and replace the generated `alembic/env.py` with the checked-in
+[async Alembic environment](examples/alembic_async/env.py). Keep the generated
+`script_location = %(here)s/alembic`, or update it if you chose a different migration directory. The example includes
+the ClickHouse Alembic hooks and options, runs online migrations through `AsyncConnection.run_sync()`, and compiles
+offline migrations without creating an engine.
 
 See the [Alembic worked example](clickhouse_connect/cc_sqlalchemy/alembic/WORKED_EXAMPLE.md) for a
 full end-to-end walkthrough covering setup, autogeneration, upgrades, downgrades, and manual

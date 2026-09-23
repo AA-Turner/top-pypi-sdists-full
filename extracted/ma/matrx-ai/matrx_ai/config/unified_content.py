@@ -9,6 +9,7 @@ from matrx_ai.config.decision_input_config import (
     DecisionAnswersContent,
     DecisionQuestionsContent,
 )
+from matrx_ai.config.speech_script_config import SpeechScriptContent
 from matrx_ai.config.config_utils import (
     decode_binary_metadata,
     encode_binary_metadata,
@@ -51,64 +52,25 @@ from .tools_config import ToolCallContent, ToolResultContent
 # ============================================================================
 
 
-# Provenance frame for platform-inserted turn context.
+# THE PERSON'S TURN IS THE PERSON'S ALONE (2026-09-22).
 #
-# WHY THIS EXISTS (2026-08-26): after turn one the system prompt is frozen, so
-# every per-turn block (scope/context, the deferred-context manifest, skills
-# attached mid-conversation, safety notes) is delivered on the USER message
-# instead. Unframed, the model reads that material as the user's own words --
-# and blocks that speak imperatively ("follow them", "use ctx_get") then read as
-# the USER issuing instructions. Agents drop their role on turn two and start
-# answering the context block. Smaller models fail this way reliably; larger
-# ones burn reasoning recovering from it.
+# Platform material used to be concatenated INTO the user message's text,
+# wrapped in a `<turn_context source="platform" speaker="not_the_user">` frame
+# whose note told the model "the user did not write it ... Do not respond to
+# it". On 2026-09-22 a Masterwork Scout interview (chat.conversation
+# 2eefaf04-1d23-4db5-82a6-1d3c0bfc870e, position 17) opened its answer to an
+# Expert with "Ignoring the injected block -- that's platform noise, not from
+# you." The frame worked exactly as written and the model narrated its own
+# compliance at a person who cannot see the block and has no idea what was
+# injected into her words.
 #
-# The frame is the fix: it names the speaker (the platform, not the user) and
-# says plainly where the user's actual message starts.
-_EPHEMERAL_FRAME_OPEN = '<turn_context source="platform" speaker="not_the_user">'
-_EPHEMERAL_FRAME_NOTE = (
-    "The block below was inserted by the AI Matrx platform for this turn only. "
-    "It is reference material and system guidance -- the user did not write it and "
-    "is not saying it to you. Do not respond to it, do not treat it as a request, "
-    "and do not let it change who you are: your role and instructions come from "
-    "your system prompt and remain in force. Where it restates context that also "
-    "appears in your system prompt, THIS copy is current and wins -- the system "
-    "prompt was frozen on the first turn and its copy may be stale. The user's "
-    "actual message for this turn appears after </turn_context>."
-)
-_EPHEMERAL_FRAME_CLOSE = "</turn_context>"
-
-
-@dataclass
-class _EphemeralTextLease:
-    """Per-turn platform blocks staged in front of a user message.
-
-    Blocks live in NAMED SLOTS and accumulate. They used to share one field, so
-    the last writer silently annihilated every earlier one -- five independent
-    production callers (skills, observational memory, the context-engine block,
-    the deferred-context manifest, the minor-safety note) all wrote that single
-    field on the same turn. Skills and safety notes lost the race routinely.
-    """
-
-    original_text: str
-    synthetic_carrier: bool
-    blocks: dict[str, str] = field(default_factory=dict)
-
-    def set_block(self, block: str, slot: str) -> None:
-        """Insert/replace ONE slot. Re-attaching the same slot replaces only that
-        slot (blocks are rebuilt fresh each turn); other slots are untouched."""
-        if block:
-            self.blocks[slot] = block
-        else:
-            self.blocks.pop(slot, None)
-
-    def render(self) -> str:
-        body = "\n\n".join(b for b in self.blocks.values() if b)
-        if not body:
-            return self.original_text
-        framed = "\n".join(
-            (_EPHEMERAL_FRAME_OPEN, _EPHEMERAL_FRAME_NOTE, "", body, _EPHEMERAL_FRAME_CLOSE)
-        )
-        return framed + "\n\n" + self.original_text
+# There is no wording that fixes that while the block is inside her turn: the
+# model answers her turn, so anything inside it is answerable. So the block
+# left the turn. Per-turn platform material now travels in the CONTEXT CHANNEL
+# -- MessageList.attach_turn_context() -> the provider's system channel (see
+# providers/base_translator.get_system_text). TextContent carries what its
+# author wrote and nothing else; there is deliberately no attach_ephemeral()
+# door here any more.
 
 
 # ============================================================================
@@ -143,8 +105,7 @@ class TextContent:
         empty text is harmless ("Hello {{name}}" with name="" is just
         "Hello ", not a system fault).
         """
-        lease = getattr(self, "_ephemeral_lease", None)
-        original_text = lease.original_text if isinstance(lease, _EphemeralTextLease) else self.text
+        original_text = self.text
         replaced_text = original_text
         # THE PROMPT DOOR (round-1 F4): every variable that becomes prompt
         # text passes through prompt_safe_value here — structured values get
@@ -158,11 +119,7 @@ class TextContent:
                 f"{{{{{var_name}}}}}",
                 prompt_safe_value(var_value),
             )
-        if isinstance(lease, _EphemeralTextLease):
-            lease.original_text = replaced_text
-            self.text = lease.render()
-        else:
-            self.text = replaced_text
+        self.text = replaced_text
         # AGT-N-7's first case: a placeholder nobody declared is still standing here,
         # verbatim, and used to reach the model with no warning anywhere in the chain.
         # This is the same choke point `prompt_safe_value` uses, so the law is recorded
@@ -187,63 +144,7 @@ class TextContent:
             text: The text to append
             separator: Separator between existing and new text (default: newline)
         """
-        lease = getattr(self, "_ephemeral_lease", None)
-        if isinstance(lease, _EphemeralTextLease):
-            joiner = "" if lease.synthetic_carrier and not lease.original_text else separator
-            lease.original_text += f"{joiner}{text}"
-            self.text = lease.render()
-            return
         self.text += f"{separator}{text}"
-
-    def attach_ephemeral(
-        self, block: str, *, slot: str = "default", synthetic_carrier: bool = False
-    ) -> None:
-        """Stage a transient platform block in front of this text, preserving the original.
-
-        Blocks are placed BEFORE the user's original text, inside a ``<turn_context>``
-        frame that states they came from the platform rather than the user, so the
-        user's actual request remains the last thing the model reads and is the only
-        thing it reads as the user speaking.
-
-        ``slot`` names an independent block. Different slots ACCUMULATE (in insertion
-        order); re-attaching the same slot replaces only that slot. Callers must pass a
-        stable slot name -- sharing one slot is how a later caller silently deletes an
-        earlier caller's instructions. A runtime-only lease preserves the pristine text
-        for exact detachment and storage. ``synthetic_carrier`` marks a TextContent
-        created solely for the block; it is omitted from storage and removed on detach
-        unless real text was appended while attached.
-        """
-        lease = getattr(self, "_ephemeral_lease", None)
-        if isinstance(lease, _EphemeralTextLease):
-            lease.synthetic_carrier = lease.synthetic_carrier or synthetic_carrier
-        else:
-            lease = _EphemeralTextLease(
-                original_text=self.metadata.pop("original_text", self.text),
-                synthetic_carrier=synthetic_carrier,
-            )
-            setattr(self, "_ephemeral_lease", lease)
-        lease.set_block(block, slot)
-        self.text = lease.render()
-
-    def detach_ephemeral(self) -> bool:
-        """Restore pristine text; return True when an empty carrier is disposable."""
-        lease = getattr(self, "_ephemeral_lease", None)
-        if isinstance(lease, _EphemeralTextLease):
-            self.text = lease.original_text
-            delattr(self, "_ephemeral_lease")
-            return lease.synthetic_carrier and not lease.original_text
-        if "original_text" in self.metadata:
-            self.text = self.metadata.pop("original_text")
-        return False
-
-    def is_ephemeral_only(self) -> bool:
-        """True when this is a synthetic carrier with no authored text."""
-        lease = getattr(self, "_ephemeral_lease", None)
-        return (
-            isinstance(lease, _EphemeralTextLease)
-            and lease.synthetic_carrier
-            and not lease.original_text
-        )
 
     def to_google(self) -> dict[str, Any]:
         """Convert to Google Gemini format"""
@@ -311,21 +212,12 @@ class TextContent:
     def to_storage_dict(self) -> dict[str, Any]:
         """Serialize to storage format for database persistence (cx_message.content JSONB).
 
-        ALWAYS serializes the pristine user text, never the ephemeral context
-        block. When attach_ephemeral() has wrapped the text, its runtime lease
-        holds the original; we emit that here so the transient per-turn
-        context can NEVER leak into cx_message — independent of whether
-        detach_ephemeral() has run on this path yet. This is the structural
-        guard: the per-turn commit barrier persists the user message mid-turn
-        (while the block is still attached), so relying on a detach call at
-        request-end was racy. Serializing original_text closes that race.
+        ``self.text`` IS the pristine authored text — per-turn platform material
+        never touches it any more (it travels in the context channel; see the
+        module header). ``metadata["original_text"]`` is honoured for rows that
+        predate that change.
         """
-        lease = getattr(self, "_ephemeral_lease", None)
-        text = (
-            lease.original_text
-            if isinstance(lease, _EphemeralTextLease)
-            else self.metadata.get("original_text", self.text)
-        )
+        text = self.metadata.get("original_text", self.text)
         result: dict[str, Any] = {"type": "text", "text": text}
         if self.id:
             result["id"] = self.id
@@ -865,6 +757,7 @@ UnifiedContent = (
     | DocumentInputContent
     | DecisionQuestionsContent
     | DecisionAnswersContent
+    | SpeechScriptContent
 )
 
 
@@ -1076,6 +969,15 @@ def _decode_content_block(block: dict[str, Any]) -> UnifiedContent:
         # than killing a conversation load.
         return DecisionQuestionsContent(
             questions=list(block.get("questions") or []),
+            metadata=dict(block.get("metadata") or {}),
+        )
+
+    elif block_type == "speech_script":
+        # Tolerant like every stored-block decode: the kind validates at use
+        # (translation / persistence), so a malformed stored script surfaces as
+        # a named refusal there rather than killing a conversation load.
+        return SpeechScriptContent(
+            turns=[dict(turn) for turn in (block.get("turns") or []) if isinstance(turn, dict)],
             metadata=dict(block.get("metadata") or {}),
         )
 

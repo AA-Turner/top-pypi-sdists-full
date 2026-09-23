@@ -80,6 +80,28 @@ class TogetherImageGeneration(BaseMediaGeneration):
         if neg:
             extra["negative_prompt"] = neg
 
+        # Typed reference roles: the edit target is the single ``image_url``;
+        # subject / character / style ride ``reference_images`` with a legend
+        # in the prompt. Whether THIS model accepts those keys is catalog data —
+        # checked after the rules run below, refused by name if dropped.
+        from matrx_ai.media.image_reference_roles import (
+            collect_role_images,
+            ordered_role_images,
+            resolve_roled,
+            with_legend,
+        )
+
+        role_images = collect_role_images(unified_config.messages)
+        roled_target = resolve_roled(
+            ordered_role_images(role_images, ("edit_target",)), self._mediaref_url
+        )
+        roled_refs = resolve_roled(
+            ordered_role_images(role_images, ("subject", "character", "style")),
+            self._mediaref_url,
+        )
+        if roled_refs:
+            prompt = with_legend(prompt, roled_refs)
+
         # image-to-image (single). Prefer user-message-tagged start_image
         # (or first un-tagged image), fall back to settings image_input.
         start = pick_image_by_role(unified_config.messages, "start_image") or pick_image_by_role(
@@ -90,7 +112,9 @@ class TogetherImageGeneration(BaseMediaGeneration):
             if start is not None
             else self._mediaref_url(unified_config.image_input)
         )
-        if start_url:
+        if roled_target:
+            extra["image_url"] = roled_target[0][1]
+        elif start_url:
             extra["image_url"] = start_url
 
         # multi-reference. User-message-tagged refs take precedence.
@@ -104,6 +128,7 @@ class TogetherImageGeneration(BaseMediaGeneration):
                 ref_url = self._mediaref_url(r)
                 if ref_url:
                     refs.append(ref_url)
+        refs = [url for _role, url in roled_refs] + refs
         if refs:
             extra["reference_images"] = refs
 
@@ -112,7 +137,27 @@ class TogetherImageGeneration(BaseMediaGeneration):
             extra["image_loras"] = unified_config.image_loras
 
         params = self._outbound_params(profile.controls, unified_config, extra_canonical=extra)
+        from matrx_ai.media.image_reference_roles import ImageRoleCompatibilityError
+
+        for roled, key, label in (
+            (roled_target, "image_url", "Edit this"),
+            (roled_refs, "reference_images", "reference"),
+        ):
+            if roled and key not in params:
+                raise ImageRoleCompatibilityError(
+                    f"{unified_config.model} on Together does not accept a {label} image "
+                    "(the catalog rules for this model drop it). Pick another model or "
+                    "remove the role.",
+                    role=roled[0][0],
+                    model=unified_config.model or "this model",
+                )
         return {"model": unified_config.model, "prompt": prompt, **params}
+
+    #: image_url (edit target) + reference_images (subject/character/style).
+    ROLE_TRANSPORT: frozenset[str] = frozenset({"edit_target", "subject", "character", "style"})
+
+    def image_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        return self.ROLE_TRANSPORT
 
     def _telemetry_url(self, unified_config: UnifiedConfig, kwargs: dict[str, Any]) -> str:
         return "https://api.together.xyz/v1/images/generations"

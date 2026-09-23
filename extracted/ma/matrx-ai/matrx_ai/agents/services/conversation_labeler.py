@@ -146,6 +146,37 @@ def _format_recent_titles(titles: list[dict[str, str]]) -> str:
 # ---------------------------------------------------------------------------
 
 
+async def _is_staff_channel_conversation(conversation_id: str) -> bool:
+    """Is this the person's permanent Personal Staff thread?
+
+    That thread accumulates every conversation the person ever has with their
+    staff across text, call, and the signed-in app — it is named for WHO the
+    person is talking to, not for whatever the first topic happened to be
+    (the iMessage model). It must never be auto-titled or auto-keyworded by
+    this labeler, no matter which door the current turn came in through.
+
+    Checked against the PERSISTED conversation row, not the calling turn's
+    own ``metadata["channel"]`` — the staff thread is reached through three
+    different doors (SMS, voice, the in-app ``/staff`` door) and only ONE of
+    them stamps its own per-turn channel as ``"staff"``. What is constant
+    across every door is the row's own ``metadata.channel``, written once at
+    creation (``aidream/services/communications/staff_channel.py`` and
+    ``aidream/services/communications/voice_agent_preparation.py``).
+    """
+    try:
+        rows = await cxm.conversation.model.filter(id=conversation_id).limit(1).all()
+    except Exception as exc:
+        vcprint(
+            f"[ConversationLabeler] Staff-channel check failed for {conversation_id}: {exc}",
+            color="yellow",
+        )
+        return False
+    if not rows:
+        return False
+    metadata = getattr(rows[0], "metadata", None)
+    return isinstance(metadata, dict) and metadata.get("channel") == "staff"
+
+
 async def _conversation_committed(kind: str, conversation_id: str) -> bool:
     """Committed-read existence check — the Rendezvous DB fallback.
 
@@ -196,6 +227,14 @@ async def _run_labeling(
     the INSERT. It NEVER raises — all errors are caught and logged.
     """
     try:
+        if await _is_staff_channel_conversation(conversation_id):
+            vcprint(
+                f"[ConversationLabeler] Skipping Personal Staff thread {conversation_id} "
+                "(metadata.channel == 'staff') — never auto-titled",
+                color="cyan",
+            )
+            return
+
         recent_titles = await _fetch_recent_titles(user_id)
         recent_titles_str = _format_recent_titles(recent_titles)
 

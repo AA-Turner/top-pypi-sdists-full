@@ -119,7 +119,12 @@ class ClickHouseImpl(DefaultImpl):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._add_integration_tag()
-        if self.context_opts.get("include_schemas") and not self.context_opts.get("version_table_schema") and self.connection is not None:
+        if (
+            not self.as_sql
+            and self.context_opts.get("include_schemas")
+            and self.context_opts.get("version_table_schema") is None
+            and self.connection is not None
+        ):
             current_database = self.connection.execute(with_internal_query_formats(text("SELECT currentDatabase()"))).scalar()
             if current_database:
                 self.context_opts["version_table_schema"] = current_database
@@ -128,7 +133,14 @@ class ClickHouseImpl(DefaultImpl):
         if self.connection is None:
             return
         try:
-            self.connection.connection.driver_connection.client._add_integration_tag("alembic")  # type: ignore[union-attr]
+            pool_connection = self.connection.connection
+            dbapi_connection = pool_connection.dbapi_connection
+            get_driver_connection = getattr(self.dialect, "get_driver_connection", None)
+            driver_connection = get_driver_connection(dbapi_connection) if get_driver_connection is not None else dbapi_connection
+            client = getattr(driver_connection, "client", driver_connection)
+            add_integration_tag = getattr(client, "_add_integration_tag", None)
+            if add_integration_tag is not None:
+                add_integration_tag("alembic")
         except Exception:
             pass
 

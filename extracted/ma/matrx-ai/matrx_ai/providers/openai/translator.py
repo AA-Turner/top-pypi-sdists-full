@@ -452,7 +452,9 @@ class OpenAITranslator(BaseTranslator):
     def _extract_prompt(self, config: UnifiedConfig) -> str:
         prompt = pick_text_by_role(config.messages, None) or ""
         if not prompt and config.system_instruction:
-            prompt = self.get_system_text(config) or ""
+            # STABLE text only: a per-turn context block must never be spoken
+            # or drawn into a generated image.
+            prompt = self.get_stable_system_text(config) or ""
         return prompt
 
 
