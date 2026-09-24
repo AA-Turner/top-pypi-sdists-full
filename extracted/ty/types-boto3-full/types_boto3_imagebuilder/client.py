@@ -286,7 +286,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[CancelLifecycleExecutionRequestTypeDef]
     ) -> CancelLifecycleExecutionResponseTypeDef:
         """
-        Cancels a specific image lifecycle policy runtime instance.
+        Cancels a lifecycle execution - a single run of lifecycle actions that a
+        lifecycle policy or a <a>StartResourceStateUpdate</a> request started.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/cancel_lifecycle_execution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#cancel_lifecycle_execution)
@@ -597,8 +598,9 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[GetLifecycleExecutionRequestTypeDef]
     ) -> GetLifecycleExecutionResponseTypeDef:
         """
-        Retrieves the runtime information for a specific runtime instance of the
-        lifecycle policy.
+        Retrieves runtime information for a lifecycle execution - a single run of
+        lifecycle actions that a lifecycle policy or a <a>StartResourceStateUpdate</a>
+        request started.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/get_lifecycle_execution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#get_lifecycle_execution)
@@ -681,9 +683,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ImportVmImageRequestTypeDef]
     ) -> ImportVmImageResponseTypeDef:
         """
-        When you export your virtual machine (VM) from its virtualization environment,
-        that process creates a set of one or more disk container files that act as
-        snapshots of your VM's environment, settings, and data.
+        Creates an Image Builder image resource from an Amazon EC2 VM import task.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/import_vm_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#import_vm_image)
@@ -693,8 +693,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListComponentBuildVersionsRequestTypeDef]
     ) -> ListComponentBuildVersionsResponseTypeDef:
         """
-        Returns the list of component build versions for the specified component
-        version Amazon Resource Name (ARN).
+        Returns a list of component build versions for the specified component version
+        ARN.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_component_build_versions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_component_build_versions)
@@ -704,8 +704,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListComponentsRequestTypeDef]
     ) -> ListComponentsResponseTypeDef:
         """
-        Returns the list of components that can be filtered by name, or by using the
-        listed <code>filters</code> to streamline results.
+        Returns the list of components that you have access to.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_components.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_components)
@@ -865,8 +864,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListWaitingWorkflowStepsRequestTypeDef]
     ) -> ListWaitingWorkflowStepsResponseTypeDef:
         """
-        Retrieves a list of workflow steps that are waiting for action for workflows in
-        your Amazon Web Services account.
+        Lists the workflow steps in your Amazon Web Services account that have paused
+        at a <code>WaitForAction</code> step, and are waiting for you to respond.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_waiting_workflow_steps.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_waiting_workflow_steps)
@@ -908,7 +907,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[ListWorkflowsRequestTypeDef]
     ) -> ListWorkflowsResponseTypeDef:
         """
-        Lists workflow build versions based on filtering parameters.
+        Lists workflow versions based on filtering parameters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/list_workflows.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#list_workflows)
@@ -928,7 +927,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[PutContainerRecipePolicyRequestTypeDef]
     ) -> PutContainerRecipePolicyResponseTypeDef:
         """
-        Applies a policy to a container image.
+        Applies a policy to a container recipe.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/put_container_recipe_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#put_container_recipe_policy)
@@ -956,7 +955,8 @@ class ImagebuilderClient(BaseClient):
 
     def retry_image(self, **kwargs: Unpack[RetryImageRequestTypeDef]) -> RetryImageResponseTypeDef:
         """
-        Retries an image distribution or test without rebuilding the image.
+        Retries a failed or canceled image build without rebuilding the phases that
+        already completed.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/retry_image.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#retry_image)
@@ -966,8 +966,8 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[SendWorkflowStepActionRequestTypeDef]
     ) -> SendWorkflowStepActionResponseTypeDef:
         """
-        Pauses or resumes image creation when the associated workflow runs a
-        <code>WaitForAction</code> step.
+        Sends an action to a workflow step that has paused at a
+        <code>WaitForAction</code> step, so that image creation can continue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/send_workflow_step_action.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#send_workflow_step_action)
@@ -987,8 +987,7 @@ class ImagebuilderClient(BaseClient):
         self, **kwargs: Unpack[StartResourceStateUpdateRequestTypeDef]
     ) -> StartResourceStateUpdateResponseTypeDef:
         """
-        Begins an asynchronous resource state update for lifecycle changes to the
-        specified image resources.
+        Begins an ad-hoc state change for the specified image build version.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/start_resource_state_update.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/client/#start_resource_state_update)

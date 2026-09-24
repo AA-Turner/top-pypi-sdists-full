@@ -3786,6 +3786,14 @@ async def _execute_until_complete_inner(
     pre_execution_message_count = len(current_request.config.messages)
     # The trigger is the last user message before execution (position is 0-based)
     trigger_position = pre_execution_message_count - 1 if pre_execution_message_count > 0 else 0
+    # A trailing PREFILL (assistant turn flagged `prefill`) is not the trigger —
+    # the reply continues from it; the user turn before it is. Without this the
+    # templated user turn would sit below the persisted window and be lost.
+    if pre_execution_message_count > 1:
+        from matrx_ai.config.message_flags import flags_of
+
+        if flags_of(current_request.config.messages[-1]).get("prefill"):
+            trigger_position = pre_execution_message_count - 2
 
     # Record the persist context on the owned state so the OUTER
     # ``execute_until_complete`` can shield-persist on a mid-stream cancel

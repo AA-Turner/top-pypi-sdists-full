@@ -4,11 +4,11 @@ build-backend = "uv_build"
 
 [project]
 name = "marimo-base"
-version = "0.24.2"
+version = "0.25.0"
 description = "A library for making reactive notebooks and apps"
 dependencies = [
     "click>=8.0,<9; sys_platform != 'emscripten'",
-    "jedi>=0.18.0,<0.20.0",
+    "jedi>=0.18.0,<0.21.0",
     "markdown>=3.6,<4",
     "pymdown-extensions>=10.21.2,<12",
     "pygments>=2.19,<3",
@@ -63,13 +63,11 @@ sql = [
     "polars[pyarrow]>=1.9.0",
     "sqlglot[c]>=26.8.0",
 ]
-sandbox = [
-    "pyzmq>=27.1.0",
-    "uv>=0.9.21",
-]
+sandbox = ["uv>=0.9.21"]
 recommended = [
     "marimo[sql]",
     "marimo[sandbox]",
+    "marimo-lens>=0.2.0",
     "cryptography>=42.0.0",
     "altair>=5.4.0",
     "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",
@@ -101,7 +99,7 @@ dev = [
     "duckdb>=1.0.0",
     "sqlglot[c]>=26.8.0",
     "pyarrow-stubs",
-    "ruff>=0.15.18",
+    "ruff>=0.16.6",
     "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",
 ]
 test = [
@@ -205,7 +203,7 @@ typecheck = [
 ]
 docs = [
     "marimo_docs",
-    "ruff>=0.15.18",
+    "ruff>=0.16.6",
     "mkdocs>=1.6.1",
     "click>=8.4",
     "mkdocs-material>=9.7.5",
@@ -231,6 +229,10 @@ docs = [
 [tool.uv]
 exclude-newer = "7 days"
 
+[tool.uv.exclude-newer-package]
+agent-plugins = false
+marimo-lens = false
+
 [tool.uv.sources.marimo_docs]
 path = "./docs"
 editable = true
@@ -245,31 +247,31 @@ source-include = [
 wheel-exclude = [
     "marimo/_smoke_tests/**",
     "marimo/_lsp",
-    "marimo/_static/favicon-16x16.png",
-    "marimo/_static/android-chrome-512x512.png",
-    "marimo/_static/android-chrome-192x192.png",
     "marimo/_static/manifest.json",
-    "marimo/_static/favicon.ico",
-    "marimo/_static/apple-touch-icon.png",
     "marimo/_static/logo.png",
     "marimo/_static/site.webmanifest",
-    "marimo/_static/CLAUDE.md",
+    "marimo/_static/android-chrome-512x512.png",
     "marimo/_static/assets",
+    "marimo/_static/favicon-16x16.png",
+    "marimo/_static/favicon.ico",
+    "marimo/_static/android-chrome-192x192.png",
     "marimo/_static/favicon-32x32.png",
+    "marimo/_static/apple-touch-icon.png",
+    "marimo/_static/CLAUDE.md",
 ]
 source-exclude = [
     "marimo/_lsp",
-    "marimo/_static/favicon-16x16.png",
-    "marimo/_static/android-chrome-512x512.png",
-    "marimo/_static/android-chrome-192x192.png",
     "marimo/_static/manifest.json",
-    "marimo/_static/favicon.ico",
-    "marimo/_static/apple-touch-icon.png",
     "marimo/_static/logo.png",
     "marimo/_static/site.webmanifest",
-    "marimo/_static/CLAUDE.md",
+    "marimo/_static/android-chrome-512x512.png",
     "marimo/_static/assets",
+    "marimo/_static/favicon-16x16.png",
+    "marimo/_static/favicon.ico",
+    "marimo/_static/android-chrome-192x192.png",
     "marimo/_static/favicon-32x32.png",
+    "marimo/_static/apple-touch-icon.png",
+    "marimo/_static/CLAUDE.md",
 ]
 
 [tool.ruff]
@@ -324,28 +326,20 @@ ignore = [
     "RUF012",
     "S102",
     "DTZ005",
-    "SIM115",
     "DTZ006",
     "DTZ007",
     "DTZ011",
     "UP007",
     "DTZ012",
     "DTZ901",
-    "S112",
-    "PLW1509",
-    "DTZ002",
     "D421",
     "RUF069",
     "PLW0108",
-    "RUF043",
-    "RUF065",
     "PLC2801",
     "FURB189",
     "FURB152",
     "FURB110",
-    "RUF036",
     "FURB113",
-    "FURB171",
     "NPY002",
     "RUF100",
 ]
@@ -364,7 +358,6 @@ extend-select = [
     "ANN202",
     "ANN205",
     "ANN206",
-    "I001",
     "ASYNC",
     "TCH",
     "G",
@@ -373,20 +366,9 @@ extend-select = [
     "TID25",
     "D106",
     "D3",
-    "D402",
-    "D403",
-    "D412",
-    "D419",
     "PGH004",
-    "PGH005",
     "RUF006",
-    "B004",
-    "B006",
-    "B017",
-    "B019",
-    "TRY002",
     "T201",
-    "D3",
     "D4",
     "D207",
     "D208",
@@ -489,6 +471,7 @@ markers = [
     "unit: marks tests as unit tests",
     "flaky: marks tests that are known to be flaky",
     "requires(dep1, dep2, ...): requires one or more dependencies to be installed",
+    """network: requires internet access to package indexes (deselect with '-m "not network"')""",
 ]
 
 [tool.coverage.run]

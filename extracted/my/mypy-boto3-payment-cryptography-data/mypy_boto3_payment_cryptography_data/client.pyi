@@ -200,7 +200,8 @@ class PaymentCryptographyDataPlaneClient(BaseClient):
         self, **kwargs: Unpack[ReEncryptDataInputTypeDef]
     ) -> ReEncryptDataOutputTypeDef:
         """
-        Re-encrypt ciphertext using DUKPT or Symmetric data encryption keys.
+        Re-encrypts ciphertext using DUKPT, symmetric, or asymmetric data encryption
+        keys.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/re_encrypt_data.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography_data/client/#re_encrypt_data)

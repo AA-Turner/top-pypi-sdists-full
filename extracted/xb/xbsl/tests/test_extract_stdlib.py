@@ -4,6 +4,7 @@ No network or distribution needed - the pages are synthetic, modeled on the real
 Docusaurus markup.
 """
 
+from xbsl.extract import _distro
 from xbsl.extract import stdlib as _MODULE
 
 _COMPONENT_PAGE = (
@@ -397,6 +398,107 @@ def test_template_kinds_exceptions_win_over_the_rule(tmp_path, monkeypatch):
     assert unmapped == []
 
 
+def test_a_subordinated_register_is_a_flavour_of_the_register_kind(tmp_path, monkeypatch):
+    """A newer help documents the register subordinate to a recorder under a template of its
+    own. It is a flavour of the kind, set by a property in yaml, so its generated types join the
+    kind's instead of being dropped as a template that names no kind."""
+    monkeypatch.setattr(_MODULE, "scan_kind_table", lambda _car: {"РегистрСведений": "InformationRegister"})
+    with _template_car(
+        tmp_path, "InformationRegisterName_ru", "SubordinatedInformationRegisterName.Data_ru",
+    ) as car:
+        kinds, unmapped = _MODULE._template_kinds(car)
+
+    assert kinds == {
+        "InformationRegisterName": "РегистрСведений",
+        "SubordinatedInformationRegisterName": "РегистрСведений",
+    }
+    assert unmapped == []
+
+
+def test_a_field_spelled_in_english_gets_its_russian_name():
+    known = {"Code": "Код", "Settings": "Настройки", "Address": "Адрес"}
+    unspelled: set[str] = set()
+
+    assert _MODULE.russian_field("Code", known, unspelled) == "Код"
+    assert _MODULE.russian_field("Код", known, unspelled) == "Код"
+    assert _MODULE.russian_field("Settings_Address", known, unspelled) == "Настройки_Адрес"
+    # a template placeholder and a composite with an unknown part stay as the page writes them
+    assert _MODULE.russian_field("ConstantName", known, unspelled) == "ConstantName"
+    assert _MODULE.russian_field("Settings_Port", known, unspelled) == "Settings_Port"
+    assert unspelled == {"ConstantName", "Settings_Port"}
+
+
+def _constants_car(tmp_path, classes: dict[str, bytes]):
+    """A car with one jar that carries the given classes (simple name -> body)."""
+    import io
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as jar:
+        for simple, body in classes.items():
+            jar.writestr(f"com/example/{simple}.class", body)
+    car = tmp_path / "1c-enterprise-element-server-with-ide-9.9.9+1-test.car"
+    with zipfile.ZipFile(car, "w") as z:
+        z.writestr("lib/constants.jar", buffer.getvalue())
+    return car
+
+
+def test_the_constants_of_a_kind_have_the_last_word(tmp_path, monkeypatch):
+    """The project constants state the fields every kind shares; a kind's own constants may
+    spell a field of the same English name another way, and for that kind they win. A term
+    that names a parameter is not a field."""
+    import zipfile
+
+    terms = {
+        b"project": [("CODE_FIELD_TERM", "Code", "Код"), ("TYPE_FIELD_TERM", "Type", "Вид"),
+                     ("READ_PARAM_TERM", "Key", "Ключ")],
+        b"journal": [("DATA_JOURNAL_TYPE_ATTR_NAME", "Type", "Тип")],
+        b"other": [("TYPE_FIELD_TERM", "Type", "Разновидность")],
+    }
+    monkeypatch.setattr(_MODULE.classcode, "declared_terms", lambda blob: terms[blob])
+    car = _constants_car(tmp_path, {
+        "G5ProjectConstants": b"project", "DataJournalConstants": b"journal",
+        "UnrelatedConstants": b"other",
+    })
+    with zipfile.ZipFile(car) as z:
+        spellings = _MODULE.field_spellings(z, {"DataJournal", "Catalog"})
+
+    assert spellings == {"": {"Code": "Код", "Type": "Вид"}, "DataJournal": {"Type": "Тип"}}
+    known = {**spellings[""], **spellings["DataJournal"]}
+    assert known["Type"] == "Тип"
+
+
+def test_main_stores_a_list_row_field_by_its_russian_name(tmp_path, monkeypatch):
+    """The list row page of a newer help spells the fields in English, heading and signature
+    alike; the catalog keeps the Russian name, the way it keeps every other member."""
+    import json
+    import zipfile
+
+    page = (
+        "<html><head><title>{ИмяЖурналаДанных}.АвтоматическаяФормаСписка.ДанныеСтрокиСписка"
+        " | Product</title></head><body><article>"
+        "<h1>{ИмяЖурналаДанных}.АвтоматическаяФормаСписка.ДанныеСтрокиСписка</h1>"
+        "<h2>Свойства</h2><h3>Type</h3><p><code>Доступность: Клиент</code></p>"
+        "<pre><code>Type: Строка</code></pre></article></body></html>"
+    )
+    monkeypatch.setattr(_MODULE, "scan_kind_table", lambda _car: {"ЖурналДанных": "DataJournal"})
+    monkeypatch.setattr(
+        _MODULE.classcode, "declared_terms",
+        lambda blob: [("DATA_JOURNAL_TYPE_ATTR_NAME", "Type", "Тип")] if blob == b"journal" else [],
+    )
+    car = _constants_car(tmp_path, {"DataJournalConstants": b"journal"})
+    with zipfile.ZipFile(car, "a") as z:
+        z.writestr(
+            _MODULE.TEMPLATE_BASE + "DataJournalName.AutomaticListForm.ListRowData_ru/index.html", page,
+        )
+    output = tmp_path / "stdlib.json"
+
+    _MODULE.main(["--dist", str(tmp_path), "--element-version", "9.9.9", "--out", str(output)])
+    generated = json.loads(output.read_text(encoding="utf-8"))["generated_members"]
+
+    assert generated["ЖурналДанных.АвтоматическаяФормаСписка.ДанныеСтрокиСписка"]["properties"] == ["Тип"]
+
+
 def test_a_generic_base_is_read_by_its_head():
     """A base prints its argument in the link text (`Collection<ItemType>`), entity-escaped.
 
@@ -538,12 +640,86 @@ def test_main_writes_generic_formulas_and_proven_runtime_variance(tmp_path):
     assert data["type_param_variance"] == {"Образец": ["out"]}
 
 
+def test_main_stores_type_header_availability_without_member_availability(tmp_path):
+    """A server-only singleton must not inherit a client's member environment or vice versa."""
+    import json
+    import zipfile
+
+    page = (
+        "<html><head><title>Кодировки | Product</title></head><body><article>"
+        "<h1>Кодировки</h1><p><code>Стд::Кодирование::Кодировки</code> "
+        "<code>Доступность: Сервер</code></p>"
+        "<h2>Свойства</h2><h3>Base64</h3><p><code>Доступность: Клиент</code></p>"
+        "</article></body></html>"
+    )
+    undocumented = (
+        "<html><head><title>Пример | Product</title></head><body><article>"
+        "<h1>Пример</h1><h2>Свойства</h2><h3>Значение</h3>"
+        "<p><code>Доступность: Клиент</code></p></article></body></html>"
+    )
+    with zipfile.ZipFile(tmp_path / "element-server-with-ide-9.9.9-test.car", "w") as archive:
+        archive.writestr(_MODULE.STD_BASE + "Encoding/Encodings_ru/index.html", page)
+        archive.writestr(_MODULE.STD_BASE + "Example_ru/index.html", undocumented)
+    output = tmp_path / "stdlib.json"
+
+    _MODULE.main(["--dist", str(tmp_path), "--element-version", "9.9.9", "--out", str(output)])
+    data = json.loads(output.read_text(encoding="utf-8"))
+
+    assert data["type_availability"] == {"Кодировки": "Сервер"}
+
+
+def test_a_control_character_inside_the_availability_word_is_cut_out(tmp_path):
+    """Pages of one build carry NUL characters inside words, the availability line among them.
+
+    A NUL inside the word of both sides cut it to its client prefix, and a type available on
+    both sides was stored as client-only - `code/type-unavailable` then flagged it in server code.
+    """
+    import json
+    import zipfile
+
+    page = (
+        "<html><head><title>ВидЗаписи | Product</title></head><body><article>"
+        "<h1>ВидЗаписи</h1><p><code>Стд::Журнал::ВидЗаписи</code> "
+        "<code>Доступность: КлиентИ\x00Сервер</code></p>"
+        "<h2>Свойства</h2><h3>Тек\x00ст</h3><p><code>Доступность: Кли\x00ент</code></p>"
+        "</article></body></html>"
+    )
+    with zipfile.ZipFile(tmp_path / "element-server-with-ide-9.9.9-test.car", "w") as archive:
+        archive.writestr(_MODULE.STD_BASE + "Log/RecordKind_ru/index.html", page)
+    output = tmp_path / "stdlib.json"
+
+    _MODULE.main(["--dist", str(tmp_path), "--element-version", "9.9.9", "--out", str(output)])
+    data = json.loads(output.read_text(encoding="utf-8"))
+
+    assert data["type_availability"] == {"ВидЗаписи": "КлиентИСервер"}
+    assert "\\u0000" not in output.read_text(encoding="utf-8")
+
+
+def test_an_availability_word_the_docs_do_not_use_is_not_read_as_its_prefix():
+    """A word that only starts like an environment names none: guessing the client side is worse
+    than leaving the type out, since the rule stays silent on a type with no known environment."""
+    page = (
+        "<article><h1>ВидЗаписи</h1><p><code>Доступность: КлиентИ Сервер</code></p>"
+        "<h2>Свойства</h2></article>"
+    )
+
+    assert _MODULE.page_type_availability(page) is None
+
+
 def test_the_type_parameters_are_read_from_the_page_header():
     """A generic type names the result of its members BY THE PARAMETER, so the parameter list
     is what turns such a result into a type."""
     page = "<article><h1>Соответствие</h1>Стд::Коллекции::Соответствие&lt;ТипКлюча, ТипЗначения&gt;</article>"
 
     assert _MODULE.page_type_params(page) == ["ТипКлюча", "ТипЗначения"]
+
+
+def test_the_type_parameters_of_a_minified_header_are_read_as_well():
+    """A minified page leaves the closing bracket of the list unescaped; the extractor reads a
+    page through the markup normalization, and the list comes out the same."""
+    page = "<article><h1>Массив</h1><p><code>Стд::Коллекции::Массив&lt;ТипЭлемента></code></p></article>"
+
+    assert _MODULE.page_type_params(_distro.normalize_markup(page)) == ["ТипЭлемента"]
 
 
 def test_a_plain_type_declares_no_parameters():

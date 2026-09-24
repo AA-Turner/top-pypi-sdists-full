@@ -1,4 +1,5 @@
 import queue
+import threading
 from collections.abc import Iterator
 from types import SimpleNamespace
 from typing import NoReturn, cast
@@ -21,10 +22,12 @@ def test_generate_audio_stream_uses_prepared_chunk_text(monkeypatch: pytest.Monk
         pad_with_spaces_for_short_inputs: bool,
         remove_semicolons: bool,
         append_terminal_punctuation: bool,
+        capitalize_first_letter: bool,
     ) -> list[str]:
         assert text_to_generate == "hi"
         assert pad_with_spaces_for_short_inputs is True
         assert append_terminal_punctuation is True
+        assert capitalize_first_letter is True
         return ["hi"]
 
     def fake_generate_audio_stream_short_text(**kwargs: object) -> Iterator[torch.Tensor]:
@@ -42,6 +45,7 @@ def test_generate_audio_stream_uses_prepared_chunk_text(monkeypatch: pytest.Monk
             pad_with_spaces_for_short_inputs=True,
             remove_semicolons=False,
             append_terminal_punctuation=True,
+            capitalize_first_letter=True,
             _generate_audio_stream_short_text=fake_generate_audio_stream_short_text,
         ),
     )
@@ -80,6 +84,7 @@ def test_generate_reports_autoregressive_errors_before_decoder_done():
         frames_after_eos=1,
         latents_queue=latents_queue,
         result_queue=result_queue,
+        stop=threading.Event(),
     )
 
     kind, value = result_queue.get(timeout=1)

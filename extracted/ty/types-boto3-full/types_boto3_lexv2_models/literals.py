@@ -344,7 +344,7 @@ SlotTypeSortAttributeType = Literal["LastUpdatedDateTime", "SlotTypeName"]
 SlotValueResolutionStrategyType = Literal["Concatenation", "OriginalValue", "TopResolution"]
 SortOrderType = Literal["Ascending", "Descending"]
 SpeechDetectionSensitivityType = Literal["Default", "HighNoiseTolerance", "MaximumNoiseTolerance"]
-SpeechModelPreferenceType = Literal["Deepgram", "Neural", "Standard"]
+SpeechModelPreferenceType = Literal["Advanced", "Deepgram", "Neural", "Standard"]
 TestExecutionApiModeType = Literal["NonStreaming", "Streaming"]
 TestExecutionModalityType = Literal["Audio", "Text"]
 TestExecutionSortAttributeType = Literal["CreationDateTime", "TestSetName"]
@@ -649,6 +649,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

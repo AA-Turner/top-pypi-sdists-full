@@ -100,7 +100,7 @@ class WatchProjectHandler(PatternMatchingEventHandler):
 
     def on_any_event(self, event):
         if str(event.src_path).endswith("~"):
-            return None
+            return
 
         if event.event_type == "modified":
             self.modified(event)

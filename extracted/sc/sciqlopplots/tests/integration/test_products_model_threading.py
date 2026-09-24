@@ -8,6 +8,7 @@ The model must apply every mutation on its own thread, without blocking the call
 import threading
 import uuid
 
+import shiboken6
 from PySide6.QtCore import QCoreApplication, QThread, Qt
 
 from SciQLopPlots import ProductsModel, ProductsModelNode
@@ -81,19 +82,25 @@ class TestAddNodeFromWorkerThread:
         model = ProductsModel.instance()
         name = f"worker_parented_{uuid.uuid4().hex[:8]}"
         keep = []
+        result = []
 
         def add():
             parent = ProductsModelNode(f"{name}_parent")
             child = ProductsModelNode(name)
             parent.add_child(child)
             keep.extend([parent, child])
-            model.add_node([], child)
+            result.append(model.add_node([], child))
 
         n0 = model.rowCount()
         _run_in_worker(add)
         _flush(20)
         assert model.rowCount() == n0
         assert ProductsModel.node([name]) is None
+        assert result == [False]
+        # Refused: the child's owner must stay its ProductsModelNode parent, not the
+        # model (bindings.xml only hands ownership to the model when add_node
+        # returns True).
+        assert keep[1].parent() is keep[0]
 
 
     def test_node_built_on_a_worker_but_added_from_the_model_thread_is_refused(self, qtbot):
@@ -105,7 +112,49 @@ class TestAddNodeFromWorkerThread:
         built = []
         _run_in_worker(lambda: built.append(ProductsModelNode(name)))
         n0 = model.rowCount()
-        model.add_node([], built[0])
+        result = model.add_node([], built[0])
         _flush(20)
         assert model.rowCount() == n0
         assert ProductsModel.node([name]) is None
+        assert result is False
+        assert shiboken6.Shiboken.ownedByPython(built[0])
+
+    def test_accepted_node_is_owned_by_the_model(self, qtbot):
+        model = ProductsModel.instance()
+        name = f"accepted_owner_{uuid.uuid4().hex[:8]}"
+        node = ProductsModelNode(name)
+        result = model.add_node([], node)
+        assert result is True
+        assert not shiboken6.Shiboken.ownedByPython(node)
+
+
+class TestAddChildAcrossThreads:
+    """Qt refuses to parent across threads: a child built on another thread was listed
+    under its parent but not owned by it, one level below add_node's own check."""
+
+    def test_child_built_on_a_worker_is_refused(self, qtbot):
+        parent = ProductsModelNode(f"parent_{uuid.uuid4().hex[:8]}")
+        built = []
+        _run_in_worker(lambda: built.append(ProductsModelNode("worker_child")))
+        assert parent.add_child(built[0]) is False
+        assert parent.children_count() == 0
+        assert shiboken6.Shiboken.ownedByPython(built[0])
+
+    def test_a_tree_with_a_foreign_child_never_lists_it(self, qtbot):
+        model = ProductsModel.instance()
+        name = f"mixed_tree_{uuid.uuid4().hex[:8]}"
+        parent = ProductsModelNode(name)
+        built = []
+        _run_in_worker(lambda: built.append(ProductsModelNode("worker_child")))
+        parent.add_child(built[0])
+        assert model.add_node([], parent) is True
+        _flush(20)
+        assert ProductsModel.node([name]) is not None
+        assert ProductsModel.node([name, "worker_child"]) is None
+
+    def test_child_on_the_same_thread_is_accepted_and_owned(self, qtbot):
+        parent = ProductsModelNode(f"parent_{uuid.uuid4().hex[:8]}")
+        child = ProductsModelNode("child")
+        assert parent.add_child(child) is True
+        assert parent.children_count() == 1
+        assert not shiboken6.Shiboken.ownedByPython(child)

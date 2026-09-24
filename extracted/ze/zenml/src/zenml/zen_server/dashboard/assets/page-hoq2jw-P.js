@@ -1,0 +1,1 @@
+import{p as e}from"./utils-CRVOceX-.js";import{r as t}from"./RunDropdown-b2iEyUTG.js";import{t as n}from"./RunsBody-z_goCtMM.js";var r=e();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})}export{i as default};

@@ -865,7 +865,14 @@ def _read_hermes_mcp_servers() -> dict[object, Any]:
     return {}
 
 
-def _search_codex_toml_file(path: Path, server_name: str) -> MCPServer | None:
+def _match_codex_toml_server(
+    path: Path, server_name: str
+) -> tuple[str, MCPServer] | None:
+    """``(matched key, server)`` for *server_name* in one Codex TOML.
+
+    Exact key first, then the case- and punctuation-insensitive match Codex
+    itself applies when it derives tool names from config keys.
+    """
     text = _read_text(path)
     if text is None:
         return None
@@ -879,7 +886,7 @@ def _search_codex_toml_file(path: Path, server_name: str) -> MCPServer | None:
 
     result = _extract_server(servers, server_name)
     if result is not None:
-        return result
+        return server_name, result
 
     normalized_server_name = _normalized_name(server_name)
     for candidate_name in servers:
@@ -889,7 +896,28 @@ def _search_codex_toml_file(path: Path, server_name: str) -> MCPServer | None:
         ):
             result = _extract_server(servers, candidate_name)
             if result is not None:
-                return result
+                return candidate_name, result
+    return None
+
+
+def _search_codex_toml_file(path: Path, server_name: str) -> MCPServer | None:
+    match = _match_codex_toml_server(path, server_name)
+    return None if match is None else match[1]
+
+
+def codex_mcp_server_key(server_name: str) -> str | None:
+    """Configured ``mcp_servers`` key that ``lookup_codex_mcp_server`` matches
+    for *server_name*, or None.
+
+    Codex builds tool names from this key, so a caller that shows the model a
+    tool prefix must use it rather than its own spelling. Kept separate from
+    the lookup result on purpose: a ``name`` there would ride the enforcement
+    request as ``mcp_server_name``.
+    """
+    for path in _codex_mcp_config_paths():
+        match = _match_codex_toml_server(path, server_name)
+        if match is not None:
+            return match[0]
     return None
 
 

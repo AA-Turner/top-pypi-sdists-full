@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 1.0.5
+Version: 1.0.6
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -335,6 +335,8 @@ Provides-Extra: security
 Requires-Dist: pytector==0.2.0; extra == "security"
 Requires-Dist: onnxruntime>=1.16; extra == "security"
 Requires-Dist: huggingface_hub<1.0,>=0.24; extra == "security"
+Provides-Extra: needle
+Requires-Dist: cactus-needle==3.0.4; extra == "needle"
 Provides-Extra: xai
 Requires-Dist: ai-parrot-client-grok; extra == "xai"
 Provides-Extra: deploy

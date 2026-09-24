@@ -188,6 +188,7 @@ class RunnerOverride:
                 runtime_config=self._runtime_config,
                 run_cache_config=run_cache_config,
                 query_cache_client=client,
+                telemetry_dispatcher=self._telemetry_dispatcher,
                 **kwargs,
             )
         except Exception as e:

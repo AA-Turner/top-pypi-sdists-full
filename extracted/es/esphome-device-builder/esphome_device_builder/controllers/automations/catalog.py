@@ -189,6 +189,7 @@ _STORES_BY_TYPE: dict[str, LazyBodyStore[Any]] = {
     "light_effects": _LIGHT_EFFECT_STORE,
     "filters": _FILTER_STORE,
 }
+AUTOMATION_TYPES = tuple(_STORES_BY_TYPE)
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +315,11 @@ def action_by_id(action_id: str) -> AutomationAction | None:
 def is_known_action(action_id: str) -> bool:
     """Return True when *action_id* is catalogued, even if not form-editable."""
     return action_id in _ALL_ACTION_IDS
+
+
+def is_known_condition(condition_id: str) -> bool:
+    """Return True when *condition_id* is catalogued."""
+    return condition_id in _CONDITION_IDS
 
 
 def condition_by_id(condition_id: str) -> AutomationCondition | None:

@@ -3,6 +3,8 @@ import os
 
 from metaflow import current, user_step_decorator
 from metaflow.exception import MetaflowException
+from metaflow.metadata_provider import MetaDatum
+from metaflow.system_context import system_context
 from metaflow.user_decorators.user_step_decorator import StepMutator
 
 from .llamacpp_manager import LlamaCppPyManager
@@ -29,6 +31,40 @@ def _huggingface_allow_pattern(attr):
     if attr.get("quant"):
         return "*{}*.gguf".format(attr["quant"])
     return attr["gguf_filename"]
+
+
+def _register_llamacpp_metadata(step_name, attr):
+    """
+    Record the @llamacpp configuration used for this task as task metadata,
+    so it is easy to inspect (e.g. via `Task(...).metadata_dict` or the UI)
+    which arguments were used without having to dig through the flow code.
+
+    @llamacpp is implemented via `user_step_decorator`/`StepMutator`, which
+    does not receive a `metadata` provider argument directly (unlike a
+    classic `StepDecorator.task_pre_step`). Instead, we reach for the
+    `system_context` singleton, which the Metaflow runtime populates with
+    the active `metadata` provider, `run_id`, `task_id` and `retry_count`
+    before any step (or step-mutator) code runs.
+    """
+    meta = {
+        "llamacpp-model": attr.get("model"),
+        "llamacpp-source": attr.get("source"),
+        "llamacpp-quant": attr.get("quant"),
+        "llamacpp-gguf-filename": attr.get("gguf_filename"),
+    }
+    entries = [
+        MetaDatum(
+            field=k,
+            value=v,
+            type=k,
+            tags=["attempt_id:{0}".format(system_context.retry_count)],
+        )
+        for k, v in meta.items()
+        if v is not None
+    ]
+    system_context.metadata.register_metadata(
+        system_context.run_id, step_name, system_context.task_id, entries
+    )
 
 
 def _resolve_huggingface_model_path(model_dir, allow_pattern):
@@ -73,6 +109,7 @@ def _llamacpp_huggingface_wrapper(step_name, flow, inputs=None, attr=None):
                 **attr.get("llama_args", {}),
             )
             current._update_env(dict(llamacpp=LlamaCpp(llm=manager.engine)))
+            _register_llamacpp_metadata(step_name, attr)
             if debug:
                 print("[@llamacpp] HuggingFace native engine initialized.")
 
@@ -117,6 +154,7 @@ def _llamacpp_anaconda_wrapper(step_name, flow, inputs=None, attr=None):
             **attr.get("llama_args", {}),
         )
         current._update_env(dict(llamacpp=LlamaCpp(llm=manager.engine)))
+        _register_llamacpp_metadata(step_name, attr)
         if debug:
             print("[@llamacpp] Anaconda native engine initialized.")
 

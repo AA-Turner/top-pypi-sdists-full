@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: python-yakh
-Version: 0.4.1
+Version: 0.4.2
 Summary: Yet Another Keypress Handler
 License: MIT
+License-File: LICENSE
 Keywords: python,keypress,key,keyboard
 Author: petereon
 Author-email: pvyboch1@gmail.com
@@ -15,6 +16,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Repository, https://github.com/petereon/yakh
 Description-Content-Type: text/markdown
 

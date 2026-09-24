@@ -1,12 +1,27 @@
 from __future__ import annotations
 
+import importlib.metadata
+import json
+from pathlib import Path
+from typing import Any
+
 import numpy as np
+import packaging.version
 import pytest
+from helpers import convert_histogram_to_32bit, scalar_no_axis_storage
 from pytest import approx
 
+import uhi.io._files
+import uhi.io.json
+import uhi.io.ops
+import uhi.schema
+from uhi.io import ARRAY_KEYS, to_sparse
 from uhi.numpy_plottable import ensure_plottable_histogram
 
 ROOT = pytest.importorskip("ROOT")
+uhi_io_root = pytest.importorskip("uhi.io.root")
+
+BHVERSION = packaging.version.Version(importlib.metadata.version("boost_histogram"))
 
 
 def test_root_imported() -> None:
@@ -40,3 +55,494 @@ def test_root_th2f_convert() -> None:
         for i, row in enumerate(np.sqrt(var))
         for j, ie in enumerate(row)
     )
+
+
+# Serialization
+
+
+def test_valid_json(valid: Path, tmp_path: Path, sparse: bool) -> None:
+    data = valid.read_text(encoding="utf-8")
+    hists = json.loads(data, object_hook=uhi.io.json.object_hook)
+    if sparse:
+        hists = {name: to_sparse(hist) for name, hist in hists.items()}
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        for name, hist in hists.items():
+            uhi_io_root.write(root_file, name, hist)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehists = {name: uhi_io_root.read(root_file, name) for name in hists}
+
+    assert hists.keys() == rehists.keys()
+
+    for name in hists:
+        hist = hists[name]
+        rehist = rehists[name]
+        scalar_no_axis_storage(hist)
+
+        # Check that the JSON representation is the same
+        data = json.dumps(hist, default=uhi.io.json.default, sort_keys=True)
+        redata = json.dumps(rehist, default=uhi.io.json.default, sort_keys=True)
+
+        redata = redata.replace(" ", "").replace("\n", "")
+        data = data.replace(" ", "").replace("\n", "")
+
+        assert redata == data
+
+
+def test_reg_load(tmp_path: Path, resources: Path) -> None:
+    data = resources / "valid/reg.json"
+    hists = uhi.io._files.load(data)
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        for name, hist in hists.items():
+            uhi_io_root.write(root_file, name, hist)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehists = {name: uhi_io_root.read(root_file, name) for name in hists}
+
+        # One single-entry RNTuple per histogram
+        with ROOT.RNTupleReader.Open(root_file.Get("one")) as reader:
+            fields = {
+                field.GetFieldName()
+                for field in reader.GetDescriptor().GetTopLevelFields()
+            }
+            assert fields == {"uhi", "values"}
+            assert reader.GetNEntries() == 1
+            entry = reader.CreateEntry()
+            reader.LoadEntry(0, entry)
+            native_one = json.loads(str(entry["uhi"]))
+
+    assert native_one["storage"]["values"] == "values"
+
+    one = rehists["one"]
+    two = rehists["two"]
+
+    assert one["metadata"] == {"one": True, "two": 2, "three": "three"}
+
+    assert len(one["axes"]) == 1
+    assert one["axes"][0]["type"] == "regular"
+    assert one["axes"][0]["lower"] == pytest.approx(0)
+    assert one["axes"][0]["upper"] == pytest.approx(5)
+    assert one["axes"][0]["bins"] == 3
+    assert one["axes"][0]["underflow"]
+    assert one["axes"][0]["overflow"]
+    assert not one["axes"][0]["circular"]
+
+    assert one["storage"]["type"] == "int"
+    assert one["storage"]["values"] == pytest.approx([1, 2, 3, 4, 5])
+
+    assert two["storage"]["type"] == "double"
+    assert two["storage"]["values"] == pytest.approx([1, 2, 3, 4, 5, 6, 7])
+
+
+@pytest.mark.parametrize("value", ["description", "values", "axis_0_edges"])
+def test_metadata_array_keys(tmp_path: Path, value: str) -> None:
+    metadata = dict.fromkeys(ARRAY_KEYS, value)
+    writer_info = {"test": metadata}
+    hist: dict[str, Any] = {
+        "uhi_schema": 1,
+        "metadata": metadata,
+        "writer_info": writer_info,
+        "axes": [
+            {
+                "type": "variable",
+                "edges": np.array([0.0, 1.0, 2.0]),
+                "underflow": False,
+                "overflow": False,
+                "circular": False,
+                "metadata": metadata,
+                "writer_info": writer_info,
+            }
+        ],
+        "storage": {"type": "double", "values": np.array([1.0, 2.0])},
+    }
+
+    tmp_file = tmp_path / "metadata.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file, "histogram", hist)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist = uhi_io_root.read(root_file, "histogram")
+
+    assert rehist["metadata"] == metadata
+    assert rehist["writer_info"] == writer_info
+    assert rehist["axes"][0]["metadata"] == metadata
+    assert rehist["axes"][0]["writer_info"] == writer_info
+    assert rehist["axes"][0]["edges"] == pytest.approx(hist["axes"][0]["edges"])
+    assert rehist["storage"]["values"] == pytest.approx(hist["storage"]["values"])
+
+
+def test_two_variable_axes(tmp_path: Path) -> None:
+    """Two variable axes must not collide on their field names."""
+    edges_a = np.array([0.0, 1.0, 2.0, 3.0])
+    edges_b = np.array([0.0, 10.0, 20.0])
+
+    def axis(edges: np.ndarray) -> dict[str, Any]:
+        return {
+            "type": "variable",
+            "edges": edges,
+            "underflow": False,
+            "overflow": False,
+            "circular": False,
+        }
+
+    hist: dict[str, Any] = {
+        "uhi_schema": 1,
+        "axes": [axis(edges_a), axis(edges_b)],
+        "storage": {
+            "type": "double",
+            "values": np.arange(6, dtype=np.float64).reshape(3, 2),
+        },
+    }
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file, "h", hist)
+
+    # write() must not replace the caller's arrays with field names.
+    assert isinstance(hist["axes"][0]["edges"], np.ndarray)
+    assert isinstance(hist["storage"]["values"], np.ndarray)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist = uhi_io_root.read(root_file, "h")
+
+    assert rehist["axes"][0]["edges"] == pytest.approx(edges_a)
+    assert rehist["axes"][1]["edges"] == pytest.approx(edges_b)
+    assert rehist["storage"]["values"].shape == (3, 2)
+    assert rehist["storage"]["values"] == pytest.approx(hist["storage"]["values"])
+
+
+def test_subdirectory(tmp_path: Path, resources: Path) -> None:
+    data = resources / "valid/2d.json"
+    hists = uhi.io._files.load(data)
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file.mkdir("sub"), "main", hists["main"])
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist = uhi_io_root.read(root_file.Get("sub"), "main")
+
+    assert rehist["storage"]["values"] == pytest.approx(
+        hists["main"]["storage"]["values"]
+    )
+
+
+@pytest.mark.skipif(
+    packaging.version.Version("1.6.1") > BHVERSION,
+    reason="Requires boost-histogram 1.6+",
+)
+def test_convert_bh(tmp_path: Path) -> None:
+    import boost_histogram as bh
+
+    h = bh.Histogram(
+        bh.axis.Regular(3, 13, 10, __dict__={"name": "x"}), storage=bh.storage.Weight()
+    )
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file, "histogram", h)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist = uhi_io_root.read(root_file, "histogram")
+
+    h2 = bh.Histogram(rehist)
+
+    assert h == h2
+
+
+@pytest.mark.skipif(
+    packaging.version.Version("1.7.2") > BHVERSION,
+    reason="Requires boost-histogram 1.7.2+ for keep_storage=False support",
+)
+def test_convert_bh_no_storage(tmp_path: Path) -> None:
+    """Test ROOT serialization with keep_storage=False (structure-only histograms)."""
+    import boost_histogram as bh
+    import boost_histogram.serialization
+
+    h = bh.Histogram(
+        bh.axis.Regular(3, 0, 10, __dict__={"name": "x"}), storage=bh.storage.Weight()
+    )
+    h.fill([0.1, 0.3, 0.5], weight=[1.5, 2.5, 3.5])
+
+    uhi_dict = boost_histogram.serialization.to_uhi(h, keep_storage=False)
+    assert uhi_dict["storage"]["type"] == "weighted"
+    assert "values" not in uhi_dict["storage"]
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file, "histogram", uhi_dict)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist = uhi_io_root.read(root_file, "histogram")
+
+    h2 = bh.Histogram(rehist)
+    assert h.axes == h2.axes
+    assert isinstance(h2.storage_type(), bh.storage.Weight)
+
+
+@pytest.mark.skipif(
+    packaging.version.Version("1.6.1") > BHVERSION,
+    reason="Requires boost-histogram 1.6+",
+)
+def test_convert_hist(tmp_path: Path) -> None:
+    h: Any
+    try:
+        import hist
+
+        h = hist.Hist(
+            hist.axis.Regular(10, 0, 1, name="a", label="A"),
+            hist.axis.Integer(7, 13, overflow=False, name="b", label="B"),
+            storage=hist.storage.Weight(),
+            name="h",
+            label="H",
+        )
+    except ImportError:
+        # Fall back to boost-histogram (as in the ROOT CI environment)
+        import boost_histogram as bh
+
+        h = bh.Histogram(
+            bh.axis.Regular(10, 0, 1, __dict__={"name": "a", "label": "A"}),
+            bh.axis.Integer(
+                7, 13, overflow=False, __dict__={"name": "b", "label": "B"}
+            ),
+            storage=bh.storage.Weight(),
+        )
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file, "histogram", h)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist = uhi_io_root.read(root_file, "histogram")
+    h2 = type(h)(rehist)
+    assert h == h2
+
+
+@pytest.mark.skipif(
+    packaging.version.Version("1.6.1") > BHVERSION,
+    reason="Requires boost-histogram 1.6+",
+)
+@pytest.mark.parametrize(
+    "storage_type",
+    [
+        pytest.param("int", id="int_storage"),
+        pytest.param("double", id="double_storage"),
+        pytest.param("weighted", id="weighted_storage"),
+        pytest.param("mean", id="mean_storage"),
+    ],
+)
+def test_convert_bh_32bit_root(tmp_path: Path, storage_type: str) -> None:
+    """Test serialization of 32-bit histograms via ROOT."""
+    import boost_histogram as bh
+
+    axis = bh.axis.Regular(5, 0, 1, __dict__={"name": "x"})
+    h: Any
+
+    if storage_type == "int":
+        h = bh.Histogram(axis, storage=bh.storage.Int64())
+        for i in range(5):
+            h.fill([0.1 + i * 0.15] * 10)
+    elif storage_type == "double":
+        h = bh.Histogram(axis, storage=bh.storage.Double())
+        h.fill([0.1, 0.3, 0.5, 0.7, 0.9])
+    elif storage_type == "weighted":
+        h = bh.Histogram(axis, storage=bh.storage.Weight())
+        h.fill([0.1, 0.3, 0.5], weight=[1.5, 2.5, 3.5])
+    elif storage_type == "mean":
+        h = bh.Histogram(axis, storage=bh.storage.Mean())
+        h.fill([0.1, 0.3, 0.5], sample=[10.0, 20.0, 30.0])
+    else:
+        msg = f"Unknown storage type: {storage_type}"
+        raise ValueError(msg)
+
+    uhi_32bit = convert_histogram_to_32bit(h._to_uhi_())
+
+    tmp_file = tmp_path / "test_32bit.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        uhi_io_root.write(root_file, "histogram", uhi_32bit)
+
+    with ROOT.TFile.Open(str(tmp_file)) as root_file:
+        rehist_32bit = uhi_io_root.read(root_file, "histogram")
+
+    # The 32-bit dtypes are preserved by the field types
+    assert rehist_32bit["storage"]["type"] == storage_type
+    assert (
+        rehist_32bit["storage"]["values"].dtype == uhi_32bit["storage"]["values"].dtype
+    )
+    assert rehist_32bit["storage"]["values"] == pytest.approx(
+        uhi_32bit["storage"]["values"]
+    )
+
+
+@pytest.mark.parametrize("writer", ["root", "uproot"])
+def test_uproot_compat(valid: Path, tmp_path: Path, sparse: bool, writer: str) -> None:
+    """Files written by ROOT read with uproot, and the reverse."""
+    uproot = pytest.importorskip("uproot")
+    import uhi.io.uproot
+
+    hists = uhi.io._files.load(valid)
+    if sparse:
+        hists = {name: to_sparse(hist) for name, hist in hists.items()}
+
+    tmp_file = tmp_path / "test.root"
+    if writer == "root":
+        with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+            for name, hist in hists.items():
+                uhi_io_root.write(root_file, name, hist)
+        with uproot.open(tmp_file) as root_file:
+            rehists = {name: uhi.io.uproot.read(root_file, name) for name in hists}
+    else:
+        with uproot.recreate(tmp_file) as root_file:
+            for name, hist in hists.items():
+                uhi.io.uproot.write(root_file, name, hist)
+        with ROOT.TFile.Open(str(tmp_file)) as root_file:
+            rehists = {name: uhi_io_root.read(root_file, name) for name in hists}
+
+    for name, hist in hists.items():
+        scalar_no_axis_storage(hist)
+        data = json.dumps(hist, default=uhi.io.json.default, sort_keys=True)
+        redata = json.dumps(rehists[name], default=uhi.io.json.default, sort_keys=True)
+        assert redata == data
+
+
+# CLI
+
+
+@pytest.fixture(params=["pyroot", "uproot"])
+def files_backend(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run the file-level helpers with each backend."""
+    if request.param == "uproot":
+        pytest.importorskip("uproot")
+    else:
+        monkeypatch.setattr(uhi.io._files, "_uproot_available", lambda: False)
+
+
+@pytest.mark.usefixtures("files_backend")
+def test_cli_validate_root(
+    valid: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from uhi.__main__ import main
+
+    hists = uhi.io._files.load(valid)
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        # Nest one level to check that directories are searched recursively
+        directory = root_file.mkdir("nested")
+        for name, hist in hists.items():
+            uhi_io_root.write(directory, name, hist)
+
+    main(["validate", str(tmp_file)])
+    assert capsys.readouterr().out.startswith("OK")
+
+
+@pytest.mark.usefixtures("files_backend")
+def test_cli_validate_root_invalid(
+    resources: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from uhi.__main__ import main
+
+    hists = uhi.io._files.load(resources / "valid" / "reg.json")
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        for name, hist in hists.items():
+            hist = dict(hist)  # noqa: PLW2901
+            hist["storage"] = {**hist["storage"], "type": "not_a_storage"}
+            uhi_io_root.write(root_file, name, hist)
+
+    with pytest.raises(SystemExit):
+        main(["validate", str(tmp_file)])
+    assert capsys.readouterr().out.startswith("ERROR")
+
+
+@pytest.mark.usefixtures("files_backend")
+def test_cli_validate_root_path(
+    resources: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from uhi.__main__ import main
+
+    hists = uhi.io._files.load(resources / "valid" / "reg.json")
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        good = root_file.mkdir("good")
+        bad = root_file.mkdir("bad")
+        for name, hist in hists.items():
+            uhi_io_root.write(good, name, hist)
+            broken = {**hist, "storage": {**hist["storage"], "type": "not_a_storage"}}
+            uhi_io_root.write(bad, name, broken)
+
+    assert set(uhi.schema.load(tmp_file, path="good")) == set(hists)
+    assert set(uhi.schema.load(tmp_file, path="good/")) == set(hists)
+    single = uhi.schema.load(tmp_file, path="good/one")
+    assert single["uhi_schema"] == 1
+
+    main(["validate", f"{tmp_file}:good", f"{tmp_file}:good/one"])
+    assert capsys.readouterr().out.count("OK") == 2
+
+    with pytest.raises(SystemExit):
+        main(["validate", f"{tmp_file}:bad"])
+    assert capsys.readouterr().out.startswith("ERROR")
+
+    with pytest.raises(SystemExit):
+        main(["validate", f"{tmp_file}:missing"])
+    assert capsys.readouterr().out.startswith("ERROR")
+
+
+def _root_add_inputs(resources: Path, tmp_path: Path) -> tuple[list[Path], list[Any]]:
+    """Write the same histograms to two ROOT files, nested one level deep."""
+    hists = uhi.io._files.load(resources / "valid/reg.json")
+    files = [tmp_path / "in1.root", tmp_path / "in2.root"]
+    for file in files:
+        with ROOT.TFile.Open(str(file), "RECREATE") as root_file:
+            directory = root_file.mkdir("sub")
+            for name, hist in hists.items():
+                uhi_io_root.write(directory, name, hist)
+    return files, [f"sub/{name}" for name in hists]
+
+
+@pytest.mark.usefixtures("files_backend")
+@pytest.mark.parametrize("out_suffix", [".root", ".json"])
+def test_cli_add_root(resources: Path, tmp_path: Path, out_suffix: str) -> None:
+    from uhi.__main__ import main
+
+    files, names = _root_add_inputs(resources, tmp_path)
+    target = tmp_path / f"out{out_suffix}"
+
+    main(["add", str(target), *map(str, files)])
+
+    inputs = [uhi.io._files.load(file) for file in files]
+    result = uhi.io._files.load(target)
+    assert result.keys() == {*names}
+    for name in names:
+        expected = uhi.io.ops.add(*(hists[name] for hists in inputs))
+        assert result[name]["storage"]["values"] == approx(
+            expected["storage"]["values"]
+        )
+
+
+@pytest.mark.usefixtures("files_backend")
+def test_cli_validate_root_non_rntuple(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from uhi.__main__ import main
+
+    tmp_file = tmp_path / "test.root"
+    with ROOT.TFile.Open(str(tmp_file), "RECREATE") as root_file:
+        th = ROOT.TH1D("th1", "th1", 3, 0, 3)
+        root_file.WriteObject(th, "th1")
+        root_file.mkdir("sub").WriteObject(th, "th1")
+
+    for path in ("th1", "sub/th1"):
+        with pytest.raises(ValueError, match="not a histogram or directory"):
+            uhi.io._files.load(tmp_file, path=path)
+
+    with pytest.raises(SystemExit):
+        main(["validate", f"{tmp_file}:th1"])
+    assert "not a histogram or directory" in capsys.readouterr().out

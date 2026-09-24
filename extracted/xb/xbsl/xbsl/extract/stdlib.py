@@ -104,6 +104,11 @@ _H3_RE = re.compile(r"<h3[^>]*>(.*?)</h3>", re.S)
 _LINK_RE = re.compile(r"<a[^>]*>(.*?)</a>", re.S)
 _TAG_RE = re.compile(r"<[^>]+>")
 _JUNK_RE = re.compile(r"[\x00-\x1f​﻿]")  # control characters and Docusaurus anchors
+# The same characters cut out of a whole page on reading, as docs.py does: the pages of some
+# builds carry NUL characters in the middle of words on almost every page ("КлиентИ\x00Сервер",
+# "ИспользоватьИмяФайлаБез\x00Пути"), and a pattern over the raw HTML sees another word. Tabs
+# and line breaks stay: code blocks are split into lines by them.
+_RAW_JUNK_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f​‌‍﻿­]")
 # A member name. Underscores are part of it: the constant-style properties
 # (`Символы.НОВАЯ_СТРОКА`, `ВОЗВРАТ_КАРЕТКИ`, `НЕРАЗРЫВНЫЙ_ПРОБЕЛ`) are documented and must
 # not be dropped. The opening letter may be lowercase: `ВидПлатформыКлиента.iOS` is spelled
@@ -130,6 +135,8 @@ _FACET_TITLE_RE = re.compile(r"^[А-ЯЁA-Z][А-Яа-яЁёA-Za-z0-9]*\.[А-ЯЁ
 # (ElementKind: AccessKey, the flavour is a property), so their generated types are its own;
 # NonPeriodicConstantsSet - likewise a flavour of ConstantsSet (the periodicity property),
 # documented apart in an older build and merged into the constants set page in a newer one;
+# SubordinatedInformationRegister - a flavour of InformationRegister (a register subordinate to
+# a recorder is set by a property of the same kind), documented apart in a newer build;
 # Form/ObjectForm/PopupComponent - bases of an interface component (`Inherits: Type: Form`),
 # not kinds: an element of such a page is an InterfaceComponent, and the members of the base
 # are component properties, extracted from the component pages instead.
@@ -138,6 +145,7 @@ _TEMPLATE_KIND_EXCEPTIONS = {
     "ComputableAccessKeyName": "КлючДоступа",
     "GrantableAccessKeyName": "КлючДоступа",
     "NonPeriodicConstantsSetName": "НаборКонстант",
+    "SubordinatedInformationRegisterName": "РегистрСведений",
     "FormName": None,
     "ObjectFormName": None,
     "PopupComponentName": None,
@@ -188,6 +196,68 @@ def _template_kinds(car: zipfile.ZipFile) -> tuple[dict[str, str], list[str]]:
     return kinds, unmapped
 
 
+#: The class that states the standard fields every element kind shares, and the suffixes of the
+#: static fields a constants class stores a field term into (`CODE_FIELD_TERM`,
+#: `DATA_JOURNAL_TYPE_ATTR_NAME`).
+_PROJECT_FIELDS_CLASS = "G5ProjectConstants"
+_FIELD_TERM_SUFFIXES = ("_FIELD_TERM", "_FIELD_NAME", "_ATTR_NAME")
+
+
+def field_spellings(car: zipfile.ZipFile, kinds: set[str]) -> dict[str, dict[str, str]]:
+    """{English kind: {English field: Russian spelling}}; the fields every kind shares go under "".
+
+    A newer build of the help spells some fields of the generated types in English
+    (`Code`, `Parent`, `SettingKey` on the list row of an automatic list form, in the heading and
+    in the signature alike), while every other member keeps its Russian name and the loader adds
+    the English one from the terms. The spelling comes from the runtime, not from a guess: the
+    project constants state the shared fields, and the constants of a kind (`<Kind>Constants`)
+    its own ones. The kind has the last word: the V8 constants spell a field called `Type` in
+    English differently from the data journal, so a dictionary over every class would pick a
+    wrong one.
+    """
+    wanted = {_PROJECT_FIELDS_CLASS: ""} | {f"{kind}Constants": kind for kind in kinds}
+    found: dict[str, dict[str, str]] = {}
+    for entry in car.namelist():
+        if not entry.endswith(".jar"):
+            continue
+        try:
+            jar = zipfile.ZipFile(io.BytesIO(car.read(entry)))
+        except (zipfile.BadZipFile, KeyError):
+            continue
+        for inner in jar.namelist():
+            if not inner.endswith(".class"):
+                continue
+            kind = wanted.get(inner.rsplit("/", 1)[-1][:-len(".class")])
+            if kind is None:
+                continue
+            try:
+                blob = jar.read(inner)
+            except (zipfile.BadZipFile, KeyError):
+                continue
+            slot = found.setdefault(kind, {})
+            for field, english, russian in classcode.declared_terms(blob):
+                if field.endswith(_FIELD_TERM_SUFFIXES) and not russian.isascii():
+                    slot.setdefault(english, russian)
+    return found
+
+
+def russian_field(name: str, spellings: dict[str, str], unspelled: set[str]) -> str:
+    """The Russian spelling of a member a template page spells in English, else the name as is.
+
+    A composite name (`Settings_Address`, a component of a nested field) is spelled only when
+    every part is known; a name left in English is added to `unspelled`, to be printed.
+    """
+    if not name.isascii():
+        return name
+    if name in spellings:
+        return spellings[name]
+    parts = name.split("_")
+    if len(parts) > 1 and all(part in spellings for part in parts):
+        return "_".join(spellings[part] for part in parts)
+    unspelled.add(name)
+    return name
+
+
 def _plain_text(html: str) -> str:
     """Text without tags, Docusaurus anchor characters and control characters.
 
@@ -196,6 +266,20 @@ def _plain_text(html: str) -> str:
     goes unrecognized, the member name fails validation, and such types' members are lost silently.
     """
     return _JUNK_RE.sub("", _TAG_RE.sub("", html)).strip()
+
+
+#: What is left of the layout of a signature a page prints over several lines (the name and
+#: `(`, a parameter per indented line, `): Тип`) once _plain_text has taken the line breaks.
+_SIG_INDENT_RE = re.compile(r"\s{2,}")
+_SIG_AFTER_OPEN_RE = re.compile(r"([(\[]) ")
+_SIG_BEFORE_CLOSE_RE = re.compile(r" ([)\]])")
+
+
+def _one_line(signature: str) -> str:
+    """A signature printed over several lines, in the one-line form the other pages use."""
+    text = _SIG_INDENT_RE.sub(" ", signature)
+    text = _SIG_AFTER_OPEN_RE.sub(r"\1", text)
+    return _SIG_BEFORE_CLOSE_RE.sub(r"\1", text)
 
 
 def component_props(entry: str, raw: str) -> tuple[str, set[str]] | None:
@@ -349,8 +433,32 @@ def _form_rank(struck: bool, signature: str) -> int:
 CHECK_VALUE_USAGE_MARK = "@ПроверятьИспользованиеЗначения"
 
 
+def _after_arguments(text: str) -> str:
+    """The text after the argument list an annotation carries (`(Сообщение = "...")`), if any.
+
+    The message quotes the signature to use instead, with its parentheses and with the inner
+    quotes left unescaped, so the list ends at the parenthesis that balances the first one, and
+    quotes are not counted.
+    """
+    if not text.startswith("("):
+        return text
+    depth = 0
+    for i, c in enumerate(text):
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return text[i + 1:]
+    return text
+
+
 def _signature_marks(signature: str) -> tuple[set[str], str]:
-    """Leading documentation annotations and the bare signature they describe."""
+    """Leading documentation annotations and the bare signature they describe.
+
+    A mark may carry arguments (`@Устарело(Сообщение = "...")`), and the signature then starts
+    on the next line.
+    """
     marks: set[str] = set()
     text = signature.strip()
     while True:
@@ -359,7 +467,7 @@ def _signature_marks(signature: str) -> tuple[set[str], str]:
         if mark is None:
             return marks, text
         marks.add(mark)
-        text = text[len(mark):].strip()
+        text = _after_arguments(text[len(mark):]).strip()
 
 
 def _without_mark(signature: str) -> str:
@@ -604,7 +712,7 @@ def page_constructors(raw: str, title: str) -> str:
             m = _SIG_CODE_RE.search(parts[k + 1])
             if m is None:
                 continue
-            sig = html.unescape(_plain_text(m.group(1)))
+            sig = _one_line(html.unescape(_plain_text(m.group(1))))
             open_paren, close_paren = sig.find("("), sig.rfind(")")
             if open_paren < 0 or close_paren < open_paren:
                 continue
@@ -656,16 +764,18 @@ def page_member_types(raw: str, folded: list[tuple[str, list[str]]] | None = Non
         for name, struck, body in _member_chunks(section):
             if not is_method:
                 properties.add(name)
-            for sig in [_plain_text(m.group(1)) for m in _SIG_CODE_RE.finditer(body)]:
+            for sig in [_one_line(_plain_text(m.group(1))) for m in _SIG_CODE_RE.finditer(body)]:
+                # the mark goes first: its message may hold a colon and a parenthesis of its own
+                bare = _without_mark(sig)
                 if is_method:
-                    paren = sig.rfind("):")
-                    tail = sig[paren + 2:] if paren >= 0 else ""
+                    paren = bare.rfind("):")
+                    tail = bare[paren + 2:] if paren >= 0 else ""
                 else:
-                    colon = sig.find(":")
+                    colon = bare.find(":")
                     # a property signature is `Имя: Тип` with the member's own name
-                    if colon < 0 or _without_mark(sig[:colon]) != name:
+                    if colon < 0 or bare[:colon].strip() != name:
                         continue
-                    tail = sig[colon + 1:]
+                    tail = bare[colon + 1:]
                 # The signature encodes the generic brackets as entities (&lt;/&gt;), with
                 # every type name wrapped in a link the tag-stripping already removed -
                 # unescape, or the full spelling silently degrades to the head.
@@ -757,7 +867,7 @@ def _ranked_signatures(raw: str) -> dict[str, list[tuple[int, str]]]:
             continue
         for name, struck, body in _member_chunks(section):
             for m in _SIG_CODE_RE.finditer(body):
-                printed = html.unescape(_plain_text(m.group(1))).strip()
+                printed = _one_line(html.unescape(_plain_text(m.group(1)))).strip()
                 text = _TIGHT_COMMA_RE.sub(", ", _without_mark(printed))
                 # A generic method prints its parameters between the name and the parenthesis
                 # (`ПрочитатьОбъект<ТипОбъекта>(...)`), and demanding `name(` dropped the whole
@@ -836,7 +946,7 @@ def page_checked_return_methods(raw: str) -> dict[str, bool]:
             continue
         for name, struck, body in _member_chunks(section):
             for match in _SIG_CODE_RE.finditer(body):
-                printed = html.unescape(_plain_text(match.group(1))).strip()
+                printed = _one_line(html.unescape(_plain_text(match.group(1)))).strip()
                 marks, signature = _signature_marks(printed)
                 if method_type_params(signature)[0] != name:
                     continue
@@ -907,7 +1017,7 @@ def page_member_forms(raw: str) -> dict[str, list[dict[str, str | bool]]]:
             continue
         for name, struck, body in _member_chunks(section):
             for m in _SIG_CODE_RE.finditer(body):
-                printed = html.unescape(_plain_text(m.group(1))).strip()
+                printed = _one_line(html.unescape(_plain_text(m.group(1)))).strip()
                 text = _TIGHT_COMMA_RE.sub(", ", _without_mark(printed))
                 if is_method:
                     if method_type_params(text)[0] != name:
@@ -961,11 +1071,23 @@ def package_members(raw: str) -> set[str]:
 
 
 # The availability line right under a member heading: `Доступность: Клиент`. The longest
-# alternative goes first - `Клиент` is a prefix of `КлиентИСервер`.
-_AVAILABILITY_RE = re.compile(r"Доступность:\s*(КлиентИСервер|Клиент|Сервер)")
+# alternative goes first: the client word is a prefix of the word of both sides. A word that
+# only starts like one of them names no environment and is not read as its prefix: an unknown
+# environment leaves the type out, a guessed one makes the rules judge by it.
+_AVAILABILITY_RE = re.compile(r"Доступность:\s*(КлиентИСервер|Клиент|Сервер)(?!\w)")
 
 # Both member heading levels of a package page, split with the heading text captured.
 _H23_SPLIT_RE = re.compile(r"<h[23][^>]*>(.*?)</h[23]>", re.S)
+
+
+def page_type_availability(raw: str) -> str | None:
+    """Read a type's own environment from its header, never from a member section."""
+    ma = _ARTICLE_RE.search(raw)
+    if not ma:
+        return None
+    header = _H2_OPEN_RE.split(ma.group(1), 1)[0]
+    m = _AVAILABILITY_RE.search(header)
+    return m.group(1) if m else None
 
 
 def package_member_availability(raw: str) -> dict[str, str]:
@@ -1029,6 +1151,12 @@ def _merge_signatures(into: dict[str, list[str]], found: dict[str, list[str]]) -
         slot.extend(sig for sig in sigs if sig not in slot)
 
 
+def _page(z: zipfile.ZipFile, entry: str) -> str:
+    """A docs page as text, in the markup the parsers expect (see _distro.normalize_markup),
+    with the control characters inside its words cut out first (_RAW_JUNK_RE)."""
+    return _distro.normalize_markup(_RAW_JUNK_RE.sub("", z.read(entry).decode("utf-8", "replace")))
+
+
 def extract(dist: Path) -> tuple:
     """Stdlib names (bilingual), spawned members by kind, component properties, type members,
     the global context with per-name availability, managers, facets, the members of the types a
@@ -1043,6 +1171,8 @@ def extract(dist: Path) -> tuple:
     types: dict[str, dict[str, set[str]]] = {}
     globals_: set[str] = set()
     global_env: dict[str, str] = {}
+    type_env: dict[str, str] = {}
+    conflicted_type_env: set[str] = set()
     conflicted_env: set[str] = set()
     managers: dict[str, dict[str, set[str]]] = {}
     manager_returns: dict[str, dict[str, str]] = {}
@@ -1061,7 +1191,7 @@ def extract(dist: Path) -> tuple:
     with zipfile.ZipFile(car) as z:
         entries = z.namelist()
         for n in (e for e in entries if e.startswith(STD_BASE) and e.endswith("/index.html")):
-            raw = z.read(n).decode("utf-8", "replace")
+            raw = _page(z, n)
             title = ""
             mt = _TITLE_RE.search(raw)
             if mt:
@@ -1078,6 +1208,11 @@ def extract(dist: Path) -> tuple:
             # Russian name). The English spelling is not stored: the loader adds it by terms.json,
             # which pairs the two forms. So members, bases and facets are kept once, not twice.
             key = (title if _TYPE_NAME_RE.match(title) else "") or eng or ""
+            if key:
+                availability = page_type_availability(raw)
+                if availability:
+                    if type_env.setdefault(key, availability) != availability:
+                        conflicted_type_env.add(key)
             if key:
                 flags = checked_methods.setdefault(key, {})
                 for method, marked in page_checked_return_methods(raw).items():
@@ -1158,6 +1293,8 @@ def extract(dist: Path) -> tuple:
             # either a new kind of the build or a page that describes no kind at all, and both
             # are decided by a human reading this line - the way the metamodel step does it.
             print(f"  шаблон без вида: {name} - члены этого вида в данные не попадут")
+        spellings = field_spellings(z, {name.removesuffix("Name") for name in template_kinds})
+        unspelled: set[str] = set()
         for n in (e for e in entries if e.startswith(TEMPLATE_BASE) and e.endswith("/index.html")):
             dirname = n[len(TEMPLATE_BASE):].split("/")[0]
             kind = template_kinds.get(dirname.split(".")[0].removesuffix("_ru"))
@@ -1167,7 +1304,7 @@ def extract(dist: Path) -> tuple:
                 # The template's own page (<Kind>Name_ru) is the kind's MANAGER: its methods
                 # (Записать, Заблокировать, НайтиПоКоду...) are available by bare name in
                 # the object's manager module.
-                raw = z.read(n).decode("utf-8", "replace")
+                raw = _page(z, n)
                 props, methods, events = page_members(raw)
                 if props or methods:
                     # A manager has no events; nothing is dropped silently - the pages of the
@@ -1181,7 +1318,7 @@ def extract(dist: Path) -> tuple:
                     manager_returns.setdefault(kind, {}).update(rets)
                 folds.extend((kind, member, spellings) for member, spellings in folded)
                 continue
-            raw = z.read(n).decode("utf-8", "replace")
+            raw = _page(z, n)
             mt = _TITLE_RE.search(raw)
             if not mt:
                 continue
@@ -1202,6 +1339,13 @@ def extract(dist: Path) -> tuple:
                 continue
             props, methods, events = page_members(raw)
             if props or methods or events:
+                # A field the page spells in English is stored by its Russian name, as every
+                # other member is (see field_spellings): the kind's own constants first.
+                english_kind = dirname.split(".")[0].removesuffix("_ru").removesuffix("Name")
+                known = {**spellings.get("", {}), **spellings.get(english_kind, {})}
+                props = {russian_field(member, known, unspelled) for member in props}
+                methods = {russian_field(member, known, unspelled) for member in methods}
+                events = {russian_field(member, known, unspelled) for member in events}
                 # A kind with several flavours has a template per flavour (`AccessKey`:
                 # `Recompute` on the computable one, `Grant` on the grantable one) and the yaml
                 # spells the flavour as a property, so a consumer given the kind alone cannot tell
@@ -1211,6 +1355,10 @@ def extract(dist: Path) -> tuple:
                 slot["properties"] |= props
                 slot["methods"] |= methods
                 slot["events"] |= events
+        if unspelled:
+            # A placeholder of a template (`ConstantName`) stays as the page writes it; a field
+            # the runtime states no spelling for is named here instead of being guessed.
+            print("  члены порождаемых типов без русского написания: " + ", ".join(sorted(unspelled)))
     names |= TOPIC_ONLY_TYPES
     with zipfile.ZipFile(car) as z:
         type_variance = runtime_type_variance(z, english_keys, type_params)
@@ -1236,7 +1384,8 @@ def extract(dist: Path) -> tuple:
                     slot[kind] |= member_names
     with zipfile.ZipFile(car) as z:
         filled = []
-        retired = retired_components(z, names, set(types))
+        descriptions = component_descriptions(z)
+        retired = retired_components(z, names, set(types), descriptions)
         for russian, record in retired.items():
             own = record["members"]
             base = record["base"]
@@ -1254,10 +1403,14 @@ def extract(dist: Path) -> tuple:
                   + ", ".join(filled))
     for member in conflicted_env:
         global_env.pop(member, None)
-    return (names, members, components, types, globals_, global_env, managers, manager_returns,
+    for name in conflicted_type_env:
+        type_env.pop(name, None)
+    return (names, members, components, types, globals_, global_env, type_env,
+            managers, manager_returns,
             facets, generated, returns, signatures, bases, generic_bases, ctors, type_params,
             type_variance, method_params,
-            deprecated, folds, expand_checked_return_methods(checked_methods, bases), retired)
+            deprecated, folds, expand_checked_return_methods(checked_methods, bases), retired,
+            component_floors(descriptions))
 
 
 # --- Components the reference pages have RETIRED ----------------------------------------
@@ -1374,6 +1527,7 @@ def component_descriptions(car: zipfile.ZipFile) -> dict[str, dict]:
                 "term": term,
                 "namespace": _description_term(data.get("namespace")),
                 "baseType": base_type,
+                "from": data.get("from"),
                 "to": data.get("to"),
                 "properties": _description_rows(data, "properties", typed=True),
                 "events": _description_rows(data, "events", typed=False),
@@ -1381,14 +1535,34 @@ def component_descriptions(car: zipfile.ZipFile) -> dict[str, dict]:
     return found
 
 
-def retired_components(car: zipfile.ZipFile, named: set[str], described: set[str]) -> dict[str, dict]:
+def component_floors(descriptions: dict[str, dict]) -> dict[str, str]:
+    """{Russian component name: the compatibility mode it is registered from}.
+
+    The shipped description states the floor the runtime keeps (its `from` key). The help marks
+    the same thing by a "version N and above" line, and a newer build dropped that line from a
+    page while the component was still registered from that mode alone - so the schema step
+    takes the floor from here first and from the help only when the description states none.
+    """
+    return {
+        russian: str(record["from"])
+        for russian, record in sorted(descriptions.items())
+        if record.get("from")
+    }
+
+
+def retired_components(
+    car: zipfile.ZipFile, named: set[str], described: set[str],
+    descriptions: dict[str, dict] | None = None,
+) -> dict[str, dict]:
     """{Russian name: runtime descriptor} for components the help names but does not describe.
 
     Only the components the help NAMES and does not DESCRIBE, and only those the shipped
     description says something about - see the comment above for both narrowings.
     """
     found: dict[str, dict] = {}
-    for russian, record in sorted(component_descriptions(car).items()):
+    if descriptions is None:
+        descriptions = component_descriptions(car)
+    for russian, record in sorted(descriptions.items()):
         if russian not in named or russian in described:
             continue
         if not any(record["members"].values()):
@@ -1744,10 +1918,11 @@ def main(argv=None) -> int:
         raise SystemExit(f"Каталог дистрибутива не найден: {dist}")
 
     version = _distro.detect_version(dist, args.element_version)
-    (names, members, components, types, globals_, global_env, managers, manager_returns,
+    (names, members, components, types, globals_, global_env, type_env,
+     managers, manager_returns,
      facets, generated, returns, signatures, bases, generic_bases, ctors, type_params,
      type_variance, method_params,
-     deprecated, folds, checked_methods, retired) = extract(dist)
+     deprecated, folds, checked_methods, retired, component_from) = extract(dist)
     # Store only OWN members, not the full set: an inherited member (the object protocol on
     # every type, an exception's fields on every exception) would otherwise be repeated once
     # per heir. The loader re-expands them by `bases` - a member set is completed by adding
@@ -1787,6 +1962,9 @@ def main(argv=None) -> int:
         # descriptor for compatibility projects, so retain only its UI-schema facts here; the
         # schema step has no distribution of its own.  Older datasets simply omit this section.
         **({"retired_components": retired_component_payloads(retired)} if retired else {}),
+        # The compatibility mode a component is registered from, as its shipped description
+        # states it (see component_floors); the schema step reads it. Older datasets omit it.
+        **({"component_from": component_from} if component_from else {}),
         "type_members": {k: _members_json(v) for k, v in sorted(own_types.items())},
         # Global context: members of Стд and its first-level packages, available by bare name.
         "globals": sorted(globals_),
@@ -1794,6 +1972,9 @@ def main(argv=None) -> int:
         # its package page): Клиент / Сервер / КлиентИСервер. A name whose availability the
         # docs do not print, or print differently in two packages, is absent here.
         "global_availability": dict(sorted(global_env.items())),
+        # The type page's own header states where the type exists. Missing and conflicting
+        # declarations stay absent, so older or incomplete catalogs produce no verdict.
+        "type_availability": dict(sorted(type_env.items())),
         # Members of the kind's singleton type (the <Kind>Name_ru template page): bare names in
         # the manager module, and what may follow the dot after a project object of that kind.
         # Properties and methods apart, like type_members - a completion list inserts the

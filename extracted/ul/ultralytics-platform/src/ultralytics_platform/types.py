@@ -549,6 +549,18 @@ DatasetsRetrieveResponseDatasetVersionsItem = TypedDict(
 )
 
 
+DatasetsRetrieveResponseDatasetProcessingProgress = TypedDict(
+    "DatasetsRetrieveResponseDatasetProcessingProgress",
+    {
+        "stage": str,
+        "percent": float,
+        "processed": NotRequired[float],
+        "total": NotRequired[float],
+        "objects": NotRequired[float],
+    },
+)
+
+
 DatasetsRetrieveResponseDataset = TypedDict(
     "DatasetsRetrieveResponseDataset",
     {
@@ -560,6 +572,7 @@ DatasetsRetrieveResponseDataset = TypedDict(
         "visibility": Literal["public", "private"],
         "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
         "channels": NotRequired[int],
+        "blurFaces": NotRequired[bool],
         "depthScale": NotRequired[float],
         "imageCount": int,
         "classCount": NotRequired[int],
@@ -630,6 +643,7 @@ DatasetsRetrieveResponseDataset = TypedDict(
         "createdAt": str,
         "updatedAt": str,
         "metadata": dict[str, Any],
+        "processingProgress": NotRequired[DatasetsRetrieveResponseDatasetProcessingProgress],
     },
 )
 
@@ -898,6 +912,11 @@ DatasetsModelsResponse = TypedDict(
 )
 
 
+DatasetsBatchResponseActiveJobPreviewsItem = TypedDict(
+    "DatasetsBatchResponseActiveJobPreviewsItem", {"imageId": str, "imageUrl": str, "thumbnailUrl": NotRequired[str]}
+)
+
+
 DatasetsBatchResponseActiveJobProgress = TypedDict(
     "DatasetsBatchResponseActiveJobProgress", {"processed": float, "total": float}
 )
@@ -905,19 +924,54 @@ DatasetsBatchResponseActiveJobProgress = TypedDict(
 
 DatasetsBatchResponseActiveJob = TypedDict(
     "DatasetsBatchResponseActiveJob",
-    {"id": str, "stopping": bool, "progress": DatasetsBatchResponseActiveJobProgress, "startedAt": str},
+    {
+        "id": str,
+        "operation": NotRequired[Literal["blur"]],
+        "preview": NotRequired[bool],
+        "confidence": float,
+        "boxScale": float,
+        "imageId": NotRequired[str],
+        "stopping": bool,
+        "previews": NotRequired[list[DatasetsBatchResponseActiveJobPreviewsItem]],
+        "progress": DatasetsBatchResponseActiveJobProgress,
+        "startedAt": str,
+    },
+)
+
+
+DatasetsBatchResponseLastRunResultsPreviewsItem = TypedDict(
+    "DatasetsBatchResponseLastRunResultsPreviewsItem",
+    {"imageId": str, "imageUrl": str, "thumbnailUrl": NotRequired[str]},
 )
 
 
 DatasetsBatchResponseLastRunResults = TypedDict(
     "DatasetsBatchResponseLastRunResults",
-    {"processed": int, "annotations": int, "classes": int, "partialImages": NotRequired[int]},
+    {
+        "processed": int,
+        "faces": NotRequired[int],
+        "previews": NotRequired[list[DatasetsBatchResponseLastRunResultsPreviewsItem]],
+        "annotations": int,
+        "classes": int,
+        "partialImages": NotRequired[int],
+    },
 )
 
 
 DatasetsBatchResponseLastRun = TypedDict(
     "DatasetsBatchResponseLastRun",
-    {"failed": bool, "stopped": bool, "error": str | None, "results": DatasetsBatchResponseLastRunResults | None},
+    {
+        "id": str,
+        "operation": NotRequired[Literal["blur"]],
+        "preview": NotRequired[bool],
+        "confidence": float,
+        "boxScale": float,
+        "imageId": NotRequired[str],
+        "failed": bool,
+        "stopped": bool,
+        "error": str | None,
+        "results": DatasetsBatchResponseLastRunResults | None,
+    },
 )
 
 
@@ -1058,6 +1112,7 @@ DatasetsListResponseDatasetsItem = TypedDict(
         "visibility": Literal["public", "private"],
         "task": Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"],
         "channels": NotRequired[int],
+        "blurFaces": NotRequired[bool],
         "depthScale": NotRequired[float],
         "imageCount": int,
         "classCount": NotRequired[int],

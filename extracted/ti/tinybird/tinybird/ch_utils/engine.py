@@ -440,35 +440,64 @@ def get_engine_config(engine: str):
     )
 
 
-def engine_params(columns, params: List[EngineParam], args: Dict):
-    params_values = []
+def validate_engine_config(
+    engine: str, args: dict, schema: Optional[str] = None, columns: Optional[List[Dict[str, Any]]] = None
+) -> None:
+    if schema is not None and columns is not None:
+        raise ValueError("You can not use 'schema' and 'columns' at the same time")
+    _, (params, options) = get_engine_config(engine)
+    schema_columns = parse_table_structure(schema) if schema is not None else (columns or [])
+    engine_settings = {key.replace("engine_", ""): value for key, value in args.items()}
+
+    for arg in engine_settings:
+        if not hasattr(TableDetails, arg):
+            raise ValueError(f"engine_{arg} is not a valid option")
+
     for p in params:
-        if p.required and p.name not in args:
+        if p.required and p.name not in engine_settings:
             raise ValueError(f"Missing required parameter '{p.name}'")
-        param_value = args.get(p.name, None) or p.default_value
+        param_value = engine_settings.get(p.name) or p.default_value
         if not param_value:
             continue
         if p.is_valid:
             check_is_valid(
-                valid_check=p.is_valid, check_type="parameter", columns=columns, tb_param=p.tb_param, value=param_value
+                valid_check=p.is_valid,
+                check_type="parameter",
+                columns=schema_columns,
+                tb_param=p.tb_param,
+                value=param_value,
             )
+
+    for o in options:
+        if o.required and o.name not in engine_settings:
+            raise ValueError(f"Missing required option '{o.name}'")
+        option_value = engine_settings.get(o.name) or o.default_value
+        if o.is_valid:
+            check_is_valid(
+                valid_check=o.is_valid,
+                check_type="option",
+                columns=schema_columns,
+                tb_param=o.tb_param,
+                value=option_value,
+            )
+
+
+def engine_params(params: List[EngineParam], args: Dict) -> List[str]:
+    params_values = []
+    for p in params:
+        param_value = args.get(p.name, None) or p.default_value
+        if not param_value:
+            continue
         params_values.append(param_value)
     return params_values
 
 
-def engine_options(columns, options: List[EngineOption], args: Dict):
+def engine_options(options: List[EngineOption], args: Dict) -> List[str]:
     options_values = []
     engine_settings = ""
 
     for o in options:
-        if o.required and o.name not in args:
-            raise ValueError(f"Missing required option '{o.name}'")
         option_value = args.get(o.name) or o.default_value
-        if o.is_valid:
-            check_is_valid(
-                valid_check=o.is_valid, check_type="option", columns=columns, tb_param=o.tb_param, value=option_value
-            )
-
         if option_value:
             if o.sql.lower() == "settings":
                 engine_settings = f"{o.sql} {option_value}"
@@ -490,7 +519,7 @@ def check_is_valid(
     columns: List[Dict[str, Any]],
     tb_param: str,
     value: str,
-):
+) -> None:
     """
     >>> check_is_valid(sorting_key_is_valid, 'option', ['column-name'], 'sorting_key', 'date')
 
@@ -507,15 +536,13 @@ def check_is_valid(
         raise ValueError(f"Invalid value '{value}' for {check_type} '{tb_param}', reason: {e}")
 
 
-def build_engine(
-    engine: str, columns: Optional[List], params: List[EngineParam], options: List[EngineOption], args: Dict
-):
-    return f"{engine}({', '.join(engine_params(columns, params, args))}) {' '.join(engine_options(columns, options, args))}".strip()
+def build_engine(engine: str, params: List[EngineParam], options: List[EngineOption], args: Dict) -> str:
+    return f"{engine}({', '.join(engine_params(params, args))}) {' '.join(engine_options(options, args))}".strip()
 
 
 def engine_full_from_dict(
     engine: str, args: dict, schema: Optional[str] = None, columns: Optional[List[Dict[str, Any]]] = None
-):
+) -> str:
     """
     >>> schema = ''
     >>> engine_full_from_dict('wadus', {}, schema=schema)
@@ -606,20 +633,10 @@ def engine_full_from_dict(
     'ReplacingMergeTree(updated_at) PARTITION BY (tuple()) ORDER BY (project_id) SETTINGS index_granularity = 32'
     """
 
-    if schema is not None and columns is not None:
-        raise ValueError("You can not use 'schema' and 'columns' at the same time")
-    engine_config = get_engine_config(engine)
-    name, (params, options) = engine_config
-    if columns is None and schema is not None:
-        columns = parse_table_structure(schema)
-
+    validate_engine_config(engine, args, schema=schema, columns=columns)
+    name, (params, options) = get_engine_config(engine)
     engine_settings = {key.replace("engine_", ""): value for key, value in args.items()}
-
-    for arg in engine_settings:
-        if not hasattr(TableDetails, arg):
-            raise ValueError(f"engine_{arg} is not a valid option")
-
-    return build_engine(name, columns, params, options, engine_settings)
+    return build_engine(name, params, options, engine_settings)
 
 
 def engine_params_from_engine_full(engine_full: str) -> Dict[str, Any]:

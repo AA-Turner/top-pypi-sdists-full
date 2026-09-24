@@ -50,6 +50,7 @@ from matrx_ai.providers.outbound_capture import (
     emit_explicit_context_analysis,
     stamp_call_meta,
 )
+from matrx_ai.providers.paid_output import mark_failed_after_paid_call, store_paid_output
 
 # Synthetic billing baseline — one billable "unit" = 1_000_000 synthetic
 # output_tokens. Matches the convention in
@@ -930,28 +931,76 @@ class BaseMediaGeneration(ABC):
         roles is refused by name, never sent as an unlabeled image."""
         return frozenset()
 
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """The video-side roles THIS adapter can put on the wire: image roles
+        (first_frame / last_frame / asset / style), video roles (extend /
+        restyle), audio (lip_sync), plus ``named`` (tagged references) and
+        ``camera_control``. Default: none — refused by name, never dropped.
+        Vocabulary + gate: matrx_ai/media/video_reference_roles.py."""
+        return frozenset()
+
     def enforce_image_reference_roles(
         self, unified_config: UnifiedConfig, profile: Any
     ) -> None:
-        """Refuse BEFORE the paid call when a roled reference image does not
-        fit the model's catalog limits or this route's transport."""
-        if self.modality != "image":
-            return
+        """Refuse BEFORE the paid call when a roled reference (image, video or
+        audio) does not fit the model's catalog limits or this route's
+        transport."""
         from matrx_ai.media.image_reference_roles import (
+            ImageRoleCompatibilityError,
             collect_role_images,
             enforce_image_roles,
         )
 
+        model = getattr(profile, "model_name", None) or unified_config.model or "this model"
+        capabilities = getattr(profile, "capabilities", None)
+        image_limits = getattr(capabilities, "image_reference_limits", None) or {}
+
+        if self.modality == "video":
+            from matrx_ai.media.video_reference_roles import (
+                collect_video_references,
+                enforce_video_roles,
+            )
+
+            references = collect_video_references(unified_config.messages)
+            camera = getattr(unified_config, "camera_control", None)
+            if not references and not camera:
+                return
+            enforce_video_roles(
+                references,
+                image_limits=image_limits,
+                video_limits=getattr(capabilities, "video_reference_limits", None) or {},
+                transport=self.video_role_transport(unified_config),
+                model=model,
+                camera_control=camera,
+            )
+            return
+
+        if self.modality != "image":
+            return
+        from matrx_ai.media.video_reference_roles import collect_video_references
+
+        video_side = {
+            role: items
+            for role, items in collect_video_references(unified_config.messages).items()
+            if role in ("extend", "restyle", "lip_sync")
+        }
+        if video_side:
+            role = next(iter(video_side))
+            raise ImageRoleCompatibilityError(
+                f"{model} generates images; a video or audio input with the "
+                f"{role} role is a video-generation input. Remove it, or pick a "
+                "video model.",
+                role=role,
+                model=model,
+            )
         role_images = collect_role_images(unified_config.messages)
         if not role_images:
             return
-        capabilities = getattr(profile, "capabilities", None)
-        limits = getattr(capabilities, "image_reference_limits", None) or {}
         enforce_image_roles(
             role_images,
-            limits=limits,
+            limits=image_limits,
             transport=self.image_role_transport(unified_config),
-            model=getattr(profile, "model_name", None) or unified_config.model or "this model",
+            model=model,
         )
 
     async def execute(
@@ -996,6 +1045,7 @@ class BaseMediaGeneration(ABC):
         # billed prediction. Persist/upload failures after that point are local
         # defects and must surface as non-retryable.
         paid_provider_call_completed = False
+        usage: TokenUsage | None = None
         try:
             # Outbound capture for telemetry — best-effort.
             try:
@@ -1099,11 +1149,18 @@ class BaseMediaGeneration(ABC):
                     )
                     gen_meta_dict = None
 
-                envelope = await self._persist_asset(
-                    asset,
-                    prompt=prompt_text,
-                    model=unified_config.model,
-                    extra_metadata={"generation": gen_meta_dict} if gen_meta_dict else None,
+                # Storage is its own phase: the provider's bytes are held and
+                # only the save is retried (once) — never the paid call.
+                envelope = await store_paid_output(
+                    lambda asset=asset, gen_meta_dict=gen_meta_dict: self._persist_asset(
+                        asset,
+                        prompt=prompt_text,
+                        model=unified_config.model,
+                        extra_metadata={"generation": gen_meta_dict} if gen_meta_dict else None,
+                    ),
+                    provider=self.provider,
+                    modality=self.modality,
+                    usage=usage,
                 )
                 vcprint(
                     f"[{self.provider} {self.modality}] Saved to cld_files: "
@@ -1143,14 +1200,18 @@ class BaseMediaGeneration(ABC):
             vcprint(exc, f"[{self.provider} {self.modality}] Error", color="red")
             traceback.print_exc()
 
-            error_info = self._classify_error(exc)
+            error_info = getattr(exc, "error_info", None) or self._classify_error(exc)
             if paid_provider_call_completed:
-                error_info = _non_retryable_after_paid_call(
-                    error_info,
+                # The paid call returned: never retryable, and the billed usage
+                # rides the exception so the executor records it once.
+                mark_failed_after_paid_call(
                     exc,
                     provider=self.provider,
                     modality=self.modality,
+                    classified=error_info,
+                    usage=usage,
                 )
+                error_info = exc.error_info  # type: ignore[attr-defined]
 
             if emitter and error_info is not None:
                 await emitter.send_error(
@@ -1162,66 +1223,6 @@ class BaseMediaGeneration(ABC):
             if error_info is not None:
                 exc.error_info = error_info  # type: ignore[attr-defined]
             raise
-
-
-def _non_retryable_after_paid_call(
-    error_info: Any,
-    exc: Exception,
-    *,
-    provider: str,
-    modality: str,
-) -> Any:
-    """Force non-retryable classification once the paid provider call finished.
-
-    Replicate/OpenAI/etc. already billed the generation. Retrying the whole
-    media execute() would create a second prediction for a local persist/DB
-    failure — the exact loop that burned duplicate Replicate video runs when a
-    missing ``history.row_versions`` partition was misread as HTTP 429.
-    """
-    from matrx_ai.providers.errors import RetryableError
-
-    message = str(exc).strip() or type(exc).__name__
-    details: dict[str, object] = {
-        "suppressed_retry": True,
-        "reason": "paid_provider_call_already_completed",
-        "provider": provider,
-        "modality": modality,
-    }
-    if isinstance(error_info, RetryableError):
-        if not error_info.is_retryable:
-            error_info.details.update(details)
-            return error_info
-        details.update(error_info.details or {})
-        return RetryableError(
-            error_type=(
-                "post_provider_failure"
-                if error_info.error_type in {"rate_limit", "unknown_error", "overloaded"}
-                else error_info.error_type
-            ),
-            message=error_info.message or message,
-            status_code=error_info.status_code,
-            is_retryable=False,
-            user_message=(
-                error_info.user_message
-                if error_info.error_type
-                not in {"rate_limit", "unknown_error", "overloaded"}
-                else (
-                    f"{modality.title()} generation finished at {provider}, but "
-                    "saving the result failed. It has been recorded — please try again."
-                )
-            ),
-            details=details,
-        )
-    return RetryableError(
-        error_type="post_provider_failure",
-        message=message,
-        is_retryable=False,
-        user_message=(
-            f"{modality.title()} generation finished at {provider}, but "
-            "saving the result failed. It has been recorded — please try again."
-        ),
-        details=details,
-    )
 
 
 def _extract_prompt(unified_config: UnifiedConfig) -> str | None:

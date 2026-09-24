@@ -102,9 +102,11 @@ from posthoganalytics.request import (
     remote_config,
     reset_sessions,
 )
-from posthoganalytics.types import (
+from .types import (
+    _parse_flag_payload,
     FeatureFlag,
     FeatureFlagError,
+    FeatureFlagEvaluationRuntime,
     FeatureFlagResult,
     FlagMetadata,
     FlagsAndPayloads,
@@ -341,20 +343,6 @@ _MINIMAL_FLAG_CALLED_EVENT_PROPERTIES: frozenset[str] = frozenset(
 def _parse_has_experiment(value: Any) -> Optional[bool]:
     """Server-reported experiment linkage; anything but an explicit bool means unknown."""
     return value if isinstance(value, bool) else None
-
-
-def _parse_flag_payload(raw_payload: Any) -> Optional[Any]:
-    """Flag payloads are stored as JSON strings, both in the ``/flags`` response
-    metadata and in the local-evaluation flag definitions, so decode them before
-    handing them to callers. A string that isn't valid JSON is passed through as-is."""
-    if isinstance(raw_payload, str):
-        if not raw_payload:
-            return None
-        try:
-            return json.loads(raw_payload)
-        except (json.JSONDecodeError, TypeError):
-            return raw_payload
-    return raw_payload
 
 
 def _metadata_has_experiment(metadata: Any) -> Optional[bool]:
@@ -1394,9 +1382,9 @@ class Client(object):
         disable_geoip: Optional[bool] = None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
         device_id: Optional[str] = None,
-    ) -> dict[str, str]:
+    ) -> dict[str, Optional[str]]:
         """
-        Get feature flag payloads for a user.
+        Get feature flag payloads for a user, preserving valid serialized JSON.
 
         Args:
             distinct_id: The distinct ID of the user.
@@ -1425,7 +1413,10 @@ class Client(object):
             flag_keys_to_evaluate,
             device_id=device_id,
         )
-        return to_payloads(resp_data) or {}
+        return {
+            key: _parse_flag_payload(payload, decode=False)
+            for key, payload in (to_payloads(resp_data) or {}).items()
+        }
 
     def get_feature_flags_and_payloads(
         self,
@@ -1467,7 +1458,14 @@ class Client(object):
             flag_keys_to_evaluate,
             device_id=device_id,
         )
-        return to_flags_and_payloads(resp)
+        response = to_flags_and_payloads(resp)
+        payloads = response.get("featureFlagPayloads")
+        if payloads is not None:
+            response["featureFlagPayloads"] = {
+                key: _parse_flag_payload(payload, decode=False)
+                for key, payload in payloads.items()
+            }
+        return response
 
     def get_flags_decision(
         self,
@@ -4419,12 +4417,18 @@ class Client(object):
                     flag_keys_to_evaluate=flag_keys_to_evaluate,
                     device_id=device_id,
                 )
-                return to_flags_and_payloads(decide_response)
+                response = to_flags_and_payloads(decide_response)
             except Exception as e:
                 self.log.exception(
                     f"[FEATURE FLAGS] Unable to get feature flags and payloads: {e}"
                 )
 
+        payloads = response.get("featureFlagPayloads")
+        if payloads is not None:
+            response["featureFlagPayloads"] = {
+                key: _parse_flag_payload(payload, decode=False)
+                for key, payload in payloads.items()
+            }
         return response
 
     def evaluate_flags(
@@ -4831,6 +4835,80 @@ class Client(object):
             Feature flags
         """
         return self.feature_flags
+
+    def get_feature_flag_evaluation_runtime(
+        self, key: str
+    ) -> Optional[FeatureFlagEvaluationRuntime]:
+        """
+        Return where a locally loaded feature flag is meant to be evaluated.
+
+        Args:
+            key: The feature flag key.
+
+        Returns:
+            The flag's evaluation runtime, or ``None`` when local evaluation has
+            not loaded a definition for this key. A definition that carries no
+            runtime reports ``FeatureFlagEvaluationRuntime.ALL``, the default
+            PostHog applies.
+
+        Examples:
+            ```python
+            from posthoganalytics import FeatureFlagEvaluationRuntime
+
+            runtime = posthog.get_feature_flag_evaluation_runtime("my-flag")
+            if runtime is FeatureFlagEvaluationRuntime.SERVER:
+                ...
+            ```
+
+        Category:
+            Feature flags
+        """
+        definition = (self.feature_flags_by_key or {}).get(key)
+        if definition is None:
+            return None
+        return FeatureFlagEvaluationRuntime.from_value(
+            definition.get("evaluation_runtime")
+        )
+
+    def get_feature_flag_keys_by_evaluation_runtime(
+        self, evaluation_runtime: Union[FeatureFlagEvaluationRuntime, str]
+    ) -> list[str]:
+        """
+        Return the keys of locally loaded flags that a runtime can evaluate.
+
+        A flag set to ``FeatureFlagEvaluationRuntime.ALL`` suits either runtime,
+        so it is returned for ``CLIENT`` and for ``SERVER``, and asking for
+        ``ALL`` returns every loaded flag. Use this to decide which flags to hand
+        to a browser when a backend serves flags to its own frontend.
+
+        Args:
+            evaluation_runtime: The runtime to match, as a
+                ``FeatureFlagEvaluationRuntime`` or its string value.
+
+        Returns:
+            The matching flag keys, in the order local evaluation loaded them.
+            Empty when no definitions are loaded.
+
+        Examples:
+            ```python
+            from posthoganalytics import FeatureFlagEvaluationRuntime
+
+            client_keys = posthog.get_feature_flag_keys_by_evaluation_runtime(
+                FeatureFlagEvaluationRuntime.CLIENT
+            )
+            ```
+
+        Category:
+            Feature flags
+        """
+        wanted = FeatureFlagEvaluationRuntime(evaluation_runtime)
+        return [
+            key
+            for key, definition in (self.feature_flags_by_key or {}).items()
+            if FeatureFlagEvaluationRuntime.from_value(
+                definition.get("evaluation_runtime")
+            ).matches(wanted)
+        ]
 
     def _person_properties_for_local_evaluation(self, distinct_id, person_properties):
         local_person_properties = dict(person_properties or {})

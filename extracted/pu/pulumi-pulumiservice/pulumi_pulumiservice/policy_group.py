@@ -153,11 +153,10 @@ class PolicyGroup(pulumi.CustomResource):
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  organization_name: pulumi.Input[Optional[_builtins.str]] = None,
                  policy_packs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyGroupPolicyPackReferenceInputArgs', 'PolicyGroupPolicyPackReferenceInputArgsDict']]]]] = None,
-                 stacks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyGroupStackReferenceArgs', 'PolicyGroupStackReferenceArgsDict']]]]] = None,
+                 stacks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyGroupStackReferenceArgs', 'PolicyGroupStackReferenceArgsDict', 'outputs.PolicyGroupStackReference']]]]] = None,
                  __props__=None):
         """
         A Policy Group allows you to apply policy packs to a set of stacks in your organization.
-
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -167,7 +166,7 @@ class PolicyGroup(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: The name of the policy group.
         :param pulumi.Input[_builtins.str] organization_name: The name of the Pulumi organization the policy group belongs to.
         :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyGroupPolicyPackReferenceInputArgs', 'PolicyGroupPolicyPackReferenceInputArgsDict']]]] policy_packs: List of policy packs applied to this policy group.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyGroupStackReferenceArgs', 'PolicyGroupStackReferenceArgsDict']]]] stacks: List of stack references that belong to this policy group.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyGroupStackReferenceArgs', 'PolicyGroupStackReferenceArgsDict', 'outputs.PolicyGroupStackReference']]]] stacks: List of stack references that belong to this policy group.
         """
         ...
     @overload
@@ -177,7 +176,6 @@ class PolicyGroup(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         A Policy Group allows you to apply policy packs to a set of stacks in your organization.
-
 
         :param str resource_name: The name of the resource.
         :param PolicyGroupArgs args: The arguments to use to populate this resource's properties.
@@ -200,7 +198,7 @@ class PolicyGroup(pulumi.CustomResource):
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  organization_name: pulumi.Input[Optional[_builtins.str]] = None,
                  policy_packs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyGroupPolicyPackReferenceInputArgs', 'PolicyGroupPolicyPackReferenceInputArgsDict']]]]] = None,
-                 stacks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyGroupStackReferenceArgs', 'PolicyGroupStackReferenceArgsDict']]]]] = None,
+                 stacks: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyGroupStackReferenceArgs', 'PolicyGroupStackReferenceArgsDict', 'outputs.PolicyGroupStackReference']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):

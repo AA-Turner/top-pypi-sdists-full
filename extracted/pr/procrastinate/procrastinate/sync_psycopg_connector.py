@@ -163,18 +163,20 @@ class SyncPsycopgConnector(connector.BaseConnector):
             if connection is not None
             else self.pool.connection()
         )
-        with conn_ctx as conn:
-            with conn.cursor(row_factory=psycopg.rows.dict_row) as cursor:
-                if self._json_loads:
-                    psycopg.types.json.set_json_loads(
-                        loads=self._json_loads, context=cursor
-                    )
+        with (
+            conn_ctx as conn,
+            conn.cursor(row_factory=psycopg.rows.dict_row) as cursor,
+        ):
+            if self._json_loads:
+                psycopg.types.json.set_json_loads(
+                    loads=self._json_loads, context=cursor
+                )
 
-                if self._json_dumps:
-                    psycopg.types.json.set_json_dumps(
-                        dumps=self._json_dumps, context=cursor
-                    )
-                yield cursor
+            if self._json_dumps:
+                psycopg.types.json.set_json_dumps(
+                    dumps=self._json_dumps, context=cursor
+                )
+            yield cursor
 
     @wrap_exceptions()
     def execute_query(self, query: LiteralString, **arguments: Any) -> None:
@@ -202,6 +204,19 @@ class SyncPsycopgConnector(connector.BaseConnector):
             cursor.execute(query, self._wrap_json(arguments))
 
             return cursor.fetchall()
+
+    @wrap_exceptions()
+    def execute_query_one_with_connection(
+        self, connection: psycopg.Connection, query: LiteralString, **arguments: Any
+    ) -> dict[str, Any]:
+        with self._get_cursor(connection=connection) as cursor:
+            cursor.execute(query, self._wrap_json(arguments))
+
+            result = cursor.fetchone()
+
+            if result is None:
+                raise exceptions.NoResult
+            return result
 
     @wrap_exceptions()
     def execute_query_all_with_connection(

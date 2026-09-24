@@ -261,11 +261,13 @@ class ToolsClient:
         (e.g. raw vs. curated), description, and full column definitions with types,
         nullability, uniqueness, and foreign-key targets. Each column carries two
         names: 'name' is what the read and write tools accept, and 'sql_column_name'
-        is the physical column for SQL queries (foreign keys carry an _id suffix).
+        is the physical column for SQL queries (a column holding another row's key
+        carries an _id suffix).
         The org's own tables are followed by the platform tables (core_experiment,
-        core_instrument, and similar) that SQL queries can join against; those have
-        no id or semantic category. This is the map a parser writes into: use it to
-        plan which tables to populate and how rows link.
+        core_instrument, and similar) that SQL queries can join against, ending with
+        core_user, which holds the org's members; those have no id or semantic
+        category. This is the map a parser writes into: use it to plan which tables
+        to populate and how rows link.
 
         Requires an API key with the `read` scope.
 
@@ -612,11 +614,13 @@ class AsyncToolsClient:
         (e.g. raw vs. curated), description, and full column definitions with types,
         nullability, uniqueness, and foreign-key targets. Each column carries two
         names: 'name' is what the read and write tools accept, and 'sql_column_name'
-        is the physical column for SQL queries (foreign keys carry an _id suffix).
+        is the physical column for SQL queries (a column holding another row's key
+        carries an _id suffix).
         The org's own tables are followed by the platform tables (core_experiment,
-        core_instrument, and similar) that SQL queries can join against; those have
-        no id or semantic category. This is the map a parser writes into: use it to
-        plan which tables to populate and how rows link.
+        core_instrument, and similar) that SQL queries can join against, ending with
+        core_user, which holds the org's members; those have no id or semantic
+        category. This is the map a parser writes into: use it to plan which tables
+        to populate and how rows link.
 
         Requires an API key with the `read` scope.
 

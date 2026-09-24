@@ -2,6 +2,7 @@ import numpy as np
 
 from .aggregate_numpy import _aggregate_base
 from .utils import (
+    DEFAULT_FILL_VALUE,
     aggregate_common_doc,
     aliasing,
     check_boolean,
@@ -84,17 +85,17 @@ def _max(group_idx, a, size, fill_value, dtype=None):
     return ret
 
 
-_impl_dict = dict(
-    min=_min,
-    max=_max,
-    sum=_sum,
-    prod=_prod,
-    all=_all,
-    any=_any,
-    allnan=_allnan,
-    anynan=_anynan,
-    len=_len,
-)
+_impl_dict = {
+    "min": _min,
+    "max": _max,
+    "sum": _sum,
+    "prod": _prod,
+    "all": _all,
+    "any": _any,
+    "allnan": _allnan,
+    "anynan": _anynan,
+    "len": _len,
+}
 
 
 def aggregate(
@@ -102,7 +103,7 @@ def aggregate(
     a,
     func="sum",
     size=None,
-    fill_value=0,
+    fill_value=DEFAULT_FILL_VALUE,
     order="C",
     dtype=None,
     axis=None,
@@ -130,9 +131,9 @@ aggregate.__doc__ = (
     Unlike ``aggregate_numpy``, which in most cases does some custom
     optimisations, this version simply uses ``numpy``'s ``ufunc.at``.
 
-    As of version 1.14 this gives fairly poor performance. There should
-    normally be no need to use this version, it is intended to be used in
-    testing and benchmarking only.
+    With numpy 1.25 the performance of ``ufunc.at`` improved substantially,
+    however this implementation remains incomplete and is intended to be
+    used in testing and benchmarking only.
     """
     + aggregate_common_doc
 )

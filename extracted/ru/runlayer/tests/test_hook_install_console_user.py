@@ -10,7 +10,9 @@ having run.
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -332,3 +334,104 @@ class TestWindowsConsoleUserHome:
         monkeypatch.delenv("USERPROFILE", raising=False)
 
         assert console_user._windows_console_user_home() is None
+
+
+def _scutil_console_user_output(name: str, uid: int) -> str:
+    """``scutil`` ``show State:/Users/ConsoleUser`` output for an active session.
+
+    Mirrors the real layout: the top-level ``UID`` line comes after the nested
+    ``SessionInfo`` block.
+    """
+    return (
+        "<dictionary> {\n"
+        "  GID : 20\n"
+        f"  Name : {name}\n"
+        "  SessionInfo : <array> {\n"
+        "    0 : <dictionary> {\n"
+        "      kCGSSessionOnConsoleKey : TRUE\n"
+        f"      kCGSSessionUserIDKey : {uid}\n"
+        "    }\n"
+        "  }\n"
+        f"  UID : {uid}\n"
+        "}\n"
+    )
+
+
+class TestMacosConsoleUserHome:
+    """The macOS console-user home comes from the account record, not the login name.
+
+    With IdP-backed accounts (Platform SSO / Jamf Connect) the user can log in
+    with an email alias of the account's short name, and ``scutil`` then
+    reports that alias as the console user's ``Name``. ``/Users/<alias>`` does
+    not exist, so every root-context lifecycle step failed with ``console user
+    lookup failed`` and the bootstrap LaunchDaemon relaunched every minute.
+    """
+
+    accounts = pytest.importorskip("pwd")
+
+    def _stub_scutil(
+        self, monkeypatch: pytest.MonkeyPatch, *, name: str, uid: int
+    ) -> None:
+        monkeypatch.setattr(console_user.platform, "system", lambda: "Darwin")
+        output = _scutil_console_user_output(name, uid)
+        monkeypatch.setattr(
+            console_user.subprocess,
+            "run",
+            lambda *args, **kwargs: subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=output, stderr=""
+            ),
+        )
+
+    def _stub_accounts(
+        self, monkeypatch: pytest.MonkeyPatch, homes_by_uid: dict[int, str]
+    ) -> None:
+        def getpwuid(uid: int) -> SimpleNamespace:
+            if uid not in homes_by_uid:
+                raise KeyError(f"getpwuid(): uid not found: {uid}")
+            return SimpleNamespace(pw_dir=homes_by_uid[uid])
+
+        monkeypatch.setattr(self.accounts, "getpwuid", getpwuid)
+
+    def test_email_alias_login_resolves_account_home(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        self._stub_scutil(monkeypatch, name="alice@example.com", uid=501)
+        self._stub_accounts(monkeypatch, {501: "/Users/alice"})
+
+        assert console_user.find_console_user_home() == Path("/Users/alice")
+
+    def test_home_outside_users_directory(self, monkeypatch: pytest.MonkeyPatch):
+        self._stub_scutil(monkeypatch, name="alice", uid=501)
+        self._stub_accounts(monkeypatch, {501: "/Volumes/Data/Users/alice"})
+
+        assert console_user.find_console_user_home() == Path(
+            "/Volumes/Data/Users/alice"
+        )
+
+    def test_unknown_uid_falls_back_to_users_directory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        self._stub_scutil(monkeypatch, name="alice", uid=501)
+        self._stub_accounts(monkeypatch, {})
+
+        assert console_user.find_console_user_home() == Path("/Users/alice")
+
+    @pytest.mark.parametrize("pw_dir", ["", "Users/alice"])
+    def test_non_absolute_account_home_falls_back_to_users_directory(
+        self, monkeypatch: pytest.MonkeyPatch, pw_dir: str
+    ):
+        # A relative home would resolve against root's cwd ("/" for the
+        # bootstrap LaunchDaemon) and send root-owned writes there.
+        self._stub_scutil(monkeypatch, name="alice", uid=501)
+        self._stub_accounts(monkeypatch, {501: pw_dir})
+
+        assert console_user.find_console_user_home() == Path("/Users/alice")
+
+    @pytest.mark.parametrize("name", ["loginwindow", "_mbsetupuser", "root"])
+    def test_non_user_sessions_have_no_console_home(
+        self, monkeypatch: pytest.MonkeyPatch, name: str
+    ):
+        self._stub_scutil(monkeypatch, name=name, uid=0)
+        self._stub_accounts(monkeypatch, {0: "/var/root"})
+
+        assert console_user.find_console_user_home() is None

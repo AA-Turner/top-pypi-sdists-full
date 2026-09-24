@@ -171,6 +171,42 @@ def test_every_area_declares_rule_ids(area: str) -> None:
     ), f"{area} forwards rule_ids but never declares it as a parameter"
 
 
+def test_o001_prescription_warns_orjson_bypasses_default() -> None:
+    """orjson serializes datetime/date/time/UUID/dataclasses natively and never
+    consults ``default``. NumPy is not native unless ``OPT_SERIALIZE_NUMPY`` is
+    set. ``json.dumps`` supports none of them, so a ``default=`` on a stdlib
+    call is very often there to encode exactly one of those — and the swap
+    silently stops calling it.
+
+    The prescription used to say only that ``default=`` "stays as the default
+    keyword (orjson supports it)", which is true and, on its own, misleading: the
+    finding clears, the output shape changes, and a re-detect reports a clean
+    fix. It cost a connector every date attribute on its published assets
+    (ATLAS-404-00-007), caught by a pre-existing unit test rather than by any
+    gate.
+
+    So the prose must name the bypass AND the passthrough options that restore
+    the old behaviour (datetime *and* dataclass), plus the NumPy qualifier so
+    the native-type inventory cannot regress.
+    """
+    text = _read("areas/optimizations.prose.md")
+    start = text.index("**O001 OrjsonOverStdlibJson**")
+    prescription = text[start : text.index("**O002", start)]
+
+    for needle in (
+        "default",
+        "OPT_PASSTHROUGH_DATETIME",
+        "OPT_PASSTHROUGH_DATACLASS",
+        "OPT_SERIALIZE_NUMPY",
+        "datetime",
+    ):
+        assert needle in prescription, (
+            f"O001's prescription does not mention {needle!r} — a `default=` that "
+            "encodes a natively-serialized type will be silently bypassed by the "
+            "swap this rule prescribes"
+        )
+
+
 REFERENCE_APPS = (
     "atlan-mysql-app",
     "atlan-metabase-app",
@@ -201,7 +237,9 @@ def test_remediate_finding_requires_the_reference_apps() -> None:
     for app in REFERENCE_APPS:
         assert app in text, f"remediate-finding never names {app}"
     assert "`canonical_reference`" in text
-    assert "remediation/refs/" in text
+    # Outside the repo: an in-repo clone is scanned by detect (FND-2682).
+    assert "atlan-conformance/refs" in text
+    assert "remediation/refs" not in text
     assert "git clone" in text
 
 
@@ -270,6 +308,69 @@ def test_exc_info_prescriptions_carry_the_credential_contraindication(
     assert "application_sdk.errors" in text
     # And it must say the sanitized form is a fix, not a carve-out.
     assert "no suppression" in text
+    # The redacted form must not cost the stack trace the rule exists for:
+    # the prescription has to offer safe_traceback alongside the cause.
+    assert (
+        "safe_traceback(exc)" in text
+    ), f"{area}'s credential-safe form drops the traceback; name safe_traceback"
+
+
+def test_e004_prose_states_the_sanitizer_level_and_the_inline_row() -> None:
+    """The prose must not promise more than `_check_p004` accepts.
+
+    The sanitizer exemption counts only at warning/error/critical. F005 forbids
+    warning/warn inside preflight_check; error/critical are E004-clearing but
+    duplicate the gate's outcome row, so a prescription that offers a sanitized
+    log as clearing E004 at any level sends preflight arms to a fix that does
+    not clear (found remediating atlan-cassandra-dse-app, FND-2499).  The prose
+    has to name the level and the provable typed shape: the failed
+    ``PreflightCheck(`` built inline and returned.  Pinned against the checker
+    by ``test_p004_sanitizer_exemption_does_not_apply_at_debug`` and
+    ``test_p004_still_flags_row_built_by_a_lowercase_helper``.
+    """
+    # Prose is re-wrapped freely, so compare on collapsed whitespace.
+    text = " ".join(_read("areas/error-handling.prose.md").split())
+    assert "a `debug` call through a sanitizer does not clear E004" in text
+    assert "return PreflightCheck(" in text
+    assert "loop body" in text
+
+
+def test_o001_prose_names_the_three_dropped_tolerances() -> None:
+    """orjson raises on non-str keys and >64-bit ints and writes NaN as null.
+
+    A straight swap that ignores these breaks at runtime on data the tests may
+    not carry (found remediating atlan-mode-app, FND-2549).
+    """
+    text = " ".join(_read("areas/optimizations.prose.md").split())
+    assert "OPT_NON_STR_KEYS" in text
+    assert "NaN" in text
+    assert "64 bits" in text
+
+
+def test_d003_prose_removes_constraint_floors_rather_than_relocating() -> None:
+    """Moving a floor into constraint-dependencies only relocates D003."""
+    text = " ".join(_read("areas/dependency.prose.md").split())
+    assert "constraint-dependencies` entry in an app is also D003" in text
+    assert "do not move a floor" in text
+
+
+def test_p001_prose_says_the_opt_out_does_not_govern_unknown_keys() -> None:
+    """Extra AE node args do not justify keep-the-opt-out (FND-2549).
+
+    The catalog already says Input drops undeclared keys regardless of
+    allow_unbounded_fields; the remediator reads prescriptions.prose.md,
+    not the catalog, so the same paragraph has to live here.
+    """
+    text = " ".join(_read("areas/prescriptions.prose.md").split())
+    assert "does not govern unknown keys" in text
+    assert "credential_guid" in text
+    assert 'Do not draft "keep the opt-out" for extra AE node args' in text
+
+
+def test_d009_prose_verifies_without_poe() -> None:
+    """`uv run poe` re-resolves the lock without --frozen (D013 on a laptop)."""
+    text = " ".join(_read("areas/dependency.prose.md").split())
+    assert "uv run --frozen python -c" in text
 
 
 def test_b006_may_write_the_contract_ledger() -> None:
@@ -352,7 +453,8 @@ def test_bootstrapped_skill_tells_the_runner_to_load_the_reference_apps() -> Non
     )
     for app in REFERENCE_APPS:
         assert app in template, f"bootstrap remediate.md never names {app}"
-    assert "remediation/refs/" in template
+    assert "atlan-conformance/refs" in template
+    assert "remediation/refs" not in template
     assert "migration_brief" in template
     assert "report-rule-defect" in template
     assert "impact.after" in template
@@ -658,3 +760,26 @@ def test_dependency_area_has_a_prescription_for_every_d_rule() -> None:
         "area. Every rule the loop can reach needs one, even if it is "
         "`not_remediable = true` and routes straight to residue."
     )
+
+
+def _rule_bullet(area: str, rule_id: str) -> str:
+    """The `**<ID> Name**` bullet for one rule, up to the next top-level bullet."""
+    text = _read(f"areas/{area}.prose.md")
+    match = re.search(r"^- \*\*" + rule_id + r"\b.*?(?=^- \*\*|\Z)", text, re.M | re.S)
+    assert match, f"no `**{rule_id}` bullet in areas/{area}.prose.md"
+    return match.group(0)
+
+
+def test_o001_prescription_names_the_byte_changing_defaults() -> None:
+    """A stdlib `json.dumps` with default arguments does not round-trip through
+    orjson byte-for-byte: orjson is always compact and never escapes non-ASCII.
+
+    The parsed value is unchanged, so the orthogonal gate passes, and the only
+    place the difference shows is whatever hashes, commits or byte-compares the
+    output. Found on an app whose vendor-contract refresh script rewrites a
+    committed, `\\u`-escaped JSON file: the prescribed `indent=2 → OPT_INDENT_2`
+    swap would have un-escaped 30 lines of it the next time it ran.
+    """
+    bullet = _rule_bullet("optimizations", "O001")
+    assert "ensure_ascii" in bullet
+    assert "separators" in bullet

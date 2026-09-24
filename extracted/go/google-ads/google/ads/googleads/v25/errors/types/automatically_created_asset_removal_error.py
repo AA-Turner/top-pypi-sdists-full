@@ -29,14 +29,13 @@ __protobuf__ = proto.module(
 
 
 class AutomaticallyCreatedAssetRemovalErrorEnum(proto.Message):
-    r"""Container for enum describing possible automatically created
-    asset removal errors.
+    r"""Container for enum describing possible text customization
+    removal errors.
 
     """
 
     class AutomaticallyCreatedAssetRemovalError(proto.Enum):
-        r"""Enum describing possible automatically created asset removal
-        errors.
+        r"""Enum describing possible text customization removal errors.
 
         Values:
             UNSPECIFIED (0):
@@ -54,7 +53,8 @@ class AutomaticallyCreatedAssetRemovalErrorEnum(proto.Message):
             ASSET_FIELD_TYPE_DOES_NOT_MATCH (5):
                 The asset field type does not match.
             NOT_AN_AUTOMATICALLY_CREATED_ASSET (6):
-                Not an automatically created asset.
+                Not a text customization (formerly
+                automatically created asset).
         """
 
         UNSPECIFIED = 0

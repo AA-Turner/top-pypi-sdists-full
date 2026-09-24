@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
+import time
 import typing as t
 import uuid
 from collections import defaultdict, deque
+from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 
 from dbt.graph import UniqueId
 from dbt.graph.selector_methods import SelectorMethod, StateSelectorMethod
 
+from dbt_state.dispatcher import TelemetryDispatcher
 from dbt_state.git import GitClient
 
 try:
@@ -18,7 +22,10 @@ except ImportError:
     from dbt.exceptions import DbtRuntimeError
 
 
-from query_cache_common.models.services import selector_service_models
+from query_cache_common.models.services import (
+    client_telemetry_service_models,
+    selector_service_models,
+)
 
 from dbt_state._typing import MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE
 from dbt_state.config import RunCacheConfig
@@ -46,6 +53,23 @@ _SELECTOR_CRITERIA_MAP: t.Dict[str, selector_service_models.SelectorCriteria] = 
 }
 
 _MAX_BATCH_SIZE = 10000
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _SelectorTelemetryStats:
+    request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    num_nodes: int = 0
+    hash_calculation_time_sec: float = 0.0
+
+    def record_hash_time(self, elapsed_sec: float) -> None:
+        self.hash_calculation_time_sec += elapsed_sec
+        self.num_nodes += 1
+
+    @property
+    def hash_calculation_time_ms(self) -> int:
+        return int(self.hash_calculation_time_sec * 1000)
 
 
 def _batched(iterable: t.Iterable[t.Any], batch_size: int) -> t.Iterator[t.List[t.Any]]:
@@ -145,12 +169,14 @@ class StateSelector(StateSelectorMethod):
         runtime_config: RuntimeConfig,
         run_cache_config: RunCacheConfig,
         query_cache_client: QueryCacheGrpcClient,
+        telemetry_dispatcher: TelemetryDispatcher | None = None,
         **kwargs: t.Any,
     ) -> None:
         super().__init__(manifest, previous_state, arguments, **kwargs)
         self.runtime_config = runtime_config
         self.run_cache_config = run_cache_config
         self.query_cache_client = query_cache_client
+        self.telemetry_dispatcher = telemetry_dispatcher
 
     def _ensure_dependencies(self) -> None:
         """Ensure the selector was created with all required dependencies."""
@@ -210,7 +236,6 @@ class StateSelector(StateSelectorMethod):
         selector: str,
         included_nodes: set[UniqueId],
     ) -> t.Iterator[UniqueId]:
-        request_id = str(uuid.uuid4())
         dbt_project_id = run_cache_config.dbt_project_id
 
         selector_criteria = _SELECTOR_CRITERIA_MAP.get(selector)
@@ -221,20 +246,32 @@ class StateSelector(StateSelectorMethod):
             )
 
         target_name = run_cache_config.defer_to
+        stats = _SelectorTelemetryStats()
 
-        requests = self._create_request_batches(
-            included_nodes,
-            target_name,
-            dbt_project_id,
-            runtime_config,
-            selector_criteria,
-            request_id,
-        )
+        processing_start = time.perf_counter()
+        try:
+            requests = self._create_request_batches(
+                included_nodes,
+                target_name,
+                dbt_project_id,
+                runtime_config,
+                selector_criteria,
+                stats,
+            )
 
-        for request in requests:
-            response = query_cache_client.get_selection(request=request)
-            for unique_id in response.node_unique_ids:
-                yield UniqueId(unique_id)
+            for request in requests:
+                response = query_cache_client.get_selection(request=request)
+                for unique_id in response.node_unique_ids:
+                    yield UniqueId(unique_id)
+        finally:
+            processing_time_sec = time.perf_counter() - processing_start
+            self._emit_selector_telemetry(
+                stats=stats,
+                processing_time_ms=int(processing_time_sec * 1000),
+                project_id=dbt_project_id,  # ty:ignore[invalid-argument-type]
+                dbt_target=target_name,
+                selector_criteria=selector_criteria,
+            )
 
     def _create_request_batches(
         self,
@@ -243,7 +280,7 @@ class StateSelector(StateSelectorMethod):
         dbt_project_id: t.Optional[str],
         runtime_config: RuntimeConfig,
         selector_criteria: selector_service_models.SelectorCriteria,
-        request_id: str,
+        stats: _SelectorTelemetryStats,
     ) -> t.List[selector_service_models.SelectorRequest]:
 
         def generate_node_data() -> t.Iterator[selector_service_models.DbtNodeData]:
@@ -251,21 +288,27 @@ class StateSelector(StateSelectorMethod):
                 if not isinstance(node, MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE):
                     continue
 
+                hash_start = time.perf_counter()
                 calculator = create_node_hash_calculator(node, self.manifest, runtime_config)
                 node_hash = calculator.calculate_node_hash()
+                node_body_hash = calculator.node_body_hash
+                node_configs_hash = calculator.node_configs_hash
+                node_persisted_docs_hash = calculator.node_persisted_docs_hash
+                node_macros_hash = calculator.node_macros_hash
                 node_contract_hash = (
                     calculator.node_contract_hash
                     if isinstance(calculator, ModelNodeHashCalculator)
                     else None
                 )
+                stats.record_hash_time(time.perf_counter() - hash_start)
 
                 yield selector_service_models.DbtNodeData(
                     node_unique_id=unique_id,
                     node_hash=node_hash,
-                    node_body_hash=calculator.node_body_hash,
-                    node_configs_hash=calculator.node_configs_hash,
-                    node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
-                    node_macros_hash=calculator.node_macros_hash,
+                    node_body_hash=node_body_hash,
+                    node_configs_hash=node_configs_hash,
+                    node_persisted_descriptions_hash=node_persisted_docs_hash,
+                    node_macros_hash=node_macros_hash,
                     node_contract_hash=node_contract_hash,
                     node_database_representation=(
                         f"{node.database}.{node.schema}.{node.alias}"
@@ -281,8 +324,33 @@ class StateSelector(StateSelectorMethod):
                 project_id=dbt_project_id,  # ty:ignore[invalid-argument-type]
                 nodes=batch,
                 selector_criteria=selector_criteria,
-                request_id=request_id,
+                request_id=stats.request_id,
             )
             requests.append(request)
 
         return requests
+
+    def _emit_selector_telemetry(
+        self,
+        stats: _SelectorTelemetryStats,
+        processing_time_ms: int,
+        project_id: str,
+        dbt_target: str,
+        selector_criteria: selector_service_models.SelectorCriteria,
+    ) -> None:
+        if self.telemetry_dispatcher is None:
+            return
+
+        try:
+            event = client_telemetry_service_models.ClientSelectorEvent(
+                request_id=stats.request_id,
+                project_id=project_id,
+                dbt_target=dbt_target,
+                selector_criteria=selector_criteria,
+                num_nodes=stats.num_nodes,
+                processing_time_ms=processing_time_ms,
+                hash_calculation_time_ms=stats.hash_calculation_time_ms,
+            )
+            self.telemetry_dispatcher.add_event(event)
+        except Exception as e:
+            logger.debug("Failed to emit selector telemetry: %s", e)

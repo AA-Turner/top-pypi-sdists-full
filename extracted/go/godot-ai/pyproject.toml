@@ -1,6 +1,6 @@
 [project]
 name = "godot-ai"
-version = "4.2.1"
+version = "4.2.2"
 description = "Production-grade MCP server and AI tools for the Godot engine"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11,<3.15"
@@ -52,7 +52,7 @@ dependencies = [
     "httpcore2==2.13.0",
     # asgi.py imports these directly; declare them instead of relying on
     # them arriving transitively through fastmcp (audit backlog).
-    "uvicorn==0.52.4",
+    "uvicorn==0.53.0",
     # Starlette < 0.40.0 is affected by CVE-2024-47874 (multipart/form-data
     # denial of service). A normal install resolves far above this (fastmcp's
     # own floor is starlette>=1.0.1), but this package's declared floor is

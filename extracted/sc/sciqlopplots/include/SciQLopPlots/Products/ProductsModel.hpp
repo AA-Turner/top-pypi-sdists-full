@@ -24,7 +24,6 @@
 #include <QAbstractItemModel>
 #include <QMimeData>
 #include <QObject>
-#include <QStringListModel>
 
 inline constexpr auto PRODUCT_FILTER_ROLE = Qt::UserRole + 1;
 
@@ -32,12 +31,8 @@ class ProductsModel : public QAbstractItemModel
 {
     Q_OBJECT
     ProductsModelNode* m_rootNode;
-    QStringListModel* m_completer_model;
 
     QModelIndex make_index(ProductsModelNode* node);
-
-    void _add_to_completer(const QString& value);
-    void _add_to_completer(ProductsModelNode* node);
 
     void _insert_node(ProductsModelNode* node, ProductsModelNode* parent);
 
@@ -66,8 +61,6 @@ public:
 
     static QList<QStringList> decode_mime_data(const QMimeData* mime_data);
 
-    inline QStringListModel* completer_model() const { return m_completer_model; }
-
     /*!
      * \brief add_node Insert \a obj under \a path, replacing a same-named node.
      *
@@ -75,8 +68,11 @@ public:
      * thread and inserted later, so node() and rowCount() only see it once the
      * model thread has processed events. A node that cannot be moved (it already
      * has a QObject parent) is refused with a warning.
+     *
+     * \return true if \a obj was inserted, or queued to be inserted on the model
+     * thread; false if it was refused. The caller keeps ownership on false.
      */
-    Q_SLOT void add_node(QStringList path, ProductsModelNode* obj);
+    Q_SLOT bool add_node(QStringList path, ProductsModelNode* obj);
 
     /*!
      * \brief remove_node Delete the node at \a path and everything below it.
@@ -89,6 +85,10 @@ public:
      * events. Python wrappers of the removed nodes become invalid.
      */
     Q_SLOT void remove_node(QStringList path);
+
+    //! Tells the views that \a node's \a roles changed. Safe from any thread: the signal
+    //! is emitted on the model's thread, and dropped if the node is gone by then.
+    void node_data_changed(ProductsModelNode* node, const QList<int>& roles);
 
     static ProductsModelNode* node(const QStringList& path);
 

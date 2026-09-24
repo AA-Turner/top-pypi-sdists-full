@@ -4,7 +4,7 @@ support for asterix SDPS data, setup for OBC 2018
 This listens for SDPS on UDP and translates to ADSB_VEHICLE messages
 '''
 
-import pickle
+import json
 from math import *
 
 from MAVProxy.modules.lib import mp_module
@@ -60,7 +60,8 @@ class AsterixModule(mp_module.MPModule):
                          ["<start|stop>","set (ASTERIXSETTING)"])
 
         # filter_dist is distance in metres
-        self.asterix_settings = mp_settings.MPSettings([("port", int, 45454),
+        self.asterix_settings = mp_settings.MPSettings([('bind_address', str, '127.0.0.1'),
+                                                        ("port", int, 45454),
                                                         ('debug', int, 0),
                                                         ('filter_dist_xy', int, 1000),
                                                         ('filter_dist_z', int, 250),
@@ -122,7 +123,8 @@ class AsterixModule(mp_module.MPModule):
             self.sock.close()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(('', self.asterix_settings.port))
+        self.sock.bind((self.asterix_settings.bind_address,
+                        self.asterix_settings.port))
         self.sock.setblocking(False)
         print("Started on port %u" % self.asterix_settings.port)
 
@@ -200,12 +202,14 @@ class AsterixModule(mp_module.MPModule):
             return
         try:
             if pkt.startswith(b'PICKLED:'):
-                pkt = pkt[8:]
-                # pickled packet
-                try:
-                    amsg = [pickle.loads(pkt)]
-                except pickle.UnpicklingError:
-                    amsg = asterix.parse(pkt)
+                print("bad packet")
+                return
+            if pkt.startswith(b'JSON:'):
+                pkt = pkt[5:]
+                decoded = json.loads(pkt.decode('utf-8'))
+                if not isinstance(decoded, dict):
+                    raise ValueError("JSON packet root is not a dictionary")
+                amsg = [decoded]
             else:
                 amsg = asterix.parse(pkt)
             self.pkt_count += 1
@@ -230,7 +234,32 @@ class AsterixModule(mp_module.MPModule):
             sic = m['I010']['SIC']['val']
             trkn = m['I040']['TrkN']['val']
             # fake ICAO_address
-            icao_address = trkn & 0xFFFF
+            icao_address = trkn & 0xFFFFFF
+            # object types based on real world ICAO ranges
+            # 000000 - 0003FFF - unallocated    - use for MAVLINK SYSID (up to 16838)
+            # A00000 - AFFFFFF - USA            - use for generated aircraft
+            # B00000 - BFFFFFF - reserved       - use for dummy obstacles
+            # C00000 - C3FFFFF - Canada
+            # 780000 - 7BFFFFF - China
+            # 7C0000 - 7FFFFFF - Australia
+            # from genobstacles:
+            # 'Aircraft'        : 0xA00000,
+            # 'Weather'         : 0xB00000,
+            # 'BirdMigrating'   : 0xB10000,
+            # 'BirdOfPrey'      : 0xB20000
+            # 'Drone'           : 0x000000 - 0x003FFF (16383)
+            if trkn >= 0xB00000 and  trkn < 0xB10000:
+                emitter_type = 102	# weather
+            elif trkn >= 0xB10000 and  trkn < 0xB20000:
+                emitter_type = 103	# Migratory Bird
+            elif trkn >= 0xB20000 and  trkn < 0xB30000:
+                emitter_type = 104	# Predatory Bird
+            elif trkn < 0x003FFF:
+                emitter_type = 14	# drone
+            elif trkn >= 0xA00000:
+                emitter_type = 1	# aircraft
+            else:
+                emitter_type = 99	# dummy it for now
 
             # use squawk for time in 0.1 second increments. This allows for old msgs to be discarded on vehicle
             # when using more than one link to vehicle
@@ -251,8 +280,8 @@ class AsterixModule(mp_module.MPModule):
                                                            0, # heading
                                                            0, # hor vel
                                                            int(climb_rate_fps * 0.3048 * 100), # cm/s
-                                                           ("%08x" % icao_address).encode("ascii"),
-                                                           100 + (trkn // 10000),
+                                                           ("%06X" % icao_address).encode("ascii"),
+                                                           emitter_type, # 100 + (trkn // 10000),
                                                            1,
                                                            (mavutil.mavlink.ADSB_FLAGS_VALID_COORDS |
                                                             mavutil.mavlink.ADSB_FLAGS_VALID_ALTITUDE |
@@ -332,5 +361,4 @@ if __name__ == '__main__':
         sock.send(pkt)
         #amsg = asterix.parse(pkt)
         #print(amsg)
-
 

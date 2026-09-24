@@ -44,7 +44,7 @@ class ThreadSummary(UniversalBaseModel):
 
     uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = pydantic.Field(default=None)
     """
-    UUID of the thread summary node.
+    UUID of the derived thread summary node.
     """
 
     if IS_PYDANTIC_V2:

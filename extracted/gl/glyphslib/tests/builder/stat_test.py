@@ -18,6 +18,7 @@ from glyphsLib import to_designspace, to_glyphs
 from glyphsLib.builder.stat import is_stat_only_ital
 from glyphsLib.classes import (
     GSAxis,
+    GSCustomParameter,
     GSFont,
     GSFontMaster,
     GSGlyph,
@@ -315,6 +316,45 @@ def test_export_stat_table_off_disables_stat():
     assert not any(a.tag == "ital" for a in doc.axes)
 
 
+def test_inactive_variable_font_instance_gets_no_stat():
+    # Glyphs.app does not export an inactive Variable Font Setting at all.
+    font = _make_font(
+        [("wght", "Weight")],
+        [("Regular", [400]), ("Bold", [700])],
+        [
+            ("Regular", [400], {"weight": "Regular"}),
+            ("Bold", [700], {"weight": "Bold"}),
+        ],
+    )
+    font.instances[-1].exports = False
+
+    doc = to_designspace(font)
+    assert not any(a.axisLabels for a in doc.axes)
+    assert not any(a.tag == "ital" for a in doc.axes)
+
+
+def test_inactive_variable_font_instance_does_not_block_export_stat_table_off():
+    font = _make_font(
+        [("wght", "Weight")],
+        [("Regular", [400]), ("Bold", [700])],
+        [
+            ("Regular", [400], {"weight": "Regular"}),
+            ("Bold", [700], {"weight": "Bold"}),
+        ],
+    )
+    font.instances[-1].customParameters["Export STAT Table"] = 0
+    inactive = GSInstance()
+    inactive.name = "VF2"
+    inactive.type = InstanceType.VARIABLE
+    inactive.exports = False
+    inactive.parent = font
+    font.instances.append(inactive)
+
+    doc = to_designspace(font)
+    assert not any(a.axisLabels for a in doc.axes)
+    assert not any(a.tag == "ital" for a in doc.axes)
+
+
 def test_export_stat_table_off_on_only_one_variable_font_keeps_stat():
     font = _make_font(
         [("wght", "Weight")],
@@ -360,6 +400,26 @@ def test_elidable_stat_axis_value_name_param():
     assert _labels(_axis(doc, "wght")) == [
         ("Regular", 400, True, None),
         ("Bold", 700, True, None),
+    ]
+
+
+def test_disabled_elidable_stat_axis_value_name_param_is_ignored():
+    font = _make_font(
+        [("wght", "Weight")],
+        [("Regular", [400]), ("Bold", [700])],
+        [
+            ("Regular", [400], {"weight": "Regular"}),
+            ("Bold", [700], {"weight": "Bold"}),
+        ],
+    )
+    font.instances[1].customParameters.append(
+        GSCustomParameter("Elidable STAT Axis Value Name", "wght", disabled=True)
+    )
+    doc = to_designspace(font)
+
+    assert _labels(_axis(doc, "wght")) == [
+        ("Regular", 400, True, None),
+        ("Bold", 700, False, None),
     ]
 
 
@@ -414,6 +474,26 @@ def test_style_name_as_stat_entry_manual_mode():
     assert not _axis(doc, "wdth").axisLabels
     # The STAT-only italic axis is still appended in manual mode.
     assert _labels(_axis(doc, "ital")) == [("Roman", 0, True, 1)]
+
+
+def test_disabled_style_name_as_stat_entry_param_is_ignored():
+    font = _make_font(
+        [("wght", "Weight")],
+        [("Regular", [400]), ("Bold", [700])],
+        [
+            ("Regular", [400], {"weight": "Regular"}),
+            ("Bold", [700], {"weight": "Bold"}),
+        ],
+    )
+    font.instances[1].customParameters.append(
+        GSCustomParameter("Style Name as STAT entry", "wght", disabled=True)
+    )
+    doc = to_designspace(font)
+
+    assert _labels(_axis(doc, "wght")) == [
+        ("Regular", 400, True, None),
+        ("Bold", 700, False, None),
+    ]
 
 
 def test_real_italic_axis_suppresses_stat_only_and_links_upright():
@@ -565,6 +645,32 @@ def test_axis_location_uses_user_space_values():
     assert _labels(_axis(doc, "wght")) == [
         ("Regular", 400, True, None),
         ("Bold", 700, False, None),
+    ]
+
+
+def test_axis_mappings_positions_values_over_weight_class():
+    # "Axis Mappings" puts the masters at user 300 and 800. The instances'
+    # weightClass values (400, 500, 700) disagree with it and must not decide
+    # where their STAT values sit, or they would not match fvar.
+    font = _make_font(
+        [("wght", "Weight")],
+        [("Regular", [400]), ("Bold", [700])],
+        [
+            ("Regular", [400], {"weight": "Regular"}),
+            ("Medium", [550], {"weight": "Medium"}),
+            ("Bold", [700], {"weight": "Bold", "isBold": True}),
+        ],
+    )
+    font.customParameters["Axis Mappings"] = {"wght": {"300": 400, "800": 700}}
+
+    doc = to_designspace(font)
+
+    wght = _axis(doc, "wght")
+    assert (wght.minimum, wght.default, wght.maximum) == (300, 300, 800)
+    assert _labels(wght) == [
+        ("Regular", 300, True, 800),
+        ("Medium", 550, False, None),
+        ("Bold", 800, False, None),
     ]
 
 

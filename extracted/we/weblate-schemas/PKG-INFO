@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate_schemas
-Version: 2026.8
+Version: 2026.9
 Summary: A collection of JSON schemas used by Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -41,7 +41,11 @@ Dynamic: license-file
 **Weblate is libre software web-based continuous localization system,
 used by over 2500 libre projects and companies in more than 165 countries.**
 
-This module contains schemas used in Weblate exports.
+This module contains schemas used in Weblate exports and Kotlin SDK build
+registration and CDN manifests. Load them with ``weblate_schemas.load_schema``
+or validate data with ``weblate_schemas.validate_schema``. The Kotlin SDK files
+are ``weblate-kotlin-sdk-build.schema.json`` and
+``weblate-kotlin-sdk-manifest.schema.json``.
 
 .. image:: https://img.shields.io/badge/website-weblate.org-blue.svg
     :alt: Website

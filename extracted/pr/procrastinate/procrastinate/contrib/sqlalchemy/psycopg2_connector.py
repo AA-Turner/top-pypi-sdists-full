@@ -58,7 +58,7 @@ def wrap_query_exceptions(func: Callable[..., Any]) -> Callable[..., Any]:
         except sqlalchemy.exc.DBAPIError as exc:
             if exc.connection_invalidated:
                 return func(*args, **kwargs)
-            raise exc
+            raise
 
     return wrapped
 
@@ -192,6 +192,19 @@ class SQLAlchemyPsycopg2Connector(connector.BaseConnector):
             # psycopg2's type say it returns a tuple, but it actually returns a
             # dict when configured with RealDictCursor
             return mapping.all()  # pyright: ignore[reportReturnType]
+
+    @wrap_exceptions()
+    def execute_query_one_with_connection(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        connection: sqlalchemy.engine.Connection,
+        query: str,
+        **arguments: Any,
+    ) -> Mapping[str, Any]:
+        cursor_result = connection.exec_driver_sql(
+            PERCENT_PATTERN.sub("%%", query), self._wrap_json(arguments)
+        )
+        mapping = cursor_result.mappings()
+        return mapping.fetchone()  # pyright: ignore[reportReturnType]
 
     @wrap_exceptions()
     def execute_query_all_with_connection(  # pyright: ignore[reportIncompatibleMethodOverride]

@@ -9,7 +9,11 @@ from .create_pod_webhook_request import CreatePodWebhookRequest
 
 
 class CreateWebhookRequest(CreatePodWebhookRequest):
-    pod_ids: typing.Optional[PodIds] = None
+    pod_ids: typing.Optional[PodIds] = pydantic.Field(default=None)
+    """
+    Pods for which to send events. Maximum 10 per webhook. The webhook receives an event that matches
+    any listed pod or inbox, so a listed pod already covers every inbox in it.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

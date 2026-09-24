@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: check-jsonschema
-Version: 0.38.1
+Version: 0.38.2
 Summary: A jsonschema CLI and pre-commit hook
 Author-email: Stephen Rosen <sirosen0@gmail.com>
 Project-URL: Homepage, https://github.com/python-jsonschema/check-jsonschema
@@ -16,7 +16,7 @@ Requires-Dist: ruamel.yaml<0.20.0,>=0.18.10
 Requires-Dist: jsonschema<5.0,>=4.18.0
 Requires-Dist: regress>=2024.11.1
 Requires-Dist: requests<3.0
-Requires-Dist: click<9,>=8
+Requires-Dist: click<9,>=8.5
 Dynamic: license-file
 
 [![pypi version](https://img.shields.io/pypi/v/check-jsonschema.svg)](https://pypi.org/project/check-jsonschema/)
@@ -45,7 +45,7 @@ files.
 
 ```yaml
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.38.1
+  rev: 0.38.2
   hooks:
     - id: check-github-workflows
       args: ["--verbose"]

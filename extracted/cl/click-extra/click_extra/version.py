@@ -55,7 +55,11 @@ from click import echo, get_current_context
 from click._utils import UNSET
 from extra_platforms import current_architecture, current_platform
 
-from ._utils import memoize_enums
+# CLI_ECOSYSTEM_PACKAGES is bound under a private name so this module's
+# namespace does not resurrect the moved constant: its canonical home is
+# click_extra._utils, and the public `version.CLI_ECOSYSTEM_PACKAGES` spelling
+# resolves through the deprecation hook below.
+from ._utils import CLI_ECOSYSTEM_PACKAGES as _CLI_ECOSYSTEM_PACKAGES, memoize_enums
 from .color import invocation_color, is_a_tty
 from .context import ACCESSIBLE, _LazyMetaDict, get
 from .layout import cell_width, pad_to
@@ -66,18 +70,6 @@ from .theme import get_current_theme
 MUTED = Style(fg="bright_black")
 """The recessive style the version screen gives its tagline and its fact labels."""
 
-CLI_ECOSYSTEM_PACKAGES = frozenset({"functools", "click_extra", "cloup", "click"})
-"""Top-level packages that never implement the *user's* CLI.
-
-`functools` shows up as the intermediate frames a `@cached_property` adds; the
-other three are the Click ecosystem itself. A frame belonging to one of them is
-plumbing between the `--version` callback and the CLI that declared it, so
-{meth}`VersionOption.cli_frame` walks past it, and both
-{attr}`VersionOption.module` and {attr}`VersionOption.module_version` read
-landing on one as a failed walk. A module {func}`is_main_module` recognizes is
-the exception: it is an entry point, whichever package it sits under.
-"""
-
 
 def is_main_module(module_name: str) -> bool:
     """Is *module_name* a `__main__` entry point, of a package or of a script?
@@ -85,7 +77,7 @@ def is_main_module(module_name: str) -> bool:
     An entry point is where the interpreter started: `python -m package`, a
     console script, or a compiled binary. It is never plumbing a stack walk
     lands on after running out of user frames, so it is exempt from
-    {data}`CLI_ECOSYSTEM_PACKAGES` even when it sits under one of those
+    `CLI_ECOSYSTEM_PACKAGES` even when it sits under one of those
     packages, as `click_extra.__main__` does in Click Extra's own binary.
     """
     return module_name == "__main__" or module_name.endswith(".__main__")
@@ -1067,7 +1059,7 @@ class VersionOption(ExtraOption):
 
             # Skip the intermediate frames added by the `@cached_property` decorator
             # and the Click ecosystem.
-            if frame_name and frame_name.split(".", 1)[0] in CLI_ECOSYSTEM_PACKAGES:
+            if frame_name and frame_name.split(".", 1)[0] in _CLI_ECOSYSTEM_PACKAGES:
                 continue
 
             # We found a frame that is not part of the Click ecosystem, and is not an
@@ -1169,7 +1161,7 @@ class VersionOption(ExtraOption):
         # off the parent package.
         if (
             not is_main_module(module.__name__)
-            and module.__name__.split(".", 1)[0] in CLI_ECOSYSTEM_PACKAGES
+            and module.__name__.split(".", 1)[0] in _CLI_ECOSYSTEM_PACKAGES
             and distribution_of(module.__package__) is None
         ):
             ctx = click.get_current_context(silent=True)
@@ -1263,7 +1255,7 @@ class VersionOption(ExtraOption):
             and self.package_name
             and (
                 is_main_module(self.module_name)
-                or self.module_name.split(".", 1)[0] not in CLI_ECOSYSTEM_PACKAGES
+                or self.module_name.split(".", 1)[0] not in _CLI_ECOSYSTEM_PACKAGES
             )
         ):
             parent = sys.modules.get(self.package_name)
@@ -1878,3 +1870,15 @@ def reset_version_resolution(command: Command) -> None:
             walk(sub)
 
     walk(command)
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve deprecated `version` symbols via the PEP 562 `__getattr__` hook.
+
+    The `CLI_ECOSYSTEM_PACKAGES` constant moved to {mod}`click_extra._utils`,
+    which the deprecation `stacklevel` walk reads it from too. Fires only for
+    names not defined in this module. See {mod}`click_extra._deprecated`.
+    """
+    from ._deprecated import resolve_deprecated
+
+    return resolve_deprecated(__name__, name)

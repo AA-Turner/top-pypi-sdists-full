@@ -22,7 +22,6 @@ from together import AsyncTogether
 
 from matrx_ai.config import UnifiedConfig
 from matrx_ai.config.message_config import (
-    iter_images_by_role,
     pick_image_by_role,
     pick_text_by_role,
 )
@@ -56,22 +55,33 @@ class TogetherVideoGeneration(BaseMediaGeneration):
         if neg:
             extra["negative_prompt"] = neg
 
-        # Image-to-video: media={"image": <url>}
-        # Prefer user-message-tagged start_image (or first un-tagged image),
-        # fall back to settings-level image_input.
-        start = pick_image_by_role(unified_config.messages, "start_image") or pick_image_by_role(
-            unified_config.messages, None
-        )
-        start_url = (
-            self._mediaref_url(start)
-            if start is not None
-            else self._mediaref_url(unified_config.image_input)
-        )
+        # Typed video roles (legacy metadata.role tags fold in):
+        # first_frame -> media.image, last_frame -> frame_images[-1],
+        # asset -> reference_images. Settings lists stay the fallback.
+        from matrx_ai.media.video_reference_roles import collect_video_references, first_of
+
+        refs = collect_video_references(unified_config.messages)
+
+        def _url(block: Any, label: str) -> str:
+            u = self._mediaref_url(block)
+            if not u:
+                raise ValueError(f"The {label} image could not be read. Re-upload it and run again.")
+            return u
+
+        start = first_of(refs, "first_frame")
+        if start is not None:
+            start_url = _url(start, "First frame")
+        else:
+            untagged = pick_image_by_role(unified_config.messages, None)
+            start_url = (
+                self._mediaref_url(untagged)
+                if untagged is not None
+                else self._mediaref_url(unified_config.image_input)
+            )
         if start_url:
             extra["media"] = {"image": start_url}
 
-        # frame_images: Kling multi-shot. Build from explicit settings list
-        # OR from user-message end_image / last_frame_image roles.
+        # frame_images: Kling multi-shot. Explicit settings list OR last_frame.
         frames: list[dict[str, Any]] = []
         if unified_config.frame_images:
             for idx, fi in enumerate(unified_config.frame_images):
@@ -79,36 +89,30 @@ class TogetherVideoGeneration(BaseMediaGeneration):
                 if frame_url:
                     frames.append({"image": frame_url, "frame_number": idx})
         else:
-            end = pick_image_by_role(unified_config.messages, "end_image") or pick_image_by_role(
-                unified_config.messages, "last_frame_image"
-            )
+            end = first_of(refs, "last_frame")
             if end is not None:
-                frame_url = self._mediaref_url(end)
-                if frame_url:
-                    frames.append({"image": frame_url, "frame_number": -1})
+                frames.append({"image": _url(end, "Last frame"), "frame_number": -1})
         if frames:
             extra["frame_images"] = frames
 
-        refs: list[str] = []
-        # Prefer user-message-tagged refs first.
-        for r in iter_images_by_role(unified_config.messages, "reference"):
-            ref_url = self._mediaref_url(r)
-            if ref_url:
-                refs.append(ref_url)
-        if not refs:
-            for r in unified_config.image_inputs or []:
+        ref_urls = [_url(b, "Asset") for b in refs.get("asset") or []]
+        if not ref_urls:
+            for r in (unified_config.image_inputs or []) + (unified_config.reference_images or []):
                 ref_url = self._mediaref_url(r)
                 if ref_url:
-                    refs.append(ref_url)
-            for r in unified_config.reference_images or []:
-                ref_url = self._mediaref_url(r)
-                if ref_url:
-                    refs.append(ref_url)
-        if refs:
-            extra["reference_images"] = refs
+                    ref_urls.append(ref_url)
+        if ref_urls:
+            extra["reference_images"] = ref_urls
 
         params = self._outbound_params(profile.controls, unified_config, extra_canonical=extra)
         return {"model": unified_config.model, "prompt": prompt, **params}
+
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """Together videos: first frame (media.image), last frame
+        (frame_images -1), asset references. The catalog's per-offering
+        ``frame_images`` / ``reference_images`` support flags still apply;
+        the role limits on the offering say which the model takes."""
+        return frozenset({"first_frame", "last_frame", "asset"})
 
     def _telemetry_url(self, unified_config: UnifiedConfig, kwargs: dict[str, Any]) -> str:
         return "https://api.together.xyz/v1/videos/generations"

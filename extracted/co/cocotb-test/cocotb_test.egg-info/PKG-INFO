@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cocotb-test
-Version: 0.2.6
+Version: 0.3.0
 Home-page: 
 Author: Tomasz Hemperek
 Author-email: hemperek@uni-bonn.de
@@ -10,15 +10,26 @@ Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
 Classifier: Framework :: cocotb
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cocotb>=1.5
 Requires-Dist: pytest
 Requires-Dist: find_libpython
+Requires-Dist: packaging
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
 
 # cocotb-test
-[![Build Status](https://dev.azure.com/themperek/themperek/_apis/build/status/themperek.cocotb-test?branchName=master)](https://dev.azure.com/themperek/themperek/_build/latest?definitionId=2&branchName=master)
+[![CI](https://github.com/themperek/cocotb-test/actions/workflows/ci.yml/badge.svg)](https://github.com/themperek/cocotb-test/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/cocotb-test.svg)](https://badge.fury.io/py/cocotb-test)
 
 > [!NOTE]  
@@ -77,7 +88,7 @@ cocotb-clean -r
 * `toplevel`: Top level module name to indicate the instance in the hierarchy to use as the DUT. Multiple top levels can be specified as a list, if the simulator supports it.
 * `module`: The name of the module(s) to search for test functions (see [MODULE](https://docs.cocotb.org/en/stable/building.html?#envvar-MODULE) ).
 
-* `python_search` : List of additional directoreis to search for python/cocotb modules.
+* `python_search` : List of additional directories to search for python/cocotb modules.
 * `verilog_sources`: Verilog source files to include. Can be specified as a `list` or as a `dict` of `list`s with the library name as key, if the simulator supports named libraries.
 * `vhdl_sources`: VHDL source files to include. Can be specified as a `list` or as a `dict` of `list`s with the library name as key, if the simulator supports named libraries.
 * `toplevel_lang`: see [TOPLEVEL_LANG](https://docs.cocotb.org/en/stable/building.html?#var-TOPLEVEL_LANG). (default: `verilog`)

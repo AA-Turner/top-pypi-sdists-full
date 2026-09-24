@@ -206,18 +206,20 @@ class PsycopgConnector(connector.BaseAsyncConnector):
             if connection is not None
             else self.pool.connection()
         )
-        async with conn_ctx as conn:
-            async with conn.cursor(row_factory=psycopg.rows.dict_row) as cursor:
-                if self._json_loads:
-                    psycopg.types.json.set_json_loads(
-                        loads=self._json_loads, context=cursor
-                    )
+        async with (
+            conn_ctx as conn,
+            conn.cursor(row_factory=psycopg.rows.dict_row) as cursor,
+        ):
+            if self._json_loads:
+                psycopg.types.json.set_json_loads(
+                    loads=self._json_loads, context=cursor
+                )
 
-                if self._json_dumps:
-                    psycopg.types.json.set_json_dumps(
-                        dumps=self._json_dumps, context=cursor
-                    )
-                yield cursor
+            if self._json_dumps:
+                psycopg.types.json.set_json_dumps(
+                    dumps=self._json_dumps, context=cursor
+                )
+            yield cursor
 
     @wrap_exceptions()
     async def execute_query_async(self, query: LiteralString, **arguments: Any) -> None:
@@ -245,6 +247,22 @@ class PsycopgConnector(connector.BaseAsyncConnector):
             await cursor.execute(query, self._wrap_json(arguments))
 
             return await cursor.fetchall()
+
+    @wrap_exceptions()
+    async def execute_query_one_async_with_connection(
+        self,
+        connection: psycopg.AsyncConnection,
+        query: LiteralString,
+        **arguments: Any,
+    ) -> dict[str, Any]:
+        async with self._get_cursor(connection=connection) as cursor:
+            await cursor.execute(query, self._wrap_json(arguments))
+
+            result = await cursor.fetchone()
+
+            if result is None:
+                raise exceptions.NoResult
+            return result
 
     @wrap_exceptions()
     async def execute_query_all_async_with_connection(

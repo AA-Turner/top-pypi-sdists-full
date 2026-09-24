@@ -6,15 +6,15 @@ requires = [
 
 [dependency-groups]
 dev = [
-  {include-group = "lint"},
-  {include-group = "test"},
-  {include-group = "types"}
+  { include-group = "lint" },
+  { include-group = "test" },
+  { include-group = "types" }
 ]
 lint = [
-  {include-group = "pre-commit"}
+  { include-group = "pre-commit" }
 ]
 pre-commit = [
-  "prek==0.5.0"
+  "prek==0.5.3"
 ]
 test = [
   "pytest-cov==7.1.0",
@@ -24,7 +24,7 @@ test = [
   "jsonschema[format]"
 ]
 types = [
-  "ty==0.0.78"
+  "ty==0.0.83"
 ]
 
 [project]
@@ -59,7 +59,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate_schemas"
 requires-python = ">=3.10"
-version = "2026.8"
+version = "2026.9"
 
 [[project.authors]]
 email = "michal@weblate.org"

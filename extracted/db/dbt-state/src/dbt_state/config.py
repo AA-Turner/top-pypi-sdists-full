@@ -243,6 +243,7 @@ class RunCacheConfig:
     )
     disable_telemetry: bool = field(default_factory=lambda: DISABLE_TELEMETRY)
     dbt_project_id: t.Optional[str] = None
+    ignore_external_modifications: bool = False
 
     @classmethod
     def from_runtime_config(cls, config: RuntimeConfig) -> RunCacheConfig:
@@ -652,6 +653,15 @@ class RunCacheConfig:
         if value.lower() == "all":
             return shared_models.StaleUpstreamPolicy.ALL
         return shared_models.StaleUpstreamPolicy.ANY
+
+    def resolve_ignore_external_modifications(
+        self, node_config: t.Union[ModelConfig, SnapshotConfig, TestConfig]
+    ) -> bool:
+        value = self._get_node_config_state_value(node_config, "ignore_external_modifications")
+        if value is None:
+            return self.ignore_external_modifications
+
+        return to_bool(value)
 
     @property
     def defer_logging_enabled(self) -> bool:

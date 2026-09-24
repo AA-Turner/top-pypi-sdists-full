@@ -191,7 +191,7 @@ class Project:
     def get_datafile(self, filename: str) -> Optional[Datafile]:
         if filename.endswith(".pipe"):
             return self.get_pipe_datafile(filename)
-        elif filename.endswith(".datasource"):
+        if filename.endswith(".datasource"):
             return self.get_datasource_datafile(filename)
         return None
 
@@ -209,11 +209,11 @@ class Project:
             content = Path(path).read_text()
             if _PATTERN_TYPE_ENDPOINT.search(content):
                 return "endpoint"
-            elif _PATTERN_TYPE_MATERIALIZED.search(content):
+            if _PATTERN_TYPE_MATERIALIZED.search(content):
                 return "materialization"
-            elif _PATTERN_TYPE_COPY.search(content):
+            if _PATTERN_TYPE_COPY.search(content):
                 return "copy"
-            elif _PATTERN_TYPE_SINK.search(content):
+            if _PATTERN_TYPE_SINK.search(content):
                 return "sink"
             return "pipe"
         except Exception:

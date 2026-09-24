@@ -323,9 +323,48 @@ class GoogleTranslator(BaseTranslator):
             # only Google's broken request switch is omitted, and only for the exact
             # grounded+structured combination. Non-grounded requests keep native
             # structured output.
+            # The function declarations are built ONCE, here, because the
+            # structured-output switch below depends on them (see
+            # _native_schema_tool_conflict) and STEP 3 sends them.
+            raw_tools = self.build_provider_tools(config, "google")
+            reasoning_rule = profile.controls.rule_for("reasoning_effort")
+            is_gemini_3 = (
+                reasoning_rule.processor == "google_thinking"
+                and reasoning_rule.processor_config.get("mode") == "gemini_3"
+            )
             if config.response_format and not is_tts:
                 google_schema = self._build_google_response_schema(config.response_format)
-                if google_schema is not None:
+                tool_conflict = (
+                    self._native_schema_tool_conflict(raw_tools, is_gemini_3=is_gemini_3)
+                    if google_schema is not None
+                    else None
+                )
+                if google_schema is not None and tool_conflict is not None:
+                    # GOOGLE ADJUSTMENT — tools kept, native schema switch omitted.
+                    # The saved response_format stays on the unified config, so
+                    # extract_json, kind validation and STRUCTURED_OUTPUT still
+                    # enforce the contract on the answer; only Google's
+                    # constrained-decoding switch is left off, and the schema
+                    # rides the system instruction instead.
+                    vcprint(
+                        data={"model": profile.model_name, **tool_conflict},
+                        title=(
+                            f"⚠️  GOOGLE ADJUSTMENT [{profile.model_name}]: native "
+                            "structured output replaced by a JSON text contract — "
+                            f"{tool_conflict['reason']} Every tool is kept; the "
+                            "output contract is still enforced on the answer."
+                        ),
+                        color="yellow",
+                        verbose=True,
+                    )
+                    contract = self._tool_json_text_contract(google_schema)
+                    existing_system = generation_config_kwargs.get("system_instruction")
+                    generation_config_kwargs["system_instruction"] = (
+                        f"{str(existing_system).rstrip()}\n\n{contract}"
+                        if existing_system
+                        else contract
+                    )
+                elif google_schema is not None:
                     if config.internal_web_search:
                         grounded_json_contract = self._grounded_json_text_contract(
                             google_schema
@@ -360,8 +399,6 @@ class GoogleTranslator(BaseTranslator):
             # the loud fallback to the canonical request-prep gates). So for a
             # non-function-calling model config.tools is already empty here — no
             # per-provider tool guard is needed.
-            raw_tools = self.build_provider_tools(config, "google")
-
             tools_list: list[Any] = []
 
             # Function / custom tools (the agent's own tools, context tools, …).
@@ -375,11 +412,7 @@ class GoogleTranslator(BaseTranslator):
             # function tools). "Gemini 3 generation" is read from the DATA: the
             # offering's thinking rule runs the google_thinking processor in
             # gemini_3 mode — exactly the Gemini-3 dialect marker.
-            reasoning_rule = profile.controls.rule_for("reasoning_effort")
-            supports_builtin_plus_function = (
-                reasoning_rule.processor == "google_thinking"
-                and reasoning_rule.processor_config.get("mode") == "gemini_3"
-            )
+            supports_builtin_plus_function = is_gemini_3
             built_in_added = False
             if supports_builtin_plus_function or not raw_tools:
                 if config.internal_url_context:
@@ -440,6 +473,87 @@ class GoogleTranslator(BaseTranslator):
             "contents": contents,
             "config": generated_config,
         }
+
+    # Google's constrained decoder (switched on by response_json_schema) refuses a
+    # request whose function declaration names too many parameters, with a bare
+    # 400 "Request contains an invalid argument." and no field path. Measured
+    # 2026-09-22 on gemini-flash-latest and gemini-3.1-pro-preview against the
+    # `records` tool: 85 parameter names fail, its first 80 pass, the same 85
+    # split across two declarations pass, the same 85 with no response schema
+    # pass, and stripping every description or every type to STRING still fails
+    # — so it is the NAME COUNT per declaration, not keywords, depth or size.
+    # Google publishes no number; 64 sits safely under the measured edge, and
+    # the platform's next-largest tool (content_plan) names 46.
+    GEMINI_SCHEMA_TOOL_PARAM_BUDGET = 64
+
+    @staticmethod
+    def _count_param_names(schema: Any) -> int:
+        """Every property name in a declaration's parameter schema, at any depth."""
+        if not isinstance(schema, dict):
+            return 0
+        props = schema.get("properties")
+        total = 0
+        if isinstance(props, dict):
+            total += len(props)
+            total += sum(GoogleTranslator._count_param_names(v) for v in props.values())
+        total += GoogleTranslator._count_param_names(schema.get("items"))
+        for key in ("anyOf", "any_of"):
+            for member in schema.get(key) or []:
+                total += GoogleTranslator._count_param_names(member)
+        return total
+
+    @staticmethod
+    def _native_schema_tool_conflict(
+        declarations: list[dict[str, Any]] | None, *, is_gemini_3: bool
+    ) -> dict[str, Any] | None:
+        """Why Google will refuse native structured output beside these tools, or None.
+
+        Two measured refusals, both a 400 on the whole turn:
+        * Gemini before 3 rejects ANY function calling with a JSON response mime
+          type ("Function calling with a response mime type: 'application/json'
+          is unsupported" — gemini-2.5-flash and -pro, 2026-09-22).
+        * Gemini 3 rejects a declaration naming more than the constrained
+          decoder can hold (GEMINI_SCHEMA_TOOL_PARAM_BUDGET).
+        """
+        if not declarations:
+            return None
+        if not is_gemini_3:
+            return {
+                "reason": (
+                    "this Gemini generation rejects function calling together with "
+                    "a JSON response schema."
+                ),
+                "tools": [d.get("name") for d in declarations],
+            }
+        budget = GoogleTranslator.GEMINI_SCHEMA_TOOL_PARAM_BUDGET
+        oversize = {
+            str(d.get("name")): n
+            for d in declarations
+            if (n := GoogleTranslator._count_param_names(d.get("parameters"))) > budget
+        }
+        if not oversize:
+            return None
+        named = ", ".join(f"{name} ({n} parameters)" for name, n in oversize.items())
+        return {
+            "reason": (
+                f"Google refuses a response schema beside a tool naming more than "
+                f"{budget} parameters: {named}."
+            ),
+            "oversize_tools": oversize,
+            "budget": budget,
+        }
+
+    @staticmethod
+    def _tool_json_text_contract(schema: dict[str, Any]) -> str:
+        """The final-answer contract when the native schema switch cannot be sent."""
+        import json as _json
+
+        compact_schema = _json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
+        return f"""FINAL ANSWER FORMAT:
+Use your tools as needed. When you give your final answer, reply with exactly one fenced `json` object that conforms to the JSON Schema below, and nothing else: no prose before or after it, and no field omitted or truncated.
+
+JSON Schema:
+{compact_schema}"""
 
     # Markers the grounded-JSON containment wraps its payload in. The digest
     # before MATRX_JSON_BEGIN is what absorbs Google's dropped span; extract_json

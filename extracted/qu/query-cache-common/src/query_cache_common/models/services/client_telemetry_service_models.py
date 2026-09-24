@@ -14,6 +14,7 @@ from query_cache_common.models.converters import (
     struct_to_dict,
     timedelta_to_duration,
 )
+from query_cache_common.models.services.selector_service_models import SelectorCriteria
 
 
 @proto_dataclass(client_telemetry_service_pb2.SessionStartRequest)
@@ -81,6 +82,17 @@ class SessionEndRequest(BaseSerDeModel):
     )
 
 
+@proto_dataclass(client_telemetry_service_pb2.ClientSelectorEvent)
+class ClientSelectorEvent(BaseSerDeModel):
+    request_id: str
+    project_id: str
+    dbt_target: str
+    selector_criteria: SelectorCriteria
+    num_nodes: int
+    processing_time_ms: int
+    hash_calculation_time_ms: int
+
+
 @proto_dataclass(client_telemetry_service_pb2.ClientTelemetryEvent)
 class ClientTelemetryEvent(BaseSerDeModel):
     event_order: t.Optional[int] = None
@@ -88,6 +100,7 @@ class ClientTelemetryEvent(BaseSerDeModel):
     enriched_sql_prepared: t.Optional[ClientPrepareEnrichedSQLRequest] = None
     session_start: t.Optional[SessionStartRequest] = None
     session_end: t.Optional[SessionEndRequest] = None
+    client_selector_event: t.Optional[ClientSelectorEvent] = None
 
 
 @proto_dataclass(client_telemetry_service_pb2.SubmitTelemetryBatchRequest)

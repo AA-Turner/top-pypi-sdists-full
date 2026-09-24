@@ -89,11 +89,6 @@ public:
 
     virtual void set_visible(bool visible) noexcept override;
 
-private:
-    //! Tells the plot to re-read the colour scale; a gradient is applied to it too.
-    void _notify_plot(std::optional<::ColorGradient> gradient = std::nullopt);
-
-public:
 
     Q_SLOT virtual void set_data(SciQLopPyBuffer x, SciQLopPyBuffer y) override;
     virtual QList<SciQLopPyBuffer> data() const noexcept override;
@@ -122,8 +117,9 @@ public:
 #ifndef BINDINGS_H
     //! Follow a scale shared with other curves instead of the curve's own range and gradient.
     void set_color_scale(QCPColorScale* scale);
-    bool has_color_values() const;
-    std::optional<std::pair<double, double>> color_range(bool log) const;
+    void attach_color_scale(QCPColorScale* scale) override { set_color_scale(scale); }
+    bool has_color_values() const override;
+    std::optional<std::pair<double, double>> color_range(bool log) const override;
 #endif
 
     //! Applies to every component. Reads back the first one (1 when there is none).

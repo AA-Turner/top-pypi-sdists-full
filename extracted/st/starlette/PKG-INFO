@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: starlette
-Version: 1.6.0
+Version: 1.7.0
 Summary: The little ASGI library that shines.
 Project-URL: Homepage, https://github.com/Kludex/starlette
 Project-URL: Documentation, https://starlette.dev/
@@ -22,15 +22,17 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10
-Requires-Dist: anyio<5,>=3.6.2
+Requires-Dist: anyio<5,>=4.0.0
 Requires-Dist: typing-extensions>=4.10.0; python_version < '3.13'
 Provides-Extra: full
 Requires-Dist: httpx2>=2.0.0; extra == 'full'
 Requires-Dist: httpx<0.29.0,>=0.27.0; extra == 'full'
 Requires-Dist: itsdangerous; extra == 'full'
 Requires-Dist: jinja2; extra == 'full'
+Requires-Dist: opentelemetry-api; extra == 'full'
 Requires-Dist: python-multipart>=0.0.18; extra == 'full'
 Requires-Dist: pyyaml; extra == 'full'
 Description-Content-Type: text/markdown
@@ -73,7 +75,7 @@ It is production-ready, and gives you the following:
 * WebSocket support.
 * In-process background tasks.
 * Startup and shutdown events.
-* Test client built on `httpx`.
+* Test client built on `httpx2`.
 * CORS, GZip, Static Files, Streaming responses.
 * Session and Cookie support.
 * 100% test coverage.
@@ -124,6 +126,7 @@ Starlette only requires `anyio`, and the following are optional:
 
 * [`httpx2`][httpx2] - Required if you want to use the `TestClient`.
 * [`jinja2`][jinja2] - Required if you want to use `Jinja2Templates`.
+* [`opentelemetry-api`][opentelemetry-api] - Required for `OpenTelemetryMiddleware`.
 * [`python-multipart`][python-multipart] - Required if you want to support form parsing, with `request.form()`.
 * [`itsdangerous`][itsdangerous] - Required for `SessionMiddleware` support.
 * [`pyyaml`][pyyaml] - Required for `SchemaGenerator` support.
@@ -171,8 +174,9 @@ in isolation.
 [asgi]: https://asgi.readthedocs.io/en/latest/
 [httpx2]: https://pypi.org/project/httpx2/
 [jinja2]: https://jinja.palletsprojects.com/
+[opentelemetry-api]: https://opentelemetry.io/docs/languages/python/api/
 [python-multipart]: https://multipart.fastapiexpert.com/
 [itsdangerous]: https://itsdangerous.palletsprojects.com/
 [sqlalchemy]: https://www.sqlalchemy.org
 [pyyaml]: https://pyyaml.org/wiki/PyYAMLDocumentation
-[techempower]: https://www.techempower.com/benchmarks/#hw=ph&test=fortune&l=zijzen-sf
+[techempower]: https://github.com/TechEmpower/FrameworkBenchmarks

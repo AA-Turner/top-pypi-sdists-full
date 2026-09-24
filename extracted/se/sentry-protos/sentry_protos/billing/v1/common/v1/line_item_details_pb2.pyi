@@ -7,6 +7,7 @@ import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.billable_metric_pb2
+import sentry_protos.billing.v1.common.v1.line_item_tags_pb2
 import sentry_protos.billing.v1.common.v1.unit_info_pb2
 import typing
 
@@ -49,6 +50,7 @@ class LineItemDetails(google.protobuf.message.Message):
     BILLABLE_METRIC_FIELD_NUMBER: builtins.int
     LINE_ITEM_CATEGORY_FIELD_NUMBER: builtins.int
     INVOICE_DATA_FIELD_NUMBER: builtins.int
+    LINE_ITEM_TAGS_FIELD_NUMBER: builtins.int
     uid: builtins.str
     """Unique identifier for the line item."""
     customer_facing_name: builtins.str
@@ -75,6 +77,14 @@ class LineItemDetails(google.protobuf.message.Message):
     def invoice_data(self) -> global___InvoiceMetadataTags:
         """The invoice line item type strings for this line item."""
 
+    @property
+    def line_item_tags(self) -> sentry_protos.billing.v1.common.v1.line_item_tags_pb2.LineItemTags:
+        """Tags assigned to this line item.
+        A way to label a line item with semantic information about itself.
+        Anytime you find yourself wanting to hardcode a line item uid somewhere,
+        Add a line item tag instead
+        """
+
     def __init__(
         self,
         *,
@@ -85,8 +95,9 @@ class LineItemDetails(google.protobuf.message.Message):
         billable_metric: sentry_protos.billing.v1.common.v1.billable_metric_pb2.BillableMetric | None = ...,
         line_item_category: builtins.int = ...,
         invoice_data: global___InvoiceMetadataTags | None = ...,
+        line_item_tags: sentry_protos.billing.v1.common.v1.line_item_tags_pb2.LineItemTags | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "invoice_data", b"invoice_data", "units", b"units"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "customer_facing_name", b"customer_facing_name", "invoice_data", b"invoice_data", "line_item_category", b"line_item_category", "plural", b"plural", "uid", b"uid", "units", b"units"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "invoice_data", b"invoice_data", "line_item_tags", b"line_item_tags", "units", b"units"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["billable_metric", b"billable_metric", "customer_facing_name", b"customer_facing_name", "invoice_data", b"invoice_data", "line_item_category", b"line_item_category", "line_item_tags", b"line_item_tags", "plural", b"plural", "uid", b"uid", "units", b"units"]) -> None: ...
 
 global___LineItemDetails = LineItemDetails

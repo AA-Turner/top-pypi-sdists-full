@@ -2,12 +2,15 @@ import io
 import copy
 import pickle
 import tempfile
+import zlib
+from types import SimpleNamespace
 from fontTools.ttLib import TTFont, TTLibError
 from fontTools.ttLib.sfnt import (
     calcChecksum,
     SFNTDirectoryEntry,
     SFNTReader,
     sfntDirectorySize,
+    WOFFDirectoryEntry,
     WOFFFlavorData,
 )
 from pathlib import Path
@@ -120,6 +123,77 @@ def test_bogus_numTables_raises_TTLibError(ttfont_path):
     data[5] ^= 0xFF
     with pytest.raises(TTLibError, match="unexpected end of table directory"):
         TTFont(io.BytesIO(bytes(data)))
+
+
+# The WOFF decode path validated its (untrusted) sizes with bare assertions,
+# which raise the wrong exception and, under `python -O`, are dropped entirely,
+# so a corrupt WOFF was accepted with wrong-sized data. These mirror the
+# truncated-table-directory tests above for the WOFF-specific sites.
+
+
+def test_woff_table_bad_compressed_length_raises_TTLibError():
+    entry = WOFFDirectoryEntry()
+    entry.tag = "test"
+    # A compressed table must be smaller than its original size.
+    entry.length = 20
+    entry.origLength = 10
+    with pytest.raises(TTLibError, match="corrupt WOFF table 'test'"):
+        entry.decodeData(zlib.compress(b"A" * 10))
+
+
+def test_woff_table_decompressed_size_mismatch_raises_TTLibError():
+    payload = b"A" * 100
+    rawData = zlib.compress(payload)
+    entry = WOFFDirectoryEntry()
+    entry.tag = "test"
+    entry.length = len(rawData)
+    entry.origLength = len(payload) + 5  # lie about the original size
+    assert entry.length < entry.origLength
+    with pytest.raises(
+        TTLibError, match="unexpected size for decompressed WOFF table 'test'"
+    ):
+        entry.decodeData(rawData)
+
+
+def _woff_flavor_reader(**kwargs):
+    attrs = dict(
+        majorVersion=1,
+        minorVersion=0,
+        metaOffset=0,
+        metaLength=0,
+        metaOrigLength=0,
+        privOffset=0,
+        privLength=0,
+        file=io.BytesIO(b""),
+    )
+    attrs.update(kwargs)
+    return SimpleNamespace(**attrs)
+
+
+def test_woff_metadata_truncated_raises_TTLibError():
+    reader = _woff_flavor_reader(metaLength=100, file=io.BytesIO(b"short"))
+    with pytest.raises(TTLibError, match="unexpected end of WOFF metadata"):
+        WOFFFlavorData(reader)
+
+
+def test_woff_metadata_size_mismatch_raises_TTLibError():
+    meta = b"<metadata/>"
+    compressed = zlib.compress(meta)
+    reader = _woff_flavor_reader(
+        metaLength=len(compressed),
+        metaOrigLength=len(meta) + 3,  # lie about the uncompressed size
+        file=io.BytesIO(compressed),
+    )
+    with pytest.raises(
+        TTLibError, match="unexpected size for decompressed WOFF metadata"
+    ):
+        WOFFFlavorData(reader)
+
+
+def test_woff_privData_truncated_raises_TTLibError():
+    reader = _woff_flavor_reader(privLength=100, file=io.BytesIO(b"short"))
+    with pytest.raises(TTLibError, match="unexpected end of WOFF private data"):
+        WOFFFlavorData(reader)
 
 
 def test_ttLib_sfnt_write_privData(tmp_path, ttfont_path):

@@ -26,6 +26,7 @@ from .literals import (
     AdMarkerHlsType,
     CmafEncryptionMethodType,
     ContainerTypeType,
+    ContentKeyPeriodTimingType,
     CustomAdTypeType,
     DashAudioTimelinePatternType,
     DashCompactnessType,
@@ -46,6 +47,7 @@ from .literals import (
     ScteFilterType,
     ScteInManifestsType,
     ScteInSegmentsType,
+    SpekeVersionType,
     StreamNameOutputModeType,
     TsEncryptionMethodType,
     UriPathTypeType,
@@ -64,6 +66,7 @@ __all__ = (
     "CdnAuthConfigurationUnionTypeDef",
     "ChannelGroupListConfigurationTypeDef",
     "ChannelListConfigurationTypeDef",
+    "ContentKeyPeriodConfigurationTypeDef",
     "CreateChannelGroupRequestTypeDef",
     "CreateChannelGroupResponseTypeDef",
     "CreateChannelRequestTypeDef",
@@ -214,6 +217,9 @@ class ChannelGroupListConfigurationTypeDef(TypedDict):
 class MultiviewConfigurationOutputTypeDef(TypedDict):
     AvailableSources: list[str]
     AvailableLayouts: list[MultiviewLayoutTypeType]
+
+class ContentKeyPeriodConfigurationTypeDef(TypedDict):
+    ContentKeyPeriodTiming: NotRequired[ContentKeyPeriodTimingType]
 
 class CreateChannelGroupRequestTypeDef(TypedDict):
     ChannelGroupName: str
@@ -648,6 +654,8 @@ class SpekeKeyProviderOutputTypeDef(TypedDict):
     RoleArn: str
     Url: str
     CertificateArn: NotRequired[str]
+    SpekeVersion: NotRequired[SpekeVersionType]
+    ContentKeyPeriodConfiguration: NotRequired[ContentKeyPeriodConfigurationTypeDef]
 
 class SpekeKeyProviderTypeDef(TypedDict):
     EncryptionContractConfiguration: EncryptionContractConfigurationTypeDef
@@ -656,6 +664,8 @@ class SpekeKeyProviderTypeDef(TypedDict):
     RoleArn: str
     Url: str
     CertificateArn: NotRequired[str]
+    SpekeVersion: NotRequired[SpekeVersionType]
+    ContentKeyPeriodConfiguration: NotRequired[ContentKeyPeriodConfigurationTypeDef]
 
 class GetHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str

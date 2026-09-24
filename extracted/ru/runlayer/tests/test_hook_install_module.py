@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -4763,3 +4765,178 @@ def test_every_supported_client_resolves_to_a_scan_definition():
         if get_client_by_name(_CLIENT_SCAN_NAMES.get(client, client.value)) is None
     }
     assert unresolved == {}
+
+
+_BACKED_UP_CLIENTS = tuple(
+    client for client in iter_supported_clients() if client != Client.CLINE_CLI
+)
+
+
+def _seed_stale_backups(config_path: Path, count: int) -> list[Path]:
+    seeded = []
+    for day in range(1, count + 1):
+        stale = config_path.with_name(
+            f"{config_path.stem}.backup_2020010{day}_000000_000000{config_path.suffix}"
+        )
+        stale.write_text("stale")
+        seeded.append(stale)
+    return seeded
+
+
+def _backups_of(config_path: Path) -> list[Path]:
+    return sorted(
+        config_path.parent.glob(f"{config_path.stem}.backup_*{config_path.suffix}")
+    )
+
+
+def _mode_of(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+class TestConfigBackupRetention:
+    """Every third-party config the writers modify gets one change-gated,
+    bounded recovery copy beside it; Cline writes Runlayer-owned scripts only."""
+
+    @pytest.fixture(autouse=True)
+    def _user_home(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(paths_module.platform, "system", lambda: "Darwin")
+        for variable in ("COPILOT_HOME", "GROK_HOME", "QWEN_HOME", "CLINE_DIR"):
+            monkeypatch.delenv(variable, raising=False)
+
+    @staticmethod
+    def _third_party_config(client: Client) -> str:
+        if client == Client.HERMES:
+            return "third_party: true\n"
+        return '{"third_party": true}\n'
+
+    @staticmethod
+    def _install(client: Client) -> None:
+        install_client(
+            client,
+            scope=InstallScope.USER,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+    @pytest.mark.parametrize("client", _BACKED_UP_CLIENTS, ids=lambda c: c.value)
+    def test_changed_install_backs_up_once_and_unchanged_reinstall_does_not(
+        self, client
+    ):
+        config_path = config_path_for(client, InstallScope.USER)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        original = self._third_party_config(client)
+        config_path.write_text(original)
+
+        self._install(client)
+
+        [backup] = _backups_of(config_path)
+        assert backup.read_text() == original
+        assert config_path.read_text() != original
+
+        self._install(client)
+
+        assert _backups_of(config_path) == [backup]
+
+    @pytest.mark.parametrize("client", _BACKED_UP_CLIENTS, ids=lambda c: c.value)
+    def test_reinstall_prunes_stale_backups_to_retention_cap(self, client):
+        from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+        config_path = config_path_for(client, InstallScope.USER)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(self._third_party_config(client))
+        self._install(client)
+        [fresh] = _backups_of(config_path)
+        seeded = _seed_stale_backups(config_path, BACKUP_KEEP + 2)
+
+        self._install(client)
+
+        remaining = _backups_of(config_path)
+        assert len(remaining) == BACKUP_KEEP
+        assert fresh in remaining
+        assert remaining[:-1] == seeded[-(BACKUP_KEEP - 1) :]
+
+    def test_codex_features_toml_is_backed_up_and_bounded(self):
+        from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+        codex_dir = Path.home() / ".codex"
+        codex_dir.mkdir()
+        config_toml = codex_dir / "config.toml"
+        original = 'model = "gpt-5"\n'
+        config_toml.write_text(original)
+
+        self._install(Client.CODEX)
+
+        [backup] = _backups_of(config_toml)
+        assert backup.read_text() == original
+        assert "hooks = true" in config_toml.read_text()
+
+        seeded = _seed_stale_backups(config_toml, BACKUP_KEEP + 2)
+        self._install(Client.CODEX)
+
+        remaining = _backups_of(config_toml)
+        assert len(remaining) == BACKUP_KEEP
+        assert remaining[-1] == backup
+        assert remaining[:-1] == seeded[-(BACKUP_KEEP - 1) :]
+
+    def test_vscode_user_settings_is_backed_up_and_bounded(self):
+        from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+        settings_path = _vscode_user_settings_path(Path.home())
+        settings_path.parent.mkdir(parents=True)
+        original = '{"editor.fontSize": 14}\n'
+        settings_path.write_text(original)
+
+        self._install(Client.VSCODE)
+
+        [backup] = _backups_of(settings_path)
+        assert backup.read_text() == original
+        assert json.loads(settings_path.read_text())["editor.fontSize"] == 14
+
+        self._install(Client.VSCODE)
+        assert _backups_of(settings_path) == [backup]
+
+        seeded = _seed_stale_backups(settings_path, BACKUP_KEEP + 2)
+        self._install(Client.VSCODE)
+
+        remaining = _backups_of(settings_path)
+        assert len(remaining) == BACKUP_KEEP
+        assert remaining[-1] == backup
+        assert remaining[:-1] == seeded[-(BACKUP_KEEP - 1) :]
+
+    def test_first_install_without_existing_config_creates_no_backup(self):
+        for client in _BACKED_UP_CLIENTS:
+            config_path = config_path_for(client, InstallScope.USER)
+            self._install(client)
+            assert _backups_of(config_path) == [], client.value
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX modes")
+    @pytest.mark.parametrize(
+        "client", (Client.CURSOR, Client.CODEX), ids=lambda c: c.value
+    )
+    def test_private_hooks_config_keeps_mode_on_live_file_and_backup(self, client):
+        config_path = config_path_for(client, InstallScope.USER)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(self._third_party_config(client))
+        config_path.chmod(0o600)
+
+        self._install(client)
+
+        [backup] = _backups_of(config_path)
+        assert _mode_of(config_path) == 0o600
+        assert _mode_of(backup) == 0o600
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX modes")
+    @pytest.mark.parametrize("mode", (0o600, 0o644), ids=("private", "shared"))
+    def test_codex_features_toml_keeps_mode_and_backup_stays_private(self, mode):
+        codex_dir = Path.home() / ".codex"
+        codex_dir.mkdir()
+        config_toml = codex_dir / "config.toml"
+        config_toml.write_text('model = "gpt-5"\n')
+        config_toml.chmod(mode)
+
+        self._install(Client.CODEX)
+
+        [backup] = _backups_of(config_toml)
+        assert _mode_of(config_toml) == mode
+        assert _mode_of(backup) == 0o600

@@ -229,8 +229,7 @@ class Infrastructure:
 
     def create_infra(self, name: str, host: str, organization_id: str) -> Dict[str, Any]:
         """Create a new infrastructure."""
-        infra = self.client.infra_create(organization_id=organization_id, name=name, host=host)
-        return infra
+        return self.client.infra_create(organization_id=organization_id, name=name, host=host)
 
     def list_infras(self) -> None:
         """List all self-managed regions for the admin organization."""

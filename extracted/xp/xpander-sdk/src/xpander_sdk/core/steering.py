@@ -15,6 +15,8 @@ the model must not be able to tell which level a steer arrived at. Both repos ow
 the same test table.
 """
 
+import hashlib
+import hmac
 import inspect
 import secrets
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Union
@@ -52,13 +54,29 @@ STEERING_CONTRACT = (
 _STEER_KEYS: Dict[str, str] = {}
 
 
-def ensure_steer_key(execution_id: str) -> str:
-    """Mint (once) the per-run key that authenticates steer blocks to the model."""
+def ensure_steer_key(
+    execution_id: str, secret: Optional[str] = None, scope: Optional[str] = None
+) -> str:
+    """Mint (once) the key that authenticates steer blocks to the model.
+
+    With a *secret* the key is derived from it and *scope* (the conversation the
+    run's history is keyed on; the execution id when none is given), so every turn
+    of a conversation renders the same contract line and the cached system prefix
+    survives across turns and pods; a random per-run key here cost the whole system
+    block plus the history on every follow-up. Without a secret the key is random
+    per mint.
+    """
     if not execution_id:
         return ""
+    if secret:
+        key = hmac.new(
+            secret.encode(), f"steer:{scope or execution_id}".encode(), hashlib.sha256
+        ).hexdigest()[:32]
+    else:
+        key = secrets.token_hex(16)
     # setdefault keeps concurrent callers on ONE key; a split key would make the
     # contract disown the blocks we render ourselves.
-    return _STEER_KEYS.setdefault(execution_id, secrets.token_hex(16))
+    return _STEER_KEYS.setdefault(execution_id, key)
 
 
 def get_steer_key(execution_id: Optional[str]) -> str:
@@ -66,9 +84,11 @@ def get_steer_key(execution_id: Optional[str]) -> str:
     return _STEER_KEYS.get(execution_id or "", "")
 
 
-def steering_contract_block(execution_id: str) -> str:
+def steering_contract_block(
+    execution_id: str, secret: Optional[str] = None, scope: Optional[str] = None
+) -> str:
     """System-prompt paragraph that makes keyed steer blocks trusted."""
-    key = ensure_steer_key(execution_id)
+    key = ensure_steer_key(execution_id, secret, scope)
     return STEERING_CONTRACT.format(key=key) if key else ""
 
 

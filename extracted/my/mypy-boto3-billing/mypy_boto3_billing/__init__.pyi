@@ -13,6 +13,7 @@ Usage::
         BillingClient,
         Client,
         GetCreditAllocationHistoryPaginator,
+        ListBillingViewSegmentsPaginator,
         ListBillingViewsPaginator,
         ListEnterpriseSupportLinkedAccountChargesPaginator,
         ListSourceViewsForBillingViewPaginator,
@@ -22,6 +23,7 @@ Usage::
     client: BillingClient = session.client("billing")
 
     get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = client.get_paginator("get_credit_allocation_history")
+    list_billing_view_segments_paginator: ListBillingViewSegmentsPaginator = client.get_paginator("list_billing_view_segments")
     list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
     list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator("list_enterprise_support_linked_account_charges")
     list_source_views_for_billing_view_paginator: ListSourceViewsForBillingViewPaginator = client.get_paginator("list_source_views_for_billing_view")
@@ -31,6 +33,7 @@ Usage::
 from .client import BillingClient
 from .paginator import (
     GetCreditAllocationHistoryPaginator,
+    ListBillingViewSegmentsPaginator,
     ListBillingViewsPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
@@ -42,6 +45,7 @@ __all__ = (
     "BillingClient",
     "Client",
     "GetCreditAllocationHistoryPaginator",
+    "ListBillingViewSegmentsPaginator",
     "ListBillingViewsPaginator",
     "ListEnterpriseSupportLinkedAccountChargesPaginator",
     "ListSourceViewsForBillingViewPaginator",

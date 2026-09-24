@@ -57,8 +57,6 @@ const struct aws_byte_cursor g_sdk_checksum_algorithm_header_name =
     AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("x-amz-sdk-checksum-algorithm");
 const struct aws_byte_cursor g_accept_ranges_header_name = AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("accept-ranges");
 const struct aws_byte_cursor g_acl_header_name = AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("x-amz-acl");
-const struct aws_byte_cursor g_mp_parts_count_header_name =
-    AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("x-amz-mp-parts-count");
 const struct aws_byte_cursor g_post_method = AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("POST");
 const struct aws_byte_cursor g_head_method = AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("HEAD");
 const struct aws_byte_cursor g_delete_method = AWS_BYTE_CUR_INIT_FROM_STRING_LITERAL("DELETE");
@@ -757,6 +755,43 @@ int aws_s3_calculate_optimal_mpu_part_size_and_num_parts(
     return AWS_OP_SUCCESS;
 }
 
+bool aws_s3_allow_out_of_order_delivery(
+    bool file_sink,
+    bool callback_sink,
+    enum aws_tribool request_override,
+    enum aws_tribool client_setting,
+    enum aws_tribool env_setting) {
+
+    bool out_of_order;
+    if (file_sink) {
+        out_of_order = true;
+    } else if (callback_sink) {
+        out_of_order = false;
+    } else {
+        /* Either no sink at all (no client, so nothing is ever delivered), or a file sink whose
+         * per-worker descriptors were never allocated -- init skips them when the client or request
+         * ruled out-of-order delivery out. The latter must stay ordered: the parallel path indexes
+         * recv_file_write_fd_slots unconditionally, and the ordered path has its own descriptor. */
+        return false;
+    }
+
+    /* First preference expressed wins, and the environment is asked last. So an operator can change what
+     * a caller who expressed nothing gets, but cannot overrule one who asked -- a setting passed through
+     * the API means the caller's own code is built around that answer. */
+    enum aws_tribool preference = request_override;
+    if (preference == AWS_TRIBOOL_UNSET) {
+        preference = client_setting;
+    }
+    if (preference == AWS_TRIBOOL_UNSET) {
+        preference = env_setting;
+    }
+    if (preference != AWS_TRIBOOL_UNSET) {
+        out_of_order = preference == AWS_TRIBOOL_TRUE;
+    }
+
+    return out_of_order;
+}
+
 int aws_s3_crt_error_code_from_recoverable_server_error_code_string(struct aws_byte_cursor error_code_string) {
     if (aws_byte_cursor_eq_c_str_ignore_case(&error_code_string, "SlowDown")) {
         return AWS_ERROR_S3_SLOW_DOWN;
@@ -801,20 +836,12 @@ int aws_s3_check_headers_for_checksum(
     struct aws_s3_meta_request *meta_request,
     const struct aws_http_headers *headers,
     struct aws_s3_checksum **out_checksum,
-    struct aws_byte_buf *out_checksum_buffer,
-    bool meta_request_level) {
+    struct aws_byte_buf *out_checksum_buffer) {
     AWS_PRECONDITION(meta_request);
     AWS_PRECONDITION(out_checksum);
     AWS_PRECONDITION(out_checksum_buffer);
 
     if (!headers || aws_http_headers_count(headers) == 0) {
-        *out_checksum = NULL;
-        return AWS_OP_SUCCESS;
-    }
-    if (meta_request_level && aws_http_headers_has(headers, g_mp_parts_count_header_name)) {
-        /* g_mp_parts_count_header_name indicates it's a object was uploaded as a
-         * multipart upload. So, the checksum should not be applied to the meta request level.
-         * But we we want to check it for the request level. */
         *out_checksum = NULL;
         return AWS_OP_SUCCESS;
     }

@@ -1113,6 +1113,22 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             user_message=message,
         )
 
+    # A message flag this model cannot honour, under the org's `refuse` mode
+    # (e.g. a Prefill on Claude Sonnet 5). Refused before any provider call;
+    # retrying the same agent cannot change the answer, and the sentence names
+    # the model and the three remedies.
+    from matrx_ai.config.message_flags import MessageFlagRefusal
+
+    if isinstance(exception, MessageFlagRefusal):
+        message = exception.user_message or str(exception)
+        return RetryableError(
+            error_type=exception.code,
+            message=message,
+            is_retryable=False,
+            details={"exception": type(exception).__qualname__, "provider": provider},
+            user_message=message,
+        )
+
     # Catalog routing fails before a provider request can start. It is a
     # deterministic platform configuration error, so retrying cannot help and
     # calling it an ``unknown_error`` hides the exact model/offering defect.

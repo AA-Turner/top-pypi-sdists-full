@@ -154,7 +154,6 @@ class OpenAIChat:
         """Execute OpenAI TTS request via client.audio.speech.create."""
         from matrx_ai.catalog.resolve import resolve_tts_voice
         from matrx_ai.config.dictionary_config import apply_tts_dictionary
-
         from matrx_ai.speech.compile import compile_openai, find_speech_script
 
         tts = unified_config.tts_voice_config
@@ -230,102 +229,117 @@ class OpenAIChat:
             speech_kwargs["speed"] = speed
         response = await self.client.audio.speech.create(**speech_kwargs)
 
-        audio_bytes = response.content
-
-        mime_map = {
-            "mp3": "audio/mpeg",
-            "opus": "audio/opus",
-            "aac": "audio/aac",
-            "flac": "audio/flac",
-            "wav": "audio/wav",
-            "pcm": "audio/pcm",
-        }
-        mime_type = mime_map.get(audio_format, "audio/mpeg")
-
-        # Phase 2c — envelope path so the FE gets file_id +
-        # durable URLs + canonical MediaGenerationMetadata
-        # for OpenAI TTS just like ElevenLabs.
-        from matrx_ai.media import save_media_envelope_async
-        from matrx_ai.media.generation_metadata import map_tts_audio_response
-
-        gen_meta = map_tts_audio_response(
-            provider="openai",
-            model=model,
-            prompt=input_text[:4096],
-            voice=voice,
-            audio_format=audio_format,
+        # ── Paid call returned. Storage retries alone; nothing below may
+        # re-buy the audio (matrx_ai.providers.paid_output). ──
+        from matrx_ai.config.usage_config import build_character_billed_usage_async
+        from matrx_ai.providers.paid_output import (
+            mark_failed_after_paid_call,
+            store_paid_output,
         )
-        envelope = await save_media_envelope_async(
-            content=audio_bytes,
-            mime_type=mime_type,
-            audio_format=audio_format,
-            prompt=input_text,
-            model=model,
-            provider="openai",
-            feature="ai_audio",
-            extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
-        )
-
-        audio_content = AudioContent(
-            url=envelope.url,
-            file_id=envelope.file_id,
-            mime_type=mime_type,
-            file_size=envelope.size_bytes,
-            duration_ms=envelope.duration_ms,
-            metadata={"generation": gen_meta.model_dump(exclude_none=True)},
-        )
-        msg = UnifiedMessage(role="assistant", content=[audio_content])
 
         # Bill by characters actually sent (post-dictionary) — the speech
-        # endpoint returns raw bytes with no usage object. Basis-aware: a
-        # character_input model bills the chars; a token-priced model with no
-        # usage (gpt-4o-mini-tts) is flagged loudly rather than billed $0 silently.
-        from matrx_ai.config.usage_config import build_character_billed_usage_async
-
+        # endpoint returns raw bytes with no usage object. Built BEFORE storage
+        # so a storage failure still records the spend (once).
         usage = await build_character_billed_usage_async(
             characters=len(input_text),
             matrx_model_name=matrx_model_name,
             provider_model_name=model,
             api="openai",
         )
+        try:
+            audio_bytes = response.content
 
-        unified_response = UnifiedResponse(messages=[msg], usage=usage)
-        if script is not None:
-            from matrx_ai.speech.compile import attach_script_to_audio
+            mime_map = {
+                "mp3": "audio/mpeg",
+                "opus": "audio/opus",
+                "aac": "audio/aac",
+                "flac": "audio/flac",
+                "wav": "audio/wav",
+                "pcm": "audio/pcm",
+            }
+            mime_type = mime_map.get(audio_format, "audio/mpeg")
 
-            attach_script_to_audio(unified_response, unified_config)
+            # Phase 2c — envelope path so the FE gets file_id +
+            # durable URLs + canonical MediaGenerationMetadata
+            # for OpenAI TTS just like ElevenLabs.
+            from matrx_ai.media import save_media_envelope_async
+            from matrx_ai.media.generation_metadata import map_tts_audio_response
 
-        from matrx_connect.context.data_types import MediaBlockData
-        from matrx_connect.context.media_block import cloud_file_to_media_block
+            gen_meta = map_tts_audio_response(
+                provider="openai",
+                model=model,
+                prompt=input_text[:4096],
+                voice=voice,
+                audio_format=audio_format,
+            )
+            envelope = await store_paid_output(
+                lambda: save_media_envelope_async(
+                    content=audio_bytes,
+                    mime_type=mime_type,
+                    audio_format=audio_format,
+                    prompt=input_text,
+                    model=model,
+                    provider="openai",
+                    feature="ai_audio",
+                    extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+                ),
+                provider="openai",
+                modality="audio",
+                usage=usage,
+            )
 
-        synthetic_record = {
-            "id": envelope.file_id,
-            "storage_uri": envelope.storage_uri,
-            "file_path": envelope.file_path,
-            "file_name": envelope.file_name,
-            "mime_type": envelope.mime_type or mime_type,
-            "size_bytes": envelope.size_bytes,
-            "visibility": envelope.visibility,
-            "duration_ms": envelope.duration_ms,
-            "metadata": {"generation": gen_meta.model_dump(exclude_none=True)},
-        }
-        url_set = {
-            "url": envelope.url,
-            "cdn_url": envelope.cdn_url,
-            "download_url": envelope.download_url,
-        }
-        await emitter.send_data(
-            MediaBlockData(
-                block=cloud_file_to_media_block(
-                    synthetic_record,
-                    url_set=url_set,
-                    kind_override="audio",
+            audio_content = AudioContent(
+                url=envelope.url,
+                file_id=envelope.file_id,
+                mime_type=mime_type,
+                file_size=envelope.size_bytes,
+                duration_ms=envelope.duration_ms,
+                metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+            )
+            msg = UnifiedMessage(role="assistant", content=[audio_content])
+
+            unified_response = UnifiedResponse(messages=[msg], usage=usage)
+            if script is not None:
+                from matrx_ai.speech.compile import attach_script_to_audio
+
+                attach_script_to_audio(unified_response, unified_config)
+
+            from matrx_connect.context.data_types import MediaBlockData
+            from matrx_connect.context.media_block import cloud_file_to_media_block
+
+            synthetic_record = {
+                "id": envelope.file_id,
+                "storage_uri": envelope.storage_uri,
+                "file_path": envelope.file_path,
+                "file_name": envelope.file_name,
+                "mime_type": envelope.mime_type or mime_type,
+                "size_bytes": envelope.size_bytes,
+                "visibility": envelope.visibility,
+                "duration_ms": envelope.duration_ms,
+                # The live event carries EXACTLY the persisted part's metadata
+                # (generation + speech_script), so live and reload render alike.
+                "metadata": dict(audio_content.metadata or {}),
+            }
+            url_set = {
+                "url": envelope.url,
+                "cdn_url": envelope.cdn_url,
+                "download_url": envelope.download_url,
+            }
+            await emitter.send_data(
+                MediaBlockData(
+                    block=cloud_file_to_media_block(
+                        synthetic_record,
+                        url_set=url_set,
+                        kind_override="audio",
+                    )
                 )
             )
-        )
-        await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
-        return unified_response
+            return unified_response
+        except Exception as exc:
+            mark_failed_after_paid_call(exc, provider="openai", modality="audio", usage=usage)
+            raise
 
     async def _execute_non_streaming(
         self,

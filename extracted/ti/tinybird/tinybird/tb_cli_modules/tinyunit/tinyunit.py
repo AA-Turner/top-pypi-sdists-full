@@ -102,18 +102,18 @@ class TestResult:
     def status(self) -> Status:
         if len(self.data) > 0:
             return FAILED
-        elif self.error:
+        if self.error:
             return Status.build_error_with_msg(self.error)
-        elif (
+        if (
             self.max_bytes_read is not None
             and self.max_elapsed_time is not None
             and self.read_bytes > self.max_bytes_read
             and self.elapsed_time > self.max_elapsed_time
         ):
             return PASS_OVER_TIME_AND_READ_BYTES
-        elif self.max_bytes_read is not None and self.read_bytes > self.max_bytes_read:
+        if self.max_bytes_read is not None and self.read_bytes > self.max_bytes_read:
             return PASS_OVER_READ_BYTES
-        elif self.max_elapsed_time is not None and self.elapsed_time > self.max_elapsed_time:
+        if self.max_elapsed_time is not None and self.elapsed_time > self.max_elapsed_time:
             return PASS_OVER_TIME
         return PASS
 

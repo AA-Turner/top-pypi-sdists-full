@@ -517,7 +517,7 @@ async def datasource_delete_rows(
                             )
                         )
                         break
-                    elif res["status"] == "error":
+                    if res["status"] == "error":
                         print("\n")  # noqa: T201
                         raise CLIDatasourceException(FeedbackManager.error_exception(error=res["error"]))
                     await asyncio.sleep(1)

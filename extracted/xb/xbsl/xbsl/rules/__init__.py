@@ -45,6 +45,7 @@ from . import (  # noqa: F401
     readonly_targets,
     ref_fields,
     repetitions,
+    resource_labels,
     resources,
     return_mismatch,
     statement_no_effect,
@@ -140,3 +141,5 @@ from . import platform_translation_shadow  # noqa: F401
 from . import procedure_value  # noqa: F401
 
 from . import contract_parameters  # noqa: F401
+
+from . import deprecated_project  # noqa: F401

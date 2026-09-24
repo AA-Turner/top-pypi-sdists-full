@@ -1,20 +1,15 @@
 Metadata-Version: 2.4
 Name: django-test-migrations
-Version: 1.6.0
+Version: 1.7.0
 Summary: Test django schema and data migrations, including ordering
 License-Expression: MIT
 License-File: LICENSE
 Keywords: django,django-migrations,django-orm,django-tests,migrations,orm,pytest,pytest-plugin,sql,test,tests
 Author: sobolevn
 Author-email: mail@sobolevn.me
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.1
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Django :: 6.1
@@ -23,7 +18,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: typing-extensions (>=4.16)
 Project-URL: Repository, https://github.com/wemake-services/django-test-migrations
 Description-Content-Type: text/markdown
 
@@ -44,7 +38,7 @@ Description-Content-Type: text/markdown
 - Allows to test the migrations order
 - Allows to test migration names
 - Allows to test database configuration
-- Fully typed with annotations and checked with `mypy`, [PEP561 compatible](https://www.python.org/dev/peps/pep-0561/)
+- Fully typed with annotations and checked with `mypy`, [PEP561 compatible](https://peps.python.org/pep-0561/)
 - Easy to start: has lots of docs, tests, and tutorials
 
 Read the [announcing post](https://sobolevn.me/2019/10/testing-django-migrations).
@@ -59,10 +53,9 @@ pip install django-test-migrations
 
 We support several `django` versions:
 
-- `3.2`
-- `4.1`
-- `4.2`
-- `5.0`
+- `5.2`
+- `6.0`
+- `6.1`
 
 Other versions most likely will work too,
 but they are not officially supported.
@@ -297,7 +290,7 @@ pytest -m "not migration_test"  # Runs all except migration tests
 #### unittest
 
 `django_test_migrations` adds `migration_test`
-[tag](https://docs.djangoproject.com/en/3.0/topics/testing/tools/#tagging-tests)
+[tag](https://docs.djangoproject.com/en/stable/topics/testing/tools/#tagging-tests)
 to every `MigratorTestCase` subclass.
 To run only migrations tests, use `--tag` option:
 

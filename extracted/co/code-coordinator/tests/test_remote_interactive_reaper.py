@@ -246,7 +246,7 @@ class TestReapStaleRemoteInteractiveSessions:
         cfg = _load_config(_CONFIG_YAML_WITH_REMOTE)
 
         with patch("coord.interactive._probe_remote_tmux_alive") as mock_probe, \
-             patch("coord.interactive._get_local_short_hostname",
+             patch("coord.config._local_short_hostname",
                    return_value="localmachine"):
             reaped = reap_stale_remote_interactive_sessions(board, cfg)
 

@@ -35,6 +35,7 @@ mod grammar;
 mod input;
 mod lexed_str;
 mod output;
+mod plpgsql_grammar;
 mod shortcuts;
 mod syntax_kind;
 mod token_set;
@@ -151,19 +152,31 @@ impl CompletedMarker {
     }
 }
 
-pub fn parse(input: &Input) -> Output {
-    let mut p = Parser::new(input);
-    // 2. lex tokens to event vec via parser aka actually run the parser code,
-    // it calls the methods on the parser to create a vector of events
-    grammar::entry_point(&mut p);
-    let events = p.finish();
-    // 3. forward parents
-    event::process(events)
+#[derive(Clone, Copy, Debug)]
+pub enum EntryPoint {
+    SourceFile,
+    Plpgsql,
+}
+
+impl EntryPoint {
+    pub fn parse(&self, input: &Input) -> Output {
+        let mut p = Parser::new(input);
+        // 2. lex tokens to event vec via parser aka actually run the parser code,
+        // it calls the methods on the parser to create a vector of events
+        match self {
+            Self::SourceFile => grammar::entry_point(&mut p),
+            Self::Plpgsql => plpgsql_grammar::plpgsql_entry_point(&mut p),
+        }
+        let events = p.finish();
+        // 3. forward parents
+        event::process(events)
+    }
 }
 
 pub(crate) struct Parser<'t> {
     inp: &'t Input,
     pos: usize,
+    limit: usize,
     events: Vec<Event>,
     steps: Cell<u32>,
 }
@@ -203,9 +216,37 @@ impl<'t> Parser<'t> {
         Parser {
             inp,
             pos: 0,
+            limit: usize::MAX,
             events: vec![],
             steps: Cell::new(0),
         }
+    }
+
+    // Part of a hack to support pl/pgsql loops where we have to stop at `loop`
+    pub(crate) fn with_limit<T>(&mut self, n: usize, f: impl FnOnce(&mut Parser<'t>) -> T) -> T {
+        let limit = self.limit;
+        self.limit = limit.min(self.pos + n);
+        let res = f(self);
+        self.limit = limit;
+        res
+    }
+
+    fn kind_at(&self, idx: usize) -> SyntaxKind {
+        if idx >= self.limit {
+            return SyntaxKind::EOF;
+        }
+        self.inp.kind(idx)
+    }
+
+    fn contextual_kind_at(&self, idx: usize) -> SyntaxKind {
+        if idx >= self.limit {
+            return SyntaxKind::EOF;
+        }
+        self.inp.contextual_kind(idx)
+    }
+
+    fn is_joint_at(&self, idx: usize) -> bool {
+        idx + 1 < self.limit && self.inp.is_joint(idx)
     }
 
     /// Consume the next token if `kind` matches.
@@ -219,6 +260,8 @@ impl<'t> Parser<'t> {
             | SyntaxKind::NEQB
             | SyntaxKind::LTEQ
             | SyntaxKind::FAT_ARROW
+            | SyntaxKind::LESS_LESS
+            | SyntaxKind::GREATER_GREATER
             | SyntaxKind::GTEQ => 2,
             SyntaxKind::SIMILAR_TO => {
                 let m = self.start();
@@ -459,24 +502,23 @@ impl<'t> Parser<'t> {
     }
 
     fn at_composite2(&self, n: usize, k1: SyntaxKind, k2: SyntaxKind, triva: TrivaBetween) -> bool {
-        let tokens_match =
-            self.inp.kind(self.pos + n) == k1 && self.inp.kind(self.pos + n + 1) == k2;
+        let tokens_match = self.kind_at(self.pos + n) == k1 && self.kind_at(self.pos + n + 1) == k2;
         // We need to do this so we can say that:
         // 1 > > 2, is not the same as 1 >> 2
         match triva {
             TrivaBetween::Allowed => tokens_match,
             TrivaBetween::NotAllowed => {
                 return tokens_match
-                    && self.inp.is_joint(self.pos + n)
+                    && self.is_joint_at(self.pos + n)
                     && self.next_not_joined_op_at(n, n + 1);
             }
         }
     }
 
     fn at_composite3(&self, n: usize, k1: SyntaxKind, k2: SyntaxKind, k3: SyntaxKind) -> bool {
-        self.inp.kind(self.pos + n) == k1
-            && self.inp.kind(self.pos + n + 1) == k2
-            && self.inp.kind(self.pos + n + 2) == k3
+        self.kind_at(self.pos + n) == k1
+            && self.kind_at(self.pos + n + 1) == k2
+            && self.kind_at(self.pos + n + 2) == k3
     }
 
     fn at_composite4(
@@ -487,10 +529,10 @@ impl<'t> Parser<'t> {
         k3: SyntaxKind,
         k4: SyntaxKind,
     ) -> bool {
-        self.inp.kind(self.pos + n) == k1
-            && self.inp.kind(self.pos + n + 1) == k2
-            && self.inp.kind(self.pos + n + 2) == k3
-            && self.inp.kind(self.pos + n + 3) == k4
+        self.kind_at(self.pos + n) == k1
+            && self.kind_at(self.pos + n + 1) == k2
+            && self.kind_at(self.pos + n + 2) == k3
+            && self.kind_at(self.pos + n + 3) == k4
     }
 
     fn next_not_joined_op(&self) -> bool {
@@ -506,7 +548,7 @@ impl<'t> Parser<'t> {
             return true;
         }
         // current kind isn't joined
-        if !self.inp.is_joint(self.pos + n) {
+        if !self.is_joint_at(self.pos + n) {
             return true;
         }
         self.op_len_at(start) == n + 1 - start
@@ -523,7 +565,7 @@ impl<'t> Parser<'t> {
 
         let mut len = 1;
         let mut has_special = self.nth_at_ts(start, SPECIAL_OP_CHARS);
-        while self.inp.is_joint(self.pos + start + len - 1)
+        while self.is_joint_at(self.pos + start + len - 1)
             && self.nth_at_ts(start + len, OPERATOR_FIRST)
         {
             has_special |= self.nth_at_ts(start + len, SPECIAL_OP_CHARS);
@@ -568,6 +610,27 @@ impl<'t> Parser<'t> {
             return;
         }
         self.do_bump(kind, 1);
+    }
+
+    /// Advances the parser by one token, remapping its kind.
+    /// This is useful to create contextual keywords from
+    /// identifiers.
+    pub(crate) fn bump_remap(&mut self, kind: SyntaxKind) {
+        if self.nth(0) == SyntaxKind::EOF {
+            // FIXME: panic!?
+            return;
+        }
+        self.do_bump(kind, 1);
+    }
+
+    /// Checks if the current token is contextual keyword `kw`.
+    pub(crate) fn at_contextual_kw(&self, kw: SyntaxKind) -> bool {
+        self.contextual_kind_at(self.pos) == kw
+    }
+
+    /// Checks if the nth token is contextual keyword `kw`.
+    pub(crate) fn nth_at_contextual_kw(&self, n: usize, kw: SyntaxKind) -> bool {
+        self.contextual_kind_at(self.pos + n) == kw
     }
 
     /// Consume the next token if it is `kind` or emit an error
@@ -637,6 +700,18 @@ impl<'t> Parser<'t> {
     #[must_use]
     pub(crate) fn nth_at_ts(&self, n: usize, kinds: TokenSet) -> bool {
         kinds.contains(self.nth(n))
+    }
+
+    /// Checks if the nth token is a contextual keyword in `kinds`.
+    #[must_use]
+    pub(crate) fn nth_at_contextual_ts(&self, n: usize, kinds: TokenSet) -> bool {
+        kinds.contains(self.nth_contextual_kind(n))
+    }
+
+    /// The contextual keyword kind of the nth token.
+    #[must_use]
+    pub(crate) fn nth_contextual_kind(&self, n: usize) -> SyntaxKind {
+        self.contextual_kind_at(self.pos + n)
     }
 
     #[must_use]
@@ -883,6 +958,20 @@ impl<'t> Parser<'t> {
                 SyntaxKind::EQ,
                 TrivaBetween::NotAllowed,
             ),
+            // << used for PL/pgSQL
+            SyntaxKind::LESS_LESS => self.at_composite2(
+                n,
+                SyntaxKind::L_ANGLE,
+                SyntaxKind::L_ANGLE,
+                TrivaBetween::NotAllowed,
+            ),
+            // >>
+            SyntaxKind::GREATER_GREATER => self.at_composite2(
+                n,
+                SyntaxKind::R_ANGLE,
+                SyntaxKind::R_ANGLE,
+                TrivaBetween::NotAllowed,
+            ),
             SyntaxKind::CUSTOM_OP => {
                 // TODO: is this right?
                 if self.at_ts(OPERATOR_FIRST) {
@@ -891,7 +980,7 @@ impl<'t> Parser<'t> {
                 return false;
             }
             // TODO: we probably shouldn't be using a _ for this but be explicit for each type?
-            _ => self.inp.kind(self.pos + n) == kind,
+            _ => self.kind_at(self.pos + n) == kind,
         }
     }
 
@@ -914,6 +1003,6 @@ impl<'t> Parser<'t> {
         );
         self.steps.set(steps + 1);
 
-        self.inp.kind(self.pos + n)
+        self.kind_at(self.pos + n)
     }
 }

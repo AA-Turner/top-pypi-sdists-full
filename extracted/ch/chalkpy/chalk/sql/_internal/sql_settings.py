@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import TYPE_CHECKING, Mapping
 
 from chalk.sql._internal.incremental import IncrementalSettings
@@ -46,3 +47,17 @@ class SQLResolverSettings:
     """Set by `-- source: chalksql`. The query targets no external datasource: the engine compiles it
     into a logical plan with its own SQL compiler."""
     retry_policy: SQLResolverRetryPolicy | None = None
+
+    max_row_version_lookback: timedelta | None = None
+    """Set by ``-- max_row_version_lookback:``, asserting a fact about the source table that the
+    planner cannot derive: for any observation time ``t``, if a key has any row at or before
+    ``t``, then the most recent such row is at or after ``t - max_row_version_lookback``.
+
+    This is what licenses bounding the resolver's feature time from *below*. Without it a key's
+    latest row version may be arbitrarily old, so a correct as-of lookup has to scan all history.
+    Note the guarantee covers the trailing edge too: if the upstream pipeline stops writing, the
+    latest row for a key eventually falls outside the window and the assertion no longer holds.
+
+    Chalk looks back exactly this far and adds no margin of its own, so size it to include any
+    tolerable delay in the pipeline that populates the table.
+    """

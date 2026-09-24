@@ -1,0 +1,1 @@
+import{p as e}from"./utils-CRVOceX-.js";import{n as t,t as n}from"./StackComponentList-BsF6WRSX.js";var r=e();function i(){return(0,r.jsx)(`div`,{className:`pt-5`,children:(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})})}export{i as default};

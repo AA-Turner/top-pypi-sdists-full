@@ -33,6 +33,23 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import Any
 
+CLI_ECOSYSTEM_PACKAGES = frozenset({"functools", "click_extra", "cloup", "click"})
+"""Top-level packages that never implement the *user's* CLI.
+
+`functools` shows up as the intermediate frames a `@cached_property` adds; the
+other three are the Click ecosystem itself. A frame belonging to one of them
+is plumbing between a stack walk and the CLI that declared it, so both
+{meth}`click_extra.version.VersionOption.cli_frame` and the deprecation
+`stacklevel` walk in `_deprecated.py` step over them, and
+{attr}`click_extra.version.VersionOption.module` and
+{attr}`click_extra.version.VersionOption.module_version` read landing on one
+as a failed walk. Those three exempt a module
+{func}`click_extra.version.is_main_module` recognizes, since an entry point is
+never plumbing, whichever package it sits under. The `stacklevel` walk needs no
+such exemption: it reads a frame's own `__name__`, which an entry point sets to
+`__main__`, already outside this set.
+"""
+
 
 def generator_tag() -> str:
     """Provenance tag for generated artifacts: `Click Extra <version>`.

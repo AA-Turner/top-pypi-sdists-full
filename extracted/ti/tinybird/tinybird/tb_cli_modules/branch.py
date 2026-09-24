@@ -264,8 +264,7 @@ async def release_rm(semver: str, oldest_rollback: bool, force: bool, yes: bool,
         if not oldest_rollback_semver:
             click.echo(FeedbackManager.info_release_no_rollback())
             return
-        else:
-            semver = oldest_rollback_semver
+        semver = oldest_rollback_semver
     await print_release_summary(config, semver, info=True, dry_run=dry_run)
     if dry_run or yes or click.confirm(FeedbackManager.warning_confirm_delete_release(semver=semver)):
         try:

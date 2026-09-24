@@ -1,1 +1,0 @@
-function e(e,t=24){return`https://avatar.vercel.sh/${e}?size=${t}`}function t(e){function t(e){let t=0;for(let n=0;n<e.length;n++)t=t*31+e.charCodeAt(n)>>>0;return t}return t(e)%49+1}function n(e){return`https://public-flavor-logos.s3.eu-central-1.amazonaws.com/projects/${t(e)}.jpg`}export{n,e as r,t};

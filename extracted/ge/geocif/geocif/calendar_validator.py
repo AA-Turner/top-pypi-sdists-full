@@ -28,8 +28,12 @@ Outputs, under ``{dir_output}/calendar_validation/{today}/``::
     skips.csv              every unscored region and why
     models/                four-target comparison: design_matrix, predictions,
                            metrics (with skill vs the climatology null and a
-                           bootstrap interval), cv_schemes (with the duplicate-
-                           row leakage per scheme), model_failures
+                           bootstrap interval, plus the Franch et al. 2022
+                           comparables: R2, calibration line, debiased RMSE,
+                           60-day blunder share), consistency (season order and
+                           length across the four predicted days), cv_schemes
+                           (with the duplicate-row leakage per scheme),
+                           model_failures
     plots/, maps/, csvs/   per-region diagnostics and difference maps, each
                            with a companion CSV
     run_manifest.json      versions, targets, feature groups, column_scheme = 2
@@ -110,6 +114,11 @@ class CalendarValidator(base.BaseGeo):
         self.block_degrees = float(self._get("block_degrees", cv.DEFAULT_BLOCK_DEGREES))
         self.seed = self._getint("seed", 0)
         self.encodings = self._getlist("target_encodings", models.ENCODINGS)
+        # {scheme: [models]} -- run only these models under that scheme. Lets
+        # leave-one-country-out (145 folds) run for the cheap models without
+        # paying 30+ hours for tabpfn/tabicl on it.
+        raw = self._get("cv_scheme_models")
+        self.scheme_models = dict(ast.literal_eval(raw)) if raw not in (None, "") else {}
 
         self.make_plots = self._getbool("make_plots", True)
         # Deliberately NOT named `crops`/`countries`: both already exist in
@@ -333,6 +342,8 @@ def run(path_config_files):
     table.add_row("Targets", ", ".join(features.TARGETS))
     table.add_row("Encodings", ", ".join(obj.encodings))
     table.add_row("CV schemes", ", ".join(obj.cv_schemes))
+    if obj.scheme_models:
+        table.add_row("Scheme-limited", "; ".join(f"{k}: {', '.join(v)}" for k, v in obj.scheme_models.items()))
     table.add_row("Features", f"{len(features.FEATURE_NAMES)} in {len(features.FEATURE_GROUPS)} groups")
     table.add_row("Figures", str(obj.make_plots))
     table.add_row("Output", str(out_dir))
@@ -376,6 +387,7 @@ def run(path_config_files):
                 "column_scheme": 2,
                 "targets": list(features.TARGETS),
                 "target_encodings": list(obj.encodings),
+                "cv_scheme_models": {k: list(v) for k, v in obj.scheme_models.items()},
                 "feature_groups": {k: len(v) for k, v in features.FEATURE_GROUPS.items()},
                 "n_features": len(features.FEATURE_NAMES),
                 "doy_convention": obj.convention,
@@ -443,10 +455,15 @@ def run(path_config_files):
             seed=obj.seed,
             n_splits=obj.n_splits,
             block_degrees=obj.block_degrees,
+            scheme_models=obj.scheme_models,
         )
         design.to_csv(model_dir / "design_matrix.csv", index=False)
         evaluation.predictions.to_csv(model_dir / "predictions.csv", index=False)
         evaluation.metrics.to_csv(model_dir / "metrics.csv", index=False)
+        # Cross-target consistency: the four days are predicted independently,
+        # so whether they land in season order with a plausible season length
+        # is a property of the model, not of any one target.
+        evaluation.consistency.to_csv(model_dir / "consistency.csv", index=False)
         # Always written, even empty: an absent file is ambiguous, and a stale
         # one is worse than either.
         pd.DataFrame({"failure": evaluation.failures}).to_csv(

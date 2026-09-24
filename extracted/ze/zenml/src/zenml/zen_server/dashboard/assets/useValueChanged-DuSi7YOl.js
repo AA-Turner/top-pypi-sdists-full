@@ -1,0 +1,1 @@
+import{i as e}from"./rolldown-runtime-Dd_uD5pT.js";import{m as t}from"./utils-CRVOceX-.js";import{n,t as r}from"./useStableCallback-CGstSMP_.js";var i=e(t());function a(e,t){let a=i.useRef(e),o=r(t);n(()=>{a.current!==e&&o(a.current)},[e,o]),n(()=>{a.current=e},[e])}export{a as t};

@@ -242,5 +242,8 @@ class TestRedirectAllowlist:
         ]
         assert not bare, f"bare-apex redirect URLs are never matched: {bare}"
 
-    def test_site_url_uses_www(self, auth):
-        assert auth["site_url"] == "https://www.inno.day"
+    def test_site_url_is_the_new_ui(self, auth):
+        """The fallback for an unlisted redirect_to lands on innoday-ui, not on
+        the old Python /ui. `www`, not the apex: the apex still serves WordPress
+        until its ALIAS is resolved (see #764)."""
+        assert auth["site_url"] == "https://www.havilandsoftware.com"

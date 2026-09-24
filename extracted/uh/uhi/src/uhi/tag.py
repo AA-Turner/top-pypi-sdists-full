@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import copy
+import sys
 import typing
 from typing import Any
+
+if sys.version_info < (3, 11):
+    from typing_extensions import Self
+else:
+    from typing import Self
 
 from .typing.plottable import PlottableAxis
 
@@ -13,9 +19,6 @@ def __dir__() -> list[str]:
     return __all__
 
 
-T = typing.TypeVar("T", bound="Locator")
-
-
 class Locator:
     __slots__ = ("offset",)
     NAME = ""
@@ -23,16 +26,16 @@ class Locator:
     def __init__(self, offset: int = 0) -> None:
         if not isinstance(offset, int):
             msg = "The offset must be an integer"  # type: ignore[unreachable]
-            raise ValueError(msg)
+            raise TypeError(msg)
 
         self.offset = offset
 
-    def __add__(self: T, offset: int) -> T:
+    def __add__(self, offset: int) -> Self:
         other = copy.copy(self)
         other.offset += offset
         return other
 
-    def __sub__(self: T, offset: int) -> T:
+    def __sub__(self, offset: int) -> Self:
         other = copy.copy(self)
         other.offset -= offset
         return other
@@ -108,7 +111,12 @@ class rebin:
     divisible by n, the remainder is added to the overflow bin.
     """
 
+    __slots__ = ("factor",)
+
     def __init__(self, factor: int) -> None:
+        if not isinstance(factor, int):
+            msg = "The factor must be an integer"  # type: ignore[unreachable]
+            raise TypeError(msg)
         # Items with .factor are specially treated in boost-histogram,
         # performing a high performance rebinning
         self.factor = factor

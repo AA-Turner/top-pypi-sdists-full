@@ -51,7 +51,7 @@ CON
     MAVLINK_SIGNATURE_BLOCK_LEN = 13
 
     MAVLINK_IFLAG_SIGNED = $01
-    LITTLE_ENDIAN = ${little_endian}
+    LITTLE_ENDIAN = True
     PROTOCOL_MARKER = ${protocol_marker}
     MAVLINK_PAYLOAD_SIZE = 255
     MAVLINK_BUF_LEN = 280
@@ -505,10 +505,10 @@ PUB newPacket()
     parse_state := PARSE_STATE_IDLE
     inPacket~
     payloadIndex~
-	
+
 PUB getPacket(): packetAddr
-	packetAddr := @inPacket
-	return packetAddr
+    packetAddr := @inPacket
+    return packetAddr
 
 PUB parse_char(c)
     CASE_FAST parse_state
@@ -756,10 +756,7 @@ def generate(basename, xml):
 
     for m in msgs:
         m.fielddefaults = []
-        if xml[0].little_endian:
-            m.fmtstr = "<"
-        else:
-            m.fmtstr = ">"
+        m.fmtstr = "<"
         m.native_fmtstr = m.fmtstr
         m.instance_field = None
         
@@ -780,7 +777,7 @@ def generate(basename, xml):
             m.len_map[n] = m.fieldlengths[i]
 
     print("Generating %s" % filename)
-    outf = open(filename, "w")
+    outf = open(filename, "w", encoding='utf-8')
     dialect = xml[0].filename
     dialect = dialect[dialect.rindex("/")+1:-4]  # remove .xml; we don't use os.sep here it's jank
     xml = xml[0].__dict__
@@ -793,6 +790,6 @@ def generate(basename, xml):
     print("Generated %s OK" % filename)
     # generates a handler skeleton
     handlername = filename[:-6] + "_handler.spin2"
-    outf = open(handlername, "w")   
+    outf = open(handlername, "w", encoding='utf-8')   
     generate_case(outf, msgs, dialect)
     generate_handler(outf, msgs)

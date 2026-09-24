@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["fastecdsa-rs-core", "fastecdsa-py-bindings"]
+
+[workspace.dependencies]
+crypto-bigint = { version = "0.7.5", features = ["alloc"] }
+crypto-primes = "0.7.2"
+num-bigint = "0.4"

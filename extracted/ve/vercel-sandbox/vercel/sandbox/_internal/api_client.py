@@ -47,6 +47,7 @@ from vercel.sandbox._internal.models import (
     DriveMountsInput,
     JSONObject,
     JSONValue,
+    NetworkIdUpdate,
     NetworkPolicy,
     PrivateSandboxParameters,
     ProcessLog,
@@ -149,6 +150,7 @@ class _SandboxCreationOverridesRequest(_ApiRequestModel):
     resources: SandboxResources | None = None
     persistent: bool | None = None
     network_policy: NetworkPolicy | None = Field(default=None, serialization_alias="networkPolicy")
+    network_id: str | None = Field(default=None, serialization_alias="networkId")
     env: dict[str, str] | None = None
     tags: dict[str, str] | None = None
     mounts: dict[str, JSONObject] | None = None
@@ -201,6 +203,7 @@ class _UpdateSandboxRequest(_ApiRequestModel):
     resources: SandboxResources | None = None
     persistent: bool | None = None
     network_policy: NetworkPolicy | None = Field(default=None, serialization_alias="networkPolicy")
+    network_id: str | None = Field(default=None, serialization_alias="networkId")
     env: dict[str, str] | None = None
     tags: dict[str, str] | None = None
     mounts: dict[str, JSONObject] | None = None
@@ -378,6 +381,11 @@ class _RuntimeSessionPayload(_ApiModel):
         validation_alias=AliasChoices("execution_time_limit", "timeout"),
         serialization_alias="timeout",
     )
+    network_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("network_id", "networkId"),
+        serialization_alias="networkId",
+    )
     network_policy: JSONValue | None = Field(
         default=None,
         validation_alias=AliasChoices("network_policy", "networkPolicy"),
@@ -441,6 +449,11 @@ class _SandboxPayload(_ApiModel):
         default=None,
         validation_alias=AliasChoices("execution_time_limit", "timeout"),
         serialization_alias="timeout",
+    )
+    network_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("network_id", "networkId"),
+        serialization_alias="networkId",
     )
     network_policy: JSONValue | None = Field(
         default=None,
@@ -651,6 +664,7 @@ class _SandboxResponse(_ApiModel):
                 "vcpus",
                 "execution_time_limit",
                 "network_policy",
+                "network_id",
             ):
                 if getattr(payload, name) is None:
                     updates[name] = getattr(session, name)
@@ -760,6 +774,7 @@ def _runtime_session_state(payload: _RuntimeSessionPayload) -> SandboxRuntimeSes
         vcpus=payload.vcpus,
         execution_time_limit=parse_duration(payload.execution_time_limit, MILLISECOND),
         network_policy=_parse_response_network_policy(payload.network_policy),
+        network_id=payload.network_id,
         requested_at=payload.requested_at,
         started_at=payload.started_at,
         stopped_at=payload.stopped_at,
@@ -792,6 +807,7 @@ def _sandbox_state(
         vcpus=payload.vcpus,
         execution_time_limit=parse_duration(payload.execution_time_limit, MILLISECOND),
         network_policy=_parse_response_network_policy(payload.network_policy),
+        network_id=payload.network_id,
         snapshot_expiration=parse_duration(payload.snapshot_expiration, MILLISECOND),
         snapshot_retention=(
             None
@@ -1046,6 +1062,7 @@ class SandboxApiClient:
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: str | None = None,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1077,6 +1094,7 @@ class SandboxApiClient:
             resources=resources,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=dict(env) if env is not None else None,
             tags=dict(tags) if tags is not None else None,
             mounts=serialized_mounts,
@@ -1139,6 +1157,7 @@ class SandboxApiClient:
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: str | None = None,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1159,6 +1178,7 @@ class SandboxApiClient:
             resources=resources,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=env,
             tags=tags,
             mounts=mounts,
@@ -1183,6 +1203,7 @@ class SandboxApiClient:
         image: str | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: str | None = None,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1210,6 +1231,7 @@ class SandboxApiClient:
             image=image,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=dict(env) if env is not None else None,
             tags=dict(tags) if tags is not None else None,
             mounts=serialized_mounts,
@@ -1292,13 +1314,17 @@ class SandboxApiClient:
         *,
         name: str,
         project_id: str | None = None,
+        delete_orphan_snapshots: bool = False,
     ) -> SandboxState:
         credentials = await self._credentials_factory()
         data = await self._request_json(
             "DELETE",
             format_url_path("v2/sandboxes/{name}", name=name),
             credentials=credentials,
-            params={"projectId": project_id or credentials.project_id},
+            params={
+                "projectId": project_id or credentials.project_id,
+                "deleteOrphanSnapshots": "true" if delete_orphan_snapshots else None,
+            },
         )
         return _validate_response(_SandboxResponse, data).to_sandbox()
 
@@ -1312,6 +1338,7 @@ class SandboxApiClient:
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: NetworkIdUpdate = _OMITTED,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1335,6 +1362,7 @@ class SandboxApiClient:
             resources=resources,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=None if isinstance(network_id, _Omitted) else network_id,
             env=dict(env) if env is not None else None,
             tags=dict(tags) if tags is not None else None,
             mounts=serialized_mounts,
@@ -1344,6 +1372,8 @@ class SandboxApiClient:
             failover_regions=None if failover_regions is None else list(failover_regions),
         )
         body = request.to_api_dict()
+        if not isinstance(network_id, _Omitted):
+            body["networkId"] = network_id
         if not isinstance(snapshot_retention, _Omitted):
             body["keepLastSnapshots"] = (
                 None if snapshot_retention is None else snapshot_retention.to_api_dict()
@@ -1512,20 +1542,30 @@ class SandboxApiClient:
         project_id: str | None = None,
         max_size_bytes: int | None = None,
         region: str | None = None,
-    ) -> DriveState:
+    ) -> tuple[DriveState, bool]:
         credentials = await self._credentials_factory()
         request = _GetOrCreateDriveRequest(
             project_id=project_id or credentials.project_id,
             max_size_bytes=max_size_bytes,
             region=region,
         )
-        data = await self._request_json(
+        response = await self._request(
             "POST",
             format_url_path("v2/sandboxes/drives/{name}", name=name),
             credentials=credentials,
-            body=request.to_api_dict(),
+            body=JSONBody(request.to_api_dict()),
+            headers={"content-type": "application/json"},
         )
-        return _validate_response(_DriveResponse, data).to_drive()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise SandboxResponseError(
+                "Sandbox API response body could not be decoded as JSON"
+            ) from exc
+        if not isinstance(data, dict):
+            raise SandboxResponseError("Sandbox API response must be a JSON object", data=data)
+        drive = _validate_response(_DriveResponse, cast(JSONObject, data)).to_drive()
+        return drive, response.status_code == 201
 
     async def query_drives(
         self,

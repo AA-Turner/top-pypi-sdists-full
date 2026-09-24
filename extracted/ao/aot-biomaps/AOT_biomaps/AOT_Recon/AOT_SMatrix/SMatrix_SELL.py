@@ -348,6 +348,7 @@ class SMatrix_SELL(SMatrix):
         To be executed on the compute node (e.g., H100) before run().
         """       
         print(f"[AOT-biomaps] Direct-to-GPU loading of SMatrix from {filepath}...")
+        self.load_module()
         data = np.load(filepath)
         
         # 1. Restore metadata

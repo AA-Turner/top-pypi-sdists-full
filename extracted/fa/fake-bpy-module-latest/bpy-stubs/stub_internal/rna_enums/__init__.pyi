@@ -385,6 +385,9 @@ type ColorSetsItems = typing.Literal[
 type ColorSpaceConvertDefaultItems = typing.Literal[
     "NONE",  # None.Do not perform any color transform on load, treat colors as in scene linear space already.
 ]
+type ColorSpaceInteropIdDefaultItems = typing.Literal[
+    "NONE",  # None.The color space has no interop ID.
+]
 type ConstraintTypeItems = typing.Literal[
     "CAMERA_SOLVER",  # Camera Solver.
     "FOLLOW_TRACK",  # Follow Track.

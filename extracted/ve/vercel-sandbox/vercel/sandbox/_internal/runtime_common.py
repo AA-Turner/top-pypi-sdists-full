@@ -23,7 +23,6 @@ from vercel.sandbox._internal.models import (
     SandboxStatus,
     _WriteFile,
 )
-from vercel.sandbox._internal.recovery import SandboxRecoveryTarget
 from vercel.sandbox._internal.state import (
     DriveState,
     ProcessState,
@@ -410,6 +409,11 @@ class RuntimeSessionHandleBase:
         return self._payload.network_policy
 
     @property
+    def network_id(self) -> str | None:
+        """Secure Compute network connected to this sandbox."""
+        return self._payload.network_id
+
+    @property
     def requested_at(self) -> int | None:
         return self._payload.requested_at
 
@@ -542,6 +546,11 @@ class SandboxHandleBase(Generic[RuntimeSessionHandleT]):
         return self._payload.network_policy
 
     @property
+    def network_id(self) -> str | None:
+        """Secure Compute network connected to this sandbox."""
+        return self._payload.network_id
+
+    @property
     def snapshot_expiration(self) -> timedelta | None:
         return self._payload.snapshot_expiration
 
@@ -656,30 +665,8 @@ class SandboxHandleBase(Generic[RuntimeSessionHandleT]):
         ):
             self._apply_payload(sandbox)
 
-    def _capture_recovery_target(self) -> SandboxRecoveryTarget:
-        session = self._current_session
-        if session is not None and session.id != self.current_session_id:
-            session = None
-        return SandboxRecoveryTarget(session_id=self.current_session_id, session=session)
-
-    def _apply_recovery_session_payload(
-        self,
-        target: SandboxRecoveryTarget,
-        payload: SandboxRuntimeSessionState,
-    ) -> None:
-        """Refresh an old bound session without replacing a newer current session."""
-        if payload.id != target.session_id:
-            raise SandboxResponseError(
-                "Sandbox recovery poll returned a different session identity",
-                data=payload,
-            )
-        target_session = target.session
-        if target_session is not None:
-            assert isinstance(target_session, RuntimeSessionHandleBase)
-            target_session._apply_payload(payload)
-        if self.current_session_id == target.session_id:
-            if self._current_session is not target_session:
-                self._apply_current_session_payload(payload)
+    def _capture_recovery_session_id(self) -> str:
+        return self.current_session_id
 
     def _write_files_cwd(self, cwd: RemotePath | None) -> str:
         if self.current_session is not None and self.current_session.cwd is not None:

@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     ApplicationTypeType,
+    BillingDomainType,
     BillingFeatureType,
     BillingViewStatusReasonType,
     BillingViewStatusType,
@@ -50,6 +51,10 @@ __all__ = (
     "BillingViewElementTypeDef",
     "BillingViewHealthStatusTypeDef",
     "BillingViewListElementTypeDef",
+    "BillingViewSegmentTimeRangeOutputTypeDef",
+    "BillingViewSegmentTimeRangeTypeDef",
+    "BillingViewSegmentTimeRangeUnionTypeDef",
+    "BillingViewSegmentsListElementTypeDef",
     "ChargeAccountTypeDef",
     "ContractAccountTypeDef",
     "CostCategoryValuesOutputTypeDef",
@@ -84,6 +89,9 @@ __all__ = (
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
     "LinkedAccountChargeTypeDef",
+    "ListBillingViewSegmentsRequestPaginateTypeDef",
+    "ListBillingViewSegmentsRequestTypeDef",
+    "ListBillingViewSegmentsResponseTypeDef",
     "ListBillingViewsRequestPaginateTypeDef",
     "ListBillingViewsRequestTypeDef",
     "ListBillingViewsResponseTypeDef",
@@ -152,6 +160,10 @@ class BillingPreferenceForKeyTypeDef(TypedDict):
 class BillingViewHealthStatusTypeDef(TypedDict):
     statusCode: NotRequired[BillingViewStatusType]
     statusReasons: NotRequired[list[BillingViewStatusReasonType]]
+
+class BillingViewSegmentTimeRangeOutputTypeDef(TypedDict):
+    beginDateInclusive: NotRequired[datetime]
+    endDateExclusive: NotRequired[datetime]
 
 class ChargeAccountTypeDef(TypedDict):
     accountId: str
@@ -265,6 +277,10 @@ class ActiveTimeRangeTypeDef(TypedDict):
     activeAfterInclusive: TimestampTypeDef
     activeBeforeInclusive: TimestampTypeDef
 
+class BillingViewSegmentTimeRangeTypeDef(TypedDict):
+    beginDateInclusive: NotRequired[TimestampTypeDef]
+    endDateExclusive: NotRequired[TimestampTypeDef]
+
 class GetCreditAllocationHistoryRequestTypeDef(TypedDict):
     accountId: str
     startDate: TimestampTypeDef
@@ -373,6 +389,13 @@ class BillingViewListElementTypeDef(TypedDict):
     billingViewType: NotRequired[BillingViewTypeType]
     healthStatus: NotRequired[BillingViewHealthStatusTypeDef]
 
+class BillingViewSegmentsListElementTypeDef(TypedDict):
+    domain: NotRequired[BillingDomainType]
+    timeRange: NotRequired[BillingViewSegmentTimeRangeOutputTypeDef]
+    billingTransferAccountId: NotRequired[str]
+    managementAccountId: NotRequired[str]
+    billingGroupPrimaryAccountId: NotRequired[str]
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -448,6 +471,10 @@ class ListBillingViewsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+BillingViewSegmentTimeRangeUnionTypeDef = Union[
+    BillingViewSegmentTimeRangeTypeDef, BillingViewSegmentTimeRangeOutputTypeDef
+]
+
 class ExpressionTypeDef(TypedDict):
     dimensions: NotRequired[DimensionValuesTypeDef]
     tags: NotRequired[TagValuesTypeDef]
@@ -476,6 +503,11 @@ class GetBillingPreferencesResponseTypeDef(TypedDict):
 
 class ListBillingViewsResponseTypeDef(TypedDict):
     billingViews: list[BillingViewListElementTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListBillingViewSegmentsResponseTypeDef(TypedDict):
+    items: list[BillingViewSegmentsListElementTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -531,6 +563,17 @@ class GetEnterpriseSupportContractDetailsResponseTypeDef(TypedDict):
     additionalSupportEligibleUsageSpend: list[AdditionalChargeTypeDef]
     pricingPlans: list[PricingPlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListBillingViewSegmentsRequestPaginateTypeDef(TypedDict):
+    timeRange: NotRequired[BillingViewSegmentTimeRangeUnionTypeDef]
+    arn: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListBillingViewSegmentsRequestTypeDef(TypedDict):
+    timeRange: NotRequired[BillingViewSegmentTimeRangeUnionTypeDef]
+    arn: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 ExpressionUnionTypeDef = Union[ExpressionTypeDef, ExpressionOutputTypeDef]
 

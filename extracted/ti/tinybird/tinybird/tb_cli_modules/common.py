@@ -35,7 +35,6 @@ from packaging.version import Version
 from tinybird.client import (
     AuthException,
     AuthNoTokenException,
-    DoesNotExistException,
     JobException,
     OperationCanNotBePerformed,
     TinyB,
@@ -194,6 +193,7 @@ class AliasedGroup(click.Group):
         cm = click.Group.get_command(self, ctx, cmd_name)
         if cm is not None:
             return cm
+        return None
 
     def resolve_command(self, ctx, args):
         # always return the command's name, not the alias
@@ -454,6 +454,7 @@ def ask_for_region_interactively(regions):
             available_options = ", ".join(map(str, range(1, len(regions) + 1)))
             click.echo(FeedbackManager.error_region_index(host_index=region_index, available_options=available_options))
             region_index = -1
+    return None
 
 
 def get_region_info(ctx, region=None):
@@ -728,9 +729,8 @@ async def create_workspace_branch(
             job_response = await wait_job(config.get_client(), job_id, job_url, "Branch creation")
             if job_response is None:
                 raise CLIException(f"Empty job API response (job_id: {job_id}, job_url: {job_url})")
-            else:
-                response = job_response.get("result", {})
-                is_summary = "partitions" in response
+            response = job_response.get("result", {})
+            is_summary = "partitions" in response
 
         await switch_workspace(config, branch_name, only_environments=True)
         if is_summary and (bool(last_partition) or bool(all)):
@@ -757,10 +757,8 @@ async def print_branch_regression_tests_summary(client, job_id, host, response=N
         if isinstance(metric, float):
             if is_percentage:
                 return f"{round(metric, 3):+} %"
-            else:
-                return f"{round(metric, 3)} seconds"
-        else:
-            return metric
+            return f"{round(metric, 3)} seconds"
+        return metric
 
     failed = False
     response = await client.job(job_id) if job_id else response or {"progress": []}
@@ -979,24 +977,6 @@ async def push_data(
     if not url:
         raise CLIException(FeedbackManager.error_missing_url(datasource=datasource_name))
 
-    def cb(res):
-        if cb.First:  # type: ignore[attr-defined]
-            blocks_to_process = len([x for x in res["block_log"] if x["status"] == "idle"])
-            if blocks_to_process:
-                cb.bar = click.progressbar(label=FeedbackManager.info_progress_blocks(), length=blocks_to_process)  # type: ignore[attr-defined]
-                cb.bar.update(0)  # type: ignore[attr-defined]
-                cb.First = False  # type: ignore[attr-defined]
-                cb.blocks_to_process = blocks_to_process  # type: ignore[attr-defined]
-        else:
-            done = len([x for x in res["block_log"] if x["status"] == "done"])
-            if done * 2 > cb.blocks_to_process:  # type: ignore[attr-defined]
-                cb.bar.label = FeedbackManager.info_progress_current_blocks()  # type: ignore[attr-defined]
-            cb.bar.update(done - cb.prev_done)  # type: ignore[attr-defined]
-            cb.prev_done = done  # type: ignore[attr-defined]
-
-    cb.First = True  # type: ignore[attr-defined]
-    cb.prev_done = 0  # type: ignore[attr-defined]
-
     click.echo(FeedbackManager.info_starting_import_process())
 
     if isinstance(url, list):
@@ -1006,18 +986,16 @@ async def push_data(
 
     async def process_url(
         datasource_name: str, url: str, mode: str, sql_condition: Optional[str], replace_options: Optional[Set[str]]
-    ):
+    ) -> str:
         parsed = urlparse(url)
-        # Remote URL imports retain the v0 API; local files use v1 body imports.
         is_remote_url = parsed.scheme in ("http", "https")
         # poor man's format detection
         _format = get_format_from_filename_or_url(url)
         if is_remote_url:
-            res = await client.datasource_create_from_url(
+            res = await client.datasource_append_url(
                 datasource_name,
                 url,
                 mode=mode,
-                status_callback=cb,
                 sql_condition=sql_condition,
                 format=_format,
                 replace_options=replace_options,
@@ -1032,77 +1010,33 @@ async def push_data(
                 replace_options=replace_options,
             )
 
-        if not is_remote_url:
-            job_id = res.get("id") or res.get("import_id")
-            if not isinstance(job_id, str):
-                raise CLIException("We couldn't confirm that your import started. Please try again.")
-            return job_id
-
-        datasource_name = res["datasource"]["name"]
-        try:
-            datasource = await client.get_datasource(datasource_name)
-        except DoesNotExistException:
-            raise CLIException(FeedbackManager.error_datasource_does_not_exist(datasource=datasource_name))
-        except Exception as e:
-            raise CLIException(FeedbackManager.error_exception(error=str(e)))
-
-        total_rows = (datasource.get("statistics", {}) or {}).get("row_count", 0)
-        appended_rows = 0
-        parser = None
-
-        if res.get("error"):
-            raise CLIException(FeedbackManager.error_exception(error=res["error"]))
-        if res.get("errors"):
-            raise CLIException(FeedbackManager.error_exception(error=res["errors"]))
-        if res.get("blocks"):
-            for block in res["blocks"]:
-                if "process_return" in block and block["process_return"] is not None:
-                    process_return = block["process_return"][0]
-                    parser = process_return["parser"] if process_return.get("parser") else parser
-                    if parser and parser != "clickhouse":
-                        parser = process_return["parser"]
-                        appended_rows += process_return["lines"]
-
-        return parser, total_rows, appended_rows
+        job_id = res.get("id") or res.get("import_id")
+        if not isinstance(job_id, str):
+            raise CLIException("We couldn't confirm that your import started. Please try again.")
+        return job_id
 
     try:
         tasks = [process_url(datasource_name, url, mode, sql_condition, replace_options) for url in urls]
-        output = await gather_with_concurrency(concurrency, *tasks)
-        v1_job_ids = [result for result in output if isinstance(result, str)]
-        if v1_job_ids:
-            if not wait:
-                return v1_job_ids
-            for job_id in v1_job_ids:
-                await wait_job_no_ui(client, job_id)
-            datasource = await client.get_datasource(datasource_name)
-            total_rows = (datasource.get("statistics", {}) or {}).get("row_count", 0)
-            click.echo(FeedbackManager.success_total_rows(datasource=datasource_name, total_rows=total_rows))
-            if mode == "replace":
-                click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
-            else:
-                click.echo(FeedbackManager.success_appended_datasource(datasource=datasource_name))
-            click.echo(FeedbackManager.success_progress_blocks())
-            click.echo(FeedbackManager.info_data_pushed(datasource=datasource_name))
-            return None
-        parser, total_rows, appended_rows = list(output)[-1]
+        job_ids = list(await gather_with_concurrency(concurrency, *tasks))
+        if not wait:
+            return job_ids
+        for job_id in job_ids:
+            await wait_job_no_ui(client, job_id)
+        datasource = await client.get_datasource(datasource_name)
+        total_rows = (datasource.get("statistics", {}) or {}).get("row_count", 0)
+        click.echo(FeedbackManager.success_total_rows(datasource=datasource_name, total_rows=total_rows))
+        if mode == "replace":
+            click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
+        else:
+            click.echo(FeedbackManager.success_appended_datasource(datasource=datasource_name))
+        click.echo(FeedbackManager.success_progress_blocks())
+        click.echo(FeedbackManager.info_data_pushed(datasource=datasource_name))
     except AuthNoTokenException:
         raise
     except OperationCanNotBePerformed as e:
         raise CLIException(FeedbackManager.error_operation_can_not_be_performed(error=e))
     except Exception as e:
         raise CLIException(FeedbackManager.error_exception(error=e))
-    else:
-        click.echo(FeedbackManager.success_progress_blocks())
-        if mode == "append" and parser and parser != "clickhouse":
-            click.echo(FeedbackManager.success_appended_rows(appended_rows=appended_rows))
-
-        click.echo(FeedbackManager.success_total_rows(datasource=datasource_name, total_rows=total_rows))
-
-        if mode == "replace":
-            click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
-        else:
-            click.echo(FeedbackManager.success_appended_datasource(datasource=datasource_name))
-        click.echo(FeedbackManager.info_data_pushed(datasource=datasource_name))
 
     return None
 
@@ -1243,8 +1177,7 @@ async def switch_workspace(config: CLIConfig, workspace_name_or_id: str, only_en
         if not workspace:
             if only_environments:
                 raise CLIException(FeedbackManager.error_branch(branch=workspace_name_or_id, cli="tb"))
-            else:
-                raise CLIException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli="tb"))
+            raise CLIException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli="tb"))
 
         config.set_token(workspace["token"])
         config.set_token_for_host(workspace["token"], config.get_host())

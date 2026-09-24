@@ -25,9 +25,10 @@ class RepeatCommand(object):
         self.period = period
         self.cmd = cmd
         self.event = mavutil.periodic_event(1.0/period)
+        self.enabled = True
 
     def __str__(self):
-        return "Every %.1f seconds: %s" % (self.period, self.cmd)
+        return "[%s] Every %.1f seconds: %s" % (("x" if self.enabled else " "), self.period, self.cmd)
 
 
 def run_command(args, cwd=None, shell=False, timeout=None, env=None):
@@ -79,7 +80,8 @@ class MiscModule(mp_module.MPModule):
         super(MiscModule, self).__init__(mpstate, "misc", "misc commands", public=True)
         self.add_command('alt', self.cmd_alt, "show altitude information")
         self.add_command('up', self.cmd_up, "adjust pitch trim by up to 5 degrees")
-        self.add_command('reboot', self.cmd_reboot, "reboot autopilot")
+        self.add_command('reboot', self.cmd_reboot, "reboot autopilot",
+                         ["<bootloader|massstorage|force|help>"])
         self.add_command('time', self.cmd_time, "show autopilot time")
         self.add_command('shell', self.cmd_shell, "run shell command")
         self.add_command('changealt', self.cmd_changealt, "change target altitude")
@@ -119,6 +121,7 @@ class MiscModule(mp_module.MPModule):
 
         self.add_command('gear', self.cmd_landing_gear, "landing gear control")
 
+        self.add_command('clear', self.cmd_clear, "clears the terminal screen")
         self.repeats = []
 
         # support for changing altitude via command rather than mission item:
@@ -174,17 +177,30 @@ class MiscModule(mp_module.MPModule):
     def cmd_reboot(self, args):
         '''reboot autopilot'''
 
+        if "help" in args:
+            print("Usage: reboot [bootloader|massstorage] [force]")
+            print("  no option:   reboot the autopilot")
+            print("  bootloader:  reboot and stay in the bootloader")
+            print("  massstorage: reboot and export storage over USB")
+            print("  force:       allow a normal or bootloader reboot while armed")
+            return
+
         hold_in_bootloader = "bootloader" in args
+        reboot_to_mass_storage = "massstorage" in args
         force = "force" in args
 
-        # different path for force/not force to avoid dependency on
+        # different path for mass-storage/force to avoid dependency on
         # pymavlink's force-reboot support:
-        if force:
-            if hold_in_bootloader:
+        if reboot_to_mass_storage or force:
+            if reboot_to_mass_storage:
+                param1 = getattr(mavutil.mavlink,
+                                 'REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE',
+                                 5)
+            elif hold_in_bootloader:
                 param1 = 3
             else:
                 param1 = 1
-            param6 = 20190226
+            param6 = 20190226 if force else 0
             self.master.mav.command_long_send(
                 self.target_system,
                 self.target_component,
@@ -523,6 +539,23 @@ class MiscModule(mp_module.MPModule):
                 return
             self.repeats.pop(i)
             return
+        elif args[0] == 'toggle':
+            if len(args) < 2:
+                print("Usage: repeat toggle INDEX..")
+                return
+
+            for i in range(1, len(args)):
+                try:
+                    i = int(args[i])
+                except ValueError:
+                    print(f"Unable to toggle: Index {args[i]} is not a number")
+                    continue
+                if i < 0 or i >= len(self.repeats):
+                    print(f"Unable to toggle: Invalid index {i}")
+                    continue
+                self.repeats[i].enabled = not self.repeats[i].enabled
+                print(f"{i}: {self.repeats[i]}")
+            return
         elif args[0] == 'clean':
             self.repeats = []
         else:
@@ -541,6 +574,8 @@ class MiscModule(mp_module.MPModule):
             if p.startswith('BARO') and p.endswith('_DEVID'):
                 mp_util.decode_devid(self.mav_param[p], p)
             if p.startswith('ARSPD') and p.endswith('_DEVID'):
+                mp_util.decode_devid(self.mav_param[p], p)
+            if p.startswith('MAV') and p.endswith('_DEVID'):
                 mp_util.decode_devid(self.mav_param[p], p)
 
     def cmd_setorigin(self, args):
@@ -687,6 +722,16 @@ Alt: gear <extend|retract> [ID]'''
             0, 0, 0, 0, 0, 0
         )
 
+    def cmd_clear(self, args):
+        # https://stackoverflow.com/questions/2084508/clear-the-terminal-in-python
+        usage = "clear <|help>"
+        if len(args) != 0:
+            print(usage)
+            return
+        # This will only print if \033c breaks something this will make bug fixing easier
+        print("\033c") # this ANSI code will scroll up leaving the screen blank; history is kept
+        return
+
     def mavlink_packet(self, m):
         '''handle an incoming mavlink packet'''
         mtype = m.get_type()
@@ -706,7 +751,7 @@ Alt: gear <extend|retract> [ID]'''
     def idle_task(self):
         '''called on idle'''
         for r in self.repeats:
-            if r.event.trigger():
+            if r.enabled and r.event.trigger():
                 self.mpstate.functions.process_stdin(r.cmd, immediate=True)
 
 

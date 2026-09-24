@@ -29,6 +29,7 @@ from vercel.sandbox._internal.models import (
     DriveQueryByCreatedAt,
     DriveQueryByName,
     DriveQueryByUpdatedAt,
+    NetworkIdUpdate,
     NetworkPolicy,
     PrivateSandboxParameters,
     ProcessLog,
@@ -293,6 +294,7 @@ class SandboxService:
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: str | None = None,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -313,6 +315,7 @@ class SandboxService:
             resources=resources,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=env,
             tags=tags,
             mounts=mounts,
@@ -337,6 +340,7 @@ class SandboxService:
         image: str | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: str | None = None,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -357,6 +361,7 @@ class SandboxService:
             image=image,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=env,
             tags=tags,
             mounts=mounts,
@@ -401,6 +406,7 @@ class SandboxService:
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: str | None = None,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -440,6 +446,7 @@ class SandboxService:
             resources=resources,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=env,
             tags=tags,
             mounts=mounts,
@@ -482,9 +489,19 @@ class SandboxService:
             tag=criteria.tag,
         )
 
-    async def destroy_sandbox(self, *, name: str, project_id: str | None = None) -> SandboxState:
+    async def destroy_sandbox(
+        self,
+        *,
+        name: str,
+        project_id: str | None = None,
+        delete_orphan_snapshots: bool = False,
+    ) -> SandboxState:
         self._ensure_open()
-        return await self._api_client.destroy_sandbox(name=name, project_id=project_id)
+        return await self._api_client.destroy_sandbox(
+            name=name,
+            project_id=project_id,
+            delete_orphan_snapshots=delete_orphan_snapshots,
+        )
 
     async def update_sandbox(
         self,
@@ -496,6 +513,7 @@ class SandboxService:
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: NetworkIdUpdate = _OMITTED,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -514,6 +532,7 @@ class SandboxService:
             resources=resources,
             persistent=persistent,
             network_policy=network_policy,
+            network_id=network_id,
             env=env,
             tags=tags,
             mounts=mounts,
@@ -610,13 +629,13 @@ class SandboxService:
         project_id: str | None = None,
         max_size_bytes: int | None = None,
         region: str | None = None,
-    ) -> DriveState:
+    ) -> tuple[DriveState, bool]:
         self._ensure_open()
         return await self._api_client.get_or_create_drive(
             name=name,
             project_id=project_id,
             max_size_bytes=max_size_bytes,
-            region=region,
+            region=region or self._options.region,
         )
 
     async def query_drives_page(

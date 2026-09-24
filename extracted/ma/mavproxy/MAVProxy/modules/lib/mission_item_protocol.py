@@ -898,9 +898,6 @@ on'''
         self.update_waypoints(args[0], wpnum)
 
     def commands(self):
-        if self.master and not self.master.mavlink20():
-            print("%s module not available; use old compat modules" % str(self.itemtype()))
-            return
         return {
             "ftp": self.wp_ftp_download,
             "ftpload": self.wp_ftp_upload,
@@ -923,6 +920,14 @@ on'''
         '''waypoint commands'''
         if len(args) < 1:
             print(self.usage())
+            return
+
+        if self.master is None:
+            print("%s: no vehicle connected" % self.command_name())
+            return
+
+        if not self.master.mavlink20():
+            print("%s module not available; use old compat modules" % str(self.itemtype()))
             return
 
         commands = self.commands()
@@ -992,11 +997,17 @@ on'''
 
     def fetch(self):
         """Download wpts from vehicle (this operation is public to support other modules)"""
+        if self.master is None:
+            print("%s: no vehicle connected" % self.command_name())
+            return
         if self.wp_op is None:  # If we were already doing a list or save, just restart the fetch without changing the operation  # noqa
             self.wp_op = "fetch"
         self.request_list_send()
 
     def request_list_send(self):
+        if self.master is None:
+            print("%s: no vehicle connected" % self.command_name())
+            return
         self.master.mav.mission_request_list_send(
             self.target_system,
             self.target_component,

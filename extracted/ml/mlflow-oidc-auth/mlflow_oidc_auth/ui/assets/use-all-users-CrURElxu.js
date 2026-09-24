@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-Du4lyTbb.js";import{a as t}from"./user-service-mc7n2rSn.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allUsers:n,isLoading:r,error:i,refresh:a}}export{n as t};

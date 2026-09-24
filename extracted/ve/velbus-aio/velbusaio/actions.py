@@ -26,7 +26,7 @@ channel number (glass panels / -20 inputs). Unused slots are 0xFF.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 import importlib.resources
 import json
@@ -424,15 +424,7 @@ class _SharedSlotStore:
         self._log = logger
         self.slots: list[ActionSlot] | None = None
 
-    async def load(self, *, force: bool = False) -> list[ActionSlot]:
-        if self.slots is not None and not force:
-            return self.slots
-        if force:
-            length = self.slot_count * self.slot_size
-            self.memory.invalidate(self.bank, self.bank + length - 1)
-            self.slots = None
-        length = self.slot_count * self.slot_size
-        raw = await self.memory.read_bytes(self.bank, length, use_cache=not force)
+    def _decode_slots(self, raw: bytes) -> list[ActionSlot]:
         slots: list[ActionSlot] = []
         for slot in range(self.slot_count):
             offset = slot * self.slot_size
@@ -446,8 +438,36 @@ class _SharedSlotStore:
                     release_bit=self.release_bit,
                 )
             )
-        self.slots = slots
         return slots
+
+    def decode_from_cache(self) -> bool:
+        """Decode slots from the shadow EEPROM cache without bus access."""
+        if self.slots is not None:
+            return True
+        length = self.slot_count * self.slot_size
+        raw = self.memory.get_cached_range(self.bank, length)
+        if raw is None:
+            return False
+        self.slots = self._decode_slots(raw)
+        return True
+
+    async def load(
+        self, *, force: bool = False, prefetch: bool = False
+    ) -> list[ActionSlot]:
+        if self.slots is not None and not force:
+            return self.slots
+        if not force and self.decode_from_cache():
+            return self.slots
+        if force:
+            length = self.slot_count * self.slot_size
+            self.memory.invalidate(self.bank, self.bank + length - 1)
+            self.slots = None
+        length = self.slot_count * self.slot_size
+        raw = await self.memory.read_bytes(
+            self.bank, length, use_cache=not force, prefetch=prefetch
+        )
+        self.slots = self._decode_slots(raw)
+        return self.slots
 
     def slot_address(self, slot: int) -> int:
         if slot < 0 or slot >= self.slot_count:
@@ -521,6 +541,48 @@ class ActionTable:
             return self._shared.slots is not None
         return self._slots is not None
 
+    @property
+    def shared_store(self) -> _SharedSlotStore | None:
+        """Return the shared slot store, if this table uses one."""
+        return self._shared
+
+    def clear_decoded_cache(self) -> None:
+        """Drop decoded action-table state without clearing EEPROM bytes."""
+        self._slots = None
+        self._normal_closed = None
+
+    def decode_from_cache(self) -> bool:
+        """Decode this table from the shadow EEPROM cache without bus access."""
+        if self.loaded:
+            return True
+        if self._shared is not None:
+            if not self._shared.decode_from_cache():
+                return False
+        else:
+            length = self.slot_count * self.slot_size
+            raw = self._memory.get_cached_range(self.bank, length)
+            if raw is None:
+                return False
+            slots: list[ActionSlot] = []
+            for slot in range(self.slot_count):
+                offset = slot * self.slot_size
+                slots.append(
+                    ActionSlot.from_bytes(
+                        slot,
+                        raw[offset : offset + self.slot_size],
+                        self.catalog_id,
+                        slot_size=self.slot_size,
+                        subject_encoding=self.subject_encoding,
+                        release_bit=self.release_bit,
+                    )
+                )
+            self._slots = slots
+        if self.noc_address is not None:
+            cached = self._memory.get_cached(self.noc_address)
+            if cached is not None:
+                self._normal_closed = cached == 0x00
+        return True
+
     def _slot_address(self, slot: int) -> int:
         if self._shared is not None:
             return self._shared.slot_address(slot)
@@ -530,19 +592,25 @@ class ActionTable:
             )
         return self.bank + (slot * self.slot_size)
 
-    async def load(self, *, force: bool = False) -> list[ActionSlot]:
+    async def load(
+        self, *, force: bool = False, prefetch: bool = False
+    ) -> list[ActionSlot]:
         """Read all slots from module memory."""
         if force:
             length = self.slot_count * self.slot_size
             self._memory.invalidate(self.bank, self.bank + length - 1)
             self._slots = None
+        elif self.decode_from_cache():
+            return self.get_slots(include_empty=True)
         if self._shared is not None:
-            slots = await self._shared.load(force=force)
+            slots = await self._shared.load(force=force, prefetch=prefetch)
         elif self._slots is not None and not force:
             slots = self._slots
         else:
             length = self.slot_count * self.slot_size
-            raw = await self._memory.read_bytes(self.bank, length, use_cache=not force)
+            raw = await self._memory.read_bytes(
+                self.bank, length, use_cache=not force, prefetch=prefetch
+            )
             slots = []
             for slot in range(self.slot_count):
                 offset = slot * self.slot_size
@@ -558,8 +626,10 @@ class ActionTable:
                 )
             self._slots = slots
 
-        if self.noc_address is not None:
-            value = await self._memory.read_byte(self.noc_address, use_cache=not force)
+        if self.noc_address is not None and (force or self._normal_closed is None):
+            value = await self._memory.read_byte(
+                self.noc_address, use_cache=not force, prefetch=prefetch
+            )
             self._normal_closed = value == 0x00
 
         return list(slots)
@@ -590,8 +660,37 @@ class ActionTable:
         self, *, refresh: bool = False, include_empty: bool = False
     ) -> list[ActionSlot]:
         """Load if needed and return slots for this channel."""
-        await self.load(force=refresh)
+        if refresh:
+            await self.load(force=True)
+        elif not self.loaded and not self.decode_from_cache():
+            await self.load(force=False)
         return self.get_slots(include_empty=include_empty)
+
+    async def load_noc(self, *, refresh: bool = False, prefetch: bool = False) -> None:
+        """Load only the NO/NC contact byte for this channel."""
+        if self.noc_address is None:
+            return
+        if self._normal_closed is not None and not refresh:
+            return
+        value = await self._memory.read_byte(
+            self.noc_address, use_cache=not refresh, prefetch=prefetch
+        )
+        self._normal_closed = value == 0x00
+
+    async def get_normal_closed(self, *, refresh: bool = False) -> bool | None:
+        """Return True when the relay contact is programmed as NC."""
+        if self.noc_address is None:
+            return None
+        if self._normal_closed is not None and not refresh:
+            return self._normal_closed
+        if not refresh:
+            cached = self._memory.get_cached(self.noc_address)
+            if cached is not None:
+                self._normal_closed = cached == 0x00
+                return self._normal_closed
+        value = await self._memory.read_byte(self.noc_address, use_cache=not refresh)
+        self._normal_closed = value == 0x00
+        return self._normal_closed
 
     def find_free_slot(self) -> int:
         """Return the first unused slot index in the backing table."""
@@ -688,16 +787,6 @@ class ActionTable:
             cleared.append(await self.clear_action(entry.slot))
         return cleared
 
-    async def get_normal_closed(self, *, refresh: bool = False) -> bool | None:
-        """Return True when the relay contact is programmed as NC."""
-        if self.noc_address is None:
-            return None
-        if self._normal_closed is not None and not refresh:
-            return self._normal_closed
-        value = await self._memory.read_byte(self.noc_address, use_cache=not refresh)
-        self._normal_closed = value == 0x00
-        return self._normal_closed
-
     async def set_normal_closed(self, normal_closed: bool) -> None:
         """Program NO (False) or NC (True) contact behaviour."""
         if self.noc_address is None:
@@ -731,12 +820,64 @@ class ActionTable:
         )
 
 
+def reserved_ranges(memory_spec: dict[str, Any] | None) -> list[tuple[int, int]]:
+    """Return the EEPROM ranges an action table must never touch.
+
+    The module name and the channel names live in the same address space as the
+    action table. A spec that sizes its table for the wrong firmware build runs
+    straight into them: reading returns name characters dressed up as actions,
+    and writing corrupts the name.
+    """
+    ranges: list[tuple[int, int]] = []
+    if not memory_spec:
+        return ranges
+
+    sources = [memory_spec.get("ModuleName")]
+    sources.extend(
+        value
+        for value in (memory_spec.get("Channels") or {}).values()
+        if isinstance(value, str)
+    )
+    for source in sources:
+        for raw_part in (source or "").split(";"):
+            part = raw_part.strip()
+            if "-" not in part:
+                continue
+            low, _, high = part.partition("-")
+            try:
+                ranges.append((int(low, 16), int(high, 16)))
+            except ValueError:
+                continue
+    return ranges
+
+
+def _slots_before_reserved(
+    bank: int, slot_count: int, slot_size: int, reserved: Sequence[tuple[int, int]]
+) -> int:
+    """Return how many slots fit between bank and the nearest reserved range."""
+    limit = min(
+        (low for low, _high in reserved if low > bank),
+        default=None,
+    )
+    if limit is None:
+        return slot_count
+    return max(0, min(slot_count, (limit - bank) // slot_size))
+
+
 def build_action_tables(
     memory: MemoryBackend,
     spec: dict[str, Any],
     logger: logging.Logger | None = None,
+    *,
+    reserved: Sequence[tuple[int, int]] | None = None,
 ) -> dict[int, ActionTable]:
-    """Build per-channel ActionTable instances from a module_spec ActionTable block."""
+    """Build per-channel ActionTable instances from a module_spec ActionTable block.
+
+    `reserved` holds ranges the table must stay out of, as returned by
+    reserved_ranges(). Slots that would fall inside one are dropped and a
+    NO/NC address that lands in one is ignored, so a spec that disagrees with
+    the module's firmware costs a few slots instead of the module name.
+    """
     if not spec:
         return {}
     log = logger or _LOGGER
@@ -754,17 +895,30 @@ def build_action_tables(
         release_bit = bool(release_bit)
     channels = spec.get("channels", {})
     tables: dict[int, ActionTable] = {}
+    guard = list(reserved or ())
 
     shared_store: _SharedSlotStore | None = None
     shared_bank = 0
+    shared_slot_count = slot_count
     if layout == "shared":
         if subject_encoding is None:
             raise VelbusConfigError("Shared action tables require subject_encoding")
         shared_bank = int(str(spec["bank"]), 16)
+        shared_slot_count = _slots_before_reserved(
+            shared_bank, slot_count, slot_size, guard
+        )
+        if shared_slot_count < slot_count:
+            log.warning(
+                "Action table at 0x%04X declares %d slots but only %d fit before "
+                "reserved memory; ignoring the rest",
+                shared_bank,
+                slot_count,
+                shared_slot_count,
+            )
         shared_store = _SharedSlotStore(
             memory,
             bank=shared_bank,
-            slot_count=slot_count,
+            slot_count=shared_slot_count,
             slot_size=slot_size,
             catalog_id=catalog_id,
             subject_encoding=subject_encoding,
@@ -775,13 +929,40 @@ def build_action_tables(
     for chan_key, chan_spec in channels.items():
         channel = int(chan_key)
         bank = shared_bank if layout == "shared" else int(str(chan_spec["bank"]), 16)
+        if layout == "shared":
+            channel_slot_count = shared_slot_count
+        else:
+            channel_slot_count = _slots_before_reserved(
+                bank, slot_count, slot_size, guard
+            )
+            if channel_slot_count < slot_count:
+                log.warning(
+                    "Action table for channel %d at 0x%04X declares %d slots but "
+                    "only %d fit before reserved memory; ignoring the rest",
+                    channel,
+                    bank,
+                    slot_count,
+                    channel_slot_count,
+                )
+
         noc = chan_spec.get("noc_address")
         noc_address = int(str(noc), 16) if noc is not None else None
+        if noc_address is not None and any(
+            low <= noc_address <= high for low, high in guard
+        ):
+            log.warning(
+                "NO/NC address 0x%04X for channel %d falls inside reserved memory; "
+                "not reading or writing it",
+                noc_address,
+                channel,
+            )
+            noc_address = None
+
         tables[channel] = ActionTable(
             memory,
             channel=channel,
             bank=bank,
-            slot_count=slot_count,
+            slot_count=channel_slot_count,
             slot_size=slot_size,
             catalog_id=catalog_id,
             noc_address=noc_address,

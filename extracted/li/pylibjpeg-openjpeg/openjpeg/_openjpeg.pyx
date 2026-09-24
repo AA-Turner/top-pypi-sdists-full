@@ -32,6 +32,8 @@ cdef extern int EncodeArray(
     PyObject* compression_ratios,
     PyObject* signal_noise_ratios,
     int codec_format,
+    bint add_tlm,
+    bint add_plt,
 )
 cdef extern int EncodeBuffer(
     PyObject* src,
@@ -46,6 +48,8 @@ cdef extern int EncodeBuffer(
     PyObject* compression_ratios,
     PyObject* signal_noise_ratios,
     int codec_format,
+    bint add_tlm,
+    bint add_plt,
 )
 
 
@@ -213,6 +217,8 @@ def encode_array(
     List[float] compression_ratios,
     List[float] signal_noise_ratios,
     int codec_format,
+    bint add_tlm,
+    bint add_plt,
 ) -> Tuple[int, bytes]:
     """Return the JPEG 2000 compressed `arr`.
 
@@ -239,6 +245,10 @@ def encode_array(
 
         * ``0``: JPEG 2000 codestream only (default) (J2K/J2C format)
         * ``1``: A boxed JPEG 2000 codestream (JP2 format)
+    add_tlm : bool
+        If ``True`` then add tile-part length markers (TLM) to the codestream.
+    add_plt : bool
+        If ``True`` then add packet length tile-part header markers (PLT) to the codestream.
 
     Returns
     -------
@@ -304,8 +314,8 @@ def encode_array(
             "Only one of 'compression_ratios' or 'signal_noise_ratios' is "
             "allowed when performing lossy compression"
         )
-    if len(compression_ratios) > 10 or len(signal_noise_ratios) > 10:
-        raise ValueError("More than 10 compression layers is not supported")
+    if len(compression_ratios) > 100 or len(signal_noise_ratios) > 100:
+        raise ValueError("More than 100 compression layers is not supported")
 
     # The destination for the encoded J2K codestream, needs to support BinaryIO
     dst = BytesIO()
@@ -318,6 +328,8 @@ def encode_array(
         <PyObject *> compression_ratios,
         <PyObject *> signal_noise_ratios,
         codec_format,
+        add_tlm,
+        add_plt,
     )
     return return_code, dst.getvalue()
 
@@ -334,6 +346,9 @@ def encode_buffer(
     List[float] compression_ratios,
     List[float] signal_noise_ratios,
     int codec_format,
+    bint add_tlm,
+    bint add_plt,
+
 ) -> Tuple[int, bytes]:
     """Return the JPEG 2000 compressed `src`.
 
@@ -375,6 +390,10 @@ def encode_buffer(
 
         * ``0``: JPEG 2000 codestream only (default) (J2K/J2C format)
         * ``1``: A boxed JPEG 2000 codestream (JP2 format)
+    add_tlm : bool
+        If ``True`` then add tile-part length markers (TLM) to the codestream.
+    add_plt : bool
+        If ``True`` then add packet length tile-part header markers (PLT) to the codestream.
 
     Returns
     -------
@@ -449,8 +468,8 @@ def encode_buffer(
             "Only one of 'compression_ratios' or 'signal_noise_ratios' is "
             "allowed when performing lossy compression"
         )
-    if len(compression_ratios) > 10 or len(signal_noise_ratios) > 10:
-        raise ValueError("More than 10 compression layers is not supported")
+    if len(compression_ratios) > 100 or len(signal_noise_ratios) > 100:
+        raise ValueError("More than 100 compression layers is not supported")
 
     dst = BytesIO()
     return_code = EncodeBuffer(
@@ -466,5 +485,7 @@ def encode_buffer(
         <PyObject *> compression_ratios,
         <PyObject *> signal_noise_ratios,
         codec_format,
+        add_tlm,
+        add_plt,
     )
     return return_code, dst.getvalue()

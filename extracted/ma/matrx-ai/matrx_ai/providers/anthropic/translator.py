@@ -62,9 +62,24 @@ class AnthropicTranslator(BaseTranslator):
         offerings — no api_class branches here.
         """
         messages = []
+        from matrx_ai.config.message_flags import flags_of
 
-        for msg in config.messages:
+        # Message FLAGS: a `cache_boundary` message gets a breakpoint on its last
+        # cacheable block; a trailing `prefill` assistant turn is sent AS the
+        # prefill (the dispatch gate already refused / converted it for a model
+        # without the `assistant_prefill` capability).
+        boundary_blocks: list[dict[str, Any]] = []
+        trailing_prefill = False
+        wire_messages = list(config.messages)
+        for position, msg in enumerate(wire_messages):
             message_content = msg.to_anthropic_blocks()
+            flags = flags_of(msg)
+            if message_content and flags.get("cache_boundary") and PROMPT_CACHING_ENABLED:
+                marked = self._mark_blocks_cacheable(message_content)
+                if marked is not None:
+                    boundary_blocks.append(marked)
+            if position == len(wire_messages) - 1 and flags.get("prefill") and msg.role == "assistant":
+                trailing_prefill = True
 
             if message_content:
                 role = "user" if msg.role == "tool" else msg.role
@@ -117,7 +132,11 @@ class AnthropicTranslator(BaseTranslator):
         # spending a provider request on a deterministically invalid payload.
         # Do not silently delete the assistant turn or invent a user message:
         # either would replay history under semantics the user did not request.
-        if messages and messages[-1]["role"] == "assistant":
+        if trailing_prefill and messages and messages[-1]["role"] == "assistant":
+            # An AUTHORED prefill: Anthropic continues the reply from it. The
+            # API rejects a final assistant block that ends in whitespace.
+            self._rstrip_prefill(messages[-1])
+        elif messages and messages[-1]["role"] == "assistant":
             raise MessageSanitizationError(
                 "Anthropic request must end with a user/tool turn; terminal "
                 "assistant history would be unsupported response prefill"
@@ -267,7 +286,13 @@ class AnthropicTranslator(BaseTranslator):
             if not system_text and turn_context_text:
                 anthropic_request["system"] = [{"type": "text", "text": turn_context_text}]
             # Rolling breakpoint on the last message → incremental history cache.
-            self._mark_last_message_cacheable(messages)
+            # With a trailing prefill the rolling breakpoint sits on the turn
+            # before it (the prefill is not history that will be replayed).
+            self._mark_last_message_cacheable(messages[:-1] if trailing_prefill else messages)
+            # Anthropic allows at most 4 breakpoints per request. System (or last
+            # tool) + rolling take up to 2; authored boundaries keep the LATEST
+            # ones (a later boundary's prefix covers every earlier one).
+            self._enforce_breakpoint_ceiling(anthropic_request, messages, boundary_blocks)
         else:
             joined_system = "\n\n".join(p for p in (system_text, turn_context_text) if p)
             if joined_system:
@@ -332,6 +357,72 @@ class AnthropicTranslator(BaseTranslator):
         out = list(tools)
         out[-1] = {**out[-1], "cache_control": dict(cls._CACHE_CONTROL_EPHEMERAL)}
         return out
+
+    _MAX_CACHE_BREAKPOINTS = 4
+
+    @classmethod
+    def _mark_blocks_cacheable(cls, content: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Put a breakpoint on the last cacheable block of ONE message's blocks
+        (replacing the dict in place in ``content``); returns the marked block."""
+        for index in range(len(content) - 1, -1, -1):
+            block = content[index]
+            if not isinstance(block, dict) or block.get("type") in cls._NON_CACHEABLE_MESSAGE_BLOCK_TYPES:
+                continue
+            content[index] = {**block, "cache_control": dict(cls._CACHE_CONTROL_EPHEMERAL)}
+            return content[index]
+        return None
+
+    @staticmethod
+    def _rstrip_prefill(message: dict[str, Any]) -> None:
+        content = message.get("content")
+        if not isinstance(content, list):
+            return
+        for index in range(len(content) - 1, -1, -1):
+            block = content[index]
+            if isinstance(block, dict) and block.get("type") == "text":
+                content[index] = {**block, "text": str(block.get("text", "")).rstrip()}
+                return
+
+    @classmethod
+    def _enforce_breakpoint_ceiling(
+        cls,
+        request: dict[str, Any],
+        messages: list[dict[str, Any]],
+        boundary_blocks: list[dict[str, Any]],
+    ) -> None:
+        """Drop the EARLIEST authored boundaries beyond Anthropic's 4-breakpoint cap, loudly."""
+
+        def _count(blocks: Any) -> int:
+            return sum(
+                1 for b in blocks or [] if isinstance(b, dict) and "cache_control" in b
+            )
+
+        total = _count(request.get("system") if isinstance(request.get("system"), list) else [])
+        total += _count(request.get("tools"))
+        for m in messages:
+            total += _count(m.get("content") if isinstance(m.get("content"), list) else [])
+        excess = total - cls._MAX_CACHE_BREAKPOINTS
+        if excess <= 0:
+            return
+        dropped = 0
+        for marked in boundary_blocks:
+            if dropped >= excess:
+                break
+            for m in messages:
+                content = m.get("content")
+                if not isinstance(content, list):
+                    continue
+                for i, b in enumerate(content):
+                    if b is marked:
+                        content[i] = {k: v for k, v in b.items() if k != "cache_control"}
+                        dropped += 1
+                        break
+        vcprint(
+            f"[message flags] {dropped} earlier cache boundary(ies) not sent — Anthropic "
+            f"allows {cls._MAX_CACHE_BREAKPOINTS} cache breakpoints per request and a later "
+            "boundary already caches everything before it.",
+            color="yellow",
+        )
 
     @classmethod
     def _mark_last_message_cacheable(cls, messages: list[dict[str, Any]]) -> None:

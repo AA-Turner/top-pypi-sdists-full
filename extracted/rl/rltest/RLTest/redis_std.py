@@ -21,7 +21,7 @@ class StandardEnv(object):
     def __init__(self, redisBinaryPath, port=6379, modulePath=None, moduleArgs=None, outputFilesFormat=None,
                  dbDirPath=None, useSlaves=False, serverId=1, password=None, libPath=None, clusterEnabled=False, decodeResponses=False,
                  useAof=False, useRdbPreamble=True, debugger=None, sanitizer=None, noCatch=False, noLog=False, unix=False, verbose=False, useTLS=False,
-                 tlsCertFile=None, tlsKeyFile=None, tlsCaCertFile=None, clusterNodeTimeout=None, tlsPassphrase=None, enableDebugCommand=False, protocol=2,
+                 tlsCertFile=None, tlsKeyFile=None, tlsCaCertFile=None, clusterNodeTimeout=None, clusterBusPortProtectedMode=None, tlsPassphrase=None, enableDebugCommand=False, protocol=2,
                  terminateRetries=None, terminateRetrySecs=None, enableProtectedConfigs=False, enableModuleCommand=False, loglevel=None,
                  redisConfigFile=None, dualTLS=False, startupGraceSecs=0.1
                  ):
@@ -63,6 +63,11 @@ class StandardEnv(object):
         self.tlsKeyFile = tlsKeyFile
         self.tlsCaCertFile = tlsCaCertFile
         self.clusterNodeTimeout = clusterNodeTimeout
+        # None emits nothing. Set it only for a redis that has the option, as an unknown
+        # directive stops the server from starting: 8.12 and up, where it also defaults to
+        # enabled and so refuses an unauthenticated cluster bus, or one of the backports
+        # (8.2.10, 8.4.7, 8.6.7, 8.8.3, 8.10.2), where it defaults to disabled.
+        self.clusterBusPortProtectedMode = clusterBusPortProtectedMode
         self.tlsPassphrase = tlsPassphrase
         self.enableDebugCommand = enableDebugCommand
         self.enableModuleCommand = enableModuleCommand
@@ -233,6 +238,9 @@ class StandardEnv(object):
                         '--cluster-node-timeout', '5000' if self.clusterNodeTimeout is None else str(self.clusterNodeTimeout)]
             if self.useTLS:
                 cmdArgs += ['--tls-cluster', 'yes']
+            if self.clusterBusPortProtectedMode is not None:
+                cmdArgs += ['--cluster-bus-port-protected-mode',
+                            'yes' if self.clusterBusPortProtectedMode in (True, 'yes') else 'no']
         if self.useAof:
             cmdArgs += ['--appendonly', 'yes']
             cmdArgs += ['--appendfilename', self._getFileName(role, '.aof')]

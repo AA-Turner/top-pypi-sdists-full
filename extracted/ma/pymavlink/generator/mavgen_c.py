@@ -6,6 +6,7 @@ Copyright Andrew Tridgell 2011
 Released under GNU GPL version 3 or later
 '''
 
+import hashlib
 import os
 from . import mavparse, mavtemplate
 
@@ -13,7 +14,7 @@ t = mavtemplate.MAVTemplate()
 
 def generate_version_h(directory, xml):
     '''generate version.h'''
-    f = open(os.path.join(directory, "version.h"), mode='w')
+    f = open(os.path.join(directory, "version.h"), mode='w', encoding='utf-8')
     t.write(f,'''
 /** @file
  *  @brief MAVLink comm protocol built from ${basename}.xml
@@ -34,7 +35,7 @@ def generate_version_h(directory, xml):
 
 def generate_mavlink_h(directory, xml):
     '''generate mavlink.h'''
-    f = open(os.path.join(directory, "mavlink.h"), mode='w')
+    f = open(os.path.join(directory, "mavlink.h"), mode='w', encoding='utf-8')
     t.write(f,'''
 /** @file
  *  @brief MAVLink comm protocol built from ${basename}.xml
@@ -75,7 +76,7 @@ def generate_mavlink_h(directory, xml):
 
 def generate_main_h(directory, xml):
     '''generate main header per XML file'''
-    f = open(os.path.join(directory, xml.basename + ".h"), mode='w')
+    f = open(os.path.join(directory, xml.basename + ".h"), mode='w', encoding='utf-8')
     t.write(f, '''
 /** @file
  *  @brief MAVLink comm protocol generated from ${basename}.xml
@@ -162,10 +163,16 @@ ${{include_list:#include "../${base}/${base}.h"
 
 def generate_message_h(directory, m):
     '''generate per-message header for a XML file'''
-    f = open(os.path.join(directory, 'mavlink_msg_%s.h' % m.name_lower), mode='w')
+    if m.wip:
+        m.MSG_ATTRIBUTE = 'MAVLINK_WIP\n'
+    else:
+        m.MSG_ATTRIBUTE = ''
+    f = open(os.path.join(directory, 'mavlink_msg_%s.h' % m.name_lower), mode='w', encoding='utf-8')
     t.write(f, '''
 #pragma once
 // MESSAGE ${name} PACKING
+
+#include <stdint.h>
 
 #define MAVLINK_MSG_ID_${name} ${id}
 
@@ -213,7 +220,7 @@ ${{arg_fields: * @param ${name} ${units} ${description}
 }}
  * @return length of the message in bytes (excluding serial stream start sign)
  */
-static inline uint16_t mavlink_msg_${name_lower}_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg,
+${MSG_ATTRIBUTE}static inline uint16_t mavlink_msg_${name_lower}_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg,
                               ${{arg_fields: ${array_const}${type} ${array_prefix}${name},}})
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
@@ -227,7 +234,7 @@ ${{array_fields:    _mav_put_${type}_array(buf, ${wire_offset}, ${name}, ${array
     mavlink_${name_lower}_t packet;
 ${{scalar_fields:    packet.${name} = ${putname};
 }}
-${{array_fields:    mav_array_assign_${type}(packet.${name}, ${name}, ${array_length});
+${{array_fields:    mav_array_memcpy(packet.${name}, ${name}, sizeof(${type})*${array_length});
 }}
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), &packet, MAVLINK_MSG_ID_${name}_LEN);
 #endif
@@ -284,7 +291,7 @@ ${{arg_fields: * @param ${name} ${units} ${description}
 }}
  * @return length of the message in bytes (excluding serial stream start sign)
  */
-static inline uint16_t mavlink_msg_${name_lower}_pack_chan(uint8_t system_id, uint8_t component_id, uint8_t chan,
+${MSG_ATTRIBUTE}static inline uint16_t mavlink_msg_${name_lower}_pack_chan(uint8_t system_id, uint8_t component_id, uint8_t chan,
                                mavlink_message_t* msg,
                                    ${{arg_fields:${array_const}${type} ${array_prefix}${name},}})
 {
@@ -299,7 +306,7 @@ ${{array_fields:    _mav_put_${type}_array(buf, ${wire_offset}, ${name}, ${array
     mavlink_${name_lower}_t packet;
 ${{scalar_fields:    packet.${name} = ${putname};
 }}
-${{array_fields:    mav_array_assign_${type}(packet.${name}, ${name}, ${array_length});
+${{array_fields:    mav_array_memcpy(packet.${name}, ${name}, sizeof(${type})*${array_length});
 }}
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), &packet, MAVLINK_MSG_ID_${name}_LEN);
 #endif
@@ -316,7 +323,7 @@ ${{array_fields:    mav_array_assign_${type}(packet.${name}, ${name}, ${array_le
  * @param msg The MAVLink message to compress the data into
  * @param ${name_lower} C-struct to read the message contents from
  */
-static inline uint16_t mavlink_msg_${name_lower}_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_${name_lower}_t* ${name_lower})
+${MSG_ATTRIBUTE}static inline uint16_t mavlink_msg_${name_lower}_encode(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg, const mavlink_${name_lower}_t* ${name_lower})
 {
     return mavlink_msg_${name_lower}_pack(system_id, component_id, msg,${{arg_fields: ${name_lower}->${name},}});
 }
@@ -330,7 +337,7 @@ static inline uint16_t mavlink_msg_${name_lower}_encode(uint8_t system_id, uint8
  * @param msg The MAVLink message to compress the data into
  * @param ${name_lower} C-struct to read the message contents from
  */
-static inline uint16_t mavlink_msg_${name_lower}_encode_chan(uint8_t system_id, uint8_t component_id, uint8_t chan, mavlink_message_t* msg, const mavlink_${name_lower}_t* ${name_lower})
+${MSG_ATTRIBUTE}static inline uint16_t mavlink_msg_${name_lower}_encode_chan(uint8_t system_id, uint8_t component_id, uint8_t chan, mavlink_message_t* msg, const mavlink_${name_lower}_t* ${name_lower})
 {
     return mavlink_msg_${name_lower}_pack_chan(system_id, component_id, chan, msg,${{arg_fields: ${name_lower}->${name},}});
 }
@@ -358,7 +365,7 @@ ${{arg_fields: * @param ${name} ${units} ${description}
  */
 #ifdef MAVLINK_USE_CONVENIENCE_FUNCTIONS
 
-static inline void mavlink_msg_${name_lower}_send(mavlink_channel_t chan,${{arg_fields: ${array_const}${type} ${array_prefix}${name},}})
+${MSG_ATTRIBUTE}static inline void mavlink_msg_${name_lower}_send(mavlink_channel_t chan,${{arg_fields: ${array_const}${type} ${array_prefix}${name},}})
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     char buf[MAVLINK_MSG_ID_${name}_LEN];
@@ -371,7 +378,7 @@ ${{array_fields:    _mav_put_${type}_array(buf, ${wire_offset}, ${name}, ${array
     mavlink_${name_lower}_t packet;
 ${{scalar_fields:    packet.${name} = ${putname};
 }}
-${{array_fields:    mav_array_assign_${type}(packet.${name}, ${name}, ${array_length});
+${{array_fields:    mav_array_memcpy(packet.${name}, ${name}, sizeof(${type})*${array_length});
 }}
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_${name}, (const char *)&packet, MAVLINK_MSG_ID_${name}_MIN_LEN, MAVLINK_MSG_ID_${name}_LEN, MAVLINK_MSG_ID_${name}_CRC);
 #endif
@@ -382,7 +389,7 @@ ${{array_fields:    mav_array_assign_${type}(packet.${name}, ${name}, ${array_le
  * @param chan MAVLink channel to send the message
  * @param struct The MAVLink struct to serialize
  */
-static inline void mavlink_msg_${name_lower}_send_struct(mavlink_channel_t chan, const mavlink_${name_lower}_t* ${name_lower})
+${MSG_ATTRIBUTE}static inline void mavlink_msg_${name_lower}_send_struct(mavlink_channel_t chan, const mavlink_${name_lower}_t* ${name_lower})
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     mavlink_msg_${name_lower}_send(chan,${{arg_fields: ${name_lower}->${name},}});
@@ -399,7 +406,7 @@ static inline void mavlink_msg_${name_lower}_send_struct(mavlink_channel_t chan,
   is usually the receive buffer for the channel, and allows a reply to an
   incoming message with minimum stack space usage.
  */
-static inline void mavlink_msg_${name_lower}_send_buf(mavlink_message_t *msgbuf, mavlink_channel_t chan, ${{arg_fields: ${array_const}${type} ${array_prefix}${name},}})
+${MSG_ATTRIBUTE}static inline void mavlink_msg_${name_lower}_send_buf(mavlink_message_t *msgbuf, mavlink_channel_t chan, ${{arg_fields: ${array_const}${type} ${array_prefix}${name},}})
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
     char *buf = (char *)msgbuf;
@@ -412,7 +419,7 @@ ${{array_fields:    _mav_put_${type}_array(buf, ${wire_offset}, ${name}, ${array
     mavlink_${name_lower}_t *packet = (mavlink_${name_lower}_t *)msgbuf;
 ${{scalar_fields:    packet->${name} = ${putname};
 }}
-${{array_fields:    mav_array_assign_${type}(packet->${name}, ${name}, ${array_length});
+${{array_fields:    mav_array_memcpy(packet->${name}, ${name}, sizeof(${type})*${array_length});
 }}
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_${name}, (const char *)packet, MAVLINK_MSG_ID_${name}_MIN_LEN, MAVLINK_MSG_ID_${name}_LEN, MAVLINK_MSG_ID_${name}_CRC);
 #endif
@@ -429,7 +436,7 @@ ${{fields:
  *
  * @return ${units} ${description}
  */
-static inline ${return_type} mavlink_msg_${name_lower}_get_${name}(const mavlink_message_t* msg${get_arg})
+${MSG_ATTRIBUTE}static inline ${return_type} mavlink_msg_${name_lower}_get_${name}(const mavlink_message_t* msg${get_arg})
 {
     return _MAV_RETURN_${type}${array_tag}(msg, ${array_return_arg} ${wire_offset});
 }
@@ -441,7 +448,7 @@ static inline ${return_type} mavlink_msg_${name_lower}_get_${name}(const mavlink
  * @param msg The message to decode
  * @param ${name_lower} C-struct to decode the message contents into
  */
-static inline void mavlink_msg_${name_lower}_decode(const mavlink_message_t* msg, mavlink_${name_lower}_t* ${name_lower})
+${MSG_ATTRIBUTE}static inline void mavlink_msg_${name_lower}_decode(const mavlink_message_t* msg, mavlink_${name_lower}_t* ${name_lower})
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
 ${{ordered_fields:    ${decode_left}mavlink_msg_${name_lower}_get_${name}(msg${decode_right});
@@ -458,7 +465,7 @@ ${{ordered_fields:    ${decode_left}mavlink_msg_${name_lower}_get_${name}(msg${d
 
 def generate_testsuite_h(directory, xml):
     '''generate testsuite.h per XML file'''
-    f = open(os.path.join(directory, "testsuite.h"), mode='w')
+    f = open(os.path.join(directory, "testsuite.h"), mode='w', encoding='utf-8')
     t.write(f, '''
 /** @file
  *    @brief MAVLink comm protocol testsuite generated from ${basename}.xml
@@ -569,7 +576,6 @@ def copy_fixed_headers(directory, xml):
     '''copy the fixed protocol headers to the target directory'''
     import shutil, filecmp
     hlist = {
-        "0.9": [ 'protocol.h', 'mavlink_helpers.h', 'mavlink_types.h', 'checksum.h' ],
         "1.0": [ 'protocol.h', 'mavlink_helpers.h', 'mavlink_types.h', 'checksum.h', 'mavlink_conversions.h' ],
         "2.0": [ 'protocol.h', 'mavlink_helpers.h', 'mavlink_types.h', 'checksum.h', 'mavlink_conversions.h',
                  'mavlink_get_info.h', 'mavlink_sha256.h' ]
@@ -596,25 +602,15 @@ def generate_one(basename, xml):
     print("Generating C implementation in directory %s" % directory)
     mavparse.mkdir_p(directory)
 
-    if xml.little_endian:
-        xml.mavlink_endian = "MAVLINK_LITTLE_ENDIAN"
-    else:
-        xml.mavlink_endian = "MAVLINK_BIG_ENDIAN"
-
-    if xml.crc_extra:
-        xml.crc_extra_define = "1"
-    else:
-        xml.crc_extra_define = "0"
+    xml.mavlink_endian = "MAVLINK_LITTLE_ENDIAN"
+    xml.crc_extra_define = "1"
 
     if xml.command_24bit:
         xml.command_24bit_define = "1"
     else:
         xml.command_24bit_define = "0"
 
-    if xml.sort_fields:
-        xml.aligned_fields_define = "1"
-    else:
-        xml.aligned_fields_define = "0"
+    xml.aligned_fields_define = "1"
 
     # work out the included headers
     xml.include_list = []
@@ -677,10 +673,7 @@ def generate_one(basename, xml):
     # add some extra field attributes for convenience with arrays
     for m in xml.message:
         m.msg_name = m.name
-        if xml.crc_extra:
-            m.crc_extra_arg = ", %s" % m.crc_extra
-        else:
-            m.crc_extra_arg = ""
+        m.crc_extra_arg = ", %s" % m.crc_extra
         for f in m.fields:
             if f.print_format is None:
                 f.c_print_format = 'NULL'
@@ -755,11 +748,18 @@ def generate_one(basename, xml):
     generate_testsuite_h(directory, xml)
 
 
+def xml_name_hash(basename):
+    '''deterministic 64-bit signed hash of a dialect name; the builtin
+    hash() is randomised per interpreter run (PYTHONHASHSEED), which
+    makes regenerated headers differ even for identical XML'''
+    digest = hashlib.sha256(basename.encode('utf-8')).digest()
+    return int.from_bytes(digest[:8], 'little', signed=True)
+
 def generate(basename, xml_list):
     '''generate complete MAVLink C implemenation'''
 
     for idx in range(len(xml_list)):
         xml = xml_list[idx]
-        xml.xml_hash = hash(xml.basename)        
+        xml.xml_hash = xml_name_hash(xml.basename)
         generate_one(basename, xml)
     copy_fixed_headers(basename, xml_list[0])

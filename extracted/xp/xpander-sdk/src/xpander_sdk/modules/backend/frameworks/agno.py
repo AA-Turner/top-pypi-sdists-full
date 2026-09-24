@@ -2853,8 +2853,14 @@ async def build_agent_args(
         args["instructions"] += CONTEXT_OPTIMIZATION_INSTRUCTIONS
 
     # Without the contract an aligned model refuses keyed steer blocks as injections.
+    # Keyed under the runner's api key and scoped to the session the history is keyed
+    # on, so a conversation's turns share one line and the cached prefix holds.
     if task is not None and getattr(task, "id", None):
-        args["instructions"] += steering_contract_block(task.id)
+        args["instructions"] += steering_contract_block(
+            task.id,
+            getattr(getattr(xpander_agent, "configuration", None), "api_key", None),
+            scope=session_id_for(task),
+        )
 
     # Conditionally inject workspace output guidance (only when workspace tools are
     # present). Also gated on workspace_enabled — the backend should already omit

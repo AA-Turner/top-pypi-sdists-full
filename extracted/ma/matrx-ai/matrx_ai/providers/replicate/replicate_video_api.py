@@ -28,6 +28,11 @@ class ReplicateVideoGeneration(BaseMediaGeneration):
     def __init__(self):
         self._pending_descriptor: ModelDescriptor | None = None
 
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """What this model's Replicate schema can carry (descriptor data)."""
+        descriptor = get_descriptor(unified_config.model or "")
+        return descriptor.video_transport() if descriptor is not None else frozenset()
+
     def _build_kwargs(
         self, unified_config: UnifiedConfig, profile: Any
     ) -> dict[str, Any]:

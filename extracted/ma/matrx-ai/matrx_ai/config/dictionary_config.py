@@ -41,6 +41,23 @@ class DictionaryEntry(BaseModel):
     source_name: str | None = None
 
 
+class GlossaryEntry(BaseModel):
+    """One translation rule from an attached term list.
+
+    ``translation`` None with ``do_not_translate`` True means "keep the source
+    term verbatim in every target language". ``target_language`` None means the
+    rule applies to every target language.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    term: str
+    translation: str | None = None
+    target_language: str | None = None
+    do_not_translate: bool = False
+    case_sensitive: bool = False
+
+
 class DictionaryConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -55,6 +72,13 @@ class DictionaryConfig(BaseModel):
     # None → inherits the 200-char default; 0 → never inline; N → custom ceiling.
     max_inline_chars: int | None = None
     source_count: int = 0
+    # Translation rules from attached term lists (translate / do-not-translate).
+    # Rendered as a glossary section for chat models; vendors with a native
+    # glossary (DeepL, Google) get it natively instead.
+    glossary: list[GlossaryEntry] = []
+    # Free prose from attached term lists — context that rides WITH the terms and
+    # is never itself translated or spoken.
+    context: str | None = None
 
     # ── construction ──────────────────────────────────────────────────────
     @classmethod
@@ -74,7 +98,7 @@ class DictionaryConfig(BaseModel):
     # ── queries ───────────────────────────────────────────────────────────
     @property
     def is_empty(self) -> bool:
-        return not (self.entries or self.custom_entries)
+        return not (self.entries or self.custom_entries or self.glossary or self.context)
 
     @property
     def all_entries(self) -> list[DictionaryEntry]:
@@ -95,10 +119,45 @@ class DictionaryConfig(BaseModel):
         return sorted(self.all_entries, key=lambda e: e.term.lower())
 
     # ── renderers ─────────────────────────────────────────────────────────
+    def render_glossary_block(self) -> str:
+        """Translation glossary + term-list context for chat models.
+
+        Deterministic (sorted) so identical lists yield a byte-identical block
+        and the prompt cache holds.
+        """
+        lines: list[str] = []
+        keep = sorted({g.term for g in self.glossary if g.do_not_translate}, key=str.lower)
+        rules = sorted(
+            (g for g in self.glossary if not g.do_not_translate and g.translation),
+            key=lambda g: (g.term.lower(), (g.target_language or "").lower()),
+        )
+        if keep:
+            lines.append(
+                "Never translate these terms; keep them exactly as written in every language:"
+            )
+            lines.extend(f'- "{t}"' for t in keep)
+        if rules:
+            lines.append("Required translations (use exactly these renderings):")
+            for g in rules:
+                lang = f" [{g.target_language}]" if g.target_language else ""
+                lines.append(f'- "{g.term}"{lang} -> "{g.translation}"')
+        if self.context and self.context.strip():
+            lines.append(
+                "Context for these terms (guidance only; never translate or repeat it):\n"
+                + self.context.strip()
+            )
+        if not lines:
+            return ""
+        return "Glossary:\n" + "\n".join(lines)
+
     def render_context_block(self) -> str:
         """Definitions + spellings + pronunciations for text-gen / cleanup LLMs."""
         if self.is_empty:
             return ""
+        blocks: list[str] = []
+        glossary = self.render_glossary_block()
+        if not (self.entries or self.custom_entries):
+            return glossary
         lines: list[str] = []
         for e in self._sorted():
             parts = [f"- **{e.term}**"]
@@ -111,7 +170,12 @@ class DictionaryConfig(BaseModel):
             if e.definition:
                 parts.append(f"— {e.definition}")
             lines.append(" · ".join(parts))
-        return "Custom dictionary (preferred spellings & pronunciations):\n" + "\n".join(lines)
+        blocks.append(
+            "Custom dictionary (preferred spellings & pronunciations):\n" + "\n".join(lines)
+        )
+        if glossary:
+            blocks.append(glossary)
+        return "\n\n".join(blocks)
 
     def render_pronunciation_directive(self) -> str:
         """Terse pronunciation guidance for TTS / non-function-calling models.

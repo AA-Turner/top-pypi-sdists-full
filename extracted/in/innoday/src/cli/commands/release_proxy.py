@@ -515,7 +515,7 @@ class ReleaseProxyCommands:
             )
             console.print(
                 format_info(
-                    "Sign up or sign in at https://www.inno.day, then run "
+                    "Sign up or sign in at https://www.havilandsoftware.com, then run "
                     "`innoday login`."
                 )
             )
@@ -538,7 +538,7 @@ class ReleaseProxyCommands:
             console.print(
                 format_info(
                     "Run `innoday login`. If you do not have an account yet, "
-                    "sign up at https://www.inno.day."
+                    "sign up at https://www.havilandsoftware.com."
                 )
             )
             return 1

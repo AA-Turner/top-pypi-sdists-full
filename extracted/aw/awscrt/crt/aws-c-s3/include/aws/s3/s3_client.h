@@ -8,6 +8,8 @@
 
 #include <aws/auth/signing_config.h>
 #include <aws/common/ref_count.h>
+#include <aws/common/tribool.h>
+#include <aws/http/connection_manager.h>
 #include <aws/io/retry_strategy.h>
 #include <aws/s3/s3.h>
 #include <aws/s3/s3_buffer_pool.h>
@@ -735,6 +737,55 @@ struct aws_s3_client_config {
 
     /* User data that's passed into pool factory. */
     void *buffer_pool_user_data;
+
+    /**
+     * Whether a download may deliver received parts as they arrive rather than in object order.
+     *
+     * For a download given a `recv_filepath`, writing out of order lets several parts reach the disk at
+     * once, which is what allows a download to exceed the throughput of a single writer. This is on
+     * unless you turn it off: each part is written at its own absolute file offset, so arrival order is
+     * invisible in the finished file.
+     *
+     * For a download delivered through `body_callback`, out-of-order delivery stops a part from waiting
+     * on the part ahead of it, which frees its buffer sooner and removes the latency a single slow part
+     * adds to everything behind it. It does NOT make the callback concurrent: the callback still fires
+     * from one thread, one part at a time, exactly as it does today. Only the order changes, so
+     * `range_start` no longer advances contiguously and your sink must place each range by
+     * `range_start` rather than appending. Because that is visible in your own code, it requires
+     * AWS_TRIBOOL_TRUE -- AWS_TRIBOOL_UNSET leaves callback delivery in object order.
+     *
+     * The trade for a file destination is what a partial file contains. Ordered delivery leaves a valid
+     * prefix, so an interrupted download yields a file that is short but complete as far as it goes.
+     * Out-of-order delivery can leave gaps, so a partial file is only meaningful together with the
+     * download resume token, which reports how many bytes from the start are contiguous.
+     *
+     * Ignored when a response carries a whole-object checksum that can only be verified by hashing the
+     * body in order; such a request delivers in order and logs a warning.
+     *
+     * Leave AWS_TRIBOOL_UNSET to let the client decide, which currently means out of order for a file
+     * destination and in order for a body callback. The AWS_CRT_S3_ORDERED_DELIVERY environment variable
+     * changes that decision to in order for both; it applies only when neither this field nor the request
+     * asked for something, so setting either one keeps the answer yours.
+     *
+     * A single request can override this via `aws_s3_meta_request_options.out_of_order_delivery`.
+     */
+    enum aws_tribool out_of_order_delivery;
+
+    /**
+     * Optional.
+     * Number of threads the client dedicates to file I/O.
+     *
+     * These threads do nothing but read from and write to files, which keeps a blocking disk
+     * operation from delaying the response processing and user callbacks that share the client's
+     * other threads. The count is also the number of parts a download can have in flight to the
+     * disk at once, so it bounds how much of the disk's throughput a single client can use.
+     *
+     * Raising it past the point where the disk saturates buys nothing and costs threads. Lowering
+     * it below the disk's concurrency leaves throughput on the table.
+     *
+     * Defaults to the number of event loops in the client bootstrap's event loop group.
+     */
+    uint16_t num_file_io_threads;
 };
 
 struct aws_s3_checksum_config {
@@ -783,6 +834,10 @@ struct aws_s3_checksum_config {
      * they exist. Calculate the corresponding checksum on the response bodies. The meta request will finish with a did
      * validate field and set the error code to AWS_ERROR_S3_RESPONSE_CHECKSUM_MISMATCH if the calculated
      * checksum, and checksum found in the response header do not match.
+     *
+     * A checksum is only used when it describes the bytes being downloaded. For a ranged GET the object's own
+     * checksum covers bytes the caller did not ask for, so only the checksums of individual part responses can be
+     * validated. See the did_validate field of aws_s3_meta_request_result for what ends up being reported.
      */
     bool validate_response_checksum;
 
@@ -890,6 +945,16 @@ struct aws_s3_meta_request_options {
 
     /**
      * Optional.
+     * Per-request override of the client's `out_of_order_delivery`. See that field for what the setting
+     * means and what each sink defaults to.
+     *
+     * AWS_TRIBOOL_UNSET, the default, defers to the client. Anything else wins over the client, so a
+     * single request can opt in or out without a separate client.
+     */
+    enum aws_tribool out_of_order_delivery;
+
+    /**
+     * Optional.
      * If set, this file is sent as the request body.
      * This gives the best performance when sending data from a file.
      * Do not set if the body is being passed by other means (see note above).
@@ -900,12 +965,10 @@ struct aws_s3_meta_request_options {
      * Optional.
      * Overrides the client config if set.
      * If set, this controls how the meta request interact with file I/O.
-     * Read `aws_s3_file_io_options` for details.
-     *  Notes: Only applies when `send_filepath` is set.
-     *  TODO: adapt it to `recv_filepath`.
      *
-     * Note: if both client and meta request don't set this, for objects larger than 2TiB, this will be set to a default
-     * options with `should_stream` to be True and others follow the default to avoid memory issues.
+     * Note: if both client and meta request don't set this, for objects larger than g_streaming_object_size_threshold,
+     * this will be set to a default options with `should_stream` to be True and others follow the default to avoid
+     * memory issues.
      *
      * eg:
      * - When the file is too large to fit in the buffer, set `should_stream` to avoid buffering the whole parts in
@@ -1158,15 +1221,22 @@ struct aws_s3_meta_request_result {
     /* Response status of the failed request or of the entire meta request. */
     int response_status;
 
-    /* Only set for GET request.
-     * Was the server side checksum compared against a calculated checksum of the response body. This may be false
-     * even if validate_get_response_checksum was set because the object was uploaded without a checksum, or was
-     * uploaded as a multipart object.
+    /* Only set for GET requests.
+     * True if every byte delivered was compared against a checksum the server reported. That happens two ways: the
+     * object's own checksum covered the whole download and was compared against a running sum of it, or every part
+     * response carried a checksum of its own and each was compared against that part's bytes. Either way, a
+     * mismatch fails the meta request with AWS_ERROR_S3_RESPONSE_CHECKSUM_MISMATCH.
      *
-     * If the object to get is multipart object, the part checksum MAY be validated if the part size to get matches the
-     * part size uploaded. In that case, if any part mismatch the checksum received, the meta request will fail with
-     * checksum mismatch. However, even if the parts checksum were validated, this will NOT be set to true, as the
-     * checksum for the whole meta request was NOT validated.
+     * This may be false even if validate_response_checksum was set:
+     *  - the object was uploaded without a checksum;
+     *  - the download is a ranged GET, so the object's own checksum covers bytes the caller did not ask for, and
+     *    the parts being fetched carried no checksum of their own;
+     *  - the object was uploaded as a multipart upload with a composite checksum, which describes a list of part
+     *    checksums rather than the object's bytes, and the parts being fetched do not line up with the parts
+     *    uploaded. An object uploaded with a full-object checksum is validated like any single-part object.
+     *
+     * It is also all-or-nothing: if any one part response carried no checksum, this stays false even though the
+     * other parts were checked.
      **/
     bool did_validate;
 
@@ -1201,6 +1271,11 @@ struct aws_s3_client *aws_s3_client_acquire(struct aws_s3_client *client);
  */
 AWS_S3_API
 struct aws_s3_client *aws_s3_client_release(struct aws_s3_client *client);
+
+AWS_S3_API
+uint32_t aws_s3_client_get_max_active_connections(
+    struct aws_s3_client *client,
+    struct aws_s3_meta_request *meta_request);
 
 AWS_S3_API
 struct aws_s3_meta_request *aws_s3_client_make_meta_request(
@@ -1829,6 +1904,22 @@ AWS_S3_API
 void aws_s3_request_metrics_get_host_address(
     const struct aws_s3_request_metrics *metrics,
     const struct aws_string **out_host_address);
+
+/**
+ * Get whether the request was made over TLS (https) or plaintext (http). This will always be available.
+ */
+AWS_S3_API
+bool aws_s3_request_metrics_get_is_https(const struct aws_s3_request_metrics *metrics);
+
+/**
+ * Get a snapshot of the endpoint's HTTP connection manager metrics, taken right before this request
+ * asks for a connection. This reflects the manager's overall state at that instant, not just this
+ * request. This will always be available.
+ */
+AWS_S3_API
+void aws_s3_request_metrics_get_http_manager_metrics(
+    const struct aws_s3_request_metrics *metrics,
+    struct aws_http_manager_metrics *out_metrics);
 
 /**
  * Get the IP address of the request connected to.

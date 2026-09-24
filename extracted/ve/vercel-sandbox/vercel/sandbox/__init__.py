@@ -103,6 +103,7 @@ from vercel.sandbox._internal.state import SnapshotRetentionState
 from vercel.sandbox._internal.text_reader import TextReader
 
 from . import sync
+from .client import SandboxClient
 
 
 def _service() -> SandboxService:
@@ -111,7 +112,6 @@ def _service() -> SandboxService:
 
 def create_sandbox(
     *,
-    project_id: str | None = None,
     name: str | None = None,
     image: str | None = None,
     source: SandboxSource | None = None,
@@ -120,6 +120,7 @@ def create_sandbox(
     resources: SandboxResources | None = None,
     persistent: bool | None = None,
     network_policy: NetworkPolicy | None = None,
+    network_id: str | None = None,
     env: Mapping[str, str] | None = None,
     tags: Mapping[str, str] | None = None,
     mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -133,12 +134,10 @@ def create_sandbox(
     """Prepare an asynchronous sandbox creation operation.
 
     Awaiting the returned operation performs no automatic cleanup. Using it as
-    an async context manager stops the sandbox on exit and destroys it by
-    default.
+    an async context manager stops the sandbox on exit, then destroys it and
+    any snapshots that no other sandbox uses by default.
 
     Args:
-        project_id: Project that owns the sandbox. Uses the active credentials
-            when omitted.
         name: Requested sandbox name. The service generates one when omitted.
         image: Vercel Container Registry image reference. The backend validates
             and resolves the reference.
@@ -149,6 +148,7 @@ def create_sandbox(
         resources: Requested CPU and memory resources.
         persistent: Whether the sandbox persists beyond its current session.
         network_policy: Network access policy sent to the Sandbox API.
+        network_id: Secure Compute network ID to attach to the sandbox.
         env: Environment variables for the sandbox.
         tags: Metadata tags used to organize and query sandboxes.
         mounts: Drive names or handles keyed by absolute mount path.
@@ -157,8 +157,9 @@ def create_sandbox(
         snapshot_retention: Automatic snapshot retention policy.
         region: Preferred region for the sandbox.
         failover_regions: Regions available if creation in ``region`` fails.
-        destroy: Whether context-manager exit destroys the sandbox after
-            stopping it. Awaiting the operation never triggers cleanup.
+        destroy: Whether context-manager exit destroys the sandbox and its
+            orphaned snapshots after stopping it. Awaiting the operation never
+            triggers cleanup.
 
     Returns:
         A single-use awaitable and async context manager for the new sandbox.
@@ -169,7 +170,6 @@ def create_sandbox(
     """
     return _create_sandbox_operation(
         _service(),
-        project_id=project_id,
         name=name,
         image=image,
         source=source,
@@ -178,6 +178,7 @@ def create_sandbox(
         resources=resources,
         persistent=persistent,
         network_policy=network_policy,
+        network_id=network_id,
         env=env,
         tags=tags,
         mounts=mounts,
@@ -193,7 +194,6 @@ def create_sandbox(
 def fork_sandbox(
     *,
     source_sandbox: str,
-    project_id: str | None = None,
     name: str | None = None,
     ports: list[int] | None = None,
     execution_time_limit: DurationInput = None,
@@ -201,6 +201,7 @@ def fork_sandbox(
     image: str | None = None,
     persistent: bool | None = None,
     network_policy: NetworkPolicy | None = None,
+    network_id: str | None = None,
     env: Mapping[str, str] | None = None,
     tags: Mapping[str, str] | None = None,
     mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -223,8 +224,6 @@ def fork_sandbox(
 
     Args:
         source_sandbox: Name of the sandbox to fork.
-        project_id: Project that owns both the source and fork. Uses the active
-            credentials when omitted.
         name: Requested name for the fork. The service generates one when
             omitted.
         ports: Ports to expose instead of the source sandbox's ports.
@@ -233,6 +232,7 @@ def fork_sandbox(
         image: Vercel Container Registry image override.
         persistent: Persistence override.
         network_policy: Network access policy override.
+        network_id: Secure Compute network ID override.
         env: Environment variable override.
         tags: Metadata tag override.
         mounts: Drives to attach explicitly to the fork. Forks never inherit
@@ -254,7 +254,6 @@ def fork_sandbox(
     return _fork_sandbox_operation(
         _service(),
         source_sandbox=source_sandbox,
-        project_id=project_id,
         name=name,
         ports=ports,
         execution_time_limit=execution_time_limit,
@@ -262,6 +261,7 @@ def fork_sandbox(
         image=image,
         persistent=persistent,
         network_policy=network_policy,
+        network_id=network_id,
         env=env,
         tags=tags,
         mounts=mounts,
@@ -277,7 +277,6 @@ def fork_sandbox(
 async def get_or_create_sandbox(
     *,
     name: str,
-    project_id: str | None = None,
     resume: bool = True,
     include_system_routes: bool | None = None,
     image: str | None = None,
@@ -287,6 +286,7 @@ async def get_or_create_sandbox(
     resources: SandboxResources | None = None,
     persistent: bool | None = None,
     network_policy: NetworkPolicy | None = None,
+    network_id: str | None = None,
     env: Mapping[str, str] | None = None,
     tags: Mapping[str, str] | None = None,
     mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -305,8 +305,6 @@ async def get_or_create_sandbox(
 
     Args:
         name: Sandbox name to retrieve or create.
-        project_id: Project that owns the sandbox. Uses the active credentials
-            when omitted.
         resume: Whether to resume an existing stopped sandbox during lookup.
         include_system_routes: Whether to include platform-managed routes.
         image: Vercel Container Registry image reference. The backend validates
@@ -318,6 +316,7 @@ async def get_or_create_sandbox(
         resources: Requested CPU and memory resources.
         persistent: Whether the sandbox persists beyond its current session.
         network_policy: Network access policy sent to the Sandbox API.
+        network_id: Secure Compute network ID to attach to the sandbox.
         env: Environment variables for the sandbox.
         tags: Metadata tags used to organize and query sandboxes.
         mounts: Drive names or handles keyed by absolute mount path.
@@ -335,7 +334,6 @@ async def get_or_create_sandbox(
     return await _get_or_create_sandbox(
         _service(),
         name=name,
-        project_id=project_id,
         resume=resume,
         include_system_routes=include_system_routes,
         image=image,
@@ -345,6 +343,7 @@ async def get_or_create_sandbox(
         resources=resources,
         persistent=persistent,
         network_policy=network_policy,
+        network_id=network_id,
         env=env,
         tags=tags,
         mounts=mounts,
@@ -361,7 +360,6 @@ async def get_or_create_sandbox(
 async def get_sandbox(
     *,
     name: str,
-    project_id: str | None = None,
     include_system_routes: bool | None = None,
     **private_parameters: _JSONValue,
 ) -> Sandbox:
@@ -373,7 +371,6 @@ async def get_sandbox(
 
     Args:
         name: Sandbox name.
-        project_id: Project that owns the sandbox.
         include_system_routes: Whether to include platform-managed routes.
 
     Returns:
@@ -385,7 +382,6 @@ async def get_sandbox(
     return await _get_sandbox(
         _service(),
         name=name,
-        project_id=project_id,
         include_system_routes=include_system_routes,
         private_parameters=_normalize_private_parameters("get_sandbox", private_parameters),
     )
@@ -394,7 +390,6 @@ async def get_sandbox(
 def resume_sandbox(
     *,
     name: str,
-    project_id: str | None = None,
     include_system_routes: bool | None = None,
     **private_parameters: _JSONValue,
 ) -> ResumeSandboxOperation:
@@ -405,7 +400,6 @@ def resume_sandbox(
 
     Args:
         name: Sandbox name.
-        project_id: Project that owns the sandbox.
         include_system_routes: Whether to include platform-managed routes.
 
     Returns:
@@ -418,7 +412,6 @@ def resume_sandbox(
     return _resume_sandbox_operation(
         _service(),
         name=name,
-        project_id=project_id,
         include_system_routes=include_system_routes,
         private_parameters=_normalize_private_parameters("resume_sandbox", private_parameters),
     )
@@ -427,34 +420,31 @@ def resume_sandbox(
 async def get_or_create_drive(
     *,
     name: str,
-    project_id: str | None = None,
     max_size_bytes: int | None = None,
     region: str | None = None,
-) -> Drive:
+) -> tuple[Drive, bool]:
     """Return a named Drive, creating it when necessary.
 
     Args:
         name: Project-local Drive name.
-        project_id: Owning project ID or name. Uses the active project when
-            omitted.
         max_size_bytes: Maximum size for a new Drive. Uses the project's default
             when omitted.
-        region: Storage region for a new Drive. The backend defaults to ``"iad1"``.
-            An existing Drive must already use the requested region.
+        region: Storage region for a new Drive. Uses ``SandboxServiceOptions.region``
+            when omitted. An existing Drive must already use the requested region.
 
     Returns:
-        The existing or newly created Drive.
+        A ``(drive, created)`` tuple. ``created`` is true when this call created
+        the Drive, and false when it returned an existing Drive.
     """
     return await _get_or_create_drive(
         _service(),
         name=name,
-        project_id=project_id,
         max_size_bytes=max_size_bytes,
         region=region,
     )
 
 
-async def delete_drive(*, name: str, project_id: str | None = None) -> Drive:
+async def delete_drive(*, name: str) -> Drive:
     """Delete a Drive by project-local name.
 
     Use this function when no handle is available, such as after an uncertain
@@ -462,19 +452,16 @@ async def delete_drive(*, name: str, project_id: str | None = None) -> Drive:
 
     Args:
         name: Project-local Drive name.
-        project_id: Owning project ID or name. Uses the active project when
-            omitted.
 
     Returns:
         The Drive returned by the deletion request.
     """
-    return await _delete_drive(_service(), name=name, project_id=project_id)
+    return await _delete_drive(_service(), name=name)
 
 
 def query_drives(
     *,
     query: DriveQuery | None = None,
-    project_id: str | None = None,
     page_size: int | None = None,
     cursor: str | None = None,
 ) -> AsyncIterator[Drive]:
@@ -482,7 +469,6 @@ def query_drives(
 
     Args:
         query: Ordering and optional name-prefix filter.
-        project_id: Project whose Drives should be queried.
         page_size: Maximum number of Drives fetched per API request.
         cursor: Cursor at which to begin pagination.
 
@@ -492,7 +478,6 @@ def query_drives(
     return _query_drives(
         _service(),
         query=query,
-        project_id=project_id,
         page_size=page_size,
         cursor=cursor,
     )
@@ -501,7 +486,6 @@ def query_drives(
 def query_sandboxes(
     *,
     query: SandboxQuery | None = None,
-    project_id: str | None = None,
     page_size: int | None = None,
     cursor: str | None = None,
 ) -> AsyncIterator[Sandbox]:
@@ -509,7 +493,6 @@ def query_sandboxes(
 
     Args:
         query: Ordering and filtering options.
-        project_id: Project whose sandboxes should be queried.
         page_size: Maximum number of sandboxes fetched per API request.
         cursor: Cursor at which to begin pagination.
 
@@ -519,7 +502,6 @@ def query_sandboxes(
     return _query_sandboxes(
         _service(),
         query=query,
-        project_id=project_id,
         page_size=page_size,
         cursor=cursor,
     )
@@ -527,7 +509,6 @@ def query_sandboxes(
 
 def query_sessions(
     *,
-    project_id: str | None = None,
     name: str | None = None,
     page_size: int | None = None,
     cursor: str | None = None,
@@ -536,7 +517,6 @@ def query_sessions(
     """Iterate over runtime sessions.
 
     Args:
-        project_id: Project whose sessions should be queried.
         name: Sandbox name used to restrict the results.
         page_size: Maximum number of sessions fetched per API request.
         cursor: Cursor at which to begin pagination.
@@ -548,7 +528,6 @@ def query_sessions(
     """
     return _query_sessions(
         _service(),
-        project_id=project_id,
         name=name,
         page_size=page_size,
         cursor=cursor,
@@ -558,7 +537,6 @@ def query_sessions(
 
 def query_snapshots(
     *,
-    project_id: str | None = None,
     name: str | None = None,
     page_size: int | None = None,
     cursor: str | None = None,
@@ -567,7 +545,6 @@ def query_snapshots(
     """Iterate over snapshots.
 
     Args:
-        project_id: Project whose snapshots should be queried.
         name: Sandbox name used to restrict the results.
         page_size: Maximum number of snapshots fetched per API request.
         cursor: Cursor at which to begin pagination.
@@ -579,7 +556,6 @@ def query_snapshots(
     """
     return _query_snapshots(
         _service(),
-        project_id=project_id,
         name=name,
         page_size=page_size,
         cursor=cursor,
@@ -605,6 +581,7 @@ async def get_snapshot(*, snapshot_id: str) -> Snapshot:
 __all__ = [
     "SandboxBinaryReader",
     "SandboxBinaryWriter",
+    "SandboxClient",
     "SandboxTextReader",
     "SandboxTextWriter",
     "Drive",

@@ -48,6 +48,42 @@ MESSAGES = {
               "exact match: applying the build answers that the method does not satisfy the "
               "signature, and the project rolls back to the previous build.",
     },
+    "form/handler-signature.event-argument": {
+        "ru": "Параметр {position} обработчика '{handler}' объявлен как '{actual}', а событие "
+              "'{event}' компонента '{component}' передаёт '{expected}'. Тип данных события "
+              "можно только расширить: взять тот же тип с '?' или его предка. При применении "
+              "сборки компиляция ответит \"Метод не удовлетворяет сигнатуре\", и проект "
+              "откатится на прежнюю сборку.",
+        "en": "Parameter {position} of the handler '{handler}' is declared as '{actual}', while "
+              "the '{event}' event of '{component}' passes '{expected}'. The data type of an "
+              "event can only be widened: take the same type with '?' or its ancestor. Applying "
+              "the build answers that the method does not satisfy the signature, and the "
+              "project rolls back to the previous build.",
+    },
+    "form/handler-signature.unrelated": {
+        "ru": "Параметр {position} обработчика '{handler}' объявлен как '{actual}', а сигнатура "
+              "события у компонента '{component}' – {signature}. Тип '{written}' не связан с "
+              "'{base}' наследованием: подойдёт тип из сигнатуры или его предок. При применении "
+              "сборки компиляция ответит \"Метод не удовлетворяет сигнатуре\", и проект "
+              "откатится на прежнюю сборку.",
+        "en": "Parameter {position} of the handler '{handler}' is declared as '{actual}', while "
+              "the event signature of '{component}' is {signature}. '{written}' is not related "
+              "to '{base}' by inheritance: the type of the signature or its ancestor will do. "
+              "Applying the build answers that the method does not satisfy the signature, and "
+              "the project rolls back to the previous build.",
+    },
+    "form/handler-signature.narrower": {
+        "ru": "Параметр {position} обработчика '{handler}' объявлен как '{actual}', а сигнатура "
+              "события у компонента '{component}' – {signature}. Тип '{narrowed}' – наследник "
+              "'{base}', а сужать тип параметра нельзя: подойдёт тип из сигнатуры или его "
+              "предок. При применении сборки компиляция ответит \"Метод не удовлетворяет "
+              "сигнатуре\", и проект откатится на прежнюю сборку.",
+        "en": "Parameter {position} of the handler '{handler}' is declared as '{actual}', while "
+              "the event signature of '{component}' is {signature}. '{narrowed}' is a descendant "
+              "of '{base}', and a parameter type cannot be narrowed: the type of the "
+              "signature or its ancestor will do. Applying the build answers that the method "
+              "does not satisfy the signature, and the project rolls back to the previous build.",
+    },
     "form/unknown-handler.not-found": {
         "ru": "Обработчик '{name}' не найден как метод в модуле формы '{module}'.",
         "en": "Handler '{name}' is not found as a method in the form module '{module}'.",
@@ -258,29 +294,48 @@ def close_in_before_close(source: SourceFile) -> Iterable[Diagnostic]:
 
 # --- form/handler-signature ---------------------------------------------------------------
 #
-# The yaml points an event at a method, and the platform demands the method match the event's
-# delegate EXACTLY: a `СобытиеПриИзменении<Булево>` where the component declares
+# The yaml points an event at a method, and the platform checks the method against the event's
+# delegate: a `СобытиеПриИзменении<Булево>` where the component declares
 # `СобытиеПриИзменении<Булево?>` costs a full deploy cycle - the server compilation answers
 # "Метод не удовлетворяет сигнатуре" and the whole project rolls back to the previous build.
 #
 # The signature comes from the ui schema, which carries the delegate of every event property
 # (`ПриИзменении: (Флажок, СобытиеПриИзменении<Булево?>)->ничто`), and the component's own
 # type arguments are substituted into it: a `ПолеВвода<Строка>` expects
-# `СобытиеПриИзменении<Строка>`.
+# `СобытиеПриИзменении<Строка>`. The delegate belongs to the type that DECLARES the event,
+# not to the component the yaml writes: `OnHover` is declared on the base `Component` and
+# passes `(Компонент, СобытиеКомпонента)` whatever the component, while `OnClick` of a label
+# is declared on the label itself and passes `(Надпись, СобытиеПриНажатии)`.
 #
-# Reconnaissance over four corpora (483 handlers) settled the slice, and it is narrower than
-# "the types differ":
+# Reconnaissance over the corpora settled the slice, and it is narrower than "the types differ":
 #
 # - the ARITY is not judged. A standard table column legitimately takes a third parameter
-#   (the row data the docs describe as an extra), and nine live handlers do exactly that;
-# - a parameter whose HEAD type differs is not judged either: a handler shared by several
-#   components declares the base types (`Component`, `ComponentEvent`) and the platform
-#   accepts it - twenty-two live handlers are written that way;
+#   (the row data the docs describe as an extra), and live handlers do exactly that;
+# - a parameter whose head is an ANCESTOR of the delegate's is legal: a handler shared by
+#   several components declares the base types (`Component`, `ComponentEvent`), and the
+#   platform accepts it;
+# - a parameter whose head is a DESCENDANT of the delegate's narrows what the event passes,
+#   and the compiler refuses it: a hover handler that takes `Label` where the delegate says
+#   `Component`. The click handler of the same label takes `Label` legally - its delegate
+#   names the label. The ancestry comes from the type catalog (`bases`, closed transitively);
+# - a head that is neither is refused too. The drop and the autocomplete events list only
+#   `Object` among their bases, which looked like a gap in the data, but the compiler refused
+#   `ComponentEvent` for both. A head the catalog does not describe (a project type, a word
+#   left unfolded) is not judged: its ancestry is not known here;
 # - a type parameter left unsubstituted (a list whose row type resolves through the source
-#   type) is not judged: what the compiler sees there is not visible in the file.
+#   type) is not judged: what the compiler sees there is not visible in the file;
+# - the type ARGUMENT of the event may be wider than the one the event passes, the argument
+#   of the source may not. Compiled on a local server in both compatibility modes, a handler
+#   of an `Edit<String>` took `OnChangeEvent<String?>`, `OnChangeEvent<Object>` and
+#   `OnChangeEvent<Object?>`, and `EventWithData` behaved the same. The compiler refused
+#   `OnChangeEvent<Boolean>` and `OnChangeEvent<Object>` where `OnChangeEvent<Boolean?>` is
+#   passed, `OnChangeEvent<Number>` for a string, and `Edit<String?>` or `Edit<Object?>` as
+#   the source of an `Edit<String>`. An event only hands its data out, while a component
+#   also takes a value in.
 #
-# What is left is the case the defect was met in: the SAME type, spelled with a different
-# argument or nullability. Zero findings on all four corpora.
+# What is left is a narrowed or unrelated head and the case the defect was first met in: the
+# SAME type with a different argument. For the source any difference is a finding, for the event the
+# argument that drops the nullability or names an unrelated type.
 
 #: Type expressions are compared by text, so both spellings are folded into the Russian one.
 _TYPE_WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
@@ -291,7 +346,13 @@ _QUALIFIED_RE = re.compile(r"[^\W\d_]+(?:\.[^\W\d_]+)+", re.UNICODE)
 
 
 def _folded(type_text: str) -> str:
-    """A type expression in one spelling and without spaces - the comparable form."""
+    """A type expression in one spelling and without spaces - the comparable form.
+
+    A word is read as a TYPE first. The compiler dictionary is many-to-one backwards and
+    answers some English type names with a word of another role: `PopupMenu` with an event
+    type, `Group` with an adjective, `Map` with a method. The folded head of such a handler
+    parameter then named another type, and the ancestry check misread it.
+    """
     text = (type_text or "").replace(" ", "")
 
     def swap_qualified(match: re.Match) -> str:
@@ -300,7 +361,7 @@ def _folded(type_text: str) -> str:
 
     def swap(match: re.Match) -> str:
         word = match.group(0)
-        return terms.common_russian(word) or terms.russian(word, "types") or word
+        return terms.russian(word, "types") or terms.common_russian(word) or word
 
     text = _QUALIFIED_RE.sub(swap_qualified, text)
     return _TYPE_WORD_RE.sub(swap, text)
@@ -309,6 +370,116 @@ def _folded(type_text: str) -> str:
 def _type_head(type_text: str) -> str:
     """`OnChangeEvent<Boolean?>` -> `OnChangeEvent` (already folded)."""
     return type_text.split("<", 1)[0].rstrip("?")
+
+
+@lru_cache(maxsize=1)
+def _ancestors() -> dict[str, frozenset[str]]:
+    """{type: every ancestor of it} from the catalog; the ancestor lists are closed transitively."""
+    bases = dataset.load_json("stdlib.json").get("bases") or {}
+    return {name: frozenset(ancestors) for name, ancestors in bases.items()}
+
+
+def _narrower(written: str, expected: str) -> bool:
+    """Whether the written head is a proper descendant of the expected one (both folded).
+
+    Only a link the catalog states counts. A missing link reads as "not narrower", so a gap
+    in the data can hide a finding but never invent one.
+    """
+    return written != expected and expected in _ancestors().get(written, frozenset())
+
+
+def _unrelated(written: str, expected: str) -> bool:
+    """Whether two heads the catalog describes share no line of descent (both folded).
+
+    A head the catalog does not describe is never unrelated: a project type or a word left
+    unfolded has an ancestry this check cannot see, and guessing would invent a finding.
+    """
+    ancestors = _ancestors()
+    if written not in ancestors or expected not in ancestors:
+        return False
+    return written not in ancestors[expected] and expected not in ancestors[written]
+
+
+#: The root every type descends from: an event argument of this type takes any data.
+_ROOT_TYPE = "Объект"
+
+
+def _widens(written: str, expected: str) -> bool:
+    """Whether a type argument written by the handler takes every value of the expected one.
+
+    Both are folded. The same type, the same type made nullable, the root and an ancestor the
+    catalog states all do. A type that drops the nullability or is not related does not, and
+    neither does a generic type that differs: only the argument of the event itself was
+    proven to widen.
+    """
+    if written == expected:
+        return True
+    if expected.endswith("?") and not written.endswith("?"):
+        return False
+    written, expected = written.rstrip("?"), expected.rstrip("?")
+    if written in (expected, _ROOT_TYPE):
+        return True
+    if "<" in written or "<" in expected:
+        return False
+    return written in _ancestors().get(expected, frozenset())
+
+
+def _event_widens(written: str, expected: str) -> bool:
+    """Whether the written event type takes what the delegate passes (both folded, one head).
+
+    `OnChangeEvent<Object?>` takes an `OnChangeEvent<String>`: every type argument
+    may widen, and the event type itself may become nullable but not lose its `?`.
+    """
+    if expected.endswith("?") and not written.endswith("?"):
+        return False
+    written_args = dataset.generic_args(written.rstrip("?"))
+    expected_args = dataset.generic_args(expected.rstrip("?"))
+    if len(written_args) != len(expected_args):
+        return False
+    return all(_widens(got, want) for got, want in zip(written_args, expected_args))
+
+
+#: A type name inside an expression, an entity facet included (`BinaryObject.Reference`).
+_SHOWN_NAME_RE = re.compile(r"[^\W\d_]\w*(?:\.[^\W\d_]\w*)?", re.UNICODE)
+
+
+def _shown(type_text: str) -> str:
+    """A type of the schema as the message shows it: in English in an English message."""
+    if i18n.current_lang() != "en":
+        return type_text
+
+    def english(match: re.Match) -> str:
+        name = match.group(0)
+        head, dot, suffix = name.partition(".")
+        if not dot:
+            return terms.type_english(name)
+        return (terms.english(name, "facets")
+                or f"{terms.type_english(head)}.{terms.facet_suffix_english(suffix) or suffix}")
+
+    return _SHOWN_NAME_RE.sub(english, type_text)
+
+
+#: The parameter names the compiler prints in the signature of an event delegate. The schema
+#: keeps the delegate without names; the documentation names the two parameters of every event
+#: handler the same way.
+_DELEGATE_PARAMS = ("Источник", "Событие")
+#: The position of the event parameter, counted from one as the messages count it.
+_EVENT_POSITION = _DELEGATE_PARAMS.index("Событие") + 1
+
+
+def _event_signature(event: str, params: list[str]) -> str:
+    """The event as the compiler quotes it, parameter names included.
+
+    `ПриНаведении(Источник: Компонент, Событие: СобытиеКомпонента)`; an English message spells
+    it in English.
+    """
+    shown = []
+    for index, param in enumerate(params):
+        if index < len(_DELEGATE_PARAMS):
+            shown.append(f"{i18n.name(_DELEGATE_PARAMS[index])}: {_shown(param)}")
+        else:
+            shown.append(_shown(param))
+    return f"{i18n.name(event)}({', '.join(shown)})"
 
 
 def _signature_params(signature: str) -> list[str]:
@@ -369,6 +540,8 @@ def _event_names() -> frozenset[str]:
 def _reset_signature_caches() -> None:
     _events_of.cache_clear()
     _event_names.cache_clear()
+    _type_params.cache_clear()
+    _ancestors.cache_clear()
 
 
 dataset.register_reset(_reset_signature_caches)
@@ -495,13 +668,37 @@ def handler_signature(facts: dict[str, dict]) -> Iterable[Diagnostic]:
                 want_folded, got_folded = _folded(want), _folded(got)
                 if want_folded == got_folded or not got_folded:
                     continue
-                if _type_head(want_folded) != _type_head(got_folded):
-                    continue  # a base type is legal: one handler serves several components
+                want_head, got_head = _type_head(want_folded), _type_head(got_folded)
+                if want_head != got_head:
+                    if _narrower(got_head, want_head):
+                        message = "form/handler-signature.narrower"
+                    elif _unrelated(got_head, want_head):
+                        message = "form/handler-signature.unrelated"
+                    else:
+                        continue  # an ancestor is legal, an unknown head is not judged
+                    written = _type_head(got.replace(" ", ""))
+                    yield Diagnostic(
+                        rel, ref["line"], ref["col"], "form/handler-signature", Severity.WARNING,
+                        i18n.t(
+                            message,
+                            handler=ref["handler"], component=i18n.name(ref["component"]),
+                            position=position, actual=got, narrowed=written, written=written,
+                            base=_shown(want_head),
+                            signature=_event_signature(ref["event"], ref["expected"]),
+                        ),
+                    )
+                    continue
+                key = "form/handler-signature.mismatch"
+                if position == _EVENT_POSITION:
+                    if _event_widens(got_folded, want_folded):
+                        continue  # an event hands its data out: a wider type takes it
+                    key = "form/handler-signature.event-argument"
                 yield Diagnostic(
                     rel, ref["line"], ref["col"], "form/handler-signature", Severity.WARNING,
                     i18n.t(
-                        "form/handler-signature.mismatch",
-                        handler=ref["handler"], event=ref["event"], component=ref["component"],
-                        position=position, expected=want, actual=got,
+                        key,
+                        handler=ref["handler"], event=i18n.name(ref["event"]),
+                        component=i18n.name(ref["component"]),
+                        position=position, expected=_shown(want), actual=got,
                     ),
                 )

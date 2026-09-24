@@ -26,6 +26,7 @@ __all__ = (
     "AdMarkerHlsType",
     "CmafEncryptionMethodType",
     "ContainerTypeType",
+    "ContentKeyPeriodTimingType",
     "CustomAdTypeType",
     "DashAudioTimelinePatternType",
     "DashCompactnessType",
@@ -59,6 +60,7 @@ __all__ = (
     "ScteInManifestsType",
     "ScteInSegmentsType",
     "ServiceName",
+    "SpekeVersionType",
     "StreamNameOutputModeType",
     "TsEncryptionMethodType",
     "UriPathTypeType",
@@ -70,6 +72,7 @@ AdMarkerDashType = Literal["BINARY", "XML"]
 AdMarkerHlsType = Literal["DATERANGE", "SCTE35_ENHANCED"]
 CmafEncryptionMethodType = Literal["CBCS", "CENC"]
 ContainerTypeType = Literal["CMAF", "ISM", "TS"]
+ContentKeyPeriodTimingType = Literal["INDEX_ONLY", "INDEX_WITH_START_END", "START_END_ONLY"]
 CustomAdTypeType = Literal[
     "ALTERNATE_CONTENT_OPPORTUNITY", "CHAPTER", "NETWORK", "PROGRAM", "UNSCHEDULED_EVENT"
 ]
@@ -139,6 +142,7 @@ ScteFilterType = Literal[
 ]
 ScteInManifestsType = Literal["ALL", "MATCHES_FILTER"]
 ScteInSegmentsType = Literal["ALL", "MATCHES_FILTER", "NONE"]
+SpekeVersionType = Literal["V2_0", "V2_1"]
 StreamNameOutputModeType = Literal["INDEX", "PASSTHROUGH_NAME"]
 TsEncryptionMethodType = Literal["AES_128", "SAMPLE_AES"]
 UriPathTypeType = Literal["LEAF", "ROOT"]
@@ -422,6 +426,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

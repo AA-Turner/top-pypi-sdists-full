@@ -157,7 +157,6 @@ class Stack(pulumi.CustomResource):
         - `encryptedKey`: KMS-encrypted ciphertext for the data key (cloud-based secrets providers only)
         - `encryptionSalt`: base64-encoded encryption salt (passphrase-based secrets providers only)
 
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param Any config: The configuration for the new stack.
@@ -182,7 +181,6 @@ class Stack(pulumi.CustomResource):
         - `secretsProvider`: the secrets provider for the stack
         - `encryptedKey`: KMS-encrypted ciphertext for the data key (cloud-based secrets providers only)
         - `encryptionSalt`: base64-encoded encryption salt (passphrase-based secrets providers only)
-
 
         :param str resource_name: The name of the resource.
         :param StackArgs args: The arguments to use to populate this resource's properties.
@@ -267,7 +265,7 @@ class Stack(pulumi.CustomResource):
     @pulumi.getter(name="activeUpdate")
     def active_update(self) -> pulumi.Output[_builtins.str]:
         """
-        The active update
+        UUID of the most recent update on this stack, either completed or in-progress.
         """
         return pulumi.get(self, "active_update")
 
@@ -284,7 +282,7 @@ class Stack(pulumi.CustomResource):
     @pulumi.getter(name="currentOperation")
     def current_operation(self) -> pulumi.Output[Optional[Any]]:
         """
-        CurrentOperation provides information about a stack operation in-progress, as applicable.
+        Information about a live operation currently running for the stack, its kind, the author who initiated it, and its start time. Null when no operation is in flight.
         """
         return pulumi.get(self, "current_operation")
 

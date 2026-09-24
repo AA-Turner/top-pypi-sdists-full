@@ -20,6 +20,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 from matrx_ai.media.image_reference_roles import normalize_limits
+from matrx_ai.media.video_reference_roles import normalize_video_limits
 from matrx_ai.providers.capability_vocabulary import (
     INTERACTION_MODES,
     VOCABULARY_FILE,
@@ -73,6 +74,12 @@ class ResolvedModelCapabilities(BaseModel):
     # routed through the plain text-to-speech endpoint (eleven_flash_v2_5 rejects
     # the dialogue API outright). Never gate this on a model-name list in code.
     supports_dialogue: bool = False
+    # The model continues a trailing assistant message (response prefill).
+    # Declared per model as the ``assistant_prefill`` feature — Anthropic removed
+    # it on Sonnet 5 / Opus 5 / Fable / the 4.6-4.8 line (400 "This model does
+    # not support assistant message prefill"), so it is data, never a name check.
+    # Read by ``matrx_ai.config.message_flags``.
+    supports_assistant_prefill: bool = False
     # tool / search axes
     supports_function_calling: bool  # THE gate for ALL tool injection
     supports_web_search: bool
@@ -92,6 +99,8 @@ class ResolvedModelCapabilities(BaseModel):
     # Image-generation reference roles this model takes: {role: max, "total": n}.
     # Empty = no roled reference image is accepted (the gate refuses).
     image_reference_limits: dict[str, int] = {}
+    # Video-generation inputs this model takes: {extend|restyle|lip_sync|named: max}.
+    video_reference_limits: dict[str, int] = {}
 
 
 class _DeclaredCapabilities(BaseModel):
@@ -103,6 +112,7 @@ class _DeclaredCapabilities(BaseModel):
     interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
     multilingual: bool
     image_reference_limits: dict[str, int] = {}
+    video_reference_limits: dict[str, int] = {}
 
 
 def _str_set(value: Any) -> frozenset[str]:
@@ -159,6 +169,7 @@ def _parse_declared(raw: Any, model_name: str = "") -> _DeclaredCapabilities:
         interaction=interaction,
         multilingual=bool(normalized.get("multilingual", False)),
         image_reference_limits=normalize_limits(normalized.get("image_reference_roles")),
+        video_reference_limits=normalize_video_limits(normalized.get("video_reference_roles")),
     )
 
 
@@ -198,6 +209,7 @@ def resolve_model_capabilities(
         produces_embedding="embedding" in declared.output,
         produces_decision="decision" in declared.output,
         supports_dialogue="dialogue" in declared.features,
+        supports_assistant_prefill="assistant_prefill" in declared.features,
         supports_function_calling="function_calling" in declared.features,
         supports_web_search="web_search" in declared.features,
         native_capabilities=frozenset(declared.features & NATIVE_PROVIDER_CAPABILITIES),
@@ -205,6 +217,7 @@ def resolve_model_capabilities(
         interaction=declared.interaction,
         multilingual=declared.multilingual,
         image_reference_limits=dict(declared.image_reference_limits),
+        video_reference_limits=dict(declared.video_reference_limits),
     )
 
 

@@ -335,6 +335,16 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.InterestRateHistoryEodRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetCorporateActionDividend = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetCorporateActionDividend',
+                request_serializer=v3grpc_dot_endpoints__pb2.CorporateActionDividendRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetCorporateActionSplit = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetCorporateActionSplit',
+                request_serializer=v3grpc_dot_endpoints__pb2.CorporateActionSplitRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionFlatFileTradeQuote = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionFlatFileTradeQuote',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionFlatFileTradeQuoteRequest.SerializeToString,
@@ -348,6 +358,11 @@ class BetaThetaTerminalStub(object):
         self.GetOptionFlatFileOpenInterest = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionFlatFileOpenInterest',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionFlatFileOpenInterestRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionFlatFileQuote = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionFlatFileQuote',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionFlatFileQuoteRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetStockFlatFileTradeQuote = channel.unary_stream(
@@ -730,6 +745,18 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetCorporateActionDividend(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCorporateActionSplit(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionFlatFileTradeQuote(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -743,6 +770,12 @@ class BetaThetaTerminalServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetOptionFlatFileOpenInterest(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionFlatFileQuote(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1069,6 +1102,16 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.InterestRateHistoryEodRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetCorporateActionDividend': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetCorporateActionDividend,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.CorporateActionDividendRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetCorporateActionSplit': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetCorporateActionSplit,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.CorporateActionSplitRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionFlatFileTradeQuote': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionFlatFileTradeQuote,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionFlatFileTradeQuoteRequest.FromString,
@@ -1082,6 +1125,11 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
             'GetOptionFlatFileOpenInterest': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionFlatFileOpenInterest,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionFlatFileOpenInterestRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionFlatFileQuote': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionFlatFileQuote,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionFlatFileQuoteRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetStockFlatFileTradeQuote': grpc.unary_stream_rpc_method_handler(
@@ -2731,6 +2779,60 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetCorporateActionDividend(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetCorporateActionDividend',
+            v3grpc_dot_endpoints__pb2.CorporateActionDividendRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCorporateActionSplit(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetCorporateActionSplit',
+            v3grpc_dot_endpoints__pb2.CorporateActionSplitRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionFlatFileTradeQuote(request,
             target,
             options=(),
@@ -2800,6 +2902,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionFlatFileOpenInterest',
             v3grpc_dot_endpoints__pb2.OptionFlatFileOpenInterestRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionFlatFileQuote(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionFlatFileQuote',
+            v3grpc_dot_endpoints__pb2.OptionFlatFileQuoteRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,

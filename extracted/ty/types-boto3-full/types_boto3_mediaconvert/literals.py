@@ -63,6 +63,7 @@ __all__ = (
     "AudioNormalizationLoudnessLoggingType",
     "AudioNormalizationPeakCalculationType",
     "AudioSelectorTypeType",
+    "AudioSmpte337PassthroughType",
     "AudioTypeControlType",
     "Av1AdaptiveQuantizationType",
     "Av1BitDepthType",
@@ -405,6 +406,7 @@ __all__ = (
     "OutputSdtType",
     "PadVideoType",
     "PaginatorName",
+    "PassthroughSegmentationModeType",
     "PresetListByType",
     "PresetSpeke20AudioType",
     "PresetSpeke20VideoType",
@@ -630,6 +632,7 @@ AudioNormalizationPeakCalculationType = Literal["NONE", "TRUE_PEAK"]
 AudioSelectorTypeType = Literal[
     "ALL_PCM", "HLS_RENDITION_GROUP", "LANGUAGE_CODE", "PID", "STREAM", "TRACK"
 ]
+AudioSmpte337PassthroughType = Literal["DISABLED", "ENABLED"]
 AudioTypeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 Av1AdaptiveQuantizationType = Literal["HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
 Av1BitDepthType = Literal["BIT_10", "BIT_8"]
@@ -939,8 +942,11 @@ FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
 FormatType = Literal[
+    "aac",
+    "ac3",
     "asf",
     "avi",
+    "eac3",
     "flac",
     "matroska",
     "mp3",
@@ -950,6 +956,8 @@ FormatType = Literal[
     "mxf",
     "ogg",
     "quicktime",
+    "three_g2",
+    "three_gp",
     "wave",
     "webm",
 ]
@@ -1450,6 +1458,7 @@ OutputGroupTypeType = Literal[
 ]
 OutputSdtType = Literal["SDT_FOLLOW", "SDT_FOLLOW_IF_PRESENT", "SDT_MANUAL", "SDT_NONE"]
 PadVideoType = Literal["BLACK", "DISABLED"]
+PassthroughSegmentationModeType = Literal["AUTO", "DURATION_BASED", "GOP_COUNT"]
 PresetListByType = Literal["CREATION_DATE", "NAME", "SYSTEM"]
 PresetSpeke20AudioType = Literal[
     "PRESET_AUDIO_1", "PRESET_AUDIO_2", "PRESET_AUDIO_3", "SHARED", "UNENCRYPTED"
@@ -1964,6 +1973,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

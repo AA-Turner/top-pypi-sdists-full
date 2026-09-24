@@ -219,6 +219,17 @@ class MPMenuSubMenu(MPMenuGeneric):
         self.add(MPMenuSubMenu(submenu_path[0], []))
         self.add_to_submenu(submenu_path, item)
 
+    def remove_from_submenu(self, submenu_path, name):
+        '''remove a named item from a submenu using a menu path array'''
+        if len(submenu_path) == 0:
+            # separators have no name, so don't assume the attribute
+            self.items = [i for i in self.items if getattr(i, 'name', None) != name]
+            return
+        for m in self.items:
+            if isinstance(m, MPMenuSubMenu) and submenu_path[0] == m.name:
+                m.remove_from_submenu(submenu_path[1:], name)
+                return
+
     def combine(self, submenu):
         '''combine a new menu with an existing one'''
         self.items.extend(submenu.items)
@@ -271,6 +282,16 @@ class MPMenuTop(object):
             items = [items]
         names = set([x.name for x in items])
         self.items = list(filter(lambda x : x.name not in names, self.items))
+
+    def remove_from_submenu(self, submenu_path, name):
+        '''remove a named item from a submenu using a menu path array'''
+        if len(submenu_path) == 0:
+            self.remove(MPMenuSubMenu(name, []))
+            return
+        for m in self.items:
+            if isinstance(m, MPMenuSubMenu) and m.name == submenu_path[0]:
+                m.remove_from_submenu(submenu_path[1:], name)
+                return
 
     def add_to_submenu(self, submenu_path, item):
         '''
@@ -469,6 +490,50 @@ class MPMenuConfirmDialog(object):
         ret = dlg.ShowModal()
         if ret == wx.ID_YES and self.callback is not None:
             self.callback(self.args)
+
+class MPChoiceDialog(object):
+    '''modal single-choice dialog run in a child process.
+    show() blocks and returns the selected index, or None if cancelled'''
+    def __init__(self, title='Choose', message='', choices=None):
+        self.title = title
+        self.message = message
+        self.choices = choices if choices is not None else []
+        self.pipe_recv, self.pipe_send = multiproc.Pipe(duplex=False)
+
+    def show(self, should_cancel=None):
+        '''block until a choice is made; should_cancel is an optional callable
+        polled to allow shutdown while waiting'''
+        child = multiproc.Process(target=self.child_task)
+        child.start()
+        self.pipe_send.close()
+        ret = None
+        while True:
+            if should_cancel is not None and should_cancel():
+                child.terminate()
+                break
+            try:
+                if self.pipe_recv.poll(0.2):
+                    ret = self.pipe_recv.recv()
+                    break
+            except (EOFError, OSError):
+                break
+        child.join()
+        if ret is not None and 0 <= ret < len(self.choices):
+            return ret
+        return None
+
+    def child_task(self):
+        mp_util.child_close_fds()
+        self.pipe_recv.close()
+        from MAVProxy.modules.lib import wx_processguard  # noqa
+        from MAVProxy.modules.lib.wx_loader import wx
+        app = wx.App(False)
+        dlg = wx.SingleChoiceDialog(None, self.message, self.title, self.choices)
+        if dlg.ShowModal() == wx.ID_OK:
+            self.pipe_send.send(dlg.GetSelection())
+        else:
+            self.pipe_send.send(None)
+        dlg.Destroy()
 
 class MPMenuChildMessageDialog(object):
     '''used to create a message dialog in a child process'''

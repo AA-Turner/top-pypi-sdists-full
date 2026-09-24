@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fonttools
-Version: 4.65.0
+Version: 4.66.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -17,16 +17,16 @@ Classifier: Intended Audience :: End Users/Desktop
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: LICENSE.external
@@ -38,7 +38,7 @@ Requires-Dist: brotli>=1.0.1; platform_python_implementation == "CPython" and ex
 Requires-Dist: brotlicffi>=0.8.0; platform_python_implementation != "CPython" and extra == "woff"
 Requires-Dist: zopfli>=0.1.4; extra == "woff"
 Provides-Extra: unicode
-Requires-Dist: unicodedata2>=17.0.0; python_version <= "3.14" and extra == "unicode"
+Requires-Dist: unicodedata2>=18.0.0; python_version <= "3.15" and extra == "unicode"
 Provides-Extra: graphite
 Requires-Dist: lz4>=1.7.4.2; extra == "graphite"
 Provides-Extra: interpolatable
@@ -60,7 +60,7 @@ Requires-Dist: lxml>=4.0; extra == "all"
 Requires-Dist: brotli>=1.0.1; platform_python_implementation == "CPython" and extra == "all"
 Requires-Dist: brotlicffi>=0.8.0; platform_python_implementation != "CPython" and extra == "all"
 Requires-Dist: zopfli>=0.1.4; extra == "all"
-Requires-Dist: unicodedata2>=17.0.0; python_version <= "3.14" and extra == "all"
+Requires-Dist: unicodedata2>=18.0.0; python_version <= "3.15" and extra == "all"
 Requires-Dist: lz4>=1.7.4.2; extra == "all"
 Requires-Dist: scipy; platform_python_implementation != "PyPy" and extra == "all"
 Requires-Dist: munkres; platform_python_implementation == "PyPy" and extra == "all"
@@ -105,9 +105,9 @@ are available at `Read the Docs <https://fonttools.readthedocs.io/>`_.
 Installation
 ~~~~~~~~~~~~
 
-FontTools requires `Python <http://www.python.org/download/>`__ 3.10
-or later. We try to follow the same schedule of minimum Python version support as
-NumPy (see `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`__).
+FontTools requires `Python <http://www.python.org/download/>`__ 3.11
+or later. We try to support the Python versions that are still supported upstream
+(see `Status of Python versions <https://devguide.python.org/versions/>`__).
 
 The package is listed in the Python Package Index (PyPI), so you can
 install it with `pip <https://pip.pypa.io>`__:
@@ -196,7 +196,7 @@ are required to unlock the extra features named "ufo", etc.
 
   * `unicodedata2 <https://pypi.python.org/pypi/unicodedata2>`__:
     ``unicodedata`` backport for Python 3.x updated to the latest Unicode
-    version 17.0.
+    version 18.0.
 
   *Extra:* ``unicode``
 
@@ -356,8 +356,9 @@ Vincent Connare, David Corbett, Simon Cozens, Dave Crossland, Simon Daniels,
 Peter Dekkers, Behdad Esfahbod, Behnam Esfahbod, Hannes Famira, Sam Fishman,
 Matt Fontaine, Takaaki Fuji, Rob Hagemans, Yannis Haralambous, Greg Hitchcock,
 Jeremie Hornus, Khaled Hosny, John Hudson, Denis Moyogo Jacquerye, Jack Jansen,
-Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal Leming, Liang Hai, Peter
-Lofting, Cosimo Lupo, Olli Meier, Masaya Nakamura, Dave Opstad, Laurence Penney,
+Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal Leming,
+Jushuanghui Li, Liang Hai, Peter Lofting, Cosimo Lupo, Olli Meier, Masaya Nakamura,
+Dave Opstad, Laurence Penney,
 Roozbeh Pournader, Garret Rieger, Read Roberts, Colin Rofls, Guido van Rossum,
 Just van Rossum, Andreas Seidel, Georg Seifert, Chris Simpkins, Miguel Sousa,
 Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul Wise.
@@ -391,6 +392,72 @@ Have fun!
 
 Changelog
 ~~~~~~~~~
+
+4.66.0 (released 2026-09-23)
+----------------------------
+
+- Drop support for EOL Python 3.10; fontTools now requires Python 3.11 or later.
+  ``fontTools.misc.enumTools`` now only re-exports ``enum.StrEnum`` and is
+  deprecated. Explicitly test and declare support for Python 3.15 (#4183, #4196).
+- [unicodedata] Update the bundled script, script extension, block and
+  bidi-mirroring tables to Unicode 18.0.0, and require ``unicodedata2`` 18.0.0
+  when it is used (#4192, #4197).
+- [feaLib] Support ``language`` statements listing multiple language tags, e.g.
+  ``language AZE CRT;``, as Glyphs does and as proposed for the spec
+  (adobe-type-tools/feature_file_workshops#8): the following rules and lookup
+  references are registered under every listed language. ``dflt`` cannot be
+  combined with other tags. ``LanguageStatement.language`` is still the first
+  tag; all of them are in the new ``languages`` attribute (#4201, #4202).
+- [feaLib] Fix lookups being dropped when a ``script``/``language`` pair is
+  repeated within a feature block: the repeated statement replaced the language
+  system's lookups with a fresh copy of the default ones (#4189).
+- [feaLib] Raise ``FeatureLibError`` instead of ``UnboundLocalError`` when a
+  ``STAT`` table block lacks ``ElidedFallbackName`` or ``ElidedFallbackNameID``
+  (#3834, #4179).
+- [cffLib] Always recompile the CFF2 ``VarStore`` when saving. Previously the
+  bytes compiled by an earlier save were reused, so a CFF2 variable font that
+  was saved and then modified in place, e.g. by the instancer, was written with
+  a stale ``VarStore`` next to its updated charstrings (#4199).
+- [ttLib] Support static ``VARC`` fonts that omit ``fvar`` while retaining
+  ``gvar`` or CFF2 variation data for component-internal axes: hidden axes are
+  addressed by index and ``gvar`` can compile, decompile and round-trip through
+  TTX without ``fvar``, reading the axis count from a new ``axisCount``
+  element (#4187, #4188).
+- [ttLib] Fix drawing ``VARC`` components whose condition is negated
+  (format 5), which raised ``AttributeError`` (#4191).
+- [instancer] Fix ``VARC`` axis references left stale when removing an
+  unrelated axis, reject pinning or restricting axes referenced by ``VARC``
+  components, and stop culling avar2 ranges for component-internal variations,
+  which can reach outside the font-level ranges (#4190, #4193).
+- [bezierTools] Preserve exact endpoints in ``splitQuadraticAtT`` and
+  ``splitCubicAtTC`` as well, like ``splitCubicAtT`` since 4.55.4
+  (#3742, #4194).
+- [bezierTools] Fix ``ZeroDivisionError`` in ``lineLineIntersections`` for
+  collinear vertical lines; they are now treated as parallel like horizontal
+  ones (#3515, #4181).
+- [subset] ``pyftsubset`` now preserves the input font's flavor (WOFF, WOFF2)
+  when ``--flavor`` is omitted, instead of writing uncompressed sfnt data under
+  the same extension; pass ``--flavor=none`` to force uncompressed output
+  (#3630, #4182).
+- [merge] Report incompatible ``unitsPerEm`` values by name, with the input
+  values, instead of a bare assertion (#2844, #4184).
+- [designspaceLib] Fix the type annotation and documentation of
+  ``DesignSpaceDocument.default``, which holds a ``SourceDescriptor``, not a
+  source name (#2994, #4186).
+- [ttLib.sfnt] Raise ``TTLibError`` instead of ``AssertionError`` for
+  inconsistent WOFF table, metadata and private-data lengths, so the checks
+  also hold under ``python -O`` (#4178).
+- [misc.etree] Disable entity resolution altogether on lxml >= 5.0 as well:
+  lxml's ``resolve_entities="internal"`` still fetched external parameter
+  entities before lxml 6.1.3, so a crafted DTD could read local files into
+  parsed XML content (#4195).
+- [cmap] Bound the expansion of format 4 segments and format 12/13 groups when
+  decompiling, like HarfBuzz does: groups are clamped to U+10FFFF, inverted or
+  overlapping groups are skipped with a warning, and groups mapped to the
+  missing glyph are not expanded. A crafted font could previously exhaust
+  memory with a single group ending at 0xFFFFFFFF (#4204).
+- [varLib.avar] Escape axis names and tags when ``varLib.avar.unbuild`` emits
+  its designspace snippet, so a crafted font cannot inject markup (#4203).
 
 4.65.0 (released 2026-09-10)
 ----------------------------

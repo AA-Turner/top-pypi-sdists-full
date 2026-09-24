@@ -62,9 +62,14 @@ def remotepairing(monkeypatch, tmp_path):
         for identifier, record in state.records.items():
             yield identifier, tmp_path / f"remote_{identifier}.plist", record
 
-    async def browse(timeout):
+    def browse(timeout):
         state.browses += 1
-        return state.answers
+
+        async def _iter():
+            for answer in state.answers:
+                yield answer
+
+        return _iter()
 
     async def connect(identifier, hostname, port, autopair=True):
         state.attempts.append((identifier, hostname, port))
@@ -73,7 +78,7 @@ def remotepairing(monkeypatch, tmp_path):
         return (identifier, hostname)
 
     monkeypatch.setattr(tunnel_service, "iter_remote_pair_records_by_identifier", iter_records)
-    monkeypatch.setattr(tunnel_service, "browse_remotepairing", browse)
+    monkeypatch.setattr(tunnel_service, "iter_browse_remotepairing", browse)
     monkeypatch.setattr(tunnel_service, "create_core_device_tunnel_service_using_remotepairing", connect)
     monkeypatch.setattr(tunnel_service, "_warned_stale_pair_records", set())
     return state
@@ -235,7 +240,8 @@ def mobdev2(monkeypatch):
 
     async def browse(timeout):
         state.browses += 1
-        return state.answers
+        for answer in state.answers:
+            yield answer
 
     async def create_using_tcp(hostname, autopair, pair_record):
         device_udid = state.devices[hostname]
@@ -247,7 +253,7 @@ def mobdev2(monkeypatch):
     async def preferred_record(identifier, pairing_records_cache_folder):
         return state.usbmux_record
 
-    monkeypatch.setattr(lockdown_module, "browse_mobdev2", browse)
+    monkeypatch.setattr(lockdown_module, "iter_browse_mobdev2", browse)
     monkeypatch.setattr(lockdown_module, "create_using_tcp", create_using_tcp)
     monkeypatch.setattr(lockdown_module, "get_preferred_pair_record", preferred_record)
     return state

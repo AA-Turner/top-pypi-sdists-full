@@ -23,12 +23,12 @@ if __name__ == '__main__':
 import pytz  # noqa
 from pytz import reference  # noqa
 from pytz.tzfile import _byte_string  # noqa
-from pytz.tzinfo import DstTzInfo, StaticTzInfo  # noqa
+from pytz.tzinfo import BaseTzInfo, DstTzInfo, StaticTzInfo  # noqa
 
 # I test for expected version to ensure the correct version of pytz is
 # actually being tested.
-EXPECTED_VERSION = '2026.3.post1'
-EXPECTED_OLSON_VERSION = '2026c'
+EXPECTED_VERSION = '2026.4'
+EXPECTED_OLSON_VERSION = '2026d'
 
 fmt = '%Y-%m-%d %H:%M:%S %Z%z'
 
@@ -815,6 +815,27 @@ class StaticTzInfoTestCase(unittest.TestCase, BaseTzInfoTestCase):
 class DstTzInfoTestCase(unittest.TestCase, BaseTzInfoTestCase):
     tz = pytz.timezone('Australia/Melbourne')
     tz_class = DstTzInfo
+
+
+class FixedOffsetTestCase(unittest.TestCase):
+    '''Ensure pytz.FixedOffset interoperates with the other tzinfo types.'''
+
+    def test_expectedclass(self):
+        # Every other pytz timezone derives from BaseTzInfo, and third
+        # party type annotations rely on that.
+        self.assertIsInstance(pytz.FixedOffset(420), BaseTzInfo)
+
+    def test_normalize_by_other_timezone(self):
+        # DstTzInfo.normalize() reads tzinfo._utcoffset off the datetime
+        # it is handed, so a FixedOffset needs to expose it too.
+        dt = pytz.FixedOffset(420).localize(datetime(2020, 1, 1, 12, 0))
+        denver = pytz.timezone('America/Denver')
+        self.assertEqual(
+            denver.normalize(dt), dt.astimezone(denver))
+
+    def test_str(self):
+        # BaseTzInfo.__str__ returns self.zone, which is None here.
+        self.assertEqual(str(pytz.FixedOffset(420)), 'pytz.FixedOffset(420)')
 
 
 def test_suite():

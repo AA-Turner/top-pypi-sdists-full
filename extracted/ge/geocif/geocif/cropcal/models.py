@@ -58,7 +58,7 @@ from typing import Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from geocif.cropcal import circular, cv, features
+from geocif.cropcal import circular, cv, features, score
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +79,19 @@ ENCODINGS = ("sincos", "anchored")
 TOLERANCE_DAYS = 45
 
 #: The agreement-class edges below the tolerance, reported alongside it so the
-#: model table lines up with the rule-based classes.
-EXTRA_THRESHOLDS = (15, 30)
+#: model table lines up with the rule-based classes, plus the 60-day edge of
+#: Franch et al. (2022)'s residual maps so the two studies bin identically.
+EXTRA_THRESHOLDS = (15, 30, 60)
+
+#: A residual beyond this is a blunder, not an error: the wrap failures of a
+#: collapsed sin/cos vector live here. Franch et al. report the share > 60 d.
+BLUNDER_DAYS = 60
+
+#: Predicted season length (harvest - planting, circular) outside this range
+#: is implausible for an annual crop; Franch et al. mask it in their maps. Here
+#: it is a cross-target consistency metric, because the four days are
+#: predicted independently.
+LOS_PLAUSIBLE_DAYS = (30, 280)
 
 #: A ``sincos`` prediction with a resultant below this is "ambiguous".
 LOW_RESULTANT = 0.5
@@ -105,6 +116,17 @@ BOOTSTRAP_LEVEL = 0.90
 # --------------------------------------------------------------------------
 # Metrics
 # --------------------------------------------------------------------------
+def _unwrap(days: np.ndarray, reference: float) -> np.ndarray:
+    """Days as signed offsets from a reference day, in ``(-182, 182]``.
+
+    The general form of Franch et al. (2022)'s linearisation, which shifted
+    DOYs above a crop-specific threshold by -365 so the two hemispheres' clusters
+    lie on one line. Unwrapping around the observed circular mean does the same
+    without a per-crop constant.
+    """
+    return np.array([circular.signed_difference(d, reference) for d in days], dtype=float)
+
+
 def circular_metrics(
     predicted: Sequence[float],
     observed: Sequence[float],
@@ -115,8 +137,24 @@ def circular_metrics(
 
     ``bias_days`` is observed minus predicted (positive: the calendar is later
     than the prediction), matching the sign of the frame's ``*_diff_days``.
+    ``rmse_debiased_days`` is the circular standard deviation of the signed
+    residuals -- the scatter left once that systematic offset is removed --
+    reported NEXT TO the raw RMSE, never instead of it.
+
+    ``calibration_slope`` / ``calibration_intercept_days`` come from regressing
+    the observed day on the predicted day, both unwrapped around the observed
+    circular mean (Franch et al.'s ``y = ax + b``). Slope 1, intercept 0 is
+    calibrated; slope > 1 means the predictions are shrunk toward the mean.
+
+    ``r2_linearised`` is Franch et al.'s Eq. 11 on the same unwrapped days --
+    it is inflated by any population that spans both hemispheres, since
+    telling north from south is most of its variance. ``r2_circular`` is the
+    squared Jammalamadaka-Sarma circular correlation and has no such artefact.
+    Quote skill against the climatology null before either.
+
     ``pct_low_resultant`` is the share of rows whose ``sincos`` prediction was
-    ambiguous; NaN when the encoding has no resultant.
+    ambiguous; NaN when the encoding has no resultant. ``pct_blunders`` is the
+    share of residuals beyond :data:`BLUNDER_DAYS`.
     """
     pred = np.asarray(list(predicted), dtype=float)
     obs = np.asarray(list(observed), dtype=float)
@@ -124,7 +162,9 @@ def circular_metrics(
     thresholds = tuple(sorted(set(EXTRA_THRESHOLDS) | {int(tolerance)}))
     empty = {
         "n": 0, "mae_days": np.nan, "median_ae_days": np.nan, "rmse_days": np.nan,
-        "bias_days": np.nan, "pct_low_resultant": np.nan,
+        "rmse_debiased_days": np.nan, "bias_days": np.nan, "pct_blunders": np.nan,
+        "calibration_slope": np.nan, "calibration_intercept_days": np.nan,
+        "r2_linearised": np.nan, "r2_circular": np.nan, "pct_low_resultant": np.nan,
     }
     for t in thresholds:
         empty[f"pct_within_{t}d"] = np.nan
@@ -134,16 +174,39 @@ def circular_metrics(
     pred, obs = pred[keep], obs[keep]
     gaps = np.array([circular.circular_gap(p, o) for p, o in zip(pred, obs)])
     signed = np.array([circular.signed_difference(o, p) for p, o in zip(pred, obs)])
+    bias = float(np.mean(signed))
     out = {
         "n": int(pred.size),
         "mae_days": float(np.mean(gaps)),
         "median_ae_days": float(np.median(gaps)),
         "rmse_days": float(np.sqrt(np.mean(gaps**2))),
-        "bias_days": float(np.mean(signed)),
+        "rmse_debiased_days": float(np.sqrt(np.mean((signed - bias) ** 2))),
+        "bias_days": bias,
+        "pct_blunders": float(100.0 * np.mean(gaps > BLUNDER_DAYS)),
+        "calibration_slope": np.nan,
+        "calibration_intercept_days": np.nan,
+        "r2_linearised": np.nan,
+        "r2_circular": np.nan,
         "pct_low_resultant": np.nan,
     }
     for t in thresholds:
         out[f"pct_within_{t}d"] = float(100.0 * np.mean(gaps <= t))
+
+    if pred.size >= 3:
+        angles = 2.0 * np.pi * obs / circular.DAYS_IN_YEAR
+        centre = float((np.arctan2(np.sin(angles).mean(), np.cos(angles).mean()) % (2 * np.pi))
+                       * circular.DAYS_IN_YEAR / (2 * np.pi))
+        obs_u, pred_u = _unwrap(obs, centre), _unwrap(pred, centre)
+        ss_tot = float(np.sum((obs_u - obs_u.mean()) ** 2))
+        if ss_tot > 0:
+            out["r2_linearised"] = float(1.0 - np.sum(signed**2) / ss_tot)
+        if np.var(pred_u) > 0:
+            slope, intercept = np.polyfit(pred_u, obs_u, 1)
+            out["calibration_slope"] = float(slope)
+            out["calibration_intercept_days"] = float(intercept)
+        r2, _p = score.circular_r2(pred, obs)
+        out["r2_circular"] = float(r2) if np.isfinite(r2) else np.nan
+
     if resultant is not None:
         res = np.asarray(list(resultant), dtype=float)[keep]
         if np.isfinite(res).any():
@@ -387,6 +450,7 @@ class Evaluation:
     predictions: pd.DataFrame
     metrics: pd.DataFrame
     failures: list[str] = field(default_factory=list)
+    consistency: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 def _prediction_block(frame, model, target, scheme, encoding, predicted, observed, **extra) -> pd.DataFrame:
@@ -423,6 +487,7 @@ def evaluate(
     seed: int = 0,
     encodings: Sequence[str] = ENCODINGS,
     bootstrap_resamples: int = BOOTSTRAP_RESAMPLES,
+    scheme_models: Optional[dict] = None,
 ) -> Evaluation:
     """Out-of-fold predictions and metrics for every model x target x scheme x encoding.
 
@@ -436,6 +501,10 @@ def evaluate(
             :data:`features.BASELINE_COLUMNS`.
         tolerance: days for the "within tolerance" share.
         encodings: which target encodings to run.
+        scheme_models: ``{scheme: [models]}`` -- under that scheme run only
+            those models (the climatology null always runs). Lets the 145-fold
+            leave-one-country-out scheme run for a cheap model without paying
+            for tabpfn/tabicl on it.
 
     The ``climatology`` null is scored under every scheme for every target.
     Metrics are reported overall and broken out by crop and by ``cm_group``,
@@ -515,7 +584,10 @@ def evaluate(
                 )
             )
 
-            for model_name in models:
+            allowed = models if not scheme_models or scheme_name not in scheme_models else [
+                m for m in models if m in set(scheme_models[scheme_name])
+            ]
+            for model_name in allowed:
                 for encoding in encodings:
                     prediction = np.full(len(frame), np.nan)
                     resultant = np.full(len(frame), np.nan)
@@ -562,7 +634,8 @@ def evaluate(
     metrics = summarise_predictions(
         predictions, tolerance=tolerance, seed=seed, bootstrap_resamples=bootstrap_resamples
     )
-    return Evaluation(predictions, metrics, failures)
+    consistency = summarise_consistency(predictions, frame)
+    return Evaluation(predictions, metrics, failures, consistency)
 
 
 # --------------------------------------------------------------------------
@@ -676,3 +749,63 @@ def summarise_predictions(
 
     out = pd.DataFrame(records)
     return out.sort_values(["target", "sample", "split", "split_value", "mae_days"]).reset_index(drop=True)
+
+
+# --------------------------------------------------------------------------
+# Cross-target consistency
+# --------------------------------------------------------------------------
+def season_consistency(planting, midgreenup, midgreendown, harvest) -> tuple[np.ndarray, np.ndarray]:
+    """``(los_days, ordered)`` for four predicted days, per row.
+
+    ``los_days`` is harvest minus planting the forward way round the year.
+    ``ordered`` is True when, walking forward from planting, mid-greenup comes
+    before mid-greendown comes before harvest -- the season order the calendar
+    guarantees by construction and that four independent regressions do not.
+    """
+    p, up, down, h = (np.asarray(list(v), dtype=float) for v in (planting, midgreenup, midgreendown, harvest))
+    period = circular.DAYS_IN_YEAR
+    los = (h - p) % period
+    a, b = (up - p) % period, (down - p) % period
+    finite = np.isfinite(p) & np.isfinite(up) & np.isfinite(down) & np.isfinite(h)
+    ordered = finite & (a < b) & (b < los)
+    los = np.where(finite, los, np.nan)
+    return los, ordered
+
+
+def summarise_consistency(predictions: pd.DataFrame, frame: pd.DataFrame) -> pd.DataFrame:
+    """One row per (model, scheme, encoding): season order and length of the
+    four predicted days, with the calendar itself as the reference row.
+
+    Franch et al. (2022) mask predicted seasons shorter than 30 or longer than
+    280 days as implausible; here that share is a metric, because a model that
+    predicts each transition well in isolation can still place them out of
+    order or a week apart.
+    """
+    needed = set(features.TARGETS)
+    records = []
+
+    def _record(label, scheme, encoding, days: dict) -> None:
+        if not needed <= set(days):
+            return
+        los, ordered = season_consistency(*(days[t] for t in features.TARGETS))
+        finite = np.isfinite(los)
+        if not finite.any():
+            return
+        lo, hi = LOS_PLAUSIBLE_DAYS
+        records.append({
+            "model": label, "scheme": scheme, "encoding": encoding,
+            "n": int(finite.sum()),
+            "median_los_days": float(np.nanmedian(los)),
+            "pct_los_plausible": float(100.0 * np.mean((los[finite] >= lo) & (los[finite] <= hi))),
+            "pct_ordered": float(100.0 * ordered[finite].mean()),
+        })
+
+    # The calendar's own four days, as the reference.
+    calendar_days = {t: frame[f"target_{t}"].to_numpy(dtype=float) for t in features.TARGETS if f"target_{t}" in frame}
+    _record("calendar", "none", "none", calendar_days)
+
+    for (model, scheme, encoding), part in predictions.groupby(["model", "scheme", "encoding"], observed=True):
+        wide = part.pivot_table(index="row_id", columns="target", values="predicted", aggfunc="first")
+        _record(model, scheme, encoding, {t: wide[t].to_numpy(dtype=float) for t in wide.columns})
+
+    return pd.DataFrame(records)

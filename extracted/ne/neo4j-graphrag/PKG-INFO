@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: neo4j-graphrag
-Version: 1.19.0
+Version: 1.21.0
 Summary: Python package to allow easy integration to Neo4j's GraphRAG features
 Project-URL: Homepage, https://neo4j.com/
 Project-URL: Repository, https://github.com/neo4j/neo4j-graphrag-python
@@ -17,14 +17,14 @@ Requires-Dist: neo4j<7.0.0,>=5.28.4
 Requires-Dist: numpy<3.0.0,>=2.0.0; python_version >= '3.9' and python_version < '3.13'
 Requires-Dist: numpy<3.0.0,>=2.1.0; python_version >= '3.13' and python_version < '3.15'
 Requires-Dist: pydantic<3.0.0,>=2.6.3
-Requires-Dist: pypdf<7.0.0,>=6.14.2
-Requires-Dist: pyyaml<7.0.0,>=6.0.2
+Requires-Dist: pypdf<7.0.0,>=6.19.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.3
 Requires-Dist: scipy<2.0.0,>=1.13.0; python_version >= '3.9' and python_version < '3.13'
 Requires-Dist: scipy<2.0.0,>=1.15.0; python_version >= '3.13' and python_version < '3.15'
-Requires-Dist: tenacity<10.0.0,>=9.1.2
-Requires-Dist: types-pyyaml<7.0.0,>=6.0.12.20240917
+Requires-Dist: tenacity<10.0.0,>=9.1.4
+Requires-Dist: types-pyyaml<7.0.0,>=6.0.12.20260906
 Provides-Extra: anthropic
-Requires-Dist: anthropic<1.0.0,>=0.77.0; extra == 'anthropic'
+Requires-Dist: anthropic<2.0.0,>=0.77.0; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == 'bedrock'
 Provides-Extra: cohere
@@ -36,7 +36,7 @@ Requires-Dist: python-dotenv<2.0.0,>=1.0.0; extra == 'examples'
 Requires-Dist: requests<3.0.0,>=2.31.0; extra == 'examples'
 Provides-Extra: experimental
 Requires-Dist: langchain-text-splitters<2.0.0,>=0.3.0; extra == 'experimental'
-Requires-Dist: llama-index<0.14.0,>=0.13.0; extra == 'experimental'
+Requires-Dist: llama-index<0.15.0,>=0.14.24; extra == 'experimental'
 Requires-Dist: neo4j-viz<0.5.0,>=0.4.2; extra == 'experimental'
 Requires-Dist: pyarrow>=20.0.0; extra == 'experimental'
 Provides-Extra: fuzzy-matching
@@ -44,25 +44,25 @@ Requires-Dist: rapidfuzz<4.0.0,>=3.12.2; extra == 'fuzzy-matching'
 Provides-Extra: google
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.66.0; extra == 'google'
 Provides-Extra: google-genai
-Requires-Dist: google-genai<2.0.0,>=1.62.0; extra == 'google-genai'
+Requires-Dist: google-genai<3.0.0,>=1.62.0; extra == 'google-genai'
 Provides-Extra: kg-creation-tools
 Requires-Dist: neo4j-viz<0.5.0,>=0.4.2; extra == 'kg-creation-tools'
 Provides-Extra: litellm
-Requires-Dist: litellm<2.0.0,>=1.0.0; extra == 'litellm'
+Requires-Dist: litellm<2.0.0,>=1.101.0; extra == 'litellm'
 Provides-Extra: mistralai
 Requires-Dist: mistralai<3.0.0,>=2.7.1; extra == 'mistralai'
 Provides-Extra: nlp
-Requires-Dist: spacy==3.8.7; (python_version < '3.14') and extra == 'nlp'
+Requires-Dist: spacy==3.8.16; (python_version < '3.14') and extra == 'nlp'
 Provides-Extra: ollama
 Requires-Dist: ollama<0.5.0,>=0.4.4; extra == 'ollama'
 Provides-Extra: openai
-Requires-Dist: openai<2.0.0,>=1.51.1; extra == 'openai'
+Requires-Dist: openai<4.0.0,>=1.51.1; extra == 'openai'
 Provides-Extra: pinecone
 Requires-Dist: pinecone-client<5.0.0,>=4.1.0; extra == 'pinecone'
 Provides-Extra: qdrant
 Requires-Dist: qdrant-client<2.0.0,>=1.11.3; extra == 'qdrant'
 Provides-Extra: sentence-transformers
-Requires-Dist: sentence-transformers<4.0.0,>=3.0.0; extra == 'sentence-transformers'
+Requires-Dist: sentence-transformers<7.0.0,>=3.0.0; extra == 'sentence-transformers'
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client<5.0.0,>=4.6.1; extra == 'weaviate'
 Description-Content-Type: text/markdown

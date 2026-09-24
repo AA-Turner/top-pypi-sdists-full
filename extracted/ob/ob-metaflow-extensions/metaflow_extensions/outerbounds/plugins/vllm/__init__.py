@@ -1,6 +1,7 @@
 from metaflow.decorators import StepDecorator
 from metaflow import current
 from metaflow.exception import MetaflowException
+from metaflow.metadata_provider import MetaDatum
 import functools
 from enum import Enum
 import threading
@@ -137,6 +138,40 @@ class VLLMDecorator(StepDecorator, CardDecoratorInjector):
                 "blank",
                 refresh_interval=self.attributes["card_refresh_interval"],
             )
+
+    def task_pre_step(
+        self,
+        step_name,
+        task_datastore,
+        metadata,
+        run_id,
+        task_id,
+        flow,
+        graph,
+        retry_count,
+        max_user_code_retries,
+        ubf_context,
+        inputs,
+    ):
+        # Record the @vllm configuration used for this task as task metadata,
+        # so it is easy to inspect (e.g. via `Task(...).metadata_dict` or the UI)
+        # which arguments were used without having to dig through the flow code.
+        meta = {
+            "vllm-model": self.attributes["model"],
+            "vllm-source": self.attributes["source"],
+            "vllm-openai-api-server": self.attributes["openai_api_server"],
+        }
+        entries = [
+            MetaDatum(
+                field=k,
+                value=v,
+                type=k,
+                tags=["attempt_id:{0}".format(retry_count)],
+            )
+            for k, v in meta.items()
+            if v is not None
+        ]
+        metadata.register_metadata(run_id, step_name, task_id, entries)
 
     def task_decorate(
         self, step_func, flow, graph, retry_count, max_user_code_retries, ubf_context

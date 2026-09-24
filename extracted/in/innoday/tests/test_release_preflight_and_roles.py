@@ -80,7 +80,7 @@ class TestNotAnInnoDayUser:
         rc = await run_preflight(make_config(token=None), None)
         out = capsys.readouterr().out
         assert rc == 1
-        assert "inno.day" in out
+        assert "havilandsoftware.com" in out
         assert "not signed in" in out.lower()
 
     @pytest.mark.asyncio
@@ -89,7 +89,7 @@ class TestNotAnInnoDayUser:
         out = capsys.readouterr().out
         assert rc == 1
         assert "innoday login" in out
-        assert "inno.day" in out
+        assert "havilandsoftware.com" in out
 
 
 class TestMembershipAndRole:

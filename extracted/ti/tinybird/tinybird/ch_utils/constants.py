@@ -263,4 +263,5 @@ VALID_QUERY_FORMATS = (
     "JSONCompact",
     "JSONStringsEachRowWithProgress",
     "ODBCDriver2",
+    "Markdown",
 )

@@ -355,6 +355,9 @@ class GoogleChat:
         if self.debug:
             rich.print(_sanitize_for_debug(config_data))
 
+        # Set the moment the paid call has fully answered: any failure after it
+        # (translation, storage, events) must never re-invoke Gemini.
+        paid_call_completed = False
         try:
             if unified_config.stream:
                 accumulated_chunks: list[GenerateContentResponse] = []
@@ -413,9 +416,16 @@ class GoogleChat:
                     # state. No-op when a content part already closed it.
                     await self._signal_reasoning_stopped(emitter)
 
+                paid_call_completed = True
                 converted_response = await self.translator.from_google_async(
                     accumulated_chunks, matrx_model_name, unified_config.audio_format
                 )
+                if is_tts:
+                    # Stamp the performed script BEFORE the live media event so
+                    # the live block carries exactly what the persisted part does.
+                    from matrx_ai.speech.compile import attach_script_to_audio
+
+                    attach_script_to_audio(converted_response, unified_config)
                 # Emit audio URLs from the converted response (avoids double-saving
                 # since from_google is the authoritative save path for inline_data)
                 await self._emit_media_from_response(converted_response, emitter)
@@ -434,6 +444,7 @@ class GoogleChat:
                 response: GenerateContentResponse = await _generate(
                     **route_undeclared_params(_generate, config_data, provider="google")
                 )
+                paid_call_completed = True
 
                 # Wrap the single response in a list to maintain consistency with to_unified_config
                 accumulated_chunks: list[GenerateContentResponse] = [response]
@@ -441,6 +452,10 @@ class GoogleChat:
                 converted_response = await self.translator.from_google_async(
                     accumulated_chunks, matrx_model_name, unified_config.audio_format
                 )
+                if is_tts:
+                    from matrx_ai.speech.compile import attach_script_to_audio
+
+                    attach_script_to_audio(converted_response, unified_config)
                 # Emit audio/media URLs through the emitter
                 await self._emit_media_from_response(converted_response, emitter)
                 await self._emit_citations_from_response(converted_response, emitter)
@@ -454,10 +469,6 @@ class GoogleChat:
                             for part in cand.content.parts:
                                 await self._handle_part(part, emitter, unified_config.audio_format)
 
-            if is_tts:
-                from matrx_ai.speech.compile import attach_script_to_audio
-
-                attach_script_to_audio(converted_response, unified_config)
             return converted_response
 
         except Exception as e:
@@ -483,6 +494,17 @@ class GoogleChat:
                 self._attach_billed_usage_from_chunks(e, _chunks, matrx_model_name)
 
             e.error_info = error_info
+            if paid_call_completed:
+                # Gemini already answered (and billed): a translation/storage/
+                # event failure is ours, never a reason to buy the output again.
+                from matrx_ai.providers.paid_output import mark_failed_after_paid_call
+
+                mark_failed_after_paid_call(
+                    e,
+                    provider="google",
+                    modality="audio" if is_tts else "response",
+                    classified=error_info,
+                )
             raise
 
     def _attach_billed_usage_from_chunks(
@@ -909,6 +931,10 @@ class GoogleChat:
                                 "storage_uri": content_item.file_uri,
                                 "mime_type": content_item.mime_type,
                                 "size_bytes": content_item.file_size,
+                                "duration_ms": content_item.duration_ms,
+                                # EXACTLY the persisted part's metadata (generation,
+                                # speech_script) — live and reload render alike.
+                                "metadata": dict(content_item.metadata or {}),
                             },
                             kind_override="audio",
                         )
@@ -928,6 +954,7 @@ class GoogleChat:
                                 "storage_uri": content_item.file_uri,
                                 "mime_type": content_item.mime_type,
                                 "size_bytes": content_item.file_size,
+                                "metadata": dict(content_item.metadata or {}),
                             },
                             kind_override="image",
                         )

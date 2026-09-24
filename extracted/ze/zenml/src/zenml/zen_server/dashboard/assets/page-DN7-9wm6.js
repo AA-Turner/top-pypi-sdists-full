@@ -1,0 +1,1 @@
+import{p as e}from"./utils-CRVOceX-.js";import{n as t,t as n}from"./StackComponentList-BsF6WRSX.js";import{Ln as r}from"./index-ClLsmNAr.js";var i=e();function a(){let{connectorId:e}=r();return(0,i.jsx)(t,{children:(0,i.jsx)(n,{fixedQueryParams:{connector_id:e},displayCreateComponent:!1})})}export{a as default};

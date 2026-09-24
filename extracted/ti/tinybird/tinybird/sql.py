@@ -129,14 +129,8 @@ class TableProjection:
     def add_projection_sql(self):
         return f"ADD {self.to_sql()}"
 
-    def drop_projection_sql(self):
-        return f"DROP PROJECTION IF EXISTS {self.name}"
-
     def materialize_projection_sql(self):
         return f"MATERIALIZE PROJECTION IF EXISTS {self.name}"
-
-    def clear_projection_sql(self):
-        return f"CLEAR PROJECTION IF EXISTS {self.name}"
 
 
 def as_subquery(sql: str) -> str:

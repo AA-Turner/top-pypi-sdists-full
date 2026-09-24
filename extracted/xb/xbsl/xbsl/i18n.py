@@ -96,6 +96,14 @@ _CORE_MESSAGES = {
         "ru": "клиентский вызов бывает не виден статически: метод зовут строкой из HTML-вставки или обработчиком, который дописывает разметку. Проверка нарочно считает употреблением любое упоминание в клиентском окружении, в yaml и в строке, но остаток ложных возможен – включайте, когда ревизуете поверхность, открытую клиенту",
         "en": "a client call is not always visible statically: a method may be called by name from a string of an HTML insert, or by a handler that writes markup. The check deliberately counts any mention in a client environment, in a yaml or in a string as a use, yet false positives remain - enable it when auditing the surface open to the client",
     },
+    "code/resource-replace-absent.off": {
+        "ru": "проверка читает все модули проекта и его файлы ресурсов, а заполнять разметку ресурсов заменами – решение самого проекта. Включайте, если проект подставляет значения в метки своих css, html или svg",
+        "en": "the check reads every module of the project and its resource files, and filling resource markup by replacements is the project's own choice. Enable it when the project puts values into labels of its css, html or svg files",
+    },
+    "code/resource-label-unfilled.off": {
+        "ru": "проверка читает все модули проекта и его файлы ресурсов, и полноту цепочки замен она выводит из мест вызова. Включайте, если проект подставляет значения в метки своих css, html или svg",
+        "en": "the check reads every module of the project and its resource files, and it infers that a chain of replacements is complete from the places it is called. Enable it when the project puts values into labels of its css, html or svg files",
+    },
     "code/duplicate-method-body.off": {
         "ru": "две одинаковых обвязки не всегда обязаны стать одним методом: общий код формы объекта иногда дешевле повторить, чем связать модули зависимостью. Включайте, когда собираетесь выносить общее",
         "en": "two identical wrappers do not always have to become one method: shared object-form code is sometimes cheaper repeated than tied into a dependency. Enable it when you are about to extract the shared part",
@@ -324,6 +332,12 @@ _CORE_MESSAGES = {
         "en": "add rules disabled by default ON TOP of the standard set "
               "(--select replaces the set); the value forms are the same",
     },
+    "cli.help.other-system": {
+        "ru": "другая система, которую проект называет в комментариях: имя рядом с ней "
+              "comment/unknown-name не судит. Повторяемый; несколько имен через запятую",
+        "en": "another system the project names in its comments: comment/unknown-name does not "
+              "judge a name next to it. Repeatable; several names comma-separated",
+    },
     "cli.help.as-ci": {
         "ru": "проверять тем же набором правил, что и задача CI проекта: ключи --select/"
               "--ignore/--enable и список принятых замечаний берутся из .gitlab-ci.yml (или "
@@ -482,6 +496,10 @@ _CORE_MESSAGES = {
         "ru": "ЗАДАЧА",
         "en": "JOB",
     },
+    "cli.help.meta.system": {
+        "ru": "СИСТЕМА",
+        "en": "SYSTEM",
+    },
     "cli.help.meta.version": {
         "ru": "ВЕРСИЯ",
         "en": "VERSION",
@@ -609,6 +627,39 @@ _CORE_MESSAGES = {
         "ru": "обновить xbsl распаковкой колеса с PyPI",
         "en": "update xbsl by unpacking the wheel from PyPI",
     },
+    "cli.help.commands.mcp-log": {
+        "ru": "журнал MCP-сервера: когда серверы запускались, как завершились и кто их остановил",
+        "en": "the MCP server journal: when servers started, how they ended and who stopped them",
+    },
+    "cli.help.mcplog-last": {
+        "ru": "сколько последних событий показать (по умолчанию 20; 0 – все)",
+        "en": "how many newest events to show (default 20; 0 - all)",
+    },
+    "cli.help.mcplog-json": {
+        "ru": "события в JSON, по объекту на строку журнала",
+        "en": "the events as JSON, an object per journal line",
+    },
+    # -- mcp-log: the journal of MCP server lives (mcpjournal.py) --
+    "mcplog.path": {"ru": "журнал: {path}", "en": "journal: {path}"},
+    "mcplog.empty": {
+        "ru": "записей нет: сервер с этим журналом еще не запускался",
+        "en": "no records: no server has started with this journal yet",
+    },
+    "mcplog.start": {
+        "ru": "запущен сервер xbsl {version}, родительский процесс {parent}",
+        "en": "server xbsl {version} started, parent process {parent}",
+    },
+    "mcplog.exit.input-closed": {
+        "ru": "завершился: клиент закрыл соединение",
+        "en": "ended: the client closed the connection",
+    },
+    "mcplog.exit.interrupted": {"ru": "завершился: прерван", "en": "ended: interrupted"},
+    "mcplog.exit.failed": {"ru": "завершился сбоем: {error}", "en": "ended with a failure: {error}"},
+    "mcplog.stopped": {
+        "ru": "остановлен процесс {target} ({name}): {reason}",
+        "en": "process {target} ({name}) stopped: {reason}",
+    },
+    "mcplog.unknown": {"ru": "событие {event}", "en": "event {event}"},
     "cli.help.commands.extract": {
         "ru": "сгенерировать данные о языке из дистрибутива Элемента (--dist)",
         "en": "generate the language data from an Element distribution (--dist)",
@@ -649,6 +700,12 @@ _CORE_MESSAGES = {
     "cli.help.lsp.enable": {
         "ru": "включить правила поверх набора по умолчанию",
         "en": "enable rules on top of the default set",
+    },
+    "cli.help.lsp.other-system": {
+        "ru": "другие системы, которые проект называет в комментариях, через запятую "
+              "(для comment/unknown-name)",
+        "en": "other systems the project names in its comments, comma-separated "
+              "(for comment/unknown-name)",
     },
     "cli.help.lsp.as-ci": {
         "ru": "судить тем же набором правил, что и задача CI проекта: ключи --select/--ignore/"
@@ -1438,8 +1495,10 @@ _CORE_MESSAGES = {
         "en": "instead of the tree, return the node at a file offset (cursor sync)",
     },
     "cli.help.scaf.form-tree-node": {
-        "ru": "поддерево этого узла вместо всей формы (идентификатор из дерева)",
-        "en": "the subtree of this node instead of the whole form (an id from the tree)",
+        "ru": "поддерево этого узла вместо всей формы (путь из дерева или Имя компонента, "
+              "единственное в форме)",
+        "en": "the subtree of this node instead of the whole form (a path from the tree or "
+              "a component Name unique in the form)",
     },
     "cli.help.scaf.form-tree-name": {
         "ru": "поддерево компонента с этим Имя; несколько совпадений приходят в \"roots\"",
@@ -1475,14 +1534,16 @@ _CORE_MESSAGES = {
         "en": "OFFSET",
     },
     "cli.help.scaf.form-edit": {
-        "ru": "операция конструктора форм: точечная правка yaml компонента интерфейса; см. также "
-              "form-tree – ид узлов, которыми адресуются правки",
-        "en": "form-designer operation: a pinpoint edit of an interface component's yaml; see "
-              "also form-tree for the node ids the edits address",
+        "ru": "операция конструктора форм: точечная правка yaml компонента интерфейса. Узел "
+              "задаётся путём из дерева или Имя компонента, если оно в форме одно; см. также "
+              "form-tree – пути узлов, которыми адресуются правки",
+        "en": "form-designer operation: a pinpoint edit of an interface component's yaml. A node "
+              "is given by its path from the tree or by a component Name unique in the form; "
+              "see also form-tree for the node paths the edits address",
     },
     "cli.help.scaf.fe-parent": {
-        "ru": "id узла-контейнера (insert/insert-fragment)",
-        "en": "container node id (insert/insert-fragment)",
+        "ru": "узел-контейнер: путь или Имя компонента (insert/insert-fragment)",
+        "en": "container node: a path or a component Name (insert/insert-fragment)",
     },
     "cli.help.scaf.fe-slot": {
         "ru": "слот детей: Содержимое, Страницы, Колонки, ... (insert/move)",
@@ -1497,18 +1558,20 @@ _CORE_MESSAGES = {
         "en": "Name of the new component (insert), the wrapper (wrap) or a Properties-section property (property-*)",
     },
     "cli.help.scaf.fe-node": {
-        "ru": "id узла операции (move/remove/wrap/unwrap/duplicate/rename/set-property/reset-property)",
-        "en": "operation node id (move/remove/wrap/unwrap/duplicate/rename/set-property/reset-property)",
+        "ru": "узел операции: путь или Имя компонента, единственное в форме "
+              "(move/remove/wrap/unwrap/duplicate/rename/set-property/reset-property)",
+        "en": "operation node: a path or a component Name unique in the form "
+              "(move/remove/wrap/unwrap/duplicate/rename/set-property/reset-property)",
     },
     "cli.help.scaf.fe-nodes": {
-        "ru": "id узлов пачковой операции (move-nodes/remove-nodes): через "
-              "запятую или повтором флага; порядок не важен",
-        "en": "node ids of a batch operation (move-nodes/remove-nodes): comma-separated "
-              "or by repeating the flag; order does not matter",
+        "ru": "узлы пачковой операции (move-nodes/remove-nodes): пути или имена компонентов "
+              "через запятую или повтором флага; порядок не важен",
+        "en": "nodes of a batch operation (move-nodes/remove-nodes): paths or component names, "
+              "comma-separated or by repeating the flag; order does not matter",
     },
     "cli.help.scaf.fe-new-parent": {
-        "ru": "id нового контейнера (move/move-nodes)",
-        "en": "new container id (move/move-nodes)",
+        "ru": "новый контейнер: путь или Имя компонента (move/move-nodes)",
+        "en": "new container: a path or a component Name (move/move-nodes)",
     },
     "cli.help.scaf.fe-container": {
         "ru": "Тип контейнера-обёртки (wrap)",
@@ -1521,12 +1584,12 @@ _CORE_MESSAGES = {
               "for rename without the flag, Name is removed",
     },
     "cli.help.scaf.fe-before": {
-        "ru": "id соседа: вставить/переместить ПЕРЕД ним",
-        "en": "sibling id: insert/move BEFORE it",
+        "ru": "сосед (путь или Имя): вставить/переместить ПЕРЕД ним",
+        "en": "sibling (a path or a Name): insert/move BEFORE it",
     },
     "cli.help.scaf.fe-after": {
-        "ru": "id соседа: вставить/переместить ПОСЛЕ него",
-        "en": "sibling id: insert/move AFTER it",
+        "ru": "сосед (путь или Имя): вставить/переместить ПОСЛЕ него",
+        "en": "sibling (a path or a Name): insert/move AFTER it",
     },
     "cli.help.scaf.fe-key": {
         "ru": "имя свойства узла (set-property/reset-property)",
@@ -1559,8 +1622,10 @@ _CORE_MESSAGES = {
               "also form-tree for the node ids and add-method for a method outside any event",
     },
     "cli.help.scaf.fh-node": {
-        "ru": "id узла (создание обработчика; без --node/--key – список методов модуля)",
-        "en": "node id (handler creation; without --node/--key – the module's method list)",
+        "ru": "узел: путь или Имя компонента (создание обработчика; без --node/--key – "
+              "список методов модуля)",
+        "en": "node: a path or a component Name (handler creation; without --node/--key – "
+              "the module's method list)",
     },
     "cli.help.scaf.fh-key": {
         "ru": "ключ события узла: ПриНажатии, ПослеСоздания, ...",

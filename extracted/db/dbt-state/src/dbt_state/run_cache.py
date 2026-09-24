@@ -1508,6 +1508,9 @@ class RunCache:
                     node_config
                 ),
                 table_namespace=self.table_namespace,
+                ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
+                    node_config
+                ),
             ), last_modified_duration_ms
 
         # The caller owns the view traversal so the speculative decision can be made after it
@@ -1617,6 +1620,9 @@ class RunCache:
                 node_config
             ),
             table_namespace=self.table_namespace,
+            ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
+                node_config
+            ),
         ), last_modified_duration_ms
 
     def _build_clone_request(

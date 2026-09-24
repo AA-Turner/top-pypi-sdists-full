@@ -512,6 +512,24 @@ def test_delete_cookie(test_client_factory: TestClientFactory) -> None:
     assert not response.cookies.get("mycookie")
 
 
+@pytest.mark.parametrize("partitioned", [False, True])
+def test_delete_cookie_partitioned(partitioned: bool) -> None:
+    response = Response()
+    if partitioned and sys.version_info < (3, 14):  # pragma: no cover - Requires Python below 3.14.
+        with pytest.raises(ValueError, match="Partitioned cookies are only supported in Python 3.14 and above"):
+            response.delete_cookie("mycookie", secure=True, samesite="none", partitioned=partitioned)
+        assert "set-cookie" not in response.headers
+        return
+
+    response.delete_cookie("mycookie", secure=True, samesite="none", partitioned=partitioned)
+
+    header = response.headers["set-cookie"]
+    assert ("Partitioned" in header) is partitioned
+    cookie = SimpleCookie(header)["mycookie"]
+    assert cookie["max-age"] == "0"
+    assert cookie["secure"] is True
+
+
 def test_populate_headers(test_client_factory: TestClientFactory) -> None:
     app = Response(content="hi", headers={}, media_type="text/html")
     client = test_client_factory(app)
@@ -725,6 +743,24 @@ def test_file_response_without_range(file_response_client: TestClient) -> None:
     assert response.headers["content-length"] == str(len(README.encode("utf8")))
     assert response.headers["content-type"] == "text/plain; charset=utf-8"
     assert response.text == README
+
+
+def test_file_response_ignores_range_for_non_success_status(
+    readme_file: Path, test_client_factory: TestClientFactory
+) -> None:
+    client = test_client_factory(app=FileResponse(str(readme_file), status_code=404))
+    response = client.get("/", headers={"Range": "bytes=0-100"})
+
+    assert response.status_code == 404
+    assert "content-range" not in response.headers
+    assert response.headers["content-length"] == str(len(README.encode("utf8")))
+    assert response.content == README.encode("utf8")
+
+    head_response = client.head("/", headers={"Range": "bytes=0-100"})
+    assert head_response.status_code == 404
+    assert "content-range" not in head_response.headers
+    assert head_response.headers["content-length"] == str(len(README.encode("utf8")))
+    assert head_response.content == b""
 
 
 def test_file_response_head(file_response_client: TestClient) -> None:

@@ -54,7 +54,11 @@ from pmd_pytcp.socket import AF_INET6, SHUT_RDWR, SOCK_DGRAM, SOCK_STREAM
 from pmd_pytcp.socket import socket as pytcp_socket
 
 import pymobiledevice3.remote.tunnel_service as tunnel_service
-from pymobiledevice3.exceptions import InvalidServiceError, PyMobileDevice3Exception, UserspaceTunnelUnavailableError
+from pymobiledevice3.exceptions import (
+    InvalidServiceError,
+    PyMobileDevice3Exception,
+    UserspaceTunnelUnavailableError,
+)
 from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
@@ -738,7 +742,13 @@ async def _create_no_root_tunnel_provider(serial: Optional[str], autopair: bool,
         await lockdown.close()
         raise
 
-    services = await tunnel_service.get_remote_pairing_tunnel_services(udid=serial)
+    # Ask for the device we just handshook with over USB, not for whoever answers first. The
+    # handshake names it even when the caller did not (``serial`` is None for a single attached
+    # device), and without a name every paired device on the network is contacted: ``services[0]``
+    # could then be a different phone than the command targeted, while the rest are built and never
+    # closed. Naming it also lets the browse stop at the first match instead of running to the
+    # bonjour timeout.
+    services = await tunnel_service.get_remote_pairing_tunnel_services(udid=serial or lockdown.udid)
     if not services:
         raise UserspaceTunnelUnavailableError(
             "no-root userspace tunnel unavailable: the device exposes no CoreDeviceProxy lockdown "

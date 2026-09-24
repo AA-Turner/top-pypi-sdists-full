@@ -43,21 +43,48 @@ class GoogleVideoGeneration(BaseMediaGeneration):
     def __init__(self):
         self.translator = GoogleTranslator()
 
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """Veo takes a first frame (``image``), a last frame
+        (``config.last_frame``), asset/style references
+        (``config.reference_images`` with ``reference_type``), and a clip to
+        extend (``source.video``). Named references ride the asset list with an
+        "@name is reference image N" legend. No structured camera control."""
+        return frozenset(
+            {"first_frame", "last_frame", "asset", "style", "extend", "named"}
+        )
+
+    def _genai_image_or_raise(self, ref: Any, label: str) -> Any:
+        image = self.translator._mediaref_to_genai_image(ref)
+        if image is None:
+            raise ValueError(
+                f"The {label} image could not be read. Re-upload it and run again."
+            )
+        return image
+
     def _build_kwargs(self, unified_config: UnifiedConfig, profile: Any) -> dict[str, Any]:
         """Structural SDK-object nesting for Veo; every scalar param (aspect
         gate + 16:9 default, count clamp, resolution gate + 720p default,
         duration/audio/seed passthrough) comes from the catalog rules —
-        translator_key ``google_video`` (_ai_029). Media refs (first frame,
-        last frame, references) and the message-tagged negative prompt are
-        structural."""
+        translator_key ``google_video`` (_ai_029). Media refs are structural
+        and ride the typed video roles (media/video_reference_roles.py; legacy
+        ``metadata.role`` tags fold in): first_frame -> ``image``, last_frame
+        -> ``config.last_frame``, asset|style -> ``config.reference_images``
+        (``reference_type`` ASSET|STYLE), extend -> ``source.video``."""
         from google.genai import types
 
         from matrx_ai.config.message_config import (
-            iter_images_by_role,
             pick_image_by_role,
             pick_text_by_role,
         )
+        from matrx_ai.media.video_reference_roles import (
+            collect_video_references,
+            first_of,
+            named_legend,
+            named_references,
+            with_named_legend,
+        )
 
+        refs = collect_video_references(unified_config.messages)
         prompt = self.translator._extract_prompt(unified_config)
         neg = pick_text_by_role(unified_config.messages, "negative_prompt")
         video_config_kwargs = self._outbound_params(
@@ -69,39 +96,59 @@ class GoogleVideoGeneration(BaseMediaGeneration):
         # provider default explicit so the wire request and billing agree.
         video_config_kwargs.setdefault("duration_seconds", 8)
 
-        # last_frame interpolation — prefer user-message "end_image"
-        # (or untagged "last_frame_image" alias), fall back to settings.
-        last_frame_block = pick_image_by_role(
-            unified_config.messages, "end_image"
-        ) or pick_image_by_role(unified_config.messages, "last_frame_image")
-        last_frame_ref = (
-            last_frame_block if last_frame_block is not None else unified_config.last_frame_image
-        )
-        last_frame = self.translator._mediaref_to_genai_image(last_frame_ref)
-        if last_frame is not None:
-            video_config_kwargs["last_frame"] = last_frame
+        # Last frame (interpolation): typed role, else settings.
+        last_ref = first_of(refs, "last_frame")
+        if last_ref is not None:
+            video_config_kwargs["last_frame"] = self._genai_image_or_raise(last_ref, "Last frame")
+        elif unified_config.last_frame_image is not None:
+            last_frame = self.translator._mediaref_to_genai_image(unified_config.last_frame_image)
+            if last_frame is not None:
+                video_config_kwargs["last_frame"] = last_frame
 
-        # reference_images — character / scene refs (multi).
-        ref_blocks = list(iter_images_by_role(unified_config.messages, "reference"))
-        ref_sources = ref_blocks if ref_blocks else (unified_config.reference_images or [])
-        if ref_sources:
-            ref_images = []
-            for ref in ref_sources:
+        # Asset / style references, in authored order; settings fallback.
+        reference_images: list[Any] = []
+        positions: dict[int, int] = {}
+        for role, ref_type in (("asset", "ASSET"), ("style", "STYLE")):
+            for block in refs.get(role) or []:
+                reference_images.append(
+                    types.VideoGenerationReferenceImage(
+                        image=self._genai_image_or_raise(block, role.capitalize()),
+                        reference_type=ref_type,
+                    )
+                )
+                positions[id(block)] = len(reference_images)
+        if not reference_images:
+            for ref in unified_config.reference_images or []:
                 genai_image = self.translator._mediaref_to_genai_image(ref)
                 if genai_image is not None:
-                    ref_images.append(genai_image)
-            if ref_images:
-                video_config_kwargs["reference_images"] = ref_images
+                    reference_images.append(
+                        types.VideoGenerationReferenceImage(
+                            image=genai_image, reference_type="ASSET"
+                        )
+                    )
+        if reference_images:
+            video_config_kwargs["reference_images"] = reference_images
 
-        # Image-to-video first frame: prefer user-message "start_image"
-        # (or untagged image_input), fall back to settings.
-        start_block = pick_image_by_role(
-            unified_config.messages, "start_image"
-        ) or pick_image_by_role(unified_config.messages, None)
-        start_ref = start_block if start_block is not None else unified_config.image_input
-        if start_ref is None and unified_config.frame_images:
-            start_ref = unified_config.frame_images[0]
-        first_image = self.translator._mediaref_to_genai_image(start_ref)
+        named = named_references(refs)
+        if named:
+            prompt = with_named_legend(prompt, named_legend(named, positions))
+
+        # First frame: typed role, else the first un-tagged image, else settings.
+        start_ref = first_of(refs, "first_frame")
+        if start_ref is not None:
+            first_image = self._genai_image_or_raise(start_ref, "First frame")
+        else:
+            start_block = pick_image_by_role(unified_config.messages, None)
+            fallback = start_block if start_block is not None else unified_config.image_input
+            if fallback is None and unified_config.frame_images:
+                fallback = unified_config.frame_images[0]
+            first_image = self.translator._mediaref_to_genai_image(fallback)
+
+        # Extend: the clip Veo continues.
+        source_kwargs: dict[str, Any] = {"prompt": prompt}
+        extend_ref = first_of(refs, "extend")
+        if extend_ref is not None:
+            source_kwargs["video"] = self._genai_video_or_raise(extend_ref)
 
         # Google exposes no adjustable Veo content-safety threshold. Its one
         # permissiveness control is personGeneration: current Veo models only
@@ -109,18 +156,38 @@ class GoogleVideoGeneration(BaseMediaGeneration):
         # modes. Pin those least-restrictive supported values instead of
         # accepting a provider default or a stricter catalog override.
         video_config_kwargs["person_generation"] = (
-            "ALLOW_ADULT" if first_image is not None else "ALLOW_ALL"
+            "ALLOW_ADULT" if (first_image is not None or reference_images) else "ALLOW_ALL"
         )
 
-        kwargs: dict[str, Any] = {
+        # The SDK refuses `source` beside a top-level prompt/image/video
+        # ("mutually exclusive — only use source"), so the first frame rides
+        # INSIDE the source with the prompt (and the clip to extend).
+        if first_image is not None:
+            source_kwargs["image"] = first_image
+        return {
             "model": unified_config.model,
-            "source": types.GenerateVideosSource(prompt=prompt),
+            "source": types.GenerateVideosSource(**source_kwargs),
             "config": types.GenerateVideosConfig(**video_config_kwargs),
         }
-        if first_image is not None:
-            kwargs["image"] = first_image
 
-        return kwargs
+    @staticmethod
+    def _genai_video_or_raise(ref: Any) -> Any:
+        """A ``types.Video`` for the clip to extend: inline bytes when the
+        boundary pre-fetched them, else its URI. Nothing usable RAISES."""
+        import base64
+
+        from google.genai import types
+
+        b64 = getattr(ref, "base64_data", None)
+        mime = getattr(ref, "mime_type", None) or "video/mp4"
+        if b64:
+            return types.Video(video_bytes=base64.b64decode(b64), mime_type=mime)
+        uri = getattr(ref, "file_uri", None) or getattr(ref, "resolved_url", None) or getattr(
+            ref, "url", None
+        )
+        if uri:
+            return types.Video(uri=uri, mime_type=mime)
+        raise ValueError("The video to extend could not be read. Re-upload it and run again.")
 
     def _telemetry_url(self, unified_config: UnifiedConfig, kwargs: dict[str, Any]) -> str:
         model = kwargs.get("model") or unified_config.model or "unknown"

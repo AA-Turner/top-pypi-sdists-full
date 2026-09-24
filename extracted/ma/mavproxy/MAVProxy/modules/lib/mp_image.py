@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import print_function
-
 '''
 display a image in a subprocess
 Andrew Tridgell
@@ -15,6 +13,7 @@ import numpy as np
 import warnings
 from threading import Thread
 import math
+import subprocess
 
 from MAVProxy.modules.lib import mp_util
 from MAVProxy.modules.lib import mp_widgets
@@ -30,12 +29,17 @@ class MPImageData:
             img = np.asarray(img[:,:])
         self.width = img.shape[1]
         self.height = img.shape[0]
-        self.data = img.tostring()
+        self.data = img.tobytes()
 
 class MPImageTitle:
     '''window title to use'''
     def __init__(self, title):
         self.title = title
+
+class MPImageStatusText:
+    """Readable text below the image, independent of image scaling."""
+    def __init__(self, text):
+        self.text = text
 
 class MPImageBrightness:
     '''image brightness to use'''
@@ -89,13 +93,24 @@ class MPImageRecenter:
 
 class MPImageGStreamer:
     '''request getting image feed from gstreamer pipeline'''
-    def __init__(self, pipeline):
+    def __init__(self, pipeline, reconnect=False):
         self.pipeline = pipeline
+        self.reconnect = reconnect
+
+
+class MPImageFFmpeg:
+    '''request raw BGR frames from an ffmpeg command writing to stdout'''
+    def __init__(self, command, width, height):
+        self.command = command
+        self.width = width
+        self.height = height
+
 
 class MPImageVideo:
     '''request getting image feed from video file'''
-    def __init__(self, filename):
+    def __init__(self, filename, reconnect=False):
         self.filename = filename
+        self.reconnect = reconnect
         
 class MPImageColormap:
     '''set a colormap for display'''
@@ -270,6 +285,10 @@ class MPImage():
         '''set the frame title'''
         self.in_queue.put(MPImageTitle(title))
 
+    def set_status_text(self, text):
+        """Show a readable text panel below the image."""
+        self.in_queue.put(MPImageStatusText(text))
+
     def set_brightness(self, brightness):
         '''set the image brightness'''
         self.in_queue.put(MPImageBrightness(brightness))
@@ -316,13 +335,17 @@ class MPImage():
         '''set window layout'''
         self.in_queue.put(layout)
 
-    def set_gstreamer(self, pipeline):
-        '''set gstreamer pipeline source'''
-        self.in_queue.put(MPImageGStreamer(pipeline))
+    def set_gstreamer(self, pipeline, reconnect=False):
+        '''set gstreamer source, optionally reconnecting a live stream'''
+        self.in_queue.put(MPImageGStreamer(pipeline, reconnect))
 
-    def set_video(self, filename):
-        '''set video file source'''
-        self.in_queue.put(MPImageVideo(filename))
+    def set_ffmpeg(self, command, width, height):
+        '''set an ffmpeg raw-BGR pipeline source'''
+        self.in_queue.put(MPImageFFmpeg(command, width, height))
+
+    def set_video(self, filename, reconnect=False):
+        '''set video source, optionally reconnecting a live stream'''
+        self.in_queue.put(MPImageVideo(filename, reconnect))
         
     def set_colormap(self, colormap):
         '''set a colormap for greyscale data'''
@@ -369,22 +392,33 @@ class MPImageFrame(wx.Frame):
         wx.Frame.__init__(self, None, wx.ID_ANY, state.title)
         self.state = state
         state.frame = self
-        self.last_layout_send = time.time()
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         state.panel = MPImagePanel(self, state)
         self.sizer.Add(state.panel, 1, wx.EXPAND)
         self.SetSizer(self.sizer)
-        self.Bind(wx.EVT_IDLE, self.on_idle)
+        self.status_text = None
+        # Layout reporting must not block the GUI: sleeping in EVT_IDLE
+        # limits video painting to 10 Hz regardless of the redraw timer.
+        self.layout_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.on_layout_timer, self.layout_timer)
+        self.layout_timer.Start(1000)
         self.Bind(wx.EVT_SIZE, state.panel.on_size)
 
-    def on_idle(self, event):
-        '''prevent the main loop spinning too fast'''
-        state = self.state
-        now = time.time()
-        if now - self.last_layout_send > 1:
-            self.last_layout_send = now
-            state.out_queue.put(win_layout.get_wx_window_layout(self))
-        time.sleep(0.1)
+    def set_status_text(self, text):
+        if self.status_text is None:
+            self.status_text = wx.StaticText(self, style=wx.ST_NO_AUTORESIZE)
+            self.status_text.SetFont(wx.Font(12, wx.FONTFAMILY_TELETYPE,
+                                            wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            self.sizer.Add(self.status_text, 0, wx.EXPAND | wx.ALL, 6)
+        self.status_text.SetLabel(text)
+        height = self.status_text.GetCharHeight() * max(1, len(text.splitlines()))
+        if self.status_text.GetMinSize().height != height:
+            self.status_text.SetMinSize((1, height))
+            self.Layout()
+
+    def on_layout_timer(self, event):
+        '''report the window layout without delaying video paint events'''
+        self.state.out_queue.put(win_layout.get_wx_window_layout(self))
 
 class MPImagePanel(wx.Panel):
     """ The image panel
@@ -591,6 +625,8 @@ class MPImagePanel(wx.Panel):
                 self.set_image_data(obj.data, obj.width, obj.height)
             if isinstance(obj, MPImageTitle):
                 state.frame.SetTitle(obj.title)
+            if isinstance(obj, MPImageStatusText):
+                state.frame.set_status_text(obj.text)
             if isinstance(obj, MPImageRecenter):
                 self.on_recenter(obj.location)
             if isinstance(obj, MPImageMenu):
@@ -607,9 +643,11 @@ class MPImagePanel(wx.Panel):
             if isinstance(obj, win_layout.WinLayout):
                 win_layout.set_wx_window_layout(state.frame, obj)
             if isinstance(obj, MPImageGStreamer):
-                self.start_gstreamer(obj.pipeline)
+                self.start_gstreamer(obj.pipeline, obj.reconnect)
+            if isinstance(obj, MPImageFFmpeg):
+                self.start_ffmpeg(obj.command, obj.width, obj.height)
             if isinstance(obj, MPImageVideo):
-                self.start_video(obj.filename)
+                self.start_video(obj.filename, obj.reconnect)
             if isinstance(obj, MPImageFPSMax):
                 self.fps_max = obj.fps_max
                 print("FPS_MAX: ", self.fps_max)
@@ -646,15 +684,23 @@ class MPImagePanel(wx.Panel):
         self.tracker = tracker
 
 
-    def start_gstreamer(self, pipeline):
+    def start_gstreamer(self, pipeline, reconnect=False):
         '''start a gstreamer pipeline'''
-        thread = Thread(target=self.video_thread, args=(pipeline,cv2.CAP_GSTREAMER))
+        thread = Thread(target=self.video_thread,
+                        args=(pipeline, cv2.CAP_GSTREAMER, reconnect))
         thread.daemon = True
         thread.start()
 
-    def start_video(self, filename):
+    def start_ffmpeg(self, command, width, height):
+        '''start an ffmpeg raw-video pipeline'''
+        thread = Thread(target=self.ffmpeg_thread,
+                        args=(command, width, height))
+        thread.daemon = True
+        thread.start()
+
+    def start_video(self, filename, reconnect=False):
         '''start a video'''
-        thread = Thread(target=self.video_thread, args=(filename,0))
+        thread = Thread(target=self.video_thread, args=(filename, 0, reconnect))
         thread.daemon = True
         thread.start()
 
@@ -665,65 +711,122 @@ class MPImagePanel(wx.Panel):
     def seek_video_frame(self, frame):
         '''seek to given frame'''
         self.seek_frame = frame
-        
-    def video_thread(self, url, cap_options):
-        '''thread for video capture'''
-        self.vcap = cv2.VideoCapture(url, cap_options)
-        if not self.vcap or not self.vcap.isOpened():
-            print("VideoCapture failed")
-            return
 
+    def display_video_frame(self, frame, frame_count):
+        '''display one BGR video frame and publish tracking/frame events'''
+        if frame_count % 5 == 0:
+            self.state.out_queue.put(MPImageFrameCounter(frame_count))
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        (width, height) = (frame.shape[1], frame.shape[0])
+        if self.tracker:
+            self.tracker.update(frame)
+            pos = self.tracker.get_position()
+            if pos is not None:
+                startX = int(pos.left())
+                startY = int(pos.top())
+                endX = int(pos.right())
+                endY = int(pos.bottom())
+                if (startX >= 0
+                    and startY >= 0
+                    and endX < width
+                    and endY < height
+                    and endX > startX
+                    and endY > startY):
+                    cv2.rectangle(frame, (startX, startY), (endX, endY),
+                                  (0,255,0), 2)
+                    self.state.out_queue.put(
+                        MPImageTrackPos(int((startX+endX)/2),
+                                        int((startY+endY)/2), frame.shape))
+        self.set_image_data(frame, width, height)
+        if self.fps_max is not None:
+            while self.fps_max <= 0:
+                time.sleep(0.1)
+            now = time.time()
+            if self.last_frame_time is not None:
+                dt = now - self.last_frame_time
+                if dt < 1.0 / self.fps_max:
+                    time.sleep((1.0 / self.fps_max)-dt)
+            self.last_frame_time = now
+
+    @staticmethod
+    def read_exact(stream, length):
+        '''read exactly length bytes from a pipe, or return None at EOF'''
+        data = bytearray(length)
+        offset = 0
+        while offset < length:
+            count = stream.readinto(memoryview(data)[offset:])
+            if not count:
+                return None
+            offset += count
+        return data
+
+    def ffmpeg_thread(self, command, width, height):
+        '''decode/reconnect an HTTP video source using ffmpeg'''
+        frame_size = width * height * 3
+        frame_count = 0
         while True:
-            if self.seek_percentage is not None:
-                frame_count = self.vcap.get(cv2.CAP_PROP_FRAME_COUNT)
-                if frame_count > 0:
-                    pos = int(frame_count*self.seek_percentage*0.01)
-                    self.vcap.set(cv2.CAP_PROP_POS_FRAMES, pos)
-                    self.seek_percentage = None
-            if self.seek_frame is not None:
-                self.vcap.set(cv2.CAP_PROP_POS_FRAMES, self.seek_frame)
-                self.seek_frame = None
             try:
-                _, frame = self.vcap.read()
+                process = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                           stderr=subprocess.DEVNULL,
+                                           bufsize=frame_size)
+            except Exception as ex:
+                print("ffmpeg start failed: %s" % ex)
+                return
+            while True:
+                data = self.read_exact(process.stdout, frame_size)
+                if data is None:
+                    break
+                frame_count += 1
+                frame = np.frombuffer(data, dtype=np.uint8)
+                frame = frame.reshape((height, width, 3))
+                self.display_video_frame(frame, frame_count)
+            process.wait()
+            # SupportProxy returns 503 while a publisher is absent. Retry so
+            # an already-open viewer recovers when the stream comes back.
+            time.sleep(1)
+        
+    def video_thread(self, url, cap_options, reconnect=False):
+        '''thread for video capture'''
+        while True:
+            capture = None
+            try:
+                if reconnect:
+                    # Bound network stalls in both FFmpeg and GStreamer.
+                    capture = cv2.VideoCapture(url, cap_options, [
+                        cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000,
+                        cv2.CAP_PROP_READ_TIMEOUT_MSEC, 3000])
+                else:
+                    capture = cv2.VideoCapture(url, cap_options)
+                self.vcap = capture
+                if not capture.isOpened():
+                    print("VideoCapture failed")
+                while capture.isOpened():
+                    if self.seek_percentage is not None:
+                        frame_count = capture.get(cv2.CAP_PROP_FRAME_COUNT)
+                        if frame_count > 0:
+                            pos = int(frame_count*self.seek_percentage*0.01)
+                            capture.set(cv2.CAP_PROP_POS_FRAMES, pos)
+                            self.seek_percentage = None
+                    if self.seek_frame is not None:
+                        capture.set(cv2.CAP_PROP_POS_FRAMES, self.seek_frame)
+                        self.seek_frame = None
+                    ok, frame = capture.read()
+                    if not ok or frame is None:
+                        break
+                    frame_count = int(capture.get(cv2.CAP_PROP_POS_FRAMES))
+                    self.display_video_frame(frame, frame_count)
             except Exception as ex:
                 print(ex)
-                break
-            if frame is None:
-                break
-            frame_count = int(self.vcap.get(cv2.CAP_PROP_POS_FRAMES))
-            if frame_count % 5 == 0:
-                self.state.out_queue.put(MPImageFrameCounter(frame_count))
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            (width, height) = (frame.shape[1], frame.shape[0])
-            if self.tracker:
-                self.tracker.update(frame)
-                pos = self.tracker.get_position()
-                if pos is not None:
-                    startX = int(pos.left())
-                    startY = int(pos.top())
-                    endX = int(pos.right())
-                    endY = int(pos.bottom())
-                    if (startX >= 0
-                        and startY >= 0
-                        and endX < width
-                        and endY < height
-                        and endX > startX
-                        and endY > startY):
-                        cv2.rectangle(frame, (startX, startY), (endX, endY), (0,255,0), 2)
-                        self.state.out_queue.put(MPImageTrackPos(int((startX+endX)/2),
-                                                                 int((startY+endY)/2),
-                                                                frame.shape))
-            self.set_image_data(frame, width, height)
-            if self.fps_max is not None:
-                while self.fps_max <= 0:
-                    time.sleep(0.1)
-                now = time.time()
-                if self.last_frame_time is not None:
-                    dt = now - self.last_frame_time
-                    if dt < 1.0 / self.fps_max:
-                        time.sleep((1.0 / self.fps_max)-dt)
-                self.last_frame_time = now
+            finally:
+                if capture is not None:
+                    capture.release()
+                self.vcap = None
+            if not reconnect:
+                return
+            # The daemon thread exits with the viewer process. Retry even if
+            # the camera was unavailable when this window first opened.
+            time.sleep(1)
 
 
     def on_recenter(self, location):

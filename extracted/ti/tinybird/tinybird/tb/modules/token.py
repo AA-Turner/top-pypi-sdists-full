@@ -6,12 +6,9 @@ import pyperclip
 from click import Context
 from humanfriendly import parse_timespan
 
-from tinybird.tb.client import AuthNoTokenException, TinyB
+from tinybird.tb.client import AuthNoTokenException, DoesNotExistException, TinyB
 from tinybird.tb.modules.cli import cli
-from tinybird.tb.modules.common import (
-    DoesNotExistException,
-    echo_safe_humanfriendly_tables_format_smart_table,
-)
+from tinybird.tb.modules.common import echo_safe_humanfriendly_tables_format_smart_table
 from tinybird.tb.modules.exceptions import CLITokenException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 

@@ -194,9 +194,92 @@ class ModelDescriptor:
     # named here is refused by name before the paid call.
     role_keys: dict[str, str] = field(default_factory=dict)
     list_keys: frozenset[str] = frozenset()
+    # Video models: the input key carrying each video-side role (first_frame,
+    # last_frame, asset, style, extend, restyle, lip_sync). Keys in
+    # ``list_keys`` take lists. ``named`` = the prompt may address references
+    # as @name (a legend maps each to its list position). ``camera_key`` names
+    # the input that takes structured camera moves (Luma ``concepts``).
+    video_role_keys: dict[str, str] = field(default_factory=dict)
+    named: bool = False
+    camera_key: str | None = None
+
+    def video_transport(self) -> frozenset[str]:
+        out = set(self.video_role_keys)
+        if self.named:
+            out.add("named")
+        if self.camera_key:
+            out.add("camera_control")
+        return frozenset(out)
+
+    def build_video_input(self, config: UnifiedConfig, controls: Any) -> dict[str, Any]:
+        """Video input dict = typed video roles on their native keys + catalog
+        params. The gate (BaseMediaGeneration) has already refused anything
+        this descriptor cannot carry, so every roled block lands somewhere."""
+        from matrx_ai.config.message_config import pick_image_by_role
+        from matrx_ai.media.video_reference_roles import (
+            VIDEO_REFERENCE_ROLES,
+            camera_to_luma_concepts,
+            collect_video_references,
+            named_legend,
+            named_references,
+            with_named_legend,
+        )
+
+        refs = collect_video_references(config.messages)
+        if "first_frame" not in refs and "first_frame" in self.video_role_keys:
+            untagged = pick_image_by_role(config.messages, None) or config.image_input
+            if untagged is not None:
+                refs = {**refs, "first_frame": [untagged]}
+
+        params = BaseMediaGeneration._outbound_params(
+            controls,
+            config,
+            context={"has_image_input": bool(refs.get("first_frame") or refs.get("asset"))},
+            extra_canonical={"negative_prompt": _tagged_negative_prompt(config)},
+        )
+        out: dict[str, Any] = {self.prompt_key: _prompt(config)}
+        out.update(params)
+
+        positions: dict[int, int] = {}
+        for role, key in self.video_role_keys.items():
+            items = refs.get(role) or []
+            if not items:
+                continue
+            urls: list[str] = []
+            for block in items:
+                url = _mediaref_url(block)
+                if not url:
+                    noun = "video" if role in VIDEO_REFERENCE_ROLES else (
+                        "audio" if role == "lip_sync" else "image"
+                    )
+                    raise ValueError(
+                        f"The {role.replace('_', ' ')} {noun} could not be read. "
+                        "Re-upload it and run again."
+                    )
+                urls.append(url)
+            if key in self.list_keys:
+                existing = out.get(key) or []
+                for block, url in zip(items, urls, strict=True):
+                    existing.append(url)
+                    positions[id(block)] = len(existing)
+                out[key] = existing
+            else:
+                out[key] = urls[-1]
+
+        named = named_references(refs)
+        if named:
+            out[self.prompt_key] = with_named_legend(
+                out.get(self.prompt_key) or "", named_legend(named, positions)
+            )
+        camera = getattr(config, "camera_control", None)
+        if camera and self.camera_key:
+            out[self.camera_key] = camera_to_luma_concepts(camera)
+        return out
 
     def build_input(self, config: UnifiedConfig, controls: Any) -> dict[str, Any]:
         """Model input dict = structural media wiring + catalog params."""
+        if self.modality == "video" and self.video_role_keys:
+            return self.build_video_input(config, controls)
         from matrx_ai.media.image_reference_roles import (
             collect_role_images,
             ordered_role_images,
@@ -329,31 +412,87 @@ _IMAGE_MODELS: list[ModelDescriptor] = [
 ]
 
 
+# Video input keys: schemas read 2026-09-22 from the Replicate model API
+# (GET /v1/models/{owner}/{name} -> latest_version.openapi_schema). The earlier
+# keys ``last_frame_image`` (Veo), ``prompt_text``/``prompt_image`` (Runway)
+# and ``last_frame_image`` (Hailuo) do not exist on those models and were
+# silently ignored by Replicate.
+_VEO_REPLICATE = {
+    "video_role_keys": {
+        "first_frame": "image",
+        "last_frame": "last_frame",
+        "asset": "reference_images",
+    },
+    "list_keys": frozenset({"reference_images"}),
+    "named": True,
+}
+
 _VIDEO_MODELS: list[ModelDescriptor] = [
+    ModelDescriptor("google/veo-3.1", "video", **_VEO_REPLICATE),
+    ModelDescriptor("google/veo-3.1-fast", "video", **_VEO_REPLICATE),
     ModelDescriptor(
-        "google/veo-3.1", "video", start_key="image", end_key="last_frame_image"
+        "runwayml/gen-4.5", "video",
+        video_role_keys={"first_frame": "image"},
     ),
+    # Runway Aleph: re-renders an input clip (restyle) with an optional
+    # style/content reference image.
     ModelDescriptor(
-        "google/veo-3.1-fast", "video", start_key="image", end_key="last_frame_image"
+        "runwayml/gen4-aleph", "video",
+        video_role_keys={"restyle": "video", "style": "reference_image"},
     ),
-    ModelDescriptor(
-        "runwayml/gen-4.5", "video", prompt_key="prompt_text", start_key="prompt_image"
-    ),
+    # Seedance 2.0: first/last frame OR up to 9 reference images, 3 reference
+    # videos (motion/style/edit) and 3 reference audios (lip sync); the prompt
+    # addresses references by position, so names ride a legend.
     ModelDescriptor(
         "bytedance/seedance-2.0", "video",
-        start_key="image", refs_key="reference_images", refs_max=9,
+        video_role_keys={
+            "first_frame": "image",
+            "last_frame": "last_frame_image",
+            "asset": "reference_images",
+            "style": "reference_images",
+            "restyle": "reference_videos",
+            "lip_sync": "reference_audios",
+        },
+        list_keys=frozenset({"reference_images", "reference_videos", "reference_audios"}),
+        named=True,
     ),
     ModelDescriptor(
-        "kwaivgi/kling-v3-video", "video", start_key="start_image", end_key="end_image"
+        "kwaivgi/kling-v3-video", "video",
+        video_role_keys={"first_frame": "start_image", "last_frame": "end_image"},
     ),
-    ModelDescriptor("wan-video/wan-2.7-t2v", "video", start_key="image"),
-    ModelDescriptor("wan-video/wan-2.7-i2v", "video", start_key="image"),
+    # Kling lip sync: a clip plus the speech its face mouths.
     ModelDescriptor(
-        "luma/ray-3", "video", start_key="start_image_url", end_key="end_image_url"
+        "kwaivgi/kling-lip-sync", "video", prompt_key="text",
+        video_role_keys={"restyle": "video_url", "lip_sync": "audio_file"},
+    ),
+    ModelDescriptor(
+        "wan-video/wan-2.7-t2v", "video", video_role_keys={"first_frame": "image"}
+    ),
+    ModelDescriptor(
+        "wan-video/wan-2.7-i2v", "video", video_role_keys={"first_frame": "image"}
+    ),
+    # Luma Ray: keyframes frame0/frame1 = start_image/end_image; camera moves
+    # ride ``concepts`` (the canonical move vocabulary is Luma's own).
+    ModelDescriptor(
+        "luma/ray-2-720p", "video",
+        video_role_keys={"first_frame": "start_image", "last_frame": "end_image"},
+        camera_key="concepts",
+    ),
+    ModelDescriptor(
+        "luma/ray-flash-2-720p", "video",
+        video_role_keys={"first_frame": "start_image", "last_frame": "end_image"},
+        camera_key="concepts",
+    ),
+    # luma/ray-3 is NOT a Replicate model ("Model not found", 2026-09-22); the
+    # descriptor stays so the catalog row fails by name, not by KeyError.
+    ModelDescriptor(
+        "luma/ray-3", "video",
+        video_role_keys={"first_frame": "start_image", "last_frame": "end_image"},
+        camera_key="concepts",
     ),
     ModelDescriptor(
         "minimax/hailuo-2.3", "video",
-        start_key="first_frame_image", end_key="last_frame_image",
+        video_role_keys={"first_frame": "first_frame_image"},
     ),
 ]
 

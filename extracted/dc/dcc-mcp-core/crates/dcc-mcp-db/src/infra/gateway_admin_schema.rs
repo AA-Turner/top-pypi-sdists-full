@@ -1,7 +1,10 @@
 //! Canonical DDL for the gateway admin SQLite database (single source of truth).
 
 /// Bootstrap script executed once per writer connection (WAL + tables + indexes).
-/// Schema version 2 — adds sessions, tool_calls, and session_events tables (PIP-2751).
+/// Schema version 5 — adds the feedback_findings dedup table (#2253-E2).
+/// Version 4 added feedback_reports (#2253-E1); version 3 added
+/// script_promotion_counters (#2297-A3); version 2 added sessions,
+/// tool_calls, and session_events (PIP-2751).
 pub const GATEWAY_ADMIN_SQLITE_DDL: &str = r#"
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
@@ -104,6 +107,43 @@ CREATE TABLE IF NOT EXISTS session_events (
   event_json TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL
 );
+-- #2297-A3: Durable repeat counter for escape-hatch scripts, replacing a
+-- per-query scan of the audit log. One row per (sha256, dcc_type, tool_name);
+-- `count` is bumped by an idempotent upsert and `proposal_state` flips to
+-- 'proposed' once the configured repeat threshold is reached.
+CREATE TABLE IF NOT EXISTS script_promotion_counters (
+  sha256 TEXT NOT NULL,
+  dcc_type TEXT NOT NULL,
+  tool_name TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  first_seen_ms INTEGER NOT NULL,
+  last_seen_ms INTEGER NOT NULL,
+  proposal_state TEXT NOT NULL,
+  PRIMARY KEY (sha256, dcc_type, tool_name)
+);
+-- #2253-E1: Durable agent-feedback reports so `dcc_feedback__report`
+-- submissions survive a gateway restart and stay queryable across instances.
+-- `report_json` is the object the per-DCC JSONL mirror writes plus the
+-- gateway-minted `id` / `timestamp` / `recorded_at` envelope. The admin read
+-- path merges both sources by `id` with this table winning, so the two are
+-- equivalent but not byte-identical.
+-- `occurred_at_ms` mirrors `recorded_at_ms`: the gateway only learns about a
+-- report when it is posted, so both mean "accepted by the gateway", and both
+-- retention pruning and the admin `range` cutoff are anchored on that instant.
+CREATE TABLE IF NOT EXISTS feedback_reports (
+  id TEXT PRIMARY KEY NOT NULL,
+  kind TEXT NOT NULL,
+  schema_version INTEGER NOT NULL DEFAULT 0,
+  fingerprint TEXT,
+  severity TEXT NOT NULL,
+  dcc_type TEXT NOT NULL,
+  instance_id TEXT,
+  tool_slug TEXT,
+  recorded_at TEXT NOT NULL,
+  occurred_at_ms INTEGER NOT NULL,
+  recorded_at_ms INTEGER NOT NULL,
+  report_json TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_traces_started ON traces(started_ms);
 CREATE INDEX IF NOT EXISTS idx_audits_ts ON audits(ts_ms);
 CREATE INDEX IF NOT EXISTS idx_deregistered_instances_ts ON deregistered_instances(ts_ms);
@@ -123,4 +163,67 @@ CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_dcc ON sessions(dcc_type, started_at_ms);
 CREATE INDEX IF NOT EXISTS idx_session_events_session ON session_events(session_id, created_at_ms);
 CREATE INDEX IF NOT EXISTS idx_session_events_type ON session_events(event_type, created_at_ms);
+CREATE INDEX IF NOT EXISTS idx_script_promotion_counters_state
+  ON script_promotion_counters(proposal_state, last_seen_ms);
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_occurred ON feedback_reports(occurred_at_ms);
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_recorded ON feedback_reports(recorded_at_ms);
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_dcc ON feedback_reports(dcc_type, occurred_at_ms);
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_severity ON feedback_reports(severity, occurred_at_ms);
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_fingerprint ON feedback_reports(fingerprint);
+-- #2253-E2: Cross-instance ingest dedup for findings.
+--
+-- This is a separate table from `feedback_reports` on purpose. `feedback_reports`
+-- (#2253-E1) is the durable per-submission log, keyed by the gateway-minted
+-- `feedback_id`, so every accepted submission keeps its own row. This table is a
+-- dedup aggregate: many submissions of the same finding collapse onto one
+-- `(repo, fingerprint)` row that carries `occurrence_count`.
+--
+-- Collapsing them into a single table is not possible without breaking one of
+-- the two contracts: E1 requires two submissions that share a fingerprint to
+-- remain two rows, while E2 requires them to become one.
+--
+-- Growth and retention: deliberately NOT touched by `prune_old_rows`, so
+-- `sqlite_retention_days` does not apply. Deleting a row would reset its
+-- `occurrence_count` and discard the evidence that a long-lived finding is
+-- still recurring, so time-based pruning here is a product decision rather than
+-- a housekeeping default.
+--
+-- Rows are bounded by the number of distinct `(repo, fingerprint)` pairs, not
+-- by submission volume: a repeat report bumps `occurrence_count` instead of
+-- inserting. That bound is NOT self-enforcing, though -- the `fingerprint` on
+-- a finding is supplied by the caller and the server only checks its *shape*
+-- (`sha256:` + 64 lowercase hex digits, see `FindingV1::validate`); the
+-- server does not recompute it, so a caller can mint arbitrarily many
+-- distinct values and each one lands a new row. Verifying the digest
+-- server-side is not possible on this path either: `finding_fingerprint`
+-- takes the owning repo as its first input, and that repo is exactly what
+-- routing has to derive, so trusting the client-supplied fingerprint is the
+-- existing Finding v1 contract.
+--
+-- No bound on row count is therefore in effect today. The optional per-IP
+-- rate limit on the gateway ingress (`rate_limit_per_minute_per_ip`) is a
+-- growth-RATE limit, not a growth bound: when configured it throttles how fast
+-- one source IP can add rows, it does not stop the table from growing without
+-- limit over time or across many source IPs, and it is off unless configured.
+-- If row count ever becomes a concern, cap by `last_seen_ms` or evict
+-- low-`occurrence_count` rows rather than pruning on age alone.
+CREATE TABLE IF NOT EXISTS feedback_findings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo TEXT NOT NULL DEFAULT '',
+  fingerprint TEXT NOT NULL,
+  issues_url TEXT,
+  route_rationale TEXT,
+  dcc_type TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  first_seen_ms INTEGER NOT NULL,
+  last_seen_ms INTEGER NOT NULL,
+  occurrence_count INTEGER NOT NULL DEFAULT 1,
+  report_json TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_findings_repo_fingerprint
+  ON feedback_findings(repo, fingerprint);
+CREATE INDEX IF NOT EXISTS idx_feedback_findings_last_seen ON feedback_findings(last_seen_ms);
+CREATE INDEX IF NOT EXISTS idx_feedback_findings_repo_last_seen
+  ON feedback_findings(repo, last_seen_ms);
 "#;

@@ -303,6 +303,7 @@ from mypy_boto3_neptune.client import NeptuneClient
 from mypy_boto3_neptune_graph.client import NeptuneGraphClient
 from mypy_boto3_neptunedata.client import NeptuneDataClient
 from mypy_boto3_network_firewall.client import NetworkFirewallClient
+from mypy_boto3_network_security_manager.client import NetworkSecurityManagerCustomerAPIClient
 from mypy_boto3_networkflowmonitor.client import NetworkFlowMonitorClient
 from mypy_boto3_networkmanager.client import NetworkManagerClient
 from mypy_boto3_networkmonitor.client import CloudWatchNetworkMonitorClient
@@ -5474,6 +5475,24 @@ def client(
 ) -> NetworkFirewallClient:
     """
     Create client for NetworkFirewall service.
+    """
+
+@overload
+def client(
+    service_name: Literal["network-security-manager"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> NetworkSecurityManagerCustomerAPIClient:
+    """
+    Create client for NetworkSecurityManagerCustomerAPI service.
     """
 
 @overload

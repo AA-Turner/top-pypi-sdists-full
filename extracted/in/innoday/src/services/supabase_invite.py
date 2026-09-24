@@ -148,9 +148,9 @@ def send_magic_link(email: str, redirect_to: str) -> MagicLinkResult:
     ``redirect_to`` is a **query parameter**, not a body field. The REST API
     ignores both ``options.email_redirect_to`` (the supabase-js shape) and a
     top-level body ``redirect_to`` here, falling back to the project's Site URL --
-    which is ``https://www.inno.day``, i.e. ``/``, which the team-secret gate
-    answers with 401. A wrong redirect is therefore not a cosmetic bug: it hands
-    the person an error page at the end of a working sign-in.
+    which is innoday-ui's home page rather than the page the link was for. A
+    wrong redirect is therefore not a cosmetic bug: it drops the person
+    somewhere other than where the sign-in was meant to take them.
 
     ``create_user: false`` keeps this endpoint from provisioning an identity for
     an unknown address. The caller must *also* confirm the address belongs to a

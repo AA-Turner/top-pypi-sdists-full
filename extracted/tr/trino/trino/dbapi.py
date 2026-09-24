@@ -166,6 +166,7 @@ class Connection:
         timezone=None,
         encoding: Union[str, List[str]] = _USE_DEFAULT_ENCODING,
         heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
+        allow_insecure_auth: bool = False,
     ):
         # Automatically assign http_schema, port based on hostname
         parsed_host = urlparse(host, allow_fragments=False)
@@ -218,11 +219,15 @@ class Connection:
         else:
             self.http_scheme = constants.HTTP
 
-        if auth is not None and self.http_scheme == constants.HTTP:
+        if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
             raise trino.exceptions.TrinoAuthError(
                 "TLS/SSL is required for authentication. "
                 "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
-                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'."
+                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
+                "If your connection is encrypted below the application layer (for example behind an mTLS "
+                "service mesh sidecar), pass allow_insecure_auth=True and ensure "
+                "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
+                "has HTTPS enabled."
             )
 
         # Infer connection port: `hostname` takes precedence over explicit `port` argument
@@ -566,8 +571,8 @@ class Cursor:
         if isinstance(param, str):
             return ("'%s'" % param.replace("'", "''"))
 
-        if isinstance(param, (bytes, bytearray)):
-            return "X'%s'" % param.hex()
+        if isinstance(param, (bytes, bytearray, memoryview)):
+            return "X'%s'" % bytes(param).hex()
 
         if isinstance(param, datetime.datetime) and param.tzinfo is None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -811,8 +816,12 @@ def TimeFromTicks(ticks):
     return datetime.time(*datetime.localtime(ticks)[3:6])
 
 
-def Binary(string):
-    return string.encode("utf-8")
+def Binary(value):
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value)
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    raise TypeError(f"Binary() expects bytes, bytearray, memoryview or str, got {type(value).__name__}")
 
 
 class DBAPITypeObject:

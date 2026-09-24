@@ -39,8 +39,8 @@ from soda_core.common.soda_cloud_dto import (
     RequestDatasetsConfigurationDTO,
     SodaCoreInsertScanResultsDTO,
 )
+from soda_core.common.user_agent import user_agent
 from soda_core.common.utils import to_camel_case
-from soda_core.common.version import SODA_CORE_VERSION
 from soda_core.common.yaml import SodaCloudYamlSource, YamlObject
 from soda_core.contracts.contract_publication import ContractPublicationResult
 from soda_core.contracts.contract_verification import (
@@ -344,9 +344,19 @@ class SodaCloud:
         self.api_key_id = api_key_id
         self.api_key_secret = api_key_secret
         self.token: Optional[str] = token
-        self.headers = {"User-Agent": f"SodaCore/{SODA_CORE_VERSION}"}
         self.soda_cloud_trace_ids = {}
         self._organization_configuration = None
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """The headers every Soda Cloud request starts from. A fresh dict each time, so mutating
+        it changes nothing: pass request-specific headers through request_headers() instead."""
+        return {"User-Agent": user_agent()}
+
+    def request_headers(self, headers: dict[str, str]) -> dict[str, str]:
+        """The default headers plus the request-specific ones, so every request identifies
+        the client even when it sets its own Authorization or Content-Type."""
+        return {**self.headers, **headers}
 
     def mark_scan_as_failed(
         self, scan_id: Optional[str] = None, logs: Optional[list[LogRecord]] = None, exc: Optional[Exception] = None
@@ -1562,10 +1572,12 @@ class SodaCloud:
         credentials_plain = f"{self.api_key_id}:{self.api_key_secret}"
         credentials_encoded = base64.b64encode(credentials_plain.encode()).decode()
 
-        headers = {
-            "Authorization": f"Basic {credentials_encoded}",
-            "Accept": "application/json",
-        }
+        headers = self.request_headers(
+            {
+                "Authorization": f"Basic {credentials_encoded}",
+                "Accept": "application/json",
+            }
+        )
 
         url: str = f"{self.api_url}/v1/{relative_url_path}"
         logger.debug(f"Sending GET {url} request to Soda Cloud")
@@ -1794,7 +1806,7 @@ class SodaCloud:
         recovery."""
         response = self._http_post(
             url=url,
-            headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},
+            headers=self.request_headers({"Authorization": self._get_token(), "Content-Type": "application/jsonlines"}),
             data=body,
             request_log_name=request_log_name,
         )
@@ -1806,7 +1818,9 @@ class SodaCloud:
             self.token = None
             response = self._http_post(
                 url=url,
-                headers={"Authorization": self._get_token(), "Content-Type": "application/jsonlines"},
+                headers=self.request_headers(
+                    {"Authorization": self._get_token(), "Content-Type": "application/jsonlines"}
+                ),
                 data=body,
                 request_log_name=request_log_name,
             )
@@ -1937,6 +1951,49 @@ def _build_token_usage_dicts(contract_verification_result: ContractVerificationR
     return []
 
 
+def _build_dataset_metadata_json_dicts(results: list[ContractVerificationResult]) -> list[dict]:
+    """The ``metadata`` bucket: the column list of each dataset in this batch.
+
+    Soda Cloud fills a dataset's column list from here, so a dataset whose only activity
+    is contract verification also gets its columns. Only results that already hold the
+    dataset's columns contribute one entry each (see ``CheckCollectionResult.dataset_columns``);
+    the same dataset twice in one batch is sent once.
+
+    A column without a type name is sent by name only and logged as an error. No data
+    source produces one (every column-metadata query builds a ``SqlDataType``), so it signals
+    a broken invariant. Cloud marks any column absent from ``schema`` as deleted, whereas a
+    missing ``sourceDataType`` leaves the column's stored type as it is, so the column survives.
+    """
+    dataset_metadata: list[dict] = []
+    seen_dataset_qualified_names: set[str] = set()
+    for result in results:
+        if not result.dataset_columns:
+            continue
+        # The same qualified name the checks carry as dataSource + datasetPrefix + table:
+        # Cloud resolves both through one identifier converter, so they must be identical.
+        dataset_qualified_name: str = result.check_collection.soda_qualified_dataset_name
+        if dataset_qualified_name in seen_dataset_qualified_names:
+            continue
+        schema: list[dict] = []
+        for column in result.dataset_columns:
+            schema_element: dict = {"columnName": column.column_name}
+            if column.sql_data_type and column.sql_data_type.name:
+                # The bare type name, already lowercased by SqlDataType, without the
+                # precision/length parameters: the same columnName / sourceDataType spelling
+                # capture-schema uses. The primary-key flag it also sends is left out here on
+                # purpose — contract verification has no reason to restate it.
+                schema_element["sourceDataType"] = column.sql_data_type.name
+            else:
+                logger.error(
+                    f"Column '{column.column_name}' of dataset '{dataset_qualified_name}' has no data type "
+                    f"name. It is sent to Soda Cloud by name only, so its type there stays as it was."
+                )
+            schema.append(schema_element)
+        seen_dataset_qualified_names.add(dataset_qualified_name)
+        dataset_metadata.append({"datasetQualifiedName": dataset_qualified_name, "schema": schema})
+    return dataset_metadata
+
+
 def _build_check_collection_results_json_dict(
     results: list[ContractVerificationResult],
     wire_source: str = "soda-contract",
@@ -2063,6 +2120,12 @@ def _build_check_collection_results_json_dict(
     # null-stripping the payload dict already gets.
     if all_measurement_dicts:
         payload["metrics"] = to_jsonnable(all_measurement_dicts)
+
+    # Emit ``metadata`` only when a dataset's columns were actually measured: an
+    # empty list or an entry without columns would tell Cloud the dataset has none.
+    dataset_metadata: list[dict] = _build_dataset_metadata_json_dicts(results)
+    if dataset_metadata:
+        payload["metadata"] = dataset_metadata
 
     return payload
 

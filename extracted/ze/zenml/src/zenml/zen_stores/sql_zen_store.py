@@ -94,6 +94,7 @@ from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.exc import ArgumentError, IntegrityError
 from sqlalchemy.orm import (
     Mapped,
+    aliased,
     load_only,
     noload,
     selectinload,
@@ -149,6 +150,7 @@ from zenml.constants import (
     ENV_ZENML_SERVER,
     FINISHED_ONBOARDING_SURVEY_KEY,
     MAX_RETRIES_FOR_VERSIONED_ENTITY_CREATION,
+    MEDIUMBLOB_MAX_LENGTH,
     SQL_STORE_BACKUP_DIRECTORY_NAME,
     TEXT_FIELD_MAX_LENGTH,
     handle_bool_env_var,
@@ -166,6 +168,8 @@ from zenml.enums import (
     MetadataResourceTypes,
     ModelStages,
     OnboardingStep,
+    ResourceRequestReclaimTolerance,
+    ResourceRequestRuntimeState,
     ResourceRequestStatus,
     RunWaitConditionLeaseMode,
     RunWaitConditionResolution,
@@ -176,12 +180,14 @@ from zenml.enums import (
     StackComponentType,
     StackDeploymentProvider,
     StepRunInputArtifactType,
+    StepRuntime,
     StoreType,
     TaggableResourceTypes,
     TriggerType,
     VisualizationResourceTypes,
 )
 from zenml.exceptions import (
+    ApiTransactionResultTooLargeError,
     AuthorizationException,
     BackupSecretsStoreNotConfiguredError,
     EntityCreationError,
@@ -281,6 +287,8 @@ from zenml.models import (
     PipelineRunResponse,
     PipelineRunUpdate,
     PipelineSnapshotFilter,
+    PipelineSnapshotPruneRequest,
+    PipelineSnapshotPruneResponse,
     PipelineSnapshotRequest,
     PipelineSnapshotResponse,
     PipelineSnapshotRunRequest,
@@ -293,14 +301,6 @@ from zenml.models import (
     ProjectScopedFilter,
     ProjectScopedRequest,
     ProjectUpdate,
-    ResourcePoolFilter,
-    ResourcePoolRequest,
-    ResourcePoolResponse,
-    ResourcePoolSubjectPolicyFilter,
-    ResourcePoolSubjectPolicyRequest,
-    ResourcePoolSubjectPolicyResponse,
-    ResourcePoolSubjectPolicyUpdate,
-    ResourcePoolUpdate,
     ResourceRequestFilter,
     ResourceRequestRequest,
     ResourceRequestResponse,
@@ -384,6 +384,9 @@ from zenml.models import (
     WebhookTriggerRequest,
     WebhookUpdate,
 )
+from zenml.models.v2.core.resource_request import (
+    ResourceRequestRenewalRequest,
+)
 from zenml.service_connectors.service_connector_registry import (
     service_connector_registry,
 )
@@ -416,6 +419,7 @@ from zenml.zen_stores.dag.utils import (
     load_input_artifact_rows,
     load_output_artifact_rows,
     load_step_run_metadata,
+    sort_dag_steps,
 )
 from zenml.zen_stores.migrations.alembic import (
     Alembic,
@@ -490,6 +494,9 @@ from zenml.zen_stores.secrets_stores.sql_secrets_store import (
 if TYPE_CHECKING:
     from concurrent.futures import Future
 
+    from sqlalchemy.sql.elements import ColumnElement
+
+    from zenml.config import ResourceSettings
     from zenml.metadata.metadata_types import MetadataType, MetadataTypeEnum
     from zenml.models.v2.core.triggers import (
         TriggerExecutionInfo,
@@ -1167,6 +1174,19 @@ class SqlZenStoreConfiguration(StoreConfiguration):
     )
 
 
+# Foreign keys that keep a snapshot alive. `step_configuration` also points
+# at snapshots but is data owned by them rather than a reference, so it is
+# deliberately absent. Deleting a snapshot cascades to its pipeline run and step
+# run, so an omission here silently destroys run history.
+SNAPSHOT_OWNER_COLUMNS = (
+    PipelineRunSchema.snapshot_id,
+    StepRunSchema.snapshot_id,
+    DeploymentSchema.snapshot_id,
+    RunTemplateSchema.source_snapshot_id,
+    TriggerSnapshotSchema.snapshot_id,
+)
+
+
 class SqlZenStore(BaseZenStore):
     """Store Implementation that uses SQL database backend.
 
@@ -1565,6 +1585,15 @@ class SqlZenStore(BaseZenStore):
             url=url, connect_args=connect_args, **engine_args
         )
         self.config.configure_engine_auth(self._engine)
+
+        # Instrument the SQLAlchemy engine if ZenML Server is running.
+        # This env var is set during Server Helm deployment.
+        # Refer: helm/templates/_environment.tpl
+        if os.environ.get("ZENML_SERVER", "").lower() == "true":
+            from zenml.zen_server.otel import instrument_sqlalchemy_engine
+
+            instrument_sqlalchemy_engine(self._engine)
+
         self._db_backup_engine = self.initialize_database_backup_engine()
 
         # SQLite: As long as the parent directory exists, SQLAlchemy will
@@ -2684,6 +2713,8 @@ class SqlZenStore(BaseZenStore):
             api_transaction_update: The update to be applied to the API transaction.
 
         Raises:
+            ApiTransactionResultTooLargeError: If the compressed result is too
+                large to store.
             KeyError: If the API transaction is not found.
         """
         with Session(self.engine) as session:
@@ -2696,6 +2727,13 @@ class SqlZenStore(BaseZenStore):
             if result_value is not None:
                 payload = result_value.encode("utf-8")
                 payload = gzip.compress(payload)
+                if len(payload) > MEDIUMBLOB_MAX_LENGTH:
+                    raise ApiTransactionResultTooLargeError(
+                        "Compressed result for API transaction "
+                        f"{api_transaction_id} is {len(payload)} bytes, which "
+                        "exceeds the maximum supported size of "
+                        f"{MEDIUMBLOB_MAX_LENGTH} bytes."
+                    )
                 result_schema = ApiTransactionResultSchema(
                     id=api_transaction_id,
                     result=payload,
@@ -4081,151 +4119,6 @@ class SqlZenStore(BaseZenStore):
                 f"component with the same name and type."
             )
 
-    # -------------------- Resource Pools -------------
-
-    def create_resource_pool(
-        self, resource_pool: ResourcePoolRequest
-    ) -> ResourcePoolResponse:
-        """Create a resource pool.
-
-        Args:
-            resource_pool: The resource pool to create.
-
-        Returns:
-            The created resource pool.
-        """
-        return self.resource_pools.create_resource_pool(resource_pool)
-
-    def get_resource_pool(
-        self, resource_pool_id: UUID, hydrate: bool = True
-    ) -> ResourcePoolResponse:
-        """Get a resource pool by ID.
-
-        Args:
-            resource_pool_id: The ID of the resource pool to get.
-            hydrate: Flag deciding whether to hydrate the output model(s)
-                by including metadata fields in the response.
-
-        Returns:
-            The resource pool.
-        """
-        return self.resource_pools.get_resource_pool(
-            resource_pool_id, hydrate=hydrate
-        )
-
-    def list_resource_pools(
-        self, filter_model: ResourcePoolFilter, hydrate: bool = False
-    ) -> Page[ResourcePoolResponse]:
-        """List all resource pools matching the given filter criteria.
-
-        Args:
-            filter_model: All filter parameters including pagination
-                params.
-            hydrate: Flag deciding whether to hydrate the output model(s)
-                by including metadata fields in the response.
-
-        Returns:
-            A list of all resource pools matching the filter criteria.
-        """
-        return self.resource_pools.list_resource_pools(
-            filter_model, hydrate=hydrate
-        )
-
-    def update_resource_pool(
-        self, resource_pool_id: UUID, update: ResourcePoolUpdate
-    ) -> ResourcePoolResponse:
-        """Update an existing resource pool.
-
-        Args:
-            resource_pool_id: The ID of the resource pool to update.
-            update: The update to be applied to the resource pool.
-
-        Returns:
-            The updated resource pool.
-        """
-        return self.resource_pools.update_resource_pool(
-            resource_pool_id, update
-        )
-
-    def delete_resource_pool(self, resource_pool_id: UUID) -> None:
-        """Delete a resource pool.
-
-        Args:
-            resource_pool_id: The ID of the resource pool to delete.
-        """
-        self.resource_pools.delete_resource_pool(resource_pool_id)
-
-    def create_resource_pool_subject_policy(
-        self, policy: ResourcePoolSubjectPolicyRequest
-    ) -> ResourcePoolSubjectPolicyResponse:
-        """Create a resource pool subject policy.
-
-        Args:
-            policy: The policy to create.
-
-        Returns:
-            The created policy.
-        """
-        return self.resource_pools.create_resource_pool_subject_policy(policy)
-
-    def get_resource_pool_subject_policy(
-        self, policy_id: UUID, hydrate: bool = True
-    ) -> ResourcePoolSubjectPolicyResponse:
-        """Get a resource pool subject policy by ID.
-
-        Args:
-            policy_id: The ID of the policy to get.
-            hydrate: Whether to include metadata fields.
-
-        Returns:
-            The requested policy.
-        """
-        return self.resource_pools.get_resource_pool_subject_policy(
-            policy_id, hydrate=hydrate
-        )
-
-    def list_resource_pool_subject_policies(
-        self,
-        filter_model: ResourcePoolSubjectPolicyFilter,
-        hydrate: bool = False,
-    ) -> Page[ResourcePoolSubjectPolicyResponse]:
-        """List resource pool subject policies.
-
-        Args:
-            filter_model: All filter parameters including pagination params.
-            hydrate: Whether to include metadata fields.
-
-        Returns:
-            Matching policies.
-        """
-        return self.resource_pools.list_resource_pool_subject_policies(
-            filter_model, hydrate=hydrate
-        )
-
-    def update_resource_pool_subject_policy(
-        self, policy_id: UUID, update: ResourcePoolSubjectPolicyUpdate
-    ) -> ResourcePoolSubjectPolicyResponse:
-        """Update an existing resource pool subject policy.
-
-        Args:
-            policy_id: The ID of the policy to update.
-            update: The update model.
-
-        Returns:
-            The updated policy.
-        """
-        return self.resource_pools.update_resource_pool_subject_policy(
-            policy_id, update
-        )
-
-    def delete_resource_pool_subject_policy(self, policy_id: UUID) -> None:
-        """Delete a resource pool subject policy.
-
-        Args:
-            policy_id: The ID of the policy to delete.
-        """
-        self.resource_pools.delete_resource_pool_subject_policy(policy_id)
-
     # -------------------- Resource Requests -------------
 
     def get_resource_request(
@@ -4259,17 +4152,45 @@ class SqlZenStore(BaseZenStore):
         Returns:
             A list of all resource requests matching the filter criteria.
         """
+        self.set_filter_project_id(filter_model)
         return self.resource_pools.list_resource_requests(
             filter_model, hydrate=hydrate
         )
 
-    def delete_resource_request(self, resource_request_id: UUID) -> None:
-        """Delete a resource request.
+    def release_resource_request(
+        self,
+        resource_request_id: UUID,
+    ) -> ResourceRequestResponse:
+        """Release a resource request on behalf of its owner.
 
         Args:
-            resource_request_id: The ID of the resource request to delete.
+            resource_request_id: The ID of the resource request to release.
+
+        Returns:
+            The released resource request.
         """
-        self.resource_pools.delete_resource_request(resource_request_id)
+        return self.resource_pools.release_resource_request(
+            resource_request_id,
+        )
+
+    def renew_resource_request(
+        self,
+        resource_request_id: UUID,
+        renewal_request: ResourceRequestRenewalRequest,
+    ) -> ResourceRequestResponse:
+        """Renew a resource request lease.
+
+        Args:
+            resource_request_id: The ID of the resource request to renew.
+            renewal_request: The renewed lease expiration timestamp.
+
+        Returns:
+            The renewed resource request.
+        """
+        return self.resource_pools.renew_resource_request(
+            resource_request_id,
+            renewal_request,
+        )
 
     # -------------------------- Devices -------------------------
 
@@ -5236,14 +5157,15 @@ class SqlZenStore(BaseZenStore):
 
     def _snapshot_exists(
         self,
-        session: Session,
         pipeline_id: UUID,
         name: str,
     ) -> bool:
         """Check if a snapshot with a certain name exists.
 
+        This always opens its own session so that it can be used to inspect
+        committed state after a failed transaction was rolled back.
+
         Args:
-            session: SQLAlchemy session.
             pipeline_id: The pipeline ID of the snapshot.
             name: The name of the snapshot.
 
@@ -5286,34 +5208,185 @@ class SqlZenStore(BaseZenStore):
             )
         )
 
-    def _remove_name_from_snapshot(
-        self, session: Session, pipeline_id: UUID, name: str
+    @staticmethod
+    def _snapshot_is_referenced() -> "ColumnElement[bool]":
+        """Build a SQL condition matching referenced snapshots.
+
+        Returns:
+            A SQL condition matching snapshots that must be retained.
+        """
+        # `source_snapshot_id` deliberately has no foreign key (it would form
+        # a cycle), so it cannot be part of `SNAPSHOT_OWNER_COLUMNS`.
+        derived_snapshot = aliased(PipelineSnapshotSchema)
+        referencing_columns = (
+            *SNAPSHOT_OWNER_COLUMNS,
+            derived_snapshot.source_snapshot_id,
+        )
+        return or_(
+            col(PipelineSnapshotSchema.schedule_id).is_not(None),
+            col(PipelineSnapshotSchema.template_id).is_not(None),
+            *(
+                select(column)
+                .where(column == PipelineSnapshotSchema.id)
+                .exists()
+                for column in referencing_columns
+            ),
+        )
+
+    @staticmethod
+    def _delete_snapshots(
+        session: Session,
+        snapshot_ids: Sequence[UUID],
     ) -> None:
-        """Remove the name of a snapshot if it exists.
+        """Delete snapshots together with everything they own.
+
+        Step configurations and trigger associations are removed by database
+        cascades. Tag and curated visualization links are polymorphic and have
+        no foreign key, so they have to be deleted explicitly.
+
+        Callers must establish first that the snapshots are unreferenced:
+        deleting one cascades to all pipeline runs and step runs pointing at it.
+
+        Args:
+            session: SQLAlchemy session.
+            snapshot_ids: IDs of the snapshots to delete.
+        """
+        if not snapshot_ids:
+            return
+
+        session.execute(
+            delete(TagResourceSchema).where(
+                col(TagResourceSchema.resource_id).in_(snapshot_ids),
+                col(TagResourceSchema.resource_type)
+                == TaggableResourceTypes.PIPELINE_SNAPSHOT.value,
+            )
+        )
+        session.execute(
+            delete(CuratedVisualizationSchema).where(
+                col(CuratedVisualizationSchema.resource_id).in_(snapshot_ids),
+                col(CuratedVisualizationSchema.resource_type)
+                == VisualizationResourceTypes.PIPELINE_SNAPSHOT.value,
+            )
+        )
+        session.execute(
+            delete(PipelineSnapshotSchema).where(
+                col(PipelineSnapshotSchema.id).in_(snapshot_ids)
+            )
+        )
+
+    def prune_snapshots(
+        self,
+        prune_request: PipelineSnapshotPruneRequest,
+        batch_size: int = 250,
+    ) -> PipelineSnapshotPruneResponse:
+        """Counts or deletes old anonymous snapshots that nothing references.
+
+        Args:
+            prune_request: Which snapshots to prune and whether to delete
+                them or only count them.
+            batch_size: Maximum number of snapshots deleted per transaction.
+
+        Returns:
+            The number of deleted or, for a dry run, eligible snapshots.
+        """
+        eligible = (
+            col(PipelineSnapshotSchema.project_id) == prune_request.project,
+            col(PipelineSnapshotSchema.name).is_(None),
+            col(PipelineSnapshotSchema.created) < prune_request.older_than,
+            ~self._snapshot_is_referenced(),
+        )
+
+        if not prune_request.apply:
+            with Session(self.engine) as session:
+                count = session.exec(
+                    select(func.count())
+                    .select_from(PipelineSnapshotSchema)
+                    .where(*eligible)
+                ).one()
+            return PipelineSnapshotPruneResponse(snapshot_count=count)
+
+        deleted_count = 0
+        while True:
+            # Each batch re-evaluates the reachability rule, so a snapshot
+            # that only became unreferenced because the previous batch deleted
+            # the snapshots derived from it is collected by a later batch.
+            with Session(self.engine) as session:
+                candidate_ids = session.exec(
+                    select(PipelineSnapshotSchema.id)
+                    .where(*eligible)
+                    .limit(batch_size)
+                ).all()
+                if not candidate_ids:
+                    return PipelineSnapshotPruneResponse(
+                        snapshot_count=deleted_count
+                    )
+
+                # Lock the candidates by primary key rather than the scan
+                # itself, so the locks stay bounded to one batch. Concurrent
+                # inserts referencing a locked snapshot wait and then fail
+                # their foreign key check instead of being cascaded away.
+                snapshot_ids = session.exec(
+                    select(PipelineSnapshotSchema.id)
+                    .where(
+                        col(PipelineSnapshotSchema.id).in_(candidate_ids),
+                        *eligible,
+                    )
+                    .with_for_update()
+                ).all()
+                self._delete_snapshots(
+                    session=session, snapshot_ids=snapshot_ids
+                )
+                session.commit()
+
+            deleted_count += len(snapshot_ids)
+
+    def _release_snapshot_name(
+        self,
+        session: Session,
+        pipeline_id: UUID,
+        name: str,
+        exclude_snapshot_id: Optional[UUID] = None,
+    ) -> None:
+        """Free a snapshot name so that another snapshot can take it.
+
+        The snapshot currently holding the name is deleted when nothing
+        references it, and otherwise kept without a name so that run history
+        and other consumers stay intact.
 
         Args:
             session: SQLAlchemy session.
             pipeline_id: The pipeline ID of the snapshot.
-            name: The name of the snapshot.
+            name: The name to free.
+            exclude_snapshot_id: Snapshot that is allowed to keep the name.
         """
         existing = session.exec(
-            select(PipelineSnapshotSchema).where(
+            select(
+                PipelineSnapshotSchema.id,
+                self._snapshot_is_referenced().label("is_referenced"),
+            )
+            .where(
                 col(PipelineSnapshotSchema.pipeline_id) == pipeline_id,
                 col(PipelineSnapshotSchema.name) == name,
             )
+            .with_for_update()
         ).first()
 
-        if not existing:
+        if existing is None or existing[0] == exclude_snapshot_id:
             return
 
-        existing.name = None
-
-        session.add(existing)
-
-        self._drop_snapshot_trigger_assoc(
-            snapshot_id=existing.id,
-            session=session,
-        )
+        existing_id, is_referenced = existing
+        if is_referenced:
+            session.execute(
+                update(PipelineSnapshotSchema)
+                .where(col(PipelineSnapshotSchema.id) == existing_id)
+                .values(name=None)
+            )
+            self._drop_snapshot_trigger_assoc(
+                snapshot_id=existing_id,
+                session=session,
+            )
+        else:
+            self._delete_snapshots(session=session, snapshot_ids=[existing_id])
 
     def create_snapshot(
         self,
@@ -5332,6 +5405,13 @@ class SqlZenStore(BaseZenStore):
         Returns:
             The newly created snapshot.
         """
+        # Serialize before opening the session so that a serialization failure
+        # never reaches the database and the transaction only holds DB work.
+        serialized_step_configurations = [
+            (step_name, step_configuration.model_dump_json(exclude={"config"}))
+            for step_name, step_configuration in snapshot.step_configurations.items()
+        ]
+
         with Session(self.engine) as session:
             self._set_request_user_id(request_model=snapshot, session=session)
             self._get_reference_schema_by_id(
@@ -5388,7 +5468,7 @@ class SqlZenStore(BaseZenStore):
                 validate_name(snapshot)
 
                 if snapshot.replace:
-                    self._remove_name_from_snapshot(
+                    self._release_snapshot_name(
                         session=session,
                         pipeline_id=snapshot.pipeline,
                         name=snapshot.name,
@@ -5404,15 +5484,34 @@ class SqlZenStore(BaseZenStore):
                 snapshot, code_reference_id=code_reference_id
             )
 
+            session.add(new_snapshot)
+            for index, (
+                step_name,
+                serialized_configuration,
+            ) in enumerate(serialized_step_configurations):
+                session.add(
+                    StepConfigurationSchema(
+                        index=index,
+                        name=step_name,
+                        # Don't include the merged config in the step
+                        # configurations, we reconstruct it in the `to_model`
+                        # method using the pipeline configuration.
+                        config=serialized_configuration,
+                        snapshot_id=new_snapshot.id,
+                    )
+                )
+
             try:
-                session.add(new_snapshot)
                 session.commit()
             except IntegrityError as e:
                 session.rollback()
-                if new_snapshot.name and self._snapshot_exists(
-                    session=session,
-                    pipeline_id=snapshot.pipeline,
-                    name=new_snapshot.name,
+                if (
+                    new_snapshot.name
+                    and not snapshot.replace
+                    and self._snapshot_exists(
+                        pipeline_id=snapshot.pipeline,
+                        name=new_snapshot.name,
+                    )
                 ):
                     raise EntityExistsError(
                         f"Snapshot with name `{new_snapshot.name}` already "
@@ -5420,25 +5519,7 @@ class SqlZenStore(BaseZenStore):
                         "want to replace the existing snapshot, set the "
                         "`replace` flag to `True`."
                     )
-                else:
-                    raise RuntimeError("Snapshot creation failed.") from e
-
-            for index, (step_name, step_configuration) in enumerate(
-                snapshot.step_configurations.items()
-            ):
-                step_configuration_schema = StepConfigurationSchema(
-                    index=index,
-                    name=step_name,
-                    # Don't include the merged config in the step
-                    # configurations, we reconstruct it in the `to_model` method
-                    # using the pipeline configuration.
-                    config=step_configuration.model_dump_json(
-                        exclude={"config"}
-                    ),
-                    snapshot_id=new_snapshot.id,
-                )
-                session.add(step_configuration_schema)
-            session.commit()
+                raise RuntimeError("Snapshot creation failed.") from e
 
             self._attach_tags_to_resources(
                 tags=snapshot.tags,
@@ -5548,10 +5629,11 @@ class SqlZenStore(BaseZenStore):
                 validate_name(snapshot_update)
 
                 if snapshot_update.replace:
-                    self._remove_name_from_snapshot(
+                    self._release_snapshot_name(
                         session=session,
                         pipeline_id=snapshot.pipeline_id,
                         name=snapshot_update.name,
+                        exclude_snapshot_id=snapshot.id,
                     )
 
             snapshot.update(snapshot_update)
@@ -5562,7 +5644,6 @@ class SqlZenStore(BaseZenStore):
             except IntegrityError as e:
                 session.rollback()
                 if snapshot.name and self._snapshot_exists(
-                    session=session,
                     pipeline_id=snapshot.pipeline_id,
                     name=snapshot.name,
                 ):
@@ -6505,7 +6586,7 @@ class SqlZenStore(BaseZenStore):
                     substituted_output_name
                 ]
 
-            for step_name, step in steps.items():
+            for step_name, step in sort_dag_steps(steps):
                 upstream_steps = set(step.spec.upstream_steps)
 
                 step_id = None
@@ -8865,7 +8946,7 @@ class SqlZenStore(BaseZenStore):
                     delete(TriggerSnapshotSchema).where(
                         col(TriggerSnapshotSchema.trigger_id) == trigger_id
                     )
-                )  # type: ignore[call-overload, unused-ignore]
+                )
 
             session.commit()
 
@@ -12015,6 +12096,127 @@ class SqlZenStore(BaseZenStore):
             "Stack deployments are not supported by local ZenML deployments."
         )
 
+    @staticmethod
+    def _validate_reclaim_tolerance_for_resource_request(
+        resource_settings: "ResourceSettings",
+        runtime: StepRuntime,
+        heartbeat_enabled: bool,
+        step_name: str,
+    ) -> None:
+        """Validate that reclaim tolerance matches runtime capabilities.
+
+        Args:
+            resource_settings: Resource settings from the step configuration.
+            runtime: Resolved dynamic step runtime.
+            heartbeat_enabled: Whether heartbeat is enabled for the step run.
+            step_name: Step name used in error messages.
+
+        Raises:
+            IllegalOperationError: If the reclaim tolerance cannot be honored.
+        """
+        reclaim_tolerance = resource_settings.effective_reclaim_tolerance(
+            runtime
+        )
+        if reclaim_tolerance == ResourceRequestReclaimTolerance.NONE:
+            return
+
+        if (
+            resource_settings.reclaim_tolerance_explicitly_set
+            and runtime == StepRuntime.INLINE
+        ):
+            raise IllegalOperationError(
+                f"Step `{step_name}` is configured with reclaim tolerance "
+                f"`{resource_settings.reclaim_tolerance}` but will run inline. "
+                "Inline dynamic steps are not reclaimable. Configure the step "
+                "to run isolated or set reclaim tolerance to `none`."
+            )
+
+        if (
+            resource_settings.reclaim_tolerance_explicitly_set
+            and not heartbeat_enabled
+        ):
+            raise IllegalOperationError(
+                f"Step `{step_name}` is configured with reclaim tolerance "
+                f"`{reclaim_tolerance}` but heartbeat is disabled. Enable "
+                "heartbeat or set reclaim tolerance to `none`."
+            )
+
+    def _renew_step_resource_request_from_heartbeat(
+        self,
+        session: Session,
+        step_run: StepRunSchema,
+        heartbeat_liveness_timeout_seconds: int | None = None,
+    ) -> ExecutionStatus:
+        """Renew the step resource request lease during heartbeat.
+
+        Args:
+            session: Active database session.
+            step_run: Step run schema receiving the heartbeat.
+            heartbeat_liveness_timeout_seconds: Optional number of seconds the
+                server should wait for another heartbeat before considering the
+                heartbeat client dead.
+
+        Returns:
+            The status that should be returned to the heartbeat caller.
+        """
+        step_status = ExecutionStatus(step_run.status)
+        if (
+            not self.resource_pools_enabled
+            or step_run.resource_request_id is None
+            or step_run.heartbeat_threshold is None
+        ):
+            return step_status
+
+        if heartbeat_liveness_timeout_seconds is None:
+            lease_duration = timedelta(minutes=step_run.heartbeat_threshold)
+        else:
+            lease_duration = timedelta(
+                seconds=heartbeat_liveness_timeout_seconds
+            )
+
+        try:
+            request = self.resource_pools.renew_resource_request(
+                step_run.resource_request_id,
+                ResourceRequestRenewalRequest(
+                    lease_expires_at=utc_now() + lease_duration,
+                    runtime_state=ResourceRequestRuntimeState.RUNNING,
+                ),
+            )
+        except KeyError:
+            logger.warning(
+                "Resource request `%s` for step `%s` no longer exists. "
+                "Cancelling the step run.",
+                step_run.resource_request_id,
+                step_run.name,
+            )
+            request_status = ResourceRequestStatus.CANCELLED
+        except Exception as e:
+            logger.warning(
+                "Failed to renew resource request `%s` for step `%s`: %s",
+                step_run.resource_request_id,
+                step_run.name,
+                e,
+            )
+            return step_status
+        else:
+            request_status = request.status
+
+        if request_status in {
+            ResourceRequestStatus.PREEMPTING,
+            ResourceRequestStatus.PREEMPTED,
+            ResourceRequestStatus.CANCELLED,
+            ResourceRequestStatus.REJECTED,
+            ResourceRequestStatus.RELEASED,
+            ResourceRequestStatus.EXPIRED,
+        }:
+            if not step_status.is_finished:
+                step_run.status = ExecutionStatus.CANCELLING.value
+                session.add(step_run)
+                session.commit()
+            return ExecutionStatus.CANCELLING
+
+        return step_status
+
     # ----------------------------- Step runs -----------------------------
 
     def create_run_step(self, step_run: StepRunRequest) -> StepRunResponse:
@@ -12080,6 +12282,31 @@ class SqlZenStore(BaseZenStore):
                 step_run.dynamic_config
                 or run.get_step_configuration(step_name=step_run.name)
             )
+            resource_runtime: Optional[StepRuntime] = None
+            resource_request_heartbeat_enabled: Optional[bool] = None
+            if (
+                self.resource_pools_enabled
+                and step_run.status
+                in {
+                    ExecutionStatus.INITIALIZING,
+                    ExecutionStatus.PROVISIONING,
+                    ExecutionStatus.RUNNING,
+                }
+                and step_run.resource_requester
+            ):
+                resource_settings = step_config.config.resource_settings
+                resource_runtime = (
+                    step_run.resource_request_runtime or StepRuntime.ISOLATED
+                )
+                resource_request_heartbeat_enabled = (
+                    step_config.spec.enable_heartbeat and run.enable_heartbeat
+                )
+                self._validate_reclaim_tolerance_for_resource_request(
+                    resource_settings=resource_settings,
+                    runtime=resource_runtime,
+                    heartbeat_enabled=resource_request_heartbeat_enabled,
+                    step_name=step_run.name,
+                )
 
             # Release the read locks of the previous two queries before we
             # try to acquire more exclusive locks
@@ -12432,6 +12659,7 @@ class SqlZenStore(BaseZenStore):
                 )
                 session.refresh(step_schema)
 
+            created_resource_request: ResourceRequestResponse | None = None
             if (
                 self.resource_pools_enabled
                 and step_schema.status
@@ -12442,32 +12670,70 @@ class SqlZenStore(BaseZenStore):
                 }
                 and step_run.resource_requester
             ):
-                requested_resources = step_config.config.resource_settings.merged_requested_resources()
-                requested_resources["step_run"] = 1
-
-                request = self.resource_pools.create_resource_request(
-                    session=session,
-                    resource_request=ResourceRequestRequest(
-                        user=step_run.user,
-                        component_id=step_run.resource_requester,
-                        step_run_id=step_schema.id,
-                        requested_resources=requested_resources,
-                        preemptible=step_config.config.resource_settings.preemptible,
-                    ),
+                resource_settings = step_config.config.resource_settings
+                resource_runtime = (
+                    resource_runtime
+                    or step_run.resource_request_runtime
+                    or StepRuntime.ISOLATED
                 )
-                if (
-                    request is not None
-                    and request.status != ResourceRequestStatus.ALLOCATED
-                ):
-                    step_schema.status = ExecutionStatus.QUEUED.value
-                    session.add(step_schema)
-                    session.commit()
+                heartbeat_enabled = (
+                    resource_request_heartbeat_enabled
+                    if resource_request_heartbeat_enabled is not None
+                    else step_schema.heartbeat_threshold is not None
+                )
+                demands = resource_settings.merged_resource_demands()
+
+                if demands:
+                    lease_expires_at = None
+                    if (
+                        resource_runtime == StepRuntime.ISOLATED
+                        and heartbeat_enabled
+                        and step_schema.heartbeat_threshold is not None
+                    ):
+                        lease_expires_at = utc_now() + timedelta(
+                            minutes=step_schema.heartbeat_threshold
+                        )
+
+                    request = self.resource_pools.create_resource_request(
+                        session,
+                        ResourceRequestRequest(
+                            user=step_run.user,
+                            component_ids=[step_run.resource_requester],
+                            step_run_id=step_schema.id,
+                            demands=demands,
+                            reclaim_tolerance=resource_settings.effective_reclaim_tolerance(
+                                resource_runtime
+                            ),
+                            lease_expires_at=lease_expires_at,
+                            allocation_wait_timeout_seconds=(
+                                resource_settings.allocation_wait_timeout_seconds
+                            ),
+                        ),
+                    )
+                    if (
+                        request.status
+                        != ResourceRequestStatus.NO_MATCHING_POOL
+                    ):
+                        step_schema.resource_request_id = request.id
+                        created_resource_request = request
+                        if request.status != ResourceRequestStatus.ALLOCATED:
+                            step_schema.status = ExecutionStatus.QUEUED.value
+                        session.add(step_schema)
+                        session.commit()
 
                 session.refresh(step_schema)
 
-            return step_schema.to_model(
+            step_run_response = step_schema.to_model(
                 include_metadata=True, include_resources=True
             )
+            if (
+                created_resource_request is not None
+                and step_run_response.resources is not None
+            ):
+                step_run_response.resources.resource_request = (
+                    created_resource_request
+                )
+            return step_run_response
 
     def get_run_step(
         self, step_run_id: UUID, hydrate: bool = True
@@ -12702,7 +12968,9 @@ class SqlZenStore(BaseZenStore):
         )
 
     def update_step_heartbeat(
-        self, step_run_id: UUID
+        self,
+        step_run_id: UUID,
+        heartbeat_liveness_timeout_seconds: int | None = None,
     ) -> StepHeartbeatResponse:
         """Updates a step run heartbeat value.
 
@@ -12710,6 +12978,9 @@ class SqlZenStore(BaseZenStore):
 
         Args:
             step_run_id: ID of the step run.
+            heartbeat_liveness_timeout_seconds: Optional number of seconds the
+                server should wait for another heartbeat before considering the
+                heartbeat client dead.
 
         Returns:
             Step heartbeat response (minimal info, id, status & latest_heartbeat).
@@ -12725,10 +12996,19 @@ class SqlZenStore(BaseZenStore):
 
             session.commit()
             session.refresh(existing_step_run)
+            heartbeat_status = (
+                self._renew_step_resource_request_from_heartbeat(
+                    session=session,
+                    step_run=existing_step_run,
+                    heartbeat_liveness_timeout_seconds=(
+                        heartbeat_liveness_timeout_seconds
+                    ),
+                )
+            )
 
             return StepHeartbeatResponse(
                 id=existing_step_run.id,
-                status=ExecutionStatus(existing_step_run.status),
+                status=heartbeat_status,
                 latest_heartbeat=existing_step_run.latest_heartbeat,
                 heartbeat_enabled=existing_step_run.heartbeat_threshold
                 is not None,
@@ -12739,6 +13019,7 @@ class SqlZenStore(BaseZenStore):
         step_run_id: UUID,
         token_run_id: UUID | None = None,
         token_schedule_id: UUID | None = None,
+        heartbeat_liveness_timeout_seconds: int | None = None,
     ) -> StepHeartbeatResponse:
         """Updates & Validates a step run heartbeat value.
 
@@ -12748,6 +13029,9 @@ class SqlZenStore(BaseZenStore):
             step_run_id: ID of the step run.
             token_run_id: Pipeline run id of the auth context
             token_schedule_id: Schedule id of the auth context
+            heartbeat_liveness_timeout_seconds: Optional number of seconds the
+                server should wait for another heartbeat before considering the
+                heartbeat client dead.
 
         Returns:
             Step heartbeat response (minimal info, id, status & latest_heartbeat).
@@ -12791,10 +13075,19 @@ class SqlZenStore(BaseZenStore):
             latest_heartbeat = datetime.now(timezone.utc)
             step_run.latest_heartbeat = latest_heartbeat
             session.commit()
+            heartbeat_status = (
+                self._renew_step_resource_request_from_heartbeat(
+                    session=session,
+                    step_run=step_run,
+                    heartbeat_liveness_timeout_seconds=(
+                        heartbeat_liveness_timeout_seconds
+                    ),
+                )
+            )
 
             return StepHeartbeatResponse(
                 id=step_run_id,
-                status=ExecutionStatus(step_run.status),
+                status=heartbeat_status,
                 latest_heartbeat=latest_heartbeat,
                 heartbeat_enabled=step_run.heartbeat_threshold is not None,
                 pipeline_run_status=ExecutionStatus(run.status),

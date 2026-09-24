@@ -567,6 +567,7 @@ __all__ = (
     "SlotValueRegexFilterTypeDef",
     "SlotValueSelectionSettingTypeDef",
     "SlotValueTypeDef",
+    "SpeakerDiarizationSettingsTypeDef",
     "SpecificationsOutputTypeDef",
     "SpecificationsTypeDef",
     "SpeechFoundationModelTypeDef",
@@ -1037,6 +1038,10 @@ BotLocaleFilterTypeDef = TypedDict(
 class BotLocaleHistoryEventTypeDef(TypedDict):
     event: str
     eventDate: datetime
+
+
+class SpeakerDiarizationSettingsTypeDef(TypedDict):
+    enabled: bool
 
 
 class VoiceSettingsTypeDef(TypedDict):
@@ -3576,6 +3581,7 @@ class BotLocaleImportSpecificationTypeDef(TypedDict):
     speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
     unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
     audioFillerSettings: NotRequired[AudioFillerSettingsTypeDef]
+    speakerDiarizationSettings: NotRequired[SpeakerDiarizationSettingsTypeDef]
 
 
 class QnAIntentConfigurationOutputTypeDef(TypedDict):
@@ -3880,6 +3886,7 @@ class CreateBotLocaleRequestTypeDef(TypedDict):
     speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     generativeAISettings: NotRequired[GenerativeAISettingsTypeDef]
     speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
+    speakerDiarizationSettings: NotRequired[SpeakerDiarizationSettingsTypeDef]
 
 
 class CreateBotLocaleResponseTypeDef(TypedDict):
@@ -3897,6 +3904,7 @@ class CreateBotLocaleResponseTypeDef(TypedDict):
     creationDateTime: datetime
     generativeAISettings: GenerativeAISettingsTypeDef
     speechDetectionSensitivity: SpeechDetectionSensitivityType
+    speakerDiarizationSettings: SpeakerDiarizationSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3922,6 +3930,7 @@ class DescribeBotLocaleResponseTypeDef(TypedDict):
     recommendedActions: list[str]
     generativeAISettings: GenerativeAISettingsTypeDef
     speechDetectionSensitivity: SpeechDetectionSensitivityType
+    speakerDiarizationSettings: SpeakerDiarizationSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3937,6 +3946,7 @@ class UpdateBotLocaleRequestTypeDef(TypedDict):
     speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     generativeAISettings: NotRequired[GenerativeAISettingsTypeDef]
     speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
+    speakerDiarizationSettings: NotRequired[SpeakerDiarizationSettingsTypeDef]
 
 
 class UpdateBotLocaleResponseTypeDef(TypedDict):
@@ -3957,6 +3967,7 @@ class UpdateBotLocaleResponseTypeDef(TypedDict):
     recommendedActions: list[str]
     generativeAISettings: GenerativeAISettingsTypeDef
     speechDetectionSensitivity: SpeechDetectionSensitivityType
+    speakerDiarizationSettings: SpeakerDiarizationSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

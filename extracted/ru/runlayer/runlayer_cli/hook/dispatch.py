@@ -66,6 +66,7 @@ from runlayer_cli.hook.relay import (
     uses_managed_credential,
 )
 from runlayer_cli.hook.windsurf_payload import adapt_windsurf_payload
+from runlayer_cli.hook.plugin_context import build_plugin_context
 from runlayer_cli.mdm_config import (
     AIWatchMode,
     resolve_install_hooks,
@@ -1144,6 +1145,34 @@ def _handle_permission_request(ctx: _DispatchCtx) -> None:
     _write(ctx.resp.allow())
 
 
+_PLUGIN_CONTEXT_CLIENTS = frozenset({Client.CLAUDE_CODE, Client.CODEX})
+
+
+def _plugin_context_output(ctx: _DispatchCtx) -> str | None:
+    """Session/prompt output carrying Runlayer Plugin routing rules.
+
+    None when the client or event has no context slot, or the built-in plugin
+    is not configured for this session, so callers fall back to plain allow.
+    """
+    if ctx.client not in _PLUGIN_CONTEXT_CLIENTS or ctx.hook_type not in (
+        "SessionStart",
+        "UserPromptSubmit",
+    ):
+        return None
+    cwd = ctx.input_data.get("cwd", "") or hook_io.getcwd()
+    context = build_plugin_context(ctx.client, cwd)
+    if context is None:
+        return None
+    return ctx.resp.allow_with_context(context)
+
+
+def _handle_session_start(ctx: _DispatchCtx) -> None:
+    forward_event(
+        ctx.client.value, ctx.original_hook_type, ctx.input_data, debug=ctx.debug
+    )
+    _write(_plugin_context_output(ctx) or ctx.resp.observational())
+
+
 def _handle_session_event(ctx: _DispatchCtx) -> None:
     if ctx.hook_type == "UserPromptSubmit" and ctx.client in (
         Client.CLAUDE_CODE,
@@ -1153,7 +1182,7 @@ def _handle_session_event(ctx: _DispatchCtx) -> None:
     forward_event(
         ctx.client.value, ctx.original_hook_type, ctx.input_data, debug=ctx.debug
     )
-    _write(ctx.resp.allow())
+    _write(_plugin_context_output(ctx) or ctx.resp.allow())
 
 
 def _handle_post_tool_use(ctx: _DispatchCtx) -> None:
@@ -1359,6 +1388,7 @@ _DISPATCH_TABLE: dict[str, Callable[[_DispatchCtx], None]] = {
     "beforeShellExecution": _handle_shell_execution,
     "BeforeShellExecution": _handle_shell_execution,
     "PermissionRequest": _handle_permission_request,
+    "SessionStart": _handle_session_start,
     "SubagentStart": _handle_session_event,
     "UserPromptSubmit": _handle_session_event,
     "PostToolUse": _handle_post_tool_use,

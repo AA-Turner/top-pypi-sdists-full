@@ -20,6 +20,8 @@ import tempfile
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 _CONFIG_YAML = """\
 repos:
@@ -93,7 +95,7 @@ class TestReapStaleInteractiveSessionsTick:
             patch("coord.interactive.tmux_available", return_value=True),
             patch("coord.interactive.tmux_session_alive", return_value=False),
             patch(
-                "coord.interactive._get_local_short_hostname",
+                "coord.config._local_short_hostname",
                 return_value="mymachine",
             ),
             patch("coord.interactive._remove_worktree"),
@@ -123,7 +125,7 @@ class TestReapStaleInteractiveSessionsTick:
             patch("coord.interactive.tmux_available", return_value=True),
             patch("coord.interactive.tmux_session_alive", return_value=False),
             patch(
-                "coord.interactive._get_local_short_hostname",
+                "coord.config._local_short_hostname",
                 return_value="mymachine",
             ),
             patch("coord.interactive._remove_worktree"),
@@ -181,7 +183,7 @@ class TestReapStaleInteractiveSessionsTick:
             patch("coord.interactive.tmux_available", return_value=True),
             patch("coord.interactive.tmux_session_alive", return_value=False),
             patch(
-                "coord.interactive._get_local_short_hostname",
+                "coord.config._local_short_hostname",
                 return_value="mymachine",
             ),
             patch("coord.interactive._remove_worktree"),
@@ -224,7 +226,7 @@ class TestReapStaleInteractiveSessionsReleasesReviewClaim:
             patch("coord.interactive.tmux_available", return_value=True),
             patch("coord.interactive.tmux_session_alive", return_value=False),
             patch(
-                "coord.interactive._get_local_short_hostname",
+                "coord.config._local_short_hostname",
                 return_value="mymachine",
             ),
             patch("coord.interactive._remove_worktree"),
@@ -250,7 +252,7 @@ class TestReapStaleInteractiveSessionsReleasesReviewClaim:
             patch("coord.interactive.tmux_available", return_value=True),
             patch("coord.interactive.tmux_session_alive", return_value=False),
             patch(
-                "coord.interactive._get_local_short_hostname",
+                "coord.config._local_short_hostname",
                 return_value="mymachine",
             ),
             patch("coord.interactive._remove_worktree"),

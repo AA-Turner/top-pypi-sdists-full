@@ -162,7 +162,7 @@ class MAVLink_message(object):
 
     def __init__(self, msgId: int, name: str) -> None:
         self._header = MAVLink_header(msgId)
-        self._payload: Optional[bytes] = None
+        self._payload: Optional[Union[bytes, bytearray]] = None
         self._msgbuf = bytearray(b"")
         self._crc: Optional[int] = None
         self._fieldnames: List[str] = []
@@ -185,7 +185,7 @@ class MAVLink_message(object):
     def get_header(self) -> MAVLink_header:
         return self._header
 
-    def get_payload(self) -> Optional[bytes]:
+    def get_payload(self) -> Optional[Union[bytes, bytearray]]:
         return self._payload
 
     def get_crc(self) -> Optional[int]:
@@ -299,9 +299,8 @@ class MAVLink_message(object):
         self._msgbuf = bytearray(self._header.pack(force_mavlink1=force_mavlink1))
         self._msgbuf += self._payload
         crc = x25crc(self._msgbuf[1:])
-        if True:
-            # we are using CRC extra
-            crc.accumulate(struct.pack("B", crc_extra))
+        # we are using CRC extra
+        crc.accumulate(struct.pack("B", crc_extra))
         self._crc = crc.crc
         self._msgbuf += struct.pack("<H", self._crc)
         if mav.signing.sign_outgoing and not force_mavlink1:
@@ -350,6 +349,7 @@ class EnumEntry(object):
         self.name = name
         self.description = description
         self.param: Dict[int, str] = {}
+        self.label: Dict[int, str] = {}
         self.has_location = False
 
 class Enum(Dict[int, EnumEntry]):
@@ -357,16 +357,6 @@ class Enum(Dict[int, EnumEntry]):
         self.bitmask = False
 
 enums: Dict[str, Enum] = {}
-
-# AIRSPEED_SENSOR_FLAGS
-enums["AIRSPEED_SENSOR_FLAGS"] = Enum()
-enums["AIRSPEED_SENSOR_FLAGS"].bitmask = True
-AIRSPEED_SENSOR_UNHEALTHY = 1
-enums["AIRSPEED_SENSOR_FLAGS"][1] = EnumEntry("AIRSPEED_SENSOR_UNHEALTHY", """Airspeed sensor is unhealthy""")
-AIRSPEED_SENSOR_USING = 2
-enums["AIRSPEED_SENSOR_FLAGS"][2] = EnumEntry("AIRSPEED_SENSOR_USING", """True if the data from this sensor is being actively used by the flight controller for guidance, navigation or control.""")
-AIRSPEED_SENSOR_FLAGS_ENUM_END = 3
-enums["AIRSPEED_SENSOR_FLAGS"][3] = EnumEntry("AIRSPEED_SENSOR_FLAGS_ENUM_END", """""")
 
 # RADIO_RC_CHANNELS_FLAGS
 enums["RADIO_RC_CHANNELS_FLAGS"] = Enum()
@@ -377,111 +367,6 @@ RADIO_RC_CHANNELS_FLAGS_OUTDATED = 2
 enums["RADIO_RC_CHANNELS_FLAGS"][2] = EnumEntry("RADIO_RC_CHANNELS_FLAGS_OUTDATED", """Channel data may be out of date. This is set when the receiver is unable to validate incoming data from the transmitter and has therefore resent the last valid data it received.""")
 RADIO_RC_CHANNELS_FLAGS_ENUM_END = 3
 enums["RADIO_RC_CHANNELS_FLAGS"][3] = EnumEntry("RADIO_RC_CHANNELS_FLAGS_ENUM_END", """""")
-
-# MAV_STANDARD_MODE
-enums["MAV_STANDARD_MODE"] = Enum()
-enums["MAV_STANDARD_MODE"].bitmask = False
-MAV_STANDARD_MODE_NON_STANDARD = 0
-enums["MAV_STANDARD_MODE"][0] = EnumEntry(
-    "MAV_STANDARD_MODE_NON_STANDARD",
-    """Non standard mode.
-          This may be used when reporting the mode if the current flight mode is not a standard mode.
-        """,
-)
-MAV_STANDARD_MODE_POSITION_HOLD = 1
-enums["MAV_STANDARD_MODE"][1] = EnumEntry(
-    "MAV_STANDARD_MODE_POSITION_HOLD",
-    """Position mode (manual).
-          Position-controlled and stabilized manual mode.
-          When sticks are released vehicles return to their level-flight orientation and hold both position and altitude against wind and external forces.
-          This mode can only be set by vehicles that can hold a fixed position.
-          Multicopter (MC) vehicles actively brake and hold both position and altitude against wind and external forces.
-          Hybrid MC/FW ("VTOL") vehicles first transition to multicopter mode (if needed) but otherwise behave in the same way as MC vehicles.
-          Fixed-wing (FW) vehicles must not support this mode.
-          Other vehicle types must not support this mode (this may be revisited through the PR process).
-        """,
-)
-MAV_STANDARD_MODE_ORBIT = 2
-enums["MAV_STANDARD_MODE"][2] = EnumEntry(
-    "MAV_STANDARD_MODE_ORBIT",
-    """Orbit (manual).
-          Position-controlled and stabilized manual mode.
-          The vehicle circles around a fixed setpoint in the horizontal plane at a particular radius, altitude, and direction.
-          Flight stacks may further allow manual control over the setpoint position, radius, direction, speed, and/or altitude of the circle, but this is not mandated.
-          Flight stacks may support the [MAV_CMD_DO_ORBIT](https://mavlink.io/en/messages/common.html#MAV_CMD_DO_ORBIT) for changing the orbit parameters.
-          MC and FW vehicles may support this mode.
-          Hybrid MC/FW ("VTOL") vehicles may support this mode in MC/FW or both modes; if the mode is not supported by the current configuration the vehicle should transition to the supported configuration.
-          Other vehicle types must not support this mode (this may be revisited through the PR process).
-        """,
-)
-MAV_STANDARD_MODE_CRUISE = 3
-enums["MAV_STANDARD_MODE"][3] = EnumEntry(
-    "MAV_STANDARD_MODE_CRUISE",
-    """Cruise mode (manual).
-          Position-controlled and stabilized manual mode.
-          When sticks are released vehicles return to their level-flight orientation and hold their original track against wind and external forces.
-          Fixed-wing (FW) vehicles level orientation and maintain current track and altitude against wind and external forces.
-          Hybrid MC/FW ("VTOL") vehicles first transition to FW mode (if needed) but otherwise behave in the same way as MC vehicles.
-          Multicopter (MC) vehicles must not support this mode.
-          Other vehicle types must not support this mode (this may be revisited through the PR process).
-        """,
-)
-MAV_STANDARD_MODE_ALTITUDE_HOLD = 4
-enums["MAV_STANDARD_MODE"][4] = EnumEntry(
-    "MAV_STANDARD_MODE_ALTITUDE_HOLD",
-    """Altitude hold (manual).
-          Altitude-controlled and stabilized manual mode.
-          When sticks are released vehicles return to their level-flight orientation and hold their altitude.
-          MC vehicles continue with existing momentum and may move with wind (or other external forces).
-          FW vehicles continue with current heading, but may be moved off-track by wind.
-          Hybrid MC/FW ("VTOL") vehicles behave according to their current configuration/mode (FW or MC).
-          Other vehicle types must not support this mode (this may be revisited through the PR process).
-        """,
-)
-MAV_STANDARD_MODE_RETURN_HOME = 5
-enums["MAV_STANDARD_MODE"][5] = EnumEntry(
-    "MAV_STANDARD_MODE_RETURN_HOME",
-    """Return home mode (auto).
-          Automatic mode that returns vehicle to home via a safe flight path.
-          It may also automatically land the vehicle (i.e. RTL).
-          The precise flight path and landing behaviour depend on vehicle configuration and type.
-        """,
-)
-MAV_STANDARD_MODE_SAFE_RECOVERY = 6
-enums["MAV_STANDARD_MODE"][6] = EnumEntry(
-    "MAV_STANDARD_MODE_SAFE_RECOVERY",
-    """Safe recovery mode (auto).
-          Automatic mode that takes vehicle to a predefined safe location via a safe flight path (rally point or mission defined landing) .
-          It may also automatically land the vehicle.
-          The precise return location, flight path, and landing behaviour depend on vehicle configuration and type.
-        """,
-)
-MAV_STANDARD_MODE_MISSION = 7
-enums["MAV_STANDARD_MODE"][7] = EnumEntry(
-    "MAV_STANDARD_MODE_MISSION",
-    """Mission mode (automatic).
-          Automatic mode that executes MAVLink missions.
-          Missions are executed from the current waypoint as soon as the mode is enabled.
-        """,
-)
-MAV_STANDARD_MODE_LAND = 8
-enums["MAV_STANDARD_MODE"][8] = EnumEntry(
-    "MAV_STANDARD_MODE_LAND",
-    """Land mode (auto).
-          Automatic mode that lands the vehicle at the current location.
-          The precise landing behaviour depends on vehicle configuration and type.
-        """,
-)
-MAV_STANDARD_MODE_TAKEOFF = 9
-enums["MAV_STANDARD_MODE"][9] = EnumEntry(
-    "MAV_STANDARD_MODE_TAKEOFF",
-    """Takeoff mode (auto).
-          Automatic takeoff mode.
-          The precise takeoff behaviour depends on vehicle configuration and type.
-        """,
-)
-MAV_STANDARD_MODE_ENUM_END = 10
-enums["MAV_STANDARD_MODE"][10] = EnumEntry("MAV_STANDARD_MODE_ENUM_END", """""")
 
 # MAV_MODE_PROPERTY
 enums["MAV_MODE_PROPERTY"] = Enum()
@@ -511,42 +396,64 @@ MAV_CMD_NAV_WAYPOINT = 16
 enums["MAV_CMD"][16] = EnumEntry("MAV_CMD_NAV_WAYPOINT", """Navigate to waypoint. This is intended for use in missions (for guided commands outside of missions use MAV_CMD_DO_REPOSITION).""")
 enums["MAV_CMD"][16].has_location = True
 enums["MAV_CMD"][16].param[1] = """Hold time. (ignored by fixed wing, time to stay at waypoint for rotary wing)"""
+enums["MAV_CMD"][16].label[1] = """Hold"""
 enums["MAV_CMD"][16].param[2] = """Acceptance radius (if the sphere with this radius is hit, the waypoint counts as reached)"""
+enums["MAV_CMD"][16].label[2] = """Accept Radius"""
 enums["MAV_CMD"][16].param[3] = """0 to pass through the WP, if > 0 radius to pass by WP. Positive value for clockwise orbit, negative value for counter-clockwise orbit. Allows trajectory control."""
+enums["MAV_CMD"][16].label[3] = """Pass Radius"""
 enums["MAV_CMD"][16].param[4] = """Desired yaw angle at waypoint (rotary wing). NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
+enums["MAV_CMD"][16].label[4] = """Yaw"""
 enums["MAV_CMD"][16].param[5] = """Latitude"""
+enums["MAV_CMD"][16].label[5] = """Latitude"""
 enums["MAV_CMD"][16].param[6] = """Longitude"""
+enums["MAV_CMD"][16].label[6] = """Longitude"""
 enums["MAV_CMD"][16].param[7] = """Altitude"""
+enums["MAV_CMD"][16].label[7] = """Altitude"""
 MAV_CMD_NAV_LOITER_UNLIM = 17
 enums["MAV_CMD"][17] = EnumEntry("MAV_CMD_NAV_LOITER_UNLIM", """Loiter around this waypoint an unlimited amount of time""")
 enums["MAV_CMD"][17].has_location = True
 enums["MAV_CMD"][17].param[1] = """Empty"""
 enums["MAV_CMD"][17].param[2] = """Empty"""
 enums["MAV_CMD"][17].param[3] = """Loiter radius around waypoint for forward-only moving vehicles (not multicopters). If positive loiter clockwise, else counter-clockwise"""
+enums["MAV_CMD"][17].label[3] = """Radius"""
 enums["MAV_CMD"][17].param[4] = """Desired yaw angle. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
+enums["MAV_CMD"][17].label[4] = """Yaw"""
 enums["MAV_CMD"][17].param[5] = """Latitude"""
+enums["MAV_CMD"][17].label[5] = """Latitude"""
 enums["MAV_CMD"][17].param[6] = """Longitude"""
+enums["MAV_CMD"][17].label[6] = """Longitude"""
 enums["MAV_CMD"][17].param[7] = """Altitude"""
+enums["MAV_CMD"][17].label[7] = """Altitude"""
 MAV_CMD_NAV_LOITER_TURNS = 18
 enums["MAV_CMD"][18] = EnumEntry("MAV_CMD_NAV_LOITER_TURNS", """Loiter around this waypoint for X turns""")
 enums["MAV_CMD"][18].has_location = True
 enums["MAV_CMD"][18].param[1] = """Number of turns."""
+enums["MAV_CMD"][18].label[1] = """Turns"""
 enums["MAV_CMD"][18].param[2] = """Empty"""
 enums["MAV_CMD"][18].param[3] = """Radius around waypoint. If positive loiter clockwise, else counter-clockwise"""
+enums["MAV_CMD"][18].label[3] = """Radius"""
 enums["MAV_CMD"][18].param[4] = """Forward moving aircraft this sets exit xtrack location: 0 for center of loiter wp, 1 for exit location. Else, this is desired yaw angle. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
 enums["MAV_CMD"][18].param[5] = """Latitude"""
+enums["MAV_CMD"][18].label[5] = """Latitude"""
 enums["MAV_CMD"][18].param[6] = """Longitude"""
+enums["MAV_CMD"][18].label[6] = """Longitude"""
 enums["MAV_CMD"][18].param[7] = """Altitude"""
+enums["MAV_CMD"][18].label[7] = """Altitude"""
 MAV_CMD_NAV_LOITER_TIME = 19
 enums["MAV_CMD"][19] = EnumEntry("MAV_CMD_NAV_LOITER_TIME", """Loiter around this waypoint for X seconds""")
 enums["MAV_CMD"][19].has_location = True
 enums["MAV_CMD"][19].param[1] = """Loiter time."""
+enums["MAV_CMD"][19].label[1] = """Time"""
 enums["MAV_CMD"][19].param[2] = """Empty"""
 enums["MAV_CMD"][19].param[3] = """Radius around waypoint. If positive loiter clockwise, else counter-clockwise."""
+enums["MAV_CMD"][19].label[3] = """Radius"""
 enums["MAV_CMD"][19].param[4] = """Forward moving aircraft this sets exit xtrack location: 0 for center of loiter wp, 1 for exit location. Else, this is desired yaw angle.  NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
 enums["MAV_CMD"][19].param[5] = """Latitude"""
+enums["MAV_CMD"][19].label[5] = """Latitude"""
 enums["MAV_CMD"][19].param[6] = """Longitude"""
+enums["MAV_CMD"][19].label[6] = """Longitude"""
 enums["MAV_CMD"][19].param[7] = """Altitude"""
+enums["MAV_CMD"][19].label[7] = """Altitude"""
 MAV_CMD_NAV_RETURN_TO_LAUNCH = 20
 enums["MAV_CMD"][20] = EnumEntry("MAV_CMD_NAV_RETURN_TO_LAUNCH", """Return to launch location""")
 enums["MAV_CMD"][20].param[1] = """Empty"""
@@ -560,142 +467,298 @@ MAV_CMD_NAV_LAND = 21
 enums["MAV_CMD"][21] = EnumEntry("MAV_CMD_NAV_LAND", """Land at location.""")
 enums["MAV_CMD"][21].has_location = True
 enums["MAV_CMD"][21].param[1] = """Minimum target altitude if landing is aborted (0 = undefined/use system default)."""
+enums["MAV_CMD"][21].label[1] = """Abort Alt"""
 enums["MAV_CMD"][21].param[2] = """Precision land mode."""
+enums["MAV_CMD"][21].label[2] = """Land Mode"""
 enums["MAV_CMD"][21].param[3] = """Empty."""
 enums["MAV_CMD"][21].param[4] = """Desired yaw angle. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
+enums["MAV_CMD"][21].label[4] = """Yaw Angle"""
 enums["MAV_CMD"][21].param[5] = """Latitude."""
+enums["MAV_CMD"][21].label[5] = """Latitude"""
 enums["MAV_CMD"][21].param[6] = """Longitude."""
+enums["MAV_CMD"][21].label[6] = """Longitude"""
 enums["MAV_CMD"][21].param[7] = """Landing altitude (ground level in current frame)."""
+enums["MAV_CMD"][21].label[7] = """Altitude"""
 MAV_CMD_NAV_TAKEOFF = 22
 enums["MAV_CMD"][22] = EnumEntry("MAV_CMD_NAV_TAKEOFF", """Takeoff from ground / hand. Vehicles that support multiple takeoff modes (e.g. VTOL quadplane) should take off using the currently configured mode.""")
 enums["MAV_CMD"][22].has_location = True
 enums["MAV_CMD"][22].param[1] = """Minimum pitch (if airspeed sensor present), desired pitch without sensor"""
+enums["MAV_CMD"][22].label[1] = """Pitch"""
 enums["MAV_CMD"][22].param[2] = """Empty"""
-enums["MAV_CMD"][22].param[3] = """Empty"""
+enums["MAV_CMD"][22].param[3] = """Bitmask of options flags."""
+enums["MAV_CMD"][22].label[3] = """Flags"""
 enums["MAV_CMD"][22].param[4] = """Yaw angle (if magnetometer present), ignored without magnetometer. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
+enums["MAV_CMD"][22].label[4] = """Yaw"""
 enums["MAV_CMD"][22].param[5] = """Latitude"""
+enums["MAV_CMD"][22].label[5] = """Latitude"""
 enums["MAV_CMD"][22].param[6] = """Longitude"""
+enums["MAV_CMD"][22].label[6] = """Longitude"""
 enums["MAV_CMD"][22].param[7] = """Altitude"""
+enums["MAV_CMD"][22].label[7] = """Altitude"""
 MAV_CMD_NAV_LAND_LOCAL = 23
 enums["MAV_CMD"][23] = EnumEntry("MAV_CMD_NAV_LAND_LOCAL", """Land at local position (local frame only)""")
 enums["MAV_CMD"][23].has_location = True
 enums["MAV_CMD"][23].param[1] = """Landing target number (if available)"""
+enums["MAV_CMD"][23].label[1] = """Target"""
 enums["MAV_CMD"][23].param[2] = """Maximum accepted offset from desired landing position - computed magnitude from spherical coordinates: d = sqrt(x^2 + y^2 + z^2), which gives the maximum accepted distance between the desired landing position and the position where the vehicle is about to land"""
+enums["MAV_CMD"][23].label[2] = """Offset"""
 enums["MAV_CMD"][23].param[3] = """Landing descend rate"""
+enums["MAV_CMD"][23].label[3] = """Descend Rate"""
 enums["MAV_CMD"][23].param[4] = """Desired yaw angle"""
+enums["MAV_CMD"][23].label[4] = """Yaw"""
 enums["MAV_CMD"][23].param[5] = """Y-axis position"""
+enums["MAV_CMD"][23].label[5] = """Y Position"""
 enums["MAV_CMD"][23].param[6] = """X-axis position"""
+enums["MAV_CMD"][23].label[6] = """X Position"""
 enums["MAV_CMD"][23].param[7] = """Z-axis / ground level position"""
+enums["MAV_CMD"][23].label[7] = """Z Position"""
 MAV_CMD_NAV_TAKEOFF_LOCAL = 24
 enums["MAV_CMD"][24] = EnumEntry("MAV_CMD_NAV_TAKEOFF_LOCAL", """Takeoff from local position (local frame only)""")
 enums["MAV_CMD"][24].has_location = True
 enums["MAV_CMD"][24].param[1] = """Minimum pitch (if airspeed sensor present), desired pitch without sensor"""
+enums["MAV_CMD"][24].label[1] = """Pitch"""
 enums["MAV_CMD"][24].param[2] = """Empty"""
 enums["MAV_CMD"][24].param[3] = """Takeoff ascend rate"""
+enums["MAV_CMD"][24].label[3] = """Ascend Rate"""
 enums["MAV_CMD"][24].param[4] = """Yaw angle (if magnetometer or another yaw estimation source present), ignored without one of these"""
+enums["MAV_CMD"][24].label[4] = """Yaw"""
 enums["MAV_CMD"][24].param[5] = """Y-axis position"""
+enums["MAV_CMD"][24].label[5] = """Y Position"""
 enums["MAV_CMD"][24].param[6] = """X-axis position"""
+enums["MAV_CMD"][24].label[6] = """X Position"""
 enums["MAV_CMD"][24].param[7] = """Z-axis position"""
+enums["MAV_CMD"][24].label[7] = """Z Position"""
 MAV_CMD_NAV_FOLLOW = 25
 enums["MAV_CMD"][25] = EnumEntry("MAV_CMD_NAV_FOLLOW", """Vehicle following, i.e. this waypoint represents the position of a moving vehicle""")
 enums["MAV_CMD"][25].has_location = True
 enums["MAV_CMD"][25].param[1] = """Following logic to use (e.g. loitering or sinusoidal following) - depends on specific autopilot implementation"""
+enums["MAV_CMD"][25].label[1] = """Following"""
 enums["MAV_CMD"][25].param[2] = """Ground speed of vehicle to be followed"""
+enums["MAV_CMD"][25].label[2] = """Ground Speed"""
 enums["MAV_CMD"][25].param[3] = """Radius around waypoint. If positive loiter clockwise, else counter-clockwise"""
+enums["MAV_CMD"][25].label[3] = """Radius"""
 enums["MAV_CMD"][25].param[4] = """Desired yaw angle."""
+enums["MAV_CMD"][25].label[4] = """Yaw"""
 enums["MAV_CMD"][25].param[5] = """Latitude"""
+enums["MAV_CMD"][25].label[5] = """Latitude"""
 enums["MAV_CMD"][25].param[6] = """Longitude"""
+enums["MAV_CMD"][25].label[6] = """Longitude"""
 enums["MAV_CMD"][25].param[7] = """Altitude"""
+enums["MAV_CMD"][25].label[7] = """Altitude"""
 MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT = 30
 enums["MAV_CMD"][30] = EnumEntry("MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT", """Continue on the current course and climb/descend to specified altitude.  When the altitude is reached continue to the next command (i.e., don't proceed to the next command until the desired altitude is reached.""")
 enums["MAV_CMD"][30].param[1] = """Climb or Descend (0 = Neutral, command completes when within 5m of this command's altitude, 1 = Climbing, command completes when at or above this command's altitude, 2 = Descending, command completes when at or below this command's altitude."""
+enums["MAV_CMD"][30].label[1] = """Action"""
 enums["MAV_CMD"][30].param[2] = """Empty"""
 enums["MAV_CMD"][30].param[3] = """Empty"""
 enums["MAV_CMD"][30].param[4] = """Empty"""
 enums["MAV_CMD"][30].param[5] = """Empty"""
 enums["MAV_CMD"][30].param[6] = """Empty"""
 enums["MAV_CMD"][30].param[7] = """Desired altitude"""
+enums["MAV_CMD"][30].label[7] = """Altitude"""
 MAV_CMD_NAV_LOITER_TO_ALT = 31
 enums["MAV_CMD"][31] = EnumEntry("MAV_CMD_NAV_LOITER_TO_ALT", """Begin loiter at the specified Latitude and Longitude.  If Lat=Lon=0, then loiter at the current position.  Don't consider the navigation command complete (don't leave loiter) until the altitude has been reached. Additionally, if the Heading Required parameter is non-zero the aircraft will not leave the loiter until heading toward the next waypoint.""")
 enums["MAV_CMD"][31].has_location = True
 enums["MAV_CMD"][31].param[1] = """Leave loiter circle only when track heading towards the next waypoint (MAV_BOOL_FALSE: Leave when altitude reached). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][31].label[1] = """Heading Required"""
 enums["MAV_CMD"][31].param[2] = """Loiter radius around waypoint for forward-only moving vehicles (not multicopters). If positive loiter clockwise, negative counter-clockwise, 0 means no change to standard loiter."""
+enums["MAV_CMD"][31].label[2] = """Radius"""
 enums["MAV_CMD"][31].param[3] = """Empty"""
 enums["MAV_CMD"][31].param[4] = """Forward moving aircraft this sets exit xtrack location: 0 for center of loiter wp, 1 for exit location"""
+enums["MAV_CMD"][31].label[4] = """Xtrack Location"""
 enums["MAV_CMD"][31].param[5] = """Latitude"""
+enums["MAV_CMD"][31].label[5] = """Latitude"""
 enums["MAV_CMD"][31].param[6] = """Longitude"""
+enums["MAV_CMD"][31].label[6] = """Longitude"""
 enums["MAV_CMD"][31].param[7] = """Altitude"""
+enums["MAV_CMD"][31].label[7] = """Altitude"""
 MAV_CMD_DO_FOLLOW = 32
 enums["MAV_CMD"][32] = EnumEntry("MAV_CMD_DO_FOLLOW", """Begin following a target""")
 enums["MAV_CMD"][32].param[1] = """System ID (of the FOLLOW_TARGET beacon). Send 0 to disable follow-me and return to the default position hold mode."""
+enums["MAV_CMD"][32].label[1] = """System ID"""
 enums["MAV_CMD"][32].param[2] = """Reserved"""
 enums["MAV_CMD"][32].param[3] = """Reserved"""
 enums["MAV_CMD"][32].param[4] = """Altitude mode: 0: Keep current altitude, 1: keep altitude difference to target, 2: go to a fixed altitude above home."""
+enums["MAV_CMD"][32].label[4] = """Altitude Mode"""
 enums["MAV_CMD"][32].param[5] = """Altitude above home. (used if mode=2)"""
+enums["MAV_CMD"][32].label[5] = """Altitude"""
 enums["MAV_CMD"][32].param[6] = """Reserved"""
 enums["MAV_CMD"][32].param[7] = """Time to land in which the MAV should go to the default position hold mode after a message RX timeout."""
+enums["MAV_CMD"][32].label[7] = """Time to Land"""
 MAV_CMD_DO_FOLLOW_REPOSITION = 33
 enums["MAV_CMD"][33] = EnumEntry("MAV_CMD_DO_FOLLOW_REPOSITION", """Reposition the MAV after a follow target command has been sent""")
 enums["MAV_CMD"][33].param[1] = """Camera q1 (where 0 is on the ray from the camera to the tracking device)"""
+enums["MAV_CMD"][33].label[1] = """Camera Q1"""
 enums["MAV_CMD"][33].param[2] = """Camera q2"""
+enums["MAV_CMD"][33].label[2] = """Camera Q2"""
 enums["MAV_CMD"][33].param[3] = """Camera q3"""
+enums["MAV_CMD"][33].label[3] = """Camera Q3"""
 enums["MAV_CMD"][33].param[4] = """Camera q4"""
+enums["MAV_CMD"][33].label[4] = """Camera Q4"""
 enums["MAV_CMD"][33].param[5] = """altitude offset from target"""
+enums["MAV_CMD"][33].label[5] = """Altitude Offset"""
 enums["MAV_CMD"][33].param[6] = """X offset from target"""
+enums["MAV_CMD"][33].label[6] = """X Offset"""
 enums["MAV_CMD"][33].param[7] = """Y offset from target"""
+enums["MAV_CMD"][33].label[7] = """Y Offset"""
+MAV_CMD_DO_ORBIT = 34
+enums["MAV_CMD"][34] = EnumEntry("MAV_CMD_DO_ORBIT", """Start orbiting on the circumference of a circle defined by the parameters. Setting values to NaN/INT32_MAX (as appropriate) results in using defaults.""")
+enums["MAV_CMD"][34].has_location = True
+enums["MAV_CMD"][34].param[1] = """Radius of the circle. Positive: orbit clockwise. Negative: orbit counter-clockwise. NaN: Use vehicle default radius, or current radius if already orbiting."""
+enums["MAV_CMD"][34].label[1] = """Radius"""
+enums["MAV_CMD"][34].param[2] = """Tangential Velocity. NaN: Use vehicle default velocity, or current velocity if already orbiting."""
+enums["MAV_CMD"][34].label[2] = """Velocity"""
+enums["MAV_CMD"][34].param[3] = """Yaw behavior of the vehicle."""
+enums["MAV_CMD"][34].label[3] = """Yaw Behavior"""
+enums["MAV_CMD"][34].param[4] = """Orbit around the centre point for this many radians (i.e. for a three-quarter orbit set 270*Pi/180). 0: Orbit forever. NaN: Use vehicle default, or current value if already orbiting."""
+enums["MAV_CMD"][34].label[4] = """Orbits"""
+enums["MAV_CMD"][34].param[5] = """Center point latitude (if no MAV_FRAME specified) / X coordinate according to MAV_FRAME. INT32_MAX (or NaN if sent in COMMAND_LONG): Use current vehicle position, or current center if already orbiting."""
+enums["MAV_CMD"][34].label[5] = """Latitude/X"""
+enums["MAV_CMD"][34].param[6] = """Center point longitude (if no MAV_FRAME specified) / Y coordinate according to MAV_FRAME. INT32_MAX (or NaN if sent in COMMAND_LONG): Use current vehicle position, or current center if already orbiting."""
+enums["MAV_CMD"][34].label[6] = """Longitude/Y"""
+enums["MAV_CMD"][34].param[7] = """Center point altitude (MSL) (if no MAV_FRAME specified) / Z coordinate according to MAV_FRAME. NaN: Use current vehicle altitude."""
+enums["MAV_CMD"][34].label[7] = """Altitude/Z"""
+MAV_CMD_DO_FIGURE_EIGHT = 35
+enums["MAV_CMD"][35] = EnumEntry(
+    "MAV_CMD_DO_FIGURE_EIGHT",
+    """Fly a figure eight path as defined by the parameters.
+          Set parameters to NaN/INT32_MAX (as appropriate) to use system-default values.
+          The command is intended for fixed wing vehicles (and VTOL hybrids flying in fixed-wing mode), allowing POI tracking for gimbals that don't support infinite rotation.
+          This command only defines the flight path. Speed should be set independently (use e.g. MAV_CMD_DO_CHANGE_SPEED).
+          Yaw and other degrees of freedom are not specified, and will be flight-stack specific (on vehicles where they can be controlled independent of the heading).
+        """,
+)
+enums["MAV_CMD"][35].has_location = True
+enums["MAV_CMD"][35].param[
+    1
+] = """Major axis radius of the figure eight. Positive: orbit the north circle clockwise. Negative: orbit the north circle counter-clockwise.
+        NaN: The radius will be set to 2.5 times the minor radius and direction is clockwise.
+        Must be greater or equal to two times the minor radius for feasible values."""
+enums["MAV_CMD"][35].label[1] = """Major Radius"""
+enums["MAV_CMD"][35].param[
+    2
+] = """Minor axis radius of the figure eight. Defines the radius of the two circles that make up the figure. Negative value has no effect.
+        NaN: The radius will be set to the default loiter radius."""
+enums["MAV_CMD"][35].label[2] = """Minor Radius"""
+enums["MAV_CMD"][35].param[3] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][35].param[4] = """Orientation of the figure eight major axis with respect to true north (range: [-pi,pi]). NaN: use default orientation aligned to true north."""
+enums["MAV_CMD"][35].label[4] = """Orientation"""
+enums["MAV_CMD"][35].param[
+    5
+] = """Center point latitude/X coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.
+        INT32_MAX or NaN: Use current vehicle position, or current center if already loitering."""
+enums["MAV_CMD"][35].label[5] = """Latitude/X"""
+enums["MAV_CMD"][35].param[
+    6
+] = """Center point longitude/Y coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.
+        INT32_MAX or NaN: Use current vehicle position, or current center if already loitering."""
+enums["MAV_CMD"][35].label[6] = """Longitude/Y"""
+enums["MAV_CMD"][35].param[
+    7
+] = """Center point altitude MSL/Z coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.
+        INT32_MAX or NaN: Use current vehicle altitude."""
+enums["MAV_CMD"][35].label[7] = """Altitude/Z"""
+MAV_CMD_NAV_ARC_WAYPOINT = 36
+enums["MAV_CMD"][36] = EnumEntry(
+    "MAV_CMD_NAV_ARC_WAYPOINT",
+    """Circular arc path waypoint.
+          This defines the end/exit point and angle (param1) of an arc path from the previous waypoint. A position is required before this command to define the start of the arc (e.g. current position, a MAV_CMD_NAV_WAYPOINT, or a MAV_CMD_NAV_ARC_WAYPOINT).
+          The resulting path is a circular arc in the NE frame, with the difference in height being defined by the difference in waypoint altitudes.
+        """,
+)
+enums["MAV_CMD"][36].has_location = True
+enums["MAV_CMD"][36].param[1] = """The angle in degrees from the starting position to the exit position of the arc in the NE frame. Positive values are CW arcs and negative values are CCW arcs."""
+enums["MAV_CMD"][36].label[1] = """Arc Angle"""
+enums["MAV_CMD"][36].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][36].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][36].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][36].param[5] = """Latitude"""
+enums["MAV_CMD"][36].label[5] = """Latitude"""
+enums["MAV_CMD"][36].param[6] = """Longitude"""
+enums["MAV_CMD"][36].label[6] = """Longitude"""
+enums["MAV_CMD"][36].param[7] = """Altitude"""
+enums["MAV_CMD"][36].label[7] = """Altitude"""
 MAV_CMD_NAV_ROI = 80
 enums["MAV_CMD"][80] = EnumEntry("MAV_CMD_NAV_ROI", """Sets the region of interest (ROI) for a sensor set or the vehicle itself. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.""")
 enums["MAV_CMD"][80].has_location = True
 enums["MAV_CMD"][80].param[1] = """Region of interest mode."""
+enums["MAV_CMD"][80].label[1] = """ROI Mode"""
 enums["MAV_CMD"][80].param[2] = """Waypoint index/ target ID. (see MAV_ROI enum)"""
+enums["MAV_CMD"][80].label[2] = """WP Index"""
 enums["MAV_CMD"][80].param[3] = """ROI index (allows a vehicle to manage multiple ROI's)"""
+enums["MAV_CMD"][80].label[3] = """ROI Index"""
 enums["MAV_CMD"][80].param[4] = """Empty"""
 enums["MAV_CMD"][80].param[5] = """x the location of the fixed ROI (see MAV_FRAME)"""
+enums["MAV_CMD"][80].label[5] = """X"""
 enums["MAV_CMD"][80].param[6] = """y"""
+enums["MAV_CMD"][80].label[6] = """Y"""
 enums["MAV_CMD"][80].param[7] = """z"""
+enums["MAV_CMD"][80].label[7] = """Z"""
 MAV_CMD_NAV_PATHPLANNING = 81
 enums["MAV_CMD"][81] = EnumEntry("MAV_CMD_NAV_PATHPLANNING", """Control autonomous path planning on the MAV.""")
 enums["MAV_CMD"][81].has_location = True
 enums["MAV_CMD"][81].param[1] = """0: Disable local obstacle avoidance / local path planning (without resetting map), 1: Enable local path planning, 2: Enable and reset local path planning"""
+enums["MAV_CMD"][81].label[1] = """Local Ctrl"""
 enums["MAV_CMD"][81].param[2] = """0: Disable full path planning (without resetting map), 1: Enable, 2: Enable and reset map/occupancy grid, 3: Enable and reset planned route, but not occupancy grid"""
+enums["MAV_CMD"][81].label[2] = """Global Ctrl"""
 enums["MAV_CMD"][81].param[3] = """Empty"""
 enums["MAV_CMD"][81].param[4] = """Yaw angle at goal"""
+enums["MAV_CMD"][81].label[4] = """Yaw"""
 enums["MAV_CMD"][81].param[5] = """Latitude/X of goal"""
+enums["MAV_CMD"][81].label[5] = """Latitude/X"""
 enums["MAV_CMD"][81].param[6] = """Longitude/Y of goal"""
+enums["MAV_CMD"][81].label[6] = """Longitude/Y"""
 enums["MAV_CMD"][81].param[7] = """Altitude/Z of goal"""
+enums["MAV_CMD"][81].label[7] = """Altitude/Z"""
 MAV_CMD_NAV_SPLINE_WAYPOINT = 82
 enums["MAV_CMD"][82] = EnumEntry("MAV_CMD_NAV_SPLINE_WAYPOINT", """Navigate to waypoint using a spline path.""")
 enums["MAV_CMD"][82].has_location = True
 enums["MAV_CMD"][82].param[1] = """Hold time. (ignored by fixed wing, time to stay at waypoint for rotary wing)"""
+enums["MAV_CMD"][82].label[1] = """Hold"""
 enums["MAV_CMD"][82].param[2] = """Empty"""
 enums["MAV_CMD"][82].param[3] = """Empty"""
 enums["MAV_CMD"][82].param[4] = """Empty"""
 enums["MAV_CMD"][82].param[5] = """Latitude/X of goal"""
+enums["MAV_CMD"][82].label[5] = """Latitude/X"""
 enums["MAV_CMD"][82].param[6] = """Longitude/Y of goal"""
+enums["MAV_CMD"][82].label[6] = """Longitude/Y"""
 enums["MAV_CMD"][82].param[7] = """Altitude/Z of goal"""
+enums["MAV_CMD"][82].label[7] = """Altitude/Z"""
 MAV_CMD_NAV_VTOL_TAKEOFF = 84
 enums["MAV_CMD"][84] = EnumEntry("MAV_CMD_NAV_VTOL_TAKEOFF", """Takeoff from ground using VTOL mode, and transition to forward flight with specified heading. The command should be ignored by vehicles that dont support both VTOL and fixed-wing flight (multicopters, boats,etc.).""")
 enums["MAV_CMD"][84].has_location = True
 enums["MAV_CMD"][84].param[1] = """Empty"""
 enums["MAV_CMD"][84].param[2] = """Front transition heading."""
+enums["MAV_CMD"][84].label[2] = """Transition Heading"""
 enums["MAV_CMD"][84].param[3] = """Empty"""
 enums["MAV_CMD"][84].param[4] = """Yaw angle. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
+enums["MAV_CMD"][84].label[4] = """Yaw Angle"""
 enums["MAV_CMD"][84].param[5] = """Latitude"""
+enums["MAV_CMD"][84].label[5] = """Latitude"""
 enums["MAV_CMD"][84].param[6] = """Longitude"""
+enums["MAV_CMD"][84].label[6] = """Longitude"""
 enums["MAV_CMD"][84].param[7] = """Altitude"""
+enums["MAV_CMD"][84].label[7] = """Altitude"""
 MAV_CMD_NAV_VTOL_LAND = 85
 enums["MAV_CMD"][85] = EnumEntry("MAV_CMD_NAV_VTOL_LAND", """Land using VTOL mode""")
 enums["MAV_CMD"][85].has_location = True
-enums["MAV_CMD"][85].param[1] = """See NAV_VTOL_LAND_OPTIONS enum"""
+enums["MAV_CMD"][85].param[1] = """Landing behaviour."""
+enums["MAV_CMD"][85].label[1] = """Land Options"""
 enums["MAV_CMD"][85].param[2] = """Empty"""
 enums["MAV_CMD"][85].param[3] = """Approach altitude (with the same reference as the Altitude field). NaN if unspecified."""
+enums["MAV_CMD"][85].label[3] = """Approach Altitude"""
 enums["MAV_CMD"][85].param[4] = """Yaw angle. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.)."""
+enums["MAV_CMD"][85].label[4] = """Yaw"""
 enums["MAV_CMD"][85].param[5] = """Latitude"""
+enums["MAV_CMD"][85].label[5] = """Latitude"""
 enums["MAV_CMD"][85].param[6] = """Longitude"""
+enums["MAV_CMD"][85].label[6] = """Longitude"""
 enums["MAV_CMD"][85].param[7] = """Altitude (ground level)"""
+enums["MAV_CMD"][85].label[7] = """Ground Altitude"""
 MAV_CMD_NAV_GUIDED_ENABLE = 92
 enums["MAV_CMD"][92] = EnumEntry("MAV_CMD_NAV_GUIDED_ENABLE", """Hand control over to an external controller""")
 enums["MAV_CMD"][92].param[1] = """Guided mode on (MAV_BOOL_FALSE: Off). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][92].label[1] = """Enable"""
 enums["MAV_CMD"][92].param[2] = """Empty"""
 enums["MAV_CMD"][92].param[3] = """Empty"""
 enums["MAV_CMD"][92].param[4] = """Empty"""
@@ -705,9 +768,13 @@ enums["MAV_CMD"][92].param[7] = """Empty"""
 MAV_CMD_NAV_DELAY = 93
 enums["MAV_CMD"][93] = EnumEntry("MAV_CMD_NAV_DELAY", """Delay the next navigation command a number of seconds or until a specified time""")
 enums["MAV_CMD"][93].param[1] = """Delay (-1 to enable time-of-day fields)"""
+enums["MAV_CMD"][93].label[1] = """Delay"""
 enums["MAV_CMD"][93].param[2] = """hour (24h format, UTC, -1 to ignore)"""
+enums["MAV_CMD"][93].label[2] = """Hour"""
 enums["MAV_CMD"][93].param[3] = """minute (24h format, UTC, -1 to ignore)"""
+enums["MAV_CMD"][93].label[3] = """Minute"""
 enums["MAV_CMD"][93].param[4] = """second (24h format, UTC, -1 to ignore)"""
+enums["MAV_CMD"][93].label[4] = """Second"""
 enums["MAV_CMD"][93].param[5] = """Empty"""
 enums["MAV_CMD"][93].param[6] = """Empty"""
 enums["MAV_CMD"][93].param[7] = """Empty"""
@@ -715,12 +782,16 @@ MAV_CMD_NAV_PAYLOAD_PLACE = 94
 enums["MAV_CMD"][94] = EnumEntry("MAV_CMD_NAV_PAYLOAD_PLACE", """Descend and place payload. Vehicle moves to specified location, descends until it detects a hanging payload has reached the ground, and then releases the payload. If ground is not detected before the reaching the maximum descent value (param1), the command will complete without releasing the payload.""")
 enums["MAV_CMD"][94].has_location = True
 enums["MAV_CMD"][94].param[1] = """Maximum distance to descend."""
+enums["MAV_CMD"][94].label[1] = """Max Descent"""
 enums["MAV_CMD"][94].param[2] = """Empty"""
 enums["MAV_CMD"][94].param[3] = """Empty"""
 enums["MAV_CMD"][94].param[4] = """Empty"""
 enums["MAV_CMD"][94].param[5] = """Latitude"""
+enums["MAV_CMD"][94].label[5] = """Latitude"""
 enums["MAV_CMD"][94].param[6] = """Longitude"""
+enums["MAV_CMD"][94].label[6] = """Longitude"""
 enums["MAV_CMD"][94].param[7] = """Altitude"""
+enums["MAV_CMD"][94].label[7] = """Altitude"""
 MAV_CMD_NAV_LAST = 95
 enums["MAV_CMD"][95] = EnumEntry("MAV_CMD_NAV_LAST", """NOP - This command is only used to mark the upper limit of the NAV/ACTION commands in the enumeration""")
 enums["MAV_CMD"][95].param[1] = """Empty"""
@@ -733,6 +804,7 @@ enums["MAV_CMD"][95].param[7] = """Empty"""
 MAV_CMD_CONDITION_DELAY = 112
 enums["MAV_CMD"][112] = EnumEntry("MAV_CMD_CONDITION_DELAY", """Delay mission state machine.""")
 enums["MAV_CMD"][112].param[1] = """Delay"""
+enums["MAV_CMD"][112].label[1] = """Delay"""
 enums["MAV_CMD"][112].param[2] = """Empty"""
 enums["MAV_CMD"][112].param[3] = """Empty"""
 enums["MAV_CMD"][112].param[4] = """Empty"""
@@ -742,15 +814,18 @@ enums["MAV_CMD"][112].param[7] = """Empty"""
 MAV_CMD_CONDITION_CHANGE_ALT = 113
 enums["MAV_CMD"][113] = EnumEntry("MAV_CMD_CONDITION_CHANGE_ALT", """Ascend/descend to target altitude at specified rate. Delay mission state machine until desired altitude reached.""")
 enums["MAV_CMD"][113].param[1] = """Descent / Ascend rate."""
+enums["MAV_CMD"][113].label[1] = """Rate"""
 enums["MAV_CMD"][113].param[2] = """Empty"""
 enums["MAV_CMD"][113].param[3] = """Empty"""
 enums["MAV_CMD"][113].param[4] = """Empty"""
 enums["MAV_CMD"][113].param[5] = """Empty"""
 enums["MAV_CMD"][113].param[6] = """Empty"""
 enums["MAV_CMD"][113].param[7] = """Target Altitude"""
+enums["MAV_CMD"][113].label[7] = """Altitude"""
 MAV_CMD_CONDITION_DISTANCE = 114
 enums["MAV_CMD"][114] = EnumEntry("MAV_CMD_CONDITION_DISTANCE", """Delay mission state machine until within desired distance of next NAV point.""")
 enums["MAV_CMD"][114].param[1] = """Distance."""
+enums["MAV_CMD"][114].label[1] = """Distance"""
 enums["MAV_CMD"][114].param[2] = """Empty"""
 enums["MAV_CMD"][114].param[3] = """Empty"""
 enums["MAV_CMD"][114].param[4] = """Empty"""
@@ -760,9 +835,13 @@ enums["MAV_CMD"][114].param[7] = """Empty"""
 MAV_CMD_CONDITION_YAW = 115
 enums["MAV_CMD"][115] = EnumEntry("MAV_CMD_CONDITION_YAW", """Reach a certain target angle.""")
 enums["MAV_CMD"][115].param[1] = """target angle [0-360]. Absolute angles: 0 is north. Relative angle: 0 is initial yaw. Direction set by param3."""
+enums["MAV_CMD"][115].label[1] = """Angle"""
 enums["MAV_CMD"][115].param[2] = """angular speed"""
+enums["MAV_CMD"][115].label[2] = """Angular Speed"""
 enums["MAV_CMD"][115].param[3] = """direction: -1: counter clockwise, 0: shortest direction, 1: clockwise"""
+enums["MAV_CMD"][115].label[3] = """Direction"""
 enums["MAV_CMD"][115].param[4] = """Relative offset (MAV_BOOL_FALSE: absolute angle). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][115].label[4] = """Relative"""
 enums["MAV_CMD"][115].param[5] = """Empty"""
 enums["MAV_CMD"][115].param[6] = """Empty"""
 enums["MAV_CMD"][115].param[7] = """Empty"""
@@ -777,9 +856,12 @@ enums["MAV_CMD"][159].param[6] = """Empty"""
 enums["MAV_CMD"][159].param[7] = """Empty"""
 MAV_CMD_DO_SET_MODE = 176
 enums["MAV_CMD"][176] = EnumEntry("MAV_CMD_DO_SET_MODE", """Set system mode.""")
-enums["MAV_CMD"][176].param[1] = """Mode"""
-enums["MAV_CMD"][176].param[2] = """Custom mode - this is system specific, please refer to the individual autopilot specifications for details."""
+enums["MAV_CMD"][176].param[1] = """Mode flags. MAV_MODE values can be used to set some mode flag combinations."""
+enums["MAV_CMD"][176].label[1] = """Mode"""
+enums["MAV_CMD"][176].param[2] = """Custom system-specific mode (see target autopilot specifications for mode information). If MAV_MODE_FLAG_CUSTOM_MODE_ENABLED is set in param1 (mode) this mode is used: otherwise the field is ignored."""
+enums["MAV_CMD"][176].label[2] = """Custom Mode"""
 enums["MAV_CMD"][176].param[3] = """Custom sub mode - this is system specific, please refer to the individual autopilot specifications for details."""
+enums["MAV_CMD"][176].label[3] = """Custom Submode"""
 enums["MAV_CMD"][176].param[4] = """Empty"""
 enums["MAV_CMD"][176].param[5] = """Empty"""
 enums["MAV_CMD"][176].param[6] = """Empty"""
@@ -787,7 +869,9 @@ enums["MAV_CMD"][176].param[7] = """Empty"""
 MAV_CMD_DO_JUMP = 177
 enums["MAV_CMD"][177] = EnumEntry("MAV_CMD_DO_JUMP", """Jump to the desired command in the mission list.  Repeat this action only the specified number of times""")
 enums["MAV_CMD"][177].param[1] = """Sequence number"""
+enums["MAV_CMD"][177].label[1] = """Number"""
 enums["MAV_CMD"][177].param[2] = """Repeat count"""
+enums["MAV_CMD"][177].label[2] = """Repeat"""
 enums["MAV_CMD"][177].param[3] = """Empty"""
 enums["MAV_CMD"][177].param[4] = """Empty"""
 enums["MAV_CMD"][177].param[5] = """Empty"""
@@ -796,35 +880,54 @@ enums["MAV_CMD"][177].param[7] = """Empty"""
 MAV_CMD_DO_CHANGE_SPEED = 178
 enums["MAV_CMD"][178] = EnumEntry("MAV_CMD_DO_CHANGE_SPEED", """Change speed and/or throttle set points. The value persists until it is overridden or there is a mode change""")
 enums["MAV_CMD"][178].param[1] = """Speed type of value set in param2 (such as airspeed, ground speed, and so on)"""
+enums["MAV_CMD"][178].label[1] = """Speed Type"""
 enums["MAV_CMD"][178].param[2] = """Speed (-1 indicates no change, -2 indicates return to default vehicle speed)"""
+enums["MAV_CMD"][178].label[2] = """Speed"""
 enums["MAV_CMD"][178].param[3] = """Throttle (-1 indicates no change, -2 indicates return to default vehicle throttle value)"""
-enums["MAV_CMD"][178].param[4] = """0: absolute, 1: relative"""
-enums["MAV_CMD"][178].param[5] = """Empty"""
-enums["MAV_CMD"][178].param[6] = """Empty"""
-enums["MAV_CMD"][178].param[7] = """Empty"""
+enums["MAV_CMD"][178].label[3] = """Throttle"""
+enums["MAV_CMD"][178].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][178].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][178].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][178].param[7] = """Reserved (default:0)"""
 MAV_CMD_DO_SET_HOME = 179
-enums["MAV_CMD"][179] = EnumEntry("MAV_CMD_DO_SET_HOME", """Changes the home location either to the current location or a specified location.""")
+enums["MAV_CMD"][179] = EnumEntry(
+    "MAV_CMD_DO_SET_HOME",
+    """
+          Sets the home position to either to the current position or a specified position.
+          The home position is the default position that the system will return to and land on.
+          The position is set automatically by the system during the takeoff (and may also be set using this command).
+          Note: the current home position may be emitted in a HOME_POSITION message on request (using MAV_CMD_REQUEST_MESSAGE with param1=242).
+        """,
+)
 enums["MAV_CMD"][179].has_location = True
 enums["MAV_CMD"][179].param[1] = """Use current location (MAV_BOOL_FALSE: use specified location). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][179].label[1] = """Use Current"""
 enums["MAV_CMD"][179].param[2] = """Empty"""
 enums["MAV_CMD"][179].param[3] = """Empty"""
 enums["MAV_CMD"][179].param[4] = """Empty"""
 enums["MAV_CMD"][179].param[5] = """Latitude"""
+enums["MAV_CMD"][179].label[5] = """Latitude"""
 enums["MAV_CMD"][179].param[6] = """Longitude"""
+enums["MAV_CMD"][179].label[6] = """Longitude"""
 enums["MAV_CMD"][179].param[7] = """Altitude"""
+enums["MAV_CMD"][179].label[7] = """Altitude"""
 MAV_CMD_DO_SET_PARAMETER = 180
 enums["MAV_CMD"][180] = EnumEntry("MAV_CMD_DO_SET_PARAMETER", """Set a system parameter.  Caution!  Use of this command requires knowledge of the numeric enumeration value of the parameter.""")
 enums["MAV_CMD"][180].param[1] = """Parameter number"""
+enums["MAV_CMD"][180].label[1] = """Number"""
 enums["MAV_CMD"][180].param[2] = """Parameter value"""
+enums["MAV_CMD"][180].label[2] = """Value"""
 enums["MAV_CMD"][180].param[3] = """Empty"""
 enums["MAV_CMD"][180].param[4] = """Empty"""
 enums["MAV_CMD"][180].param[5] = """Empty"""
 enums["MAV_CMD"][180].param[6] = """Empty"""
 enums["MAV_CMD"][180].param[7] = """Empty"""
 MAV_CMD_DO_SET_RELAY = 181
-enums["MAV_CMD"][181] = EnumEntry("MAV_CMD_DO_SET_RELAY", """Set a relay to a condition.""")
+enums["MAV_CMD"][181] = EnumEntry("MAV_CMD_DO_SET_RELAY", """Set a relay to a condition. The current value may optionally be reported using RELAY_STATUS.""")
 enums["MAV_CMD"][181].param[1] = """Relay instance number."""
+enums["MAV_CMD"][181].label[1] = """Instance"""
 enums["MAV_CMD"][181].param[2] = """Setting. (1=on, 0=off, others possible depending on system hardware)"""
+enums["MAV_CMD"][181].label[2] = """Setting"""
 enums["MAV_CMD"][181].param[3] = """Empty"""
 enums["MAV_CMD"][181].param[4] = """Empty"""
 enums["MAV_CMD"][181].param[5] = """Empty"""
@@ -833,8 +936,11 @@ enums["MAV_CMD"][181].param[7] = """Empty"""
 MAV_CMD_DO_REPEAT_RELAY = 182
 enums["MAV_CMD"][182] = EnumEntry("MAV_CMD_DO_REPEAT_RELAY", """Cycle a relay on and off for a desired number of cycles with a desired period.""")
 enums["MAV_CMD"][182].param[1] = """Relay instance number."""
+enums["MAV_CMD"][182].label[1] = """Instance"""
 enums["MAV_CMD"][182].param[2] = """Cycle count."""
+enums["MAV_CMD"][182].label[2] = """Count"""
 enums["MAV_CMD"][182].param[3] = """Cycle time."""
+enums["MAV_CMD"][182].label[3] = """Time"""
 enums["MAV_CMD"][182].param[4] = """Empty"""
 enums["MAV_CMD"][182].param[5] = """Empty"""
 enums["MAV_CMD"][182].param[6] = """Empty"""
@@ -842,7 +948,9 @@ enums["MAV_CMD"][182].param[7] = """Empty"""
 MAV_CMD_DO_SET_SERVO = 183
 enums["MAV_CMD"][183] = EnumEntry("MAV_CMD_DO_SET_SERVO", """Set a servo to a desired PWM value.""")
 enums["MAV_CMD"][183].param[1] = """Servo instance number."""
+enums["MAV_CMD"][183].label[1] = """Instance"""
 enums["MAV_CMD"][183].param[2] = """Pulse Width Modulation."""
+enums["MAV_CMD"][183].label[2] = """PWM"""
 enums["MAV_CMD"][183].param[3] = """Empty"""
 enums["MAV_CMD"][183].param[4] = """Empty"""
 enums["MAV_CMD"][183].param[5] = """Empty"""
@@ -851,15 +959,20 @@ enums["MAV_CMD"][183].param[7] = """Empty"""
 MAV_CMD_DO_REPEAT_SERVO = 184
 enums["MAV_CMD"][184] = EnumEntry("MAV_CMD_DO_REPEAT_SERVO", """Cycle a between its nominal setting and a desired PWM for a desired number of cycles with a desired period.""")
 enums["MAV_CMD"][184].param[1] = """Servo instance number."""
+enums["MAV_CMD"][184].label[1] = """Instance"""
 enums["MAV_CMD"][184].param[2] = """Pulse Width Modulation."""
+enums["MAV_CMD"][184].label[2] = """PWM"""
 enums["MAV_CMD"][184].param[3] = """Cycle count."""
+enums["MAV_CMD"][184].label[3] = """Count"""
 enums["MAV_CMD"][184].param[4] = """Cycle time."""
+enums["MAV_CMD"][184].label[4] = """Time"""
 enums["MAV_CMD"][184].param[5] = """Empty"""
 enums["MAV_CMD"][184].param[6] = """Empty"""
 enums["MAV_CMD"][184].param[7] = """Empty"""
 MAV_CMD_DO_FLIGHTTERMINATION = 185
 enums["MAV_CMD"][185] = EnumEntry("MAV_CMD_DO_FLIGHTTERMINATION", """Terminate flight immediately""")
 enums["MAV_CMD"][185].param[1] = """Flight termination activated if > 0.5"""
+enums["MAV_CMD"][185].label[1] = """Terminate"""
 enums["MAV_CMD"][185].param[2] = """Empty"""
 enums["MAV_CMD"][185].param[3] = """Empty"""
 enums["MAV_CMD"][185].param[4] = """Empty"""
@@ -869,12 +982,38 @@ enums["MAV_CMD"][185].param[7] = """Empty"""
 MAV_CMD_DO_CHANGE_ALTITUDE = 186
 enums["MAV_CMD"][186] = EnumEntry("MAV_CMD_DO_CHANGE_ALTITUDE", """Change altitude set point.""")
 enums["MAV_CMD"][186].param[1] = """Altitude."""
+enums["MAV_CMD"][186].label[1] = """Altitude"""
 enums["MAV_CMD"][186].param[2] = """Frame of new altitude."""
+enums["MAV_CMD"][186].label[2] = """Frame"""
 enums["MAV_CMD"][186].param[3] = """Empty"""
 enums["MAV_CMD"][186].param[4] = """Empty"""
 enums["MAV_CMD"][186].param[5] = """Empty"""
 enums["MAV_CMD"][186].param[6] = """Empty"""
 enums["MAV_CMD"][186].param[7] = """Empty"""
+MAV_CMD_DO_SET_ACTUATOR = 187
+enums["MAV_CMD"][187] = EnumEntry("MAV_CMD_DO_SET_ACTUATOR", """Sets actuators (e.g. servos) to a desired value. The actuator numbers are mapped to specific outputs (e.g. on any MAIN or AUX PWM or UAVCAN) using a flight-stack specific mechanism (i.e. a parameter).""")
+enums["MAV_CMD"][187].param[1] = """Actuator 1 value, scaled from [-1 to 1]. NaN to ignore."""
+enums["MAV_CMD"][187].label[1] = """Actuator 1"""
+enums["MAV_CMD"][187].param[2] = """Actuator 2 value, scaled from [-1 to 1]. NaN to ignore."""
+enums["MAV_CMD"][187].label[2] = """Actuator 2"""
+enums["MAV_CMD"][187].param[3] = """Actuator 3 value, scaled from [-1 to 1]. NaN to ignore."""
+enums["MAV_CMD"][187].label[3] = """Actuator 3"""
+enums["MAV_CMD"][187].param[4] = """Actuator 4 value, scaled from [-1 to 1]. NaN to ignore."""
+enums["MAV_CMD"][187].label[4] = """Actuator 4"""
+enums["MAV_CMD"][187].param[
+    5
+] = """Actuator 5 value.
+          If sent in COMMAND_LONG: value is scaled from [-1 to 1]. NaN to ignore.
+          If sent in COMMAND_INT or MISSION_ITEM_INT: value is scaled by 1e7. INT32_MAX to ignore."""
+enums["MAV_CMD"][187].label[5] = """Actuator 5"""
+enums["MAV_CMD"][187].param[
+    6
+] = """Actuator 6 value.
+          If sent in COMMAND_LONG: value is scaled from [-1 to 1]. NaN to ignore.
+          If sent in COMMAND_INT or MISSION_ITEM_INT: value is scaled by 1e7. INT32_MAX to ignore."""
+enums["MAV_CMD"][187].label[6] = """Actuator 6"""
+enums["MAV_CMD"][187].param[7] = """Index of actuator set (i.e if set to 1, Actuator 1 becomes Actuator 7)"""
+enums["MAV_CMD"][187].label[7] = """Index"""
 MAV_CMD_DO_RETURN_PATH_START = 188
 enums["MAV_CMD"][188] = EnumEntry(
     "MAV_CMD_DO_RETURN_PATH_START",
@@ -895,14 +1034,23 @@ enums["MAV_CMD"][188].param[2] = """Empty"""
 enums["MAV_CMD"][188].param[3] = """Empty"""
 enums["MAV_CMD"][188].param[4] = """Empty"""
 enums["MAV_CMD"][188].param[5] = """Latitudee. 0: not used."""
+enums["MAV_CMD"][188].label[5] = """Latitude"""
 enums["MAV_CMD"][188].param[6] = """Longitudee. 0: not used."""
+enums["MAV_CMD"][188].label[6] = """Longitude"""
 enums["MAV_CMD"][188].param[7] = """Altitudee. 0: not used."""
+enums["MAV_CMD"][188].label[7] = """Altitude"""
 MAV_CMD_DO_LAND_START = 189
 enums["MAV_CMD"][189] = EnumEntry(
     "MAV_CMD_DO_LAND_START",
-    """Mission command to perform a landing. This is used as a marker in a mission to tell the autopilot where a sequence of mission items that represents a landing starts.
-      It may also be sent via a COMMAND_LONG to trigger a landing, in which case the nearest (geographically) landing sequence in the mission will be used.
-      The Latitude/Longitude/Altitude is optional, and may be set to 0 if not needed. If specified then it will be used to help find the closest landing sequence.
+    """Mission item to mark the start of a mission landing pattern, or a command to land with a mission landing pattern.
+
+        When used in a mission, this is a marker for the start of a sequence of mission items that represent a landing pattern.
+        It should be followed by a navigation item that defines the first waypoint of the landing sequence.
+        The start marker positional params are used only for selecting what landing pattern to use if several are defined in the mission (the selected pattern will be the one with the marker position that is closest to the vehicle when a landing is commanded).
+        If the marker item position has zero-values for latitude, longitude, and altitude, then landing pattern selection is instead based on the position of the first waypoint in the landing sequence.
+
+          When sent as a command it triggers a landing using a mission landing pattern.
+          The location parameters are not used in this case, and should be set to 0.
     """,
 )
 enums["MAV_CMD"][189].has_location = True
@@ -910,13 +1058,18 @@ enums["MAV_CMD"][189].param[1] = """Empty"""
 enums["MAV_CMD"][189].param[2] = """Empty"""
 enums["MAV_CMD"][189].param[3] = """Empty"""
 enums["MAV_CMD"][189].param[4] = """Empty"""
-enums["MAV_CMD"][189].param[5] = """Latitude"""
-enums["MAV_CMD"][189].param[6] = """Longitude"""
-enums["MAV_CMD"][189].param[7] = """Altitude"""
+enums["MAV_CMD"][189].param[5] = """Latitude for landing sequence selection, or 0 (see description). Ignored in commands (set 0)."""
+enums["MAV_CMD"][189].label[5] = """Latitude"""
+enums["MAV_CMD"][189].param[6] = """Longitude for landing sequence selection, or 0 (see description). Ignored in commands (set 0)."""
+enums["MAV_CMD"][189].label[6] = """Longitude"""
+enums["MAV_CMD"][189].param[7] = """Altitude for landing sequence selection, or 0 (see description). Ignored in commands (set 0)."""
+enums["MAV_CMD"][189].label[7] = """Altitude"""
 MAV_CMD_DO_RALLY_LAND = 190
 enums["MAV_CMD"][190] = EnumEntry("MAV_CMD_DO_RALLY_LAND", """Mission command to perform a landing from a rally point.""")
 enums["MAV_CMD"][190].param[1] = """Break altitude"""
+enums["MAV_CMD"][190].label[1] = """Altitude"""
 enums["MAV_CMD"][190].param[2] = """Landing speed"""
+enums["MAV_CMD"][190].label[2] = """Speed"""
 enums["MAV_CMD"][190].param[3] = """Empty"""
 enums["MAV_CMD"][190].param[4] = """Empty"""
 enums["MAV_CMD"][190].param[5] = """Empty"""
@@ -925,6 +1078,7 @@ enums["MAV_CMD"][190].param[7] = """Empty"""
 MAV_CMD_DO_GO_AROUND = 191
 enums["MAV_CMD"][191] = EnumEntry("MAV_CMD_DO_GO_AROUND", """Mission command to safely abort an autonomous landing.""")
 enums["MAV_CMD"][191].param[1] = """Altitude"""
+enums["MAV_CMD"][191].label[1] = """Altitude"""
 enums["MAV_CMD"][191].param[2] = """Empty"""
 enums["MAV_CMD"][191].param[3] = """Empty"""
 enums["MAV_CMD"][191].param[4] = """Empty"""
@@ -935,15 +1089,23 @@ MAV_CMD_DO_REPOSITION = 192
 enums["MAV_CMD"][192] = EnumEntry("MAV_CMD_DO_REPOSITION", """Reposition the vehicle to a specific WGS84 global position. This command is intended for guided commands (for missions use MAV_CMD_NAV_WAYPOINT instead).""")
 enums["MAV_CMD"][192].has_location = True
 enums["MAV_CMD"][192].param[1] = """Ground speed, less than 0 (-1) for default"""
+enums["MAV_CMD"][192].label[1] = """Speed"""
 enums["MAV_CMD"][192].param[2] = """Bitmask of option flags."""
+enums["MAV_CMD"][192].label[2] = """Bitmask"""
 enums["MAV_CMD"][192].param[3] = """Loiter radius for planes. Positive values only, direction is controlled by Yaw value. A value of zero or NaN is ignored. """
-enums["MAV_CMD"][192].param[4] = """Yaw heading. NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.). For planes indicates loiter direction (0: clockwise, 1: counter clockwise)"""
+enums["MAV_CMD"][192].label[3] = """Radius"""
+enums["MAV_CMD"][192].param[4] = """Yaw heading (heading reference defined in Bitmask field). NaN to use the current system yaw heading mode (e.g. yaw towards next waypoint, yaw to home, etc.). For planes indicates loiter direction (0: clockwise, 1: counter clockwise)"""
+enums["MAV_CMD"][192].label[4] = """Yaw"""
 enums["MAV_CMD"][192].param[5] = """Latitude"""
+enums["MAV_CMD"][192].label[5] = """Latitude"""
 enums["MAV_CMD"][192].param[6] = """Longitude"""
+enums["MAV_CMD"][192].label[6] = """Longitude"""
 enums["MAV_CMD"][192].param[7] = """Altitude"""
+enums["MAV_CMD"][192].label[7] = """Altitude"""
 MAV_CMD_DO_PAUSE_CONTINUE = 193
 enums["MAV_CMD"][193] = EnumEntry("MAV_CMD_DO_PAUSE_CONTINUE", """If in a GPS controlled position mode, hold the current position or continue.""")
 enums["MAV_CMD"][193].param[1] = """Continue mission (MAV_BOOL_TRUE), Pause current mission or reposition command, hold current position (MAV_BOOL_FALSE). Values not equal to 0 or 1 are invalid. A VTOL capable vehicle should enter hover mode (multicopter and VTOL planes). A plane should loiter with the default loiter radius."""
+enums["MAV_CMD"][193].label[1] = """Continue"""
 enums["MAV_CMD"][193].param[2] = """Reserved"""
 enums["MAV_CMD"][193].param[3] = """Reserved"""
 enums["MAV_CMD"][193].param[4] = """Reserved"""
@@ -953,6 +1115,7 @@ enums["MAV_CMD"][193].param[7] = """Reserved"""
 MAV_CMD_DO_SET_REVERSE = 194
 enums["MAV_CMD"][194] = EnumEntry("MAV_CMD_DO_SET_REVERSE", """Set moving direction to forward or reverse.""")
 enums["MAV_CMD"][194].param[1] = """Reverse direction (MAV_BOOL_FALSE: Forward direction). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][194].label[1] = """Reverse"""
 enums["MAV_CMD"][194].param[2] = """Empty"""
 enums["MAV_CMD"][194].param[3] = """Empty"""
 enums["MAV_CMD"][194].param[4] = """Empty"""
@@ -962,25 +1125,34 @@ enums["MAV_CMD"][194].param[7] = """Empty"""
 MAV_CMD_DO_SET_ROI_LOCATION = 195
 enums["MAV_CMD"][195] = EnumEntry("MAV_CMD_DO_SET_ROI_LOCATION", """Sets the region of interest (ROI) to a location. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.""")
 enums["MAV_CMD"][195].has_location = True
-enums["MAV_CMD"][195].param[1] = """Empty"""
+enums["MAV_CMD"][195].param[1] = """Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals)."""
+enums["MAV_CMD"][195].label[1] = """Gimbal device ID"""
 enums["MAV_CMD"][195].param[2] = """Empty"""
 enums["MAV_CMD"][195].param[3] = """Empty"""
 enums["MAV_CMD"][195].param[4] = """Empty"""
 enums["MAV_CMD"][195].param[5] = """Latitude of ROI location"""
+enums["MAV_CMD"][195].label[5] = """Latitude"""
 enums["MAV_CMD"][195].param[6] = """Longitude of ROI location"""
+enums["MAV_CMD"][195].label[6] = """Longitude"""
 enums["MAV_CMD"][195].param[7] = """Altitude of ROI location"""
+enums["MAV_CMD"][195].label[7] = """Altitude"""
 MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET = 196
 enums["MAV_CMD"][196] = EnumEntry("MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET", """Sets the region of interest (ROI) to be toward next waypoint, with optional pitch/roll/yaw offset. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.""")
-enums["MAV_CMD"][196].param[1] = """Empty"""
+enums["MAV_CMD"][196].param[1] = """Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals)."""
+enums["MAV_CMD"][196].label[1] = """Gimbal device ID"""
 enums["MAV_CMD"][196].param[2] = """Empty"""
 enums["MAV_CMD"][196].param[3] = """Empty"""
 enums["MAV_CMD"][196].param[4] = """Empty"""
 enums["MAV_CMD"][196].param[5] = """Pitch offset from next waypoint, positive pitching up"""
+enums["MAV_CMD"][196].label[5] = """Pitch Offset"""
 enums["MAV_CMD"][196].param[6] = """Roll offset from next waypoint, positive rolling to the right"""
+enums["MAV_CMD"][196].label[6] = """Roll Offset"""
 enums["MAV_CMD"][196].param[7] = """Yaw offset from next waypoint, positive yawing to the right"""
+enums["MAV_CMD"][196].label[7] = """Yaw Offset"""
 MAV_CMD_DO_SET_ROI_NONE = 197
 enums["MAV_CMD"][197] = EnumEntry("MAV_CMD_DO_SET_ROI_NONE", """Cancels any previous ROI command returning the vehicle/sensors to default flight characteristics. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.""")
-enums["MAV_CMD"][197].param[1] = """Empty"""
+enums["MAV_CMD"][197].param[1] = """Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals)."""
+enums["MAV_CMD"][197].label[1] = """Gimbal device ID"""
 enums["MAV_CMD"][197].param[2] = """Empty"""
 enums["MAV_CMD"][197].param[3] = """Empty"""
 enums["MAV_CMD"][197].param[4] = """Empty"""
@@ -990,7 +1162,9 @@ enums["MAV_CMD"][197].param[7] = """Empty"""
 MAV_CMD_DO_SET_ROI_SYSID = 198
 enums["MAV_CMD"][198] = EnumEntry("MAV_CMD_DO_SET_ROI_SYSID", """Mount tracks system with specified system ID. Determination of target vehicle position may be done with GLOBAL_POSITION_INT or any other means.""")
 enums["MAV_CMD"][198].param[1] = """System ID"""
-enums["MAV_CMD"][198].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][198].label[1] = """System ID"""
+enums["MAV_CMD"][198].param[2] = """Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals)."""
+enums["MAV_CMD"][198].label[2] = """Gimbal device ID"""
 enums["MAV_CMD"][198].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][198].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][198].param[5] = """Reserved (default:0)"""
@@ -999,9 +1173,13 @@ enums["MAV_CMD"][198].param[7] = """Reserved (default:0)"""
 MAV_CMD_DO_CONTROL_VIDEO = 200
 enums["MAV_CMD"][200] = EnumEntry("MAV_CMD_DO_CONTROL_VIDEO", """Control onboard camera system.""")
 enums["MAV_CMD"][200].param[1] = """Camera ID (-1 for all)"""
+enums["MAV_CMD"][200].label[1] = """ID"""
 enums["MAV_CMD"][200].param[2] = """Transmission: 0: disabled, 1: enabled compressed, 2: enabled raw"""
+enums["MAV_CMD"][200].label[2] = """Transmission"""
 enums["MAV_CMD"][200].param[3] = """Transmission mode: 0: video stream, >0: single images every n seconds"""
+enums["MAV_CMD"][200].label[3] = """Interval"""
 enums["MAV_CMD"][200].param[4] = """Recording: 0: disabled, 1: enabled compressed, 2: enabled raw"""
+enums["MAV_CMD"][200].label[4] = """Recording"""
 enums["MAV_CMD"][200].param[5] = """Empty"""
 enums["MAV_CMD"][200].param[6] = """Empty"""
 enums["MAV_CMD"][200].param[7] = """Empty"""
@@ -1009,8 +1187,11 @@ MAV_CMD_DO_SET_ROI = 201
 enums["MAV_CMD"][201] = EnumEntry("MAV_CMD_DO_SET_ROI", """Sets the region of interest (ROI) for a sensor set or the vehicle itself. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.""")
 enums["MAV_CMD"][201].has_location = True
 enums["MAV_CMD"][201].param[1] = """Region of interest mode."""
+enums["MAV_CMD"][201].label[1] = """ROI Mode"""
 enums["MAV_CMD"][201].param[2] = """Waypoint index/ target ID (depends on param 1)."""
+enums["MAV_CMD"][201].label[2] = """WP Index"""
 enums["MAV_CMD"][201].param[3] = """Region of interest index. (allows a vehicle to manage multiple ROI's)"""
+enums["MAV_CMD"][201].label[3] = """ROI Index"""
 enums["MAV_CMD"][201].param[4] = """Empty"""
 enums["MAV_CMD"][201].param[5] = """x the location of the fixed ROI (see MAV_FRAME)"""
 enums["MAV_CMD"][201].param[6] = """y"""
@@ -1018,27 +1199,45 @@ enums["MAV_CMD"][201].param[7] = """z"""
 MAV_CMD_DO_DIGICAM_CONFIGURE = 202
 enums["MAV_CMD"][202] = EnumEntry("MAV_CMD_DO_DIGICAM_CONFIGURE", """Configure digital camera. This is a fallback message for systems that have not yet implemented PARAM_EXT_XXX messages and camera definition files (see https://mavlink.io/en/services/camera_def.html ).""")
 enums["MAV_CMD"][202].param[1] = """Modes: P, TV, AV, M, Etc."""
+enums["MAV_CMD"][202].label[1] = """Mode"""
 enums["MAV_CMD"][202].param[2] = """Shutter speed: Divisor number for one second."""
+enums["MAV_CMD"][202].label[2] = """Shutter Speed"""
 enums["MAV_CMD"][202].param[3] = """Aperture: F stop number."""
+enums["MAV_CMD"][202].label[3] = """Aperture"""
 enums["MAV_CMD"][202].param[4] = """ISO number e.g. 80, 100, 200, Etc."""
+enums["MAV_CMD"][202].label[4] = """ISO"""
 enums["MAV_CMD"][202].param[5] = """Exposure type enumerator."""
+enums["MAV_CMD"][202].label[5] = """Exposure"""
 enums["MAV_CMD"][202].param[6] = """Command Identity."""
+enums["MAV_CMD"][202].label[6] = """Command Identity"""
 enums["MAV_CMD"][202].param[7] = """Main engine cut-off time before camera trigger. (0 means no cut-off)"""
+enums["MAV_CMD"][202].label[7] = """Engine Cut-off"""
 MAV_CMD_DO_DIGICAM_CONTROL = 203
 enums["MAV_CMD"][203] = EnumEntry("MAV_CMD_DO_DIGICAM_CONTROL", """Control digital camera. This is a fallback message for systems that have not yet implemented PARAM_EXT_XXX messages and camera definition files (see https://mavlink.io/en/services/camera_def.html ).""")
 enums["MAV_CMD"][203].param[1] = """Session control e.g. show/hide lens"""
+enums["MAV_CMD"][203].label[1] = """Session Control"""
 enums["MAV_CMD"][203].param[2] = """Zoom's absolute position"""
+enums["MAV_CMD"][203].label[2] = """Zoom Absolute"""
 enums["MAV_CMD"][203].param[3] = """Zooming step value to offset zoom from the current position"""
+enums["MAV_CMD"][203].label[3] = """Zoom Relative"""
 enums["MAV_CMD"][203].param[4] = """Focus Locking, Unlocking or Re-locking"""
+enums["MAV_CMD"][203].label[4] = """Focus"""
 enums["MAV_CMD"][203].param[5] = """Shooting Command"""
+enums["MAV_CMD"][203].label[5] = """Shoot Command"""
 enums["MAV_CMD"][203].param[6] = """Command Identity"""
+enums["MAV_CMD"][203].label[6] = """Command Identity"""
 enums["MAV_CMD"][203].param[7] = """Test shot identifier. If set to 1, image will only be captured, but not counted towards internal frame count."""
+enums["MAV_CMD"][203].label[7] = """Shot ID"""
 MAV_CMD_DO_MOUNT_CONFIGURE = 204
 enums["MAV_CMD"][204] = EnumEntry("MAV_CMD_DO_MOUNT_CONFIGURE", """Mission command to configure a camera or antenna mount""")
 enums["MAV_CMD"][204].param[1] = """Mount operation mode"""
+enums["MAV_CMD"][204].label[1] = """Mode"""
 enums["MAV_CMD"][204].param[2] = """Stabilize roll (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][204].label[2] = """Stabilize Roll"""
 enums["MAV_CMD"][204].param[3] = """Stabilize pitch (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][204].label[3] = """Stabilize Pitch"""
 enums["MAV_CMD"][204].param[4] = """Stabilize yaw (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][204].label[4] = """Stabilize Yaw"""
 enums["MAV_CMD"][204].param[5] = """Empty"""
 enums["MAV_CMD"][204].param[6] = """Empty"""
 enums["MAV_CMD"][204].param[7] = """Empty"""
@@ -1051,12 +1250,17 @@ enums["MAV_CMD"][205].param[4] = """WIP: alt in meters depending on mount mode."
 enums["MAV_CMD"][205].param[5] = """WIP: latitude in degrees * 1E7, set if appropriate mount mode."""
 enums["MAV_CMD"][205].param[6] = """WIP: longitude in degrees * 1E7, set if appropriate mount mode."""
 enums["MAV_CMD"][205].param[7] = """Mount mode."""
+enums["MAV_CMD"][205].label[7] = """Mode"""
 MAV_CMD_DO_SET_CAM_TRIGG_DIST = 206
 enums["MAV_CMD"][206] = EnumEntry("MAV_CMD_DO_SET_CAM_TRIGG_DIST", """Mission command to set camera trigger distance for this flight. The camera is triggered each time this distance is exceeded. This command can also be used to set the shutter integration time for the camera.""")
 enums["MAV_CMD"][206].param[1] = """Camera trigger distance. 0 to stop triggering."""
+enums["MAV_CMD"][206].label[1] = """Distance"""
 enums["MAV_CMD"][206].param[2] = """Camera shutter integration time. -1 or 0 to ignore"""
+enums["MAV_CMD"][206].label[2] = """Shutter"""
 enums["MAV_CMD"][206].param[3] = """Trigger camera once, immediately (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
-enums["MAV_CMD"][206].param[4] = """Empty"""
+enums["MAV_CMD"][206].label[3] = """Trigger"""
+enums["MAV_CMD"][206].param[4] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][206].label[4] = """Target Camera ID"""
 enums["MAV_CMD"][206].param[5] = """Empty"""
 enums["MAV_CMD"][206].param[6] = """Empty"""
 enums["MAV_CMD"][206].param[7] = """Empty"""
@@ -1072,7 +1276,9 @@ enums["MAV_CMD"][207] = EnumEntry(
     """,
 )
 enums["MAV_CMD"][207].param[1] = """enable? (0=disable, 1=enable, 2=disable_floor_only)"""
+enums["MAV_CMD"][207].label[1] = """Enable"""
 enums["MAV_CMD"][207].param[2] = """Fence types to enable or disable as a bitmask. 0: all fences should be enabled or disabled (parameter is ignored, for compatibility reasons).Parameter is ignored if param1=2"""
+enums["MAV_CMD"][207].label[2] = """Types"""
 enums["MAV_CMD"][207].param[3] = """Empty"""
 enums["MAV_CMD"][207].param[4] = """Empty"""
 enums["MAV_CMD"][207].param[5] = """Empty"""
@@ -1081,6 +1287,7 @@ enums["MAV_CMD"][207].param[7] = """Empty"""
 MAV_CMD_DO_PARACHUTE = 208
 enums["MAV_CMD"][208] = EnumEntry("MAV_CMD_DO_PARACHUTE", """Mission item/command to release a parachute or enable/disable auto release.""")
 enums["MAV_CMD"][208].param[1] = """Action"""
+enums["MAV_CMD"][208].label[1] = """Action"""
 enums["MAV_CMD"][208].param[2] = """Empty"""
 enums["MAV_CMD"][208].param[3] = """Empty"""
 enums["MAV_CMD"][208].param[4] = """Empty"""
@@ -1088,17 +1295,24 @@ enums["MAV_CMD"][208].param[5] = """Empty"""
 enums["MAV_CMD"][208].param[6] = """Empty"""
 enums["MAV_CMD"][208].param[7] = """Empty"""
 MAV_CMD_DO_MOTOR_TEST = 209
-enums["MAV_CMD"][209] = EnumEntry("MAV_CMD_DO_MOTOR_TEST", """Mission command to perform motor test.""")
-enums["MAV_CMD"][209].param[1] = """Motor instance number. (from 1 to max number of motors on the vehicle)"""
-enums["MAV_CMD"][209].param[2] = """Throttle type."""
-enums["MAV_CMD"][209].param[3] = """Throttle."""
-enums["MAV_CMD"][209].param[4] = """Timeout."""
-enums["MAV_CMD"][209].param[5] = """Motor count. (number of motors to test to test in sequence, waiting for the timeout above between them; 0=1 motor, 1=1 motor, 2=2 motors...)"""
+enums["MAV_CMD"][209] = EnumEntry("MAV_CMD_DO_MOTOR_TEST", """Command to perform motor test.""")
+enums["MAV_CMD"][209].param[1] = """Motor instance number (from 1 to max number of motors on the vehicle)."""
+enums["MAV_CMD"][209].label[1] = """Instance"""
+enums["MAV_CMD"][209].param[2] = """Throttle type (whether the Throttle Value in param3 is a percentage, PWM value, etc.)"""
+enums["MAV_CMD"][209].label[2] = """Throttle Type"""
+enums["MAV_CMD"][209].param[3] = """Throttle value."""
+enums["MAV_CMD"][209].label[3] = """Throttle"""
+enums["MAV_CMD"][209].param[4] = """Timeout between tests that are run in sequence."""
+enums["MAV_CMD"][209].label[4] = """Timeout"""
+enums["MAV_CMD"][209].param[5] = """Motor count. Number of motors to test in sequence: 0/1=one motor, 2= two motors, etc. The Timeout (param4) is used between tests."""
+enums["MAV_CMD"][209].label[5] = """Motor Count"""
 enums["MAV_CMD"][209].param[6] = """Motor test order."""
+enums["MAV_CMD"][209].label[6] = """Test Order"""
 enums["MAV_CMD"][209].param[7] = """Empty"""
 MAV_CMD_DO_INVERTED_FLIGHT = 210
 enums["MAV_CMD"][210] = EnumEntry("MAV_CMD_DO_INVERTED_FLIGHT", """Change to/from inverted flight.""")
 enums["MAV_CMD"][210].param[1] = """Inverted flight (MAV_BOOL_False: normal flight). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][210].label[1] = """Inverted"""
 enums["MAV_CMD"][210].param[2] = """Empty"""
 enums["MAV_CMD"][210].param[3] = """Empty"""
 enums["MAV_CMD"][210].param[4] = """Empty"""
@@ -1107,8 +1321,10 @@ enums["MAV_CMD"][210].param[6] = """Empty"""
 enums["MAV_CMD"][210].param[7] = """Empty"""
 MAV_CMD_DO_GRIPPER = 211
 enums["MAV_CMD"][211] = EnumEntry("MAV_CMD_DO_GRIPPER", """Mission command to operate a gripper.""")
-enums["MAV_CMD"][211].param[1] = """Gripper instance number."""
+enums["MAV_CMD"][211].param[1] = """Gripper ID. 1-6 for an autopilot connected gripper. In missions this may be set to 1-6 for an autopilot gripper, or the gripper component id for a MAVLink gripper. 0 targets all grippers."""
+enums["MAV_CMD"][211].label[1] = """Gripper ID"""
 enums["MAV_CMD"][211].param[2] = """Gripper action to perform."""
+enums["MAV_CMD"][211].label[2] = """Action"""
 enums["MAV_CMD"][211].param[3] = """Empty"""
 enums["MAV_CMD"][211].param[4] = """Empty"""
 enums["MAV_CMD"][211].param[5] = """Empty"""
@@ -1117,7 +1333,9 @@ enums["MAV_CMD"][211].param[7] = """Empty"""
 MAV_CMD_DO_AUTOTUNE_ENABLE = 212
 enums["MAV_CMD"][212] = EnumEntry("MAV_CMD_DO_AUTOTUNE_ENABLE", """Enable/disable autotune.""")
 enums["MAV_CMD"][212].param[1] = """Enable autotune (MAV_BOOL_FALSE: disable autotune). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][212].label[1] = """Enable"""
 enums["MAV_CMD"][212].param[2] = """Specify axes for which autotuning is enabled/disabled. 0 indicates the field is unused (for compatibility reasons). If 0 the autopilot will follow its default behaviour, which is usually to tune all axes."""
+enums["MAV_CMD"][212].label[2] = """Axis"""
 enums["MAV_CMD"][212].param[3] = """Empty."""
 enums["MAV_CMD"][212].param[4] = """Empty."""
 enums["MAV_CMD"][212].param[5] = """Empty."""
@@ -1126,8 +1344,11 @@ enums["MAV_CMD"][212].param[7] = """Empty."""
 MAV_CMD_NAV_SET_YAW_SPEED = 213
 enums["MAV_CMD"][213] = EnumEntry("MAV_CMD_NAV_SET_YAW_SPEED", """Sets a desired vehicle turn angle and speed change.""")
 enums["MAV_CMD"][213].param[1] = """Yaw angle to adjust steering by."""
+enums["MAV_CMD"][213].label[1] = """Yaw"""
 enums["MAV_CMD"][213].param[2] = """Speed."""
+enums["MAV_CMD"][213].label[2] = """Speed"""
 enums["MAV_CMD"][213].param[3] = """Relative final angle (MAV_BOOL_FALSE: Absolute angle). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][213].label[3] = """Angle"""
 enums["MAV_CMD"][213].param[4] = """Empty"""
 enums["MAV_CMD"][213].param[5] = """Empty"""
 enums["MAV_CMD"][213].param[6] = """Empty"""
@@ -1135,8 +1356,11 @@ enums["MAV_CMD"][213].param[7] = """Empty"""
 MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL = 214
 enums["MAV_CMD"][214] = EnumEntry("MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL", """Mission command to set camera trigger interval for this flight. If triggering is enabled, the camera is triggered each time this interval expires. This command can also be used to set the shutter integration time for the camera.""")
 enums["MAV_CMD"][214].param[1] = """Camera trigger cycle time. -1 or 0 to ignore."""
+enums["MAV_CMD"][214].label[1] = """Trigger Cycle"""
 enums["MAV_CMD"][214].param[2] = """Camera shutter integration time. Should be less than trigger cycle time. -1 or 0 to ignore."""
-enums["MAV_CMD"][214].param[3] = """Empty"""
+enums["MAV_CMD"][214].label[2] = """Shutter Integration"""
+enums["MAV_CMD"][214].param[3] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][214].label[3] = """Target Camera ID"""
 enums["MAV_CMD"][214].param[4] = """Empty"""
 enums["MAV_CMD"][214].param[5] = """Empty"""
 enums["MAV_CMD"][214].param[6] = """Empty"""
@@ -1144,16 +1368,22 @@ enums["MAV_CMD"][214].param[7] = """Empty"""
 MAV_CMD_DO_MOUNT_CONTROL_QUAT = 220
 enums["MAV_CMD"][220] = EnumEntry("MAV_CMD_DO_MOUNT_CONTROL_QUAT", """Mission command to control a camera or antenna mount, using a quaternion as reference.""")
 enums["MAV_CMD"][220].param[1] = """quaternion param q1, w (1 in null-rotation)"""
+enums["MAV_CMD"][220].label[1] = """Q1"""
 enums["MAV_CMD"][220].param[2] = """quaternion param q2, x (0 in null-rotation)"""
+enums["MAV_CMD"][220].label[2] = """Q2"""
 enums["MAV_CMD"][220].param[3] = """quaternion param q3, y (0 in null-rotation)"""
+enums["MAV_CMD"][220].label[3] = """Q3"""
 enums["MAV_CMD"][220].param[4] = """quaternion param q4, z (0 in null-rotation)"""
+enums["MAV_CMD"][220].label[4] = """Q4"""
 enums["MAV_CMD"][220].param[5] = """Empty"""
 enums["MAV_CMD"][220].param[6] = """Empty"""
 enums["MAV_CMD"][220].param[7] = """Empty"""
 MAV_CMD_DO_GUIDED_MASTER = 221
 enums["MAV_CMD"][221] = EnumEntry("MAV_CMD_DO_GUIDED_MASTER", """set id of master controller""")
 enums["MAV_CMD"][221].param[1] = """System ID"""
+enums["MAV_CMD"][221].label[1] = """System ID"""
 enums["MAV_CMD"][221].param[2] = """Component ID"""
+enums["MAV_CMD"][221].label[2] = """Component ID"""
 enums["MAV_CMD"][221].param[3] = """Empty"""
 enums["MAV_CMD"][221].param[4] = """Empty"""
 enums["MAV_CMD"][221].param[5] = """Empty"""
@@ -1162,25 +1392,52 @@ enums["MAV_CMD"][221].param[7] = """Empty"""
 MAV_CMD_DO_GUIDED_LIMITS = 222
 enums["MAV_CMD"][222] = EnumEntry("MAV_CMD_DO_GUIDED_LIMITS", """Set limits for external control""")
 enums["MAV_CMD"][222].param[1] = """Timeout - maximum time that external controller will be allowed to control vehicle. 0 means no timeout."""
+enums["MAV_CMD"][222].label[1] = """Timeout"""
 enums["MAV_CMD"][222].param[2] = """Altitude (MSL) min - if vehicle moves below this alt, the command will be aborted and the mission will continue. 0 means no lower altitude limit."""
+enums["MAV_CMD"][222].label[2] = """Min Altitude"""
 enums["MAV_CMD"][222].param[3] = """Altitude (MSL) max - if vehicle moves above this alt, the command will be aborted and the mission will continue. 0 means no upper altitude limit."""
+enums["MAV_CMD"][222].label[3] = """Max Altitude"""
 enums["MAV_CMD"][222].param[4] = """Horizontal move limit - if vehicle moves more than this distance from its location at the moment the command was executed, the command will be aborted and the mission will continue. 0 means no horizontal move limit."""
+enums["MAV_CMD"][222].label[4] = """Horiz. Move Limit"""
 enums["MAV_CMD"][222].param[5] = """Empty"""
 enums["MAV_CMD"][222].param[6] = """Empty"""
 enums["MAV_CMD"][222].param[7] = """Empty"""
 MAV_CMD_DO_ENGINE_CONTROL = 223
 enums["MAV_CMD"][223] = EnumEntry("MAV_CMD_DO_ENGINE_CONTROL", """Control vehicle engine. This is interpreted by the vehicles engine controller to change the target engine state. It is intended for vehicles with internal combustion engines""")
 enums["MAV_CMD"][223].param[1] = """Start engine (MAV_BOOL_False: Stop engine). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][223].label[1] = """Start Engine"""
 enums["MAV_CMD"][223].param[2] = """Cold start engine (MAV_BOOL_FALSE: Warm start). Values not equal to 0 or 1 are invalid. Controls use of choke where applicable"""
+enums["MAV_CMD"][223].label[2] = """Cold Start"""
 enums["MAV_CMD"][223].param[3] = """Height delay. This is for commanding engine start only after the vehicle has gained the specified height. Used in VTOL vehicles during takeoff to start engine after the aircraft is off the ground. Zero for no delay."""
+enums["MAV_CMD"][223].label[3] = """Height Delay"""
 enums["MAV_CMD"][223].param[4] = """A bitmask of options for engine control"""
+enums["MAV_CMD"][223].label[4] = """Options"""
 enums["MAV_CMD"][223].param[5] = """Empty"""
 enums["MAV_CMD"][223].param[6] = """Empty"""
 enums["MAV_CMD"][223].param[7] = """Empty"""
 MAV_CMD_DO_SET_MISSION_CURRENT = 224
-enums["MAV_CMD"][224] = EnumEntry("MAV_CMD_DO_SET_MISSION_CURRENT", """Set the mission item with sequence number seq as current item. This means that the MAV will continue to this mission item on the shortest path (not following the mission items in-between).""")
-enums["MAV_CMD"][224].param[1] = """Mission sequence value to set"""
-enums["MAV_CMD"][224].param[2] = """Empty"""
+enums["MAV_CMD"][224] = EnumEntry(
+    "MAV_CMD_DO_SET_MISSION_CURRENT",
+    """
+          Set the mission item with sequence number seq as the current item and emit MISSION_CURRENT (whether or not the mission number changed).
+          If a mission is currently being executed, the system will continue to this new mission item on the shortest path, skipping any intermediate mission items.
+      Note that mission jump repeat counters are not reset unless param2 is set (see MAV_CMD_DO_JUMP param2).
+
+          This command may trigger a mission state-machine change on some systems: for example from MISSION_STATE_NOT_STARTED or MISSION_STATE_PAUSED to MISSION_STATE_ACTIVE.
+          If the system is in mission mode, on those systems this command might therefore start, restart or resume the mission.
+          If the system is not in mission mode this command must not trigger a switch to mission mode.
+
+          The mission may be "reset" using param2.
+          Resetting sets jump counters to initial values (to reset counters without changing the current mission item set the param1 to `-1`).
+          Resetting also explicitly changes a mission state of MISSION_STATE_COMPLETE to MISSION_STATE_PAUSED or MISSION_STATE_ACTIVE, potentially allowing it to resume when it is (next) in a mission mode.
+
+      The command will ACK with MAV_RESULT_FAILED if the sequence number is out of range (including if there is no mission item).
+        """,
+)
+enums["MAV_CMD"][224].param[1] = """Mission sequence value to set. -1 for the current mission item (use to reset mission without changing current mission item)."""
+enums["MAV_CMD"][224].label[1] = """Number"""
+enums["MAV_CMD"][224].param[2] = """Reset mission (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid. Resets jump counters to initial values and changes mission state "completed" to be "active" or "paused"."""
+enums["MAV_CMD"][224].label[2] = """Reset Mission"""
 enums["MAV_CMD"][224].param[3] = """Empty"""
 enums["MAV_CMD"][224].param[4] = """Empty"""
 enums["MAV_CMD"][224].param[5] = """Empty"""
@@ -1198,24 +1455,39 @@ enums["MAV_CMD"][240].param[7] = """Empty"""
 MAV_CMD_PREFLIGHT_CALIBRATION = 241
 enums["MAV_CMD"][241] = EnumEntry("MAV_CMD_PREFLIGHT_CALIBRATION", """Trigger calibration. This command will be only accepted if in pre-flight mode. Except for Temperature Calibration, only one sensor should be set in a single message and all others should be zero.""")
 enums["MAV_CMD"][241].param[1] = """1: gyro calibration, 3: gyro temperature calibration"""
-enums["MAV_CMD"][241].param[2] = """Magnetometer calibration. Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][241].label[1] = """Gyro Temperature"""
+enums["MAV_CMD"][241].param[2] = """Magnetometer calibration action."""
+enums["MAV_CMD"][241].label[2] = """Magnetometer"""
 enums["MAV_CMD"][241].param[3] = """Ground pressure calibration. Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][241].label[3] = """Ground Pressure"""
 enums["MAV_CMD"][241].param[4] = """1: radio RC calibration, 2: RC trim calibration"""
-enums["MAV_CMD"][241].param[5] = """1: accelerometer calibration, 2: board level calibration, 3: accelerometer temperature calibration, 4: simple accelerometer calibration"""
+enums["MAV_CMD"][241].label[4] = """Remote Control"""
+enums["MAV_CMD"][241].param[5] = """Accelerometer calibration action."""
+enums["MAV_CMD"][241].label[5] = """Accelerometer"""
 enums["MAV_CMD"][241].param[6] = """1: APM: compass/motor interference calibration (PX4: airspeed calibration, deprecated), 2: airspeed calibration"""
+enums["MAV_CMD"][241].label[6] = """Compmot or Airspeed"""
 enums["MAV_CMD"][241].param[7] = """1: ESC calibration, 3: barometer temperature calibration"""
+enums["MAV_CMD"][241].label[7] = """ESC or Baro"""
 MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS = 242
 enums["MAV_CMD"][242] = EnumEntry("MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS", """Set sensor offsets. This command will be only accepted if in pre-flight mode.""")
 enums["MAV_CMD"][242].param[1] = """Sensor to adjust the offsets for: 0: gyros, 1: accelerometer, 2: magnetometer, 3: barometer, 4: optical flow, 5: second magnetometer, 6: third magnetometer"""
+enums["MAV_CMD"][242].label[1] = """Sensor Type"""
 enums["MAV_CMD"][242].param[2] = """X axis offset (or generic dimension 1), in the sensor's raw units"""
+enums["MAV_CMD"][242].label[2] = """X Offset"""
 enums["MAV_CMD"][242].param[3] = """Y axis offset (or generic dimension 2), in the sensor's raw units"""
+enums["MAV_CMD"][242].label[3] = """Y Offset"""
 enums["MAV_CMD"][242].param[4] = """Z axis offset (or generic dimension 3), in the sensor's raw units"""
+enums["MAV_CMD"][242].label[4] = """Z Offset"""
 enums["MAV_CMD"][242].param[5] = """Generic dimension 4, in the sensor's raw units"""
+enums["MAV_CMD"][242].label[5] = """4th Dimension"""
 enums["MAV_CMD"][242].param[6] = """Generic dimension 5, in the sensor's raw units"""
+enums["MAV_CMD"][242].label[6] = """5th Dimension"""
 enums["MAV_CMD"][242].param[7] = """Generic dimension 6, in the sensor's raw units"""
+enums["MAV_CMD"][242].label[7] = """6th Dimension"""
 MAV_CMD_PREFLIGHT_UAVCAN = 243
 enums["MAV_CMD"][243] = EnumEntry("MAV_CMD_PREFLIGHT_UAVCAN", """Trigger UAVCAN configuration (actuator ID assignment and direction mapping). Note that this maps to the legacy UAVCAN v0 function UAVCAN_ENUMERATE, which is intended to be executed just once during initial vehicle configuration (it is not a normal pre-flight command and has been poorly named).""")
 enums["MAV_CMD"][243].param[1] = """1: Trigger actuator ID assignment and direction mapping. 0: Cancel command."""
+enums["MAV_CMD"][243].label[1] = """Actuator ID"""
 enums["MAV_CMD"][243].param[2] = """Reserved"""
 enums["MAV_CMD"][243].param[3] = """Reserved"""
 enums["MAV_CMD"][243].param[4] = """Reserved"""
@@ -1224,49 +1496,72 @@ enums["MAV_CMD"][243].param[6] = """Reserved"""
 enums["MAV_CMD"][243].param[7] = """Reserved"""
 MAV_CMD_PREFLIGHT_STORAGE = 245
 enums["MAV_CMD"][245] = EnumEntry("MAV_CMD_PREFLIGHT_STORAGE", """Request storage of different parameter values and logs. This command will be only accepted if in pre-flight mode.""")
-enums["MAV_CMD"][245].param[1] = """Parameter storage: 0: READ FROM FLASH/EEPROM, 1: WRITE CURRENT TO FLASH/EEPROM, 2: Reset to defaults"""
-enums["MAV_CMD"][245].param[2] = """Mission storage: 0: READ FROM FLASH/EEPROM, 1: WRITE CURRENT TO FLASH/EEPROM, 2: Reset to defaults"""
+enums["MAV_CMD"][245].param[1] = """Action to perform on the persistent parameter storage"""
+enums["MAV_CMD"][245].label[1] = """Parameter Storage"""
+enums["MAV_CMD"][245].param[2] = """Action to perform on the persistent mission storage"""
+enums["MAV_CMD"][245].label[2] = """Mission Storage"""
 enums["MAV_CMD"][245].param[3] = """Onboard logging: 0: Ignore, 1: Start default rate logging, -1: Stop logging, > 1: logging rate (e.g. set to 1000 for 1000 Hz logging)"""
+enums["MAV_CMD"][245].label[3] = """Logging Rate"""
 enums["MAV_CMD"][245].param[4] = """Reserved"""
 enums["MAV_CMD"][245].param[5] = """Empty"""
 enums["MAV_CMD"][245].param[6] = """Empty"""
 enums["MAV_CMD"][245].param[7] = """Empty"""
 MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN = 246
 enums["MAV_CMD"][246] = EnumEntry("MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN", """Request the reboot or shutdown of system components.""")
-enums["MAV_CMD"][246].param[1] = """0: Do nothing for autopilot, 1: Reboot autopilot, 2: Shutdown autopilot, 3: Reboot autopilot and keep it in the bootloader until upgraded."""
-enums["MAV_CMD"][246].param[2] = """0: Do nothing for onboard computer, 1: Reboot onboard computer, 2: Shutdown onboard computer, 3: Reboot onboard computer and keep it in the bootloader until upgraded."""
-enums["MAV_CMD"][246].param[3] = """WIP: 0: Do nothing for camera, 1: Reboot onboard camera, 2: Shutdown onboard camera, 3: Reboot onboard camera and keep it in the bootloader until upgraded"""
-enums["MAV_CMD"][246].param[4] = """WIP: 0: Do nothing for mount (e.g. gimbal), 1: Reboot mount, 2: Shutdown mount, 3: Reboot mount and keep it in the bootloader until upgraded"""
+enums["MAV_CMD"][246].param[1] = """Action to take for autopilot."""
+enums["MAV_CMD"][246].label[1] = """Autopilot"""
+enums["MAV_CMD"][246].param[2] = """Action to take for onboard computer."""
+enums["MAV_CMD"][246].label[2] = """Companion"""
+enums["MAV_CMD"][246].param[3] = """Action to take for component specified in param4."""
+enums["MAV_CMD"][246].label[3] = """Component Action"""
+enums["MAV_CMD"][246].param[4] = """MAVLink Component ID targeted in param3 (0 for all components)."""
+enums["MAV_CMD"][246].label[4] = """Component ID"""
 enums["MAV_CMD"][246].param[5] = """Reserved (set to 0)"""
-enums["MAV_CMD"][246].param[6] = """Reserved (set to 0)"""
+enums["MAV_CMD"][246].param[6] = """Conditions under which reboot/shutdown is allowed."""
+enums["MAV_CMD"][246].label[6] = """Conditions"""
 enums["MAV_CMD"][246].param[7] = """WIP: ID (e.g. camera ID -1 for all IDs)"""
 MAV_CMD_OVERRIDE_GOTO = 252
 enums["MAV_CMD"][252] = EnumEntry("MAV_CMD_OVERRIDE_GOTO", """Override current mission with command to pause mission, pause mission and move to position, continue/resume mission. When param 1 indicates that the mission is paused (MAV_GOTO_DO_HOLD), param 2 defines whether it holds in place or moves to another position.""")
 enums["MAV_CMD"][252].has_location = True
 enums["MAV_CMD"][252].param[1] = """MAV_GOTO_DO_HOLD: pause mission and either hold or move to specified position (depending on param2), MAV_GOTO_DO_CONTINUE: resume mission."""
+enums["MAV_CMD"][252].label[1] = """Continue"""
 enums["MAV_CMD"][252].param[2] = """MAV_GOTO_HOLD_AT_CURRENT_POSITION: hold at current position, MAV_GOTO_HOLD_AT_SPECIFIED_POSITION: hold at specified position."""
+enums["MAV_CMD"][252].label[2] = """Position"""
 enums["MAV_CMD"][252].param[3] = """Coordinate frame of hold point."""
+enums["MAV_CMD"][252].label[3] = """Frame"""
 enums["MAV_CMD"][252].param[4] = """Desired yaw angle."""
+enums["MAV_CMD"][252].label[4] = """Yaw"""
 enums["MAV_CMD"][252].param[5] = """Latitude/X position."""
+enums["MAV_CMD"][252].label[5] = """Latitude/X"""
 enums["MAV_CMD"][252].param[6] = """Longitude/Y position."""
+enums["MAV_CMD"][252].label[6] = """Longitude/Y"""
 enums["MAV_CMD"][252].param[7] = """Altitude/Z position."""
+enums["MAV_CMD"][252].label[7] = """Altitude/Z"""
 MAV_CMD_OBLIQUE_SURVEY = 260
 enums["MAV_CMD"][260] = EnumEntry("MAV_CMD_OBLIQUE_SURVEY", """Mission command to set a Camera Auto Mount Pivoting Oblique Survey (Replaces CAM_TRIGG_DIST for this purpose). The camera is triggered each time this distance is exceeded, then the mount moves to the next position. Params 4~6 set-up the angle limits and number of positions for oblique survey, where mount-enabled vehicles automatically roll the camera between shots to emulate an oblique camera setup (providing an increased HFOV). This command can also be used to set the shutter integration time for the camera.""")
 enums["MAV_CMD"][260].param[1] = """Camera trigger distance. 0 to stop triggering."""
+enums["MAV_CMD"][260].label[1] = """Distance"""
 enums["MAV_CMD"][260].param[2] = """Camera shutter integration time. 0 to ignore"""
+enums["MAV_CMD"][260].label[2] = """Shutter"""
 enums["MAV_CMD"][260].param[3] = """The minimum interval in which the camera is capable of taking subsequent pictures repeatedly. 0 to ignore."""
+enums["MAV_CMD"][260].label[3] = """Min Interval"""
 enums["MAV_CMD"][260].param[4] = """Total number of roll positions at which the camera will capture photos (images captures spread evenly across the limits defined by param5)."""
+enums["MAV_CMD"][260].label[4] = """Positions"""
 enums["MAV_CMD"][260].param[5] = """Angle limits that the camera can be rolled to left and right of center."""
+enums["MAV_CMD"][260].label[5] = """Roll Angle"""
 enums["MAV_CMD"][260].param[6] = """Fixed pitch angle that the camera will hold in oblique mode if the mount is actuated in the pitch axis."""
+enums["MAV_CMD"][260].label[6] = """Pitch Angle"""
 enums["MAV_CMD"][260].param[7] = """Empty"""
 MAV_CMD_DO_SET_STANDARD_MODE = 262
 enums["MAV_CMD"][262] = EnumEntry(
     "MAV_CMD_DO_SET_STANDARD_MODE",
     """Enable the specified standard MAVLink mode.
-          If the mode is not supported the vehicle should ACK with MAV_RESULT_FAILED.
+          If the specified mode is not supported, the vehicle should ACK with MAV_RESULT_FAILED.
+          See https://mavlink.io/en/services/standard_modes.html
         """,
 )
 enums["MAV_CMD"][262].param[1] = """The mode to set."""
+enums["MAV_CMD"][262].label[1] = """Standard Mode"""
 enums["MAV_CMD"][262].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][262].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][262].param[4] = """Reserved (default:0)"""
@@ -1276,23 +1571,58 @@ enums["MAV_CMD"][262].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_MISSION_START = 300
 enums["MAV_CMD"][300] = EnumEntry("MAV_CMD_MISSION_START", """start running a mission""")
 enums["MAV_CMD"][300].param[1] = """first_item: the first mission item to run"""
+enums["MAV_CMD"][300].label[1] = """First Item"""
 enums["MAV_CMD"][300].param[2] = """last_item:  the last mission item to run (after this item is run, the mission ends)"""
+enums["MAV_CMD"][300].label[2] = """Last Item"""
 enums["MAV_CMD"][300].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][300].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][300].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][300].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][300].param[7] = """Reserved (default:0)"""
+MAV_CMD_ACTUATOR_TEST = 310
+enums["MAV_CMD"][310] = EnumEntry("MAV_CMD_ACTUATOR_TEST", """Actuator testing command. This is similar to MAV_CMD_DO_MOTOR_TEST but operates on the level of output functions, i.e. it is possible to test Motor1 independent from which output it is configured on. Autopilots must NACK this command with MAV_RESULT_TEMPORARILY_REJECTED while armed.""")
+enums["MAV_CMD"][310].param[1] = """Output value: 1 means maximum positive output, 0 to center servos or minimum motor thrust (expected to spin), -1 for maximum negative (if not supported by the motors, i.e. motor is not reversible, smaller than 0 maps to NaN). And NaN maps to disarmed (stop the motors)."""
+enums["MAV_CMD"][310].label[1] = """Value"""
+enums["MAV_CMD"][310].param[2] = """Timeout after which the test command expires and the output is restored to the previous value. A timeout has to be set for safety reasons. A timeout of 0 means to restore the previous value immediately."""
+enums["MAV_CMD"][310].label[2] = """Timeout"""
+enums["MAV_CMD"][310].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][310].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][310].param[5] = """Actuator Output function"""
+enums["MAV_CMD"][310].label[5] = """Output Function"""
+enums["MAV_CMD"][310].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][310].param[7] = """Reserved (default:0)"""
+MAV_CMD_CONFIGURE_ACTUATOR = 311
+enums["MAV_CMD"][311] = EnumEntry("MAV_CMD_CONFIGURE_ACTUATOR", """Actuator configuration command.""")
+enums["MAV_CMD"][311].param[1] = """Actuator configuration action"""
+enums["MAV_CMD"][311].label[1] = """Configuration"""
+enums["MAV_CMD"][311].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][311].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][311].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][311].param[5] = """Actuator Output function"""
+enums["MAV_CMD"][311].label[5] = """Output Function"""
+enums["MAV_CMD"][311].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][311].param[7] = """Reserved (default:0)"""
 MAV_CMD_COMPONENT_ARM_DISARM = 400
 enums["MAV_CMD"][400] = EnumEntry("MAV_CMD_COMPONENT_ARM_DISARM", """Arms / Disarms a component""")
 enums["MAV_CMD"][400].param[1] = """Arm (MAV_BOOL_FALSE: disarm). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][400].label[1] = """Arm"""
 enums["MAV_CMD"][400].param[2] = """0: arm-disarm unless prevented by safety checks (i.e. when landed), 21196: force arming/disarming (e.g. allow arming to override preflight checks and disarming in flight)"""
+enums["MAV_CMD"][400].label[2] = """Force"""
 enums["MAV_CMD"][400].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][400].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][400].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][400].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][400].param[7] = """Reserved (default:0)"""
 MAV_CMD_RUN_PREARM_CHECKS = 401
-enums["MAV_CMD"][401] = EnumEntry("MAV_CMD_RUN_PREARM_CHECKS", """Instructs system to run pre-arm checks.  This command should return MAV_RESULT_TEMPORARILY_REJECTED in the case the system is armed, otherwise MAV_RESULT_ACCEPTED.  Note that the return value from executing this command does not indicate whether the vehicle is armable or not, just whether the system has successfully run/is currently running the checks.  The result of the checks is reflected in the SYS_STATUS message.""")
+enums["MAV_CMD"][401] = EnumEntry(
+    "MAV_CMD_RUN_PREARM_CHECKS",
+    """Instructs a target system to run pre-arm checks.
+          This allows preflight checks to be run on demand, which may be useful on systems that normally run them at low rate, or which do not trigger checks when the armable state might have changed.
+          This command should return MAV_RESULT_ACCEPTED if it will run the checks.
+          The results of the checks are usually then reported in SYS_STATUS messages (this is system-specific).
+          The command should return MAV_RESULT_TEMPORARILY_REJECTED if the system is already armed.
+        """,
+)
 enums["MAV_CMD"][401].param[1] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[3] = """Reserved (default:0)"""
@@ -1300,8 +1630,35 @@ enums["MAV_CMD"][401].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[7] = """Reserved (default:0)"""
+MAV_CMD_ILLUMINATOR_ON_OFF = 405
+enums["MAV_CMD"][405] = EnumEntry("MAV_CMD_ILLUMINATOR_ON_OFF", """Turns illuminators ON/OFF. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).""")
+enums["MAV_CMD"][405].param[1] = """Illuminators on/off (MAV_BOOL_TRUE: illuminators on). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][405].label[1] = """Enable"""
+enums["MAV_CMD"][405].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][405].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][405].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][405].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][405].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][405].param[7] = """Reserved (default:0)"""
+MAV_CMD_DO_ILLUMINATOR_CONFIGURE = 406
+enums["MAV_CMD"][406] = EnumEntry("MAV_CMD_DO_ILLUMINATOR_CONFIGURE", """Configures illuminator settings. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).""")
+enums["MAV_CMD"][406].param[1] = """Mode"""
+enums["MAV_CMD"][406].label[1] = """Mode"""
+enums["MAV_CMD"][406].param[2] = """0%: Off, 100%: Max Brightness"""
+enums["MAV_CMD"][406].label[2] = """Brightness"""
+enums["MAV_CMD"][406].param[3] = """Strobe period in seconds where 0 means strobing is not used"""
+enums["MAV_CMD"][406].label[3] = """Strobe Period"""
+enums["MAV_CMD"][406].param[4] = """Strobe duty cycle where 100% means it is on constantly and 0 means strobing is not used"""
+enums["MAV_CMD"][406].label[4] = """Strobe Duty"""
+enums["MAV_CMD"][406].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][406].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][406].param[7] = """Reserved (default:0)"""
 MAV_CMD_GET_HOME_POSITION = 410
-enums["MAV_CMD"][410] = EnumEntry("MAV_CMD_GET_HOME_POSITION", """Request the home position from the vehicle.""")
+enums["MAV_CMD"][410] = EnumEntry(
+    "MAV_CMD_GET_HOME_POSITION",
+    """Request the home position from the vehicle.
+          The vehicle will ACK the command and emit the HOME_POSITION message.""",
+)
 enums["MAV_CMD"][410].param[1] = """Reserved"""
 enums["MAV_CMD"][410].param[2] = """Reserved"""
 enums["MAV_CMD"][410].param[3] = """Reserved"""
@@ -1309,10 +1666,24 @@ enums["MAV_CMD"][410].param[4] = """Reserved"""
 enums["MAV_CMD"][410].param[5] = """Reserved"""
 enums["MAV_CMD"][410].param[6] = """Reserved"""
 enums["MAV_CMD"][410].param[7] = """Reserved"""
+MAV_CMD_INJECT_FAILURE = 420
+enums["MAV_CMD"][420] = EnumEntry("MAV_CMD_INJECT_FAILURE", """Inject artificial failure for testing purposes. Note that autopilots should implement an additional protection before accepting this command such as a specific param setting.""")
+enums["MAV_CMD"][420].param[1] = """The unit which is affected by the failure."""
+enums["MAV_CMD"][420].label[1] = """Failure unit"""
+enums["MAV_CMD"][420].param[2] = """The type how the failure manifests itself."""
+enums["MAV_CMD"][420].label[2] = """Failure type"""
+enums["MAV_CMD"][420].param[3] = """Instance affected by failure (0 to signal all)."""
+enums["MAV_CMD"][420].label[3] = """Instance"""
+enums["MAV_CMD"][420].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][420].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][420].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][420].param[7] = """Reserved (default:0)"""
 MAV_CMD_START_RX_PAIR = 500
 enums["MAV_CMD"][500] = EnumEntry("MAV_CMD_START_RX_PAIR", """Starts receiver pairing.""")
-enums["MAV_CMD"][500].param[1] = """0:Spektrum."""
-enums["MAV_CMD"][500].param[2] = """RC type."""
+enums["MAV_CMD"][500].param[1] = """RC type."""
+enums["MAV_CMD"][500].label[1] = """RC Type"""
+enums["MAV_CMD"][500].param[2] = """RC sub type."""
+enums["MAV_CMD"][500].label[2] = """RC Sub Type"""
 enums["MAV_CMD"][500].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][500].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][500].param[5] = """Reserved (default:0)"""
@@ -1321,6 +1692,7 @@ enums["MAV_CMD"][500].param[7] = """Reserved (default:0)"""
 MAV_CMD_GET_MESSAGE_INTERVAL = 510
 enums["MAV_CMD"][510] = EnumEntry("MAV_CMD_GET_MESSAGE_INTERVAL", """Request the interval between messages for a particular MAVLink message ID. The receiver should ACK the command and then emit its response in a MESSAGE_INTERVAL message.""")
 enums["MAV_CMD"][510].param[1] = """The MAVLink message ID"""
+enums["MAV_CMD"][510].label[1] = """Message ID"""
 enums["MAV_CMD"][510].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][510].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][510].param[4] = """Reserved (default:0)"""
@@ -1330,24 +1702,35 @@ enums["MAV_CMD"][510].param[7] = """Reserved (default:0)"""
 MAV_CMD_SET_MESSAGE_INTERVAL = 511
 enums["MAV_CMD"][511] = EnumEntry("MAV_CMD_SET_MESSAGE_INTERVAL", """Set the interval between messages for a particular MAVLink message ID. This interface replaces REQUEST_DATA_STREAM.""")
 enums["MAV_CMD"][511].param[1] = """The MAVLink message ID"""
+enums["MAV_CMD"][511].label[1] = """Message ID"""
 enums["MAV_CMD"][511].param[2] = """The interval between two messages. Set to -1 to disable and 0 to request default rate."""
+enums["MAV_CMD"][511].label[2] = """Interval"""
 enums["MAV_CMD"][511].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[7] = """Target address of message stream (if message has target address fields). 0: Flight-stack default (recommended), 1: address of requester, 2: broadcast."""
+enums["MAV_CMD"][511].label[7] = """Response Target"""
 MAV_CMD_REQUEST_MESSAGE = 512
 enums["MAV_CMD"][512] = EnumEntry("MAV_CMD_REQUEST_MESSAGE", """Request the target system(s) emit a single instance of a specified message (i.e. a "one-shot" version of MAV_CMD_SET_MESSAGE_INTERVAL).""")
 enums["MAV_CMD"][512].param[1] = """The MAVLink message ID of the requested message."""
+enums["MAV_CMD"][512].label[1] = """Message ID"""
 enums["MAV_CMD"][512].param[2] = """Use for index ID, if required. Otherwise, the use of this parameter (if any) must be defined in the requested message. By default assumed not used (0)."""
+enums["MAV_CMD"][512].label[2] = """Req Param 1"""
 enums["MAV_CMD"][512].param[3] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
+enums["MAV_CMD"][512].label[3] = """Req Param 2"""
 enums["MAV_CMD"][512].param[4] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
+enums["MAV_CMD"][512].label[4] = """Req Param 3"""
 enums["MAV_CMD"][512].param[5] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
+enums["MAV_CMD"][512].label[5] = """Req Param 4"""
 enums["MAV_CMD"][512].param[6] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
+enums["MAV_CMD"][512].label[6] = """Req Param 5"""
 enums["MAV_CMD"][512].param[7] = """Target address for requested message (if message has target address fields). 0: Flight-stack default, 1: address of requester, 2: broadcast."""
+enums["MAV_CMD"][512].label[7] = """Response Target"""
 MAV_CMD_REQUEST_PROTOCOL_VERSION = 519
 enums["MAV_CMD"][519] = EnumEntry("MAV_CMD_REQUEST_PROTOCOL_VERSION", """Request MAVLink protocol version compatibility. All receivers should ACK the command and then emit their capabilities in an PROTOCOL_VERSION message""")
 enums["MAV_CMD"][519].param[1] = """Request supported protocol versions by all nodes on the network (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][519].label[1] = """Protocol"""
 enums["MAV_CMD"][519].param[2] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][519].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][519].param[4] = """Reserved (default:0)"""
@@ -1357,6 +1740,7 @@ enums["MAV_CMD"][519].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES = 520
 enums["MAV_CMD"][520] = EnumEntry("MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES", """Request autopilot capabilities. The receiver should ACK the command and then emit its capabilities in an AUTOPILOT_VERSION message""")
 enums["MAV_CMD"][520].param[1] = """Request autopilot version (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][520].label[1] = """Version"""
 enums["MAV_CMD"][520].param[2] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][520].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][520].param[4] = """Reserved (default:0)"""
@@ -1366,6 +1750,7 @@ enums["MAV_CMD"][520].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_CAMERA_INFORMATION = 521
 enums["MAV_CMD"][521] = EnumEntry("MAV_CMD_REQUEST_CAMERA_INFORMATION", """Request camera information (CAMERA_INFORMATION).""")
 enums["MAV_CMD"][521].param[1] = """Request camera capabilities (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][521].label[1] = """Capabilities"""
 enums["MAV_CMD"][521].param[2] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][521].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][521].param[4] = """Reserved (default:0)"""
@@ -1375,6 +1760,7 @@ enums["MAV_CMD"][521].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_CAMERA_SETTINGS = 522
 enums["MAV_CMD"][522] = EnumEntry("MAV_CMD_REQUEST_CAMERA_SETTINGS", """Request camera settings (CAMERA_SETTINGS).""")
 enums["MAV_CMD"][522].param[1] = """Request camera settings (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][522].label[1] = """Settings"""
 enums["MAV_CMD"][522].param[2] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][522].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][522].param[4] = """Reserved (default:0)"""
@@ -1384,7 +1770,9 @@ enums["MAV_CMD"][522].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_STORAGE_INFORMATION = 525
 enums["MAV_CMD"][525] = EnumEntry("MAV_CMD_REQUEST_STORAGE_INFORMATION", """Request storage information (STORAGE_INFORMATION). Use the command's target_component to target a specific component's storage.""")
 enums["MAV_CMD"][525].param[1] = """Storage ID (0 for all, 1 for first, 2 for second, etc.)"""
+enums["MAV_CMD"][525].label[1] = """Storage ID"""
 enums["MAV_CMD"][525].param[2] = """Request storage information (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][525].label[2] = """Information"""
 enums["MAV_CMD"][525].param[3] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][525].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][525].param[5] = """Reserved (default:0)"""
@@ -1393,15 +1781,19 @@ enums["MAV_CMD"][525].param[7] = """Reserved (default:0)"""
 MAV_CMD_STORAGE_FORMAT = 526
 enums["MAV_CMD"][526] = EnumEntry("MAV_CMD_STORAGE_FORMAT", """Format a storage medium. Once format is complete, a STORAGE_INFORMATION message is sent. Use the command's target_component to target a specific component's storage.""")
 enums["MAV_CMD"][526].param[1] = """Storage ID (1 for first, 2 for second, etc.)"""
-enums["MAV_CMD"][526].param[2] = """Format storage (and reset image log). Values not equal to 0 or 1 are invalid."""
-enums["MAV_CMD"][526].param[3] = """Reserved (all remaining params)"""
-enums["MAV_CMD"][526].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][526].label[1] = """Storage ID"""
+enums["MAV_CMD"][526].param[2] = """Format storage (and reset image log) (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][526].label[2] = """Format"""
+enums["MAV_CMD"][526].param[3] = """Reset Image Log (without formatting storage medium) (MAV_BOOL_TRUE). This will reset CAMERA_CAPTURE_STATUS.image_count and CAMERA_IMAGE_CAPTURED.image_index. Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][526].label[3] = """Reset Image Log"""
+enums["MAV_CMD"][526].param[4] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][526].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][526].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][526].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS = 527
 enums["MAV_CMD"][527] = EnumEntry("MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS", """Request camera capture status (CAMERA_CAPTURE_STATUS)""")
 enums["MAV_CMD"][527].param[1] = """Request camera capture status (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][527].label[1] = """Capture Status"""
 enums["MAV_CMD"][527].param[2] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][527].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][527].param[4] = """Reserved (default:0)"""
@@ -1411,6 +1803,7 @@ enums["MAV_CMD"][527].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_FLIGHT_INFORMATION = 528
 enums["MAV_CMD"][528] = EnumEntry("MAV_CMD_REQUEST_FLIGHT_INFORMATION", """Request flight information (FLIGHT_INFORMATION)""")
 enums["MAV_CMD"][528].param[1] = """Request flight information (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][528].label[1] = """Flight Information"""
 enums["MAV_CMD"][528].param[2] = """Reserved (all remaining params)"""
 enums["MAV_CMD"][528].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][528].param[4] = """Reserved (default:0)"""
@@ -1420,7 +1813,9 @@ enums["MAV_CMD"][528].param[7] = """Reserved (default:0)"""
 MAV_CMD_RESET_CAMERA_SETTINGS = 529
 enums["MAV_CMD"][529] = EnumEntry("MAV_CMD_RESET_CAMERA_SETTINGS", """Reset all camera settings to Factory Default""")
 enums["MAV_CMD"][529].param[1] = """Reset all settings (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid."""
-enums["MAV_CMD"][529].param[2] = """Reserved (all remaining params)"""
+enums["MAV_CMD"][529].label[1] = """Reset"""
+enums["MAV_CMD"][529].param[2] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][529].label[2] = """Target Camera ID"""
 enums["MAV_CMD"][529].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][529].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][529].param[5] = """Reserved (default:0)"""
@@ -1428,8 +1823,10 @@ enums["MAV_CMD"][529].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][529].param[7] = """Reserved (default:0)"""
 MAV_CMD_SET_CAMERA_MODE = 530
 enums["MAV_CMD"][530] = EnumEntry("MAV_CMD_SET_CAMERA_MODE", """Set camera running mode. Use NaN for reserved values. GCS will send a MAV_CMD_REQUEST_VIDEO_STREAM_STATUS command after a mode change if the camera supports video streaming.""")
-enums["MAV_CMD"][530].param[1] = """Reserved (Set to 0)"""
+enums["MAV_CMD"][530].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][530].label[1] = """id"""
 enums["MAV_CMD"][530].param[2] = """Camera mode"""
+enums["MAV_CMD"][530].label[2] = """Camera Mode"""
 enums["MAV_CMD"][530].param[3] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][530].param[4] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][530].param[5] = """Reserved (default:0)"""
@@ -1438,8 +1835,11 @@ enums["MAV_CMD"][530].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_SET_CAMERA_ZOOM = 531
 enums["MAV_CMD"][531] = EnumEntry("MAV_CMD_SET_CAMERA_ZOOM", """Set camera zoom. Camera must respond with a CAMERA_SETTINGS message (on success).""")
 enums["MAV_CMD"][531].param[1] = """Zoom type"""
+enums["MAV_CMD"][531].label[1] = """Zoom Type"""
 enums["MAV_CMD"][531].param[2] = """Zoom value. The range of valid values depend on the zoom type."""
-enums["MAV_CMD"][531].param[3] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][531].label[2] = """Zoom Value"""
+enums["MAV_CMD"][531].param[3] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][531].label[3] = """Target Camera ID"""
 enums["MAV_CMD"][531].param[4] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][531].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][531].param[6] = """Reserved (default:0)"""
@@ -1447,8 +1847,11 @@ enums["MAV_CMD"][531].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_SET_CAMERA_FOCUS = 532
 enums["MAV_CMD"][532] = EnumEntry("MAV_CMD_SET_CAMERA_FOCUS", """Set camera focus. Camera must respond with a CAMERA_SETTINGS message (on success).""")
 enums["MAV_CMD"][532].param[1] = """Focus type"""
+enums["MAV_CMD"][532].label[1] = """Focus Type"""
 enums["MAV_CMD"][532].param[2] = """Focus value"""
-enums["MAV_CMD"][532].param[3] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][532].label[2] = """Focus Value"""
+enums["MAV_CMD"][532].param[3] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][532].label[3] = """Target Camera ID"""
 enums["MAV_CMD"][532].param[4] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][532].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][532].param[6] = """Reserved (default:0)"""
@@ -1463,7 +1866,9 @@ enums["MAV_CMD"][533] = EnumEntry(
           A target system can choose to not allow a particular storage to be set as preferred storage, in which case it should ACK the command with MAV_RESULT_DENIED.""",
 )
 enums["MAV_CMD"][533].param[1] = """Storage ID (1 for first, 2 for second, etc.)"""
+enums["MAV_CMD"][533].label[1] = """Storage ID"""
 enums["MAV_CMD"][533].param[2] = """Usage flags"""
+enums["MAV_CMD"][533].label[2] = """Usage"""
 enums["MAV_CMD"][533].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][533].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][533].param[5] = """Reserved (default:0)"""
@@ -1472,8 +1877,11 @@ enums["MAV_CMD"][533].param[7] = """Reserved (default:0)"""
 MAV_CMD_SET_CAMERA_SOURCE = 534
 enums["MAV_CMD"][534] = EnumEntry("MAV_CMD_SET_CAMERA_SOURCE", """Set camera source. Changes the camera's active sources on cameras with multiple image sensors.""")
 enums["MAV_CMD"][534].param[1] = """Component Id of camera to address or 1-6 for non-MAVLink cameras, 0 for all cameras."""
+enums["MAV_CMD"][534].label[1] = """device id"""
 enums["MAV_CMD"][534].param[2] = """Primary Source"""
+enums["MAV_CMD"][534].label[2] = """primary source"""
 enums["MAV_CMD"][534].param[3] = """Secondary Source. If non-zero the second source will be displayed as picture-in-picture."""
+enums["MAV_CMD"][534].label[3] = """secondary source"""
 enums["MAV_CMD"][534].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][534].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][534].param[6] = """Reserved (default:0)"""
@@ -1481,6 +1889,7 @@ enums["MAV_CMD"][534].param[7] = """Reserved (default:0)"""
 MAV_CMD_JUMP_TAG = 600
 enums["MAV_CMD"][600] = EnumEntry("MAV_CMD_JUMP_TAG", """Tagged jump target. Can be jumped to with MAV_CMD_DO_JUMP_TAG.""")
 enums["MAV_CMD"][600].param[1] = """Tag."""
+enums["MAV_CMD"][600].label[1] = """Tag"""
 enums["MAV_CMD"][600].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][600].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][600].param[4] = """Reserved (default:0)"""
@@ -1490,7 +1899,9 @@ enums["MAV_CMD"][600].param[7] = """Reserved (default:0)"""
 MAV_CMD_DO_JUMP_TAG = 601
 enums["MAV_CMD"][601] = EnumEntry("MAV_CMD_DO_JUMP_TAG", """Jump to the matching tag in the mission list. Repeat this action for the specified number of times. A mission should contain a single matching tag for each jump. If this is not the case then a jump to a missing tag should complete the mission, and a jump where there are multiple matching tags should always select the one with the lowest mission sequence number.""")
 enums["MAV_CMD"][601].param[1] = """Target tag to jump to."""
+enums["MAV_CMD"][601].label[1] = """Tag"""
 enums["MAV_CMD"][601].param[2] = """Repeat count."""
+enums["MAV_CMD"][601].label[2] = """Repeat"""
 enums["MAV_CMD"][601].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][601].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][601].param[5] = """Reserved (default:0)"""
@@ -1506,8 +1917,11 @@ enums["MAV_CMD"][610] = EnumEntry(
         """,
 )
 enums["MAV_CMD"][610].param[1] = """New system ID for target component(s). 0: ignore and reject command (broadcast system ID not allowed)."""
+enums["MAV_CMD"][610].label[1] = """System ID"""
 enums["MAV_CMD"][610].param[2] = """New component ID for target component(s). 0: ignore (component IDs don't change)."""
+enums["MAV_CMD"][610].label[2] = """Component ID"""
 enums["MAV_CMD"][610].param[3] = """Reboot components after ID change. Any non-zero value triggers the reboot."""
+enums["MAV_CMD"][610].label[3] = """Reboot"""
 enums["MAV_CMD"][610].param[4] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][610].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][610].param[6] = """Reserved (default:0)"""
@@ -1528,26 +1942,40 @@ enums["MAV_CMD"][611].param[2] = """Empty"""
 enums["MAV_CMD"][611].param[3] = """Empty"""
 enums["MAV_CMD"][611].param[4] = """Empty"""
 enums["MAV_CMD"][611].param[5] = """Latitude"""
+enums["MAV_CMD"][611].label[5] = """Latitude"""
 enums["MAV_CMD"][611].param[6] = """Longitude"""
+enums["MAV_CMD"][611].label[6] = """Longitude"""
 enums["MAV_CMD"][611].param[7] = """Altitude"""
+enums["MAV_CMD"][611].label[7] = """Altitude"""
 MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW = 1000
 enums["MAV_CMD"][1000] = EnumEntry("MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW", """Set gimbal manager pitch/yaw setpoints (low rate command). It is possible to set combinations of the values below. E.g. an angle as well as a desired angular rate can be used to get to this angle at a certain angular rate, or an angular rate only will result in continuous turning. NaN is to be used to signal unset. Note: only the gimbal manager will react to this command - it will be ignored by a gimbal device. Use GIMBAL_MANAGER_SET_PITCHYAW if you need to stream pitch/yaw setpoints at higher rate. """)
 enums["MAV_CMD"][1000].param[1] = """Pitch angle (positive to pitch up, relative to vehicle for FOLLOW mode, relative to world horizon for LOCK mode)."""
+enums["MAV_CMD"][1000].label[1] = """Pitch angle"""
 enums["MAV_CMD"][1000].param[2] = """Yaw angle (positive to yaw to the right, relative to vehicle for FOLLOW mode, absolute to North for LOCK mode)."""
+enums["MAV_CMD"][1000].label[2] = """Yaw angle"""
 enums["MAV_CMD"][1000].param[3] = """Pitch rate (positive to pitch up)."""
+enums["MAV_CMD"][1000].label[3] = """Pitch rate"""
 enums["MAV_CMD"][1000].param[4] = """Yaw rate (positive to yaw to the right)."""
+enums["MAV_CMD"][1000].label[4] = """Yaw rate"""
 enums["MAV_CMD"][1000].param[5] = """Gimbal manager flags to use."""
+enums["MAV_CMD"][1000].label[5] = """Gimbal manager flags"""
 enums["MAV_CMD"][1000].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][1000].param[7] = """Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals)."""
+enums["MAV_CMD"][1000].label[7] = """Gimbal device ID"""
 MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE = 1001
 enums["MAV_CMD"][1001] = EnumEntry("MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE", """Gimbal configuration to set which sysid/compid is in primary and secondary control.""")
 enums["MAV_CMD"][1001].param[1] = """Sysid for primary control (0: no one in control, -1: leave unchanged, -2: set itself in control (for missions where the own sysid is still unknown), -3: remove control if currently in control)."""
+enums["MAV_CMD"][1001].label[1] = """sysid primary control"""
 enums["MAV_CMD"][1001].param[2] = """Compid for primary control (0: no one in control, -1: leave unchanged, -2: set itself in control (for missions where the own sysid is still unknown), -3: remove control if currently in control)."""
+enums["MAV_CMD"][1001].label[2] = """compid primary control"""
 enums["MAV_CMD"][1001].param[3] = """Sysid for secondary control (0: no one in control, -1: leave unchanged, -2: set itself in control (for missions where the own sysid is still unknown), -3: remove control if currently in control)."""
+enums["MAV_CMD"][1001].label[3] = """sysid secondary control"""
 enums["MAV_CMD"][1001].param[4] = """Compid for secondary control (0: no one in control, -1: leave unchanged, -2: set itself in control (for missions where the own sysid is still unknown), -3: remove control if currently in control)."""
+enums["MAV_CMD"][1001].label[4] = """compid secondary control"""
 enums["MAV_CMD"][1001].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][1001].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][1001].param[7] = """Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals)."""
+enums["MAV_CMD"][1001].label[7] = """Gimbal device ID"""
 MAV_CMD_IMAGE_START_CAPTURE = 2000
 enums["MAV_CMD"][2000] = EnumEntry(
     "MAV_CMD_IMAGE_START_CAPTURE",
@@ -1566,12 +1994,16 @@ enums["MAV_CMD"][2000] = EnumEntry(
           If the command is broadcast (target_component is 0) then param 1 should be set to 0 (any other value should be NACKED with MAV_RESULT_DENIED). An autopilot would trigger any local cameras and forward the command to all channels.
         """,
 )
-enums["MAV_CMD"][2000].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras that don't have a distinct component id (such as autopilot-attached cameras). 0: all cameras. This is used to specifically target autopilot-connected cameras or individual sensors in a multi-sensor MAVLink camera. It is also used to target specific cameras when the MAV_CMD is used in a mission"""
+enums["MAV_CMD"][2000].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2000].label[1] = """Target Camera ID"""
 enums["MAV_CMD"][2000].param[2] = """Desired elapsed time between two consecutive pictures (in seconds). Minimum values depend on hardware (typically greater than 2 seconds)."""
+enums["MAV_CMD"][2000].label[2] = """Interval"""
 enums["MAV_CMD"][2000].param[3] = """Total number of images to capture. 0 to capture forever/until MAV_CMD_IMAGE_STOP_CAPTURE."""
+enums["MAV_CMD"][2000].label[3] = """Total Images"""
 enums["MAV_CMD"][2000].param[4] = """Capture sequence number starting from 1. This is only valid for single-capture (param3 == 1), otherwise set to 0. Increment the capture ID for each capture command to prevent double captures when a command is re-transmitted."""
-enums["MAV_CMD"][2000].param[5] = """Reserved (default:NaN)"""
-enums["MAV_CMD"][2000].param[6] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2000].label[4] = """Sequence Number"""
+enums["MAV_CMD"][2000].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2000].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2000].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_IMAGE_STOP_CAPTURE = 2001
 enums["MAV_CMD"][2001] = EnumEntry(
@@ -1591,71 +2023,127 @@ enums["MAV_CMD"][2001] = EnumEntry(
           If the command is broadcast (target_component is 0) then param 1 should be set to 0 (any other value should be NACKED with MAV_RESULT_DENIED). An autopilot would trigger any local cameras and forward the command to all channels.
         """,
 )
-enums["MAV_CMD"][2001].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras that don't have a distinct component id (such as autopilot-attached cameras). 0: all cameras. This is used to specifically target autopilot-connected cameras or individual sensors in a multi-sensor MAVLink camera. It is also used to target specific cameras when the MAV_CMD is used in a mission"""
+enums["MAV_CMD"][2001].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2001].label[1] = """Target Camera ID"""
 enums["MAV_CMD"][2001].param[2] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][2001].param[3] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][2001].param[4] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][2001].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][2001].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2001].param[7] = """Reserved (default:NaN)"""
+MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE = 2002
+enums["MAV_CMD"][2002] = EnumEntry("MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE", """Re-request a CAMERA_IMAGE_CAPTURED message.""")
+enums["MAV_CMD"][2002].param[1] = """Sequence number for missing CAMERA_IMAGE_CAPTURED message"""
+enums["MAV_CMD"][2002].label[1] = """Number"""
+enums["MAV_CMD"][2002].param[2] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2002].param[3] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2002].param[4] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2002].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2002].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][2002].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_DO_TRIGGER_CONTROL = 2003
 enums["MAV_CMD"][2003] = EnumEntry("MAV_CMD_DO_TRIGGER_CONTROL", """Enable or disable on-board camera triggering system.""")
 enums["MAV_CMD"][2003].param[1] = """Trigger enable/disable (0 for disable, 1 for start), -1 to ignore"""
+enums["MAV_CMD"][2003].label[1] = """Enable"""
 enums["MAV_CMD"][2003].param[2] = """1 to reset the trigger sequence, -1 or 0 to ignore"""
+enums["MAV_CMD"][2003].label[2] = """Reset"""
 enums["MAV_CMD"][2003].param[3] = """1 to pause triggering, but without switching the camera off or retracting it. -1 to ignore"""
-enums["MAV_CMD"][2003].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][2003].label[3] = """Pause"""
+enums["MAV_CMD"][2003].param[4] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2003].label[4] = """Target Camera ID"""
 enums["MAV_CMD"][2003].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][2003].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2003].param[7] = """Reserved (default:0)"""
 MAV_CMD_CAMERA_TRACK_POINT = 2004
 enums["MAV_CMD"][2004] = EnumEntry("MAV_CMD_CAMERA_TRACK_POINT", """If the camera supports point visual tracking (CAMERA_CAP_FLAGS_HAS_TRACKING_POINT is set), this command allows to initiate the tracking.""")
 enums["MAV_CMD"][2004].param[1] = """Point to track x value (normalized 0..1, 0 is left, 1 is right)."""
+enums["MAV_CMD"][2004].label[1] = """Point x"""
 enums["MAV_CMD"][2004].param[2] = """Point to track y value (normalized 0..1, 0 is top, 1 is bottom)."""
-enums["MAV_CMD"][2004].param[3] = """Point radius (normalized 0..1, 0 is image left, 1 is image right)."""
-enums["MAV_CMD"][2004].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][2004].label[2] = """Point y"""
+enums["MAV_CMD"][2004].param[3] = """Point radius (normalized 0..1, 0 is one pixel, 1 is full image width)."""
+enums["MAV_CMD"][2004].label[3] = """Radius"""
+enums["MAV_CMD"][2004].param[4] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2004].label[4] = """Target Camera ID"""
 enums["MAV_CMD"][2004].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][2004].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2004].param[7] = """Reserved (default:0)"""
 MAV_CMD_CAMERA_TRACK_RECTANGLE = 2005
 enums["MAV_CMD"][2005] = EnumEntry("MAV_CMD_CAMERA_TRACK_RECTANGLE", """If the camera supports rectangle visual tracking (CAMERA_CAP_FLAGS_HAS_TRACKING_RECTANGLE is set), this command allows to initiate the tracking.""")
 enums["MAV_CMD"][2005].param[1] = """Top left corner of rectangle x value (normalized 0..1, 0 is left, 1 is right)."""
+enums["MAV_CMD"][2005].label[1] = """Top left corner x"""
 enums["MAV_CMD"][2005].param[2] = """Top left corner of rectangle y value (normalized 0..1, 0 is top, 1 is bottom)."""
+enums["MAV_CMD"][2005].label[2] = """Top left corner y"""
 enums["MAV_CMD"][2005].param[3] = """Bottom right corner of rectangle x value (normalized 0..1, 0 is left, 1 is right)."""
+enums["MAV_CMD"][2005].label[3] = """Bottom right corner x"""
 enums["MAV_CMD"][2005].param[4] = """Bottom right corner of rectangle y value (normalized 0..1, 0 is top, 1 is bottom)."""
-enums["MAV_CMD"][2005].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2005].label[4] = """Bottom right corner y"""
+enums["MAV_CMD"][2005].param[5] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2005].label[5] = """Target Camera ID"""
 enums["MAV_CMD"][2005].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2005].param[7] = """Reserved (default:0)"""
 MAV_CMD_CAMERA_STOP_TRACKING = 2010
 enums["MAV_CMD"][2010] = EnumEntry("MAV_CMD_CAMERA_STOP_TRACKING", """Stops ongoing tracking.""")
-enums["MAV_CMD"][2010].param[1] = """Reserved (default:0)"""
+enums["MAV_CMD"][2010].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2010].label[1] = """Target Camera ID"""
 enums["MAV_CMD"][2010].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][2010].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][2010].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][2010].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][2010].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2010].param[7] = """Reserved (default:0)"""
+MAV_CMD_CAMERA_START_MTI = 2020
+enums["MAV_CMD"][2020] = EnumEntry(
+    "MAV_CMD_CAMERA_START_MTI",
+    """Enable Moving Target Indicators (MTI) on streamed video.
+          Support for feature can be checked with CAMERA_CAP_FLAGS_HAS_MTI, and disabled with MAV_CMD_CAMERA_STOP_MTI.""",
+)
+enums["MAV_CMD"][2020].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2020].label[1] = """Target Camera ID"""
+enums["MAV_CMD"][2020].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][2020].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][2020].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][2020].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2020].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][2020].param[7] = """Reserved (default:0)"""
+MAV_CMD_CAMERA_STOP_MTI = 2021
+enums["MAV_CMD"][2021] = EnumEntry("MAV_CMD_CAMERA_STOP_MTI", """Disable Moving Target Indicators (MTI) on streamed video.""")
+enums["MAV_CMD"][2021].param[1] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2021].label[1] = """Target Camera ID"""
+enums["MAV_CMD"][2021].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][2021].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][2021].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][2021].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2021].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][2021].param[7] = """Reserved (default:0)"""
 MAV_CMD_VIDEO_START_CAPTURE = 2500
 enums["MAV_CMD"][2500] = EnumEntry("MAV_CMD_VIDEO_START_CAPTURE", """Starts video capture (recording).""")
 enums["MAV_CMD"][2500].param[1] = """Video Stream ID (0 for all streams)"""
+enums["MAV_CMD"][2500].label[1] = """Stream ID"""
 enums["MAV_CMD"][2500].param[2] = """Frequency CAMERA_CAPTURE_STATUS messages should be sent while recording (0 for no messages, otherwise frequency)"""
-enums["MAV_CMD"][2500].param[3] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2500].label[2] = """Status Frequency"""
+enums["MAV_CMD"][2500].param[3] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2500].label[3] = """Target Camera ID"""
 enums["MAV_CMD"][2500].param[4] = """Reserved (default:NaN)"""
-enums["MAV_CMD"][2500].param[5] = """Reserved (default:NaN)"""
-enums["MAV_CMD"][2500].param[6] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2500].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2500].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2500].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_VIDEO_STOP_CAPTURE = 2501
 enums["MAV_CMD"][2501] = EnumEntry("MAV_CMD_VIDEO_STOP_CAPTURE", """Stop the current video capture (recording).""")
 enums["MAV_CMD"][2501].param[1] = """Video Stream ID (0 for all streams)"""
-enums["MAV_CMD"][2501].param[2] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2501].label[1] = """Stream ID"""
+enums["MAV_CMD"][2501].param[2] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2501].label[2] = """Target Camera ID"""
 enums["MAV_CMD"][2501].param[3] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][2501].param[4] = """Reserved (default:NaN)"""
-enums["MAV_CMD"][2501].param[5] = """Reserved (default:NaN)"""
-enums["MAV_CMD"][2501].param[6] = """Reserved (default:NaN)"""
+enums["MAV_CMD"][2501].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][2501].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2501].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_VIDEO_START_STREAMING = 2502
 enums["MAV_CMD"][2502] = EnumEntry("MAV_CMD_VIDEO_START_STREAMING", """Start video streaming""")
 enums["MAV_CMD"][2502].param[1] = """Video Stream ID (0 for all streams, 1 for first, 2 for second, etc.)"""
-enums["MAV_CMD"][2502].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][2502].label[1] = """Stream ID"""
+enums["MAV_CMD"][2502].param[2] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2502].label[2] = """Target Camera ID"""
 enums["MAV_CMD"][2502].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][2502].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][2502].param[5] = """Reserved (default:0)"""
@@ -1664,7 +2152,9 @@ enums["MAV_CMD"][2502].param[7] = """Reserved (default:0)"""
 MAV_CMD_VIDEO_STOP_STREAMING = 2503
 enums["MAV_CMD"][2503] = EnumEntry("MAV_CMD_VIDEO_STOP_STREAMING", """Stop the given video stream""")
 enums["MAV_CMD"][2503].param[1] = """Video Stream ID (0 for all streams, 1 for first, 2 for second, etc.)"""
-enums["MAV_CMD"][2503].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][2503].label[1] = """Stream ID"""
+enums["MAV_CMD"][2503].param[2] = """Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission."""
+enums["MAV_CMD"][2503].label[2] = """Target Camera ID"""
 enums["MAV_CMD"][2503].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][2503].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][2503].param[5] = """Reserved (default:0)"""
@@ -1673,6 +2163,7 @@ enums["MAV_CMD"][2503].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION = 2504
 enums["MAV_CMD"][2504] = EnumEntry("MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION", """Request video stream information (VIDEO_STREAM_INFORMATION)""")
 enums["MAV_CMD"][2504].param[1] = """Video Stream ID (0 for all streams, 1 for first, 2 for second, etc.)"""
+enums["MAV_CMD"][2504].label[1] = """Stream ID"""
 enums["MAV_CMD"][2504].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][2504].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][2504].param[4] = """Reserved (default:0)"""
@@ -1682,6 +2173,7 @@ enums["MAV_CMD"][2504].param[7] = """Reserved (default:0)"""
 MAV_CMD_REQUEST_VIDEO_STREAM_STATUS = 2505
 enums["MAV_CMD"][2505] = EnumEntry("MAV_CMD_REQUEST_VIDEO_STREAM_STATUS", """Request video stream status (VIDEO_STREAM_STATUS)""")
 enums["MAV_CMD"][2505].param[1] = """Video Stream ID (0 for all streams, 1 for first, 2 for second, etc.)"""
+enums["MAV_CMD"][2505].label[1] = """Stream ID"""
 enums["MAV_CMD"][2505].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][2505].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][2505].param[4] = """Reserved (default:0)"""
@@ -1691,6 +2183,7 @@ enums["MAV_CMD"][2505].param[7] = """Reserved (default:0)"""
 MAV_CMD_LOGGING_START = 2510
 enums["MAV_CMD"][2510] = EnumEntry("MAV_CMD_LOGGING_START", """Request to start streaming logging data over MAVLink (see also LOGGING_DATA message)""")
 enums["MAV_CMD"][2510].param[1] = """Format: 0: ULog"""
+enums["MAV_CMD"][2510].label[1] = """Format"""
 enums["MAV_CMD"][2510].param[2] = """Reserved (set to 0)"""
 enums["MAV_CMD"][2510].param[3] = """Reserved (set to 0)"""
 enums["MAV_CMD"][2510].param[4] = """Reserved (set to 0)"""
@@ -1709,7 +2202,9 @@ enums["MAV_CMD"][2511].param[7] = """Reserved (set to 0)"""
 MAV_CMD_AIRFRAME_CONFIGURATION = 2520
 enums["MAV_CMD"][2520] = EnumEntry("MAV_CMD_AIRFRAME_CONFIGURATION", """""")
 enums["MAV_CMD"][2520].param[1] = """Landing gear ID (default: 0, -1 for all)"""
+enums["MAV_CMD"][2520].label[1] = """Landing Gear ID"""
 enums["MAV_CMD"][2520].param[2] = """Landing gear position (Down: 0, Up: 1, NaN for no change)"""
+enums["MAV_CMD"][2520].label[2] = """Landing Gear Position"""
 enums["MAV_CMD"][2520].param[3] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][2520].param[4] = """Reserved (default:NaN)"""
 enums["MAV_CMD"][2520].param[5] = """Reserved (default:0)"""
@@ -1718,6 +2213,7 @@ enums["MAV_CMD"][2520].param[7] = """Reserved (default:NaN)"""
 MAV_CMD_CONTROL_HIGH_LATENCY = 2600
 enums["MAV_CMD"][2600] = EnumEntry("MAV_CMD_CONTROL_HIGH_LATENCY", """Request to start/stop transmitting over the high latency telemetry""")
 enums["MAV_CMD"][2600].param[1] = """Start transmission over high latency telemetry (MAV_BOOL_FALSE: stop transmission). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][2600].label[1] = """Enable"""
 enums["MAV_CMD"][2600].param[2] = """Empty"""
 enums["MAV_CMD"][2600].param[3] = """Empty"""
 enums["MAV_CMD"][2600].param[4] = """Empty"""
@@ -1727,15 +2223,20 @@ enums["MAV_CMD"][2600].param[7] = """Empty"""
 MAV_CMD_PANORAMA_CREATE = 2800
 enums["MAV_CMD"][2800] = EnumEntry("MAV_CMD_PANORAMA_CREATE", """Create a panorama at the current position""")
 enums["MAV_CMD"][2800].param[1] = """Viewing angle horizontal of the panorama (+- 0.5 the total angle)"""
+enums["MAV_CMD"][2800].label[1] = """Horizontal Angle"""
 enums["MAV_CMD"][2800].param[2] = """Viewing angle vertical of panorama."""
+enums["MAV_CMD"][2800].label[2] = """Vertical Angle"""
 enums["MAV_CMD"][2800].param[3] = """Speed of the horizontal rotation."""
+enums["MAV_CMD"][2800].label[3] = """Horizontal Speed"""
 enums["MAV_CMD"][2800].param[4] = """Speed of the vertical rotation."""
+enums["MAV_CMD"][2800].label[4] = """Vertical Speed"""
 enums["MAV_CMD"][2800].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][2800].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][2800].param[7] = """Reserved (default:0)"""
 MAV_CMD_DO_VTOL_TRANSITION = 3000
 enums["MAV_CMD"][3000] = EnumEntry("MAV_CMD_DO_VTOL_TRANSITION", """Request VTOL transition""")
 enums["MAV_CMD"][3000].param[1] = """The target VTOL state. Only MAV_VTOL_STATE_MC and MAV_VTOL_STATE_FW can be used."""
+enums["MAV_CMD"][3000].label[1] = """State"""
 enums["MAV_CMD"][3000].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][3000].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][3000].param[4] = """Reserved (default:0)"""
@@ -1745,10 +2246,13 @@ enums["MAV_CMD"][3000].param[7] = """Reserved (default:0)"""
 MAV_CMD_ARM_AUTHORIZATION_REQUEST = 3001
 enums["MAV_CMD"][3001] = EnumEntry(
     "MAV_CMD_ARM_AUTHORIZATION_REQUEST",
-    """Request authorization to arm the vehicle to a external entity, the arm authorizer is responsible to request all data that is needs from the vehicle before authorize or deny the request. If approved the progress of command_ack message should be set with period of time that this authorization is valid in seconds or in case it was denied it should be set with one of the reasons in ARM_AUTH_DENIED_REASON.
+    """Request authorization to arm the vehicle to a external entity, the arm authorizer is responsible to request all data that is needs from the vehicle before authorize or deny the request.
+        If approved the COMMAND_ACK message progress field should be set with period of time that this authorization is valid in seconds.
+        If the authorization is denied COMMAND_ACK.result_param2 should be set with one of the reasons in MAV_ARM_AUTH_DENIED_REASON.
         """,
 )
 enums["MAV_CMD"][3001].param[1] = """Vehicle system id, this way ground station can request arm authorization on behalf of any vehicle"""
+enums["MAV_CMD"][3001].label[1] = """System ID"""
 enums["MAV_CMD"][3001].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][3001].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][3001].param[4] = """Reserved (default:0)"""
@@ -1776,12 +2280,30 @@ enums["MAV_CMD"][4001] = EnumEntry(
 )
 enums["MAV_CMD"][4001].has_location = True
 enums["MAV_CMD"][4001].param[1] = """Radius of desired circle in CIRCLE_MODE"""
+enums["MAV_CMD"][4001].label[1] = """Radius"""
 enums["MAV_CMD"][4001].param[2] = """User defined"""
 enums["MAV_CMD"][4001].param[3] = """User defined"""
 enums["MAV_CMD"][4001].param[4] = """User defined"""
 enums["MAV_CMD"][4001].param[5] = """Target latitude of center of circle in CIRCLE_MODE"""
+enums["MAV_CMD"][4001].label[5] = """Latitude"""
 enums["MAV_CMD"][4001].param[6] = """Target longitude of center of circle in CIRCLE_MODE"""
+enums["MAV_CMD"][4001].label[6] = """Longitude"""
 enums["MAV_CMD"][4001].param[7] = """Reserved (default:0)"""
+MAV_CMD_CONDITION_GATE = 4501
+enums["MAV_CMD"][4501] = EnumEntry("MAV_CMD_CONDITION_GATE", """Delay mission state machine until gate has been reached.""")
+enums["MAV_CMD"][4501].has_location = True
+enums["MAV_CMD"][4501].param[1] = """Geometry: 0: orthogonal to path between previous and next waypoint."""
+enums["MAV_CMD"][4501].label[1] = """Geometry"""
+enums["MAV_CMD"][4501].param[2] = """Use altitude (MAV_BOOL_FALSE: ignore altitude). Values not equal to 0 or 1 are invalid."""
+enums["MAV_CMD"][4501].label[2] = """UseAltitude"""
+enums["MAV_CMD"][4501].param[3] = """Empty"""
+enums["MAV_CMD"][4501].param[4] = """Empty"""
+enums["MAV_CMD"][4501].param[5] = """Latitude"""
+enums["MAV_CMD"][4501].label[5] = """Latitude"""
+enums["MAV_CMD"][4501].param[6] = """Longitude"""
+enums["MAV_CMD"][4501].label[6] = """Longitude"""
+enums["MAV_CMD"][4501].param[7] = """Altitude"""
+enums["MAV_CMD"][4501].label[7] = """Altitude"""
 MAV_CMD_NAV_FENCE_RETURN_POINT = 5000
 enums["MAV_CMD"][5000] = EnumEntry("MAV_CMD_NAV_FENCE_RETURN_POINT", """Fence return point (there can only be one such point in a geofence definition). If rally points are supported they should be used instead.""")
 enums["MAV_CMD"][5000].has_location = True
@@ -1790,35 +2312,47 @@ enums["MAV_CMD"][5000].param[2] = """Reserved"""
 enums["MAV_CMD"][5000].param[3] = """Reserved"""
 enums["MAV_CMD"][5000].param[4] = """Reserved"""
 enums["MAV_CMD"][5000].param[5] = """Latitude"""
+enums["MAV_CMD"][5000].label[5] = """Latitude"""
 enums["MAV_CMD"][5000].param[6] = """Longitude"""
+enums["MAV_CMD"][5000].label[6] = """Longitude"""
 enums["MAV_CMD"][5000].param[7] = """Altitude"""
+enums["MAV_CMD"][5000].label[7] = """Altitude"""
 MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION = 5001
 enums["MAV_CMD"][5001] = EnumEntry(
     "MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION",
     """Fence vertex for an inclusion polygon (the polygon must not be self-intersecting). The vehicle must stay within this area. Minimum of 3 vertices required.
+          The vertices for a polygon must be sent sequentially, each with param1 set to the total number of vertices in the polygon.
         """,
 )
 enums["MAV_CMD"][5001].has_location = True
-enums["MAV_CMD"][5001].param[1] = """Polygon vertex count"""
+enums["MAV_CMD"][5001].param[1] = """Polygon vertex count. This is the number of vertices in the current polygon (all vertices will have the same number)."""
+enums["MAV_CMD"][5001].label[1] = """Vertex Count"""
 enums["MAV_CMD"][5001].param[2] = """Vehicle must be inside ALL inclusion zones in a single group, vehicle must be inside at least one group, must be the same for all points in each polygon"""
+enums["MAV_CMD"][5001].label[2] = """Inclusion Group"""
 enums["MAV_CMD"][5001].param[3] = """Reserved"""
 enums["MAV_CMD"][5001].param[4] = """Reserved"""
 enums["MAV_CMD"][5001].param[5] = """Latitude"""
+enums["MAV_CMD"][5001].label[5] = """Latitude"""
 enums["MAV_CMD"][5001].param[6] = """Longitude"""
+enums["MAV_CMD"][5001].label[6] = """Longitude"""
 enums["MAV_CMD"][5001].param[7] = """Reserved"""
 MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION = 5002
 enums["MAV_CMD"][5002] = EnumEntry(
     "MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION",
     """Fence vertex for an exclusion polygon (the polygon must not be self-intersecting). The vehicle must stay outside this area. Minimum of 3 vertices required.
+          The vertices for a polygon must be sent sequentially, each with param1 set to the total number of vertices in the polygon.
         """,
 )
 enums["MAV_CMD"][5002].has_location = True
-enums["MAV_CMD"][5002].param[1] = """Polygon vertex count"""
+enums["MAV_CMD"][5002].param[1] = """Polygon vertex count. This is the number of vertices in the current polygon (all vertices will have the same number)."""
+enums["MAV_CMD"][5002].label[1] = """Vertex Count"""
 enums["MAV_CMD"][5002].param[2] = """Reserved"""
 enums["MAV_CMD"][5002].param[3] = """Reserved"""
 enums["MAV_CMD"][5002].param[4] = """Reserved"""
 enums["MAV_CMD"][5002].param[5] = """Latitude"""
+enums["MAV_CMD"][5002].label[5] = """Latitude"""
 enums["MAV_CMD"][5002].param[6] = """Longitude"""
+enums["MAV_CMD"][5002].label[6] = """Longitude"""
 enums["MAV_CMD"][5002].param[7] = """Reserved"""
 MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION = 5003
 enums["MAV_CMD"][5003] = EnumEntry(
@@ -1828,11 +2362,15 @@ enums["MAV_CMD"][5003] = EnumEntry(
 )
 enums["MAV_CMD"][5003].has_location = True
 enums["MAV_CMD"][5003].param[1] = """Radius."""
+enums["MAV_CMD"][5003].label[1] = """Radius"""
 enums["MAV_CMD"][5003].param[2] = """Vehicle must be inside ALL inclusion zones in a single group, vehicle must be inside at least one group"""
+enums["MAV_CMD"][5003].label[2] = """Inclusion Group"""
 enums["MAV_CMD"][5003].param[3] = """Reserved"""
 enums["MAV_CMD"][5003].param[4] = """Reserved"""
 enums["MAV_CMD"][5003].param[5] = """Latitude"""
+enums["MAV_CMD"][5003].label[5] = """Latitude"""
 enums["MAV_CMD"][5003].param[6] = """Longitude"""
+enums["MAV_CMD"][5003].label[6] = """Longitude"""
 enums["MAV_CMD"][5003].param[7] = """Reserved"""
 MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION = 5004
 enums["MAV_CMD"][5004] = EnumEntry(
@@ -1842,12 +2380,26 @@ enums["MAV_CMD"][5004] = EnumEntry(
 )
 enums["MAV_CMD"][5004].has_location = True
 enums["MAV_CMD"][5004].param[1] = """Radius."""
+enums["MAV_CMD"][5004].label[1] = """Radius"""
 enums["MAV_CMD"][5004].param[2] = """Reserved"""
 enums["MAV_CMD"][5004].param[3] = """Reserved"""
 enums["MAV_CMD"][5004].param[4] = """Reserved"""
 enums["MAV_CMD"][5004].param[5] = """Latitude"""
+enums["MAV_CMD"][5004].label[5] = """Latitude"""
 enums["MAV_CMD"][5004].param[6] = """Longitude"""
+enums["MAV_CMD"][5004].label[6] = """Longitude"""
 enums["MAV_CMD"][5004].param[7] = """Reserved"""
+MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION = 5005
+enums["MAV_CMD"][5005] = EnumEntry("MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION", """Circular fence area centered on home. The vehicle must stay inside this area. If home is moved, the fence moves.""")
+enums["MAV_CMD"][5005].param[1] = """Radius."""
+enums["MAV_CMD"][5005].label[1] = """Radius"""
+enums["MAV_CMD"][5005].param[2] = """Vehicle must be inside ALL inclusion zones in a single group, vehicle must be inside at least one group. Ignored when sent as a command."""
+enums["MAV_CMD"][5005].label[2] = """Inclusion Group"""
+enums["MAV_CMD"][5005].param[3] = """Reserved (default:0)"""
+enums["MAV_CMD"][5005].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][5005].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][5005].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][5005].param[7] = """Reserved (default:0)"""
 MAV_CMD_NAV_RALLY_POINT = 5100
 enums["MAV_CMD"][5100] = EnumEntry(
     "MAV_CMD_NAV_RALLY_POINT",
@@ -1860,8 +2412,11 @@ enums["MAV_CMD"][5100].param[2] = """Reserved"""
 enums["MAV_CMD"][5100].param[3] = """Reserved"""
 enums["MAV_CMD"][5100].param[4] = """Reserved"""
 enums["MAV_CMD"][5100].param[5] = """Latitude"""
+enums["MAV_CMD"][5100].label[5] = """Latitude"""
 enums["MAV_CMD"][5100].param[6] = """Longitude"""
+enums["MAV_CMD"][5100].label[6] = """Longitude"""
 enums["MAV_CMD"][5100].param[7] = """Altitude"""
+enums["MAV_CMD"][5100].label[7] = """Altitude"""
 MAV_CMD_UAVCAN_GET_NODE_INFO = 5200
 enums["MAV_CMD"][5200] = EnumEntry("MAV_CMD_UAVCAN_GET_NODE_INFO", """Commands the vehicle to respond with a sequence of messages UAVCAN_NODE_INFO, one message per every UAVCAN node that is online. Note that some of the response messages can be lost, which the receiver can detect easily by checking whether every received UAVCAN_NODE_STATUS has a matching message UAVCAN_NODE_INFO received earlier; if not, this command should be sent again in order to request re-transmission of the node information messages.""")
 enums["MAV_CMD"][5200].param[1] = """Reserved (set to 0)"""
@@ -1874,6 +2429,7 @@ enums["MAV_CMD"][5200].param[7] = """Reserved (set to 0)"""
 MAV_CMD_DO_SET_SAFETY_SWITCH_STATE = 5300
 enums["MAV_CMD"][5300] = EnumEntry("MAV_CMD_DO_SET_SAFETY_SWITCH_STATE", """Change state of safety switch.""")
 enums["MAV_CMD"][5300].param[1] = """New safety switch state."""
+enums["MAV_CMD"][5300].label[1] = """Desired State"""
 enums["MAV_CMD"][5300].param[2] = """Empty."""
 enums["MAV_CMD"][5300].param[3] = """Empty."""
 enums["MAV_CMD"][5300].param[4] = """Empty"""
@@ -1893,15 +2449,23 @@ MAV_CMD_PAYLOAD_PREPARE_DEPLOY = 30001
 enums["MAV_CMD"][30001] = EnumEntry("MAV_CMD_PAYLOAD_PREPARE_DEPLOY", """Deploy payload on a Lat / Lon / Alt position. This includes the navigation to reach the required release position and velocity.""")
 enums["MAV_CMD"][30001].has_location = True
 enums["MAV_CMD"][30001].param[1] = """Operation mode. 0: prepare single payload deploy (overwriting previous requests), but do not execute it. 1: execute payload deploy immediately (rejecting further deploy commands during execution, but allowing abort). 2: add payload deploy to existing deployment list."""
+enums["MAV_CMD"][30001].label[1] = """Operation Mode"""
 enums["MAV_CMD"][30001].param[2] = """Desired approach vector in compass heading. A negative value indicates the system can define the approach vector at will."""
+enums["MAV_CMD"][30001].label[2] = """Approach Vector"""
 enums["MAV_CMD"][30001].param[3] = """Desired ground speed at release time. This can be overridden by the airframe in case it needs to meet minimum airspeed. A negative value indicates the system can define the ground speed at will."""
+enums["MAV_CMD"][30001].label[3] = """Ground Speed"""
 enums["MAV_CMD"][30001].param[4] = """Minimum altitude clearance to the release position. A negative value indicates the system can define the clearance at will."""
-enums["MAV_CMD"][30001].param[5] = """Latitude. Note, if used in MISSION_ITEM (deprecated) the units are degrees (unscaled)"""
-enums["MAV_CMD"][30001].param[6] = """Longitude. Note, if used in MISSION_ITEM (deprecated) the units are degrees (unscaled)"""
+enums["MAV_CMD"][30001].label[4] = """Altitude Clearance"""
+enums["MAV_CMD"][30001].param[5] = """Latitude."""
+enums["MAV_CMD"][30001].label[5] = """Latitude"""
+enums["MAV_CMD"][30001].param[6] = """Longitude."""
+enums["MAV_CMD"][30001].label[6] = """Longitude"""
 enums["MAV_CMD"][30001].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][30001].label[7] = """Altitude"""
 MAV_CMD_PAYLOAD_CONTROL_DEPLOY = 30002
 enums["MAV_CMD"][30002] = EnumEntry("MAV_CMD_PAYLOAD_CONTROL_DEPLOY", """Control the payload deployment.""")
 enums["MAV_CMD"][30002].param[1] = """Operation mode. 0: Abort deployment, continue normal mission. 1: switch to payload deployment mode. 100: delete first payload deployment request. 101: delete all payload deployment requests."""
+enums["MAV_CMD"][30002].label[1] = """Operation Mode"""
 enums["MAV_CMD"][30002].param[2] = """Reserved"""
 enums["MAV_CMD"][30002].param[3] = """Reserved"""
 enums["MAV_CMD"][30002].param[4] = """Reserved"""
@@ -1916,8 +2480,11 @@ enums["MAV_CMD"][31000].param[2] = """User defined"""
 enums["MAV_CMD"][31000].param[3] = """User defined"""
 enums["MAV_CMD"][31000].param[4] = """User defined"""
 enums["MAV_CMD"][31000].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31000].label[5] = """Latitude"""
 enums["MAV_CMD"][31000].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31000].label[6] = """Longitude"""
 enums["MAV_CMD"][31000].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31000].label[7] = """Altitude"""
 MAV_CMD_WAYPOINT_USER_2 = 31001
 enums["MAV_CMD"][31001] = EnumEntry("MAV_CMD_WAYPOINT_USER_2", """User defined waypoint item. Ground Station will show the Vehicle as flying through this item.""")
 enums["MAV_CMD"][31001].has_location = True
@@ -1926,8 +2493,11 @@ enums["MAV_CMD"][31001].param[2] = """User defined"""
 enums["MAV_CMD"][31001].param[3] = """User defined"""
 enums["MAV_CMD"][31001].param[4] = """User defined"""
 enums["MAV_CMD"][31001].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31001].label[5] = """Latitude"""
 enums["MAV_CMD"][31001].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31001].label[6] = """Longitude"""
 enums["MAV_CMD"][31001].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31001].label[7] = """Altitude"""
 MAV_CMD_WAYPOINT_USER_3 = 31002
 enums["MAV_CMD"][31002] = EnumEntry("MAV_CMD_WAYPOINT_USER_3", """User defined waypoint item. Ground Station will show the Vehicle as flying through this item.""")
 enums["MAV_CMD"][31002].has_location = True
@@ -1936,8 +2506,11 @@ enums["MAV_CMD"][31002].param[2] = """User defined"""
 enums["MAV_CMD"][31002].param[3] = """User defined"""
 enums["MAV_CMD"][31002].param[4] = """User defined"""
 enums["MAV_CMD"][31002].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31002].label[5] = """Latitude"""
 enums["MAV_CMD"][31002].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31002].label[6] = """Longitude"""
 enums["MAV_CMD"][31002].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31002].label[7] = """Altitude"""
 MAV_CMD_WAYPOINT_USER_4 = 31003
 enums["MAV_CMD"][31003] = EnumEntry("MAV_CMD_WAYPOINT_USER_4", """User defined waypoint item. Ground Station will show the Vehicle as flying through this item.""")
 enums["MAV_CMD"][31003].has_location = True
@@ -1946,8 +2519,11 @@ enums["MAV_CMD"][31003].param[2] = """User defined"""
 enums["MAV_CMD"][31003].param[3] = """User defined"""
 enums["MAV_CMD"][31003].param[4] = """User defined"""
 enums["MAV_CMD"][31003].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31003].label[5] = """Latitude"""
 enums["MAV_CMD"][31003].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31003].label[6] = """Longitude"""
 enums["MAV_CMD"][31003].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31003].label[7] = """Altitude"""
 MAV_CMD_WAYPOINT_USER_5 = 31004
 enums["MAV_CMD"][31004] = EnumEntry("MAV_CMD_WAYPOINT_USER_5", """User defined waypoint item. Ground Station will show the Vehicle as flying through this item.""")
 enums["MAV_CMD"][31004].has_location = True
@@ -1956,8 +2532,11 @@ enums["MAV_CMD"][31004].param[2] = """User defined"""
 enums["MAV_CMD"][31004].param[3] = """User defined"""
 enums["MAV_CMD"][31004].param[4] = """User defined"""
 enums["MAV_CMD"][31004].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31004].label[5] = """Latitude"""
 enums["MAV_CMD"][31004].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31004].label[6] = """Longitude"""
 enums["MAV_CMD"][31004].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31004].label[7] = """Altitude"""
 MAV_CMD_SPATIAL_USER_1 = 31005
 enums["MAV_CMD"][31005] = EnumEntry("MAV_CMD_SPATIAL_USER_1", """User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.""")
 enums["MAV_CMD"][31005].has_location = True
@@ -1966,8 +2545,11 @@ enums["MAV_CMD"][31005].param[2] = """User defined"""
 enums["MAV_CMD"][31005].param[3] = """User defined"""
 enums["MAV_CMD"][31005].param[4] = """User defined"""
 enums["MAV_CMD"][31005].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31005].label[5] = """Latitude"""
 enums["MAV_CMD"][31005].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31005].label[6] = """Longitude"""
 enums["MAV_CMD"][31005].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31005].label[7] = """Altitude"""
 MAV_CMD_SPATIAL_USER_2 = 31006
 enums["MAV_CMD"][31006] = EnumEntry("MAV_CMD_SPATIAL_USER_2", """User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.""")
 enums["MAV_CMD"][31006].has_location = True
@@ -1976,8 +2558,11 @@ enums["MAV_CMD"][31006].param[2] = """User defined"""
 enums["MAV_CMD"][31006].param[3] = """User defined"""
 enums["MAV_CMD"][31006].param[4] = """User defined"""
 enums["MAV_CMD"][31006].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31006].label[5] = """Latitude"""
 enums["MAV_CMD"][31006].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31006].label[6] = """Longitude"""
 enums["MAV_CMD"][31006].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31006].label[7] = """Altitude"""
 MAV_CMD_SPATIAL_USER_3 = 31007
 enums["MAV_CMD"][31007] = EnumEntry("MAV_CMD_SPATIAL_USER_3", """User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.""")
 enums["MAV_CMD"][31007].has_location = True
@@ -1986,8 +2571,11 @@ enums["MAV_CMD"][31007].param[2] = """User defined"""
 enums["MAV_CMD"][31007].param[3] = """User defined"""
 enums["MAV_CMD"][31007].param[4] = """User defined"""
 enums["MAV_CMD"][31007].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31007].label[5] = """Latitude"""
 enums["MAV_CMD"][31007].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31007].label[6] = """Longitude"""
 enums["MAV_CMD"][31007].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31007].label[7] = """Altitude"""
 MAV_CMD_SPATIAL_USER_4 = 31008
 enums["MAV_CMD"][31008] = EnumEntry("MAV_CMD_SPATIAL_USER_4", """User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.""")
 enums["MAV_CMD"][31008].has_location = True
@@ -1996,8 +2584,11 @@ enums["MAV_CMD"][31008].param[2] = """User defined"""
 enums["MAV_CMD"][31008].param[3] = """User defined"""
 enums["MAV_CMD"][31008].param[4] = """User defined"""
 enums["MAV_CMD"][31008].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31008].label[5] = """Latitude"""
 enums["MAV_CMD"][31008].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31008].label[6] = """Longitude"""
 enums["MAV_CMD"][31008].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31008].label[7] = """Altitude"""
 MAV_CMD_SPATIAL_USER_5 = 31009
 enums["MAV_CMD"][31009] = EnumEntry("MAV_CMD_SPATIAL_USER_5", """User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.""")
 enums["MAV_CMD"][31009].has_location = True
@@ -2006,8 +2597,11 @@ enums["MAV_CMD"][31009].param[2] = """User defined"""
 enums["MAV_CMD"][31009].param[3] = """User defined"""
 enums["MAV_CMD"][31009].param[4] = """User defined"""
 enums["MAV_CMD"][31009].param[5] = """Latitude unscaled"""
+enums["MAV_CMD"][31009].label[5] = """Latitude"""
 enums["MAV_CMD"][31009].param[6] = """Longitude unscaled"""
+enums["MAV_CMD"][31009].label[6] = """Longitude"""
 enums["MAV_CMD"][31009].param[7] = """Altitude (MSL)"""
+enums["MAV_CMD"][31009].label[7] = """Altitude"""
 MAV_CMD_USER_1 = 31010
 enums["MAV_CMD"][31010] = EnumEntry("MAV_CMD_USER_1", """User defined command. Ground Station will not show the Vehicle as flying through this item. Example: MAV_CMD_DO_SET_PARAMETER item.""")
 enums["MAV_CMD"][31010].param[1] = """User defined"""
@@ -2054,8 +2648,9 @@ enums["MAV_CMD"][31014].param[5] = """User defined"""
 enums["MAV_CMD"][31014].param[6] = """User defined"""
 enums["MAV_CMD"][31014].param[7] = """User defined"""
 MAV_CMD_CAN_FORWARD = 32000
-enums["MAV_CMD"][32000] = EnumEntry("MAV_CMD_CAN_FORWARD", """Request forwarding of CAN packets from the given CAN bus to this interface. CAN Frames are sent using CAN_FRAME and CANFD_FRAME messages""")
+enums["MAV_CMD"][32000] = EnumEntry("MAV_CMD_CAN_FORWARD", """Request forwarding of CAN packets from the given CAN bus to this component via this MAVLink channel. CAN Frames are sent using CAN_FRAME and CANFD_FRAME messages""")
 enums["MAV_CMD"][32000].param[1] = """Bus number (0 to disable forwarding, 1 for first bus, 2 for 2nd bus, 3 for 3rd bus)."""
+enums["MAV_CMD"][32000].label[1] = """bus"""
 enums["MAV_CMD"][32000].param[2] = """Empty."""
 enums["MAV_CMD"][32000].param[3] = """Empty."""
 enums["MAV_CMD"][32000].param[4] = """Empty."""
@@ -2064,33 +2659,81 @@ enums["MAV_CMD"][32000].param[6] = """Empty."""
 enums["MAV_CMD"][32000].param[7] = """Empty."""
 MAV_CMD_FIXED_MAG_CAL_YAW = 42006
 enums["MAV_CMD"][42006] = EnumEntry("MAV_CMD_FIXED_MAG_CAL_YAW", """Magnetometer calibration based on provided known yaw. This allows for fast calibration using WMM field tables in the vehicle, given only the known yaw of the vehicle. If Latitude and longitude are both zero then use the current vehicle location.""")
-enums["MAV_CMD"][42006].has_location = True
 enums["MAV_CMD"][42006].param[1] = """Yaw of vehicle in earth frame."""
+enums["MAV_CMD"][42006].label[1] = """Yaw"""
 enums["MAV_CMD"][42006].param[2] = """CompassMask, 0 for all."""
+enums["MAV_CMD"][42006].label[2] = """CompassMask"""
 enums["MAV_CMD"][42006].param[3] = """Latitude."""
+enums["MAV_CMD"][42006].label[3] = """Latitude"""
 enums["MAV_CMD"][42006].param[4] = """Longitude."""
+enums["MAV_CMD"][42006].label[4] = """Longitude"""
 enums["MAV_CMD"][42006].param[5] = """Empty."""
 enums["MAV_CMD"][42006].param[6] = """Empty."""
 enums["MAV_CMD"][42006].param[7] = """Empty."""
 MAV_CMD_DO_WINCH = 42600
 enums["MAV_CMD"][42600] = EnumEntry("MAV_CMD_DO_WINCH", """Command to operate winch.""")
 enums["MAV_CMD"][42600].param[1] = """Winch instance number."""
+enums["MAV_CMD"][42600].label[1] = """Instance"""
 enums["MAV_CMD"][42600].param[2] = """Action to perform."""
+enums["MAV_CMD"][42600].label[2] = """Action"""
 enums["MAV_CMD"][42600].param[3] = """Length of line to release (negative to wind)."""
+enums["MAV_CMD"][42600].label[3] = """Length"""
 enums["MAV_CMD"][42600].param[4] = """Release rate (negative to wind)."""
+enums["MAV_CMD"][42600].label[4] = """Rate"""
 enums["MAV_CMD"][42600].param[5] = """Empty."""
 enums["MAV_CMD"][42600].param[6] = """Empty."""
 enums["MAV_CMD"][42600].param[7] = """Empty."""
+MAV_CMD_GUIDED_CHANGE_SPEED = 43000
+enums["MAV_CMD"][43000] = EnumEntry("MAV_CMD_GUIDED_CHANGE_SPEED", """Change flight speed at a given rate. This slews the vehicle at a controllable rate between it's previous speed and the new one.""")
+enums["MAV_CMD"][43000].param[1] = """Airspeed or groundspeed."""
+enums["MAV_CMD"][43000].label[1] = """speed type"""
+enums["MAV_CMD"][43000].param[2] = """Target Speed"""
+enums["MAV_CMD"][43000].label[2] = """speed target"""
+enums["MAV_CMD"][43000].param[3] = """Acceleration rate, 0 to take effect instantly"""
+enums["MAV_CMD"][43000].label[3] = """speed rate-of-change"""
+enums["MAV_CMD"][43000].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][43000].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][43000].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][43000].param[7] = """Reserved (default:0)"""
+MAV_CMD_GUIDED_CHANGE_ALTITUDE = 43001
+enums["MAV_CMD"][43001] = EnumEntry("MAV_CMD_GUIDED_CHANGE_ALTITUDE", """Change target altitude at a given rate. This slews the vehicle at a controllable rate between it's previous altitude and the new one.""")
+enums["MAV_CMD"][43001].param[1] = """Reserved (default:0)"""
+enums["MAV_CMD"][43001].param[2] = """Reserved (default:0)"""
+enums["MAV_CMD"][43001].param[3] = """Rate of change, toward new altitude. 0 for maximum rate change. Positive numbers only, as negative numbers will not converge on the new target alt."""
+enums["MAV_CMD"][43001].label[3] = """alt rate-of-change"""
+enums["MAV_CMD"][43001].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][43001].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][43001].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][43001].param[7] = """Target Altitude"""
+enums["MAV_CMD"][43001].label[7] = """target alt"""
+MAV_CMD_GUIDED_CHANGE_HEADING = 43002
+enums["MAV_CMD"][43002] = EnumEntry("MAV_CMD_GUIDED_CHANGE_HEADING", """Change to target direction at a given rate, overriding previous heading/s. This slews the vehicle at a controllable rate between its previous heading and the new one.""")
+enums["MAV_CMD"][43002].param[1] = """Course-over-ground or raw vehicle heading."""
+enums["MAV_CMD"][43002].label[1] = """Heading Type"""
+enums["MAV_CMD"][43002].param[2] = """Target heading."""
+enums["MAV_CMD"][43002].label[2] = """Heading Target"""
+enums["MAV_CMD"][43002].param[3] = """Maximum centripetal acceleration, i.e. rate of change toward new heading."""
+enums["MAV_CMD"][43002].label[3] = """Heading Rate of Change"""
+enums["MAV_CMD"][43002].param[4] = """Reserved (default:0)"""
+enums["MAV_CMD"][43002].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][43002].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][43002].param[7] = """Reserved (default:0)"""
 MAV_CMD_EXTERNAL_POSITION_ESTIMATE = 43003
 enums["MAV_CMD"][43003] = EnumEntry("MAV_CMD_EXTERNAL_POSITION_ESTIMATE", """Provide an external position estimate for use when dead-reckoning. This is meant to be used for occasional position resets that may be provided by a external system such as a remote pilot using landmarks over a video link.""")
 enums["MAV_CMD"][43003].has_location = True
 enums["MAV_CMD"][43003].param[1] = """Timestamp that this message was sent as a time in the transmitters time domain. The sender should wrap this time back to zero based on required timing accuracy for the application and the limitations of a 32 bit float. For example, wrapping at 10 hours would give approximately 1ms accuracy. Recipient must handle time wrap in any timing jitter correction applied to this field. Wrap rollover time should not be at not more than 250 seconds, which would give approximately 10 microsecond accuracy."""
+enums["MAV_CMD"][43003].label[1] = """transmission_time"""
 enums["MAV_CMD"][43003].param[2] = """The time spent in processing the sensor data that is the basis for this position. The recipient can use this to improve time alignment of the data. Set to zero if not known."""
+enums["MAV_CMD"][43003].label[2] = """processing_time"""
 enums["MAV_CMD"][43003].param[3] = """estimated one standard deviation accuracy of the measurement. Set to NaN if not known."""
+enums["MAV_CMD"][43003].label[3] = """accuracy"""
 enums["MAV_CMD"][43003].param[4] = """Empty"""
 enums["MAV_CMD"][43003].param[5] = """Latitude"""
+enums["MAV_CMD"][43003].label[5] = """Latitude"""
 enums["MAV_CMD"][43003].param[6] = """Longitude"""
+enums["MAV_CMD"][43003].label[6] = """Longitude"""
 enums["MAV_CMD"][43003].param[7] = """Altitude, not used. Should be sent as NaN. May be supported in a future version of this message."""
+enums["MAV_CMD"][43003].label[7] = """Altitude"""
 MAV_CMD_EXTERNAL_WIND_ESTIMATE = 43004
 enums["MAV_CMD"][43004] = EnumEntry(
     "MAV_CMD_EXTERNAL_WIND_ESTIMATE",
@@ -2099,12 +2742,16 @@ enums["MAV_CMD"][43004] = EnumEntry(
         """,
 )
 enums["MAV_CMD"][43004].param[1] = """Horizontal wind speed."""
+enums["MAV_CMD"][43004].label[1] = """Wind speed"""
 enums["MAV_CMD"][43004].param[2] = """Estimated 1 sigma accuracy of wind speed. Set to NaN if unknown."""
+enums["MAV_CMD"][43004].label[2] = """Wind speed accuracy"""
 enums["MAV_CMD"][43004].param[3] = """Azimuth (relative to true north) from where the wind is blowing."""
+enums["MAV_CMD"][43004].label[3] = """Direction"""
 enums["MAV_CMD"][43004].param[4] = """Estimated 1 sigma accuracy of wind direction. Set to NaN if unknown."""
-enums["MAV_CMD"][43004].param[5] = """Empty"""
-enums["MAV_CMD"][43004].param[6] = """Empty"""
-enums["MAV_CMD"][43004].param[7] = """Empty"""
+enums["MAV_CMD"][43004].label[4] = """Direction accuracy"""
+enums["MAV_CMD"][43004].param[5] = """Reserved (default:0)"""
+enums["MAV_CMD"][43004].param[6] = """Reserved (default:0)"""
+enums["MAV_CMD"][43004].param[7] = """Reserved (default:0)"""
 MAV_CMD_ENUM_END = 43005
 enums["MAV_CMD"][43005] = EnumEntry("MAV_CMD_ENUM_END", """""")
 
@@ -2149,8 +2796,8 @@ enums["GPS_JAMMING_STATE"] = Enum()
 enums["GPS_JAMMING_STATE"].bitmask = False
 GPS_JAMMING_STATE_UNKNOWN = 0
 enums["GPS_JAMMING_STATE"][0] = EnumEntry("GPS_JAMMING_STATE_UNKNOWN", """The GPS receiver does not provide GPS signal jamming info.""")
-GPS_JAMMING_STATE_OK = 1
-enums["GPS_JAMMING_STATE"][1] = EnumEntry("GPS_JAMMING_STATE_OK", """The GPS receiver detected no signal jamming.""")
+GPS_JAMMING_STATE_NOT_JAMMED = 1
+enums["GPS_JAMMING_STATE"][1] = EnumEntry("GPS_JAMMING_STATE_NOT_JAMMED", """The GPS receiver detected no signal jamming.""")
 GPS_JAMMING_STATE_MITIGATED = 2
 enums["GPS_JAMMING_STATE"][2] = EnumEntry("GPS_JAMMING_STATE_MITIGATED", """The GPS receiver detected and mitigated signal jamming.""")
 GPS_JAMMING_STATE_DETECTED = 3
@@ -2163,8 +2810,8 @@ enums["GPS_SPOOFING_STATE"] = Enum()
 enums["GPS_SPOOFING_STATE"].bitmask = False
 GPS_SPOOFING_STATE_UNKNOWN = 0
 enums["GPS_SPOOFING_STATE"][0] = EnumEntry("GPS_SPOOFING_STATE_UNKNOWN", """The GPS receiver does not provide GPS signal spoofing info.""")
-GPS_SPOOFING_STATE_OK = 1
-enums["GPS_SPOOFING_STATE"][1] = EnumEntry("GPS_SPOOFING_STATE_OK", """The GPS receiver detected no signal spoofing.""")
+GPS_SPOOFING_STATE_NOT_SPOOFED = 1
+enums["GPS_SPOOFING_STATE"][1] = EnumEntry("GPS_SPOOFING_STATE_NOT_SPOOFED", """The GPS receiver detected no signal spoofing.""")
 GPS_SPOOFING_STATE_MITIGATED = 2
 enums["GPS_SPOOFING_STATE"][2] = EnumEntry("GPS_SPOOFING_STATE_MITIGATED", """The GPS receiver detected and mitigated signal spoofing.""")
 GPS_SPOOFING_STATE_DETECTED = 3
@@ -2186,21 +2833,23 @@ enums["GPS_RAIM_STATE"][3] = EnumEntry("GPS_RAIM_STATE_FAILED", """RAIM integrit
 GPS_RAIM_STATE_ENUM_END = 4
 enums["GPS_RAIM_STATE"][4] = EnumEntry("GPS_RAIM_STATE_ENUM_END", """""")
 
-# FIRMWARE_VERSION_TYPE
-enums["FIRMWARE_VERSION_TYPE"] = Enum()
-enums["FIRMWARE_VERSION_TYPE"].bitmask = False
-FIRMWARE_VERSION_TYPE_DEV = 0
-enums["FIRMWARE_VERSION_TYPE"][0] = EnumEntry("FIRMWARE_VERSION_TYPE_DEV", """development release""")
-FIRMWARE_VERSION_TYPE_ALPHA = 64
-enums["FIRMWARE_VERSION_TYPE"][64] = EnumEntry("FIRMWARE_VERSION_TYPE_ALPHA", """alpha release""")
-FIRMWARE_VERSION_TYPE_BETA = 128
-enums["FIRMWARE_VERSION_TYPE"][128] = EnumEntry("FIRMWARE_VERSION_TYPE_BETA", """beta release""")
-FIRMWARE_VERSION_TYPE_RC = 192
-enums["FIRMWARE_VERSION_TYPE"][192] = EnumEntry("FIRMWARE_VERSION_TYPE_RC", """release candidate""")
-FIRMWARE_VERSION_TYPE_OFFICIAL = 255
-enums["FIRMWARE_VERSION_TYPE"][255] = EnumEntry("FIRMWARE_VERSION_TYPE_OFFICIAL", """official stable release""")
-FIRMWARE_VERSION_TYPE_ENUM_END = 256
-enums["FIRMWARE_VERSION_TYPE"][256] = EnumEntry("FIRMWARE_VERSION_TYPE_ENUM_END", """""")
+# RANGING_BEACON_ALT_TYPE
+enums["RANGING_BEACON_ALT_TYPE"] = Enum()
+enums["RANGING_BEACON_ALT_TYPE"].bitmask = False
+RANGING_BEACON_ALT_TYPE_WGS84 = 0
+enums["RANGING_BEACON_ALT_TYPE"][0] = EnumEntry("RANGING_BEACON_ALT_TYPE_WGS84", """Altitude above WGS84 ellipsoid.""")
+RANGING_BEACON_ALT_TYPE_MSL = 1
+enums["RANGING_BEACON_ALT_TYPE"][1] = EnumEntry("RANGING_BEACON_ALT_TYPE_MSL", """Altitude above Mean Sea Level (AMSL).""")
+RANGING_BEACON_ALT_TYPE_ENUM_END = 2
+enums["RANGING_BEACON_ALT_TYPE"][2] = EnumEntry("RANGING_BEACON_ALT_TYPE_ENUM_END", """""")
+
+# RANGING_BEACON_STATUS_FLAG
+enums["RANGING_BEACON_STATUS_FLAG"] = Enum()
+enums["RANGING_BEACON_STATUS_FLAG"].bitmask = True
+RANGING_BEACON_STATUS_FLAG_STATION_SIGNAL_POOR = 1
+enums["RANGING_BEACON_STATUS_FLAG"][1] = EnumEntry("RANGING_BEACON_STATUS_FLAG_STATION_SIGNAL_POOR", """Station signal is poor. This might indicate channel fading, interference, or other signal quality issues.""")
+RANGING_BEACON_STATUS_FLAG_ENUM_END = 2
+enums["RANGING_BEACON_STATUS_FLAG"][2] = EnumEntry("RANGING_BEACON_STATUS_FLAG_ENUM_END", """""")
 
 # HL_FAILURE_FLAG
 enums["HL_FAILURE_FLAG"] = Enum()
@@ -2256,25 +2905,25 @@ enums["MAV_MODE"].bitmask = False
 MAV_MODE_PREFLIGHT = 0
 enums["MAV_MODE"][0] = EnumEntry("MAV_MODE_PREFLIGHT", """System is not ready to fly, booting, calibrating, etc. No flag is set.""")
 MAV_MODE_MANUAL_DISARMED = 64
-enums["MAV_MODE"][64] = EnumEntry("MAV_MODE_MANUAL_DISARMED", """System is allowed to be active, under manual (RC) control, no stabilization""")
+enums["MAV_MODE"][64] = EnumEntry("MAV_MODE_MANUAL_DISARMED", """System is allowed to be active, under manual (RC) control, no stabilization (MAV_MODE_FLAG_MANUAL_INPUT_ENABLED)""")
 MAV_MODE_TEST_DISARMED = 66
-enums["MAV_MODE"][66] = EnumEntry("MAV_MODE_TEST_DISARMED", """UNDEFINED mode. This solely depends on the autopilot - use with caution, intended for developers only.""")
+enums["MAV_MODE"][66] = EnumEntry("MAV_MODE_TEST_DISARMED", """UNDEFINED mode. This solely depends on the autopilot - use with caution, intended for developers only. (MAV_MODE_FLAG_MANUAL_INPUT_ENABLED, MAV_MODE_FLAG_TEST_ENABLED).""")
 MAV_MODE_STABILIZE_DISARMED = 80
-enums["MAV_MODE"][80] = EnumEntry("MAV_MODE_STABILIZE_DISARMED", """System is allowed to be active, under assisted RC control.""")
+enums["MAV_MODE"][80] = EnumEntry("MAV_MODE_STABILIZE_DISARMED", """System is allowed to be active, under assisted RC control (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_STABILIZE_ENABLED)""")
 MAV_MODE_GUIDED_DISARMED = 88
-enums["MAV_MODE"][88] = EnumEntry("MAV_MODE_GUIDED_DISARMED", """System is allowed to be active, under autonomous control, manual setpoint""")
+enums["MAV_MODE"][88] = EnumEntry("MAV_MODE_GUIDED_DISARMED", """System is allowed to be active, under autonomous control, manual setpoint (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_STABILIZE_ENABLED, MAV_MODE_FLAG_GUIDED_ENABLED)""")
 MAV_MODE_AUTO_DISARMED = 92
-enums["MAV_MODE"][92] = EnumEntry("MAV_MODE_AUTO_DISARMED", """System is allowed to be active, under autonomous control and navigation (the trajectory is decided onboard and not pre-programmed by waypoints)""")
+enums["MAV_MODE"][92] = EnumEntry("MAV_MODE_AUTO_DISARMED", """System is allowed to be active, under autonomous control and navigation (the trajectory is decided onboard and not pre-programmed by waypoints). (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_STABILIZE_ENABLED, MAV_MODE_FLAG_GUIDED_ENABLED, MAV_MODE_FLAG_AUTO_ENABLED).""")
 MAV_MODE_MANUAL_ARMED = 192
-enums["MAV_MODE"][192] = EnumEntry("MAV_MODE_MANUAL_ARMED", """System is allowed to be active, under manual (RC) control, no stabilization""")
+enums["MAV_MODE"][192] = EnumEntry("MAV_MODE_MANUAL_ARMED", """System is allowed to be active, under manual (RC) control, no stabilization (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_MANUAL_INPUT_ENABLED)""")
 MAV_MODE_TEST_ARMED = 194
-enums["MAV_MODE"][194] = EnumEntry("MAV_MODE_TEST_ARMED", """UNDEFINED mode. This solely depends on the autopilot - use with caution, intended for developers only.""")
+enums["MAV_MODE"][194] = EnumEntry("MAV_MODE_TEST_ARMED", """UNDEFINED mode. This solely depends on the autopilot - use with caution, intended for developers only (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_MANUAL_INPUT_ENABLED, MAV_MODE_FLAG_TEST_ENABLED)""")
 MAV_MODE_STABILIZE_ARMED = 208
-enums["MAV_MODE"][208] = EnumEntry("MAV_MODE_STABILIZE_ARMED", """System is allowed to be active, under assisted RC control.""")
+enums["MAV_MODE"][208] = EnumEntry("MAV_MODE_STABILIZE_ARMED", """System is allowed to be active, under assisted RC control (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_MANUAL_INPUT_ENABLED, MAV_MODE_FLAG_STABILIZE_ENABLED)""")
 MAV_MODE_GUIDED_ARMED = 216
-enums["MAV_MODE"][216] = EnumEntry("MAV_MODE_GUIDED_ARMED", """System is allowed to be active, under autonomous control, manual setpoint""")
+enums["MAV_MODE"][216] = EnumEntry("MAV_MODE_GUIDED_ARMED", """System is allowed to be active, under autonomous control, manual setpoint (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_MANUAL_INPUT_ENABLED, MAV_MODE_FLAG_STABILIZE_ENABLED, MAV_MODE_FLAG_GUIDED_ENABLED)""")
 MAV_MODE_AUTO_ARMED = 220
-enums["MAV_MODE"][220] = EnumEntry("MAV_MODE_AUTO_ARMED", """System is allowed to be active, under autonomous control and navigation (the trajectory is decided onboard and not pre-programmed by waypoints)""")
+enums["MAV_MODE"][220] = EnumEntry("MAV_MODE_AUTO_ARMED", """System is allowed to be active, under autonomous control and navigation (the trajectory is decided onboard and not pre-programmed by waypoints). (MAV_MODE_FLAG_SAFETY_ARMED, MAV_MODE_FLAG_MANUAL_INPUT_ENABLED, MAV_MODE_FLAG_STABILIZE_ENABLED, MAV_MODE_FLAG_GUIDED_ENABLED,MAV_MODE_FLAG_AUTO_ENABLED).""")
 MAV_MODE_ENUM_END = 221
 enums["MAV_MODE"][221] = EnumEntry("MAV_MODE_ENUM_END", """""")
 
@@ -2343,8 +2992,20 @@ MAV_SYS_STATUS_OBSTACLE_AVOIDANCE = 536870912
 enums["MAV_SYS_STATUS_SENSOR"][536870912] = EnumEntry("MAV_SYS_STATUS_OBSTACLE_AVOIDANCE", """0x20000000 Avoidance/collision prevention""")
 MAV_SYS_STATUS_SENSOR_PROPULSION = 1073741824
 enums["MAV_SYS_STATUS_SENSOR"][1073741824] = EnumEntry("MAV_SYS_STATUS_SENSOR_PROPULSION", """0x40000000 propulsion (actuator, esc, motor or propellor)""")
-MAV_SYS_STATUS_SENSOR_ENUM_END = 1073741825
-enums["MAV_SYS_STATUS_SENSOR"][1073741825] = EnumEntry("MAV_SYS_STATUS_SENSOR_ENUM_END", """""")
+MAV_SYS_STATUS_EXTENSION_USED = 2147483648
+enums["MAV_SYS_STATUS_SENSOR"][2147483648] = EnumEntry("MAV_SYS_STATUS_EXTENSION_USED", """0x80000000 Extended bit-field are used for further sensor status bits (needs to be set in onboard_control_sensors_present only)""")
+MAV_SYS_STATUS_SENSOR_ENUM_END = 2147483649
+enums["MAV_SYS_STATUS_SENSOR"][2147483649] = EnumEntry("MAV_SYS_STATUS_SENSOR_ENUM_END", """""")
+
+# MAV_SYS_STATUS_SENSOR_EXTENDED
+enums["MAV_SYS_STATUS_SENSOR_EXTENDED"] = Enum()
+enums["MAV_SYS_STATUS_SENSOR_EXTENDED"].bitmask = True
+MAV_SYS_STATUS_RECOVERY_SYSTEM = 1
+enums["MAV_SYS_STATUS_SENSOR_EXTENDED"][1] = EnumEntry("MAV_SYS_STATUS_RECOVERY_SYSTEM", """0x01 Recovery system (parachute, balloon, retracts etc)""")
+MAV_SYS_STATUS_SENSOR_LEAK = 2
+enums["MAV_SYS_STATUS_SENSOR_EXTENDED"][2] = EnumEntry("MAV_SYS_STATUS_SENSOR_LEAK", """0x02 Leak detection""")
+MAV_SYS_STATUS_SENSOR_EXTENDED_ENUM_END = 3
+enums["MAV_SYS_STATUS_SENSOR_EXTENDED"][3] = EnumEntry("MAV_SYS_STATUS_SENSOR_EXTENDED_ENUM_END", """""")
 
 # MAV_FRAME
 enums["MAV_FRAME"] = Enum()
@@ -2476,8 +3137,10 @@ MAV_MOUNT_MODE_SYSID_TARGET = 5
 enums["MAV_MOUNT_MODE"][5] = EnumEntry("MAV_MOUNT_MODE_SYSID_TARGET", """Gimbal tracks system with specified system ID""")
 MAV_MOUNT_MODE_HOME_LOCATION = 6
 enums["MAV_MOUNT_MODE"][6] = EnumEntry("MAV_MOUNT_MODE_HOME_LOCATION", """Gimbal tracks home position""")
-MAV_MOUNT_MODE_ENUM_END = 7
-enums["MAV_MOUNT_MODE"][7] = EnumEntry("MAV_MOUNT_MODE_ENUM_END", """""")
+MAV_MOUNT_MODE_WPNEXT_OFFSET = 7
+enums["MAV_MOUNT_MODE"][7] = EnumEntry("MAV_MOUNT_MODE_WPNEXT_OFFSET", """Gimbal tracks next waypoint location with offset""")
+MAV_MOUNT_MODE_ENUM_END = 8
+enums["MAV_MOUNT_MODE"][8] = EnumEntry("MAV_MOUNT_MODE_ENUM_END", """""")
 
 # GIMBAL_DEVICE_CAP_FLAGS
 enums["GIMBAL_DEVICE_CAP_FLAGS"] = Enum()
@@ -2510,8 +3173,12 @@ GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME = 4096
 enums["GIMBAL_DEVICE_CAP_FLAGS"][4096] = EnumEntry("GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME", """Gimbal device supports yaw angles and angular velocities relative to North (earth frame). This usually requires support by an autopilot via AUTOPILOT_STATE_FOR_GIMBAL_DEVICE. Support can go on and off during runtime, which is reported by the flag GIMBAL_DEVICE_FLAGS_CAN_ACCEPT_YAW_IN_EARTH_FRAME.""")
 GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS = 8192
 enums["GIMBAL_DEVICE_CAP_FLAGS"][8192] = EnumEntry("GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS", """Gimbal device supports radio control inputs as an alternative input for controlling the gimbal orientation.""")
-GIMBAL_DEVICE_CAP_FLAGS_ENUM_END = 8193
-enums["GIMBAL_DEVICE_CAP_FLAGS"][8193] = EnumEntry("GIMBAL_DEVICE_CAP_FLAGS_ENUM_END", """""")
+GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL = 65536
+enums["GIMBAL_DEVICE_CAP_FLAGS"][65536] = EnumEntry("GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL", """Gimbal device supports to point to a local position.""")
+GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL = 131072
+enums["GIMBAL_DEVICE_CAP_FLAGS"][131072] = EnumEntry("GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL", """Gimbal device supports to point to a global latitude, longitude, altitude position.""")
+GIMBAL_DEVICE_CAP_FLAGS_ENUM_END = 131073
+enums["GIMBAL_DEVICE_CAP_FLAGS"][131073] = EnumEntry("GIMBAL_DEVICE_CAP_FLAGS_ENUM_END", """""")
 
 # GIMBAL_MANAGER_CAP_FLAGS
 enums["GIMBAL_MANAGER_CAP_FLAGS"] = Enum()
@@ -2545,9 +3212,9 @@ enums["GIMBAL_MANAGER_CAP_FLAGS"][4096] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_SU
 GIMBAL_MANAGER_CAP_FLAGS_HAS_RC_INPUTS = 8192
 enums["GIMBAL_MANAGER_CAP_FLAGS"][8192] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_HAS_RC_INPUTS", """Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS.""")
 GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL = 65536
-enums["GIMBAL_MANAGER_CAP_FLAGS"][65536] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL", """Gimbal manager supports to point to a local position.""")
+enums["GIMBAL_MANAGER_CAP_FLAGS"][65536] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL", """Based on GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL.""")
 GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL = 131072
-enums["GIMBAL_MANAGER_CAP_FLAGS"][131072] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL", """Gimbal manager supports to point to a global latitude, longitude, altitude position.""")
+enums["GIMBAL_MANAGER_CAP_FLAGS"][131072] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL", """Based on GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL.""")
 GIMBAL_MANAGER_CAP_FLAGS_ENUM_END = 131073
 enums["GIMBAL_MANAGER_CAP_FLAGS"][131073] = EnumEntry("GIMBAL_MANAGER_CAP_FLAGS_ENUM_END", """""")
 
@@ -2636,8 +3303,10 @@ GRIPPER_ACTION_RELEASE = 0
 enums["GRIPPER_ACTIONS"][0] = EnumEntry("GRIPPER_ACTION_RELEASE", """Gripper release cargo.""")
 GRIPPER_ACTION_GRAB = 1
 enums["GRIPPER_ACTIONS"][1] = EnumEntry("GRIPPER_ACTION_GRAB", """Gripper grab onto cargo.""")
-GRIPPER_ACTIONS_ENUM_END = 2
-enums["GRIPPER_ACTIONS"][2] = EnumEntry("GRIPPER_ACTIONS_ENUM_END", """""")
+GRIPPER_ACTION_HOLD = 2
+enums["GRIPPER_ACTIONS"][2] = EnumEntry("GRIPPER_ACTION_HOLD", """Gripper hold current grip state/position.""")
+GRIPPER_ACTIONS_ENUM_END = 3
+enums["GRIPPER_ACTIONS"][3] = EnumEntry("GRIPPER_ACTIONS_ENUM_END", """""")
 
 # WINCH_ACTIONS
 enums["WINCH_ACTIONS"] = Enum()
@@ -2660,8 +3329,10 @@ WINCH_LOAD_LINE = 7
 enums["WINCH_ACTIONS"][7] = EnumEntry("WINCH_LOAD_LINE", """Load the reel with line. The winch will calculate the total loaded length and stop when the tension exceeds a threshold. Only action and instance command parameters are used, others are ignored.""")
 WINCH_ABANDON_LINE = 8
 enums["WINCH_ACTIONS"][8] = EnumEntry("WINCH_ABANDON_LINE", """Spool out the entire length of the line. Only action and instance command parameters are used, others are ignored.""")
-WINCH_ACTIONS_ENUM_END = 9
-enums["WINCH_ACTIONS"][9] = EnumEntry("WINCH_ACTIONS_ENUM_END", """""")
+WINCH_LOAD_PAYLOAD = 9
+enums["WINCH_ACTIONS"][9] = EnumEntry("WINCH_LOAD_PAYLOAD", """Spools out just enough to present the hook to the user to load the payload. Only action and instance command parameters are used, others are ignored""")
+WINCH_ACTIONS_ENUM_END = 10
+enums["WINCH_ACTIONS"][10] = EnumEntry("WINCH_ACTIONS_ENUM_END", """""")
 
 # UAVCAN_NODE_HEALTH
 enums["UAVCAN_NODE_HEALTH"] = Enum()
@@ -2733,7 +3404,7 @@ enums["STORAGE_TYPE"][255] = EnumEntry("STORAGE_TYPE_ENUM_END", """""")
 
 # STORAGE_USAGE_FLAG
 enums["STORAGE_USAGE_FLAG"] = Enum()
-enums["STORAGE_USAGE_FLAG"].bitmask = False
+enums["STORAGE_USAGE_FLAG"].bitmask = True
 STORAGE_USAGE_FLAG_SET = 1
 enums["STORAGE_USAGE_FLAG"][1] = EnumEntry("STORAGE_USAGE_FLAG_SET", """Always set to 1 (indicates STORAGE_INFORMATION.storage_usage is supported).""")
 STORAGE_USAGE_FLAG_PHOTO = 2
@@ -2744,6 +3415,114 @@ STORAGE_USAGE_FLAG_LOGS = 8
 enums["STORAGE_USAGE_FLAG"][8] = EnumEntry("STORAGE_USAGE_FLAG_LOGS", """Storage for saving logs.""")
 STORAGE_USAGE_FLAG_ENUM_END = 9
 enums["STORAGE_USAGE_FLAG"][9] = EnumEntry("STORAGE_USAGE_FLAG_ENUM_END", """""")
+
+# ORBIT_YAW_BEHAVIOUR
+enums["ORBIT_YAW_BEHAVIOUR"] = Enum()
+enums["ORBIT_YAW_BEHAVIOUR"].bitmask = False
+ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER = 0
+enums["ORBIT_YAW_BEHAVIOUR"][0] = EnumEntry("ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER", """Vehicle front points to the center (default).""")
+ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING = 1
+enums["ORBIT_YAW_BEHAVIOUR"][1] = EnumEntry("ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING", """Vehicle front holds heading when message received.""")
+ORBIT_YAW_BEHAVIOUR_UNCONTROLLED = 2
+enums["ORBIT_YAW_BEHAVIOUR"][2] = EnumEntry("ORBIT_YAW_BEHAVIOUR_UNCONTROLLED", """Yaw uncontrolled.""")
+ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE = 3
+enums["ORBIT_YAW_BEHAVIOUR"][3] = EnumEntry("ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE", """Vehicle front follows flight path (tangential to circle).""")
+ORBIT_YAW_BEHAVIOUR_RC_CONTROLLED = 4
+enums["ORBIT_YAW_BEHAVIOUR"][4] = EnumEntry("ORBIT_YAW_BEHAVIOUR_RC_CONTROLLED", """Yaw controlled by RC input.""")
+ORBIT_YAW_BEHAVIOUR_UNCHANGED = 5
+enums["ORBIT_YAW_BEHAVIOUR"][5] = EnumEntry("ORBIT_YAW_BEHAVIOUR_UNCHANGED", """Vehicle uses current yaw behaviour (unchanged). The vehicle-default yaw behaviour is used if this value is specified when orbit is first commanded.""")
+ORBIT_YAW_BEHAVIOUR_ENUM_END = 6
+enums["ORBIT_YAW_BEHAVIOUR"][6] = EnumEntry("ORBIT_YAW_BEHAVIOUR_ENUM_END", """""")
+
+# ACTUATOR_CONFIGURATION
+enums["ACTUATOR_CONFIGURATION"] = Enum()
+enums["ACTUATOR_CONFIGURATION"].bitmask = False
+ACTUATOR_CONFIGURATION_NONE = 0
+enums["ACTUATOR_CONFIGURATION"][0] = EnumEntry("ACTUATOR_CONFIGURATION_NONE", """Do nothing.""")
+ACTUATOR_CONFIGURATION_BEEP = 1
+enums["ACTUATOR_CONFIGURATION"][1] = EnumEntry("ACTUATOR_CONFIGURATION_BEEP", """Command the actuator to beep now.""")
+ACTUATOR_CONFIGURATION_3D_MODE_ON = 2
+enums["ACTUATOR_CONFIGURATION"][2] = EnumEntry("ACTUATOR_CONFIGURATION_3D_MODE_ON", """Permanently set the actuator (ESC) to 3D mode (reversible thrust).""")
+ACTUATOR_CONFIGURATION_3D_MODE_OFF = 3
+enums["ACTUATOR_CONFIGURATION"][3] = EnumEntry("ACTUATOR_CONFIGURATION_3D_MODE_OFF", """Permanently set the actuator (ESC) to non 3D mode (non-reversible thrust).""")
+ACTUATOR_CONFIGURATION_SPIN_DIRECTION1 = 4
+enums["ACTUATOR_CONFIGURATION"][4] = EnumEntry("ACTUATOR_CONFIGURATION_SPIN_DIRECTION1", """Permanently set the actuator (ESC) to spin direction 1 (which can be clockwise or counter-clockwise).""")
+ACTUATOR_CONFIGURATION_SPIN_DIRECTION2 = 5
+enums["ACTUATOR_CONFIGURATION"][5] = EnumEntry("ACTUATOR_CONFIGURATION_SPIN_DIRECTION2", """Permanently set the actuator (ESC) to spin direction 2 (opposite of direction 1).""")
+ACTUATOR_CONFIGURATION_ENUM_END = 6
+enums["ACTUATOR_CONFIGURATION"][6] = EnumEntry("ACTUATOR_CONFIGURATION_ENUM_END", """""")
+
+# ACTUATOR_OUTPUT_FUNCTION
+enums["ACTUATOR_OUTPUT_FUNCTION"] = Enum()
+enums["ACTUATOR_OUTPUT_FUNCTION"].bitmask = False
+ACTUATOR_OUTPUT_FUNCTION_NONE = 0
+enums["ACTUATOR_OUTPUT_FUNCTION"][0] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_NONE", """No function (disabled).""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR1 = 1
+enums["ACTUATOR_OUTPUT_FUNCTION"][1] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR1", """Motor 1""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR2 = 2
+enums["ACTUATOR_OUTPUT_FUNCTION"][2] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR2", """Motor 2""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR3 = 3
+enums["ACTUATOR_OUTPUT_FUNCTION"][3] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR3", """Motor 3""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR4 = 4
+enums["ACTUATOR_OUTPUT_FUNCTION"][4] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR4", """Motor 4""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR5 = 5
+enums["ACTUATOR_OUTPUT_FUNCTION"][5] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR5", """Motor 5""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR6 = 6
+enums["ACTUATOR_OUTPUT_FUNCTION"][6] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR6", """Motor 6""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR7 = 7
+enums["ACTUATOR_OUTPUT_FUNCTION"][7] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR7", """Motor 7""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR8 = 8
+enums["ACTUATOR_OUTPUT_FUNCTION"][8] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR8", """Motor 8""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR9 = 9
+enums["ACTUATOR_OUTPUT_FUNCTION"][9] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR9", """Motor 9""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR10 = 10
+enums["ACTUATOR_OUTPUT_FUNCTION"][10] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR10", """Motor 10""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR11 = 11
+enums["ACTUATOR_OUTPUT_FUNCTION"][11] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR11", """Motor 11""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR12 = 12
+enums["ACTUATOR_OUTPUT_FUNCTION"][12] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR12", """Motor 12""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR13 = 13
+enums["ACTUATOR_OUTPUT_FUNCTION"][13] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR13", """Motor 13""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR14 = 14
+enums["ACTUATOR_OUTPUT_FUNCTION"][14] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR14", """Motor 14""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR15 = 15
+enums["ACTUATOR_OUTPUT_FUNCTION"][15] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR15", """Motor 15""")
+ACTUATOR_OUTPUT_FUNCTION_MOTOR16 = 16
+enums["ACTUATOR_OUTPUT_FUNCTION"][16] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_MOTOR16", """Motor 16""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO1 = 33
+enums["ACTUATOR_OUTPUT_FUNCTION"][33] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO1", """Servo 1""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO2 = 34
+enums["ACTUATOR_OUTPUT_FUNCTION"][34] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO2", """Servo 2""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO3 = 35
+enums["ACTUATOR_OUTPUT_FUNCTION"][35] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO3", """Servo 3""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO4 = 36
+enums["ACTUATOR_OUTPUT_FUNCTION"][36] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO4", """Servo 4""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO5 = 37
+enums["ACTUATOR_OUTPUT_FUNCTION"][37] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO5", """Servo 5""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO6 = 38
+enums["ACTUATOR_OUTPUT_FUNCTION"][38] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO6", """Servo 6""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO7 = 39
+enums["ACTUATOR_OUTPUT_FUNCTION"][39] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO7", """Servo 7""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO8 = 40
+enums["ACTUATOR_OUTPUT_FUNCTION"][40] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO8", """Servo 8""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO9 = 41
+enums["ACTUATOR_OUTPUT_FUNCTION"][41] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO9", """Servo 9""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO10 = 42
+enums["ACTUATOR_OUTPUT_FUNCTION"][42] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO10", """Servo 10""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO11 = 43
+enums["ACTUATOR_OUTPUT_FUNCTION"][43] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO11", """Servo 11""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO12 = 44
+enums["ACTUATOR_OUTPUT_FUNCTION"][44] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO12", """Servo 12""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO13 = 45
+enums["ACTUATOR_OUTPUT_FUNCTION"][45] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO13", """Servo 13""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO14 = 46
+enums["ACTUATOR_OUTPUT_FUNCTION"][46] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO14", """Servo 14""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO15 = 47
+enums["ACTUATOR_OUTPUT_FUNCTION"][47] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO15", """Servo 15""")
+ACTUATOR_OUTPUT_FUNCTION_SERVO16 = 48
+enums["ACTUATOR_OUTPUT_FUNCTION"][48] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_SERVO16", """Servo 16""")
+ACTUATOR_OUTPUT_FUNCTION_ENUM_END = 49
+enums["ACTUATOR_OUTPUT_FUNCTION"][49] = EnumEntry("ACTUATOR_OUTPUT_FUNCTION_ENUM_END", """""")
 
 # AUTOTUNE_AXIS
 enums["AUTOTUNE_AXIS"] = Enum()
@@ -2756,6 +3535,100 @@ AUTOTUNE_AXIS_YAW = 4
 enums["AUTOTUNE_AXIS"][4] = EnumEntry("AUTOTUNE_AXIS_YAW", """Autotune yaw axis.""")
 AUTOTUNE_AXIS_ENUM_END = 5
 enums["AUTOTUNE_AXIS"][5] = EnumEntry("AUTOTUNE_AXIS_ENUM_END", """""")
+
+# PREFLIGHT_STORAGE_PARAMETER_ACTION
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"] = Enum()
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"].bitmask = False
+PARAM_READ_PERSISTENT = 0
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"][0] = EnumEntry("PARAM_READ_PERSISTENT", """Read all parameters from persistent storage. Replaces values in volatile storage.""")
+PARAM_WRITE_PERSISTENT = 1
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"][1] = EnumEntry("PARAM_WRITE_PERSISTENT", """Write all parameter values to persistent storage (flash/EEPROM)""")
+PARAM_RESET_FACTORY_DEFAULT = 2
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"][2] = EnumEntry("PARAM_RESET_FACTORY_DEFAULT", """Reset parameters to default values (such as sensor calibration, safety settings, and so on). Note that a flight stack may choose not to reset some parameters at their own discretion (such as those that are locked or expected to persist for the vehicle lifetime).""")
+PARAM_RESET_SENSOR_DEFAULT = 3
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"][3] = EnumEntry("PARAM_RESET_SENSOR_DEFAULT", """Reset only sensor calibration parameters to factory defaults (or firmware default if not available)""")
+PARAM_RESET_ALL_DEFAULT = 4
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"][4] = EnumEntry("PARAM_RESET_ALL_DEFAULT", """Reset all parameters to default values.""")
+PREFLIGHT_STORAGE_PARAMETER_ACTION_ENUM_END = 5
+enums["PREFLIGHT_STORAGE_PARAMETER_ACTION"][5] = EnumEntry("PREFLIGHT_STORAGE_PARAMETER_ACTION_ENUM_END", """""")
+
+# PREFLIGHT_STORAGE_MISSION_ACTION
+enums["PREFLIGHT_STORAGE_MISSION_ACTION"] = Enum()
+enums["PREFLIGHT_STORAGE_MISSION_ACTION"].bitmask = False
+MISSION_READ_PERSISTENT = 0
+enums["PREFLIGHT_STORAGE_MISSION_ACTION"][0] = EnumEntry("MISSION_READ_PERSISTENT", """Read current mission data from persistent storage""")
+MISSION_WRITE_PERSISTENT = 1
+enums["PREFLIGHT_STORAGE_MISSION_ACTION"][1] = EnumEntry("MISSION_WRITE_PERSISTENT", """Write current mission data to persistent storage""")
+MISSION_RESET_DEFAULT = 2
+enums["PREFLIGHT_STORAGE_MISSION_ACTION"][2] = EnumEntry("MISSION_RESET_DEFAULT", """Erase all mission data stored on the vehicle (both persistent and volatile storage)""")
+PREFLIGHT_STORAGE_MISSION_ACTION_ENUM_END = 3
+enums["PREFLIGHT_STORAGE_MISSION_ACTION"][3] = EnumEntry("PREFLIGHT_STORAGE_MISSION_ACTION_ENUM_END", """""")
+
+# REBOOT_SHUTDOWN_ACTION
+enums["REBOOT_SHUTDOWN_ACTION"] = Enum()
+enums["REBOOT_SHUTDOWN_ACTION"].bitmask = False
+REBOOT_SHUTDOWN_ACTION_NONE = 0
+enums["REBOOT_SHUTDOWN_ACTION"][0] = EnumEntry("REBOOT_SHUTDOWN_ACTION_NONE", """Do nothing.""")
+REBOOT_SHUTDOWN_ACTION_REBOOT = 1
+enums["REBOOT_SHUTDOWN_ACTION"][1] = EnumEntry("REBOOT_SHUTDOWN_ACTION_REBOOT", """Reboot component.""")
+REBOOT_SHUTDOWN_ACTION_SHUTDOWN = 2
+enums["REBOOT_SHUTDOWN_ACTION"][2] = EnumEntry("REBOOT_SHUTDOWN_ACTION_SHUTDOWN", """Shutdown component.""")
+REBOOT_SHUTDOWN_ACTION_REBOOT_TO_BOOTLOADER = 3
+enums["REBOOT_SHUTDOWN_ACTION"][3] = EnumEntry("REBOOT_SHUTDOWN_ACTION_REBOOT_TO_BOOTLOADER", """Reboot component and keep it in the bootloader until upgraded.""")
+REBOOT_SHUTDOWN_ACTION_POWER_ON = 4
+enums["REBOOT_SHUTDOWN_ACTION"][4] = EnumEntry("REBOOT_SHUTDOWN_ACTION_POWER_ON", """Power on component. Do nothing if component is already powered (ACK command with MAV_RESULT_ACCEPTED).""")
+REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE = 5
+enums["REBOOT_SHUTDOWN_ACTION"][5] = EnumEntry("REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE", """Reboot component into a mass storage mode if supported.""")
+REBOOT_SHUTDOWN_ACTION_ENUM_END = 6
+enums["REBOOT_SHUTDOWN_ACTION"][6] = EnumEntry("REBOOT_SHUTDOWN_ACTION_ENUM_END", """""")
+
+# REBOOT_SHUTDOWN_CONDITIONS
+enums["REBOOT_SHUTDOWN_CONDITIONS"] = Enum()
+enums["REBOOT_SHUTDOWN_CONDITIONS"].bitmask = False
+REBOOT_SHUTDOWN_CONDITIONS_SAFETY_INTERLOCKED = 0
+enums["REBOOT_SHUTDOWN_CONDITIONS"][0] = EnumEntry("REBOOT_SHUTDOWN_CONDITIONS_SAFETY_INTERLOCKED", """Reboot/Shutdown only if allowed by safety checks, such as being landed.""")
+REBOOT_SHUTDOWN_CONDITIONS_FORCE = 20190226
+enums["REBOOT_SHUTDOWN_CONDITIONS"][20190226] = EnumEntry("REBOOT_SHUTDOWN_CONDITIONS_FORCE", """Force reboot/shutdown of the autopilot/component regardless of system state.""")
+REBOOT_SHUTDOWN_CONDITIONS_ENUM_END = 20190227
+enums["REBOOT_SHUTDOWN_CONDITIONS"][20190227] = EnumEntry("REBOOT_SHUTDOWN_CONDITIONS_ENUM_END", """""")
+
+# PREFLIGHT_CALIBRATION_MAGNETOMETER
+enums["PREFLIGHT_CALIBRATION_MAGNETOMETER"] = Enum()
+enums["PREFLIGHT_CALIBRATION_MAGNETOMETER"].bitmask = False
+PREFLIGHT_CALIBRATION_MAGNETOMETER_NONE = 0
+enums["PREFLIGHT_CALIBRATION_MAGNETOMETER"][0] = EnumEntry("PREFLIGHT_CALIBRATION_MAGNETOMETER_NONE", """No action.""")
+PREFLIGHT_CALIBRATION_MAGNETOMETER_START = 1
+enums["PREFLIGHT_CALIBRATION_MAGNETOMETER"][1] = EnumEntry("PREFLIGHT_CALIBRATION_MAGNETOMETER_START", """Start magnetometer calibration.""")
+PREFLIGHT_CALIBRATION_MAGNETOMETER_FORCE_SAVE = 76
+enums["PREFLIGHT_CALIBRATION_MAGNETOMETER"][76] = EnumEntry("PREFLIGHT_CALIBRATION_MAGNETOMETER_FORCE_SAVE", """Force-accept the existing compass calibration as valid without re-running it. Useful after a parameter reload that cleared calibration validity flags.""")
+PREFLIGHT_CALIBRATION_MAGNETOMETER_ENUM_END = 77
+enums["PREFLIGHT_CALIBRATION_MAGNETOMETER"][77] = EnumEntry("PREFLIGHT_CALIBRATION_MAGNETOMETER_ENUM_END", """""")
+
+# PREFLIGHT_CALIBRATION_ACCELEROMETER
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"] = Enum()
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"].bitmask = False
+PREFLIGHT_CALIBRATION_ACCELEROMETER_NONE = 0
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][0] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_NONE", """No action.""")
+PREFLIGHT_CALIBRATION_ACCELEROMETER_FULL = 1
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][1] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_FULL", """Full 6-position accelerometer calibration.""")
+PREFLIGHT_CALIBRATION_ACCELEROMETER_TRIM = 2
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][2] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_TRIM", """Board level (trim) calibration.""")
+PREFLIGHT_CALIBRATION_ACCELEROMETER_TEMPERATURE = 3
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][3] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_TEMPERATURE", """Accelerometer temperature calibration.""")
+PREFLIGHT_CALIBRATION_ACCELEROMETER_SIMPLE = 4
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][4] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_SIMPLE", """Simple accelerometer calibration.""")
+PREFLIGHT_CALIBRATION_ACCELEROMETER_FORCE_SAVE = 76
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][76] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_FORCE_SAVE", """Force-accept the existing accelerometer calibration as valid without re-running it. Useful after a parameter reload that cleared calibration validity flags.""")
+PREFLIGHT_CALIBRATION_ACCELEROMETER_ENUM_END = 77
+enums["PREFLIGHT_CALIBRATION_ACCELEROMETER"][77] = EnumEntry("PREFLIGHT_CALIBRATION_ACCELEROMETER_ENUM_END", """""")
+
+# NAV_TAKEOFF_FLAGS
+enums["NAV_TAKEOFF_FLAGS"] = Enum()
+enums["NAV_TAKEOFF_FLAGS"].bitmask = True
+NAV_TAKEOFF_FLAGS_HORIZONTAL_POSITION_NOT_REQUIRED = 1
+enums["NAV_TAKEOFF_FLAGS"][1] = EnumEntry("NAV_TAKEOFF_FLAGS_HORIZONTAL_POSITION_NOT_REQUIRED", """Accept the command even if the autopilot does not have control over its horizontal position (note that it might not have altitude control either).""")
+NAV_TAKEOFF_FLAGS_ENUM_END = 2
+enums["NAV_TAKEOFF_FLAGS"][2] = EnumEntry("NAV_TAKEOFF_FLAGS_ENUM_END", """""")
 
 # MAV_DATA_STREAM
 enums["MAV_DATA_STREAM"] = Enum()
@@ -2823,6 +3696,24 @@ enums["MAV_PARAM_TYPE"][10] = EnumEntry("MAV_PARAM_TYPE_REAL64", """64-bit float
 MAV_PARAM_TYPE_ENUM_END = 11
 enums["MAV_PARAM_TYPE"][11] = EnumEntry("MAV_PARAM_TYPE_ENUM_END", """""")
 
+# MAV_PARAM_ERROR
+enums["MAV_PARAM_ERROR"] = Enum()
+enums["MAV_PARAM_ERROR"].bitmask = False
+MAV_PARAM_ERROR_NO_ERROR = 0
+enums["MAV_PARAM_ERROR"][0] = EnumEntry("MAV_PARAM_ERROR_NO_ERROR", """No error occurred (not expected in PARAM_ERROR but may be used in future implementations.""")
+MAV_PARAM_ERROR_DOES_NOT_EXIST = 1
+enums["MAV_PARAM_ERROR"][1] = EnumEntry("MAV_PARAM_ERROR_DOES_NOT_EXIST", """Parameter does not exist""")
+MAV_PARAM_ERROR_VALUE_OUT_OF_RANGE = 2
+enums["MAV_PARAM_ERROR"][2] = EnumEntry("MAV_PARAM_ERROR_VALUE_OUT_OF_RANGE", """Parameter value does not fit within accepted range""")
+MAV_PARAM_ERROR_PERMISSION_DENIED = 3
+enums["MAV_PARAM_ERROR"][3] = EnumEntry("MAV_PARAM_ERROR_PERMISSION_DENIED", """Caller is not permitted to set the value of this parameter""")
+MAV_PARAM_ERROR_COMPONENT_NOT_FOUND = 4
+enums["MAV_PARAM_ERROR"][4] = EnumEntry("MAV_PARAM_ERROR_COMPONENT_NOT_FOUND", """Unknown component specified""")
+MAV_PARAM_ERROR_READ_ONLY = 5
+enums["MAV_PARAM_ERROR"][5] = EnumEntry("MAV_PARAM_ERROR_READ_ONLY", """Parameter is read-only""")
+MAV_PARAM_ERROR_ENUM_END = 6
+enums["MAV_PARAM_ERROR"][6] = EnumEntry("MAV_PARAM_ERROR_ENUM_END", """""")
+
 # MAV_PARAM_EXT_TYPE
 enums["MAV_PARAM_EXT_TYPE"] = Enum()
 enums["MAV_PARAM_EXT_TYPE"].bitmask = False
@@ -2859,7 +3750,7 @@ enums["MAV_RESULT"][0] = EnumEntry("MAV_RESULT_ACCEPTED", """Command is valid (i
 MAV_RESULT_TEMPORARILY_REJECTED = 1
 enums["MAV_RESULT"][1] = EnumEntry("MAV_RESULT_TEMPORARILY_REJECTED", """Command is valid, but cannot be executed at this time. This is used to indicate a problem that should be fixed just by waiting (e.g. a state machine is busy, can't arm because have not got GPS lock, etc.). Retrying later should work.""")
 MAV_RESULT_DENIED = 2
-enums["MAV_RESULT"][2] = EnumEntry("MAV_RESULT_DENIED", """Command is invalid (is supported but has invalid parameters). Retrying same command and parameters will not work.""")
+enums["MAV_RESULT"][2] = EnumEntry("MAV_RESULT_DENIED", """Command is invalid; it is supported but one or more parameter values are invalid (i.e. parameter reserved, value allowed by spec but not supported by flight stack, and so on). Retrying the same command and parameters will not work.""")
 MAV_RESULT_UNSUPPORTED = 3
 enums["MAV_RESULT"][3] = EnumEntry("MAV_RESULT_UNSUPPORTED", """Command is not supported (unknown).""")
 MAV_RESULT_FAILED = 4
@@ -3109,78 +4000,6 @@ enums["MAV_SENSOR_ORIENTATION"][100] = EnumEntry("MAV_SENSOR_ROTATION_CUSTOM", "
 MAV_SENSOR_ORIENTATION_ENUM_END = 101
 enums["MAV_SENSOR_ORIENTATION"][101] = EnumEntry("MAV_SENSOR_ORIENTATION_ENUM_END", """""")
 
-# MAV_PROTOCOL_CAPABILITY
-enums["MAV_PROTOCOL_CAPABILITY"] = Enum()
-enums["MAV_PROTOCOL_CAPABILITY"].bitmask = True
-MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT = 1
-enums["MAV_PROTOCOL_CAPABILITY"][1] = EnumEntry(
-    "MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT",
-    """Autopilot supports the MISSION_ITEM float message type.
-          Note that MISSION_ITEM is deprecated, and autopilots should use MISSION_INT instead.
-        """,
-)
-MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT = 2
-enums["MAV_PROTOCOL_CAPABILITY"][2] = EnumEntry("MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT", """Autopilot supports the new param float message type.""")
-MAV_PROTOCOL_CAPABILITY_MISSION_INT = 4
-enums["MAV_PROTOCOL_CAPABILITY"][4] = EnumEntry(
-    "MAV_PROTOCOL_CAPABILITY_MISSION_INT",
-    """Autopilot supports MISSION_ITEM_INT scaled integer message type.
-          Note that this flag must always be set if missions are supported, because missions must always use MISSION_ITEM_INT (rather than MISSION_ITEM, which is deprecated).
-        """,
-)
-MAV_PROTOCOL_CAPABILITY_COMMAND_INT = 8
-enums["MAV_PROTOCOL_CAPABILITY"][8] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMMAND_INT", """Autopilot supports COMMAND_INT scaled integer message type.""")
-MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE = 16
-enums["MAV_PROTOCOL_CAPABILITY"][16] = EnumEntry(
-    "MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE",
-    """Parameter protocol uses byte-wise encoding of parameter values into param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
-          Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST should be set if the parameter protocol is supported.
-        """,
-)
-MAV_PROTOCOL_CAPABILITY_FTP = 32
-enums["MAV_PROTOCOL_CAPABILITY"][32] = EnumEntry("MAV_PROTOCOL_CAPABILITY_FTP", """Autopilot supports the File Transfer Protocol v1: https://mavlink.io/en/services/ftp.html.""")
-MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET = 64
-enums["MAV_PROTOCOL_CAPABILITY"][64] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET", """Autopilot supports commanding attitude offboard.""")
-MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED = 128
-enums["MAV_PROTOCOL_CAPABILITY"][128] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED", """Autopilot supports commanding position and velocity targets in local NED frame.""")
-MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT = 256
-enums["MAV_PROTOCOL_CAPABILITY"][256] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT", """Autopilot supports commanding position and velocity targets in global scaled integers.""")
-MAV_PROTOCOL_CAPABILITY_TERRAIN = 512
-enums["MAV_PROTOCOL_CAPABILITY"][512] = EnumEntry("MAV_PROTOCOL_CAPABILITY_TERRAIN", """Autopilot supports terrain protocol / data handling.""")
-MAV_PROTOCOL_CAPABILITY_RESERVED3 = 1024
-enums["MAV_PROTOCOL_CAPABILITY"][1024] = EnumEntry("MAV_PROTOCOL_CAPABILITY_RESERVED3", """Reserved for future use.""")
-MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION = 2048
-enums["MAV_PROTOCOL_CAPABILITY"][2048] = EnumEntry("MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION", """Autopilot supports the MAV_CMD_DO_FLIGHTTERMINATION command (flight termination).""")
-MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION = 4096
-enums["MAV_PROTOCOL_CAPABILITY"][4096] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION", """Autopilot supports onboard compass calibration.""")
-MAV_PROTOCOL_CAPABILITY_MAVLINK2 = 8192
-enums["MAV_PROTOCOL_CAPABILITY"][8192] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MAVLINK2", """Autopilot supports MAVLink version 2.""")
-MAV_PROTOCOL_CAPABILITY_MISSION_FENCE = 16384
-enums["MAV_PROTOCOL_CAPABILITY"][16384] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MISSION_FENCE", """Autopilot supports mission fence protocol.""")
-MAV_PROTOCOL_CAPABILITY_MISSION_RALLY = 32768
-enums["MAV_PROTOCOL_CAPABILITY"][32768] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MISSION_RALLY", """Autopilot supports mission rally point protocol.""")
-MAV_PROTOCOL_CAPABILITY_RESERVED2 = 65536
-enums["MAV_PROTOCOL_CAPABILITY"][65536] = EnumEntry("MAV_PROTOCOL_CAPABILITY_RESERVED2", """Reserved for future use.""")
-MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST = 131072
-enums["MAV_PROTOCOL_CAPABILITY"][131072] = EnumEntry(
-    "MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST",
-    """Parameter protocol uses C-cast of parameter values to set the param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
-          Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE should be set if the parameter protocol is supported.
-        """,
-)
-MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER = 262144
-enums["MAV_PROTOCOL_CAPABILITY"][262144] = EnumEntry(
-    "MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER",
-    """This component implements/is a gimbal manager. This means the GIMBAL_MANAGER_INFORMATION, and other messages can be requested.
-        """,
-)
-MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL = 524288
-enums["MAV_PROTOCOL_CAPABILITY"][524288] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL", """Component supports locking control to a particular GCS independent of its system (via MAV_CMD_REQUEST_OPERATOR_CONTROL).""")
-MAV_PROTOCOL_CAPABILITY_GRIPPER = 1048576
-enums["MAV_PROTOCOL_CAPABILITY"][1048576] = EnumEntry("MAV_PROTOCOL_CAPABILITY_GRIPPER", """Autopilot has a connected gripper. MAVLink Grippers would set MAV_TYPE_GRIPPER instead.""")
-MAV_PROTOCOL_CAPABILITY_ENUM_END = 1048577
-enums["MAV_PROTOCOL_CAPABILITY"][1048577] = EnumEntry("MAV_PROTOCOL_CAPABILITY_ENUM_END", """""")
-
 # MAV_MISSION_TYPE
 enums["MAV_MISSION_TYPE"] = Enum()
 enums["MAV_MISSION_TYPE"].bitmask = False
@@ -3246,8 +4065,8 @@ MAV_BATTERY_FUNCTION_PROPULSION = 2
 enums["MAV_BATTERY_FUNCTION"][2] = EnumEntry("MAV_BATTERY_FUNCTION_PROPULSION", """Battery for the propulsion system""")
 MAV_BATTERY_FUNCTION_AVIONICS = 3
 enums["MAV_BATTERY_FUNCTION"][3] = EnumEntry("MAV_BATTERY_FUNCTION_AVIONICS", """Avionics battery""")
-MAV_BATTERY_TYPE_PAYLOAD = 4
-enums["MAV_BATTERY_FUNCTION"][4] = EnumEntry("MAV_BATTERY_TYPE_PAYLOAD", """Payload battery""")
+MAV_BATTERY_FUNCTION_PAYLOAD = 4
+enums["MAV_BATTERY_FUNCTION"][4] = EnumEntry("MAV_BATTERY_FUNCTION_PAYLOAD", """Payload battery""")
 MAV_BATTERY_FUNCTION_ENUM_END = 5
 enums["MAV_BATTERY_FUNCTION"][5] = EnumEntry("MAV_BATTERY_FUNCTION_ENUM_END", """""")
 
@@ -3480,8 +4299,10 @@ enums["MAV_DO_REPOSITION_FLAGS"] = Enum()
 enums["MAV_DO_REPOSITION_FLAGS"].bitmask = True
 MAV_DO_REPOSITION_FLAGS_CHANGE_MODE = 1
 enums["MAV_DO_REPOSITION_FLAGS"][1] = EnumEntry("MAV_DO_REPOSITION_FLAGS_CHANGE_MODE", """The aircraft should immediately transition into guided. This should not be set for follow me applications""")
-MAV_DO_REPOSITION_FLAGS_ENUM_END = 2
-enums["MAV_DO_REPOSITION_FLAGS"][2] = EnumEntry("MAV_DO_REPOSITION_FLAGS_ENUM_END", """""")
+MAV_DO_REPOSITION_FLAGS_RELATIVE_YAW = 2
+enums["MAV_DO_REPOSITION_FLAGS"][2] = EnumEntry("MAV_DO_REPOSITION_FLAGS_RELATIVE_YAW", """Yaw relative to the vehicle current heading (if not set, relative to North).""")
+MAV_DO_REPOSITION_FLAGS_ENUM_END = 3
+enums["MAV_DO_REPOSITION_FLAGS"][3] = EnumEntry("MAV_DO_REPOSITION_FLAGS_ENUM_END", """""")
 
 # SPEED_TYPE
 enums["SPEED_TYPE"] = Enum()
@@ -3496,6 +4317,18 @@ SPEED_TYPE_DESCENT_SPEED = 3
 enums["SPEED_TYPE"][3] = EnumEntry("SPEED_TYPE_DESCENT_SPEED", """Descent speed""")
 SPEED_TYPE_ENUM_END = 4
 enums["SPEED_TYPE"][4] = EnumEntry("SPEED_TYPE_ENUM_END", """""")
+
+# HEADING_TYPE
+enums["HEADING_TYPE"] = Enum()
+enums["HEADING_TYPE"].bitmask = False
+HEADING_TYPE_COURSE_OVER_GROUND = 0
+enums["HEADING_TYPE"][0] = EnumEntry("HEADING_TYPE_COURSE_OVER_GROUND", """Course over ground.""")
+HEADING_TYPE_HEADING = 1
+enums["HEADING_TYPE"][1] = EnumEntry("HEADING_TYPE_HEADING", """Raw vehicle heading.""")
+HEADING_TYPE_DEFAULT = 2
+enums["HEADING_TYPE"][2] = EnumEntry("HEADING_TYPE_DEFAULT", """Default heading.""")
+HEADING_TYPE_ENUM_END = 3
+enums["HEADING_TYPE"][3] = EnumEntry("HEADING_TYPE_ENUM_END", """""")
 
 # ESTIMATOR_STATUS_FLAGS
 enums["ESTIMATOR_STATUS_FLAGS"] = Enum()
@@ -3710,8 +4543,10 @@ CAMERA_CAP_FLAGS_HAS_TRACKING_GEO_STATUS = 2048
 enums["CAMERA_CAP_FLAGS"][2048] = EnumEntry("CAMERA_CAP_FLAGS_HAS_TRACKING_GEO_STATUS", """Camera supports tracking geo status (CAMERA_TRACKING_GEO_STATUS).""")
 CAMERA_CAP_FLAGS_HAS_THERMAL_RANGE = 4096
 enums["CAMERA_CAP_FLAGS"][4096] = EnumEntry("CAMERA_CAP_FLAGS_HAS_THERMAL_RANGE", """Camera supports absolute thermal range (request CAMERA_THERMAL_RANGE with MAV_CMD_REQUEST_MESSAGE).""")
-CAMERA_CAP_FLAGS_ENUM_END = 4097
-enums["CAMERA_CAP_FLAGS"][4097] = EnumEntry("CAMERA_CAP_FLAGS_ENUM_END", """""")
+CAMERA_CAP_FLAGS_HAS_MTI = 8192
+enums["CAMERA_CAP_FLAGS"][8192] = EnumEntry("CAMERA_CAP_FLAGS_HAS_MTI", """Camera supports Moving Target Indicators (MTI) on the camera view (using MAV_CMD_CAMERA_START_MTI).""")
+CAMERA_CAP_FLAGS_ENUM_END = 8193
+enums["CAMERA_CAP_FLAGS"][8193] = EnumEntry("CAMERA_CAP_FLAGS_ENUM_END", """""")
 
 # VIDEO_STREAM_STATUS_FLAGS
 enums["VIDEO_STREAM_STATUS_FLAGS"] = Enum()
@@ -3736,8 +4571,10 @@ VIDEO_STREAM_TYPE_TCP_MPEG = 2
 enums["VIDEO_STREAM_TYPE"][2] = EnumEntry("VIDEO_STREAM_TYPE_TCP_MPEG", """Stream is MPEG on TCP""")
 VIDEO_STREAM_TYPE_MPEG_TS = 3
 enums["VIDEO_STREAM_TYPE"][3] = EnumEntry("VIDEO_STREAM_TYPE_MPEG_TS", """Stream is MPEG TS (URI gives the port number)""")
-VIDEO_STREAM_TYPE_ENUM_END = 4
-enums["VIDEO_STREAM_TYPE"][4] = EnumEntry("VIDEO_STREAM_TYPE_ENUM_END", """""")
+VIDEO_STREAM_TYPE_WHEP = 4
+enums["VIDEO_STREAM_TYPE"][4] = EnumEntry("VIDEO_STREAM_TYPE_WHEP", """Stream is WHEP (WebRTC-HTTP Egress Protocol)""")
+VIDEO_STREAM_TYPE_ENUM_END = 5
+enums["VIDEO_STREAM_TYPE"][5] = EnumEntry("VIDEO_STREAM_TYPE_ENUM_END", """""")
 
 # VIDEO_STREAM_ENCODING
 enums["VIDEO_STREAM_ENCODING"] = Enum()
@@ -3753,15 +4590,19 @@ enums["VIDEO_STREAM_ENCODING"][3] = EnumEntry("VIDEO_STREAM_ENCODING_ENUM_END", 
 
 # CAMERA_TRACKING_STATUS_FLAGS
 enums["CAMERA_TRACKING_STATUS_FLAGS"] = Enum()
-enums["CAMERA_TRACKING_STATUS_FLAGS"].bitmask = False
+enums["CAMERA_TRACKING_STATUS_FLAGS"].bitmask = True
 CAMERA_TRACKING_STATUS_FLAGS_IDLE = 0
 enums["CAMERA_TRACKING_STATUS_FLAGS"][0] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_IDLE", """Camera is not tracking""")
 CAMERA_TRACKING_STATUS_FLAGS_ACTIVE = 1
 enums["CAMERA_TRACKING_STATUS_FLAGS"][1] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_ACTIVE", """Camera is tracking""")
 CAMERA_TRACKING_STATUS_FLAGS_ERROR = 2
 enums["CAMERA_TRACKING_STATUS_FLAGS"][2] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_ERROR", """Camera tracking in error state""")
-CAMERA_TRACKING_STATUS_FLAGS_ENUM_END = 3
-enums["CAMERA_TRACKING_STATUS_FLAGS"][3] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_ENUM_END", """""")
+CAMERA_TRACKING_STATUS_FLAGS_MTI = 4
+enums["CAMERA_TRACKING_STATUS_FLAGS"][4] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_MTI", """Camera Moving Target Indicators (MTI) are active""")
+CAMERA_TRACKING_STATUS_FLAGS_COASTING = 8
+enums["CAMERA_TRACKING_STATUS_FLAGS"][8] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_COASTING", """Camera tracking target is obscured and is being predicted""")
+CAMERA_TRACKING_STATUS_FLAGS_ENUM_END = 9
+enums["CAMERA_TRACKING_STATUS_FLAGS"][9] = EnumEntry("CAMERA_TRACKING_STATUS_FLAGS_ENUM_END", """""")
 
 # CAMERA_TRACKING_MODE
 enums["CAMERA_TRACKING_MODE"] = Enum()
@@ -3793,13 +4634,15 @@ enums["CAMERA_ZOOM_TYPE"].bitmask = False
 ZOOM_TYPE_STEP = 0
 enums["CAMERA_ZOOM_TYPE"][0] = EnumEntry("ZOOM_TYPE_STEP", """Zoom one step increment (-1 for wide, 1 for tele)""")
 ZOOM_TYPE_CONTINUOUS = 1
-enums["CAMERA_ZOOM_TYPE"][1] = EnumEntry("ZOOM_TYPE_CONTINUOUS", """Continuous zoom up/down until stopped (-1 for wide, 1 for tele, 0 to stop zooming)""")
+enums["CAMERA_ZOOM_TYPE"][1] = EnumEntry("ZOOM_TYPE_CONTINUOUS", """Continuous normalized zoom in/out rate until stopped. Range -1..1, negative: wide, positive: narrow/tele, 0 to stop zooming. Other values should be clipped to the range.""")
 ZOOM_TYPE_RANGE = 2
 enums["CAMERA_ZOOM_TYPE"][2] = EnumEntry("ZOOM_TYPE_RANGE", """Zoom value as proportion of full camera range (a percentage value between 0.0 and 100.0)""")
 ZOOM_TYPE_FOCAL_LENGTH = 3
 enums["CAMERA_ZOOM_TYPE"][3] = EnumEntry("ZOOM_TYPE_FOCAL_LENGTH", """Zoom value/variable focal length in millimetres. Note that there is no message to get the valid zoom range of the camera, so this can type can only be used for cameras where the zoom range is known (implying that this cannot reliably be used in a GCS for an arbitrary camera)""")
-CAMERA_ZOOM_TYPE_ENUM_END = 4
-enums["CAMERA_ZOOM_TYPE"][4] = EnumEntry("CAMERA_ZOOM_TYPE_ENUM_END", """""")
+ZOOM_TYPE_HORIZONTAL_FOV = 4
+enums["CAMERA_ZOOM_TYPE"][4] = EnumEntry("ZOOM_TYPE_HORIZONTAL_FOV", """Zoom value as horizontal field of view in degrees.""")
+CAMERA_ZOOM_TYPE_ENUM_END = 5
+enums["CAMERA_ZOOM_TYPE"][5] = EnumEntry("CAMERA_ZOOM_TYPE_ENUM_END", """""")
 
 # SET_FOCUS_TYPE
 enums["SET_FOCUS_TYPE"] = Enum()
@@ -3807,7 +4650,7 @@ enums["SET_FOCUS_TYPE"].bitmask = False
 FOCUS_TYPE_STEP = 0
 enums["SET_FOCUS_TYPE"][0] = EnumEntry("FOCUS_TYPE_STEP", """Focus one step increment (-1 for focusing in, 1 for focusing out towards infinity).""")
 FOCUS_TYPE_CONTINUOUS = 1
-enums["SET_FOCUS_TYPE"][1] = EnumEntry("FOCUS_TYPE_CONTINUOUS", """Continuous focus up/down until stopped (-1 for focusing in, 1 for focusing out towards infinity, 0 to stop focusing)""")
+enums["SET_FOCUS_TYPE"][1] = EnumEntry("FOCUS_TYPE_CONTINUOUS", """Continuous normalized focus in/out rate until stopped. Range -1..1, negative: in, positive: out towards infinity, 0 to stop focusing. Other values should be clipped to the range.""")
 FOCUS_TYPE_RANGE = 2
 enums["SET_FOCUS_TYPE"][2] = EnumEntry("FOCUS_TYPE_RANGE", """Focus value as proportion of full camera focus range (a value between 0.0 and 100.0)""")
 FOCUS_TYPE_METERS = 3
@@ -3882,18 +4725,30 @@ enums["MAV_ARM_AUTH_DENIED_REASON"][6] = EnumEntry("MAV_ARM_AUTH_DENIED_REASON_E
 # RC_TYPE
 enums["RC_TYPE"] = Enum()
 enums["RC_TYPE"].bitmask = False
-RC_TYPE_SPEKTRUM_DSM2 = 0
-enums["RC_TYPE"][0] = EnumEntry("RC_TYPE_SPEKTRUM_DSM2", """Spektrum DSM2""")
-RC_TYPE_SPEKTRUM_DSMX = 1
-enums["RC_TYPE"][1] = EnumEntry("RC_TYPE_SPEKTRUM_DSMX", """Spektrum DSMX""")
+RC_TYPE_SPEKTRUM = 0
+enums["RC_TYPE"][0] = EnumEntry("RC_TYPE_SPEKTRUM", """Spektrum""")
+RC_TYPE_CRSF = 1
+enums["RC_TYPE"][1] = EnumEntry("RC_TYPE_CRSF", """CRSF""")
 RC_TYPE_ENUM_END = 2
 enums["RC_TYPE"][2] = EnumEntry("RC_TYPE_ENUM_END", """""")
 
+# RC_SUB_TYPE
+enums["RC_SUB_TYPE"] = Enum()
+enums["RC_SUB_TYPE"].bitmask = False
+RC_SUB_TYPE_SPEKTRUM_DSM2 = 0
+enums["RC_SUB_TYPE"][0] = EnumEntry("RC_SUB_TYPE_SPEKTRUM_DSM2", """Spektrum DSM2""")
+RC_SUB_TYPE_SPEKTRUM_DSMX = 1
+enums["RC_SUB_TYPE"][1] = EnumEntry("RC_SUB_TYPE_SPEKTRUM_DSMX", """Spektrum DSMX""")
+RC_SUB_TYPE_SPEKTRUM_DSMX8 = 2
+enums["RC_SUB_TYPE"][2] = EnumEntry("RC_SUB_TYPE_SPEKTRUM_DSMX8", """Spektrum DSMX8""")
+RC_SUB_TYPE_ENUM_END = 3
+enums["RC_SUB_TYPE"][3] = EnumEntry("RC_SUB_TYPE_ENUM_END", """""")
+
 # ENGINE_CONTROL_OPTIONS
 enums["ENGINE_CONTROL_OPTIONS"] = Enum()
-enums["ENGINE_CONTROL_OPTIONS"].bitmask = False
+enums["ENGINE_CONTROL_OPTIONS"].bitmask = True
 ENGINE_CONTROL_OPTIONS_ALLOW_START_WHILE_DISARMED = 1
-enums["ENGINE_CONTROL_OPTIONS"][1] = EnumEntry("ENGINE_CONTROL_OPTIONS_ALLOW_START_WHILE_DISARMED", """Allow starting the engine once while disarmed""")
+enums["ENGINE_CONTROL_OPTIONS"][1] = EnumEntry("ENGINE_CONTROL_OPTIONS_ALLOW_START_WHILE_DISARMED", """Allow starting the engine while disarmed (without changing the vehicle's armed state). This effectively arms just the ICE, without arming the vehicle to start other motors or propellers.""")
 ENGINE_CONTROL_OPTIONS_ENUM_END = 2
 enums["ENGINE_CONTROL_OPTIONS"][2] = EnumEntry("ENGINE_CONTROL_OPTIONS_ENUM_END", """""")
 
@@ -4030,8 +4885,14 @@ MAV_TUNNEL_PAYLOAD_TYPE_STORM32_RESERVED8 = 208
 enums["MAV_TUNNEL_PAYLOAD_TYPE"][208] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_STORM32_RESERVED8", """Registered for STorM32 gimbal controller.""")
 MAV_TUNNEL_PAYLOAD_TYPE_STORM32_RESERVED9 = 209
 enums["MAV_TUNNEL_PAYLOAD_TYPE"][209] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_STORM32_RESERVED9", """Registered for STorM32 gimbal controller.""")
-MAV_TUNNEL_PAYLOAD_TYPE_ENUM_END = 210
-enums["MAV_TUNNEL_PAYLOAD_TYPE"][210] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_ENUM_END", """""")
+MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_REMOTE_OSD = 210
+enums["MAV_TUNNEL_PAYLOAD_TYPE"][210] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_REMOTE_OSD", """Registered for ModalAI remote OSD protocol.""")
+MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_ESC_UART_PASSTHRU = 211
+enums["MAV_TUNNEL_PAYLOAD_TYPE"][211] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_ESC_UART_PASSTHRU", """Registered for ModalAI ESC UART passthru protocol.""")
+MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_IO_UART_PASSTHRU = 212
+enums["MAV_TUNNEL_PAYLOAD_TYPE"][212] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_IO_UART_PASSTHRU", """Registered for ModalAI vendor use.""")
+MAV_TUNNEL_PAYLOAD_TYPE_ENUM_END = 213
+enums["MAV_TUNNEL_PAYLOAD_TYPE"][213] = EnumEntry("MAV_TUNNEL_PAYLOAD_TYPE_ENUM_END", """""")
 
 # MAV_ODID_ID_TYPE
 enums["MAV_ODID_ID_TYPE"] = Enum()
@@ -4241,7 +5102,7 @@ enums["MAV_ODID_AUTH_TYPE"][6] = EnumEntry("MAV_ODID_AUTH_TYPE_ENUM_END", """"""
 enums["MAV_ODID_DESC_TYPE"] = Enum()
 enums["MAV_ODID_DESC_TYPE"].bitmask = False
 MAV_ODID_DESC_TYPE_TEXT = 0
-enums["MAV_ODID_DESC_TYPE"][0] = EnumEntry("MAV_ODID_DESC_TYPE_TEXT", """Free-form text description of the purpose of the flight.""")
+enums["MAV_ODID_DESC_TYPE"][0] = EnumEntry("MAV_ODID_DESC_TYPE_TEXT", """Optional free-form text description of the purpose of the flight.""")
 MAV_ODID_DESC_TYPE_EMERGENCY = 1
 enums["MAV_ODID_DESC_TYPE"][1] = EnumEntry("MAV_ODID_DESC_TYPE_EMERGENCY", """Optional additional clarification when status == MAV_ODID_STATUS_EMERGENCY.""")
 MAV_ODID_DESC_TYPE_EXTENDED_STATUS = 2
@@ -4253,11 +5114,11 @@ enums["MAV_ODID_DESC_TYPE"][3] = EnumEntry("MAV_ODID_DESC_TYPE_ENUM_END", """"""
 enums["MAV_ODID_OPERATOR_LOCATION_TYPE"] = Enum()
 enums["MAV_ODID_OPERATOR_LOCATION_TYPE"].bitmask = False
 MAV_ODID_OPERATOR_LOCATION_TYPE_TAKEOFF = 0
-enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][0] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_TAKEOFF", """The location of the operator is the same as the take-off location.""")
+enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][0] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_TAKEOFF", """The location/altitude of the operator is the same as the take-off location.""")
 MAV_ODID_OPERATOR_LOCATION_TYPE_LIVE_GNSS = 1
-enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][1] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_LIVE_GNSS", """The location of the operator is based on live GNSS data.""")
+enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][1] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_LIVE_GNSS", """The location/altitude of the operator is dynamic. E.g. based on live GNSS data.""")
 MAV_ODID_OPERATOR_LOCATION_TYPE_FIXED = 2
-enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][2] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_FIXED", """The location of the operator is a fixed location.""")
+enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][2] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_FIXED", """The location/altitude of the operator are fixed values.""")
 MAV_ODID_OPERATOR_LOCATION_TYPE_ENUM_END = 3
 enums["MAV_ODID_OPERATOR_LOCATION_TYPE"][3] = EnumEntry("MAV_ODID_OPERATOR_LOCATION_TYPE_ENUM_END", """""")
 
@@ -4454,8 +5315,8 @@ AIS_TYPE_PASSENGER_HAZARDOUS_A = 61
 enums["AIS_TYPE"][61] = EnumEntry("AIS_TYPE_PASSENGER_HAZARDOUS_A", """""")
 AIS_TYPE_PASSENGER_HAZARDOUS_B = 62
 enums["AIS_TYPE"][62] = EnumEntry("AIS_TYPE_PASSENGER_HAZARDOUS_B", """""")
-AIS_TYPE_AIS_TYPE_PASSENGER_HAZARDOUS_C = 63
-enums["AIS_TYPE"][63] = EnumEntry("AIS_TYPE_AIS_TYPE_PASSENGER_HAZARDOUS_C", """""")
+AIS_TYPE_PASSENGER_HAZARDOUS_C = 63
+enums["AIS_TYPE"][63] = EnumEntry("AIS_TYPE_PASSENGER_HAZARDOUS_C", """""")
 AIS_TYPE_PASSENGER_HAZARDOUS_D = 64
 enums["AIS_TYPE"][64] = EnumEntry("AIS_TYPE_PASSENGER_HAZARDOUS_D", """""")
 AIS_TYPE_PASSENGER_RESERVED_1 = 65
@@ -4464,8 +5325,8 @@ AIS_TYPE_PASSENGER_RESERVED_2 = 66
 enums["AIS_TYPE"][66] = EnumEntry("AIS_TYPE_PASSENGER_RESERVED_2", """""")
 AIS_TYPE_PASSENGER_RESERVED_3 = 67
 enums["AIS_TYPE"][67] = EnumEntry("AIS_TYPE_PASSENGER_RESERVED_3", """""")
-AIS_TYPE_AIS_TYPE_PASSENGER_RESERVED_4 = 68
-enums["AIS_TYPE"][68] = EnumEntry("AIS_TYPE_AIS_TYPE_PASSENGER_RESERVED_4", """""")
+AIS_TYPE_PASSENGER_RESERVED_4 = 68
+enums["AIS_TYPE"][68] = EnumEntry("AIS_TYPE_PASSENGER_RESERVED_4", """""")
 AIS_TYPE_PASSENGER_UNKNOWN = 69
 enums["AIS_TYPE"][69] = EnumEntry("AIS_TYPE_PASSENGER_UNKNOWN", """""")
 AIS_TYPE_CARGO = 70
@@ -4534,38 +5395,38 @@ enums["AIS_TYPE"][100] = EnumEntry("AIS_TYPE_ENUM_END", """""")
 # AIS_NAV_STATUS
 enums["AIS_NAV_STATUS"] = Enum()
 enums["AIS_NAV_STATUS"].bitmask = False
-UNDER_WAY = 0
-enums["AIS_NAV_STATUS"][0] = EnumEntry("UNDER_WAY", """Under way using engine.""")
-AIS_NAV_ANCHORED = 1
-enums["AIS_NAV_STATUS"][1] = EnumEntry("AIS_NAV_ANCHORED", """""")
-AIS_NAV_UN_COMMANDED = 2
-enums["AIS_NAV_STATUS"][2] = EnumEntry("AIS_NAV_UN_COMMANDED", """""")
-AIS_NAV_RESTRICTED_MANOEUVERABILITY = 3
-enums["AIS_NAV_STATUS"][3] = EnumEntry("AIS_NAV_RESTRICTED_MANOEUVERABILITY", """""")
-AIS_NAV_DRAUGHT_CONSTRAINED = 4
-enums["AIS_NAV_STATUS"][4] = EnumEntry("AIS_NAV_DRAUGHT_CONSTRAINED", """""")
-AIS_NAV_MOORED = 5
-enums["AIS_NAV_STATUS"][5] = EnumEntry("AIS_NAV_MOORED", """""")
-AIS_NAV_AGROUND = 6
-enums["AIS_NAV_STATUS"][6] = EnumEntry("AIS_NAV_AGROUND", """""")
-AIS_NAV_FISHING = 7
-enums["AIS_NAV_STATUS"][7] = EnumEntry("AIS_NAV_FISHING", """""")
-AIS_NAV_SAILING = 8
-enums["AIS_NAV_STATUS"][8] = EnumEntry("AIS_NAV_SAILING", """""")
-AIS_NAV_RESERVED_HSC = 9
-enums["AIS_NAV_STATUS"][9] = EnumEntry("AIS_NAV_RESERVED_HSC", """""")
-AIS_NAV_RESERVED_WIG = 10
-enums["AIS_NAV_STATUS"][10] = EnumEntry("AIS_NAV_RESERVED_WIG", """""")
-AIS_NAV_RESERVED_1 = 11
-enums["AIS_NAV_STATUS"][11] = EnumEntry("AIS_NAV_RESERVED_1", """""")
-AIS_NAV_RESERVED_2 = 12
-enums["AIS_NAV_STATUS"][12] = EnumEntry("AIS_NAV_RESERVED_2", """""")
-AIS_NAV_RESERVED_3 = 13
-enums["AIS_NAV_STATUS"][13] = EnumEntry("AIS_NAV_RESERVED_3", """""")
-AIS_NAV_AIS_SART = 14
-enums["AIS_NAV_STATUS"][14] = EnumEntry("AIS_NAV_AIS_SART", """Search And Rescue Transponder.""")
-AIS_NAV_UNKNOWN = 15
-enums["AIS_NAV_STATUS"][15] = EnumEntry("AIS_NAV_UNKNOWN", """Not available (default).""")
+AIS_NAV_STATUS_UNDER_WAY = 0
+enums["AIS_NAV_STATUS"][0] = EnumEntry("AIS_NAV_STATUS_UNDER_WAY", """Under way using engine.""")
+AIS_NAV_STATUS_ANCHORED = 1
+enums["AIS_NAV_STATUS"][1] = EnumEntry("AIS_NAV_STATUS_ANCHORED", """""")
+AIS_NAV_STATUS_UN_COMMANDED = 2
+enums["AIS_NAV_STATUS"][2] = EnumEntry("AIS_NAV_STATUS_UN_COMMANDED", """""")
+AIS_NAV_STATUS_RESTRICTED_MANOEUVERABILITY = 3
+enums["AIS_NAV_STATUS"][3] = EnumEntry("AIS_NAV_STATUS_RESTRICTED_MANOEUVERABILITY", """""")
+AIS_NAV_STATUS_DRAUGHT_CONSTRAINED = 4
+enums["AIS_NAV_STATUS"][4] = EnumEntry("AIS_NAV_STATUS_DRAUGHT_CONSTRAINED", """""")
+AIS_NAV_STATUS_MOORED = 5
+enums["AIS_NAV_STATUS"][5] = EnumEntry("AIS_NAV_STATUS_MOORED", """""")
+AIS_NAV_STATUS_AGROUND = 6
+enums["AIS_NAV_STATUS"][6] = EnumEntry("AIS_NAV_STATUS_AGROUND", """""")
+AIS_NAV_STATUS_FISHING = 7
+enums["AIS_NAV_STATUS"][7] = EnumEntry("AIS_NAV_STATUS_FISHING", """""")
+AIS_NAV_STATUS_SAILING = 8
+enums["AIS_NAV_STATUS"][8] = EnumEntry("AIS_NAV_STATUS_SAILING", """""")
+AIS_NAV_STATUS_RESERVED_HSC = 9
+enums["AIS_NAV_STATUS"][9] = EnumEntry("AIS_NAV_STATUS_RESERVED_HSC", """""")
+AIS_NAV_STATUS_RESERVED_WIG = 10
+enums["AIS_NAV_STATUS"][10] = EnumEntry("AIS_NAV_STATUS_RESERVED_WIG", """""")
+AIS_NAV_STATUS_RESERVED_1 = 11
+enums["AIS_NAV_STATUS"][11] = EnumEntry("AIS_NAV_STATUS_RESERVED_1", """""")
+AIS_NAV_STATUS_RESERVED_2 = 12
+enums["AIS_NAV_STATUS"][12] = EnumEntry("AIS_NAV_STATUS_RESERVED_2", """""")
+AIS_NAV_STATUS_RESERVED_3 = 13
+enums["AIS_NAV_STATUS"][13] = EnumEntry("AIS_NAV_STATUS_RESERVED_3", """""")
+AIS_NAV_STATUS_AIS_SART = 14
+enums["AIS_NAV_STATUS"][14] = EnumEntry("AIS_NAV_STATUS_AIS_SART", """Search And Rescue Transponder.""")
+AIS_NAV_STATUS_UNKNOWN = 15
+enums["AIS_NAV_STATUS"][15] = EnumEntry("AIS_NAV_STATUS_UNKNOWN", """Not available (default).""")
 AIS_NAV_STATUS_ENUM_END = 16
 enums["AIS_NAV_STATUS"][16] = EnumEntry("AIS_NAV_STATUS_ENUM_END", """""")
 
@@ -4601,6 +5462,76 @@ enums["AIS_FLAGS"][4096] = EnumEntry("AIS_FLAGS_VALID_NAME", """""")
 AIS_FLAGS_ENUM_END = 4097
 enums["AIS_FLAGS"][4097] = EnumEntry("AIS_FLAGS_ENUM_END", """""")
 
+# FAILURE_UNIT
+enums["FAILURE_UNIT"] = Enum()
+enums["FAILURE_UNIT"].bitmask = False
+FAILURE_UNIT_SENSOR_GYRO = 0
+enums["FAILURE_UNIT"][0] = EnumEntry("FAILURE_UNIT_SENSOR_GYRO", """""")
+FAILURE_UNIT_SENSOR_ACCEL = 1
+enums["FAILURE_UNIT"][1] = EnumEntry("FAILURE_UNIT_SENSOR_ACCEL", """""")
+FAILURE_UNIT_SENSOR_MAG = 2
+enums["FAILURE_UNIT"][2] = EnumEntry("FAILURE_UNIT_SENSOR_MAG", """""")
+FAILURE_UNIT_SENSOR_BARO = 3
+enums["FAILURE_UNIT"][3] = EnumEntry("FAILURE_UNIT_SENSOR_BARO", """""")
+FAILURE_UNIT_SENSOR_GPS = 4
+enums["FAILURE_UNIT"][4] = EnumEntry("FAILURE_UNIT_SENSOR_GPS", """""")
+FAILURE_UNIT_SENSOR_OPTICAL_FLOW = 5
+enums["FAILURE_UNIT"][5] = EnumEntry("FAILURE_UNIT_SENSOR_OPTICAL_FLOW", """""")
+FAILURE_UNIT_SENSOR_VIO = 6
+enums["FAILURE_UNIT"][6] = EnumEntry("FAILURE_UNIT_SENSOR_VIO", """""")
+FAILURE_UNIT_SENSOR_DISTANCE_SENSOR = 7
+enums["FAILURE_UNIT"][7] = EnumEntry("FAILURE_UNIT_SENSOR_DISTANCE_SENSOR", """""")
+FAILURE_UNIT_SENSOR_AIRSPEED = 8
+enums["FAILURE_UNIT"][8] = EnumEntry("FAILURE_UNIT_SENSOR_AIRSPEED", """""")
+FAILURE_UNIT_SYSTEM_BATTERY = 100
+enums["FAILURE_UNIT"][100] = EnumEntry("FAILURE_UNIT_SYSTEM_BATTERY", """""")
+FAILURE_UNIT_SYSTEM_MOTOR = 101
+enums["FAILURE_UNIT"][101] = EnumEntry("FAILURE_UNIT_SYSTEM_MOTOR", """""")
+FAILURE_UNIT_SYSTEM_SERVO = 102
+enums["FAILURE_UNIT"][102] = EnumEntry("FAILURE_UNIT_SYSTEM_SERVO", """""")
+FAILURE_UNIT_SYSTEM_AVOIDANCE = 103
+enums["FAILURE_UNIT"][103] = EnumEntry("FAILURE_UNIT_SYSTEM_AVOIDANCE", """""")
+FAILURE_UNIT_SYSTEM_RC_SIGNAL = 104
+enums["FAILURE_UNIT"][104] = EnumEntry("FAILURE_UNIT_SYSTEM_RC_SIGNAL", """""")
+FAILURE_UNIT_SYSTEM_MAVLINK_SIGNAL = 105
+enums["FAILURE_UNIT"][105] = EnumEntry("FAILURE_UNIT_SYSTEM_MAVLINK_SIGNAL", """""")
+FAILURE_UNIT_ENUM_END = 106
+enums["FAILURE_UNIT"][106] = EnumEntry("FAILURE_UNIT_ENUM_END", """""")
+
+# FAILURE_TYPE
+enums["FAILURE_TYPE"] = Enum()
+enums["FAILURE_TYPE"].bitmask = False
+FAILURE_TYPE_OK = 0
+enums["FAILURE_TYPE"][0] = EnumEntry("FAILURE_TYPE_OK", """No failure injected, used to reset a previous failure.""")
+FAILURE_TYPE_OFF = 1
+enums["FAILURE_TYPE"][1] = EnumEntry("FAILURE_TYPE_OFF", """Sets unit off, so completely non-responsive.""")
+FAILURE_TYPE_STUCK = 2
+enums["FAILURE_TYPE"][2] = EnumEntry("FAILURE_TYPE_STUCK", """Unit is stuck e.g. keeps reporting the same value.""")
+FAILURE_TYPE_GARBAGE = 3
+enums["FAILURE_TYPE"][3] = EnumEntry("FAILURE_TYPE_GARBAGE", """Unit is reporting complete garbage.""")
+FAILURE_TYPE_WRONG = 4
+enums["FAILURE_TYPE"][4] = EnumEntry("FAILURE_TYPE_WRONG", """Unit is consistently wrong.""")
+FAILURE_TYPE_SLOW = 5
+enums["FAILURE_TYPE"][5] = EnumEntry("FAILURE_TYPE_SLOW", """Unit is slow, so e.g. reporting at slower than expected rate.""")
+FAILURE_TYPE_DELAYED = 6
+enums["FAILURE_TYPE"][6] = EnumEntry("FAILURE_TYPE_DELAYED", """Data of unit is delayed in time.""")
+FAILURE_TYPE_INTERMITTENT = 7
+enums["FAILURE_TYPE"][7] = EnumEntry("FAILURE_TYPE_INTERMITTENT", """Unit is sometimes working, sometimes not.""")
+FAILURE_TYPE_ENUM_END = 8
+enums["FAILURE_TYPE"][8] = EnumEntry("FAILURE_TYPE_ENUM_END", """""")
+
+# NAV_VTOL_LAND_OPTIONS
+enums["NAV_VTOL_LAND_OPTIONS"] = Enum()
+enums["NAV_VTOL_LAND_OPTIONS"].bitmask = False
+NAV_VTOL_LAND_OPTIONS_DEFAULT = 0
+enums["NAV_VTOL_LAND_OPTIONS"][0] = EnumEntry("NAV_VTOL_LAND_OPTIONS_DEFAULT", """Default autopilot landing behaviour.""")
+NAV_VTOL_LAND_OPTIONS_FW_SPIRAL_APPROACH = 1
+enums["NAV_VTOL_LAND_OPTIONS"][1] = EnumEntry("NAV_VTOL_LAND_OPTIONS_FW_SPIRAL_APPROACH", """Use a fixed wing spiral desent approach before landing.""")
+NAV_VTOL_LAND_OPTIONS_FW_APPROACH = 2
+enums["NAV_VTOL_LAND_OPTIONS"][2] = EnumEntry("NAV_VTOL_LAND_OPTIONS_FW_APPROACH", """Use a fixed wing approach before detransitioning and landing vertically.""")
+NAV_VTOL_LAND_OPTIONS_ENUM_END = 3
+enums["NAV_VTOL_LAND_OPTIONS"][3] = EnumEntry("NAV_VTOL_LAND_OPTIONS_ENUM_END", """""")
+
 # MAV_WINCH_STATUS_FLAG
 enums["MAV_WINCH_STATUS_FLAG"] = Enum()
 enums["MAV_WINCH_STATUS_FLAG"].bitmask = True
@@ -4630,12 +5561,84 @@ MAG_CAL_SUCCESS = 4
 enums["MAG_CAL_STATUS"][4] = EnumEntry("MAG_CAL_SUCCESS", """""")
 MAG_CAL_FAILED = 5
 enums["MAG_CAL_STATUS"][5] = EnumEntry("MAG_CAL_FAILED", """""")
-MAG_CAL_BAD_ORIENTATION = 6
-enums["MAG_CAL_STATUS"][6] = EnumEntry("MAG_CAL_BAD_ORIENTATION", """""")
-MAG_CAL_BAD_RADIUS = 7
-enums["MAG_CAL_STATUS"][7] = EnumEntry("MAG_CAL_BAD_RADIUS", """""")
-MAG_CAL_STATUS_ENUM_END = 8
-enums["MAG_CAL_STATUS"][8] = EnumEntry("MAG_CAL_STATUS_ENUM_END", """""")
+MAG_CAL_FAILED_ORIENTATION = 6
+enums["MAG_CAL_STATUS"][6] = EnumEntry("MAG_CAL_FAILED_ORIENTATION", """Compass calibration failed: the vehicle orientation is outside the required tolerance.""")
+MAG_CAL_FAILED_RADIUS = 7
+enums["MAG_CAL_STATUS"][7] = EnumEntry("MAG_CAL_FAILED_RADIUS", """Compass calibration failed: the radius of the fitted sphere is unrealistically small or large.""")
+MAG_CAL_FAILED_OFFSETS = 8
+enums["MAG_CAL_STATUS"][8] = EnumEntry("MAG_CAL_FAILED_OFFSETS", """Compass calibration failed: offset magnitude too large.""")
+MAG_CAL_FAILED_DIAG_SCALING = 9
+enums["MAG_CAL_STATUS"][9] = EnumEntry("MAG_CAL_FAILED_DIAG_SCALING", """Compass calibration failed: diagonal or off-diagonal scaling values out of valid range.""")
+MAG_CAL_FAILED_RESIDUALS_HIGH = 10
+enums["MAG_CAL_STATUS"][10] = EnumEntry("MAG_CAL_FAILED_RESIDUALS_HIGH", """Compass calibration failed: fitness (RMS residual) exceeds tolerance.""")
+MAG_CAL_STATUS_ENUM_END = 11
+enums["MAG_CAL_STATUS"][11] = EnumEntry("MAG_CAL_STATUS_ENUM_END", """""")
+
+# HIL_SENSOR_UPDATED_FLAGS
+enums["HIL_SENSOR_UPDATED_FLAGS"] = Enum()
+enums["HIL_SENSOR_UPDATED_FLAGS"].bitmask = True
+HIL_SENSOR_UPDATED_XACC = 1
+enums["HIL_SENSOR_UPDATED_FLAGS"][1] = EnumEntry("HIL_SENSOR_UPDATED_XACC", """The value in the xacc field has been updated""")
+HIL_SENSOR_UPDATED_YACC = 2
+enums["HIL_SENSOR_UPDATED_FLAGS"][2] = EnumEntry("HIL_SENSOR_UPDATED_YACC", """The value in the yacc field has been updated""")
+HIL_SENSOR_UPDATED_ZACC = 4
+enums["HIL_SENSOR_UPDATED_FLAGS"][4] = EnumEntry("HIL_SENSOR_UPDATED_ZACC", """The value in the zacc field has been updated""")
+HIL_SENSOR_UPDATED_XGYRO = 8
+enums["HIL_SENSOR_UPDATED_FLAGS"][8] = EnumEntry("HIL_SENSOR_UPDATED_XGYRO", """The value in the xgyro field has been updated""")
+HIL_SENSOR_UPDATED_YGYRO = 16
+enums["HIL_SENSOR_UPDATED_FLAGS"][16] = EnumEntry("HIL_SENSOR_UPDATED_YGYRO", """The value in the ygyro field has been updated""")
+HIL_SENSOR_UPDATED_ZGYRO = 32
+enums["HIL_SENSOR_UPDATED_FLAGS"][32] = EnumEntry("HIL_SENSOR_UPDATED_ZGYRO", """The value in the zgyro field has been updated""")
+HIL_SENSOR_UPDATED_XMAG = 64
+enums["HIL_SENSOR_UPDATED_FLAGS"][64] = EnumEntry("HIL_SENSOR_UPDATED_XMAG", """The value in the xmag field has been updated""")
+HIL_SENSOR_UPDATED_YMAG = 128
+enums["HIL_SENSOR_UPDATED_FLAGS"][128] = EnumEntry("HIL_SENSOR_UPDATED_YMAG", """The value in the ymag field has been updated""")
+HIL_SENSOR_UPDATED_ZMAG = 256
+enums["HIL_SENSOR_UPDATED_FLAGS"][256] = EnumEntry("HIL_SENSOR_UPDATED_ZMAG", """The value in the zmag field has been updated""")
+HIL_SENSOR_UPDATED_ABS_PRESSURE = 512
+enums["HIL_SENSOR_UPDATED_FLAGS"][512] = EnumEntry("HIL_SENSOR_UPDATED_ABS_PRESSURE", """The value in the abs_pressure field has been updated""")
+HIL_SENSOR_UPDATED_DIFF_PRESSURE = 1024
+enums["HIL_SENSOR_UPDATED_FLAGS"][1024] = EnumEntry("HIL_SENSOR_UPDATED_DIFF_PRESSURE", """The value in the diff_pressure field has been updated""")
+HIL_SENSOR_UPDATED_PRESSURE_ALT = 2048
+enums["HIL_SENSOR_UPDATED_FLAGS"][2048] = EnumEntry("HIL_SENSOR_UPDATED_PRESSURE_ALT", """The value in the pressure_alt field has been updated""")
+HIL_SENSOR_UPDATED_TEMPERATURE = 4096
+enums["HIL_SENSOR_UPDATED_FLAGS"][4096] = EnumEntry("HIL_SENSOR_UPDATED_TEMPERATURE", """The value in the temperature field has been updated""")
+HIL_SENSOR_UPDATED_RESET = 2147483648
+enums["HIL_SENSOR_UPDATED_FLAGS"][2147483648] = EnumEntry("HIL_SENSOR_UPDATED_RESET", """Full reset of attitude/position/velocities/etc was performed in sim (Bit 31).""")
+HIL_SENSOR_UPDATED_FLAGS_ENUM_END = 2147483649
+enums["HIL_SENSOR_UPDATED_FLAGS"][2147483649] = EnumEntry("HIL_SENSOR_UPDATED_FLAGS_ENUM_END", """""")
+
+# HIGHRES_IMU_UPDATED_FLAGS
+enums["HIGHRES_IMU_UPDATED_FLAGS"] = Enum()
+enums["HIGHRES_IMU_UPDATED_FLAGS"].bitmask = True
+HIGHRES_IMU_UPDATED_XACC = 1
+enums["HIGHRES_IMU_UPDATED_FLAGS"][1] = EnumEntry("HIGHRES_IMU_UPDATED_XACC", """The value in the xacc field has been updated""")
+HIGHRES_IMU_UPDATED_YACC = 2
+enums["HIGHRES_IMU_UPDATED_FLAGS"][2] = EnumEntry("HIGHRES_IMU_UPDATED_YACC", """The value in the yacc field has been updated""")
+HIGHRES_IMU_UPDATED_ZACC = 4
+enums["HIGHRES_IMU_UPDATED_FLAGS"][4] = EnumEntry("HIGHRES_IMU_UPDATED_ZACC", """The value in the zacc field has been updated since""")
+HIGHRES_IMU_UPDATED_XGYRO = 8
+enums["HIGHRES_IMU_UPDATED_FLAGS"][8] = EnumEntry("HIGHRES_IMU_UPDATED_XGYRO", """The value in the xgyro field has been updated""")
+HIGHRES_IMU_UPDATED_YGYRO = 16
+enums["HIGHRES_IMU_UPDATED_FLAGS"][16] = EnumEntry("HIGHRES_IMU_UPDATED_YGYRO", """The value in the ygyro field has been updated""")
+HIGHRES_IMU_UPDATED_ZGYRO = 32
+enums["HIGHRES_IMU_UPDATED_FLAGS"][32] = EnumEntry("HIGHRES_IMU_UPDATED_ZGYRO", """The value in the zgyro field has been updated""")
+HIGHRES_IMU_UPDATED_XMAG = 64
+enums["HIGHRES_IMU_UPDATED_FLAGS"][64] = EnumEntry("HIGHRES_IMU_UPDATED_XMAG", """The value in the xmag field has been updated""")
+HIGHRES_IMU_UPDATED_YMAG = 128
+enums["HIGHRES_IMU_UPDATED_FLAGS"][128] = EnumEntry("HIGHRES_IMU_UPDATED_YMAG", """The value in the ymag field has been updated""")
+HIGHRES_IMU_UPDATED_ZMAG = 256
+enums["HIGHRES_IMU_UPDATED_FLAGS"][256] = EnumEntry("HIGHRES_IMU_UPDATED_ZMAG", """The value in the zmag field has been updated""")
+HIGHRES_IMU_UPDATED_ABS_PRESSURE = 512
+enums["HIGHRES_IMU_UPDATED_FLAGS"][512] = EnumEntry("HIGHRES_IMU_UPDATED_ABS_PRESSURE", """The value in the abs_pressure field has been updated""")
+HIGHRES_IMU_UPDATED_DIFF_PRESSURE = 1024
+enums["HIGHRES_IMU_UPDATED_FLAGS"][1024] = EnumEntry("HIGHRES_IMU_UPDATED_DIFF_PRESSURE", """The value in the diff_pressure field has been updated""")
+HIGHRES_IMU_UPDATED_PRESSURE_ALT = 2048
+enums["HIGHRES_IMU_UPDATED_FLAGS"][2048] = EnumEntry("HIGHRES_IMU_UPDATED_PRESSURE_ALT", """The value in the pressure_alt field has been updated""")
+HIGHRES_IMU_UPDATED_TEMPERATURE = 4096
+enums["HIGHRES_IMU_UPDATED_FLAGS"][4096] = EnumEntry("HIGHRES_IMU_UPDATED_TEMPERATURE", """The value in the temperature field has been updated""")
+HIGHRES_IMU_UPDATED_FLAGS_ENUM_END = 4097
+enums["HIGHRES_IMU_UPDATED_FLAGS"][4097] = EnumEntry("HIGHRES_IMU_UPDATED_FLAGS_ENUM_END", """""")
 
 # CAN_FILTER_OP
 enums["CAN_FILTER_OP"] = Enum()
@@ -4649,17 +5652,79 @@ enums["CAN_FILTER_OP"][2] = EnumEntry("CAN_FILTER_REMOVE", """""")
 CAN_FILTER_OP_ENUM_END = 3
 enums["CAN_FILTER_OP"][3] = EnumEntry("CAN_FILTER_OP_ENUM_END", """""")
 
-# NAV_VTOL_LAND_OPTIONS
-enums["NAV_VTOL_LAND_OPTIONS"] = Enum()
-enums["NAV_VTOL_LAND_OPTIONS"].bitmask = False
-NAV_VTOL_LAND_OPTIONS_DEFAULT = 0
-enums["NAV_VTOL_LAND_OPTIONS"][0] = EnumEntry("NAV_VTOL_LAND_OPTIONS_DEFAULT", """Default autopilot landing behaviour.""")
-NAV_VTOL_LAND_OPTIONS_FW_SPIRAL_APPROACH = 1
-enums["NAV_VTOL_LAND_OPTIONS"][1] = EnumEntry("NAV_VTOL_LAND_OPTIONS_FW_SPIRAL_APPROACH", """Use a fixed wing spiral desent approach before landing.""")
-NAV_VTOL_LAND_OPTIONS_FW_APPROACH = 2
-enums["NAV_VTOL_LAND_OPTIONS"][2] = EnumEntry("NAV_VTOL_LAND_OPTIONS_FW_APPROACH", """Use a fixed wing approach before detransitioning and landing vertically.""")
-NAV_VTOL_LAND_OPTIONS_ENUM_END = 3
-enums["NAV_VTOL_LAND_OPTIONS"][3] = EnumEntry("NAV_VTOL_LAND_OPTIONS_ENUM_END", """""")
+# MAV_FTP_ERR
+enums["MAV_FTP_ERR"] = Enum()
+enums["MAV_FTP_ERR"].bitmask = False
+MAV_FTP_ERR_NONE = 0
+enums["MAV_FTP_ERR"][0] = EnumEntry("MAV_FTP_ERR_NONE", """None: No error""")
+MAV_FTP_ERR_FAIL = 1
+enums["MAV_FTP_ERR"][1] = EnumEntry("MAV_FTP_ERR_FAIL", """Fail: Unknown failure""")
+MAV_FTP_ERR_FAILERRNO = 2
+enums["MAV_FTP_ERR"][2] = EnumEntry(
+    "MAV_FTP_ERR_FAILERRNO",
+    """FailErrno: Command failed, Err number sent back in PayloadHeader.data[1].
+        This is a file-system error number understood by the server operating system.""",
+)
+MAV_FTP_ERR_INVALIDDATASIZE = 3
+enums["MAV_FTP_ERR"][3] = EnumEntry("MAV_FTP_ERR_INVALIDDATASIZE", """InvalidDataSize: Payload size is invalid""")
+MAV_FTP_ERR_INVALIDSESSION = 4
+enums["MAV_FTP_ERR"][4] = EnumEntry("MAV_FTP_ERR_INVALIDSESSION", """InvalidSession: Session is not currently open""")
+MAV_FTP_ERR_NOSESSIONSAVAILABLE = 5
+enums["MAV_FTP_ERR"][5] = EnumEntry("MAV_FTP_ERR_NOSESSIONSAVAILABLE", """NoSessionsAvailable: All available sessions are already in use""")
+MAV_FTP_ERR_EOF = 6
+enums["MAV_FTP_ERR"][6] = EnumEntry("MAV_FTP_ERR_EOF", """EOF: Offset past end of file for ListDirectory and ReadFile commands""")
+MAV_FTP_ERR_UNKNOWNCOMMAND = 7
+enums["MAV_FTP_ERR"][7] = EnumEntry("MAV_FTP_ERR_UNKNOWNCOMMAND", """UnknownCommand: Unknown command / opcode""")
+MAV_FTP_ERR_FILEEXISTS = 8
+enums["MAV_FTP_ERR"][8] = EnumEntry("MAV_FTP_ERR_FILEEXISTS", """FileExists: File/directory already exists""")
+MAV_FTP_ERR_FILEPROTECTED = 9
+enums["MAV_FTP_ERR"][9] = EnumEntry("MAV_FTP_ERR_FILEPROTECTED", """FileProtected: File/directory is write protected""")
+MAV_FTP_ERR_FILENOTFOUND = 10
+enums["MAV_FTP_ERR"][10] = EnumEntry("MAV_FTP_ERR_FILENOTFOUND", """FileNotFound: File/directory not found""")
+MAV_FTP_ERR_ENUM_END = 11
+enums["MAV_FTP_ERR"][11] = EnumEntry("MAV_FTP_ERR_ENUM_END", """""")
+
+# MAV_FTP_OPCODE
+enums["MAV_FTP_OPCODE"] = Enum()
+enums["MAV_FTP_OPCODE"].bitmask = False
+MAV_FTP_OPCODE_NONE = 0
+enums["MAV_FTP_OPCODE"][0] = EnumEntry("MAV_FTP_OPCODE_NONE", """None. Ignored, always ACKed""")
+MAV_FTP_OPCODE_TERMINATESESSION = 1
+enums["MAV_FTP_OPCODE"][1] = EnumEntry("MAV_FTP_OPCODE_TERMINATESESSION", """TerminateSession: Terminates open Read session""")
+MAV_FTP_OPCODE_RESETSESSION = 2
+enums["MAV_FTP_OPCODE"][2] = EnumEntry("MAV_FTP_OPCODE_RESETSESSION", """ResetSessions: Terminates all open read sessions""")
+MAV_FTP_OPCODE_LISTDIRECTORY = 3
+enums["MAV_FTP_OPCODE"][3] = EnumEntry("MAV_FTP_OPCODE_LISTDIRECTORY", """ListDirectory. List files and directories in path from offset""")
+MAV_FTP_OPCODE_OPENFILERO = 4
+enums["MAV_FTP_OPCODE"][4] = EnumEntry("MAV_FTP_OPCODE_OPENFILERO", """OpenFileRO: Opens file at path for reading, returns session""")
+MAV_FTP_OPCODE_READFILE = 5
+enums["MAV_FTP_OPCODE"][5] = EnumEntry("MAV_FTP_OPCODE_READFILE", """ReadFile: Reads size bytes from offset in session""")
+MAV_FTP_OPCODE_CREATEFILE = 6
+enums["MAV_FTP_OPCODE"][6] = EnumEntry("MAV_FTP_OPCODE_CREATEFILE", """CreateFile: Creates file at path for writing, returns session""")
+MAV_FTP_OPCODE_WRITEFILE = 7
+enums["MAV_FTP_OPCODE"][7] = EnumEntry("MAV_FTP_OPCODE_WRITEFILE", """WriteFile: Writes size bytes to offset in session""")
+MAV_FTP_OPCODE_REMOVEFILE = 8
+enums["MAV_FTP_OPCODE"][8] = EnumEntry("MAV_FTP_OPCODE_REMOVEFILE", """RemoveFile: Remove file at path""")
+MAV_FTP_OPCODE_CREATEDIRECTORY = 9
+enums["MAV_FTP_OPCODE"][9] = EnumEntry("MAV_FTP_OPCODE_CREATEDIRECTORY", """CreateDirectory: Creates directory at path""")
+MAV_FTP_OPCODE_REMOVEDIRECTORY = 10
+enums["MAV_FTP_OPCODE"][10] = EnumEntry("MAV_FTP_OPCODE_REMOVEDIRECTORY", """RemoveDirectory: Removes directory at path. The directory must be empty.""")
+MAV_FTP_OPCODE_OPENFILEWO = 11
+enums["MAV_FTP_OPCODE"][11] = EnumEntry("MAV_FTP_OPCODE_OPENFILEWO", """OpenFileWO: Opens file at path for writing, returns session""")
+MAV_FTP_OPCODE_TRUNCATEFILE = 12
+enums["MAV_FTP_OPCODE"][12] = EnumEntry("MAV_FTP_OPCODE_TRUNCATEFILE", """TruncateFile: Truncate file at path to offset length""")
+MAV_FTP_OPCODE_RENAME = 13
+enums["MAV_FTP_OPCODE"][13] = EnumEntry("MAV_FTP_OPCODE_RENAME", """Rename: Rename path1 to path2""")
+MAV_FTP_OPCODE_CALCFILECRC = 14
+enums["MAV_FTP_OPCODE"][14] = EnumEntry("MAV_FTP_OPCODE_CALCFILECRC", """CalcFileCRC32: Calculate CRC32 for file at path""")
+MAV_FTP_OPCODE_BURSTREADFILE = 15
+enums["MAV_FTP_OPCODE"][15] = EnumEntry("MAV_FTP_OPCODE_BURSTREADFILE", """BurstReadFile: Burst download session file""")
+MAV_FTP_OPCODE_ACK = 128
+enums["MAV_FTP_OPCODE"][128] = EnumEntry("MAV_FTP_OPCODE_ACK", """ACK: ACK response""")
+MAV_FTP_OPCODE_NAK = 129
+enums["MAV_FTP_OPCODE"][129] = EnumEntry("MAV_FTP_OPCODE_NAK", """NAK: NAK response""")
+MAV_FTP_OPCODE_ENUM_END = 130
+enums["MAV_FTP_OPCODE"][130] = EnumEntry("MAV_FTP_OPCODE_ENUM_END", """""")
 
 # MISSION_STATE
 enums["MISSION_STATE"] = Enum()
@@ -4689,6 +5754,189 @@ enums["SAFETY_SWITCH_STATE"][1] = EnumEntry("SAFETY_SWITCH_STATE_DANGEROUS", """
 SAFETY_SWITCH_STATE_ENUM_END = 2
 enums["SAFETY_SWITCH_STATE"][2] = EnumEntry("SAFETY_SWITCH_STATE_ENUM_END", """""")
 
+# ILLUMINATOR_MODE
+enums["ILLUMINATOR_MODE"] = Enum()
+enums["ILLUMINATOR_MODE"].bitmask = False
+ILLUMINATOR_MODE_UNKNOWN = 0
+enums["ILLUMINATOR_MODE"][0] = EnumEntry("ILLUMINATOR_MODE_UNKNOWN", """Illuminator mode is not specified/unknown""")
+ILLUMINATOR_MODE_INTERNAL_CONTROL = 1
+enums["ILLUMINATOR_MODE"][1] = EnumEntry("ILLUMINATOR_MODE_INTERNAL_CONTROL", """Illuminator behavior is controlled by MAV_CMD_DO_ILLUMINATOR_CONFIGURE settings""")
+ILLUMINATOR_MODE_EXTERNAL_SYNC = 2
+enums["ILLUMINATOR_MODE"][2] = EnumEntry("ILLUMINATOR_MODE_EXTERNAL_SYNC", """Illuminator behavior is controlled by external factors: e.g. an external hardware signal""")
+ILLUMINATOR_MODE_ENUM_END = 3
+enums["ILLUMINATOR_MODE"][3] = EnumEntry("ILLUMINATOR_MODE_ENUM_END", """""")
+
+# ILLUMINATOR_ERROR_FLAGS
+enums["ILLUMINATOR_ERROR_FLAGS"] = Enum()
+enums["ILLUMINATOR_ERROR_FLAGS"].bitmask = True
+ILLUMINATOR_ERROR_FLAGS_THERMAL_THROTTLING = 1
+enums["ILLUMINATOR_ERROR_FLAGS"][1] = EnumEntry("ILLUMINATOR_ERROR_FLAGS_THERMAL_THROTTLING", """Illuminator thermal throttling error.""")
+ILLUMINATOR_ERROR_FLAGS_OVER_TEMPERATURE_SHUTDOWN = 2
+enums["ILLUMINATOR_ERROR_FLAGS"][2] = EnumEntry("ILLUMINATOR_ERROR_FLAGS_OVER_TEMPERATURE_SHUTDOWN", """Illuminator over temperature shutdown error.""")
+ILLUMINATOR_ERROR_FLAGS_THERMISTOR_FAILURE = 4
+enums["ILLUMINATOR_ERROR_FLAGS"][4] = EnumEntry("ILLUMINATOR_ERROR_FLAGS_THERMISTOR_FAILURE", """Illuminator thermistor failure.""")
+ILLUMINATOR_ERROR_FLAGS_ENUM_END = 5
+enums["ILLUMINATOR_ERROR_FLAGS"][5] = EnumEntry("ILLUMINATOR_ERROR_FLAGS_ENUM_END", """""")
+
+# MAV_STANDARD_MODE
+enums["MAV_STANDARD_MODE"] = Enum()
+enums["MAV_STANDARD_MODE"].bitmask = False
+MAV_STANDARD_MODE_NON_STANDARD = 0
+enums["MAV_STANDARD_MODE"][0] = EnumEntry(
+    "MAV_STANDARD_MODE_NON_STANDARD",
+    """Non standard mode.
+          This may be used when reporting the mode if the current flight mode is not a standard mode.
+        """,
+)
+MAV_STANDARD_MODE_POSITION_HOLD = 1
+enums["MAV_STANDARD_MODE"][1] = EnumEntry(
+    "MAV_STANDARD_MODE_POSITION_HOLD",
+    """Position mode (manual).
+          Position-controlled and stabilized manual mode.
+          When sticks are released vehicles return to their level-flight orientation and hold both position and altitude against wind and external forces.
+          This mode can only be set by vehicles that can hold a fixed position.
+          Multicopter (MC) vehicles actively brake and hold both position and altitude against wind and external forces.
+          Hybrid MC/FW ("VTOL") vehicles first transition to multicopter mode (if needed) but otherwise behave in the same way as MC vehicles.
+          Fixed-wing (FW) vehicles must not support this mode.
+          Other vehicle types must not support this mode (this may be revisited through the PR process).
+        """,
+)
+MAV_STANDARD_MODE_ORBIT = 2
+enums["MAV_STANDARD_MODE"][2] = EnumEntry(
+    "MAV_STANDARD_MODE_ORBIT",
+    """Orbit (manual).
+          Position-controlled and stabilized manual mode.
+          The vehicle circles around a fixed setpoint in the horizontal plane at a particular radius, altitude, and direction.
+          Flight stacks may further allow manual control over the setpoint position, radius, direction, speed, and/or altitude of the circle, but this is not mandated.
+          Flight stacks may support the [MAV_CMD_DO_ORBIT](https://mavlink.io/en/messages/common.html#MAV_CMD_DO_ORBIT) for changing the orbit parameters.
+          MC and FW vehicles may support this mode.
+          Hybrid MC/FW ("VTOL") vehicles may support this mode in MC/FW or both modes; if the mode is not supported by the current configuration the vehicle should transition to the supported configuration.
+          Other vehicle types must not support this mode (this may be revisited through the PR process).
+        """,
+)
+MAV_STANDARD_MODE_CRUISE = 3
+enums["MAV_STANDARD_MODE"][3] = EnumEntry(
+    "MAV_STANDARD_MODE_CRUISE",
+    """Cruise mode (manual).
+          Position-controlled and stabilized manual mode.
+          When sticks are released vehicles return to their level-flight orientation and hold their original track against wind and external forces.
+          Fixed-wing (FW) vehicles level orientation and maintain current track and altitude against wind and external forces.
+          Hybrid MC/FW ("VTOL") vehicles first transition to FW mode (if needed) but otherwise behave in the same way as MC vehicles.
+          Multicopter (MC) vehicles must not support this mode.
+          Other vehicle types must not support this mode (this may be revisited through the PR process).
+        """,
+)
+MAV_STANDARD_MODE_ALTITUDE_HOLD = 4
+enums["MAV_STANDARD_MODE"][4] = EnumEntry(
+    "MAV_STANDARD_MODE_ALTITUDE_HOLD",
+    """Altitude hold (manual).
+          Altitude-controlled and stabilized manual mode.
+          When sticks are released vehicles return to their level-flight orientation and hold their altitude.
+          MC vehicles continue with existing momentum and may move with wind (or other external forces).
+          FW vehicles continue with current heading, but may be moved off-track by wind.
+          Hybrid MC/FW ("VTOL") vehicles behave according to their current configuration/mode (FW or MC).
+          Other vehicle types must not support this mode (this may be revisited through the PR process).
+        """,
+)
+MAV_STANDARD_MODE_SAFE_RECOVERY = 5
+enums["MAV_STANDARD_MODE"][5] = EnumEntry(
+    "MAV_STANDARD_MODE_SAFE_RECOVERY",
+    """Safe recovery mode (auto).
+          Automatic mode that takes vehicle to a predefined safe location via a safe flight path, and may also automatically land the vehicle.
+          This mode is more commonly referred to as RTL and/or or Smart RTL.
+          The precise return location, flight path, and landing behaviour depend on vehicle configuration and type.
+          For example, the vehicle might return to the home/launch location, a rally point, or the start of a mission landing, it might follow a direct path, mission path, or breadcrumb path, and land using a mission landing pattern or some other kind of descent.
+        """,
+)
+MAV_STANDARD_MODE_MISSION = 6
+enums["MAV_STANDARD_MODE"][6] = EnumEntry(
+    "MAV_STANDARD_MODE_MISSION",
+    """Mission mode (automatic).
+          Automatic mode that executes MAVLink missions.
+          Missions are executed from the current waypoint as soon as the mode is enabled.
+        """,
+)
+MAV_STANDARD_MODE_LAND = 7
+enums["MAV_STANDARD_MODE"][7] = EnumEntry(
+    "MAV_STANDARD_MODE_LAND",
+    """Land mode (auto).
+          Automatic mode that lands the vehicle at the current location.
+          The precise landing behaviour depends on vehicle configuration and type.
+        """,
+)
+MAV_STANDARD_MODE_TAKEOFF = 8
+enums["MAV_STANDARD_MODE"][8] = EnumEntry(
+    "MAV_STANDARD_MODE_TAKEOFF",
+    """Takeoff mode (auto).
+          Automatic takeoff mode.
+          The precise takeoff behaviour depends on vehicle configuration and type.
+        """,
+)
+MAV_STANDARD_MODE_ENUM_END = 9
+enums["MAV_STANDARD_MODE"][9] = EnumEntry("MAV_STANDARD_MODE_ENUM_END", """""")
+
+# HIL_ACTUATOR_CONTROLS_FLAGS
+enums["HIL_ACTUATOR_CONTROLS_FLAGS"] = Enum()
+enums["HIL_ACTUATOR_CONTROLS_FLAGS"].bitmask = True
+HIL_ACTUATOR_CONTROLS_FLAGS_LOCKSTEP = 1
+enums["HIL_ACTUATOR_CONTROLS_FLAGS"][1] = EnumEntry("HIL_ACTUATOR_CONTROLS_FLAGS_LOCKSTEP", """Simulation is using lockstep""")
+HIL_ACTUATOR_CONTROLS_FLAGS_ENUM_END = 2
+enums["HIL_ACTUATOR_CONTROLS_FLAGS"][2] = EnumEntry("HIL_ACTUATOR_CONTROLS_FLAGS_ENUM_END", """""")
+
+# COMPUTER_STATUS_FLAGS
+enums["COMPUTER_STATUS_FLAGS"] = Enum()
+enums["COMPUTER_STATUS_FLAGS"].bitmask = True
+COMPUTER_STATUS_FLAGS_UNDER_VOLTAGE = 1
+enums["COMPUTER_STATUS_FLAGS"][1] = EnumEntry("COMPUTER_STATUS_FLAGS_UNDER_VOLTAGE", """Indicates if the system is experiencing voltage outside of acceptable range.""")
+COMPUTER_STATUS_FLAGS_CPU_THROTTLE = 2
+enums["COMPUTER_STATUS_FLAGS"][2] = EnumEntry("COMPUTER_STATUS_FLAGS_CPU_THROTTLE", """Indicates if CPU throttling is active.""")
+COMPUTER_STATUS_FLAGS_THERMAL_THROTTLE = 4
+enums["COMPUTER_STATUS_FLAGS"][4] = EnumEntry("COMPUTER_STATUS_FLAGS_THERMAL_THROTTLE", """Indicates if thermal throttling is active.""")
+COMPUTER_STATUS_FLAGS_DISK_FULL = 8
+enums["COMPUTER_STATUS_FLAGS"][8] = EnumEntry("COMPUTER_STATUS_FLAGS_DISK_FULL", """Indicates if main disk is full.""")
+COMPUTER_STATUS_FLAGS_ENUM_END = 9
+enums["COMPUTER_STATUS_FLAGS"][9] = EnumEntry("COMPUTER_STATUS_FLAGS_ENUM_END", """""")
+
+# AIRSPEED_SENSOR_FLAGS
+enums["AIRSPEED_SENSOR_FLAGS"] = Enum()
+enums["AIRSPEED_SENSOR_FLAGS"].bitmask = True
+AIRSPEED_SENSOR_UNHEALTHY = 1
+enums["AIRSPEED_SENSOR_FLAGS"][1] = EnumEntry("AIRSPEED_SENSOR_UNHEALTHY", """Airspeed sensor is unhealthy""")
+AIRSPEED_SENSOR_USING = 2
+enums["AIRSPEED_SENSOR_FLAGS"][2] = EnumEntry("AIRSPEED_SENSOR_USING", """True if the data from this sensor is being actively used by the flight controller for guidance, navigation or control.""")
+AIRSPEED_SENSOR_FLAGS_ENUM_END = 3
+enums["AIRSPEED_SENSOR_FLAGS"][3] = EnumEntry("AIRSPEED_SENSOR_FLAGS_ENUM_END", """""")
+
+# GLOBAL_POSITION_SRC
+enums["GLOBAL_POSITION_SRC"] = Enum()
+enums["GLOBAL_POSITION_SRC"].bitmask = False
+GLOBAL_POSITION_SRC_UNKNOWN = 0
+enums["GLOBAL_POSITION_SRC"][0] = EnumEntry("GLOBAL_POSITION_SRC_UNKNOWN", """Source is unknown or not one of the listed types.""")
+GLOBAL_POSITION_SRC_GNSS = 1
+enums["GLOBAL_POSITION_SRC"][1] = EnumEntry("GLOBAL_POSITION_SRC_GNSS", """Global Navigation Satellite System (e.g.: GPS, Galileo, Glonass, BeiDou).""")
+GLOBAL_POSITION_SRC_VISION = 2
+enums["GLOBAL_POSITION_SRC"][2] = EnumEntry("GLOBAL_POSITION_SRC_VISION", """Vision system (e.g.: map matching).""")
+GLOBAL_POSITION_SRC_PSEUDOLITES = 3
+enums["GLOBAL_POSITION_SRC"][3] = EnumEntry("GLOBAL_POSITION_SRC_PSEUDOLITES", """A pseudo-satellite system using transceiver beacons to perform GNSS-like positioning.""")
+GLOBAL_POSITION_SRC_TERRAIN = 4
+enums["GLOBAL_POSITION_SRC"][4] = EnumEntry("GLOBAL_POSITION_SRC_TERRAIN", """Terrain referenced navigation.""")
+GLOBAL_POSITION_SRC_MAGNETIC = 5
+enums["GLOBAL_POSITION_SRC"][5] = EnumEntry("GLOBAL_POSITION_SRC_MAGNETIC", """Magnetic positioning.""")
+GLOBAL_POSITION_SRC_ESTIMATOR = 6
+enums["GLOBAL_POSITION_SRC"][6] = EnumEntry("GLOBAL_POSITION_SRC_ESTIMATOR", """Estimated position based on various sensors (eg. a Kalman Filter).""")
+GLOBAL_POSITION_SRC_ENUM_END = 7
+enums["GLOBAL_POSITION_SRC"][7] = EnumEntry("GLOBAL_POSITION_SRC_ENUM_END", """""")
+
+# GLOBAL_POSITION_FLAGS
+enums["GLOBAL_POSITION_FLAGS"] = Enum()
+enums["GLOBAL_POSITION_FLAGS"].bitmask = True
+GLOBAL_POSITION_UNHEALTHY = 1
+enums["GLOBAL_POSITION_FLAGS"][1] = EnumEntry("GLOBAL_POSITION_UNHEALTHY", """Unhealthy sensor/estimator.""")
+GLOBAL_POSITION_PRIMARY = 2
+enums["GLOBAL_POSITION_FLAGS"][2] = EnumEntry("GLOBAL_POSITION_PRIMARY", """True if the data originates from or is consumed by the primary estimator.""")
+GLOBAL_POSITION_FLAGS_ENUM_END = 3
+enums["GLOBAL_POSITION_FLAGS"][3] = EnumEntry("GLOBAL_POSITION_FLAGS_ENUM_END", """""")
+
 # MAV_BOOL
 enums["MAV_BOOL"] = Enum()
 enums["MAV_BOOL"].bitmask = True
@@ -4698,6 +5946,94 @@ MAV_BOOL_TRUE = 1
 enums["MAV_BOOL"][1] = EnumEntry("MAV_BOOL_TRUE", """True.""")
 MAV_BOOL_ENUM_END = 2
 enums["MAV_BOOL"][2] = EnumEntry("MAV_BOOL_ENUM_END", """""")
+
+# MAV_PROTOCOL_CAPABILITY
+enums["MAV_PROTOCOL_CAPABILITY"] = Enum()
+enums["MAV_PROTOCOL_CAPABILITY"].bitmask = True
+MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT = 1
+enums["MAV_PROTOCOL_CAPABILITY"][1] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT",
+    """Autopilot supports the MISSION_ITEM float message type.
+          Note that MISSION_ITEM is deprecated, and autopilots should use MISSION_ITEM_INT instead.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT = 2
+enums["MAV_PROTOCOL_CAPABILITY"][2] = EnumEntry("MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT", """Autopilot supports the new param float message type.""")
+MAV_PROTOCOL_CAPABILITY_MISSION_INT = 4
+enums["MAV_PROTOCOL_CAPABILITY"][4] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_MISSION_INT",
+    """Autopilot supports MISSION_ITEM_INT scaled integer message type.
+          Note that this flag must always be set if missions are supported, because missions must always use MISSION_ITEM_INT (rather than MISSION_ITEM, which is deprecated).
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_COMMAND_INT = 8
+enums["MAV_PROTOCOL_CAPABILITY"][8] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMMAND_INT", """Autopilot supports COMMAND_INT scaled integer message type.""")
+MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE = 16
+enums["MAV_PROTOCOL_CAPABILITY"][16] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE",
+    """Parameter protocol uses byte-wise encoding of parameter values into param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
+          Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST should be set if the parameter protocol is supported.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_FTP = 32
+enums["MAV_PROTOCOL_CAPABILITY"][32] = EnumEntry("MAV_PROTOCOL_CAPABILITY_FTP", """Autopilot supports the File Transfer Protocol v1: https://mavlink.io/en/services/ftp.html.""")
+MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET = 64
+enums["MAV_PROTOCOL_CAPABILITY"][64] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET", """Autopilot supports commanding attitude offboard.""")
+MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED = 128
+enums["MAV_PROTOCOL_CAPABILITY"][128] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED", """Autopilot supports commanding position and velocity targets in local NED frame.""")
+MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT = 256
+enums["MAV_PROTOCOL_CAPABILITY"][256] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT", """Autopilot supports commanding position and velocity targets in global scaled integers.""")
+MAV_PROTOCOL_CAPABILITY_TERRAIN = 512
+enums["MAV_PROTOCOL_CAPABILITY"][512] = EnumEntry("MAV_PROTOCOL_CAPABILITY_TERRAIN", """Autopilot supports terrain protocol / data handling.""")
+MAV_PROTOCOL_CAPABILITY_RESERVED3 = 1024
+enums["MAV_PROTOCOL_CAPABILITY"][1024] = EnumEntry("MAV_PROTOCOL_CAPABILITY_RESERVED3", """Reserved for future use.""")
+MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION = 2048
+enums["MAV_PROTOCOL_CAPABILITY"][2048] = EnumEntry("MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION", """Autopilot supports the MAV_CMD_DO_FLIGHTTERMINATION command (flight termination).""")
+MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION = 4096
+enums["MAV_PROTOCOL_CAPABILITY"][4096] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION", """Autopilot supports onboard compass calibration.""")
+MAV_PROTOCOL_CAPABILITY_MAVLINK2 = 8192
+enums["MAV_PROTOCOL_CAPABILITY"][8192] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MAVLINK2", """Autopilot supports MAVLink version 2.""")
+MAV_PROTOCOL_CAPABILITY_MISSION_FENCE = 16384
+enums["MAV_PROTOCOL_CAPABILITY"][16384] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MISSION_FENCE", """Autopilot supports mission fence protocol.""")
+MAV_PROTOCOL_CAPABILITY_MISSION_RALLY = 32768
+enums["MAV_PROTOCOL_CAPABILITY"][32768] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MISSION_RALLY", """Autopilot supports mission rally point protocol.""")
+MAV_PROTOCOL_CAPABILITY_RESERVED2 = 65536
+enums["MAV_PROTOCOL_CAPABILITY"][65536] = EnumEntry("MAV_PROTOCOL_CAPABILITY_RESERVED2", """Reserved for future use.""")
+MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST = 131072
+enums["MAV_PROTOCOL_CAPABILITY"][131072] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST",
+    """Parameter protocol uses C-cast of parameter values to set the param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
+          Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE should be set if the parameter protocol is supported.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER = 262144
+enums["MAV_PROTOCOL_CAPABILITY"][262144] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER",
+    """This component implements/is a gimbal manager. This means the GIMBAL_MANAGER_INFORMATION, and other messages can be requested.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL = 524288
+enums["MAV_PROTOCOL_CAPABILITY"][524288] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL", """Component supports locking control to a particular GCS independent of its system (via MAV_CMD_REQUEST_OPERATOR_CONTROL).""")
+MAV_PROTOCOL_CAPABILITY_GRIPPER = 1048576
+enums["MAV_PROTOCOL_CAPABILITY"][1048576] = EnumEntry("MAV_PROTOCOL_CAPABILITY_GRIPPER", """Autopilot has a connected gripper. MAVLink Grippers would set MAV_TYPE_GRIPPER instead.""")
+MAV_PROTOCOL_CAPABILITY_ENUM_END = 1048577
+enums["MAV_PROTOCOL_CAPABILITY"][1048577] = EnumEntry("MAV_PROTOCOL_CAPABILITY_ENUM_END", """""")
+
+# FIRMWARE_VERSION_TYPE
+enums["FIRMWARE_VERSION_TYPE"] = Enum()
+enums["FIRMWARE_VERSION_TYPE"].bitmask = False
+FIRMWARE_VERSION_TYPE_DEV = 0
+enums["FIRMWARE_VERSION_TYPE"][0] = EnumEntry("FIRMWARE_VERSION_TYPE_DEV", """development release""")
+FIRMWARE_VERSION_TYPE_ALPHA = 64
+enums["FIRMWARE_VERSION_TYPE"][64] = EnumEntry("FIRMWARE_VERSION_TYPE_ALPHA", """alpha release""")
+FIRMWARE_VERSION_TYPE_BETA = 128
+enums["FIRMWARE_VERSION_TYPE"][128] = EnumEntry("FIRMWARE_VERSION_TYPE_BETA", """beta release""")
+FIRMWARE_VERSION_TYPE_RC = 192
+enums["FIRMWARE_VERSION_TYPE"][192] = EnumEntry("FIRMWARE_VERSION_TYPE_RC", """release candidate""")
+FIRMWARE_VERSION_TYPE_OFFICIAL = 255
+enums["FIRMWARE_VERSION_TYPE"][255] = EnumEntry("FIRMWARE_VERSION_TYPE_OFFICIAL", """official stable release""")
+FIRMWARE_VERSION_TYPE_ENUM_END = 256
+enums["FIRMWARE_VERSION_TYPE"][256] = EnumEntry("FIRMWARE_VERSION_TYPE_ENUM_END", """""")
 
 # MAV_AUTOPILOT
 enums["MAV_AUTOPILOT"] = Enum()
@@ -4836,8 +6172,20 @@ MAV_TYPE_GPS = 41
 enums["MAV_TYPE"][41] = EnumEntry("MAV_TYPE_GPS", """GPS""")
 MAV_TYPE_WINCH = 42
 enums["MAV_TYPE"][42] = EnumEntry("MAV_TYPE_WINCH", """Winch""")
-MAV_TYPE_ENUM_END = 43
-enums["MAV_TYPE"][43] = EnumEntry("MAV_TYPE_ENUM_END", """""")
+MAV_TYPE_GENERIC_MULTIROTOR = 43
+enums["MAV_TYPE"][43] = EnumEntry("MAV_TYPE_GENERIC_MULTIROTOR", """Generic multirotor that does not fit into a specific type or whose type is unknown""")
+MAV_TYPE_ILLUMINATOR = 44
+enums["MAV_TYPE"][44] = EnumEntry("MAV_TYPE_ILLUMINATOR", """Illuminator. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).""")
+MAV_TYPE_SPACECRAFT_ORBITER = 45
+enums["MAV_TYPE"][45] = EnumEntry("MAV_TYPE_SPACECRAFT_ORBITER", """Orbiter spacecraft. Includes satellites orbiting terrestrial and extra-terrestrial bodies. Follows NASA Spacecraft Classification.""")
+MAV_TYPE_GROUND_QUADRUPED = 46
+enums["MAV_TYPE"][46] = EnumEntry("MAV_TYPE_GROUND_QUADRUPED", """A generic four-legged ground vehicle (e.g., a robot dog).""")
+MAV_TYPE_VTOL_GYRODYNE = 47
+enums["MAV_TYPE"][47] = EnumEntry("MAV_TYPE_VTOL_GYRODYNE", """VTOL hybrid of helicopter and autogyro. It has a main rotor for lift and separate propellers for forward flight. The rotor must be powered for hover but can autorotate in cruise flight. See: https://en.wikipedia.org/wiki/Gyrodyne""")
+MAV_TYPE_GRIPPER = 48
+enums["MAV_TYPE"][48] = EnumEntry("MAV_TYPE_GRIPPER", """Gripper""")
+MAV_TYPE_ENUM_END = 49
+enums["MAV_TYPE"][49] = EnumEntry("MAV_TYPE_ENUM_END", """""")
 
 # MAV_MODE_FLAG
 enums["MAV_MODE_FLAG"] = Enum()
@@ -4897,13 +6245,13 @@ enums["MAV_STATE"][3] = EnumEntry("MAV_STATE_STANDBY", """System is grounded and
 MAV_STATE_ACTIVE = 4
 enums["MAV_STATE"][4] = EnumEntry("MAV_STATE_ACTIVE", """System is active and might be already airborne. Motors are engaged.""")
 MAV_STATE_CRITICAL = 5
-enums["MAV_STATE"][5] = EnumEntry("MAV_STATE_CRITICAL", """System is in a non-normal flight mode. It can however still navigate.""")
+enums["MAV_STATE"][5] = EnumEntry("MAV_STATE_CRITICAL", """System is in a non-normal flight mode (failsafe). It can however still navigate.""")
 MAV_STATE_EMERGENCY = 6
-enums["MAV_STATE"][6] = EnumEntry("MAV_STATE_EMERGENCY", """System is in a non-normal flight mode. It lost control over parts or over the whole airframe. It is in mayday and going down.""")
+enums["MAV_STATE"][6] = EnumEntry("MAV_STATE_EMERGENCY", """System is in a non-normal flight mode (failsafe). It lost control over parts or over the whole airframe. It is in mayday and going down.""")
 MAV_STATE_POWEROFF = 7
 enums["MAV_STATE"][7] = EnumEntry("MAV_STATE_POWEROFF", """System just initialized its power-down sequence, will shut down now.""")
 MAV_STATE_FLIGHT_TERMINATION = 8
-enums["MAV_STATE"][8] = EnumEntry("MAV_STATE_FLIGHT_TERMINATION", """System is terminating itself.""")
+enums["MAV_STATE"][8] = EnumEntry("MAV_STATE_FLIGHT_TERMINATION", """System is terminating itself (failsafe or commanded).""")
 MAV_STATE_ENUM_END = 9
 enums["MAV_STATE"][9] = EnumEntry("MAV_STATE_ENUM_END", """""")
 
@@ -5120,6 +6468,8 @@ MAV_COMP_ID_FLARM = 160
 enums["MAV_COMPONENT"][160] = EnumEntry("MAV_COMP_ID_FLARM", """FLARM collision alert component.""")
 MAV_COMP_ID_PARACHUTE = 161
 enums["MAV_COMPONENT"][161] = EnumEntry("MAV_COMP_ID_PARACHUTE", """Parachute component.""")
+MAV_COMP_ID_WINCH = 169
+enums["MAV_COMPONENT"][169] = EnumEntry("MAV_COMP_ID_WINCH", """Winch component.""")
 MAV_COMP_ID_GIMBAL2 = 171
 enums["MAV_COMPONENT"][171] = EnumEntry("MAV_COMP_ID_GIMBAL2", """Gimbal #2.""")
 MAV_COMP_ID_GIMBAL3 = 172
@@ -5176,8 +6526,10 @@ MAV_COMP_ID_UART_BRIDGE = 241
 enums["MAV_COMPONENT"][241] = EnumEntry("MAV_COMP_ID_UART_BRIDGE", """Component to bridge to UART (i.e. from UDP).""")
 MAV_COMP_ID_TUNNEL_NODE = 242
 enums["MAV_COMPONENT"][242] = EnumEntry("MAV_COMP_ID_TUNNEL_NODE", """Component handling TUNNEL messages (e.g. vendor specific GUI of a component).""")
+MAV_COMP_ID_ILLUMINATOR = 243
+enums["MAV_COMPONENT"][243] = EnumEntry("MAV_COMP_ID_ILLUMINATOR", """Illuminator""")
 MAV_COMP_ID_SYSTEM_CONTROL = 250
-enums["MAV_COMPONENT"][250] = EnumEntry("MAV_COMP_ID_SYSTEM_CONTROL", """Component for handling system messages (e.g. to ARM, takeoff, etc.).""")
+enums["MAV_COMPONENT"][250] = EnumEntry("MAV_COMP_ID_SYSTEM_CONTROL", """Deprecated, don't use. Component for handling system messages (e.g. to ARM, takeoff, etc.).""")
 MAV_COMPONENT_ENUM_END = 251
 enums["MAV_COMPONENT"][251] = EnumEntry("MAV_COMPONENT_ENUM_END", """""")
 
@@ -5205,7 +6557,6 @@ MAVLINK_MSG_ID_SCALED_PRESSURE = 29
 MAVLINK_MSG_ID_ATTITUDE = 30
 MAVLINK_MSG_ID_ATTITUDE_QUATERNION = 31
 MAVLINK_MSG_ID_LOCAL_POSITION_NED = 32
-MAVLINK_MSG_ID_GLOBAL_POSITION_INT = 33
 MAVLINK_MSG_ID_RC_CHANNELS_SCALED = 34
 MAVLINK_MSG_ID_RC_CHANNELS_RAW = 35
 MAVLINK_MSG_ID_SERVO_OUTPUT_RAW = 36
@@ -5299,7 +6650,6 @@ MAVLINK_MSG_ID_SCALED_PRESSURE3 = 143
 MAVLINK_MSG_ID_FOLLOW_TARGET = 144
 MAVLINK_MSG_ID_CONTROL_SYSTEM_STATE = 146
 MAVLINK_MSG_ID_BATTERY_STATUS = 147
-MAVLINK_MSG_ID_AUTOPILOT_VERSION = 148
 MAVLINK_MSG_ID_LANDING_TARGET = 149
 MAVLINK_MSG_ID_FENCE_STATUS = 162
 MAVLINK_MSG_ID_MAG_CAL_REPORT = 192
@@ -5324,6 +6674,8 @@ MAVLINK_MSG_ID_NAMED_VALUE_FLOAT = 251
 MAVLINK_MSG_ID_NAMED_VALUE_INT = 252
 MAVLINK_MSG_ID_STATUSTEXT = 253
 MAVLINK_MSG_ID_DEBUG = 254
+MAVLINK_MSG_ID_GLOBAL_POSITION_INT = 33
+MAVLINK_MSG_ID_AUTOPILOT_VERSION = 148
 MAVLINK_MSG_ID_HEARTBEAT = 0
 
 
@@ -5387,21 +6739,9 @@ setattr(MAVLink_mission_checksum_message, "name", mavlink_msg_deprecated_name_pr
 
 class MAVLink_sys_status_message(MAVLink_message):
     """
-    The general system state. If the system is following the MAVLink
-    standard, the system state is mainly defined by three orthogonal
-    states/modes: The system mode, which is either LOCKED (motors shut
-    down and locked), MANUAL (system under RC control), GUIDED (system
-    with autonomous position control, position setpoint controlled
-    manually) or AUTO (system guided by path/waypoint planner). The
-    NAV_MODE defined the current flight state: LIFTOFF (often an open-
-    loop maneuver), LANDING, WAYPOINTS or VECTOR. This represents the
-    internal navigation state machine. The system status shows whether
-    the system is currently active or not and if an emergency
-    occurred. During the CRITICAL and EMERGENCY states the MAV is
-    still considered to be active, but should start emergency
-    procedures autonomously. After a failure occurred it should first
-    move from active to critical to allow manual intervention and then
-    move to emergency after a certain timeout.
+    Sensor and subsystem status information. Provides a compact
+    representation of sensor/subsystem status and a few other basic
+    statistics.
     """
 
     id = MAVLINK_MSG_ID_SYS_STATUS
@@ -5451,8 +6791,14 @@ setattr(MAVLink_sys_status_message, "name", mavlink_msg_deprecated_name_property
 
 class MAVLink_system_time_message(MAVLink_message):
     """
-    The system time is the time of the master clock, typically the
-    computer clock of the main onboard computer.
+    The system time is the time of the sender's master clock.
+    This can be emitted by flight controllers, onboard computers, or
+    other components in the MAVLink network.         Components that
+    are using a less reliable time source, such as a battery-backed
+    real time clock, can choose to match their system clock to that of
+    a system that indicates a more recent time.         This allows
+    more broadly accurate date stamping of logs, and so on.         If
+    precise time synchronization is needed then use TIMESYNC instead.
     """
 
     id = MAVLINK_MSG_ID_SYSTEM_TIME
@@ -5545,7 +6891,7 @@ class MAVLink_change_operator_control_message(MAVLink_message):
     fieldtypes = ["uint8_t", "uint8_t", "uint8_t", "char"]
     fielddisplays_by_name: Dict[str, str] = {}
     fieldenums_by_name: Dict[str, str] = {}
-    fieldunits_by_name: Dict[str, str] = {"version": "rad"}
+    fieldunits_by_name: Dict[str, str] = {}
     native_format = bytearray(b"<BBBc")
     orders = [0, 1, 2, 3]
     lengths = [1, 1, 1, 1]
@@ -6036,7 +7382,9 @@ class MAVLink_raw_imu_message(MAVLink_message):
     The RAW IMU readings for a 9DOF sensor, which is identified by the
     id (default IMU1). This message should always contain the true raw
     values without any scaling to allow data capture and system
-    debugging.
+    debugging. On ArduPilot platforms, this message is identical to
+    SCALED_IMU. By default, only RAW_IMU is sent via telemetry for
+    historical reasons, SCALED_IMU can be requested.
     """
 
     id = MAVLINK_MSG_ID_RAW_IMU
@@ -6046,7 +7394,7 @@ class MAVLink_raw_imu_message(MAVLink_message):
     fieldtypes = ["uint64_t", "int16_t", "int16_t", "int16_t", "int16_t", "int16_t", "int16_t", "int16_t", "int16_t", "int16_t"]
     fielddisplays_by_name: Dict[str, str] = {}
     fieldenums_by_name: Dict[str, str] = {}
-    fieldunits_by_name: Dict[str, str] = {"time_usec": "us"}
+    fieldunits_by_name: Dict[str, str] = {"time_usec": "us", "xacc": "mG", "yacc": "mG", "zacc": "mG", "xgyro": "mrad/s", "ygyro": "mrad/s", "zgyro": "mrad/s", "xmag": "mgauss", "ymag": "mgauss", "zmag": "mgauss"}
     native_format = bytearray(b"<Qhhhhhhhhh")
     orders = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -6171,7 +7519,7 @@ setattr(MAVLink_scaled_pressure_message, "name", mavlink_msg_deprecated_name_pro
 class MAVLink_attitude_message(MAVLink_message):
     """
     The attitude in the aeronautical frame (right-handed, Z-down,
-    X-front, Y-right).
+    Y-right, X-front, ZYX, intrinsic).
     """
 
     id = MAVLINK_MSG_ID_ATTITUDE
@@ -6306,60 +7654,11 @@ class MAVLink_local_position_ned_message(MAVLink_message):
 setattr(MAVLink_local_position_ned_message, "name", mavlink_msg_deprecated_name_property())
 
 
-class MAVLink_global_position_int_message(MAVLink_message):
-    """
-    The filtered global position (e.g. fused GPS and accelerometers).
-    The position is in GPS-frame (right-handed, Z-up). It
-    is designed as scaled integer message since the resolution of
-    float is not sufficient.
-    """
-
-    id = MAVLINK_MSG_ID_GLOBAL_POSITION_INT
-    msgname = "GLOBAL_POSITION_INT"
-    fieldnames = ["time_boot_ms", "lat", "lon", "alt", "relative_alt", "vx", "vy", "vz", "hdg"]
-    ordered_fieldnames = ["time_boot_ms", "lat", "lon", "alt", "relative_alt", "vx", "vy", "vz", "hdg"]
-    fieldtypes = ["uint32_t", "int32_t", "int32_t", "int32_t", "int32_t", "int16_t", "int16_t", "int16_t", "uint16_t"]
-    fielddisplays_by_name: Dict[str, str] = {}
-    fieldenums_by_name: Dict[str, str] = {}
-    fieldunits_by_name: Dict[str, str] = {"time_boot_ms": "ms", "lat": "degE7", "lon": "degE7", "alt": "mm", "relative_alt": "mm", "vx": "cm/s", "vy": "cm/s", "vz": "cm/s", "hdg": "cdeg"}
-    native_format = bytearray(b"<IiiiihhhH")
-    orders = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1]
-    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    crc_extra = 104
-    unpacker = struct.Struct("<IiiiihhhH")
-    instance_field = None
-    instance_offset = -1
-
-    def __init__(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int):
-        MAVLink_message.__init__(self, MAVLink_global_position_int_message.id, MAVLink_global_position_int_message.msgname)
-        self._fieldnames = MAVLink_global_position_int_message.fieldnames
-        self._instance_field = MAVLink_global_position_int_message.instance_field
-        self._instance_offset = MAVLink_global_position_int_message.instance_offset
-        self.time_boot_ms = time_boot_ms
-        self.lat = lat
-        self.lon = lon
-        self.alt = alt
-        self.relative_alt = relative_alt
-        self.vx = vx
-        self.vy = vy
-        self.vz = vz
-        self.hdg = hdg
-
-    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
-        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.time_boot_ms, self.lat, self.lon, self.alt, self.relative_alt, self.vx, self.vy, self.vz, self.hdg), force_mavlink1=force_mavlink1)
-
-
-# Define name on the class for backwards compatibility (it is now msgname).
-# Done with setattr to hide the class variable from mypy.
-setattr(MAVLink_global_position_int_message, "name", mavlink_msg_deprecated_name_property())
-
-
 class MAVLink_rc_channels_scaled_message(MAVLink_message):
     """
     The scaled values of the RC channels received: (-100%) -10000,
     (0%) 0, (100%) 10000. Channels that are inactive should be set to
-    UINT16_MAX.
+    INT16_MAX.
     """
 
     id = MAVLINK_MSG_ID_RC_CHANNELS_SCALED
@@ -6696,9 +7995,19 @@ setattr(MAVLink_mission_request_message, "name", mavlink_msg_deprecated_name_pro
 
 class MAVLink_mission_set_current_message(MAVLink_message):
     """
-    Set the mission item with sequence number seq as current item.
-    This means that the MAV will continue to this mission item on the
-    shortest path (not following the mission items in-between).
+    Set the mission item with sequence number seq as the current item
+    and emit MISSION_CURRENT (whether or not the mission number
+    changed).         If a mission is currently being executed, the
+    system will continue to this new mission item on the shortest
+    path, skipping any intermediate mission items.         Note that
+    mission jump repeat counters are not reset (see MAV_CMD_DO_JUMP
+    param2).          This message may trigger a mission state-machine
+    change on some systems: for example from MISSION_STATE_NOT_STARTED
+    or MISSION_STATE_PAUSED to MISSION_STATE_ACTIVE.         If the
+    system is in mission mode, on those systems this command might
+    therefore start, restart or resume the mission.         If the
+    system is not in mission mode this message must not trigger a
+    switch to mission mode.
     """
 
     id = MAVLINK_MSG_ID_MISSION_SET_CURRENT
@@ -6738,8 +8047,12 @@ setattr(MAVLink_mission_set_current_message, "name", mavlink_msg_deprecated_name
 
 class MAVLink_mission_current_message(MAVLink_message):
     """
-    Message that announces the sequence number of the current active
-    mission item. The MAV will fly towards this mission item.
+    Message that announces the sequence number of the current target
+    mission item (that the system will fly towards/execute when the
+    mission is running).         This message should be streamed all
+    the time (nominally at 1Hz).         This message should be
+    emitted following a call to MAV_CMD_DO_SET_MISSION_CURRENT or
+    MISSION_SET_CURRENT.
     """
 
     id = MAVLINK_MSG_ID_MISSION_CURRENT
@@ -7519,7 +8832,7 @@ class MAVLink_request_data_stream_message(MAVLink_message):
     ordered_fieldnames = ["req_message_rate", "target_system", "target_component", "req_stream_id", "start_stop"]
     fieldtypes = ["uint8_t", "uint8_t", "uint8_t", "uint16_t", "uint8_t"]
     fielddisplays_by_name: Dict[str, str] = {}
-    fieldenums_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"req_stream_id": "MAV_DATA_STREAM"}
     fieldunits_by_name: Dict[str, str] = {"req_message_rate": "Hz"}
     native_format = bytearray(b"<HBBBB")
     orders = [1, 2, 3, 0, 4]
@@ -7561,7 +8874,7 @@ class MAVLink_data_stream_message(MAVLink_message):
     ordered_fieldnames = ["message_rate", "stream_id", "on_off"]
     fieldtypes = ["uint8_t", "uint16_t", "uint8_t"]
     fielddisplays_by_name: Dict[str, str] = {}
-    fieldenums_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"stream_id": "MAV_DATA_STREAM"}
     fieldunits_by_name: Dict[str, str] = {"message_rate": "Hz"}
     native_format = bytearray(b"<HBB")
     orders = [1, 0, 2]
@@ -7845,9 +9158,12 @@ setattr(MAVLink_command_int_message, "name", mavlink_msg_deprecated_name_propert
 
 class MAVLink_command_long_message(MAVLink_message):
     """
-    Send a command with up to seven parameters to the MAV. The command
-    microservice is documented at
-    https://mavlink.io/en/services/command.html
+    Send a command with up to seven parameters to the MAV. COMMAND_INT
+    is generally preferred when sending MAV_CMD commands that include
+    positional information; it offers higher precision and allows the
+    MAV_FRAME to be specified (which may otherwise be ambiguous,
+    particularly for altitude). The command microservice is documented
+    at https://mavlink.io/en/services/command.html
     """
 
     id = MAVLINK_MSG_ID_COMMAND_LONG
@@ -8394,7 +9710,7 @@ setattr(MAVLink_hil_state_message, "name", mavlink_msg_deprecated_name_property(
 class MAVLink_hil_controls_message(MAVLink_message):
     """
     Sent from autopilot to simulation. Hardware in the loop control
-    outputs
+    outputs. Alternative to HIL_ACTUATOR_CONTROLS.
     """
 
     id = MAVLINK_MSG_ID_HIL_CONTROLS
@@ -8497,7 +9813,7 @@ setattr(MAVLink_hil_rc_inputs_raw_message, "name", mavlink_msg_deprecated_name_p
 class MAVLink_hil_actuator_controls_message(MAVLink_message):
     """
     Sent from autopilot to simulation. Hardware in the loop control
-    outputs (replacement for HIL_CONTROLS)
+    outputs. Alternative to HIL_CONTROLS.
     """
 
     id = MAVLINK_MSG_ID_HIL_ACTUATOR_CONTROLS
@@ -8506,7 +9822,7 @@ class MAVLink_hil_actuator_controls_message(MAVLink_message):
     ordered_fieldnames = ["time_usec", "flags", "controls", "mode"]
     fieldtypes = ["uint64_t", "float", "uint8_t", "uint64_t"]
     fielddisplays_by_name: Dict[str, str] = {"mode": "bitmask", "flags": "bitmask"}
-    fieldenums_by_name: Dict[str, str] = {"mode": "MAV_MODE_FLAG"}
+    fieldenums_by_name: Dict[str, str] = {"mode": "MAV_MODE_FLAG", "flags": "HIL_ACTUATOR_CONTROLS_FLAGS"}
     fieldunits_by_name: Dict[str, str] = {"time_usec": "us"}
     native_format = bytearray(b"<QQfB")
     orders = [0, 2, 3, 1]
@@ -8765,7 +10081,7 @@ class MAVLink_highres_imu_message(MAVLink_message):
     ordered_fieldnames = ["time_usec", "xacc", "yacc", "zacc", "xgyro", "ygyro", "zgyro", "xmag", "ymag", "zmag", "abs_pressure", "diff_pressure", "pressure_alt", "temperature", "fields_updated"]
     fieldtypes = ["uint64_t", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "uint16_t"]
     fielddisplays_by_name: Dict[str, str] = {"fields_updated": "bitmask"}
-    fieldenums_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"fields_updated": "HIGHRES_IMU_UPDATED_FLAGS"}
     fieldunits_by_name: Dict[str, str] = {"time_usec": "us", "xacc": "m/s/s", "yacc": "m/s/s", "zacc": "m/s/s", "xgyro": "rad/s", "ygyro": "rad/s", "zgyro": "rad/s", "xmag": "gauss", "ymag": "gauss", "zmag": "gauss", "abs_pressure": "hPa", "diff_pressure": "hPa", "temperature": "degC"}
     native_format = bytearray(b"<QfffffffffffffH")
     orders = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
@@ -8867,7 +10183,7 @@ class MAVLink_hil_sensor_message(MAVLink_message):
     ordered_fieldnames = ["time_usec", "xacc", "yacc", "zacc", "xgyro", "ygyro", "zgyro", "xmag", "ymag", "zmag", "abs_pressure", "diff_pressure", "pressure_alt", "temperature", "fields_updated"]
     fieldtypes = ["uint64_t", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "uint32_t"]
     fielddisplays_by_name: Dict[str, str] = {"fields_updated": "bitmask"}
-    fieldenums_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {"fields_updated": "HIL_SENSOR_UPDATED_FLAGS"}
     fieldunits_by_name: Dict[str, str] = {"time_usec": "us", "xacc": "m/s/s", "yacc": "m/s/s", "zacc": "m/s/s", "xgyro": "rad/s", "ygyro": "rad/s", "zgyro": "rad/s", "xmag": "gauss", "ymag": "gauss", "zmag": "gauss", "abs_pressure": "hPa", "diff_pressure": "hPa", "temperature": "degC"}
     native_format = bytearray(b"<QfffffffffffffI")
     orders = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
@@ -8920,7 +10236,7 @@ class MAVLink_sim_state_message(MAVLink_message):
     fieldtypes = ["float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float", "float"]
     fielddisplays_by_name: Dict[str, str] = {}
     fieldenums_by_name: Dict[str, str] = {}
-    fieldunits_by_name: Dict[str, str] = {"xacc": "m/s/s", "yacc": "m/s/s", "zacc": "m/s/s", "xgyro": "rad/s", "ygyro": "rad/s", "zgyro": "rad/s", "lat": "deg", "lon": "deg", "alt": "m", "vn": "m/s", "ve": "m/s", "vd": "m/s"}
+    fieldunits_by_name: Dict[str, str] = {"roll": "rad", "pitch": "rad", "yaw": "rad", "xacc": "m/s/s", "yacc": "m/s/s", "zacc": "m/s/s", "xgyro": "rad/s", "ygyro": "rad/s", "zgyro": "rad/s", "lat": "deg", "lon": "deg", "alt": "m", "vn": "m/s", "ve": "m/s", "vd": "m/s"}
     native_format = bytearray(b"<fffffffffffffffffffff")
     orders = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -9054,7 +10370,25 @@ setattr(MAVLink_file_transfer_protocol_message, "name", mavlink_msg_deprecated_n
 
 class MAVLink_timesync_message(MAVLink_message):
     """
-    Time synchronization message.
+    Time synchronization message.         The message is used for both
+    timesync requests and responses.         The request is sent with
+    `ts1=syncing component timestamp` and `tc1=0`, and may be
+    broadcast or targeted to a specific system/component.         The
+    response is sent with `ts1=syncing component timestamp` (mirror
+    back unchanged), and `tc1=responding component timestamp`, with
+    the `target_system` and `target_component` set to ids of the
+    original request.         Systems can determine if they are
+    receiving a request or response based on the value of `tc`.
+    If the response has `target_system==target_component==0` the
+    remote system has not been updated to use the component IDs and
+    cannot reliably timesync; the requester may report an error.
+    Timestamps are UNIX Epoch time or time since system boot in
+    nanoseconds (the timestamp format can be inferred by checking for
+    the magnitude of the number; generally it doesn't matter as only
+    the offset is used).         The message sequence is repeated
+    numerous times with results being filtered/averaged to estimate
+    the offset.         See also:
+    https://mavlink.io/en/services/timesync.html.
     """
 
     id = MAVLINK_MSG_ID_TIMESYNC
@@ -9064,7 +10398,7 @@ class MAVLink_timesync_message(MAVLink_message):
     fieldtypes = ["int64_t", "int64_t"]
     fielddisplays_by_name: Dict[str, str] = {}
     fieldenums_by_name: Dict[str, str] = {}
-    fieldunits_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {"tc1": "ns", "ts1": "ns"}
     native_format = bytearray(b"<qq")
     orders = [0, 1]
     lengths = [1, 1]
@@ -9338,10 +10672,12 @@ setattr(MAVLink_scaled_imu2_message, "name", mavlink_msg_deprecated_name_propert
 
 class MAVLink_log_request_list_message(MAVLink_message):
     """
-    Request a list of available logs. On some systems calling this may
-    stop on-board logging until LOG_REQUEST_END is called. If there
-    are no log files available this request shall be answered with one
-    LOG_ENTRY message with id = 0 and num_logs = 0.
+    Request a list of available logs.         On some systems calling
+    this may stop on-board logging until LOG_REQUEST_END is called.
+    If there are no log files available this request shall be answered
+    with one LOG_ENTRY message with id = 0 and num_logs = 0.
+    LOG_ENTRY messages can start with id 1 or 0.         The ground
+    station needs to be able to process either.
     """
 
     id = MAVLINK_MSG_ID_LOG_REQUEST_LIST
@@ -10657,55 +11993,6 @@ class MAVLink_battery_status_message(MAVLink_message):
 setattr(MAVLink_battery_status_message, "name", mavlink_msg_deprecated_name_property())
 
 
-class MAVLink_autopilot_version_message(MAVLink_message):
-    """
-    Version and capability of autopilot software. This should be
-    emitted in response to a request with MAV_CMD_REQUEST_MESSAGE.
-    """
-
-    id = MAVLINK_MSG_ID_AUTOPILOT_VERSION
-    msgname = "AUTOPILOT_VERSION"
-    fieldnames = ["capabilities", "flight_sw_version", "middleware_sw_version", "os_sw_version", "board_version", "flight_custom_version", "middleware_custom_version", "os_custom_version", "vendor_id", "product_id", "uid"]
-    ordered_fieldnames = ["capabilities", "uid", "flight_sw_version", "middleware_sw_version", "os_sw_version", "board_version", "vendor_id", "product_id", "flight_custom_version", "middleware_custom_version", "os_custom_version"]
-    fieldtypes = ["uint64_t", "uint32_t", "uint32_t", "uint32_t", "uint32_t", "uint8_t", "uint8_t", "uint8_t", "uint16_t", "uint16_t", "uint64_t"]
-    fielddisplays_by_name: Dict[str, str] = {"capabilities": "bitmask"}
-    fieldenums_by_name: Dict[str, str] = {"capabilities": "MAV_PROTOCOL_CAPABILITY"}
-    fieldunits_by_name: Dict[str, str] = {}
-    native_format = bytearray(b"<QQIIIIHHBBB")
-    orders = [0, 2, 3, 4, 5, 8, 9, 10, 6, 7, 1]
-    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 8, 8, 8]
-    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8]
-    crc_extra = 178
-    unpacker = struct.Struct("<QQIIIIHH8B8B8B")
-    instance_field = None
-    instance_offset = -1
-
-    def __init__(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int):
-        MAVLink_message.__init__(self, MAVLink_autopilot_version_message.id, MAVLink_autopilot_version_message.msgname)
-        self._fieldnames = MAVLink_autopilot_version_message.fieldnames
-        self._instance_field = MAVLink_autopilot_version_message.instance_field
-        self._instance_offset = MAVLink_autopilot_version_message.instance_offset
-        self.capabilities = capabilities
-        self.flight_sw_version = flight_sw_version
-        self.middleware_sw_version = middleware_sw_version
-        self.os_sw_version = os_sw_version
-        self.board_version = board_version
-        self.flight_custom_version = flight_custom_version
-        self.middleware_custom_version = middleware_custom_version
-        self.os_custom_version = os_custom_version
-        self.vendor_id = vendor_id
-        self.product_id = product_id
-        self.uid = uid
-
-    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
-        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.capabilities, self.uid, self.flight_sw_version, self.middleware_sw_version, self.os_sw_version, self.board_version, self.vendor_id, self.product_id, self.flight_custom_version[0], self.flight_custom_version[1], self.flight_custom_version[2], self.flight_custom_version[3], self.flight_custom_version[4], self.flight_custom_version[5], self.flight_custom_version[6], self.flight_custom_version[7], self.middleware_custom_version[0], self.middleware_custom_version[1], self.middleware_custom_version[2], self.middleware_custom_version[3], self.middleware_custom_version[4], self.middleware_custom_version[5], self.middleware_custom_version[6], self.middleware_custom_version[7], self.os_custom_version[0], self.os_custom_version[1], self.os_custom_version[2], self.os_custom_version[3], self.os_custom_version[4], self.os_custom_version[5], self.os_custom_version[6], self.os_custom_version[7]), force_mavlink1=force_mavlink1)
-
-
-# Define name on the class for backwards compatibility (it is now msgname).
-# Done with setattr to hide the class variable from mypy.
-setattr(MAVLink_autopilot_version_message, "name", mavlink_msg_deprecated_name_property())
-
-
 class MAVLink_landing_target_message(MAVLink_message):
     """
     The location of a landing target. See:
@@ -10961,7 +12248,10 @@ setattr(MAVLink_estimator_status_message, "name", mavlink_msg_deprecated_name_pr
 
 class MAVLink_wind_cov_message(MAVLink_message):
     """
-    Wind covariance estimate from vehicle.
+    Wind estimate from vehicle. Note that despite the name, this
+    message does not actually contain any covariances but instead
+    variability and accuracy fields in terms of standard deviation
+    (1-STD).
     """
 
     id = MAVLINK_MSG_ID_WIND_COV
@@ -10971,7 +12261,7 @@ class MAVLink_wind_cov_message(MAVLink_message):
     fieldtypes = ["uint64_t", "float", "float", "float", "float", "float", "float", "float", "float"]
     fielddisplays_by_name: Dict[str, str] = {}
     fieldenums_by_name: Dict[str, str] = {}
-    fieldunits_by_name: Dict[str, str] = {"time_usec": "us", "wind_x": "m/s", "wind_y": "m/s", "wind_z": "m/s", "var_horiz": "m/s", "var_vert": "m/s", "wind_alt": "m", "horiz_accuracy": "m", "vert_accuracy": "m"}
+    fieldunits_by_name: Dict[str, str] = {"time_usec": "us", "wind_x": "m/s", "wind_y": "m/s", "wind_z": "m/s", "var_horiz": "m/s", "var_vert": "m/s", "wind_alt": "m", "horiz_accuracy": "m/s", "vert_accuracy": "m/s"}
     native_format = bytearray(b"<Qffffffff")
     orders = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -11331,16 +12621,19 @@ setattr(MAVLink_home_position_message, "name", mavlink_msg_deprecated_name_prope
 
 class MAVLink_set_home_position_message(MAVLink_message):
     """
-    The position the system will return to and land on. The position
-    is set automatically by the system during the takeoff in case it
-    was not explicitly set by the operator before or after. The global
-    and local positions encode the position in the respective
-    coordinate frames, while the q parameter encodes the orientation
-    of the surface. Under normal conditions it describes the heading
+    Sets the home position.         The home position is the default
+    position that the system will return to and land on.         The
+    position is set automatically by the system during the takeoff
+    (and may also be set using this message).         The global and
+    local positions encode the position in the respective coordinate
+    frames, while the q parameter encodes the orientation of the
+    surface.         Under normal conditions it describes the heading
     and terrain slope, which can be used by the aircraft to adjust the
-    approach. The approach 3D vector describes the point to which the
-    system should fly in normal flight mode and then perform a landing
-    sequence along the vector.
+    approach.         The approach 3D vector describes the point to
+    which the system should fly in normal flight mode and then perform
+    a landing sequence along the vector.         Note: the current
+    home position may be emitted in a HOME_POSITION message on request
+    (using MAV_CMD_REQUEST_MESSAGE with param1=242).
     """
 
     id = MAVLINK_MSG_ID_SET_HOME_POSITION
@@ -11865,6 +13158,104 @@ class MAVLink_debug_message(MAVLink_message):
 setattr(MAVLink_debug_message, "name", mavlink_msg_deprecated_name_property())
 
 
+class MAVLink_global_position_int_message(MAVLink_message):
+    """
+    The filtered global position (e.g. fused GPS and accelerometers).
+    The position is in GPS-frame (right-handed, Z-up). It is designed
+    as scaled integer message since the resolution of float is not
+    sufficient.
+    """
+
+    id = MAVLINK_MSG_ID_GLOBAL_POSITION_INT
+    msgname = "GLOBAL_POSITION_INT"
+    fieldnames = ["time_boot_ms", "lat", "lon", "alt", "relative_alt", "vx", "vy", "vz", "hdg"]
+    ordered_fieldnames = ["time_boot_ms", "lat", "lon", "alt", "relative_alt", "vx", "vy", "vz", "hdg"]
+    fieldtypes = ["uint32_t", "int32_t", "int32_t", "int32_t", "int32_t", "int16_t", "int16_t", "int16_t", "uint16_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {"time_boot_ms": "ms", "lat": "degE7", "lon": "degE7", "alt": "mm", "relative_alt": "mm", "vx": "cm/s", "vy": "cm/s", "vz": "cm/s", "hdg": "cdeg"}
+    native_format = bytearray(b"<IiiiihhhH")
+    orders = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1]
+    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    crc_extra = 104
+    unpacker = struct.Struct("<IiiiihhhH")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int):
+        MAVLink_message.__init__(self, MAVLink_global_position_int_message.id, MAVLink_global_position_int_message.msgname)
+        self._fieldnames = MAVLink_global_position_int_message.fieldnames
+        self._instance_field = MAVLink_global_position_int_message.instance_field
+        self._instance_offset = MAVLink_global_position_int_message.instance_offset
+        self.time_boot_ms = time_boot_ms
+        self.lat = lat
+        self.lon = lon
+        self.alt = alt
+        self.relative_alt = relative_alt
+        self.vx = vx
+        self.vy = vy
+        self.vz = vz
+        self.hdg = hdg
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.time_boot_ms, self.lat, self.lon, self.alt, self.relative_alt, self.vx, self.vy, self.vz, self.hdg), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_global_position_int_message, "name", mavlink_msg_deprecated_name_property())
+
+
+class MAVLink_autopilot_version_message(MAVLink_message):
+    """
+    Version and capability of autopilot software. This should be
+    emitted in response to a request with MAV_CMD_REQUEST_MESSAGE.
+    """
+
+    id = MAVLINK_MSG_ID_AUTOPILOT_VERSION
+    msgname = "AUTOPILOT_VERSION"
+    fieldnames = ["capabilities", "flight_sw_version", "middleware_sw_version", "os_sw_version", "board_version", "flight_custom_version", "middleware_custom_version", "os_custom_version", "vendor_id", "product_id", "uid"]
+    ordered_fieldnames = ["capabilities", "uid", "flight_sw_version", "middleware_sw_version", "os_sw_version", "board_version", "vendor_id", "product_id", "flight_custom_version", "middleware_custom_version", "os_custom_version"]
+    fieldtypes = ["uint64_t", "uint32_t", "uint32_t", "uint32_t", "uint32_t", "uint8_t", "uint8_t", "uint8_t", "uint16_t", "uint16_t", "uint64_t"]
+    fielddisplays_by_name: Dict[str, str] = {"capabilities": "bitmask"}
+    fieldenums_by_name: Dict[str, str] = {"capabilities": "MAV_PROTOCOL_CAPABILITY"}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<QQIIIIHHBBB")
+    orders = [0, 2, 3, 4, 5, 8, 9, 10, 6, 7, 1]
+    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 8, 8, 8]
+    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8]
+    crc_extra = 178
+    unpacker = struct.Struct("<QQIIIIHH8B8B8B")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int):
+        MAVLink_message.__init__(self, MAVLink_autopilot_version_message.id, MAVLink_autopilot_version_message.msgname)
+        self._fieldnames = MAVLink_autopilot_version_message.fieldnames
+        self._instance_field = MAVLink_autopilot_version_message.instance_field
+        self._instance_offset = MAVLink_autopilot_version_message.instance_offset
+        self.capabilities = capabilities
+        self.flight_sw_version = flight_sw_version
+        self.middleware_sw_version = middleware_sw_version
+        self.os_sw_version = os_sw_version
+        self.board_version = board_version
+        self.flight_custom_version = flight_custom_version
+        self.middleware_custom_version = middleware_custom_version
+        self.os_custom_version = os_custom_version
+        self.vendor_id = vendor_id
+        self.product_id = product_id
+        self.uid = uid
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.capabilities, self.uid, self.flight_sw_version, self.middleware_sw_version, self.os_sw_version, self.board_version, self.vendor_id, self.product_id, self.flight_custom_version[0], self.flight_custom_version[1], self.flight_custom_version[2], self.flight_custom_version[3], self.flight_custom_version[4], self.flight_custom_version[5], self.flight_custom_version[6], self.flight_custom_version[7], self.middleware_custom_version[0], self.middleware_custom_version[1], self.middleware_custom_version[2], self.middleware_custom_version[3], self.middleware_custom_version[4], self.middleware_custom_version[5], self.middleware_custom_version[6], self.middleware_custom_version[7], self.os_custom_version[0], self.os_custom_version[1], self.os_custom_version[2], self.os_custom_version[3], self.os_custom_version[4], self.os_custom_version[5], self.os_custom_version[6], self.os_custom_version[7]), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_autopilot_version_message, "name", mavlink_msg_deprecated_name_property())
+
+
 class MAVLink_heartbeat_message(MAVLink_message):
     """
     The heartbeat message shows that a system or component is present
@@ -11935,7 +13326,6 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_ATTITUDE: MAVLink_attitude_message,
     MAVLINK_MSG_ID_ATTITUDE_QUATERNION: MAVLink_attitude_quaternion_message,
     MAVLINK_MSG_ID_LOCAL_POSITION_NED: MAVLink_local_position_ned_message,
-    MAVLINK_MSG_ID_GLOBAL_POSITION_INT: MAVLink_global_position_int_message,
     MAVLINK_MSG_ID_RC_CHANNELS_SCALED: MAVLink_rc_channels_scaled_message,
     MAVLINK_MSG_ID_RC_CHANNELS_RAW: MAVLink_rc_channels_raw_message,
     MAVLINK_MSG_ID_SERVO_OUTPUT_RAW: MAVLink_servo_output_raw_message,
@@ -12029,7 +13419,6 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_FOLLOW_TARGET: MAVLink_follow_target_message,
     MAVLINK_MSG_ID_CONTROL_SYSTEM_STATE: MAVLink_control_system_state_message,
     MAVLINK_MSG_ID_BATTERY_STATUS: MAVLink_battery_status_message,
-    MAVLINK_MSG_ID_AUTOPILOT_VERSION: MAVLink_autopilot_version_message,
     MAVLINK_MSG_ID_LANDING_TARGET: MAVLink_landing_target_message,
     MAVLINK_MSG_ID_FENCE_STATUS: MAVLink_fence_status_message,
     MAVLINK_MSG_ID_MAG_CAL_REPORT: MAVLink_mag_cal_report_message,
@@ -12054,6 +13443,8 @@ mavlink_map: Dict[int, Type[MAVLink_message]] = {
     MAVLINK_MSG_ID_NAMED_VALUE_INT: MAVLink_named_value_int_message,
     MAVLINK_MSG_ID_STATUSTEXT: MAVLink_statustext_message,
     MAVLINK_MSG_ID_DEBUG: MAVLink_debug_message,
+    MAVLINK_MSG_ID_GLOBAL_POSITION_INT: MAVLink_global_position_int_message,
+    MAVLINK_MSG_ID_AUTOPILOT_VERSION: MAVLink_autopilot_version_message,
     MAVLINK_MSG_ID_HEARTBEAT: MAVLink_heartbeat_message,
 }
 
@@ -12071,7 +13462,7 @@ class MAVLink_bad_data(MAVLink_message):
     a piece of bad data in a mavlink stream
     """
 
-    def __init__(self, data: bytes, reason: str) -> None:
+    def __init__(self, data: Union[bytes, bytearray], reason: str) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_BAD_DATA, "BAD_DATA")
         self._fieldnames = ["data", "reason"]
         self.data = data
@@ -12090,7 +13481,7 @@ class MAVLink_unknown(MAVLink_message):
     a message that we don't have in the XML used when built
     """
 
-    def __init__(self, msgid: int, data: bytes) -> None:
+    def __init__(self, msgid: int, data: Union[bytes, bytearray]) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_UNKNOWN, "UNKNOWN_%u" % msgid)
         self._fieldnames = ["data"]
         self.data = data
@@ -12206,12 +13597,12 @@ class MAVLink(object):
         if m is not None:
             self.total_packets_received += 1
             self.__callbacks(m)
-        else:
-            # XXX The idea here is if we've read something and there's nothing left in
-            # the buffer, reset it to 0 which frees the memory
-            if self.buf_len() == 0 and self.buf_index != 0:
-                self.buf = bytearray()
-                self.buf_index = 0
+
+        # See if there's nothing left in the buffer, reset it to 0
+        # which frees the memory
+        if self.buf_index != 0 and self.buf_len() == 0:
+            self.buf = bytearray()
+            self.buf_index = 0
 
         return m
 
@@ -12365,9 +13756,8 @@ class MAVLink(object):
         except struct.error as emsg:
             raise MAVError("Unable to unpack MAVLink CRC: %s" % emsg)
         crcbuf = msgbuf[1 : -(2 + signature_len)]
-        if True:
-            # using CRC extra
-            crcbuf.append(crc_extra)
+        # using CRC extra
+        crcbuf.append(crc_extra)
         crc2 = x25crc(crcbuf)
         if crc != crc2.crc and not MAVLINK_IGNORE_CRC:
             raise MAVError("invalid MAVLink CRC in msgID %u 0x%04x should be 0x%04x" % (msgId, crc, crc2.crc))
@@ -12414,23 +13804,22 @@ class MAVLink(object):
 
         tlist: List[Union[bytes, float, int, Sequence[Union[bytes, float, int]]]] = list(t)
         # handle sorted fields
-        if True:
-            if sum(len_map) == len(len_map):
-                # message has no arrays in it
-                for i in range(0, len(tlist)):
-                    tlist[i] = t[order_map[i]]
-            else:
-                # message has some arrays
-                tlist = []
-                for i in range(0, len(order_map)):
-                    order = order_map[i]
-                    L = len_map[order]
-                    tip = sum(len_map[:order])
-                    field = t[tip]
-                    if L == 1 or isinstance(field, bytes):
-                        tlist.append(field)
-                    else:
-                        tlist.append(list(t[tip : (tip + L)]))
+        if sum(len_map) == len(len_map):
+            # message has no arrays in it
+            for i in range(0, len(tlist)):
+                tlist[i] = t[order_map[i]]
+        else:
+            # message has some arrays
+            tlist = []
+            for i in range(0, len(order_map)):
+                order = order_map[i]
+                L = len_map[order]
+                tip = sum(len_map[:order])
+                field = t[tip]
+                if L == 1 or isinstance(field, bytes):
+                    tlist.append(field)
+                else:
+                    tlist.append(list(t[tip : (tip + L)]))
 
         # terminate any strings
         for i, elem in enumerate(tlist):
@@ -12515,30 +13904,17 @@ class MAVLink(object):
 
     def sys_status_encode(self, onboard_control_sensors_present: int, onboard_control_sensors_enabled: int, onboard_control_sensors_health: int, load: int, voltage_battery: int, current_battery: int, battery_remaining: int, drop_rate_comm: int, errors_comm: int, errors_count1: int, errors_count2: int, errors_count3: int, errors_count4: int) -> MAVLink_sys_status_message:
         """
-        The general system state. If the system is following the MAVLink
-        standard, the system state is mainly defined by three
-        orthogonal states/modes: The system mode, which is either
-        LOCKED (motors shut down and locked), MANUAL (system under RC
-        control), GUIDED (system with autonomous position control,
-        position setpoint controlled manually) or AUTO (system guided
-        by path/waypoint planner). The NAV_MODE defined the current
-        flight state: LIFTOFF (often an open-loop maneuver), LANDING,
-        WAYPOINTS or VECTOR. This represents the internal navigation
-        state machine. The system status shows whether the system is
-        currently active or not and if an emergency occurred. During
-        the CRITICAL and EMERGENCY states the MAV is still considered
-        to be active, but should start emergency procedures
-        autonomously. After a failure occurred it should first move
-        from active to critical to allow manual intervention and then
-        move to emergency after a certain timeout.
+        Sensor and subsystem status information. Provides a compact
+        representation of sensor/subsystem status and a few other
+        basic statistics.
 
         onboard_control_sensors_present        : Bitmap showing which onboard controllers and sensors are present. Value of 0: not present. Value of 1: present. (type:uint32_t, values:MAV_SYS_STATUS_SENSOR)
         onboard_control_sensors_enabled        : Bitmap showing which onboard controllers and sensors are enabled:  Value of 0: not enabled. Value of 1: enabled. (type:uint32_t, values:MAV_SYS_STATUS_SENSOR)
         onboard_control_sensors_health        : Bitmap showing which onboard controllers and sensors have an error (or are operational). Value of 0: error. Value of 1: healthy. (type:uint32_t, values:MAV_SYS_STATUS_SENSOR)
         load                      : Maximum usage in percent of the mainloop time. Values: [0-1000] - should always be below 1000 [d%] (type:uint16_t)
-        voltage_battery           : Battery voltage, UINT16_MAX: Voltage not sent by autopilot [mV] (type:uint16_t)
-        current_battery           : Battery current, -1: Current not sent by autopilot [cA] (type:int16_t)
-        battery_remaining         : Battery energy remaining, -1: Battery remaining energy not sent by autopilot [%] (type:int8_t)
+        voltage_battery           : Battery voltage, UINT16_MAX: Voltage not sent by autopilot. Value is ambiguous on multi-battery systems. BATTERY_STATUS is a recommended alternative. [mV] (type:uint16_t)
+        current_battery           : Battery current, -1: Current not sent by autopilot. Value may overflow/rollover for very high currents (> 327.67A). Value is ambiguous on multi-battery systems. BATTERY_STATUS is a recommended alternative. [cA] (type:int16_t)
+        battery_remaining         : Battery energy remaining, -1: Battery remaining energy not sent by autopilot. Value is ambiguous on multi-battery systems. BATTERY_STATUS is a recommended alternative. [%] (type:int8_t)
         drop_rate_comm            : Communication drop rate, (UART, I2C, SPI, CAN), dropped packets on all links (packets that were corrupted on reception on the MAV) [c%] (type:uint16_t)
         errors_comm               : Communication errors (UART, I2C, SPI, CAN), dropped packets on all links (packets that were corrupted on reception on the MAV) (type:uint16_t)
         errors_count1             : Autopilot-specific errors (type:uint16_t)
@@ -12551,30 +13927,17 @@ class MAVLink(object):
 
     def sys_status_send(self, onboard_control_sensors_present: int, onboard_control_sensors_enabled: int, onboard_control_sensors_health: int, load: int, voltage_battery: int, current_battery: int, battery_remaining: int, drop_rate_comm: int, errors_comm: int, errors_count1: int, errors_count2: int, errors_count3: int, errors_count4: int, force_mavlink1: bool = False) -> None:
         """
-        The general system state. If the system is following the MAVLink
-        standard, the system state is mainly defined by three
-        orthogonal states/modes: The system mode, which is either
-        LOCKED (motors shut down and locked), MANUAL (system under RC
-        control), GUIDED (system with autonomous position control,
-        position setpoint controlled manually) or AUTO (system guided
-        by path/waypoint planner). The NAV_MODE defined the current
-        flight state: LIFTOFF (often an open-loop maneuver), LANDING,
-        WAYPOINTS or VECTOR. This represents the internal navigation
-        state machine. The system status shows whether the system is
-        currently active or not and if an emergency occurred. During
-        the CRITICAL and EMERGENCY states the MAV is still considered
-        to be active, but should start emergency procedures
-        autonomously. After a failure occurred it should first move
-        from active to critical to allow manual intervention and then
-        move to emergency after a certain timeout.
+        Sensor and subsystem status information. Provides a compact
+        representation of sensor/subsystem status and a few other
+        basic statistics.
 
         onboard_control_sensors_present        : Bitmap showing which onboard controllers and sensors are present. Value of 0: not present. Value of 1: present. (type:uint32_t, values:MAV_SYS_STATUS_SENSOR)
         onboard_control_sensors_enabled        : Bitmap showing which onboard controllers and sensors are enabled:  Value of 0: not enabled. Value of 1: enabled. (type:uint32_t, values:MAV_SYS_STATUS_SENSOR)
         onboard_control_sensors_health        : Bitmap showing which onboard controllers and sensors have an error (or are operational). Value of 0: error. Value of 1: healthy. (type:uint32_t, values:MAV_SYS_STATUS_SENSOR)
         load                      : Maximum usage in percent of the mainloop time. Values: [0-1000] - should always be below 1000 [d%] (type:uint16_t)
-        voltage_battery           : Battery voltage, UINT16_MAX: Voltage not sent by autopilot [mV] (type:uint16_t)
-        current_battery           : Battery current, -1: Current not sent by autopilot [cA] (type:int16_t)
-        battery_remaining         : Battery energy remaining, -1: Battery remaining energy not sent by autopilot [%] (type:int8_t)
+        voltage_battery           : Battery voltage, UINT16_MAX: Voltage not sent by autopilot. Value is ambiguous on multi-battery systems. BATTERY_STATUS is a recommended alternative. [mV] (type:uint16_t)
+        current_battery           : Battery current, -1: Current not sent by autopilot. Value may overflow/rollover for very high currents (> 327.67A). Value is ambiguous on multi-battery systems. BATTERY_STATUS is a recommended alternative. [cA] (type:int16_t)
+        battery_remaining         : Battery energy remaining, -1: Battery remaining energy not sent by autopilot. Value is ambiguous on multi-battery systems. BATTERY_STATUS is a recommended alternative. [%] (type:int8_t)
         drop_rate_comm            : Communication drop rate, (UART, I2C, SPI, CAN), dropped packets on all links (packets that were corrupted on reception on the MAV) [c%] (type:uint16_t)
         errors_comm               : Communication errors (UART, I2C, SPI, CAN), dropped packets on all links (packets that were corrupted on reception on the MAV) (type:uint16_t)
         errors_count1             : Autopilot-specific errors (type:uint16_t)
@@ -12587,8 +13950,15 @@ class MAVLink(object):
 
     def system_time_encode(self, time_unix_usec: int, time_boot_ms: int) -> MAVLink_system_time_message:
         """
-        The system time is the time of the master clock, typically the
-        computer clock of the main onboard computer.
+        The system time is the time of the sender's master clock.         This
+        can be emitted by flight controllers, onboard computers, or
+        other components in the MAVLink network.         Components
+        that are using a less reliable time source, such as a battery-
+        backed real time clock, can choose to match their system clock
+        to that of a system that indicates a more recent time.
+        This allows more broadly accurate date stamping of logs, and
+        so on.         If precise time synchronization is needed then
+        use TIMESYNC instead.
 
         time_unix_usec            : Timestamp (UNIX epoch time). [us] (type:uint64_t)
         time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
@@ -12598,8 +13968,15 @@ class MAVLink(object):
 
     def system_time_send(self, time_unix_usec: int, time_boot_ms: int, force_mavlink1: bool = False) -> None:
         """
-        The system time is the time of the master clock, typically the
-        computer clock of the main onboard computer.
+        The system time is the time of the sender's master clock.         This
+        can be emitted by flight controllers, onboard computers, or
+        other components in the MAVLink network.         Components
+        that are using a less reliable time source, such as a battery-
+        backed real time clock, can choose to match their system clock
+        to that of a system that indicates a more recent time.
+        This allows more broadly accurate date stamping of logs, and
+        so on.         If precise time synchronization is needed then
+        use TIMESYNC instead.
 
         time_unix_usec            : Timestamp (UNIX epoch time). [us] (type:uint64_t)
         time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
@@ -12643,7 +14020,7 @@ class MAVLink(object):
 
         target_system             : System the GCS requests control for (type:uint8_t)
         control_request           : 0: request control of this MAV, 1: Release control of this MAV (type:uint8_t)
-        version                   : 0: key as plaintext, 1-255: future, different hashing/encryption variants. The GCS should in general use the safest mode possible initially and then gradually move down the encryption level if it gets a NACK message indicating an encryption mismatch. [rad] (type:uint8_t)
+        version                   : 0: key as plaintext, 1-255: future, different hashing/encryption variants. The GCS should in general use the safest mode possible initially and then gradually move down the encryption level if it gets a NACK message indicating an encryption mismatch. (type:uint8_t)
         passkey                   : Password / Key, depending on version plaintext or encrypted. 25 or less characters, NULL terminated. The characters may involve A-Z, a-z, 0-9, and "!?,.-" (type:char)
 
         """
@@ -12655,7 +14032,7 @@ class MAVLink(object):
 
         target_system             : System the GCS requests control for (type:uint8_t)
         control_request           : 0: request control of this MAV, 1: Release control of this MAV (type:uint8_t)
-        version                   : 0: key as plaintext, 1-255: future, different hashing/encryption variants. The GCS should in general use the safest mode possible initially and then gradually move down the encryption level if it gets a NACK message indicating an encryption mismatch. [rad] (type:uint8_t)
+        version                   : 0: key as plaintext, 1-255: future, different hashing/encryption variants. The GCS should in general use the safest mode possible initially and then gradually move down the encryption level if it gets a NACK message indicating an encryption mismatch. (type:uint8_t)
         passkey                   : Password / Key, depending on version plaintext or encrypted. 25 or less characters, NULL terminated. The characters may involve A-Z, a-z, 0-9, and "!?,.-" (type:char)
 
         """
@@ -12990,18 +14367,20 @@ class MAVLink(object):
         The RAW IMU readings for a 9DOF sensor, which is identified by the id
         (default IMU1). This message should always contain the true
         raw values without any scaling to allow data capture and
-        system debugging.
+        system debugging. On ArduPilot platforms, this message is
+        identical to SCALED_IMU. By default, only RAW_IMU is sent via
+        telemetry for historical reasons, SCALED_IMU can be requested.
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
-        xacc                      : X acceleration (raw) (type:int16_t)
-        yacc                      : Y acceleration (raw) (type:int16_t)
-        zacc                      : Z acceleration (raw) (type:int16_t)
-        xgyro                     : Angular speed around X axis (raw) (type:int16_t)
-        ygyro                     : Angular speed around Y axis (raw) (type:int16_t)
-        zgyro                     : Angular speed around Z axis (raw) (type:int16_t)
-        xmag                      : X Magnetic field (raw) (type:int16_t)
-        ymag                      : Y Magnetic field (raw) (type:int16_t)
-        zmag                      : Z Magnetic field (raw) (type:int16_t)
+        xacc                      : X acceleration (raw) [mG] (type:int16_t)
+        yacc                      : Y acceleration (raw) [mG] (type:int16_t)
+        zacc                      : Z acceleration (raw) [mG] (type:int16_t)
+        xgyro                     : Angular speed around X axis (raw) [mrad/s] (type:int16_t)
+        ygyro                     : Angular speed around Y axis (raw) [mrad/s] (type:int16_t)
+        zgyro                     : Angular speed around Z axis (raw) [mrad/s] (type:int16_t)
+        xmag                      : X Magnetic field (raw) [mgauss] (type:int16_t)
+        ymag                      : Y Magnetic field (raw) [mgauss] (type:int16_t)
+        zmag                      : Z Magnetic field (raw) [mgauss] (type:int16_t)
 
         """
         return MAVLink_raw_imu_message(time_usec, xacc, yacc, zacc, xgyro, ygyro, zgyro, xmag, ymag, zmag)
@@ -13011,18 +14390,20 @@ class MAVLink(object):
         The RAW IMU readings for a 9DOF sensor, which is identified by the id
         (default IMU1). This message should always contain the true
         raw values without any scaling to allow data capture and
-        system debugging.
+        system debugging. On ArduPilot platforms, this message is
+        identical to SCALED_IMU. By default, only RAW_IMU is sent via
+        telemetry for historical reasons, SCALED_IMU can be requested.
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
-        xacc                      : X acceleration (raw) (type:int16_t)
-        yacc                      : Y acceleration (raw) (type:int16_t)
-        zacc                      : Z acceleration (raw) (type:int16_t)
-        xgyro                     : Angular speed around X axis (raw) (type:int16_t)
-        ygyro                     : Angular speed around Y axis (raw) (type:int16_t)
-        zgyro                     : Angular speed around Z axis (raw) (type:int16_t)
-        xmag                      : X Magnetic field (raw) (type:int16_t)
-        ymag                      : Y Magnetic field (raw) (type:int16_t)
-        zmag                      : Z Magnetic field (raw) (type:int16_t)
+        xacc                      : X acceleration (raw) [mG] (type:int16_t)
+        yacc                      : Y acceleration (raw) [mG] (type:int16_t)
+        zacc                      : Z acceleration (raw) [mG] (type:int16_t)
+        xgyro                     : Angular speed around X axis (raw) [mrad/s] (type:int16_t)
+        ygyro                     : Angular speed around Y axis (raw) [mrad/s] (type:int16_t)
+        zgyro                     : Angular speed around Z axis (raw) [mrad/s] (type:int16_t)
+        xmag                      : X Magnetic field (raw) [mgauss] (type:int16_t)
+        ymag                      : Y Magnetic field (raw) [mgauss] (type:int16_t)
+        zmag                      : Z Magnetic field (raw) [mgauss] (type:int16_t)
 
         """
         self.send(self.raw_imu_encode(time_usec, xacc, yacc, zacc, xgyro, ygyro, zgyro, xmag, ymag, zmag), force_mavlink1=force_mavlink1)
@@ -13087,8 +14468,8 @@ class MAVLink(object):
 
     def attitude_encode(self, time_boot_ms: int, roll: float, pitch: float, yaw: float, rollspeed: float, pitchspeed: float, yawspeed: float) -> MAVLink_attitude_message:
         """
-        The attitude in the aeronautical frame (right-handed, Z-down, X-front,
-        Y-right).
+        The attitude in the aeronautical frame (right-handed, Z-down, Y-right,
+        X-front, ZYX, intrinsic).
 
         time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
         roll                      : Roll angle (-pi..+pi) [rad] (type:float)
@@ -13103,8 +14484,8 @@ class MAVLink(object):
 
     def attitude_send(self, time_boot_ms: int, roll: float, pitch: float, yaw: float, rollspeed: float, pitchspeed: float, yawspeed: float, force_mavlink1: bool = False) -> None:
         """
-        The attitude in the aeronautical frame (right-handed, Z-down, X-front,
-        Y-right).
+        The attitude in the aeronautical frame (right-handed, Z-down, Y-right,
+        X-front, ZYX, intrinsic).
 
         time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
         roll                      : Roll angle (-pi..+pi) [rad] (type:float)
@@ -13187,51 +14568,11 @@ class MAVLink(object):
         """
         self.send(self.local_position_ned_encode(time_boot_ms, x, y, z, vx, vy, vz), force_mavlink1=force_mavlink1)
 
-    def global_position_int_encode(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int) -> MAVLink_global_position_int_message:
-        """
-        The filtered global position (e.g. fused GPS and accelerometers). The
-        position is in GPS-frame (right-handed, Z-up). It
-        is designed as scaled integer message since the resolution of
-        float is not sufficient.
-
-        time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
-        lat                       : Latitude, expressed [degE7] (type:int32_t)
-        lon                       : Longitude, expressed [degE7] (type:int32_t)
-        alt                       : Altitude (MSL). Note that virtually all GPS modules provide both WGS84 and MSL. [mm] (type:int32_t)
-        relative_alt              : Altitude above home [mm] (type:int32_t)
-        vx                        : Ground X Speed (Latitude, positive north) [cm/s] (type:int16_t)
-        vy                        : Ground Y Speed (Longitude, positive east) [cm/s] (type:int16_t)
-        vz                        : Ground Z Speed (Altitude, positive down) [cm/s] (type:int16_t)
-        hdg                       : Vehicle heading (yaw angle), 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
-
-        """
-        return MAVLink_global_position_int_message(time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg)
-
-    def global_position_int_send(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int, force_mavlink1: bool = False) -> None:
-        """
-        The filtered global position (e.g. fused GPS and accelerometers). The
-        position is in GPS-frame (right-handed, Z-up). It
-        is designed as scaled integer message since the resolution of
-        float is not sufficient.
-
-        time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
-        lat                       : Latitude, expressed [degE7] (type:int32_t)
-        lon                       : Longitude, expressed [degE7] (type:int32_t)
-        alt                       : Altitude (MSL). Note that virtually all GPS modules provide both WGS84 and MSL. [mm] (type:int32_t)
-        relative_alt              : Altitude above home [mm] (type:int32_t)
-        vx                        : Ground X Speed (Latitude, positive north) [cm/s] (type:int16_t)
-        vy                        : Ground Y Speed (Longitude, positive east) [cm/s] (type:int16_t)
-        vz                        : Ground Z Speed (Altitude, positive down) [cm/s] (type:int16_t)
-        hdg                       : Vehicle heading (yaw angle), 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
-
-        """
-        self.send(self.global_position_int_encode(time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg), force_mavlink1=force_mavlink1)
-
     def rc_channels_scaled_encode(self, time_boot_ms: int, port: int, chan1_scaled: int, chan2_scaled: int, chan3_scaled: int, chan4_scaled: int, chan5_scaled: int, chan6_scaled: int, chan7_scaled: int, chan8_scaled: int, rssi: int) -> MAVLink_rc_channels_scaled_message:
         """
         The scaled values of the RC channels received: (-100%) -10000, (0%) 0,
         (100%) 10000. Channels that are inactive should be set to
-        UINT16_MAX.
+        INT16_MAX.
 
         time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
         port                      : Servo output port (set of 8 outputs = 1 port). Flight stacks running on Pixhawk should use: 0 = MAIN, 1 = AUX. (type:uint8_t)
@@ -13243,7 +14584,7 @@ class MAVLink(object):
         chan6_scaled              : RC channel 6 value scaled. (type:int16_t)
         chan7_scaled              : RC channel 7 value scaled. (type:int16_t)
         chan8_scaled              : RC channel 8 value scaled. (type:int16_t)
-        rssi                      : Receive signal strength indicator in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        rssi                      : Receive signal strength indicator in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
 
         """
         return MAVLink_rc_channels_scaled_message(time_boot_ms, port, chan1_scaled, chan2_scaled, chan3_scaled, chan4_scaled, chan5_scaled, chan6_scaled, chan7_scaled, chan8_scaled, rssi)
@@ -13252,7 +14593,7 @@ class MAVLink(object):
         """
         The scaled values of the RC channels received: (-100%) -10000, (0%) 0,
         (100%) 10000. Channels that are inactive should be set to
-        UINT16_MAX.
+        INT16_MAX.
 
         time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
         port                      : Servo output port (set of 8 outputs = 1 port). Flight stacks running on Pixhawk should use: 0 = MAIN, 1 = AUX. (type:uint8_t)
@@ -13264,7 +14605,7 @@ class MAVLink(object):
         chan6_scaled              : RC channel 6 value scaled. (type:int16_t)
         chan7_scaled              : RC channel 7 value scaled. (type:int16_t)
         chan8_scaled              : RC channel 8 value scaled. (type:int16_t)
-        rssi                      : Receive signal strength indicator in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        rssi                      : Receive signal strength indicator in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
 
         """
         self.send(self.rc_channels_scaled_encode(time_boot_ms, port, chan1_scaled, chan2_scaled, chan3_scaled, chan4_scaled, chan5_scaled, chan6_scaled, chan7_scaled, chan8_scaled, rssi), force_mavlink1=force_mavlink1)
@@ -13433,7 +14774,7 @@ class MAVLink(object):
         frame                     : The coordinate system of the waypoint. (type:uint8_t, values:MAV_FRAME)
         command                   : The scheduled action for the waypoint. (type:uint16_t, values:MAV_CMD)
         current                   : false:0, true:1 (type:uint8_t)
-        autocontinue              : Autocontinue to next waypoint (type:uint8_t)
+        autocontinue              : Autocontinue to next waypoint. 0: false, 1: true. Set false to pause mission after the item completes. (type:uint8_t)
         param1                    : PARAM1, see MAV_CMD enum (type:float)
         param2                    : PARAM2, see MAV_CMD enum (type:float)
         param3                    : PARAM3, see MAV_CMD enum (type:float)
@@ -13463,7 +14804,7 @@ class MAVLink(object):
         frame                     : The coordinate system of the waypoint. (type:uint8_t, values:MAV_FRAME)
         command                   : The scheduled action for the waypoint. (type:uint16_t, values:MAV_CMD)
         current                   : false:0, true:1 (type:uint8_t)
-        autocontinue              : Autocontinue to next waypoint (type:uint8_t)
+        autocontinue              : Autocontinue to next waypoint. 0: false, 1: true. Set false to pause mission after the item completes. (type:uint8_t)
         param1                    : PARAM1, see MAV_CMD enum (type:float)
         param2                    : PARAM2, see MAV_CMD enum (type:float)
         param3                    : PARAM3, see MAV_CMD enum (type:float)
@@ -13505,9 +14846,20 @@ class MAVLink(object):
 
     def mission_set_current_encode(self, target_system: int, target_component: int, seq: int) -> MAVLink_mission_set_current_message:
         """
-        Set the mission item with sequence number seq as current item. This
-        means that the MAV will continue to this mission item on the
-        shortest path (not following the mission items in-between).
+        Set the mission item with sequence number seq as the current item and
+        emit MISSION_CURRENT (whether or not the mission number
+        changed).         If a mission is currently being executed,
+        the system will continue to this new mission item on the
+        shortest path, skipping any intermediate mission items.
+        Note that mission jump repeat counters are not reset (see
+        MAV_CMD_DO_JUMP param2).          This message may trigger a
+        mission state-machine change on some systems: for example from
+        MISSION_STATE_NOT_STARTED or MISSION_STATE_PAUSED to
+        MISSION_STATE_ACTIVE.         If the system is in mission
+        mode, on those systems this command might therefore start,
+        restart or resume the mission.         If the system is not in
+        mission mode this message must not trigger a switch to mission
+        mode.
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -13518,9 +14870,20 @@ class MAVLink(object):
 
     def mission_set_current_send(self, target_system: int, target_component: int, seq: int, force_mavlink1: bool = False) -> None:
         """
-        Set the mission item with sequence number seq as current item. This
-        means that the MAV will continue to this mission item on the
-        shortest path (not following the mission items in-between).
+        Set the mission item with sequence number seq as the current item and
+        emit MISSION_CURRENT (whether or not the mission number
+        changed).         If a mission is currently being executed,
+        the system will continue to this new mission item on the
+        shortest path, skipping any intermediate mission items.
+        Note that mission jump repeat counters are not reset (see
+        MAV_CMD_DO_JUMP param2).          This message may trigger a
+        mission state-machine change on some systems: for example from
+        MISSION_STATE_NOT_STARTED or MISSION_STATE_PAUSED to
+        MISSION_STATE_ACTIVE.         If the system is in mission
+        mode, on those systems this command might therefore start,
+        restart or resume the mission.         If the system is not in
+        mission mode this message must not trigger a switch to mission
+        mode.
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -13531,8 +14894,12 @@ class MAVLink(object):
 
     def mission_current_encode(self, seq: int) -> MAVLink_mission_current_message:
         """
-        Message that announces the sequence number of the current active
-        mission item. The MAV will fly towards this mission item.
+        Message that announces the sequence number of the current target
+        mission item (that the system will fly towards/execute when
+        the mission is running).         This message should be
+        streamed all the time (nominally at 1Hz).         This message
+        should be emitted following a call to
+        MAV_CMD_DO_SET_MISSION_CURRENT or MISSION_SET_CURRENT.
 
         seq                       : Sequence (type:uint16_t)
 
@@ -13541,8 +14908,12 @@ class MAVLink(object):
 
     def mission_current_send(self, seq: int, force_mavlink1: bool = False) -> None:
         """
-        Message that announces the sequence number of the current active
-        mission item. The MAV will fly towards this mission item.
+        Message that announces the sequence number of the current target
+        mission item (that the system will fly towards/execute when
+        the mission is running).         This message should be
+        streamed all the time (nominally at 1Hz).         This message
+        should be emitted following a call to
+        MAV_CMD_DO_SET_MISSION_CURRENT or MISSION_SET_CURRENT.
 
         seq                       : Sequence (type:uint16_t)
 
@@ -14093,7 +15464,7 @@ class MAVLink(object):
 
         target_system             : The target requested to send the message stream. (type:uint8_t)
         target_component          : The target requested to send the message stream. (type:uint8_t)
-        req_stream_id             : The ID of the requested data stream (type:uint8_t)
+        req_stream_id             : The ID of the requested data stream. (type:uint8_t, values:MAV_DATA_STREAM)
         req_message_rate          : The requested message rate [Hz] (type:uint16_t)
         start_stop                : 1 to start sending, 0 to stop sending. (type:uint8_t)
 
@@ -14106,7 +15477,7 @@ class MAVLink(object):
 
         target_system             : The target requested to send the message stream. (type:uint8_t)
         target_component          : The target requested to send the message stream. (type:uint8_t)
-        req_stream_id             : The ID of the requested data stream (type:uint8_t)
+        req_stream_id             : The ID of the requested data stream. (type:uint8_t, values:MAV_DATA_STREAM)
         req_message_rate          : The requested message rate [Hz] (type:uint16_t)
         start_stop                : 1 to start sending, 0 to stop sending. (type:uint8_t)
 
@@ -14117,7 +15488,7 @@ class MAVLink(object):
         """
         Data stream status information.
 
-        stream_id                 : The ID of the requested data stream (type:uint8_t)
+        stream_id                 : The ID of the requested data stream. (type:uint8_t, values:MAV_DATA_STREAM)
         message_rate              : The message rate [Hz] (type:uint16_t)
         on_off                    : 1 stream is enabled, 0 stream is stopped. (type:uint8_t)
 
@@ -14128,7 +15499,7 @@ class MAVLink(object):
         """
         Data stream status information.
 
-        stream_id                 : The ID of the requested data stream (type:uint8_t)
+        stream_id                 : The ID of the requested data stream. (type:uint8_t, values:MAV_DATA_STREAM)
         message_rate              : The message rate [Hz] (type:uint16_t)
         on_off                    : 1 stream is enabled, 0 stream is stopped. (type:uint8_t)
 
@@ -14236,7 +15607,7 @@ class MAVLink(object):
         frame                     : The coordinate system of the waypoint. (type:uint8_t, values:MAV_FRAME)
         command                   : The scheduled action for the waypoint. (type:uint16_t, values:MAV_CMD)
         current                   : false:0, true:1 (type:uint8_t)
-        autocontinue              : Autocontinue to next waypoint (type:uint8_t)
+        autocontinue              : Autocontinue to next waypoint. 0: false, 1: true. Set false to pause mission after the item completes. (type:uint8_t)
         param1                    : PARAM1, see MAV_CMD enum (type:float)
         param2                    : PARAM2, see MAV_CMD enum (type:float)
         param3                    : PARAM3, see MAV_CMD enum (type:float)
@@ -14267,7 +15638,7 @@ class MAVLink(object):
         frame                     : The coordinate system of the waypoint. (type:uint8_t, values:MAV_FRAME)
         command                   : The scheduled action for the waypoint. (type:uint16_t, values:MAV_CMD)
         current                   : false:0, true:1 (type:uint8_t)
-        autocontinue              : Autocontinue to next waypoint (type:uint8_t)
+        autocontinue              : Autocontinue to next waypoint. 0: false, 1: true. Set false to pause mission after the item completes. (type:uint8_t)
         param1                    : PARAM1, see MAV_CMD enum (type:float)
         param2                    : PARAM2, see MAV_CMD enum (type:float)
         param3                    : PARAM3, see MAV_CMD enum (type:float)
@@ -14355,7 +15726,11 @@ class MAVLink(object):
 
     def command_long_encode(self, target_system: int, target_component: int, command: int, confirmation: int, param1: float, param2: float, param3: float, param4: float, param5: float, param6: float, param7: float) -> MAVLink_command_long_message:
         """
-        Send a command with up to seven parameters to the MAV. The command
+        Send a command with up to seven parameters to the MAV. COMMAND_INT is
+        generally preferred when sending MAV_CMD commands that include
+        positional information; it offers higher precision and allows
+        the MAV_FRAME to be specified (which may otherwise be
+        ambiguous, particularly for altitude). The command
         microservice is documented at
         https://mavlink.io/en/services/command.html
 
@@ -14376,7 +15751,11 @@ class MAVLink(object):
 
     def command_long_send(self, target_system: int, target_component: int, command: int, confirmation: int, param1: float, param2: float, param3: float, param4: float, param5: float, param6: float, param7: float, force_mavlink1: bool = False) -> None:
         """
-        Send a command with up to seven parameters to the MAV. The command
+        Send a command with up to seven parameters to the MAV. COMMAND_INT is
+        generally preferred when sending MAV_CMD commands that include
+        positional information; it offers higher precision and allows
+        the MAV_FRAME to be specified (which may otherwise be
+        ambiguous, particularly for altitude). The command
         microservice is documented at
         https://mavlink.io/en/services/command.html
 
@@ -14462,7 +15841,7 @@ class MAVLink(object):
         body_roll_rate            : Body roll rate [rad/s] (type:float)
         body_pitch_rate           : Body pitch rate [rad/s] (type:float)
         body_yaw_rate             : Body yaw rate [rad/s] (type:float)
-        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse trust) (type:float)
+        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse thrust) (type:float)
 
         """
         return MAVLink_set_attitude_target_message(time_boot_ms, target_system, target_component, type_mask, q, body_roll_rate, body_pitch_rate, body_yaw_rate, thrust)
@@ -14480,7 +15859,7 @@ class MAVLink(object):
         body_roll_rate            : Body roll rate [rad/s] (type:float)
         body_pitch_rate           : Body pitch rate [rad/s] (type:float)
         body_yaw_rate             : Body yaw rate [rad/s] (type:float)
-        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse trust) (type:float)
+        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse thrust) (type:float)
 
         """
         self.send(self.set_attitude_target_encode(time_boot_ms, target_system, target_component, type_mask, q, body_roll_rate, body_pitch_rate, body_yaw_rate, thrust), force_mavlink1=force_mavlink1)
@@ -14498,7 +15877,7 @@ class MAVLink(object):
         body_roll_rate            : Body roll rate [rad/s] (type:float)
         body_pitch_rate           : Body pitch rate [rad/s] (type:float)
         body_yaw_rate             : Body yaw rate [rad/s] (type:float)
-        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse trust) (type:float)
+        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse thrust) (type:float)
 
         """
         return MAVLink_attitude_target_message(time_boot_ms, type_mask, q, body_roll_rate, body_pitch_rate, body_yaw_rate, thrust)
@@ -14516,7 +15895,7 @@ class MAVLink(object):
         body_roll_rate            : Body roll rate [rad/s] (type:float)
         body_pitch_rate           : Body pitch rate [rad/s] (type:float)
         body_yaw_rate             : Body yaw rate [rad/s] (type:float)
-        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse trust) (type:float)
+        thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse thrust) (type:float)
 
         """
         self.send(self.attitude_target_encode(time_boot_ms, type_mask, q, body_roll_rate, body_pitch_rate, body_yaw_rate, thrust), force_mavlink1=force_mavlink1)
@@ -14818,7 +16197,7 @@ class MAVLink(object):
     def hil_controls_encode(self, time_usec: int, roll_ailerons: float, pitch_elevator: float, yaw_rudder: float, throttle: float, aux1: float, aux2: float, aux3: float, aux4: float, mode: int, nav_mode: int) -> MAVLink_hil_controls_message:
         """
         Sent from autopilot to simulation. Hardware in the loop control
-        outputs
+        outputs. Alternative to HIL_ACTUATOR_CONTROLS.
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
         roll_ailerons             : Control output -1 .. 1 (type:float)
@@ -14838,7 +16217,7 @@ class MAVLink(object):
     def hil_controls_send(self, time_usec: int, roll_ailerons: float, pitch_elevator: float, yaw_rudder: float, throttle: float, aux1: float, aux2: float, aux3: float, aux4: float, mode: int, nav_mode: int, force_mavlink1: bool = False) -> None:
         """
         Sent from autopilot to simulation. Hardware in the loop control
-        outputs
+        outputs. Alternative to HIL_ACTUATOR_CONTROLS.
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
         roll_ailerons             : Control output -1 .. 1 (type:float)
@@ -14908,12 +16287,12 @@ class MAVLink(object):
     def hil_actuator_controls_encode(self, time_usec: int, controls: Sequence[float], mode: int, flags: int) -> MAVLink_hil_actuator_controls_message:
         """
         Sent from autopilot to simulation. Hardware in the loop control
-        outputs (replacement for HIL_CONTROLS)
+        outputs. Alternative to HIL_CONTROLS.
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
         controls                  : Control outputs -1 .. 1. Channel assignment depends on the simulated hardware. (type:float)
         mode                      : System mode. Includes arming state. (type:uint8_t, values:MAV_MODE_FLAG)
-        flags                     : Flags as bitfield, 1: indicate simulation using lockstep. (type:uint64_t)
+        flags                     : Flags bitmask. (type:uint64_t, values:HIL_ACTUATOR_CONTROLS_FLAGS)
 
         """
         return MAVLink_hil_actuator_controls_message(time_usec, controls, mode, flags)
@@ -14921,12 +16300,12 @@ class MAVLink(object):
     def hil_actuator_controls_send(self, time_usec: int, controls: Sequence[float], mode: int, flags: int, force_mavlink1: bool = False) -> None:
         """
         Sent from autopilot to simulation. Hardware in the loop control
-        outputs (replacement for HIL_CONTROLS)
+        outputs. Alternative to HIL_CONTROLS.
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
         controls                  : Control outputs -1 .. 1. Channel assignment depends on the simulated hardware. (type:float)
         mode                      : System mode. Includes arming state. (type:uint8_t, values:MAV_MODE_FLAG)
-        flags                     : Flags as bitfield, 1: indicate simulation using lockstep. (type:uint64_t)
+        flags                     : Flags bitmask. (type:uint64_t, values:HIL_ACTUATOR_CONTROLS_FLAGS)
 
         """
         self.send(self.hil_actuator_controls_encode(time_usec, controls, mode, flags), force_mavlink1=force_mavlink1)
@@ -15095,7 +16474,7 @@ class MAVLink(object):
         diff_pressure             : Differential pressure [hPa] (type:float)
         pressure_alt              : Altitude calculated from pressure (type:float)
         temperature               : Temperature [degC] (type:float)
-        fields_updated            : Bitmap for fields that have updated since last message, bit 0 = xacc, bit 12: temperature (type:uint16_t)
+        fields_updated            : Bitmap for fields that have updated since last message (type:uint16_t, values:HIGHRES_IMU_UPDATED_FLAGS)
 
         """
         return MAVLink_highres_imu_message(time_usec, xacc, yacc, zacc, xgyro, ygyro, zgyro, xmag, ymag, zmag, abs_pressure, diff_pressure, pressure_alt, temperature, fields_updated)
@@ -15118,7 +16497,7 @@ class MAVLink(object):
         diff_pressure             : Differential pressure [hPa] (type:float)
         pressure_alt              : Altitude calculated from pressure (type:float)
         temperature               : Temperature [degC] (type:float)
-        fields_updated            : Bitmap for fields that have updated since last message, bit 0 = xacc, bit 12: temperature (type:uint16_t)
+        fields_updated            : Bitmap for fields that have updated since last message (type:uint16_t, values:HIGHRES_IMU_UPDATED_FLAGS)
 
         """
         self.send(self.highres_imu_encode(time_usec, xacc, yacc, zacc, xgyro, ygyro, zgyro, xmag, ymag, zmag, abs_pressure, diff_pressure, pressure_alt, temperature, fields_updated), force_mavlink1=force_mavlink1)
@@ -15183,7 +16562,7 @@ class MAVLink(object):
         diff_pressure             : Differential pressure (airspeed) [hPa] (type:float)
         pressure_alt              : Altitude calculated from pressure (type:float)
         temperature               : Temperature [degC] (type:float)
-        fields_updated            : Bitmap for fields that have updated since last message, bit 0 = xacc, bit 12: temperature, bit 31: full reset of attitude/position/velocities/etc was performed in sim. (type:uint32_t)
+        fields_updated            : Bitmap for fields that have updated since last message (type:uint32_t, values:HIL_SENSOR_UPDATED_FLAGS)
 
         """
         return MAVLink_hil_sensor_message(time_usec, xacc, yacc, zacc, xgyro, ygyro, zgyro, xmag, ymag, zmag, abs_pressure, diff_pressure, pressure_alt, temperature, fields_updated)
@@ -15206,7 +16585,7 @@ class MAVLink(object):
         diff_pressure             : Differential pressure (airspeed) [hPa] (type:float)
         pressure_alt              : Altitude calculated from pressure (type:float)
         temperature               : Temperature [degC] (type:float)
-        fields_updated            : Bitmap for fields that have updated since last message, bit 0 = xacc, bit 12: temperature, bit 31: full reset of attitude/position/velocities/etc was performed in sim. (type:uint32_t)
+        fields_updated            : Bitmap for fields that have updated since last message (type:uint32_t, values:HIL_SENSOR_UPDATED_FLAGS)
 
         """
         self.send(self.hil_sensor_encode(time_usec, xacc, yacc, zacc, xgyro, ygyro, zgyro, xmag, ymag, zmag, abs_pressure, diff_pressure, pressure_alt, temperature, fields_updated), force_mavlink1=force_mavlink1)
@@ -15219,17 +16598,17 @@ class MAVLink(object):
         q2                        : True attitude quaternion component 2, x (0 in null-rotation) (type:float)
         q3                        : True attitude quaternion component 3, y (0 in null-rotation) (type:float)
         q4                        : True attitude quaternion component 4, z (0 in null-rotation) (type:float)
-        roll                      : Attitude roll expressed as Euler angles, not recommended except for human-readable outputs (type:float)
-        pitch                     : Attitude pitch expressed as Euler angles, not recommended except for human-readable outputs (type:float)
-        yaw                       : Attitude yaw expressed as Euler angles, not recommended except for human-readable outputs (type:float)
+        roll                      : Attitude roll expressed as Euler angles, not recommended except for human-readable outputs [rad] (type:float)
+        pitch                     : Attitude pitch expressed as Euler angles, not recommended except for human-readable outputs [rad] (type:float)
+        yaw                       : Attitude yaw expressed as Euler angles, not recommended except for human-readable outputs [rad] (type:float)
         xacc                      : X acceleration [m/s/s] (type:float)
         yacc                      : Y acceleration [m/s/s] (type:float)
         zacc                      : Z acceleration [m/s/s] (type:float)
         xgyro                     : Angular speed around X axis [rad/s] (type:float)
         ygyro                     : Angular speed around Y axis [rad/s] (type:float)
         zgyro                     : Angular speed around Z axis [rad/s] (type:float)
-        lat                       : Latitude [deg] (type:float)
-        lon                       : Longitude [deg] (type:float)
+        lat                       : Latitude (lower precision). Both this and the lat_int field should be set. [deg] (type:float)
+        lon                       : Longitude (lower precision). Both this and the lon_int field should be set. [deg] (type:float)
         alt                       : Altitude [m] (type:float)
         std_dev_horz              : Horizontal position standard deviation (type:float)
         std_dev_vert              : Vertical position standard deviation (type:float)
@@ -15248,17 +16627,17 @@ class MAVLink(object):
         q2                        : True attitude quaternion component 2, x (0 in null-rotation) (type:float)
         q3                        : True attitude quaternion component 3, y (0 in null-rotation) (type:float)
         q4                        : True attitude quaternion component 4, z (0 in null-rotation) (type:float)
-        roll                      : Attitude roll expressed as Euler angles, not recommended except for human-readable outputs (type:float)
-        pitch                     : Attitude pitch expressed as Euler angles, not recommended except for human-readable outputs (type:float)
-        yaw                       : Attitude yaw expressed as Euler angles, not recommended except for human-readable outputs (type:float)
+        roll                      : Attitude roll expressed as Euler angles, not recommended except for human-readable outputs [rad] (type:float)
+        pitch                     : Attitude pitch expressed as Euler angles, not recommended except for human-readable outputs [rad] (type:float)
+        yaw                       : Attitude yaw expressed as Euler angles, not recommended except for human-readable outputs [rad] (type:float)
         xacc                      : X acceleration [m/s/s] (type:float)
         yacc                      : Y acceleration [m/s/s] (type:float)
         zacc                      : Z acceleration [m/s/s] (type:float)
         xgyro                     : Angular speed around X axis [rad/s] (type:float)
         ygyro                     : Angular speed around Y axis [rad/s] (type:float)
         zgyro                     : Angular speed around Z axis [rad/s] (type:float)
-        lat                       : Latitude [deg] (type:float)
-        lon                       : Longitude [deg] (type:float)
+        lat                       : Latitude (lower precision). Both this and the lat_int field should be set. [deg] (type:float)
+        lon                       : Longitude (lower precision). Both this and the lon_int field should be set. [deg] (type:float)
         alt                       : Altitude [m] (type:float)
         std_dev_horz              : Horizontal position standard deviation (type:float)
         std_dev_vert              : Vertical position standard deviation (type:float)
@@ -15273,11 +16652,11 @@ class MAVLink(object):
         """
         Status generated by radio and injected into MAVLink stream.
 
-        rssi                      : Local (message sender) received signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
-        remrssi                   : Remote (message receiver) signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        rssi                      : Local (message sender) received signal strength indication in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
+        remrssi                   : Remote (message receiver) signal strength indication in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
         txbuf                     : Remaining free transmitter buffer space. [%] (type:uint8_t)
-        noise                     : Local background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], 255: invalid/unknown. (type:uint8_t)
-        remnoise                  : Remote background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        noise                     : Local background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
+        remnoise                  : Remote background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
         rxerrors                  : Count of radio packet receive errors (since boot). (type:uint16_t)
         fixed                     : Count of error corrected radio packets (since boot). (type:uint16_t)
 
@@ -15288,11 +16667,11 @@ class MAVLink(object):
         """
         Status generated by radio and injected into MAVLink stream.
 
-        rssi                      : Local (message sender) received signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
-        remrssi                   : Remote (message receiver) signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        rssi                      : Local (message sender) received signal strength indication in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
+        remrssi                   : Remote (message receiver) signal strength indication in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
         txbuf                     : Remaining free transmitter buffer space. [%] (type:uint8_t)
-        noise                     : Local background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], 255: invalid/unknown. (type:uint8_t)
-        remnoise                  : Remote background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        noise                     : Local background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
+        remnoise                  : Remote background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], UINT8_MAX: invalid/unknown. (type:uint8_t)
         rxerrors                  : Count of radio packet receive errors (since boot). (type:uint16_t)
         fixed                     : Count of error corrected radio packets (since boot). (type:uint16_t)
 
@@ -15307,7 +16686,7 @@ class MAVLink(object):
         target_network            : Network ID (0 for broadcast) (type:uint8_t)
         target_system             : System ID (0 for broadcast) (type:uint8_t)
         target_component          : Component ID (0 for broadcast) (type:uint8_t)
-        payload                   : Variable length payload. The length is defined by the remaining message length when subtracting the header and other fields.  The entire content of this block is opaque unless you understand any the encoding message_type.  The particular encoding used can be extension specific and might not always be documented as part of the mavlink specification. (type:uint8_t)
+        payload                   : Variable length payload. The length is defined by the remaining message length when subtracting the header and other fields. The content/format of this block is defined in https://mavlink.io/en/services/ftp.html. (type:uint8_t)
 
         """
         return MAVLink_file_transfer_protocol_message(target_network, target_system, target_component, payload)
@@ -15320,27 +16699,65 @@ class MAVLink(object):
         target_network            : Network ID (0 for broadcast) (type:uint8_t)
         target_system             : System ID (0 for broadcast) (type:uint8_t)
         target_component          : Component ID (0 for broadcast) (type:uint8_t)
-        payload                   : Variable length payload. The length is defined by the remaining message length when subtracting the header and other fields.  The entire content of this block is opaque unless you understand any the encoding message_type.  The particular encoding used can be extension specific and might not always be documented as part of the mavlink specification. (type:uint8_t)
+        payload                   : Variable length payload. The length is defined by the remaining message length when subtracting the header and other fields. The content/format of this block is defined in https://mavlink.io/en/services/ftp.html. (type:uint8_t)
 
         """
         self.send(self.file_transfer_protocol_encode(target_network, target_system, target_component, payload), force_mavlink1=force_mavlink1)
 
     def timesync_encode(self, tc1: int, ts1: int) -> MAVLink_timesync_message:
         """
-        Time synchronization message.
+        Time synchronization message.         The message is used for both
+        timesync requests and responses.         The request is sent
+        with `ts1=syncing component timestamp` and `tc1=0`, and may be
+        broadcast or targeted to a specific system/component.
+        The response is sent with `ts1=syncing component timestamp`
+        (mirror back unchanged), and `tc1=responding component
+        timestamp`, with the `target_system` and `target_component`
+        set to ids of the original request.         Systems can
+        determine if they are receiving a request or response based on
+        the value of `tc`.         If the response has
+        `target_system==target_component==0` the remote system has not
+        been updated to use the component IDs and cannot reliably
+        timesync; the requester may report an error.
+        Timestamps are UNIX Epoch time or time since system boot in
+        nanoseconds (the timestamp format can be inferred by checking
+        for the magnitude of the number; generally it doesn't matter
+        as only the offset is used).         The message sequence is
+        repeated numerous times with results being filtered/averaged
+        to estimate the offset.         See also:
+        https://mavlink.io/en/services/timesync.html.
 
-        tc1                       : Time sync timestamp 1 (type:int64_t)
-        ts1                       : Time sync timestamp 2 (type:int64_t)
+        tc1                       : Time sync timestamp 1. Syncing: 0. Responding: Timestamp of responding component. [ns] (type:int64_t)
+        ts1                       : Time sync timestamp 2. Timestamp of syncing component (mirrored in response). [ns] (type:int64_t)
 
         """
         return MAVLink_timesync_message(tc1, ts1)
 
     def timesync_send(self, tc1: int, ts1: int, force_mavlink1: bool = False) -> None:
         """
-        Time synchronization message.
+        Time synchronization message.         The message is used for both
+        timesync requests and responses.         The request is sent
+        with `ts1=syncing component timestamp` and `tc1=0`, and may be
+        broadcast or targeted to a specific system/component.
+        The response is sent with `ts1=syncing component timestamp`
+        (mirror back unchanged), and `tc1=responding component
+        timestamp`, with the `target_system` and `target_component`
+        set to ids of the original request.         Systems can
+        determine if they are receiving a request or response based on
+        the value of `tc`.         If the response has
+        `target_system==target_component==0` the remote system has not
+        been updated to use the component IDs and cannot reliably
+        timesync; the requester may report an error.
+        Timestamps are UNIX Epoch time or time since system boot in
+        nanoseconds (the timestamp format can be inferred by checking
+        for the magnitude of the number; generally it doesn't matter
+        as only the offset is used).         The message sequence is
+        repeated numerous times with results being filtered/averaged
+        to estimate the offset.         See also:
+        https://mavlink.io/en/services/timesync.html.
 
-        tc1                       : Time sync timestamp 1 (type:int64_t)
-        ts1                       : Time sync timestamp 2 (type:int64_t)
+        tc1                       : Time sync timestamp 1. Syncing: 0. Responding: Timestamp of responding component. [ns] (type:int64_t)
+        ts1                       : Time sync timestamp 2. Timestamp of syncing component (mirrored in response). [ns] (type:int64_t)
 
         """
         self.send(self.timesync_encode(tc1, ts1), force_mavlink1=force_mavlink1)
@@ -15547,11 +16964,12 @@ class MAVLink(object):
 
     def log_request_list_encode(self, target_system: int, target_component: int, start: int, end: int) -> MAVLink_log_request_list_message:
         """
-        Request a list of available logs. On some systems calling this may
-        stop on-board logging until LOG_REQUEST_END is called. If
-        there are no log files available this request shall be
+        Request a list of available logs.         On some systems calling this
+        may stop on-board logging until LOG_REQUEST_END is called.
+        If there are no log files available this request shall be
         answered with one LOG_ENTRY message with id = 0 and num_logs =
-        0.
+        0.         LOG_ENTRY messages can start with id 1 or 0.
+        The ground station needs to be able to process either.
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -15563,11 +16981,12 @@ class MAVLink(object):
 
     def log_request_list_send(self, target_system: int, target_component: int, start: int, end: int, force_mavlink1: bool = False) -> None:
         """
-        Request a list of available logs. On some systems calling this may
-        stop on-board logging until LOG_REQUEST_END is called. If
-        there are no log files available this request shall be
+        Request a list of available logs.         On some systems calling this
+        may stop on-board logging until LOG_REQUEST_END is called.
+        If there are no log files available this request shall be
         answered with one LOG_ENTRY message with id = 0 and num_logs =
-        0.
+        0.         LOG_ENTRY messages can start with id 1 or 0.
+        The ground station needs to be able to process either.
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -15726,11 +17145,11 @@ class MAVLink(object):
         lat                       : Latitude (WGS84) [degE7] (type:int32_t)
         lon                       : Longitude (WGS84) [degE7] (type:int32_t)
         alt                       : Altitude (MSL). Positive for up. [mm] (type:int32_t)
-        eph                       : GPS HDOP horizontal dilution of position (unitless). If unknown, set to: UINT16_MAX (type:uint16_t)
-        epv                       : GPS VDOP vertical dilution of position (unitless). If unknown, set to: UINT16_MAX (type:uint16_t)
+        eph                       : GPS HDOP horizontal dilution of position (unitless * 100). If unknown, set to: UINT16_MAX (type:uint16_t)
+        epv                       : GPS VDOP vertical dilution of position (unitless * 100). If unknown, set to: UINT16_MAX (type:uint16_t)
         vel                       : GPS ground speed. If unknown, set to: UINT16_MAX [cm/s] (type:uint16_t)
         cog                       : Course over ground (NOT heading, but direction of movement): 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
-        satellites_visible        : Number of satellites visible. If unknown, set to 255 (type:uint8_t)
+        satellites_visible        : Number of satellites visible. If unknown, set to UINT8_MAX (type:uint8_t)
         dgps_numch                : Number of DGPS satellites (type:uint8_t)
         dgps_age                  : Age of DGPS info [ms] (type:uint32_t)
 
@@ -15746,11 +17165,11 @@ class MAVLink(object):
         lat                       : Latitude (WGS84) [degE7] (type:int32_t)
         lon                       : Longitude (WGS84) [degE7] (type:int32_t)
         alt                       : Altitude (MSL). Positive for up. [mm] (type:int32_t)
-        eph                       : GPS HDOP horizontal dilution of position (unitless). If unknown, set to: UINT16_MAX (type:uint16_t)
-        epv                       : GPS VDOP vertical dilution of position (unitless). If unknown, set to: UINT16_MAX (type:uint16_t)
+        eph                       : GPS HDOP horizontal dilution of position (unitless * 100). If unknown, set to: UINT16_MAX (type:uint16_t)
+        epv                       : GPS VDOP vertical dilution of position (unitless * 100). If unknown, set to: UINT16_MAX (type:uint16_t)
         vel                       : GPS ground speed. If unknown, set to: UINT16_MAX [cm/s] (type:uint16_t)
         cog                       : Course over ground (NOT heading, but direction of movement): 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
-        satellites_visible        : Number of satellites visible. If unknown, set to 255 (type:uint8_t)
+        satellites_visible        : Number of satellites visible. If unknown, set to UINT8_MAX (type:uint8_t)
         dgps_numch                : Number of DGPS satellites (type:uint8_t)
         dgps_age                  : Age of DGPS info [ms] (type:uint32_t)
 
@@ -16424,7 +17843,7 @@ class MAVLink(object):
         type                      : Type (chemistry) of the battery (type:uint8_t, values:MAV_BATTERY_TYPE)
         temperature               : Temperature of the battery. INT16_MAX for unknown temperature. [cdegC] (type:int16_t)
         voltages                  : Battery voltage of cells 1 to 10 (see voltages_ext for cells 11-14). Cells in this field above the valid cell count for this battery should have the UINT16_MAX value. If individual cell voltages are unknown or not measured for this battery, then the overall battery voltage should be filled in cell 0, with all others set to UINT16_MAX. If the voltage of the battery is greater than (UINT16_MAX - 1), then cell 0 should be set to (UINT16_MAX - 1), and cell 1 to the remaining voltage. This can be extended to multiple cells if the total voltage is greater than 2 * (UINT16_MAX - 1). [mV] (type:uint16_t)
-        current_battery           : Battery current, -1: autopilot does not measure the current [cA] (type:int16_t)
+        current_battery           : Battery current, -1: autopilot does not measure the current. Value may overflow/rollover for very high currents (> 327.67A) [cA] (type:int16_t)
         current_consumed          : Consumed charge, -1: autopilot does not provide consumption estimate [mAh] (type:int32_t)
         energy_consumed           : Consumed energy, -1: autopilot does not provide energy consumption estimate [hJ] (type:int32_t)
         battery_remaining         : Remaining battery energy. Values: [0-100], -1: autopilot does not estimate the remaining battery. [%] (type:int8_t)
@@ -16441,55 +17860,13 @@ class MAVLink(object):
         type                      : Type (chemistry) of the battery (type:uint8_t, values:MAV_BATTERY_TYPE)
         temperature               : Temperature of the battery. INT16_MAX for unknown temperature. [cdegC] (type:int16_t)
         voltages                  : Battery voltage of cells 1 to 10 (see voltages_ext for cells 11-14). Cells in this field above the valid cell count for this battery should have the UINT16_MAX value. If individual cell voltages are unknown or not measured for this battery, then the overall battery voltage should be filled in cell 0, with all others set to UINT16_MAX. If the voltage of the battery is greater than (UINT16_MAX - 1), then cell 0 should be set to (UINT16_MAX - 1), and cell 1 to the remaining voltage. This can be extended to multiple cells if the total voltage is greater than 2 * (UINT16_MAX - 1). [mV] (type:uint16_t)
-        current_battery           : Battery current, -1: autopilot does not measure the current [cA] (type:int16_t)
+        current_battery           : Battery current, -1: autopilot does not measure the current. Value may overflow/rollover for very high currents (> 327.67A) [cA] (type:int16_t)
         current_consumed          : Consumed charge, -1: autopilot does not provide consumption estimate [mAh] (type:int32_t)
         energy_consumed           : Consumed energy, -1: autopilot does not provide energy consumption estimate [hJ] (type:int32_t)
         battery_remaining         : Remaining battery energy. Values: [0-100], -1: autopilot does not estimate the remaining battery. [%] (type:int8_t)
 
         """
         self.send(self.battery_status_encode(id, battery_function, type, temperature, voltages, current_battery, current_consumed, energy_consumed, battery_remaining), force_mavlink1=force_mavlink1)
-
-    def autopilot_version_encode(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int) -> MAVLink_autopilot_version_message:
-        """
-        Version and capability of autopilot software. This should be emitted
-        in response to a request with MAV_CMD_REQUEST_MESSAGE.
-
-        capabilities              : Bitmap of capabilities (type:uint64_t, values:MAV_PROTOCOL_CAPABILITY)
-        flight_sw_version         : Firmware version number.
-        The field must be encoded as 4 bytes, where each byte (shown from MSB to LSB) is part of a semantic version: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE). (type:uint32_t)
-        middleware_sw_version        : Middleware version number (type:uint32_t)
-        os_sw_version             : Operating system version number (type:uint32_t)
-        board_version             : HW / board version (last 8 bits should be silicon ID, if any). The first 16 bits of this field specify https://github.com/PX4/PX4-Bootloader/blob/master/board_types.txt (and extended extensively in https://github.com/ardupilot/ardupilot/blob/master/Tools/AP_Bootloader/board_types.txt) (type:uint32_t)
-        flight_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
-        middleware_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
-        os_custom_version         : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
-        vendor_id                 : ID of the board vendor (type:uint16_t)
-        product_id                : ID of the product (type:uint16_t)
-        uid                       : UID if provided by hardware (see uid2) (type:uint64_t)
-
-        """
-        return MAVLink_autopilot_version_message(capabilities, flight_sw_version, middleware_sw_version, os_sw_version, board_version, flight_custom_version, middleware_custom_version, os_custom_version, vendor_id, product_id, uid)
-
-    def autopilot_version_send(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int, force_mavlink1: bool = False) -> None:
-        """
-        Version and capability of autopilot software. This should be emitted
-        in response to a request with MAV_CMD_REQUEST_MESSAGE.
-
-        capabilities              : Bitmap of capabilities (type:uint64_t, values:MAV_PROTOCOL_CAPABILITY)
-        flight_sw_version         : Firmware version number.
-        The field must be encoded as 4 bytes, where each byte (shown from MSB to LSB) is part of a semantic version: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE). (type:uint32_t)
-        middleware_sw_version        : Middleware version number (type:uint32_t)
-        os_sw_version             : Operating system version number (type:uint32_t)
-        board_version             : HW / board version (last 8 bits should be silicon ID, if any). The first 16 bits of this field specify https://github.com/PX4/PX4-Bootloader/blob/master/board_types.txt (and extended extensively in https://github.com/ardupilot/ardupilot/blob/master/Tools/AP_Bootloader/board_types.txt) (type:uint32_t)
-        flight_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
-        middleware_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
-        os_custom_version         : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
-        vendor_id                 : ID of the board vendor (type:uint16_t)
-        product_id                : ID of the product (type:uint16_t)
-        uid                       : UID if provided by hardware (see uid2) (type:uint64_t)
-
-        """
-        self.send(self.autopilot_version_encode(capabilities, flight_sw_version, middleware_sw_version, os_sw_version, board_version, flight_custom_version, middleware_custom_version, os_custom_version, vendor_id, product_id, uid), force_mavlink1=force_mavlink1)
 
     def landing_target_encode(self, time_usec: int, target_num: int, frame: int, angle_x: float, angle_y: float, distance: float, size_x: float, size_y: float) -> MAVLink_landing_target_message:
         """
@@ -16711,34 +18088,40 @@ class MAVLink(object):
 
     def wind_cov_encode(self, time_usec: int, wind_x: float, wind_y: float, wind_z: float, var_horiz: float, var_vert: float, wind_alt: float, horiz_accuracy: float, vert_accuracy: float) -> MAVLink_wind_cov_message:
         """
-        Wind covariance estimate from vehicle.
+        Wind estimate from vehicle. Note that despite the name, this message
+        does not actually contain any covariances but instead
+        variability and accuracy fields in terms of standard deviation
+        (1-STD).
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
-        wind_x                    : Wind in X (NED) direction [m/s] (type:float)
-        wind_y                    : Wind in Y (NED) direction [m/s] (type:float)
-        wind_z                    : Wind in Z (NED) direction [m/s] (type:float)
-        var_horiz                 : Variability of the wind in XY. RMS of a 1 Hz lowpassed wind estimate. [m/s] (type:float)
-        var_vert                  : Variability of the wind in Z. RMS of a 1 Hz lowpassed wind estimate. [m/s] (type:float)
-        wind_alt                  : Altitude (MSL) that this measurement was taken at [m] (type:float)
-        horiz_accuracy            : Horizontal speed 1-STD accuracy [m] (type:float)
-        vert_accuracy             : Vertical speed 1-STD accuracy [m] (type:float)
+        wind_x                    : Wind in North (NED) direction (NAN if unknown) [m/s] (type:float)
+        wind_y                    : Wind in East (NED) direction (NAN if unknown) [m/s] (type:float)
+        wind_z                    : Wind in down (NED) direction (NAN if unknown) [m/s] (type:float)
+        var_horiz                 : Variability of wind in XY, 1-STD estimated from a 1 Hz lowpassed wind estimate (NAN if unknown) [m/s] (type:float)
+        var_vert                  : Variability of wind in Z, 1-STD estimated from a 1 Hz lowpassed wind estimate (NAN if unknown) [m/s] (type:float)
+        wind_alt                  : Altitude (MSL) that this measurement was taken at (NAN if unknown) [m] (type:float)
+        horiz_accuracy            : Horizontal speed 1-STD accuracy (0 if unknown) [m/s] (type:float)
+        vert_accuracy             : Vertical speed 1-STD accuracy (0 if unknown) [m/s] (type:float)
 
         """
         return MAVLink_wind_cov_message(time_usec, wind_x, wind_y, wind_z, var_horiz, var_vert, wind_alt, horiz_accuracy, vert_accuracy)
 
     def wind_cov_send(self, time_usec: int, wind_x: float, wind_y: float, wind_z: float, var_horiz: float, var_vert: float, wind_alt: float, horiz_accuracy: float, vert_accuracy: float, force_mavlink1: bool = False) -> None:
         """
-        Wind covariance estimate from vehicle.
+        Wind estimate from vehicle. Note that despite the name, this message
+        does not actually contain any covariances but instead
+        variability and accuracy fields in terms of standard deviation
+        (1-STD).
 
         time_usec                 : Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. [us] (type:uint64_t)
-        wind_x                    : Wind in X (NED) direction [m/s] (type:float)
-        wind_y                    : Wind in Y (NED) direction [m/s] (type:float)
-        wind_z                    : Wind in Z (NED) direction [m/s] (type:float)
-        var_horiz                 : Variability of the wind in XY. RMS of a 1 Hz lowpassed wind estimate. [m/s] (type:float)
-        var_vert                  : Variability of the wind in Z. RMS of a 1 Hz lowpassed wind estimate. [m/s] (type:float)
-        wind_alt                  : Altitude (MSL) that this measurement was taken at [m] (type:float)
-        horiz_accuracy            : Horizontal speed 1-STD accuracy [m] (type:float)
-        vert_accuracy             : Vertical speed 1-STD accuracy [m] (type:float)
+        wind_x                    : Wind in North (NED) direction (NAN if unknown) [m/s] (type:float)
+        wind_y                    : Wind in East (NED) direction (NAN if unknown) [m/s] (type:float)
+        wind_z                    : Wind in down (NED) direction (NAN if unknown) [m/s] (type:float)
+        var_horiz                 : Variability of wind in XY, 1-STD estimated from a 1 Hz lowpassed wind estimate (NAN if unknown) [m/s] (type:float)
+        var_vert                  : Variability of wind in Z, 1-STD estimated from a 1 Hz lowpassed wind estimate (NAN if unknown) [m/s] (type:float)
+        wind_alt                  : Altitude (MSL) that this measurement was taken at (NAN if unknown) [m] (type:float)
+        horiz_accuracy            : Horizontal speed 1-STD accuracy (0 if unknown) [m/s] (type:float)
+        vert_accuracy             : Vertical speed 1-STD accuracy (0 if unknown) [m/s] (type:float)
 
         """
         self.send(self.wind_cov_encode(time_usec, wind_x, wind_y, wind_z, var_horiz, var_vert, wind_alt, horiz_accuracy, vert_accuracy), force_mavlink1=force_mavlink1)
@@ -17045,25 +18428,28 @@ class MAVLink(object):
 
     def set_home_position_encode(self, target_system: int, latitude: int, longitude: int, altitude: int, x: float, y: float, z: float, q: Sequence[float], approach_x: float, approach_y: float, approach_z: float) -> MAVLink_set_home_position_message:
         """
-        The position the system will return to and land on. The position is
-        set automatically by the system during the takeoff in case it
-        was not explicitly set by the operator before or after. The
+        Sets the home position.         The home position is the default
+        position that the system will return to and land on.
+        The position is set automatically by the system during the
+        takeoff (and may also be set using this message).         The
         global and local positions encode the position in the
         respective coordinate frames, while the q parameter encodes
-        the orientation of the surface. Under normal conditions it
-        describes the heading and terrain slope, which can be used by
-        the aircraft to adjust the approach. The approach 3D vector
-        describes the point to which the system should fly in normal
-        flight mode and then perform a landing sequence along the
-        vector.
+        the orientation of the surface.         Under normal
+        conditions it describes the heading and terrain slope, which
+        can be used by the aircraft to adjust the approach.
+        The approach 3D vector describes the point to which the system
+        should fly in normal flight mode and then perform a landing
+        sequence along the vector.         Note: the current home
+        position may be emitted in a HOME_POSITION message on request
+        (using MAV_CMD_REQUEST_MESSAGE with param1=242).
 
         target_system             : System ID. (type:uint8_t)
         latitude                  : Latitude (WGS84) [degE7] (type:int32_t)
         longitude                 : Longitude (WGS84) [degE7] (type:int32_t)
         altitude                  : Altitude (MSL). Positive for up. [mm] (type:int32_t)
-        x                         : Local X position of this position in the local coordinate frame [m] (type:float)
-        y                         : Local Y position of this position in the local coordinate frame [m] (type:float)
-        z                         : Local Z position of this position in the local coordinate frame [m] (type:float)
+        x                         : Local X position of this position in the local coordinate frame (NED) [m] (type:float)
+        y                         : Local Y position of this position in the local coordinate frame (NED) [m] (type:float)
+        z                         : Local Z position of this position in the local coordinate frame (NED: positive "down") [m] (type:float)
         q                         : World to surface normal and heading transformation of the takeoff position. Used to indicate the heading and slope of the ground (type:float)
         approach_x                : Local X position of the end of the approach vector. Multicopters should set this position based on their takeoff path. Grass-landing fixed wing aircraft should set it the same way as multicopters. Runway-landing fixed wing aircraft should set it to the opposite direction of the takeoff, assuming the takeoff happened from the threshold / touchdown zone. [m] (type:float)
         approach_y                : Local Y position of the end of the approach vector. Multicopters should set this position based on their takeoff path. Grass-landing fixed wing aircraft should set it the same way as multicopters. Runway-landing fixed wing aircraft should set it to the opposite direction of the takeoff, assuming the takeoff happened from the threshold / touchdown zone. [m] (type:float)
@@ -17074,25 +18460,28 @@ class MAVLink(object):
 
     def set_home_position_send(self, target_system: int, latitude: int, longitude: int, altitude: int, x: float, y: float, z: float, q: Sequence[float], approach_x: float, approach_y: float, approach_z: float, force_mavlink1: bool = False) -> None:
         """
-        The position the system will return to and land on. The position is
-        set automatically by the system during the takeoff in case it
-        was not explicitly set by the operator before or after. The
+        Sets the home position.         The home position is the default
+        position that the system will return to and land on.
+        The position is set automatically by the system during the
+        takeoff (and may also be set using this message).         The
         global and local positions encode the position in the
         respective coordinate frames, while the q parameter encodes
-        the orientation of the surface. Under normal conditions it
-        describes the heading and terrain slope, which can be used by
-        the aircraft to adjust the approach. The approach 3D vector
-        describes the point to which the system should fly in normal
-        flight mode and then perform a landing sequence along the
-        vector.
+        the orientation of the surface.         Under normal
+        conditions it describes the heading and terrain slope, which
+        can be used by the aircraft to adjust the approach.
+        The approach 3D vector describes the point to which the system
+        should fly in normal flight mode and then perform a landing
+        sequence along the vector.         Note: the current home
+        position may be emitted in a HOME_POSITION message on request
+        (using MAV_CMD_REQUEST_MESSAGE with param1=242).
 
         target_system             : System ID. (type:uint8_t)
         latitude                  : Latitude (WGS84) [degE7] (type:int32_t)
         longitude                 : Longitude (WGS84) [degE7] (type:int32_t)
         altitude                  : Altitude (MSL). Positive for up. [mm] (type:int32_t)
-        x                         : Local X position of this position in the local coordinate frame [m] (type:float)
-        y                         : Local Y position of this position in the local coordinate frame [m] (type:float)
-        z                         : Local Z position of this position in the local coordinate frame [m] (type:float)
+        x                         : Local X position of this position in the local coordinate frame (NED) [m] (type:float)
+        y                         : Local Y position of this position in the local coordinate frame (NED) [m] (type:float)
+        z                         : Local Z position of this position in the local coordinate frame (NED: positive "down") [m] (type:float)
         q                         : World to surface normal and heading transformation of the takeoff position. Used to indicate the heading and slope of the ground (type:float)
         approach_x                : Local X position of the end of the approach vector. Multicopters should set this position based on their takeoff path. Grass-landing fixed wing aircraft should set it the same way as multicopters. Runway-landing fixed wing aircraft should set it to the opposite direction of the takeoff, assuming the takeoff happened from the threshold / touchdown zone. [m] (type:float)
         approach_y                : Local Y position of the end of the approach vector. Multicopters should set this position based on their takeoff path. Grass-landing fixed wing aircraft should set it the same way as multicopters. Runway-landing fixed wing aircraft should set it to the opposite direction of the takeoff, assuming the takeoff happened from the threshold / touchdown zone. [m] (type:float)
@@ -17169,7 +18558,7 @@ class MAVLink(object):
         emitter_type              : ADSB emitter type. (type:uint8_t, values:ADSB_EMITTER_TYPE)
         tslc                      : Time since last communication in seconds [s] (type:uint8_t)
         flags                     : Bitmap to indicate various statuses including valid data fields (type:uint16_t, values:ADSB_FLAGS)
-        squawk                    : Squawk code (type:uint16_t)
+        squawk                    : Squawk code. Note that the code is in decimal: e.g. 7700 (general emergency) is encoded as binary 0b0001_1110_0001_0100, not(!) as 0b0000_111_111_000_000 (type:uint16_t)
 
         """
         return MAVLink_adsb_vehicle_message(ICAO_address, lat, lon, altitude_type, altitude, heading, hor_velocity, ver_velocity, callsign, emitter_type, tslc, flags, squawk)
@@ -17190,7 +18579,7 @@ class MAVLink(object):
         emitter_type              : ADSB emitter type. (type:uint8_t, values:ADSB_EMITTER_TYPE)
         tslc                      : Time since last communication in seconds [s] (type:uint8_t)
         flags                     : Bitmap to indicate various statuses including valid data fields (type:uint16_t, values:ADSB_FLAGS)
-        squawk                    : Squawk code (type:uint16_t)
+        squawk                    : Squawk code. Note that the code is in decimal: e.g. 7700 (general emergency) is encoded as binary 0b0001_1110_0001_0100, not(!) as 0b0000_111_111_000_000 (type:uint16_t)
 
         """
         self.send(self.adsb_vehicle_encode(ICAO_address, lat, lon, altitude_type, altitude, heading, hor_velocity, ver_velocity, callsign, emitter_type, tslc, flags, squawk), force_mavlink1=force_mavlink1)
@@ -17368,7 +18757,7 @@ class MAVLink(object):
         on the MCU and sent only at a limited rate (e.g. 10 Hz).
 
         severity                  : Severity of status. Relies on the definitions within RFC-5424. (type:uint8_t, values:MAV_SEVERITY)
-        text                      : Status text message, without null termination character (type:char)
+        text                      : Status text message, without null termination character. UTF-8 encoded. (type:char)
 
         """
         return MAVLink_statustext_message(severity, text)
@@ -17382,7 +18771,7 @@ class MAVLink(object):
         on the MCU and sent only at a limited rate (e.g. 10 Hz).
 
         severity                  : Severity of status. Relies on the definitions within RFC-5424. (type:uint8_t, values:MAV_SEVERITY)
-        text                      : Status text message, without null termination character (type:char)
+        text                      : Status text message, without null termination character. UTF-8 encoded. (type:char)
 
         """
         self.send(self.statustext_encode(severity, text), force_mavlink1=force_mavlink1)
@@ -17410,6 +18799,88 @@ class MAVLink(object):
 
         """
         self.send(self.debug_encode(time_boot_ms, ind, value), force_mavlink1=force_mavlink1)
+
+    def global_position_int_encode(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int) -> MAVLink_global_position_int_message:
+        """
+        The filtered global position (e.g. fused GPS and accelerometers). The
+        position is in GPS-frame (right-handed, Z-up). It is designed
+        as scaled integer message since the resolution of float is not
+        sufficient.
+
+        time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
+        lat                       : Latitude, expressed [degE7] (type:int32_t)
+        lon                       : Longitude, expressed [degE7] (type:int32_t)
+        alt                       : Altitude (MSL). Note that virtually all GPS modules provide both WGS84 and MSL. [mm] (type:int32_t)
+        relative_alt              : Altitude above home [mm] (type:int32_t)
+        vx                        : Ground X Speed (Latitude, positive north) [cm/s] (type:int16_t)
+        vy                        : Ground Y Speed (Longitude, positive east) [cm/s] (type:int16_t)
+        vz                        : Ground Z Speed (Altitude, positive down) [cm/s] (type:int16_t)
+        hdg                       : Vehicle heading (yaw angle), 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
+
+        """
+        return MAVLink_global_position_int_message(time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg)
+
+    def global_position_int_send(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int, force_mavlink1: bool = False) -> None:
+        """
+        The filtered global position (e.g. fused GPS and accelerometers). The
+        position is in GPS-frame (right-handed, Z-up). It is designed
+        as scaled integer message since the resolution of float is not
+        sufficient.
+
+        time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
+        lat                       : Latitude, expressed [degE7] (type:int32_t)
+        lon                       : Longitude, expressed [degE7] (type:int32_t)
+        alt                       : Altitude (MSL). Note that virtually all GPS modules provide both WGS84 and MSL. [mm] (type:int32_t)
+        relative_alt              : Altitude above home [mm] (type:int32_t)
+        vx                        : Ground X Speed (Latitude, positive north) [cm/s] (type:int16_t)
+        vy                        : Ground Y Speed (Longitude, positive east) [cm/s] (type:int16_t)
+        vz                        : Ground Z Speed (Altitude, positive down) [cm/s] (type:int16_t)
+        hdg                       : Vehicle heading (yaw angle), 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
+
+        """
+        self.send(self.global_position_int_encode(time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg), force_mavlink1=force_mavlink1)
+
+    def autopilot_version_encode(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int) -> MAVLink_autopilot_version_message:
+        """
+        Version and capability of autopilot software. This should be emitted
+        in response to a request with MAV_CMD_REQUEST_MESSAGE.
+
+        capabilities              : Bitmap of capabilities (type:uint64_t, values:MAV_PROTOCOL_CAPABILITY)
+        flight_sw_version         : Firmware version number.
+        The field must be encoded as 4 bytes, where each byte (shown from MSB to LSB) is part of a semantic version: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE). (type:uint32_t)
+        middleware_sw_version        : Middleware version number (type:uint32_t)
+        os_sw_version             : Operating system version number (type:uint32_t)
+        board_version             : HW / board version (last 8 bits should be silicon ID, if any). The first 16 bits of this field specify a board type from an enumeration stored at https://github.com/PX4/PX4-Bootloader/blob/master/board_types.txt and with extensive additions at https://github.com/ArduPilot/ardupilot/blob/master/Tools/AP_Bootloader/board_types.txt (type:uint32_t)
+        flight_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        middleware_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        os_custom_version         : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        vendor_id                 : ID of the board vendor (type:uint16_t)
+        product_id                : ID of the product (type:uint16_t)
+        uid                       : UID if provided by hardware (see uid2) (type:uint64_t)
+
+        """
+        return MAVLink_autopilot_version_message(capabilities, flight_sw_version, middleware_sw_version, os_sw_version, board_version, flight_custom_version, middleware_custom_version, os_custom_version, vendor_id, product_id, uid)
+
+    def autopilot_version_send(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int, force_mavlink1: bool = False) -> None:
+        """
+        Version and capability of autopilot software. This should be emitted
+        in response to a request with MAV_CMD_REQUEST_MESSAGE.
+
+        capabilities              : Bitmap of capabilities (type:uint64_t, values:MAV_PROTOCOL_CAPABILITY)
+        flight_sw_version         : Firmware version number.
+        The field must be encoded as 4 bytes, where each byte (shown from MSB to LSB) is part of a semantic version: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE). (type:uint32_t)
+        middleware_sw_version        : Middleware version number (type:uint32_t)
+        os_sw_version             : Operating system version number (type:uint32_t)
+        board_version             : HW / board version (last 8 bits should be silicon ID, if any). The first 16 bits of this field specify a board type from an enumeration stored at https://github.com/PX4/PX4-Bootloader/blob/master/board_types.txt and with extensive additions at https://github.com/ArduPilot/ardupilot/blob/master/Tools/AP_Bootloader/board_types.txt (type:uint32_t)
+        flight_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        middleware_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        os_custom_version         : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        vendor_id                 : ID of the board vendor (type:uint16_t)
+        product_id                : ID of the product (type:uint16_t)
+        uid                       : UID if provided by hardware (see uid2) (type:uint64_t)
+
+        """
+        self.send(self.autopilot_version_encode(capabilities, flight_sw_version, middleware_sw_version, os_sw_version, board_version, flight_custom_version, middleware_custom_version, os_custom_version, vendor_id, product_id, uid), force_mavlink1=force_mavlink1)
 
     def heartbeat_encode(self, type: int, autopilot: int, base_mode: int, custom_mode: int, system_status: int, mavlink_version: int = 3) -> MAVLink_heartbeat_message:
         """

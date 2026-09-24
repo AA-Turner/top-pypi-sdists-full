@@ -18,6 +18,27 @@ from MAVProxy.modules.lib.mp_menu import *
 
 green = (0, 128, 0)
 
+# navigation commands that move the vehicle to the item location, used for
+# estimating the distance remaining in a mission
+nav_commands = frozenset([
+    mavutil.mavlink.MAV_CMD_NAV_WAYPOINT,
+    mavutil.mavlink.MAV_CMD_NAV_LOITER_UNLIM,
+    mavutil.mavlink.MAV_CMD_NAV_LOITER_TURNS,
+    mavutil.mavlink.MAV_CMD_NAV_LOITER_TIME,
+    mavutil.mavlink.MAV_CMD_NAV_LOITER_TO_ALT,
+    mavutil.mavlink.MAV_CMD_NAV_SPLINE_WAYPOINT,
+    mavutil.mavlink.MAV_CMD_NAV_LAND,
+    mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
+    mavutil.mavlink.MAV_CMD_NAV_VTOL_LAND,
+    mavutil.mavlink.MAV_CMD_NAV_VTOL_TAKEOFF,
+    mavutil.mavlink.MAV_CMD_NAV_PAYLOAD_PLACE,
+])
+
+land_commands = frozenset([
+    mavutil.mavlink.MAV_CMD_NAV_LAND,
+    mavutil.mavlink.MAV_CMD_NAV_VTOL_LAND,
+])
+
 class DisplayItem:
     def __init__(self, fmt, expression, row):
         self.expression = expression.strip('"\'')
@@ -40,7 +61,7 @@ class ConsoleModule(mp_module.MPModule):
         self.safety_on = False
         self.unload_check_interval = 5 # seconds
         self.last_unload_check_time = time.time()
-        self.add_command('console', self.cmd_console, "console module", ['add','list','remove'])
+        self.add_command('console', self.cmd_console, "console module", ['add','list','remove','title'])
         mpstate.console = wxconsole.MessageConsole(title='Console')
 
         # setup some default status information
@@ -86,6 +107,7 @@ class ConsoleModule(mp_module.MPModule):
         self.vehicle_menu = None
         self.vehicle_name_by_sysid = {}
         self.component_name = {}
+        self.component_model = {}
         self.last_param_sysid_timestamp = None
         self.flight_information = {}
 
@@ -95,6 +117,7 @@ class ConsoleModule(mp_module.MPModule):
             self.add_menu(MPMenuSubMenu('MAVProxy',
                                         items=[MPMenuItem('Settings', 'Settings', 'menuSettings'),
                                                MPMenuItem('Show Map', 'Load Map', '# module load map'),
+                                               MPMenuItem('Show Map3d', 'Load 3D Map', '# module load map3d'),
                                                MPMenuItem('Show HUD', 'Load HUD', '# module load horizon'),
                                                MPMenuItem('Show Checklist', 'Load Checklist', '# module load checklist')]))
             self.vehicle_menu = MPMenuSubMenu('Vehicle', items=[])
@@ -103,7 +126,7 @@ class ConsoleModule(mp_module.MPModule):
         self.shown_agl = False
 
     def cmd_console(self, args):
-        usage = 'usage: console <add|list|remove|menu|set>'
+        usage = 'usage: console <add|list|remove|menu|set|title>'
         if len(args) < 1:
             print(usage)
             return
@@ -133,6 +156,11 @@ class ConsoleModule(mp_module.MPModule):
             self.cmd_menu(args[1:])
         elif cmd == 'set':
             self.cmd_set(args[1:])
+        elif cmd == 'title':
+            if len(args) < 2:
+                print("usage: console title TITLE")
+                return
+            self.console.set_title(' '.join(args[1:]))
         else:
             print(usage)
 
@@ -152,13 +180,24 @@ class ConsoleModule(mp_module.MPModule):
         self.menu.add_to_submenu(menupath[:-1], MPMenuItem(name, name, cmd))
         self.mpstate.console.set_menu(self.menu, self.menu_callback)
 
+    def cmd_menu_remove(self, args):
+        '''remove an item from the console menus'''
+        if len(args) < 1:
+            print("Usage: console menu remove MenuPath")
+            return
+        menupath = args[0].strip('"').split(':')
+        self.menu.remove_from_submenu(menupath[:-1], menupath[-1])
+        self.mpstate.console.set_menu(self.menu, self.menu_callback)
+
     def cmd_menu(self, args):
         '''control console menus'''
         if len(args) < 2:
-            print("Usage: console menu <add>")
+            print("Usage: console menu <add|remove>")
             return
         if args[0] == 'add':
             self.cmd_menu_add(args[1:])
+        elif args[0] == 'remove':
+            self.cmd_menu_remove(args[1:])
 
     def cmd_set(self, args):
         '''set console options'''
@@ -202,28 +241,27 @@ class ConsoleModule(mp_module.MPModule):
             done.add(idx)
             w = self.module('wp').wploader.wp(idx)
             if w.command == mavutil.mavlink.MAV_CMD_DO_JUMP:
+                if w.param2 == 0:
+                    # no repeats, so the jump is never taken
+                    idx += 1
+                    continue
                 idx = int(w.param1)
                 continue
             idx += 1
-            if (w.x != 0 or w.y != 0) and w.command in [mavutil.mavlink.MAV_CMD_NAV_WAYPOINT,
-                                                        mavutil.mavlink.MAV_CMD_NAV_LOITER_UNLIM,
-                                                        mavutil.mavlink.MAV_CMD_NAV_LOITER_TURNS,
-                                                        mavutil.mavlink.MAV_CMD_NAV_LOITER_TIME,
-                                                        mavutil.mavlink.MAV_CMD_NAV_LAND,
-                                                        mavutil.mavlink.MAV_CMD_NAV_TAKEOFF]:
+            if (w.x != 0 or w.y != 0) and w.command in nav_commands:
                 distance += mp_util.gps_distance(lat, lon, w.x, w.y)
                 lat = w.x
                 lon = w.y
-                if w.command == mavutil.mavlink.MAV_CMD_NAV_LAND:
-                    break
+            if w.command in land_commands:
+                # the mission is over once we land; anything past the landing
+                # is only reached via an operator jump. Checked outside the
+                # location test as a land with no location means "land here"
+                break
         return distance / speed
 
     def vehicle_type_string(self, hb):
         '''return vehicle type string from a heartbeat'''
-        if hb.type in [mavutil.mavlink.MAV_TYPE_FIXED_WING,
-                            mavutil.mavlink.MAV_TYPE_VTOL_DUOROTOR,
-                            mavutil.mavlink.MAV_TYPE_VTOL_QUADROTOR,
-                            mavutil.mavlink.MAV_TYPE_VTOL_TILTROTOR]:
+        if hb.type in mp_util.plane_mav_types():
             return 'Plane'
         if hb.type == mavutil.mavlink.MAV_TYPE_GROUND_ROVER:
             return 'Rover'
@@ -248,6 +286,8 @@ class ConsoleModule(mp_module.MPModule):
             return "ADSB"
         elif hb.type == mavutil.mavlink.MAV_TYPE_ODID:
             return "ODID"
+        elif hb.type == mavutil.mavlink.MAV_TYPE_CAMERA:
+            return "Camera"
         return "UNKNOWN(%u)" % hb.type
 
     def component_type_string(self, hb):
@@ -272,7 +312,8 @@ class ConsoleModule(mp_module.MPModule):
         for s in sorted(self.vehicle_list):
             clist = self.module('param').get_component_id_list(s)
             if len(clist) == 1:
-                name = 'SysID %u: %s' % (s, self.vehicle_name_by_sysid[s])
+                component = self.component_name.get(s, {}).get(clist[0], self.vehicle_name_by_sysid[s])
+                name = 'SysID %u: %s' % (s, component)
                 self.vehicle_menu.items.append(MPMenuItem(name, name, '# vehicle %u' % s))
             else:
                 for c in sorted(clist):
@@ -311,12 +352,38 @@ class ConsoleModule(mp_module.MPModule):
             self.last_sys_status_errors_announce = now
             self.say("Critical failure 0x%x sysid=%u compid=%u" % (errors, sysid, compid))
 
-    def set_component_name(self, sysid, compid, name):
+    def set_component_name(self, sysid, compid, name, override=False):
         if sysid not in self.component_name:
             self.component_name[sysid] = {}
-        if compid not in self.component_name[sysid]:
+        if (compid not in self.component_name[sysid] or
+                (override and self.component_name[sysid][compid] != name)):
             self.component_name[sysid][compid] = name
             self.update_vehicle_menu()
+
+    def component_is_flight_controller(self, sysid, compid):
+        if compid == mavutil.mavlink.MAV_COMP_ID_AUTOPILOT1:
+            return True
+        heartbeat = self.vehicle_heartbeats.get((sysid, compid))
+        if heartbeat is None or heartbeat.type in (mavutil.mavlink.MAV_TYPE_CAMERA,
+                                                   mavutil.mavlink.MAV_TYPE_GIMBAL):
+            return False
+        return (getattr(heartbeat, 'autopilot', mavutil.mavlink.MAV_AUTOPILOT_INVALID) not in
+                (mavutil.mavlink.MAV_AUTOPILOT_INVALID, mavutil.mavlink.MAV_AUTOPILOT_GENERIC))
+
+    def update_component_model_name(self, sysid, compid):
+        '''combine advertised identification with the component heartbeat type'''
+        heartbeat = self.vehicle_heartbeats.get((sysid, compid))
+        if self.component_is_flight_controller(sysid, compid):
+            # ArduPilot sends CAMERA_INFORMATION for its attached mounts from
+            # its own component; keep the flight controller's own name
+            if heartbeat is not None:
+                self.set_component_name(sysid, compid, self.component_type_string(heartbeat),
+                                        override=True)
+            return
+        name = self.component_model[(sysid, compid)]
+        if heartbeat is not None:
+            name += ' (%s)' % self.component_type_string(heartbeat)
+        self.set_component_name(sysid, compid, name, override=True)
 
     # this method is called when a HEARTBEAT arrives from any source:
     def handle_heartbeat_anysource(self, msg):
@@ -327,15 +394,24 @@ class ConsoleModule(mp_module.MPModule):
                 self.vehicle_heartbeats[(sysid, compid)] = msg
             if not sysid in self.vehicle_list:
                 self.add_new_vehicle(msg)
-            self.set_component_name(sysid, compid, self.component_type_string(msg))
+            if (sysid, compid) in self.component_model:
+                self.update_component_model_name(sysid, compid)
+            else:
+                self.set_component_name(sysid, compid, self.component_type_string(msg))
 
-    # this method is called when a GIMBAL_DEVICE_INFORMATION arrives
-    # from any source:
-    def handle_gimbal_device_information_anysource(self, msg):
-            sysid = msg.get_srcSystem()
-            compid = msg.get_srcComponent()
-            self.set_component_name(sysid, compid, "%s-%s" %
-                                    (msg.vendor_name, msg.model_name))
+    def handle_component_information_anysource(self, msg):
+        '''prefer camera/gimbal identification over the heartbeat type'''
+        def text(value):
+            # CAMERA_INFORMATION uses uint8 arrays; gimbal fields are char[].
+            if not isinstance(value, str):
+                value = bytes(value).decode('utf-8', errors='replace')
+            return value.split('\0', 1)[0].strip()
+
+        name = '-'.join(part for part in (text(msg.vendor_name), text(msg.model_name)) if part)
+        if name:
+            sysid, compid = msg.get_srcSystem(), msg.get_srcComponent()
+            self.component_model[(sysid, compid)] = name
+            self.update_component_model_name(sysid, compid)
 
     def handle_radio_status(self, msg):
             # handle RADIO msgs from all vehicles
@@ -356,8 +432,16 @@ class ConsoleModule(mp_module.MPModule):
                 prefix = 'GPS2'
             nsats = msg.satellites_visible
             fix_type = msg.fix_type
+            yaw = msg.yaw
             if fix_type >= 3:
-                self.console.set_status(field, '%s OK%s (%u)' % (prefix, fix_type, nsats), fg=green)
+                gnss_heading_status = ''
+                if yaw > 0 and yaw < 65535:
+                    # GNSS heading
+                    gnss_heading_status = ' H'
+                elif yaw == 65535:
+                    # GNSS heading but no valid data
+                    gnss_heading_status = ' h'
+                self.console.set_status(field, '%s OK%s (%u)%s' % (prefix, fix_type, nsats, gnss_heading_status), fg=green)
             else:
                 self.console.set_status(field, '%s %u (%u)' % (prefix, fix_type, nsats), fg='red')
             if type == 'GPS_RAW_INT':
@@ -810,8 +894,8 @@ class ConsoleModule(mp_module.MPModule):
         if type in frozenset(['HEARTBEAT', 'HIGH_LATENCY2']):
             self.handle_heartbeat_anysource(msg)
 
-        elif type == 'GIMBAL_DEVICE_INFORMATION':
-            self.handle_gimbal_device_information_anysource(msg)
+        elif type in ('GIMBAL_DEVICE_INFORMATION', 'CAMERA_INFORMATION'):
+            self.handle_component_information_anysource(msg)
 
         if self.last_param_sysid_timestamp != self.module('param').new_sysid_timestamp:
             '''a new component ID has appeared for parameters'''
@@ -893,6 +977,11 @@ class ConsoleModule(mp_module.MPModule):
             self.flight_information[sysid] = ConsoleModule.FlightInformation(sysid)
 
         fi = self.flight_information[sysid]
+
+        if not hasattr(mavutil.mavlink, 'MAVLINK_MSG_ID_FLIGHT_INFORMATION'):
+            # message not in this dialect (e.g. MAVLink1, --mav10)
+            fi.supported = False
+            return
 
         now  = time.time()
 

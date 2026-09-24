@@ -261,8 +261,7 @@ async def init(
             raise CLIGitReleaseException(
                 FeedbackManager.error_dottinyb_not_ignored(git_working_dir=f"{cli_git_release.working_dir()}/")
             )
-        else:
-            click.echo(FeedbackManager.info_dottinyb_already_ignored())
+        click.echo(FeedbackManager.info_dottinyb_already_ignored())
 
         if (
             os.path.exists(f"{cli_git_release.working_dir()}/.diff_tmp")
@@ -271,14 +270,13 @@ async def init(
             raise CLIGitReleaseException(
                 FeedbackManager.error_dotdiff_not_ignored(git_working_dir=f"{cli_git_release.working_dir()}/")
             )
-        else:
-            click.echo(FeedbackManager.info_dotdifftemp_already_ignored())
+        click.echo(FeedbackManager.info_dotdifftemp_already_ignored())
 
         if "release" not in current_ws:
             raise CLIGitReleaseException(FeedbackManager.error_no_correct_token_for_init())
 
         # If we have a release and we are not overriding the commit, we check if we have a release already
-        elif current_ws.get("release") and not override_commit:
+        if current_ws.get("release") and not override_commit:
             final_response = FeedbackManager.error_release_already_set(
                 workspace=current_ws["name"], commit=current_ws["release"]["commit"]
             )
@@ -1034,7 +1032,7 @@ async def materialize(
                     pass
 
         filename = str(f.absolute())
-        to_run = await folder_push(
+        return await folder_push(
             cl,
             filenames=[filename],
             push_deps=push_deps,
@@ -1043,7 +1041,6 @@ async def materialize(
             no_versions=no_versions,
             verbose=verbose,
         )
-        return to_run
 
     def _save_local_pipe(pipe_file_name, pipe_datafile, pipe):
         base = Path("pipes")
@@ -1075,7 +1072,7 @@ async def materialize(
         check = option == 1
 
         filename = str(f_pipe.absolute())
-        to_run = await folder_push(
+        return await folder_push(
             cl,
             filenames=[filename],
             dry_run=False,
@@ -1090,7 +1087,6 @@ async def materialize(
             run_tests=False,
             verbose=verbose,
         )
-        return to_run
 
     async def _populate(pipe, node_name, f_pipe):
         if force_populate or click.confirm(FeedbackManager.prompt_populate(file=f_pipe)):

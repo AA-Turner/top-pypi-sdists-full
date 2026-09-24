@@ -231,6 +231,11 @@ class LinkModule(mp_module.MPModule):
                 print('Usage: e.g. link attributes rfd900 {"label":"bob"}')
                 return
             self.cmd_link_attributes(args[1:])
+        elif args[0] == "label":
+            if len(args) != 3:
+                print("Usage: link label LINK LABEL")
+                return
+            self.cmd_link_label(args[1:])
         elif args[0] == "ports":
             self.cmd_link_ports()
         elif args[0] == "remove":
@@ -471,6 +476,12 @@ class LinkModule(mp_module.MPModule):
         print("Setting link %s attributes (%s)" % (link, attributes))
         self.link_attributes(link, attributes)
 
+    def cmd_link_label(self, args):
+        '''change optional link label'''
+        link = args[0]
+        label = args[1]
+        self.link_attributes(link, '{"label":"%s"}' % label)
+
     def cmd_link_ports(self):
         '''show available ports'''
         ports = mavutil.auto_detect_serial(preferred_list=preferred_ports)
@@ -698,18 +709,43 @@ class LinkModule(mp_module.MPModule):
 
         return True
 
-    mav_type_planes = [
-        mavutil.mavlink.MAV_TYPE_FIXED_WING,
-        mavutil.mavlink.MAV_TYPE_VTOL_QUADROTOR,
-        mavutil.mavlink.MAV_TYPE_VTOL_TILTROTOR,
-    ]
-    # VTOL_DUOROTOR was renamed to VTOL_TAILSITTER_DUOROTOR
-    for possible_plane_type in "VTOL_DUOROTOR", "VTOL_TAILSITTER_DUOROTOR":
-        t = f"MAV_TYPE_{possible_plane_type}"
-        attr = getattr(mavutil.mavlink, t, None)
-        if attr is None:
-            continue
-        mav_type_planes.append(attr)
+    mav_type_planes = mp_util.plane_mav_types()
+
+    def should_show_command_ack(self, m):
+        '''returns true if we should display some text on the console for m'''
+        if m.target_component in [mavutil.mavlink.MAV_COMP_ID_MAVCAN]:
+            # too noisy?
+            return False
+
+        if m.command in frozenset([
+                mavutil.mavlink.MAV_CMD_GET_HOME_POSITION,
+                mavutil.mavlink.MAV_CMD_DO_DIGICAM_CONTROL,
+                mavutil.mavlink.MAV_CMD_SET_CAMERA_MODE,
+                mavutil.mavlink.MAV_CMD_SET_CAMERA_ZOOM,
+                mavutil.mavlink.MAV_CMD_SET_CAMERA_FOCUS,
+                mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,
+                mavutil.mavlink.MAV_CMD_CAN_FORWARD,
+        ]):
+            # too noisy?
+            return False
+
+        if self.settings.all_vehicle_command_acks:
+            # we're showing everything
+            return True
+
+        if m.target_system == 0:
+            return True
+
+        if m.target_system != self.settings.source_system:
+            return False
+
+        if m.target_component == 0:
+            return True
+
+        if m.target_component != self.settings.source_component:
+            return False
+
+        return True
 
     def master_msg_handling(self, m, master):
         '''link message handling for an upstream link'''
@@ -927,14 +963,9 @@ class LinkModule(mp_module.MPModule):
                 cmd = cmd[8:]
                 res = mavutil.mavlink.enums["MAV_RESULT"][m.result].name
                 res = res[11:]
-                if (m.target_component not in [mavutil.mavlink.MAV_COMP_ID_MAVCAN] and
-                    m.command not in [mavutil.mavlink.MAV_CMD_GET_HOME_POSITION,
-                                      mavutil.mavlink.MAV_CMD_DO_DIGICAM_CONTROL,
-                                      mavutil.mavlink.MAV_CMD_SET_CAMERA_MODE,
-                                      mavutil.mavlink.MAV_CMD_SET_CAMERA_ZOOM,
-                                      mavutil.mavlink.MAV_CMD_SET_CAMERA_FOCUS]):
-                    self.mpstate.console.writeln("Got COMMAND_ACK: %s: %s" % (cmd, res))
-            except Exception:
+                if self.should_show_command_ack(m):
+                    self.mpstate.console.writeln("Got COMMAND_ACK: %s: %s" % (cmd, res))  # noqa
+            except KeyError:
                 self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
 
             if m.command == mavutil.mavlink.MAV_CMD_PREFLIGHT_CALIBRATION:
@@ -1063,6 +1094,11 @@ class LinkModule(mp_module.MPModule):
             if self.mpstate.settings.mavfwd_rate or mtype != 'REQUEST_DATA_STREAM':
                 if mtype not in self.no_fwd_types:
                     for r in self.mpstate.mav_outputs:
+                        # per-output component discard ("output discardcompid N X"). The
+                        # attribute is absent on --out connections, so read it defensively.
+                        discard = getattr(r, 'discard_comps', None)
+                        if discard and m.get_srcComponent() in discard:
+                            continue
                         if hasattr(r, 'ws') and r.ws is not None:
                             from wsproto.connection import ConnectionState
                             if r.ws.state != ConnectionState.OPEN:  # Ensure Websocket handshake is done

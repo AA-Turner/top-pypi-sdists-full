@@ -130,20 +130,19 @@ class OidcIssuer(pulumi.CustomResource):
                  max_expiration_seconds: pulumi.Input[Optional[_builtins.int]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  organization: pulumi.Input[Optional[_builtins.str]] = None,
-                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AuthPolicyDefinitionArgs', 'AuthPolicyDefinitionArgsDict']]]]] = None,
+                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AuthPolicyDefinitionArgs', 'AuthPolicyDefinitionArgsDict', 'outputs.AuthPolicyDefinition']]]]] = None,
                  thumbprints: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  url: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         Register an OIDC Provider to establish a trust relationship between third-party systems like GitHub Actions and Pulumi Cloud, obviating the need to store a hard-coded Pulumi Cloud token in systems that need to run Pulumi commands or consume Pulumi Cloud APIs. Instead of a hard-coded, static token that must be manually rotated, trusted systems are granted temporary Pulumi Cloud tokens on an as-needed basis, which is more secure than static tokens.
 
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.int] max_expiration_seconds: The maximum duration of the Pulumi access token working after an exchange, specified in seconds.
         :param pulumi.Input[_builtins.str] name: Issuer name.
         :param pulumi.Input[_builtins.str] organization: Organization name.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['AuthPolicyDefinitionArgs', 'AuthPolicyDefinitionArgsDict']]]] policies: The auth policies for this Oidc Issuer.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AuthPolicyDefinitionArgs', 'AuthPolicyDefinitionArgsDict', 'outputs.AuthPolicyDefinition']]]] policies: The auth policies for this Oidc Issuer.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] thumbprints: The thumbprints of issuer's TLS certificates. By default, Pulumi will store the thumbprint of the certificate used to serve the OpenID configuration. If the provider uses multiple certificates to serve content, it is required to manually configure these.
         :param pulumi.Input[_builtins.str] url: The OIDC issuer URL.
         """
@@ -155,7 +154,6 @@ class OidcIssuer(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Register an OIDC Provider to establish a trust relationship between third-party systems like GitHub Actions and Pulumi Cloud, obviating the need to store a hard-coded Pulumi Cloud token in systems that need to run Pulumi commands or consume Pulumi Cloud APIs. Instead of a hard-coded, static token that must be manually rotated, trusted systems are granted temporary Pulumi Cloud tokens on an as-needed basis, which is more secure than static tokens.
-
 
         :param str resource_name: The name of the resource.
         :param OidcIssuerArgs args: The arguments to use to populate this resource's properties.
@@ -175,7 +173,7 @@ class OidcIssuer(pulumi.CustomResource):
                  max_expiration_seconds: pulumi.Input[Optional[_builtins.int]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  organization: pulumi.Input[Optional[_builtins.str]] = None,
-                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AuthPolicyDefinitionArgs', 'AuthPolicyDefinitionArgsDict']]]]] = None,
+                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['AuthPolicyDefinitionArgs', 'AuthPolicyDefinitionArgsDict', 'outputs.AuthPolicyDefinition']]]]] = None,
                  thumbprints: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  url: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):

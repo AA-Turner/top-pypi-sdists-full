@@ -123,6 +123,10 @@ def normalize_event_name(event: str) -> str:
 # output can carry sensitive data just like a successful tool's result.
 _POST_TOOL_EVENTS = frozenset({"PostToolUse", "PostToolUseFailure"})
 
+# Session events whose hook output may add model-visible context.
+_CONTEXT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
+_CONTEXT_CLIENTS = frozenset({Client.CLAUDE_CODE, Client.CODEX})
+
 # Cline parses stdout by scanning for lines prefixed ``HOOK_CONTROL\t`` (last one
 # wins). If NO prefixed line exists it instead requires the entire trimmed stdout
 # to be valid JSON, so any incidental logging would corrupt the decision. Always
@@ -753,6 +757,22 @@ class HookResponse:
         if self._client == Client.CLINE_CLI and self._event == "PreToolUse":
             return _cline_control({"overrideInput": tool_input})
         return None
+
+    def allow_with_context(self, context: str) -> str | None:
+        """Allow a session event and add model-visible context.
+
+        Claude Code and Codex share the ``hookSpecificOutput.additionalContext``
+        contract on session start and prompt submit.
+        """
+        if self._client in _CONTEXT_CLIENTS and self._event in _CONTEXT_EVENTS:
+            return json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": self._event,
+                        "additionalContext": context,
+                    }
+                }
+            )
 
     def allow_with_notice(self, notice: str) -> str | None:
         """Allow carrying a user-visible one-liner, or ``None`` when this client

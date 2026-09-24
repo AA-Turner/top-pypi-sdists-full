@@ -33,6 +33,7 @@ from sqlalchemy.sql import sqltypes
 
 from .datatype import JSONIndexType
 from .datatype import JSONPathType
+from .datatype import VARBINARY
 from trino import dbapi as trino_dbapi
 from trino import logging
 from trino.auth import BasicAuthentication
@@ -49,6 +50,10 @@ logger = logging.get_logger(__name__)
 colspecs = {
     sqltypes.JSON.JSONIndexType: JSONIndexType,
     sqltypes.JSON.JSONPathType: JSONPathType,
+    # Applies to sqltypes.LargeBinary, sqltypes.VARBINARY and sqltypes.BINARY, all of which
+    # derive from sqltypes._Binary. Ensures a Trino-compatible X'...' literal is rendered
+    # instead of the default implementation, which assumes the value is UTF-8 decodable text.
+    sqltypes._Binary: VARBINARY,
 }
 
 
@@ -180,6 +185,9 @@ class TrinoDialect(DefaultDialect):
         if "verify" in url.query:
             kwargs["verify"] = json.loads(url.query["verify"])
 
+        if "allow_insecure_auth" in url.query:
+            kwargs["allow_insecure_auth"] = json.loads(url.query["allow_insecure_auth"])
+
         if "roles" in url.query:
             kwargs["roles"] = json.loads(url.query["roles"])
 
@@ -231,9 +239,14 @@ class TrinoDialect(DefaultDialect):
             SELECT * FROM {schema}."{table_name}$partitions"
         """
         ).strip()
+
         res = connection.execute(sql.text(query))
-        partition_names = [desc[0] for desc in res.cursor.description]
-        data_types = [desc[1] for desc in res.cursor.description]
+        try:
+            partition_names = [desc[0] for desc in res.cursor.description]
+            data_types = [desc[1] for desc in res.cursor.description]
+        finally:
+            res.close()
+
         # Compare the column names and types to the shape of an Iceberg $partitions table
         if (partition_names == ['partition', 'record_count', 'file_count', 'total_size', 'data']
                 and data_types[0].startswith('row(')

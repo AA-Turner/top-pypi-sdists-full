@@ -1579,6 +1579,24 @@ class OrdersResponseWrapper(QuantConnect.Api.RestResponse):
     def orders(self, value: typing.List[QuantConnect.Orders.ApiOrderResponse]) -> None:
         ...
 
+    @property
+    def status(self) -> str:
+        """Status of the order generation process, "loading" while the orders are not ready yet"""
+        ...
+
+    @status.setter
+    def status(self, value: str) -> None:
+        ...
+
+    @property
+    def progress(self) -> float:
+        """Loading percentage of the order generation process"""
+        ...
+
+    @progress.setter
+    def progress(self, value: float) -> None:
+        ...
+
 
 class OrderResponseErrorCode(IntEnum):
     """Error detail code"""

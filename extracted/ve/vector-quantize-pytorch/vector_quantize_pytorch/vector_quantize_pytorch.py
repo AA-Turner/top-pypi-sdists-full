@@ -16,6 +16,8 @@ from torch.amp import autocast
 import einx
 from einops import rearrange, repeat, reduce, pack, unpack
 
+from loguru import logger
+
 def exists(val):
     return val is not None
 
@@ -456,6 +458,11 @@ class Codebook(Module):
             c = data.shape[0]
             data = rearrange(data[mask], '(c n) d -> c n d', c = c)
 
+        num_samples = data.shape[-2]
+
+        if num_samples < self.codebook_size:
+            logger.warning(f'k-means init received {num_samples} vectors for a codebook of {self.codebook_size} - duplicates will be sampled')
+
         embed, cluster_size = kmeans(
             data,
             self.codebook_size,
@@ -546,13 +553,29 @@ class Codebook(Module):
             batch_samples = l2norm(batch_samples)
 
         for ind, (samples, mask) in enumerate(zip(batch_samples, batch_mask)):
+            device = samples.device
+
             if exists(seq_mask):
                 samples = samples[seq_mask[ind]]
 
             if is_empty(samples):
                 continue
 
-            sampled = self.replace_sample_fn(rearrange(samples, '... -> 1 ...'), mask.sum().item())
+            num_samples = samples.shape[0]
+            num_dead = mask.sum().item()
+
+            # when there are more dead codes than samples, sampling with replacement would duplicate codes
+            # so only replace a random subset of the dead codes now, deferring the rest to later steps
+
+            if self.replace_sample_fn is batched_sample_vectors and num_dead > num_samples:
+                dead_indices = mask.nonzero(as_tuple = True)[0]
+                dead_indices = dead_indices[torch.randperm(num_dead, device = device)[:num_samples]]
+
+                mask = torch.zeros_like(mask)
+                mask[dead_indices] = True
+                num_dead = num_samples
+
+            sampled = self.replace_sample_fn(rearrange(samples, '... -> 1 ...'), num_dead)
             sampled = rearrange(sampled, '1 ... -> ...')
 
             sampled = sampled.to(self.embed.data)

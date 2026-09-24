@@ -19,7 +19,9 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.error_schema import ErrorSchema
+from ..types.job_trigger_category import JobTriggerCategory
 from ..types.off_platform_job_execution_schema import OffPlatformJobExecutionSchema
+from ..types.parameter_definition_schema import ParameterDefinitionSchema
 from ..types.revert_result_schema import RevertResultSchema
 from ..types.start_job_execution_schema import StartJobExecutionSchema
 from ..types.tools_job_schema import ToolsJobSchema
@@ -165,6 +167,11 @@ class RawJobsClient:
         name: str,
         code: str,
         description: typing.Optional[str] = OMIT,
+        trigger_enabled: typing.Optional[bool] = OMIT,
+        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_instrument_id: typing.Optional[str] = OMIT,
+        trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ToolsJobSchema]:
         """
@@ -188,6 +195,21 @@ class RawJobsClient:
         description : typing.Optional[str]
             What the job does.
 
+        trigger_enabled : typing.Optional[bool]
+            True runs the job automatically when its trigger fires.
+
+        trigger_category : typing.Optional[JobTriggerCategory]
+            What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
+
+        trigger_instrument_id : typing.Optional[str]
+            Restricts a file_uploaded trigger to files from this instrument.
+
+        trigger_conditions : typing.Optional[typing.Dict[str, typing.Any]]
+            Filters on the triggering event. For file_uploaded, any of file_name_pattern (glob or regex), file_extensions (list of strings starting with '.'), source_type, min_size_kb, and max_size_kb. For job_completed, source_job_id (required) and statuses (list drawn from completed and failed; defaults to completed).
+
+        parameter_definitions : typing.Optional[typing.Sequence[ParameterDefinitionSchema]]
+            Inputs the script reads at run time. Each is rendered as a form control when the job is run on the platform.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -203,6 +225,15 @@ class RawJobsClient:
                 "name": name,
                 "description": description,
                 "code": code,
+                "trigger_enabled": trigger_enabled,
+                "trigger_category": trigger_category,
+                "trigger_instrument_id": trigger_instrument_id,
+                "trigger_conditions": trigger_conditions,
+                "parameter_definitions": convert_and_respect_annotation_metadata(
+                    object_=parameter_definitions,
+                    annotation=typing.Optional[typing.Sequence[ParameterDefinitionSchema]],
+                    direction="write",
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -314,10 +345,16 @@ class RawJobsClient:
         description: typing.Optional[str] = OMIT,
         code: typing.Optional[str] = OMIT,
         archived: typing.Optional[bool] = OMIT,
+        trigger_enabled: typing.Optional[bool] = OMIT,
+        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_instrument_id: typing.Optional[str] = OMIT,
+        trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ToolsJobSchema]:
         """
-        Change a job's name, description, or code, or archive it.
+        Change a job's name, description, code, trigger, or parameters, or
+        archive it.
 
         Only the fields passed are changed. New code is stored as a new version of
         the job's script, so earlier executions keep the version they ran. To
@@ -341,6 +378,21 @@ class RawJobsClient:
         archived : typing.Optional[bool]
             True archives the job, hiding it from the active job list; false restores it.
 
+        trigger_enabled : typing.Optional[bool]
+            True creates or replaces the job's trigger from the trigger fields; false removes it.
+
+        trigger_category : typing.Optional[JobTriggerCategory]
+            What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
+
+        trigger_instrument_id : typing.Optional[str]
+            Restricts a file_uploaded trigger to files from this instrument.
+
+        trigger_conditions : typing.Optional[typing.Dict[str, typing.Any]]
+            Filters on the triggering event. For file_uploaded, any of file_name_pattern (glob or regex), file_extensions (list of strings starting with '.'), source_type, min_size_kb, and max_size_kb. For job_completed, source_job_id (required) and statuses (list drawn from completed and failed; defaults to completed).
+
+        parameter_definitions : typing.Optional[typing.Sequence[ParameterDefinitionSchema]]
+            Inputs the script reads at run time. Each is rendered as a form control when the job is run on the platform.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -357,6 +409,15 @@ class RawJobsClient:
                 "description": description,
                 "code": code,
                 "archived": archived,
+                "trigger_enabled": trigger_enabled,
+                "trigger_category": trigger_category,
+                "trigger_instrument_id": trigger_instrument_id,
+                "trigger_conditions": trigger_conditions,
+                "parameter_definitions": convert_and_respect_annotation_metadata(
+                    object_=parameter_definitions,
+                    annotation=typing.Optional[typing.Sequence[ParameterDefinitionSchema]],
+                    direction="write",
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -966,6 +1027,11 @@ class AsyncRawJobsClient:
         name: str,
         code: str,
         description: typing.Optional[str] = OMIT,
+        trigger_enabled: typing.Optional[bool] = OMIT,
+        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_instrument_id: typing.Optional[str] = OMIT,
+        trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ToolsJobSchema]:
         """
@@ -989,6 +1055,21 @@ class AsyncRawJobsClient:
         description : typing.Optional[str]
             What the job does.
 
+        trigger_enabled : typing.Optional[bool]
+            True runs the job automatically when its trigger fires.
+
+        trigger_category : typing.Optional[JobTriggerCategory]
+            What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
+
+        trigger_instrument_id : typing.Optional[str]
+            Restricts a file_uploaded trigger to files from this instrument.
+
+        trigger_conditions : typing.Optional[typing.Dict[str, typing.Any]]
+            Filters on the triggering event. For file_uploaded, any of file_name_pattern (glob or regex), file_extensions (list of strings starting with '.'), source_type, min_size_kb, and max_size_kb. For job_completed, source_job_id (required) and statuses (list drawn from completed and failed; defaults to completed).
+
+        parameter_definitions : typing.Optional[typing.Sequence[ParameterDefinitionSchema]]
+            Inputs the script reads at run time. Each is rendered as a form control when the job is run on the platform.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1004,6 +1085,15 @@ class AsyncRawJobsClient:
                 "name": name,
                 "description": description,
                 "code": code,
+                "trigger_enabled": trigger_enabled,
+                "trigger_category": trigger_category,
+                "trigger_instrument_id": trigger_instrument_id,
+                "trigger_conditions": trigger_conditions,
+                "parameter_definitions": convert_and_respect_annotation_metadata(
+                    object_=parameter_definitions,
+                    annotation=typing.Optional[typing.Sequence[ParameterDefinitionSchema]],
+                    direction="write",
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -1115,10 +1205,16 @@ class AsyncRawJobsClient:
         description: typing.Optional[str] = OMIT,
         code: typing.Optional[str] = OMIT,
         archived: typing.Optional[bool] = OMIT,
+        trigger_enabled: typing.Optional[bool] = OMIT,
+        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_instrument_id: typing.Optional[str] = OMIT,
+        trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ToolsJobSchema]:
         """
-        Change a job's name, description, or code, or archive it.
+        Change a job's name, description, code, trigger, or parameters, or
+        archive it.
 
         Only the fields passed are changed. New code is stored as a new version of
         the job's script, so earlier executions keep the version they ran. To
@@ -1142,6 +1238,21 @@ class AsyncRawJobsClient:
         archived : typing.Optional[bool]
             True archives the job, hiding it from the active job list; false restores it.
 
+        trigger_enabled : typing.Optional[bool]
+            True creates or replaces the job's trigger from the trigger fields; false removes it.
+
+        trigger_category : typing.Optional[JobTriggerCategory]
+            What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
+
+        trigger_instrument_id : typing.Optional[str]
+            Restricts a file_uploaded trigger to files from this instrument.
+
+        trigger_conditions : typing.Optional[typing.Dict[str, typing.Any]]
+            Filters on the triggering event. For file_uploaded, any of file_name_pattern (glob or regex), file_extensions (list of strings starting with '.'), source_type, min_size_kb, and max_size_kb. For job_completed, source_job_id (required) and statuses (list drawn from completed and failed; defaults to completed).
+
+        parameter_definitions : typing.Optional[typing.Sequence[ParameterDefinitionSchema]]
+            Inputs the script reads at run time. Each is rendered as a form control when the job is run on the platform.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1158,6 +1269,15 @@ class AsyncRawJobsClient:
                 "description": description,
                 "code": code,
                 "archived": archived,
+                "trigger_enabled": trigger_enabled,
+                "trigger_category": trigger_category,
+                "trigger_instrument_id": trigger_instrument_id,
+                "trigger_conditions": trigger_conditions,
+                "parameter_definitions": convert_and_respect_annotation_metadata(
+                    object_=parameter_definitions,
+                    annotation=typing.Optional[typing.Sequence[ParameterDefinitionSchema]],
+                    direction="write",
+                ),
             },
             headers={
                 "content-type": "application/json",

@@ -495,8 +495,7 @@ def _summarize_details(data: Any, source: str, expand: bool, verbose: bool) -> s
         formatted_value = _format_pretty_detail_value(key, value, source=source)
         values.append(f"{key}: {formatted_value}" if verbose else formatted_value)
 
-    summary = ", ".join(values) if values else text
-    return summary
+    return ", ".join(values) if values else text
 
 
 def _render_logs_table(rows: Sequence[Dict[str, Any]], expand: bool, verbose: bool) -> str:

@@ -31,12 +31,10 @@ def _impl_name(impl):
 
 _implemented_by_impl_name = {
     "numpy": {"not_implemented": ("cumprod", "cummax", "cummin")},
-    "purepy": {
-        "not_implemented": ("cumsum", "cumprod", "cummax", "cummin", "sumofsquares")
-    },
+    "purepy": {"not_implemented": ("cumsum", "cumprod", "cummax", "cummin", "sumofsquares")},
     "numba": {"not_implemented": ("array", "list", "sort")},
     "pandas": {
-        "not_implemented": ("array", "list", "sort", "sumofsquares", "nansumofsquares")
+        "not_implemented": ("array", "list", "sort", "sumofsquares", "nansumofsquares", "trapezoid", "nantrapezoid")
     },
     "ufunc": {
         "implemented": (
@@ -62,9 +60,7 @@ def _is_implemented(impl_name, funcname):
         return False
     if funcname in not_implemented:
         return False
-    if implemented and funcname not in implemented:
-        return False
-    return True
+    return not (implemented and funcname not in implemented)
 
 
 def _wrap_notimplemented_skip(impl, name=None):
@@ -95,6 +91,8 @@ func_list = (
     "all",
     "any",
     "mean",
+    "median",
+    "trapezoid",
     "std",
     "var",
     "len",
@@ -109,6 +107,8 @@ func_list = (
     "nanmin",
     "nanmax",
     "nanmean",
+    "nanmedian",
+    "nantrapezoid",
     "nanstd",
     "nanvar",
     "nanlen",

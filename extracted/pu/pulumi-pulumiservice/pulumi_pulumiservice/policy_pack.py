@@ -128,20 +128,19 @@ class PolicyPack(pulumi.CustomResource):
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  organization: pulumi.Input[Optional[_builtins.str]] = None,
-                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyPackPolicyInputArgs', 'PolicyPackPolicyInputArgsDict']]]]] = None,
+                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyPackPolicyInputArgs', 'PolicyPackPolicyInputArgsDict', 'outputs.PolicyPackPolicyInput']]]]] = None,
                  source_path: pulumi.Input[Optional[_builtins.str]] = None,
                  version_tag: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         A Policy Pack published to Pulumi Cloud. The source directory is tarballed and uploaded on Create; changing source content publishes a new version (replace).
 
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] display_name: Optional display name. Changing it requires a new versionTag (policy pack versions are immutable in Pulumi Cloud).
         :param pulumi.Input[_builtins.str] name: Policy pack name (unique within the org).
         :param pulumi.Input[_builtins.str] organization: Organization name.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyPackPolicyInputArgs', 'PolicyPackPolicyInputArgsDict']]]] policies: Metadata for each policy in the pack.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyPackPolicyInputArgs', 'PolicyPackPolicyInputArgsDict', 'outputs.PolicyPackPolicyInput']]]] policies: Metadata for each policy in the pack.
         :param pulumi.Input[_builtins.str] source_path: Path to the directory containing the policy pack source. The directory is tarballed and uploaded.
         :param pulumi.Input[_builtins.str] version_tag: Semantic version tag (e.g. "1.0.0"). Versions are immutable; change to publish a new version.
         """
@@ -153,7 +152,6 @@ class PolicyPack(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         A Policy Pack published to Pulumi Cloud. The source directory is tarballed and uploaded on Create; changing source content publishes a new version (replace).
-
 
         :param str resource_name: The name of the resource.
         :param PolicyPackArgs args: The arguments to use to populate this resource's properties.
@@ -173,7 +171,7 @@ class PolicyPack(pulumi.CustomResource):
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  organization: pulumi.Input[Optional[_builtins.str]] = None,
-                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyPackPolicyInputArgs', 'PolicyPackPolicyInputArgsDict']]]]] = None,
+                 policies: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyPackPolicyInputArgs', 'PolicyPackPolicyInputArgsDict', 'outputs.PolicyPackPolicyInput']]]]] = None,
                  source_path: pulumi.Input[Optional[_builtins.str]] = None,
                  version_tag: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):

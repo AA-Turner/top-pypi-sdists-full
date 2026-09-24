@@ -231,7 +231,13 @@ RULES: tuple[RuleDefinition, ...] = (
             "field to be present), a type that was WIDENED (including nested "
             "containers), an INHERITED field whose base class changed the type, and "
             "a move OFF `Any` that keeps the same outer shape (`Any` replaced in "
-            "place). To retire a field "
+            "place; a type alias declared at the top level of the same module, "
+            "including a chain of such aliases, is expanded to its target before "
+            "the comparison — the ledger side is not expanded, and an alias "
+            "declared under `if TYPE_CHECKING:` / `try`, as a string, or as a "
+            "plain `X = <name>` such as `Ident = str` is not recognised, and a "
+            "chain that expands past a size budget is compared unexpanded). To "
+            "retire a field "
             "deliberately, mark it `sunset` in contract_schema.lock.json. Before "
             "treating a removal as dead code, grep the whole repo — including "
             "scripts/ and *.sh JSONPath args like $.extract.outputs.<field> — for "
@@ -388,9 +394,11 @@ RULES: tuple[RuleDefinition, ...] = (
     RuleDefinition(
         id="B007",
         canonical_reference=(
-            "atlan-mysql-app app/mysql.py — transformation runs through the SDK's "
-            "DuckDB/pyarrow path. The daft-only DataFrame calls this rule looks for "
-            "(count_rows, to_pylist, .names) appear in none of the four reference apps; "
+            "atlan-mysql-app app/mysql.py — `MySQLApp` transforms through SqlApp's "
+            "transform tasks: raw records mapped by its `map_*` methods and serialised with "
+            "the SDK's `entity_bytes`, with no DataFrame method called on them. The "
+            "daft-only DataFrame calls this rule looks for (count_rows, to_pylist, .names) "
+            "appear in no SDK-importing module of the three reference apps; "
             "daft was removed from the SDK in 3.20.0, so they are dead on any current "
             "runtime."
         ),
@@ -463,10 +471,10 @@ RULES: tuple[RuleDefinition, ...] = (
         id="B008",
         canonical_reference=(
             "atlan-openapi-app app/connector.py — every third-party import names a "
-            "public module (application_sdk.app, application_sdk.contracts, "
-            "application_sdk.errors, httpx, pyatlan_v9.model.assets). None of the "
-            "four reference apps imports an underscore-prefixed module or name it "
-            "does not own, in app code or in tests."
+            "public module: application_sdk.app, .contracts, .credentials, .errors, "
+            ".observability and .outputs, plus msgspec and orjson. No module under the "
+            "three reference apps' app/ directories imports an underscore-prefixed module "
+            "or name it does not own."
         ),
         scope=RuleScope.APP,
         name="PrivateModuleImport",

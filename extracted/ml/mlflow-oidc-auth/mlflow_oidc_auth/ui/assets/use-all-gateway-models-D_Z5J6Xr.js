@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-Du4lyTbb.js";import{n as t}from"./gateway-service-B5V4ggKF.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allGatewayModels:n,isLoading:r,error:i,refresh:a}}export{n as t};

@@ -305,6 +305,9 @@ class ImageContent:
     # edit_target | composition_control). None = a plain image the model sees.
     # Vocabulary + gate: matrx_ai/media/image_reference_roles.py.
     role: str | None = None
+    # Tag the prompt addresses as ``@name`` (Kling elements, Pika storyboards).
+    # Video-side only; gate: matrx_ai/media/video_reference_roles.py.
+    name: str | None = None
 
     # Vision-class hint — when set, the boundary resolver will render (or
     # cache-hit on) a derived variant of the master file before populating
@@ -326,6 +329,9 @@ class ImageContent:
 
         # An unknown role raises: a typo must never become an unlabeled image.
         self.role = validate_role(self.role)
+        from matrx_ai.media.video_reference_roles import validate_reference_name
+
+        self.name = validate_reference_name(self.name)
         # Frontend convenience: pull mime from metadata if the top-level
         # mime_type wasn't set. The cloud-files /files/upload response and
         # historical object listings surface MIME under metadata.{mimetype,
@@ -554,25 +560,23 @@ class ImageContent:
                 prompt="",
                 n_returned=1,
             )
-            try:
-                envelope = await save_media_envelope_async(
-                    content=part.inline_data.data,
-                    mime_type=part.inline_data.mime_type,
-                    provider="google",
-                    feature="ai_images",
-                    extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
-                )
-            except Exception as e:
-                # NO fallback: the sync path persists via ``save_media``, which
-                # returns a SIGNED url and no ``file_id`` — and this content is
-                # written into ``chat.message``, where a frozen expiring link has
-                # nothing to re-mint from. Drop the item loudly instead.
-                vcprint(
-                    f"ImageContent.from_google_async: envelope save failed ({e!r}); "
-                    f"dropping the image — no file_id means no durable identity",
-                    color="red",
-                )
-                return None
+            # Paid provider output: storage retries ONCE on its own, then fails
+            # the run honestly (non-retryable) — never a silent drop, never a
+            # re-call of the provider. No sync fallback: a signed url with no
+            # file_id has nothing to re-mint from in chat.message.
+            from matrx_ai.providers.paid_output import store_paid_output
+
+            envelope = await store_paid_output(
+                lambda: save_media_envelope_async(
+                        content=part.inline_data.data,
+                        mime_type=part.inline_data.mime_type,
+                        provider="google",
+                        feature="ai_images",
+                        extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+                ),
+                provider="google",
+                modality="image",
+            )
             return cls(
                 url=envelope.url,
                 file_id=envelope.file_id,
@@ -631,6 +635,8 @@ class ImageContent:
             result["height"] = self.height
         if self.role:
             result["role"] = self.role
+        if self.name:
+            result["name"] = self.name
         # Kind-specific extras go into metadata
         storage_metadata = {**self.metadata}
         if self.media_resolution:
@@ -695,8 +701,15 @@ class AudioContent:
 
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # Video-generation reference role (lip_sync: the speech the on-screen face
+    # mouths). None = plain audio. Gate: matrx_ai/media/video_reference_roles.py.
+    role: str | None = None
+
     def __post_init__(self):
         """Auto-detect mime_type if not provided"""
+        from matrx_ai.media.video_reference_roles import validate_audio_role
+
+        self.role = validate_audio_role(self.role)
         if self.mime_type is None:
             self.mime_type = detect_mime_type(
                 url=self.url, base64_data=self.base64_data, file_uri=self.file_uri
@@ -865,6 +878,8 @@ class AudioContent:
         # straight from cx_message reads.
         if self.duration_ms is not None:
             result["duration_ms"] = self.duration_ms
+        if self.role:
+            result["role"] = self.role
         # Kind-specific extras go into metadata
         storage_metadata = {**self.metadata}
         if self.auto_transcribe:
@@ -1001,13 +1016,20 @@ class AudioContent:
             prompt="",
             audio_format=audio_format,
         )
-        envelope = await save_media_envelope_async(
-            content=raw_bytes,
-            mime_type=raw_mime,
-            audio_format=audio_format,
+        from matrx_ai.providers.paid_output import store_paid_output
+
+        # The provider already billed this audio: storage retries alone, once.
+        envelope = await store_paid_output(
+            lambda: save_media_envelope_async(
+                content=raw_bytes,
+                mime_type=raw_mime,
+                audio_format=audio_format,
+                provider="google",
+                feature="ai_audio",
+                extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+            ),
             provider="google",
-            feature="ai_audio",
-            extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+            modality="audio",
         )
         return cls(
             url=envelope.url,
@@ -1037,21 +1059,11 @@ class AudioContent:
         """
         if hasattr(part, "inline_data") and part.inline_data:
             raw_mime = part.inline_data.mime_type or ""
-            try:
-                return await cls.from_raw_audio_async(
-                    part.inline_data.data, raw_mime, audio_format=audio_format
-                )
-            except Exception as e:
-                # NO fallback: the sync path persists via ``save_media``, which
-                # returns a SIGNED url and no ``file_id`` — and this content is
-                # written into ``chat.message``, where a frozen expiring link has
-                # nothing to re-mint from. Drop the item loudly instead.
-                vcprint(
-                    f"AudioContent.from_google_async: envelope save failed ({e!r}); "
-                    f"dropping the audio — no file_id means no durable identity",
-                    color="red",
-                )
-                return None
+            # Storage retries once inside from_raw_audio_async and then fails
+            # the run honestly — the paid audio is never silently dropped.
+            return await cls.from_raw_audio_async(
+                part.inline_data.data, raw_mime, audio_format=audio_format
+            )
         elif hasattr(part, "file_data") and part.file_data:
             return cls(file_uri=part.file_data.file_uri, mime_type=part.file_data.mime_type)
         vcprint(
@@ -1078,6 +1090,12 @@ class VideoContent:
     height: int | None = None
     duration_ms: int | None = None
 
+    # Video-generation reference role (extend | restyle) and the optional tag
+    # the prompt addresses as ``@name``. None = a plain video the model sees.
+    # Gate: matrx_ai/media/video_reference_roles.py.
+    role: str | None = None
+    name: str | None = None
+
     # === Resolved-state fields (populated by the boundary normaliser) ===
     resolved_url: str | None = None
     file_size: int | None = None
@@ -1088,6 +1106,13 @@ class VideoContent:
 
     def __post_init__(self):
         """Auto-detect mime_type if not provided"""
+        from matrx_ai.media.video_reference_roles import (
+            validate_reference_name,
+            validate_video_role,
+        )
+
+        self.role = validate_video_role(self.role)
+        self.name = validate_reference_name(self.name)
         if self.mime_type is None:
             self.mime_type = detect_mime_type(
                 url=self.url, base64_data=self.base64_data, file_uri=self.file_uri
@@ -1143,6 +1168,10 @@ class VideoContent:
             result["height"] = self.height
         if self.duration_ms is not None:
             result["duration_ms"] = self.duration_ms
+        if self.role:
+            result["role"] = self.role
+        if self.name:
+            result["name"] = self.name
         # Kind-specific extras go into metadata
         storage_metadata = {**self.metadata}
         if self.video_metadata:
@@ -1295,25 +1324,23 @@ class VideoContent:
                 prompt="",
                 n_returned=1,
             )
-            try:
-                envelope = await save_media_envelope_async(
-                    content=part.inline_data.data,
-                    mime_type=part.inline_data.mime_type,
-                    provider="google",
-                    feature="ai_video",
-                    extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
-                )
-            except Exception as e:
-                # NO fallback: the sync path persists via ``save_media``, which
-                # returns a SIGNED url and no ``file_id`` — and this content is
-                # written into ``chat.message``, where a frozen expiring link has
-                # nothing to re-mint from. Drop the item loudly instead.
-                vcprint(
-                    f"VideoContent.from_google_async: envelope save failed ({e!r}); "
-                    f"dropping the video — no file_id means no durable identity",
-                    color="red",
-                )
-                return None
+            # Paid provider output: storage retries ONCE on its own, then fails
+            # the run honestly (non-retryable) — never a silent drop, never a
+            # re-call of the provider. No sync fallback: a signed url with no
+            # file_id has nothing to re-mint from in chat.message.
+            from matrx_ai.providers.paid_output import store_paid_output
+
+            envelope = await store_paid_output(
+                lambda: save_media_envelope_async(
+                        content=part.inline_data.data,
+                        mime_type=part.inline_data.mime_type,
+                        provider="google",
+                        feature="ai_video",
+                        extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+                ),
+                provider="google",
+                modality="video",
+            )
             return cls(
                 url=envelope.url,
                 file_id=envelope.file_id,
@@ -1839,24 +1866,22 @@ class DocumentContent:
         from matrx_ai.media import save_media_envelope_async
 
         if hasattr(part, "inline_data") and part.inline_data:
-            try:
-                envelope = await save_media_envelope_async(
-                    content=part.inline_data.data,
-                    mime_type=part.inline_data.mime_type,
-                    provider="google",
-                    feature="ai_documents",
-                )
-            except Exception as e:
-                # NO fallback to a sync save: it returns a SIGNED url and no
-                # ``file_id``, and this content is written into
-                # ``chat.message``, where a frozen expiring link has nothing to
-                # re-mint from. Drop the item loudly instead.
-                vcprint(
-                    f"DocumentContent.from_google_async: envelope save failed ({e!r}); "
-                    f"dropping the document — no file_id means no durable identity",
-                    color="red",
-                )
-                return None
+            # Paid provider output: storage retries ONCE on its own, then fails
+            # the run honestly (non-retryable) — never a silent drop, never a
+            # re-call of the provider. No sync fallback: a signed url with no
+            # file_id has nothing to re-mint from in chat.message.
+            from matrx_ai.providers.paid_output import store_paid_output
+
+            envelope = await store_paid_output(
+                lambda: save_media_envelope_async(
+                        content=part.inline_data.data,
+                        mime_type=part.inline_data.mime_type,
+                        provider="google",
+                        feature="ai_documents",
+                ),
+                provider="google",
+                modality="document",
+            )
             return cls(
                 url=envelope.url,
                 file_id=envelope.file_id,
@@ -1979,6 +2004,7 @@ def reconstruct_media_content(
             width=width,
             height=height,
             role=block.get("role"),
+            name=block.get("name"),
             metadata=meta,
         )
     elif kind == "audio":
@@ -1992,6 +2018,7 @@ def reconstruct_media_content(
             transcription_result=meta.get("transcription_result"),
             file_size=file_size,
             duration_ms=duration_ms,
+            role=block.get("role"),
             metadata=meta,
         )
     elif kind == "video":
@@ -2004,6 +2031,8 @@ def reconstruct_media_content(
             width=width,
             height=height,
             duration_ms=duration_ms,
+            role=block.get("role"),
+            name=block.get("name"),
             metadata=meta,
         )
     elif kind == "youtube":

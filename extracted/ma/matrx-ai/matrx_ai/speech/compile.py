@@ -173,6 +173,26 @@ class CompiledElevenLabs:
     notes: list[str] = field(default_factory=list)
 
 
+def _spoken(text: str, config: UnifiedConfig, profile: ResolvedCallProfile, provider: str) -> str:
+    """The turn's text with the request's pronunciation dictionary applied.
+
+    Inline phonetic substitution — the floor every vendor honors (Gemini TTS
+    has no native pronunciation channel). ElevenLabs additionally takes native
+    ``pronunciation_dictionary_locators`` when the request carries no
+    in-config dictionary (see ``ElevenLabsChat._execute_speech_script``). Only
+    the WIRE text changes: the performed script shown beside the audio keeps
+    the words the author wrote.
+    """
+    dictionary = getattr(config, "dictionary", None)
+    if dictionary is None:
+        return text
+    from matrx_ai.config.dictionary_config import apply_tts_dictionary
+
+    return apply_tts_dictionary(
+        dictionary, text, provider=provider, model=getattr(profile, "model_name", "") or ""
+    )
+
+
 def _v3_pause_tag(seconds: float) -> str:
     if seconds <= 0:
         return ""
@@ -202,7 +222,7 @@ def compile_elevenlabs(
     dropped_direction = False
     for index, turn in enumerate(script.turns):
         direction = (turn.direction or "").strip() or global_direction
-        text = turn.text.strip()
+        text = _spoken(turn.text.strip(), config, profile, "elevenlabs")
         if direction:
             if tags_ok:
                 text = f"[{direction}] {text}"
@@ -324,10 +344,13 @@ def compile_google(
         )
         director = intro + "\n" + "\n".join(f"- {n}" for n in notes) + "\n\nTranscript follows."
 
+    def said(turn: Any) -> str:
+        return _spoken(turn.text.strip(), config, profile, "google")
+
     if multi:
-        transcript = "\n".join(f"{turn.speaker}: {turn.text.strip()}" for turn in script.turns)
+        transcript = "\n".join(f"{turn.speaker}: {said(turn)}" for turn in script.turns)
     else:
-        transcript = "\n".join(turn.text.strip() for turn in script.turns)
+        transcript = "\n".join(said(turn) for turn in script.turns)
 
     language = (getattr(config, "language_code", None) or "").strip() or None
     return CompiledGoogle(

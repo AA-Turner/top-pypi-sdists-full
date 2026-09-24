@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 31.0.0
+Version: 32.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -272,7 +272,11 @@ Class | Method | HTTP request | Description
 *ApiUserApi* | [**create_api_user**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#create_api_user) | **POST** /management/api_users | Create API Key
 *ApiUserApi* | [**get_api_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#get_api_users) | **GET** /management/api_users | Get API Keys
 *ApiUserApi* | [**issue_api_user_pairing_token**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiUserApi.md#issue_api_user_pairing_token) | **POST** /management/api_users/{userId}/pairing_token | Issue API user pairing token
+*ApprovalsBetaApi* | [**approve_approval**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#approve_approval) | **POST** /approvals/{requestId}/approve | Approve an approval request
+*ApprovalsBetaApi* | [**create_approval_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#create_approval_key) | **POST** /management/api_users/{userId}/approval_keys | Register an approval key
+*ApprovalsBetaApi* | [**delete_approval_key**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#delete_approval_key) | **DELETE** /management/api_users/{userId}/approval_keys/{keyId} | Delete an approval key
 *ApprovalsBetaApi* | [**get_approval_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#get_approval_by_id) | **GET** /approvals/{requestId} | Get a single approval request
+*ApprovalsBetaApi* | [**get_approval_keys**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#get_approval_keys) | **GET** /management/api_users/{userId}/approval_keys | List approval keys
 *ApprovalsBetaApi* | [**get_approvals**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#get_approvals) | **GET** /approvals | List approval requests
 *ApprovalsBetaApi* | [**reject_approval**](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalsBetaApi.md#reject_approval) | **POST** /approvals/{requestId}/reject | Reject an approval request
 *AuditLogsApi* | [**get_audit_logs**](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditLogsApi.md#get_audit_logs) | **GET** /management/audit_logs | Get audit logs
@@ -333,6 +337,10 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**update_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_legal_entity) | **PUT** /legal_entities/{legalEntityId} | Update legal entity
 *ComplianceApi* | [**update_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_screening_configuration) | **PUT** /screening/configurations | Tenant - Screening Configuration
 *ComplianceApi* | [**update_travel_rule_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_travel_rule_config) | **PUT** /screening/travel_rule/policy_configuration | Update Travel Rule Configuration
+*ComplianceOrchestratorBetaApi* | [**get_screening_result**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceOrchestratorBetaApi.md#get_screening_result) | **GET** /compliance/orchestrator/screenings/{screeningId} | Get a Compliance Orchestrator screening&#39;s result
+*ComplianceOrchestratorBetaApi* | [**get_workflow**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceOrchestratorBetaApi.md#get_workflow) | **GET** /compliance/orchestrator/workflows/{workflowId} | Get a Compliance Orchestrator workflow
+*ComplianceOrchestratorBetaApi* | [**trigger_screening**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceOrchestratorBetaApi.md#trigger_screening) | **POST** /compliance/orchestrator/screenings | Trigger a Compliance Orchestrator screening
+*ComplianceOrchestratorBetaApi* | [**update_workflow_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceOrchestratorBetaApi.md#update_workflow_status) | **PATCH** /compliance/orchestrator/workflows/{workflowId}/status | Update a Compliance Orchestrator workflow&#39;s status
 *ComplianceScreeningConfigurationApi* | [**get_aml_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_aml_screening_configuration) | **GET** /screening/aml/policy_configuration | Get AML Screening Policy Configuration
 *ComplianceScreeningConfigurationApi* | [**get_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_screening_configuration) | **GET** /screening/travel_rule/policy_configuration | Get Travel Rule Screening Policy Configuration
 *ConnectedAccountsBetaApi* | [**add_connected_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsBetaApi.md#add_connected_account) | **POST** /connected_accounts | Add a connected account
@@ -714,7 +722,7 @@ Class | Method | HTTP request | Description
 *WebhooksV2Api* | [**delete_webhook**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#delete_webhook) | **DELETE** /webhooks/{webhookId} | Delete webhook
 *WebhooksV2Api* | [**delete_webhook_oauth**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#delete_webhook_oauth) | **DELETE** /webhooks_settings/oauth/{webhookOauthId} | Delete OAuth credentials
 *WebhooksV2Api* | [**get_metrics**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_metrics) | **GET** /webhooks/{webhookId}/metrics/{metricName} | Get webhook metrics
-*WebhooksV2Api* | [**get_mtls_csr**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_mtls_csr) | **GET** /webhooks/mtls/csr | Get mTLS CSR
+*WebhooksV2Api* | [**get_mtls_csr**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_mtls_csr) | **GET** /webhooks_settings/mtls_csr | Get mTLS CSR
 *WebhooksV2Api* | [**get_notification**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_notification) | **GET** /webhooks/{webhookId}/notifications/{notificationId} | Get notification by id
 *WebhooksV2Api* | [**get_notification_attempts**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_notification_attempts) | **GET** /webhooks/{webhookId}/notifications/{notificationId}/attempts | Get notification attempts
 *WebhooksV2Api* | [**get_notifications**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#get_notifications) | **GET** /webhooks/{webhookId}/notifications | Get all notifications by webhook id
@@ -832,8 +840,11 @@ Class | Method | HTTP request | Description
  - [AmountRangeMinMax2](https://github.com/fireblocks/py-sdk/tree/master/docs/AmountRangeMinMax2.md)
  - [ApiKey](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiKey.md)
  - [ApiKeysPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ApiKeysPaginatedResponse.md)
+ - [ApprovalApiKey](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalApiKey.md)
+ - [ApprovalApiPublicKey](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalApiPublicKey.md)
  - [ApprovalRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalRequest.md)
  - [ApprovalRequestItem](https://github.com/fireblocks/py-sdk/tree/master/docs/ApprovalRequestItem.md)
+ - [ApproveApprovalRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ApproveApprovalRequest.md)
  - [ApproversConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ApproversConfig.md)
  - [ApproversConfigApprovalGroupsInner](https://github.com/fireblocks/py-sdk/tree/master/docs/ApproversConfigApprovalGroupsInner.md)
  - [Apy](https://github.com/fireblocks/py-sdk/tree/master/docs/Apy.md)
@@ -871,7 +882,9 @@ Class | Method | HTTP request | Description
  - [AssignVaultsToLegalEntityResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssignVaultsToLegalEntityResponse.md)
  - [AttachDetachUtxoLabelsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AttachDetachUtxoLabelsRequest.md)
  - [AttachDetachUtxoLabelsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AttachDetachUtxoLabelsResponse.md)
+ - [AuditEventTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditEventTypeEnum.md)
  - [AuditLogData](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditLogData.md)
+ - [AuditLogEntry](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditLogEntry.md)
  - [AuditorData](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditorData.md)
  - [AuthorizationGroups](https://github.com/fireblocks/py-sdk/tree/master/docs/AuthorizationGroups.md)
  - [AuthorizationInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AuthorizationInfo.md)
@@ -910,6 +923,7 @@ Class | Method | HTTP request | Description
  - [ByorkVerdictRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ByorkVerdictRequest.md)
  - [ByorkVerdictResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ByorkVerdictResponse.md)
  - [ByorkVerdictResponseStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ByorkVerdictResponseStatusEnum.md)
+ - [BypassReasonEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/BypassReasonEnum.md)
  - [CallAccepted](https://github.com/fireblocks/py-sdk/tree/master/docs/CallAccepted.md)
  - [CallbackHandler](https://github.com/fireblocks/py-sdk/tree/master/docs/CallbackHandler.md)
  - [CallbackHandlerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CallbackHandlerRequest.md)
@@ -952,6 +966,7 @@ Class | Method | HTTP request | Description
  - [ComplianceResults](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceResults.md)
  - [ComplianceScreeningResult](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningResult.md)
  - [ComplianceScreeningResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningResultFullPayload.md)
+ - [ComplianceScreeningStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningStatusEnum.md)
  - [ConfigChangeRequestStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/ConfigChangeRequestStatus.md)
  - [ConfigConversionOperationSnapshot](https://github.com/fireblocks/py-sdk/tree/master/docs/ConfigConversionOperationSnapshot.md)
  - [ConfigDisbursementOperationSnapshot](https://github.com/fireblocks/py-sdk/tree/master/docs/ConfigDisbursementOperationSnapshot.md)
@@ -976,6 +991,8 @@ Class | Method | HTTP request | Description
  - [ConnectedAccountsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedAccountsResponse.md)
  - [ConnectedSingleAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedSingleAccount.md)
  - [ConnectedSingleAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectedSingleAccountResponse.md)
+ - [ConnectorStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectorStatusEnum.md)
+ - [ConnectorVerdictEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ConnectorVerdictEnum.md)
  - [ConsoleUser](https://github.com/fireblocks/py-sdk/tree/master/docs/ConsoleUser.md)
  - [Contact](https://github.com/fireblocks/py-sdk/tree/master/docs/Contact.md)
  - [ContactApprovalRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ContactApprovalRequest.md)
@@ -1254,11 +1271,13 @@ Class | Method | HTTP request | Description
  - [GetPagedExchangeAccountsResponsePaging](https://github.com/fireblocks/py-sdk/tree/master/docs/GetPagedExchangeAccountsResponsePaging.md)
  - [GetPositionsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetPositionsResponse.md)
  - [GetProvidersResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetProvidersResponse.md)
+ - [GetScreeningResultResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetScreeningResultResponse.md)
  - [GetSigningKeyResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/GetSigningKeyResponseDto.md)
  - [GetTestWalletAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetTestWalletAddressResponse.md)
  - [GetTransactionOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/GetTransactionOperation.md)
  - [GetValidationKeyResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/GetValidationKeyResponseDto.md)
  - [GetWhitelistIpAddressesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetWhitelistIpAddressesResponse.md)
+ - [GetWorkflowResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetWorkflowResponse.md)
  - [GetWorkspaceStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetWorkspaceStatusResponse.md)
  - [GleifData](https://github.com/fireblocks/py-sdk/tree/master/docs/GleifData.md)
  - [GleifOtherLegalEntityName](https://github.com/fireblocks/py-sdk/tree/master/docs/GleifOtherLegalEntityName.md)
@@ -1321,6 +1340,7 @@ Class | Method | HTTP request | Description
  - [LegalEntityRegistration](https://github.com/fireblocks/py-sdk/tree/master/docs/LegalEntityRegistration.md)
  - [LeiStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/LeiStatus.md)
  - [LinkedTokensCount](https://github.com/fireblocks/py-sdk/tree/master/docs/LinkedTokensCount.md)
+ - [ListApprovalApiKeysResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListApprovalApiKeysResponse.md)
  - [ListApprovalsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListApprovalsResponse.md)
  - [ListAssetsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListAssetsResponse.md)
  - [ListBlockchainsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListBlockchainsResponse.md)
@@ -1519,6 +1539,8 @@ Class | Method | HTTP request | Description
  - [ReasonForPaymentEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ReasonForPaymentEnum.md)
  - [RecipientHandle](https://github.com/fireblocks/py-sdk/tree/master/docs/RecipientHandle.md)
  - [RedeemFundsToLinkedDDAResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RedeemFundsToLinkedDDAResponse.md)
+ - [RegisterApprovalApiKeyRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterApprovalApiKeyRequest.md)
+ - [RegisterApprovalApiKeyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterApprovalApiKeyResponse.md)
  - [RegisterLegalEntityRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterLegalEntityRequest.md)
  - [RegisterNewAssetRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterNewAssetRequest.md)
  - [ReissueMultichainTokenRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ReissueMultichainTokenRequest.md)
@@ -1559,9 +1581,15 @@ Class | Method | HTTP request | Description
  - [RetryRequoteTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/RetryRequoteTypeEnum.md)
  - [RewardInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/RewardInfo.md)
  - [RewardsInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/RewardsInfo.md)
+ - [RiskLevelEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/RiskLevelEnum.md)
  - [RoleDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/RoleDetails.md)
  - [RoleDetails2](https://github.com/fireblocks/py-sdk/tree/master/docs/RoleDetails2.md)
  - [RoleGrantee](https://github.com/fireblocks/py-sdk/tree/master/docs/RoleGrantee.md)
+ - [Rule](https://github.com/fireblocks/py-sdk/tree/master/docs/Rule.md)
+ - [RuleActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/RuleActionEnum.md)
+ - [RuleCondition](https://github.com/fireblocks/py-sdk/tree/master/docs/RuleCondition.md)
+ - [RuleConditionOperatorEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/RuleConditionOperatorEnum.md)
+ - [RuleSet](https://github.com/fireblocks/py-sdk/tree/master/docs/RuleSet.md)
  - [RulesetQuorum](https://github.com/fireblocks/py-sdk/tree/master/docs/RulesetQuorum.md)
  - [SEPAAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/SEPAAddress.md)
  - [SEPADestination](https://github.com/fireblocks/py-sdk/tree/master/docs/SEPADestination.md)
@@ -1575,11 +1603,15 @@ Class | Method | HTTP request | Description
  - [ScreeningAmlMatchedRule](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningAmlMatchedRule.md)
  - [ScreeningAmlResult](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningAmlResult.md)
  - [ScreeningConfigurationsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningConfigurationsRequest.md)
+ - [ScreeningInput](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningInput.md)
  - [ScreeningMetadataConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningMetadataConfig.md)
+ - [ScreeningOperationEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOperationEnum.md)
  - [ScreeningOperationExecution](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOperationExecution.md)
  - [ScreeningOperationExecutionOutput](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOperationExecutionOutput.md)
  - [ScreeningOperationFailure](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOperationFailure.md)
  - [ScreeningOperationType](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOperationType.md)
+ - [ScreeningOutcomeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOutcomeEnum.md)
+ - [ScreeningPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningPayload.md)
  - [ScreeningPolicyAmount](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningPolicyAmount.md)
  - [ScreeningPolicyAmountRange](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningPolicyAmountRange.md)
  - [ScreeningPolicyCurrency](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningPolicyCurrency.md)
@@ -1691,6 +1723,9 @@ Class | Method | HTTP request | Description
  - [StakingProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingProvider.md)
  - [Status](https://github.com/fireblocks/py-sdk/tree/master/docs/Status.md)
  - [StellarRippleCreateParamsDto](https://github.com/fireblocks/py-sdk/tree/master/docs/StellarRippleCreateParamsDto.md)
+ - [StepConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/StepConfig.md)
+ - [StepOperationConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/StepOperationConfig.md)
+ - [StepResult](https://github.com/fireblocks/py-sdk/tree/master/docs/StepResult.md)
  - [SubmitOrderRequirementRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/SubmitOrderRequirementRequest.md)
  - [SupportedBlockChainsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SupportedBlockChainsResponse.md)
  - [SupportedBlockchain](https://github.com/fireblocks/py-sdk/tree/master/docs/SupportedBlockchain.md)
@@ -1838,6 +1873,7 @@ Class | Method | HTTP request | Description
  - [TransactionResponseDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionResponseDestination.md)
  - [TransactionTag](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionTag.md)
  - [TransferConfigOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferConfigOperation.md)
+ - [TransferDirectionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferDirectionEnum.md)
  - [TransferOperationConfigParams](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferOperationConfigParams.md)
  - [TransferOperationExecution](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferOperationExecution.md)
  - [TransferOperationExecutionOutput](https://github.com/fireblocks/py-sdk/tree/master/docs/TransferOperationExecutionOutput.md)
@@ -1907,6 +1943,9 @@ Class | Method | HTTP request | Description
  - [TravelRuleValidateTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateTransactionResponse.md)
  - [TravelRuleVaspForVault](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleVaspForVault.md)
  - [TravelRuleVerdictEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleVerdictEnum.md)
+ - [TriggerRuleOutcomeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TriggerRuleOutcomeEnum.md)
+ - [TriggerScreeningRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TriggerScreeningRequest.md)
+ - [TriggerScreeningResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TriggerScreeningResponse.md)
  - [TriggerValidationFlowResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TriggerValidationFlowResponse.md)
  - [TrustProofOfAddressCreateResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TrustProofOfAddressCreateResponse.md)
  - [TrustProofOfAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TrustProofOfAddressRequest.md)
@@ -1937,6 +1976,8 @@ Class | Method | HTTP request | Description
  - [UpdateVaultAccountRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateVaultAccountRequest.md)
  - [UpdateWebhookOauthRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateWebhookOauthRequest.md)
  - [UpdateWebhookRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateWebhookRequest.md)
+ - [UpdateWorkflowStatusRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateWorkflowStatusRequest.md)
+ - [UpdateWorkflowStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateWorkflowStatusResponse.md)
  - [UsWirePaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/UsWirePaymentInfo.md)
  - [UsdcGatewayWalletAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/UsdcGatewayWalletAsset.md)
  - [UsdcGatewayWalletInfoResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UsdcGatewayWalletInfoResponse.md)
@@ -1981,12 +2022,14 @@ Class | Method | HTTP request | Description
  - [WebhookMetric](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMetric.md)
  - [WebhookMtls](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMtls.md)
  - [WebhookMtlsCsrResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMtlsCsrResponse.md)
+ - [WebhookMtlsKeyAlgorithm](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMtlsKeyAlgorithm.md)
  - [WebhookOauthCredentials](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookOauthCredentials.md)
  - [WebhookPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookPaginatedResponse.md)
  - [WithdrawRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/WithdrawRequest.md)
  - [WorkflowConfigStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowConfigStatus.md)
  - [WorkflowConfigurationId](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowConfigurationId.md)
  - [WorkflowExecutionOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowExecutionOperation.md)
+ - [WorkflowStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowStatusEnum.md)
  - [Workspace](https://github.com/fireblocks/py-sdk/tree/master/docs/Workspace.md)
  - [WriteAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/WriteAbiFunction.md)
  - [WriteCallFunctionDto](https://github.com/fireblocks/py-sdk/tree/master/docs/WriteCallFunctionDto.md)

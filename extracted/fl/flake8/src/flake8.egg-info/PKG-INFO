@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: flake8
-Version: 7.4.0
+Version: 7.4.1
 Summary: the modular source code checker: pep8 pyflakes and co
 Home-page: https://github.com/pycqa/flake8
 Author: Tarek Ziade

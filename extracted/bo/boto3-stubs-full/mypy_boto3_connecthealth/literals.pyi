@@ -58,7 +58,7 @@ ListSubscriptionsPaginatorName = Literal["list_subscriptions"]
 ManagedNoteTemplateType = Literal[
     "BEHAVIORAL_SOAP", "BIRP", "DAP", "GIRPP", "HISTORY_AND_PHYSICAL", "PHYSICAL_SOAP", "SIRP"
 ]
-MedicalScribeLanguageCodeType = Literal["en-US"]
+MedicalScribeLanguageCodeType = Literal["en-US", "multi"]
 MedicalScribeMediaEncodingType = Literal["flac", "pcm"]
 MedicalScribeParticipantRoleType = Literal["CLINICIAN", "PATIENT"]
 MedicalScribeSessionControlEventTypeType = Literal["END_OF_SESSION"]
@@ -347,6 +347,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

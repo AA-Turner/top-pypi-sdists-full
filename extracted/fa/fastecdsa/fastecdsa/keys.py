@@ -1,15 +1,17 @@
+from collections.abc import Callable
+from hashlib import sha512, shake_256
 from os import urandom
-from typing import Any, Callable, Optional, Tuple
+from typing import Any
 
 from .curve import Curve
 from .ecdsa import verify
 from .encoding import KeyEncoder
 from .point import Point
-from .typing import EcdsaSignature, SignableMessage
-from .util import mod_sqrt, msg_bytes
+from .rust import Ed448Point, Ed25519Point
+from .util import mod_sqrt
 
 
-def gen_keypair(curve: Curve) -> Tuple[int, Point]:
+def gen_keypair(curve: Curve) -> tuple[int, Point]:
     """Generate a keypair that consists of a private key and a public key.
 
     The private key :math:`d` is an integer generated via a cryptographically secure random number
@@ -18,7 +20,7 @@ def gen_keypair(curve: Curve) -> Tuple[int, Point]:
     curve's base point.
 
     Args:
-        curve (fastecdsa.curve.Curve): The curve over which the keypair will be calulated.
+        curve (fastecdsa.curve.Curve): The curve over which the keypair will be calculated.
 
     Returns:
         (int, fastecdsa.point.Point): Returns a tuple with the private key first and public key
@@ -37,7 +39,7 @@ def gen_private_key(curve: Curve, randfunc: Callable[[Any], bytes] = urandom) ->
     random number generator used is /dev/urandom.
 
     Args:
-        |  curve (fastecdsa.curve.Curve): The curve over which the key will be calulated.
+        |  curve (fastecdsa.curve.Curve): The curve over which the key will be calculated.
         |  randfunc (function): A function taking one argument 'n' and returning a bytestring
                                 of n random bytes suitable for cryptographic use.
                                 The default is "os.urandom"
@@ -65,6 +67,59 @@ def gen_private_key(curve: Curve, randfunc: Callable[[Any], bytes] = urandom) ->
     return rand
 
 
+def gen_ed25519_keypair(sk: bytes | None = None) -> tuple[bytes, bytes]:
+    """Generate a keypair for Ed25519.
+
+    Note that the private key has certain properties that always hold, such
+    as the three least significant bits being set to 0. The public key is
+    encoded with the the full y coordinate and the sign of the x coordinate.
+    See https://www.rfc-editor.org/info/rfc8032/#section-5.1.5 for details.
+
+    Returns:
+        tuple[bytes, bytes]: the private key and public key
+    """
+    if sk is None:
+        sk = urandom(32)
+    if len(sk) != 32:
+        raise ValueError("Ed25519 private key must be exactly 32 bytes")
+
+    h = sha512(sk).digest()
+    x = bytearray(h[:32])
+    x[0] &= 0b1111_1000
+    x[31] &= 0b0111_1111
+    x[31] |= 0b0100_0000
+
+    pk = Ed25519Point.scale_base(int.from_bytes(x, "little")).normalize().encode()
+    return sk, pk
+
+
+def gen_ed448_keypair(sk: bytes | None = None) -> tuple[bytes, bytes]:
+    """Generate a keypair for Ed448.
+
+    Note that the private key has certain properties that always hold, such
+    as the two least significant bits being set to 0. The public key is
+    encoded with the the full y coordinate and the sign of the x coordinate.
+    See https://www.rfc-editor.org/info/rfc8032/#section-5.2.5 for details.
+
+    Returns:
+        tuple[bytes, bytes]: the private key and public key
+    """
+    if sk is None:
+        sk = urandom(57)
+    if len(sk) != 57:
+        raise ValueError("Ed448 private key must be exactly 57 bytes")
+
+    h = shake_256(sk).digest(114)
+    x = bytearray(h[:57])
+    x[0] &= 0b1111_1100
+    x[56] = 0b0000_0000
+    x[55] |= 0b1000_0000
+
+    s = int.from_bytes(bytes(x), "little")
+    pk = Ed448Point.scale_base(s).normalize().encode()
+    return sk, pk
+
+
 def get_public_key(d: int, curve: Curve) -> Point:
     """Generate a public key from a private key.
 
@@ -73,7 +128,7 @@ def get_public_key(d: int, curve: Curve) -> Point:
 
     Args:
         |  d (long): An integer representing the private key.
-        |  curve (fastecdsa.curve.Curve): The curve over which the key will be calulated.
+        |  curve (fastecdsa.curve.Curve): The curve over which the key will be calculated.
 
     Returns:
         fastecdsa.point.Point: The public key, a point on the given curve.
@@ -82,8 +137,11 @@ def get_public_key(d: int, curve: Curve) -> Point:
 
 
 def get_public_keys_from_sig(
-    sig: EcdsaSignature, msg: SignableMessage, curve: Curve, hashfunc: Callable
-) -> Tuple[Point, Point]:
+    sig: tuple[int, int],
+    msg: bytes,
+    curve: Curve,
+    hashfunc: Callable,
+) -> tuple[Point, Point]:
     """Recover the public keys that can verify a signature / message pair.
 
     Args:
@@ -99,16 +157,17 @@ def get_public_keys_from_sig(
     r, s = sig
     rinv = pow(r, curve.q - 2, curve.q)
 
-    z = int.from_bytes(hashfunc(msg_bytes(msg)).digest(), "big")
+    z = int.from_bytes(hashfunc(msg).digest(), "big")
     hash_bit_length = hashfunc().digest_size * 8
     if curve.q.bit_length() < hash_bit_length:
         z >>= hash_bit_length - curve.q.bit_length()
 
     y_squared = (r * r * r + curve.a * r + curve.b) % curve.p
     y1, y2 = mod_sqrt(y_squared, curve.p)
-    R1, R2 = Point(r, y1, curve=curve), Point(r, y2, curve=curve)
 
+    R1, R2 = Point(r, y1, curve=curve), Point(r, y2, curve=curve)
     Qs = rinv * (s * R1 - z * curve.G), rinv * (s * R2 - z * curve.G)
+
     for Q in Qs:
         if not verify(sig, msg, Q, curve=curve, hashfunc=hashfunc):
             raise ValueError(
@@ -120,8 +179,8 @@ def get_public_keys_from_sig(
 
 
 def export_private_key(
-    key: int, curve: Curve, encoder: KeyEncoder, filepath: Optional[str] = None
-) -> Optional[bytes]:
+    key: int, curve: Curve, encoder: KeyEncoder, filepath: str | None = None
+) -> bytes | None:
     r"""Export a private EC key using the given encoder.
 
     Args:
@@ -154,8 +213,8 @@ def export_private_key(
 
 
 def export_public_key(
-    key: Point, encoder: KeyEncoder, filepath: Optional[str] = None
-) -> Optional[bytes]:
+    key: Point, encoder: KeyEncoder, filepath: str | None = None
+) -> bytes | None:
     r"""Export a private EC key using the given encoder.
 
     Args:
@@ -209,7 +268,7 @@ def import_public_key(filepath: str, curve: Curve, decoder: KeyEncoder) -> Point
         |  decoder (fastecdsa.encoding.KeyEncoder): The decoder used to parse the key.
 
     Returns:
-        (int): A decoded private key.
+        (fastecdsa.point.Point): A decoded public key.
     """
     if not isinstance(curve, Curve):
         raise TypeError("curve must be an instance of the Curve type.")

@@ -272,7 +272,7 @@ async def pipe_populate(
         if not materialized_ids:
             raise CLIPipeException(FeedbackManager.error_populate_no_materialized_in_pipe(pipe=pipe_name))
 
-        elif len(materialized_ids) > 1:
+        if len(materialized_ids) > 1:
             raise CLIPipeException(FeedbackManager.error_populate_several_materialized_in_pipe(pipe=pipe_name))
 
         node = materialized_ids[0]
@@ -328,9 +328,8 @@ async def pipe_unlink_output_node(
 
             if not node_uid:
                 raise CLIPipeException(FeedbackManager.error_unlinking_pipe_not_linked(pipe=pipe_name_or_id))
-            else:
-                await client.pipe_unlink_materialized(pipe["name"], node_uid)
-                click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
+            await client.pipe_unlink_materialized(pipe["name"], node_uid)
+            click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
 
         if pipe["type"] == PipeTypes.COPY:
             click.echo(FeedbackManager.info_unlinking_copy_pipe(pipe=pipe["name"]))
@@ -343,9 +342,8 @@ async def pipe_unlink_output_node(
 
             if not node_uid:
                 raise CLIPipeException(FeedbackManager.error_unlinking_pipe_not_linked(pipe=pipe_name_or_id))
-            else:
-                await client.pipe_remove_copy(pipe["name"], node_uid)
-                click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
+            await client.pipe_remove_copy(pipe["name"], node_uid)
+            click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
 
         if pipe["type"] == PipeTypes.DATA_SINK:
             click.echo(FeedbackManager.info_unlinking_sink_pipe(pipe=pipe["name"]))
@@ -358,9 +356,8 @@ async def pipe_unlink_output_node(
 
             if not node_uid:
                 raise CLIPipeException(FeedbackManager.error_unlinking_pipe_not_linked(pipe=pipe_name_or_id))
-            else:
-                await client.pipe_remove_sink(pipe["name"], node_uid)
-                click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
+            await client.pipe_remove_sink(pipe["name"], node_uid)
+            click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
 
         if pipe["type"] == PipeTypes.STREAM:
             click.echo(FeedbackManager.info_unlinking_stream_pipe(pipe=pipe["name"]))
@@ -368,9 +365,8 @@ async def pipe_unlink_output_node(
 
             if not node_uid:
                 raise CLIPipeException(FeedbackManager.error_unlinking_pipe_not_linked(pipe=pipe_name_or_id))
-            else:
-                await client.pipe_remove_stream(pipe["name"], node_uid)
-                click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
+            await client.pipe_remove_stream(pipe["name"], node_uid)
+            click.echo(FeedbackManager.success_pipe_unlinked(pipe=pipe["name"]))
 
     except AuthNoTokenException:
         raise

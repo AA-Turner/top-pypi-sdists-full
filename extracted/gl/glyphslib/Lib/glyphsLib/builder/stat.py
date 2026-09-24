@@ -46,7 +46,7 @@ def _is_elidable(instance, axis):
     return any(
         param.value == axis.tag
         for param in instance.customParameters
-        if param.name == "Elidable STAT Axis Value Name"
+        if param.name == "Elidable STAT Axis Value Name" and not param.disabled
     )
 
 
@@ -54,7 +54,7 @@ def _stat_entry_tags(instance):
     return [
         param.value
         for param in instance.customParameters
-        if param.name == "Style Name as STAT entry"
+        if param.name == "Style Name as STAT entry" and not param.disabled
     ]
 
 
@@ -72,7 +72,11 @@ def to_designspace_stat(self):
 
     # Glyphs builds a STAT only for a variable font, which needs a Variable Font
     # Setting instance. Do the same here.
-    variable = [i for i in font.instances if i.type == InstanceType.VARIABLE]
+    variable = [
+        i
+        for i in font.instances
+        if i.type == InstanceType.VARIABLE and is_instance_active(i)
+    ]
     if not variable:
         return
 
@@ -94,9 +98,14 @@ def to_designspace_stat(self):
         if instance.type != InstanceType.VARIABLE and is_instance_active(instance)
     ]
 
+    # An instance sits where its design location maps to through the axis map,
+    # the same conversion fvar and avar use. Its weightClass/widthClass or
+    # "Axis Location" only matter insofar as they went into building that map.
     def user_loc(axis, instance):
         axis_def = axis_defs.get(axis.tag)
-        return axis_def.get_user_loc(instance) if axis_def else None
+        if axis_def is None:
+            return None
+        return axis.map_backward(axis_def.get_design_loc(instance))
 
     default_instance = next(
         (i for i in instances if _at_default(i, designspace.axes, user_loc)), None

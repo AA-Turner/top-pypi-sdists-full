@@ -2281,6 +2281,120 @@ def openai_embed(
     )
 
 
+def prompt_jev(
+    state: Underscore | str,
+    questions: Underscore | str | Mapping[str, Any],
+    model: Underscore | str | None = None,
+    api_server: Underscore | str | None = None,
+    api_key: Underscore | str | None = None,
+):
+    """
+    Asks Jev's structured-decision API a set of typed questions about ``state`` and returns
+    the answers alongside usage statistics.
+
+    This is a blocking expression that calls Jev's ``POST /v1/systemone`` endpoint during
+    feature computation. Every question is answered in one request.
+
+    Parameters
+    ----------
+    state
+        The text the questions are asked about, e.g. a support message or a transaction
+        description.
+    questions
+        The questions, keyed by a stable id of your choosing. Each value is an object with a
+        ``type`` of ``"noul"`` (yes/no probability), ``"choice"`` (pick one of ``criteria``) or
+        ``"score"`` (position on an ordered ``criteria`` scale), plus ``instructions`` and, for
+        ``choice``/``score``, ``criteria``. Pass a ``dict`` and it is serialized to JSON for you,
+        or pass a pre-serialized JSON string (or an expression producing one).
+    model
+        The Jev model to use. Defaults to ``jev-latest`` when omitted.
+    api_server
+        Base URL of the Jev API (e.g. ``https://api.typesafe.ai/v1``); ``/systemone`` is appended.
+        When omitted, falls back to the ``JEV_BASE_URL`` environment variable on the execution
+        host, then to the public endpoint.
+    api_key
+        The Jev API key. When omitted, falls back to the ``JEV_API_KEY`` environment variable
+        on the execution host, so the secret does not have to be threaded through feature data.
+
+    Returns
+    -------
+    A struct containing:
+        - answers: The response's ``answers`` object as a JSON string, keyed by question id.
+          A ``noul`` answer carries ``noul`` (yes probability); a ``choice`` answer carries
+          ``choice``, ``probabilities`` and ``confidence``; a ``score`` answer carries ``score``,
+          ``legend``, ``probabilities`` and ``confidence``. Extract fields with the JSON
+          functions, e.g. ``F.json_value``.
+        - model: The model that produced the answers
+        - input_tokens: Number of input tokens billed
+        - output_tokens: Number of output tokens billed
+        - error: The failure message when the request failed, else null
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Ticket:
+    ...    id: str
+    ...    body: str
+    ...    # api_key resolved from the JEV_API_KEY env var
+    ...    triage: str = F.prompt_jev(
+    ...        state=_.body,
+    ...        questions={
+    ...            "urgent": {"type": "noul", "instructions": "Does this message express urgency?"},
+    ...            "topic": {
+    ...                "type": "choice",
+    ...                "instructions": "What is this message about?",
+    ...                "criteria": {"billing": "payments and invoices", "bug": "product defects"},
+    ...            },
+    ...        },
+    ...    ).answers
+    ...    is_urgent: float = F.json_value(_.triage, "$.urgent.noul")
+    """
+    if isinstance(questions, Mapping):
+        questions = json.dumps(questions)
+    # `model`, `api_server` and `api_key` are named parameters of the engine's overload
+    # (`prompt_jev(state, questions, model=..., api_server=..., api_key=...)`), so they
+    # must travel as keywords: passed positionally the engine rejects the call with
+    # "called with 5 positional inputs but it wants 2".
+    return UnderscoreFunction(
+        "prompt_jev",
+        state,
+        questions,
+        model=model,
+        api_server=api_server,
+        api_key=api_key,
+    )
+
+
+def decision_complete(
+    state: Underscore | str,
+    questions: Underscore | str | Mapping[str, Any],
+    model: Underscore | str | None = None,
+    api_server: Underscore | str | None = None,
+    api_key: Underscore | str | None = None,
+):
+    """
+    Alias of :func:`prompt_jev`: ask Jev's structured-decision API typed questions about
+    ``state`` and get the typed answers back, the decision-model counterpart of a chat
+    completion.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Ticket:
+    ...    id: str
+    ...    body: str
+    ...    triage: str = F.decision_complete(
+    ...        state=_.body,
+    ...        questions={"urgent": {"type": "noul", "instructions": "Does this message express urgency?"}},
+    ...    ).answers
+    """
+    return prompt_jev(state, questions, model=model, api_server=api_server, api_key=api_key)
+
+
 def fetch_file(
     uri: Underscore | str,
 ):
@@ -8953,6 +9067,8 @@ __all__ = (
     "percent_rank",
     "pi",
     "power",
+    "prompt_jev",
+    "decision_complete",
     "proto_enum_value_to_name",
     "proto_timestamp_to_datetime",
     "proto_deserialize",

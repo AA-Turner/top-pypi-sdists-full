@@ -39,7 +39,7 @@ LIVE_LEAK = (
     "extractor_version, rag_boost) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, "
     "$11, $12, $13, $14, $15, $16, $17, $18, $19) "
     "Args: ('03e3dab7-1f1c-4d2e-9f40-3a7f6b2c0d11', "
-    "'5dc930e9-bd65-44a1-8369-af773f6e1a5b', "
+    "'11111111-2222-4333-8444-555555555555', "
     "'87a6e699-3622-4869-8843-d0867456c0dd', 'cld_file', …)"
 )
 
@@ -77,7 +77,7 @@ class _Recorder:
 
 async def _record(sentence: str, store: _Recorder) -> dict[str, Any]:
     await record_block(
-        organization_id="5dc930e9-bd65-44a1-8369-af773f6e1a5b",
+        organization_id="11111111-2222-4333-8444-555555555555",
         input_ref="37af3c33-df85-4ad0-a4e6-a7a52424e826",
         input_label="page_03 (1).jpg",
         source_type="file",

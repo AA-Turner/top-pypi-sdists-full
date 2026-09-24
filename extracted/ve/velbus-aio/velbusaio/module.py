@@ -19,7 +19,12 @@ if TYPE_CHECKING:
     from velbusaio.controller import Velbus as Controller
 
 from velbusaio import channels as channels_module, properties as properties_module
-from velbusaio.actions import ActionSlot, ActionTable, build_action_tables
+from velbusaio.actions import (
+    ActionSlot,
+    ActionTable,
+    build_action_tables,
+    reserved_ranges,
+)
 from velbusaio.channels import (
     Button,
     ButtonCounter,
@@ -32,6 +37,7 @@ from velbusaio.config import decode_name, encode_name
 from velbusaio.const import PRIORITY_LOW, SCAN_MODULEINFO_TIMEOUT_INITIAL
 from velbusaio.helpers import h2, handle_match, keys_exists
 from velbusaio.memory import MemoryBackend, join_address
+from velbusaio.memory_prefetch import MemoryAccessCoordinator
 from velbusaio.message import Message
 from velbusaio.messages.blind_status import (
     BlindStatusMessage,
@@ -183,6 +189,9 @@ class Module:
         self.memory_map_version = memorymap
         self.build_year = build_year
         self.build_week = build_week
+        # Set when the module's firmware predates the memory map its spec
+        # describes. Home Assistant surfaces this, and writes are refused.
+        self._memory_map_outdated = False
         self._cache_dir = cache_dir
         self._is_loading = False
         self._got_status = asyncio.Event()
@@ -195,6 +204,7 @@ class Module:
         self.loaded = False
         self._use_cache = True
         self._loaded_cache = {}
+        self._panel_metadata_ready = False
         # serialize cache writes for this module to avoid concurrent
         # coroutines interleaving writes to the same file
         self._cache_lock = asyncio.Lock()
@@ -262,17 +272,33 @@ class Module:
                 elif isinstance(value, dict) and isinstance(self._data[key], dict):
                     self._data[key] = {**value, **self._data[key]}
 
+        self._check_memory_map_build()
+
         commandRegistry.register_module_commands(
             self._type, self._data.get("CommandToClass", {})
         )
 
         # set some params from the velbus controller
         self._writer = writer
-        self._memory = MemoryBackend(self._address, writer, self._log)
+        get_coordinator = getattr(controller, "get_memory_access_coordinator", None)
+        access_coordinator = get_coordinator() if get_coordinator else None
+        self._memory = MemoryBackend(
+            self._address,
+            writer,
+            self._log,
+            access_coordinator=access_coordinator,
+        )
+        if self._memory_map_outdated:
+            self._memory.block_writes(
+                f"module build {self.get_build()} predates the memory map from "
+                f"build {self.get_memory_map_build()} that its spec describes"
+            )
+        memory_spec = self._data.get("Memory", {})
         self._action_tables = build_action_tables(
             self._memory,
-            self._data.get("Memory", {}).get("ActionTable", {}),
+            memory_spec.get("ActionTable", {}),
             self._log,
+            reserved=reserved_ranges(memory_spec),
         )
         temp_chan: int | None = None
         if "TemperatureChannel" in self._data:
@@ -286,6 +312,56 @@ class Module:
         )
         for chan in self._channels.values():
             chan.set_writer(writer)
+
+    def get_build(self) -> str | None:
+        """Return the firmware build as "YYWW", or None when unknown."""
+        if self.build_year is None or self.build_week is None:
+            return None
+        return f"{self.build_year:02d}{self.build_week:02d}"
+
+    def get_memory_map_build(self) -> str | None:
+        """Return the build from which this spec's memory map applies."""
+        return self._data.get("MemoryMapBuild")
+
+    def is_memory_map_outdated(self) -> bool:
+        """Whether the module predates the memory map its spec describes.
+
+        When true the spec's addresses do not match this module's eeprom,
+        so its memory must not be written. Home Assistant surfaces this so
+        the mismatch is visible instead of silently corrupting data.
+        """
+        return self._memory_map_outdated
+
+    def _check_memory_map_build(self) -> None:
+        """Determine whether the module predates its spec's memory map.
+
+        Modules report their firmware build as year and week. The protocol
+        documents state the build from which each memory map applies, and
+        MemoryMapBuild records the one this spec was written against. A
+        module older than that runs an earlier layout, so every address in
+        the spec is suspect: reading a name or an action table returns
+        whatever else lives there, and writing destroys it.
+        """
+        self._memory_map_outdated = False
+        expected = self.get_memory_map_build()
+        reported = self.get_build()
+        if expected is None or reported is None:
+            return
+        # "YYWW", the same shape vlp_reader compares build numbers in.
+        if len(reported) != len(expected):
+            self._log.debug(f"Cannot compare build {reported} to {expected}")
+            return
+        if reported >= expected:
+            return
+
+        self._memory_map_outdated = True
+        self._log.warning(
+            f"Module {self._address} ({h2(self._type)}) reports build "
+            f"{reported}, but the module spec describes the memory map from "
+            f"build {expected} onwards. Memory addresses may be wrong; names "
+            f"and action tables read from this module can be incorrect, so "
+            f"writing to its memory is refused."
+        )
 
     def cleanupSubChannels(self) -> None:
         """Cleanup subchannels that are not defined."""
@@ -1036,6 +1112,102 @@ class Module:
             return []
         return await table.load(force=force)
 
+    def invalidate_config_memory_cache(self) -> None:
+        """Drop EEPROM and decoded config-panel caches for this module."""
+        self._panel_metadata_ready = False
+        if self._memory is not None:
+            self._memory.invalidate()
+        cleared_shared: set[int] = set()
+        for table in self._action_tables.values():
+            table.clear_decoded_cache()
+            shared = table.shared_store
+            if shared is not None and id(shared) not in cleared_shared:
+                shared.slots = None
+                cleared_shared.add(id(shared))
+
+    def is_panel_metadata_ready(self) -> bool:
+        """Return True when panel metadata EEPROM is in the shadow cache."""
+        return self._panel_metadata_ready
+
+    def _needs_panel_metadata_cache(self) -> bool:
+        memory_spec = self._data.get("Memory", {})
+        has_noc = any(
+            table.noc_address is not None for table in self._action_tables.values()
+        )
+        return bool(memory_spec.get("ChannelEnable") or has_noc)
+
+    async def ensure_panel_metadata_cache(self) -> None:
+        """Load enable/contact EEPROM for module/get without action tables."""
+        if self._panel_metadata_ready:
+            return
+        if self._memory is None or not self._needs_panel_metadata_cache():
+            self._panel_metadata_ready = True
+            return
+
+        enable_spec = self._data.get("Memory", {}).get("ChannelEnable")
+        if enable_spec:
+            for address in enable_spec.get("channels", {}).values():
+                await self._memory.read_byte(int(str(address), 16), use_cache=True)
+
+        for table in self._action_tables.values():
+            if table.noc_address is not None:
+                await table.load_noc()
+        self._panel_metadata_ready = True
+
+    async def ensure_action_table_cache(self, channel: int) -> None:
+        """Load one channel's action table into the shadow cache."""
+        table = self.get_action_table(channel)
+        if table is None or table.loaded:
+            return
+        if table.decode_from_cache():
+            return
+        await table.load(force=False)
+
+    async def get_channel_actions(
+        self,
+        channel: int,
+        *,
+        refresh: bool = False,
+        include_empty: bool = False,
+    ) -> list[ActionSlot]:
+        """Return action-table slots for the config panel."""
+        if refresh:
+            table = self.get_action_table(channel)
+            if table is None:
+                return []
+            return await table.get_actions(refresh=True, include_empty=include_empty)
+        await self.ensure_action_table_cache(channel)
+        table = self.get_action_table(channel)
+        if table is None:
+            return []
+        return await table.get_actions(refresh=False, include_empty=include_empty)
+
+    async def prefetch_config_memory(
+        self, coordinator: MemoryAccessCoordinator
+    ) -> None:
+        """Prefetch panel-relevant EEPROM into the in-process cache."""
+        if self._memory is None:
+            self._panel_metadata_ready = True
+            return
+        seen_shared_banks: set[int] = set()
+        for table in self._action_tables.values():
+            await coordinator.wait_prefetch_allowed()
+            if table.layout == "shared" and table.bank in seen_shared_banks:
+                await table.load_noc(prefetch=True)
+                continue
+            if table.layout == "shared":
+                seen_shared_banks.add(table.bank)
+            await table.load(force=False, prefetch=True)
+
+        enable_spec = self._data.get("Memory", {}).get("ChannelEnable")
+        if enable_spec:
+            for address in enable_spec.get("channels", {}).values():
+                await coordinator.wait_prefetch_allowed()
+                await self._memory.read_byte(
+                    int(str(address), 16), use_cache=True, prefetch=True
+                )
+        self._panel_metadata_ready = True
+
     def _channel_name_range(self, channel: int) -> tuple[int, int] | None:
         """Return (start, length) for a channel name memory range."""
         memory = self._data.get("Memory", {})
@@ -1069,6 +1241,8 @@ class Module:
         self._data["Channels"] = vlp_data.get_channels()
         await self._load_default_channels()
         await self._load_properties()
+        if self._memory is not None:
+            self._memory.seed_from_vlp_hex(vlp_data.get_memory())
         for chan in self._channels.values():
             chan.set_loaded(True)
         self.loaded = True

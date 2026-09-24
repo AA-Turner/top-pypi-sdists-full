@@ -1,6 +1,6 @@
 [project]
 name = "mimesis"
-version = "21.0.0"
+version = "22.2.0"
 description = "Mimesis: Fake Data Generator."
 authors = [{ name = "Isaak Uchakaev", email = "hey@isaak.dev" }]
 requires-python = ">=3.10"
@@ -81,7 +81,7 @@ dev = [
     "sphinx-autodoc-typehints>=1.19.2,<2",
     "furo>=2024.8.6",
     "pytest-factoryboy>=2.6.0,<3",
-    "twine>=6.1.0",
+    "twine>=7.0.0",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -95,15 +95,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
-testpaths = [
-    "mimesis",
-    "tests",
-    "minifier.py",
-]
+testpaths = ["tests"]
 
 [tool.mypy]
 exclude = ["tests", "docs", "benchmarks"]
-files = ["mimesis", "minifier.py"]
+files = ["mimesis"]
 strict_optional = true
 check_untyped_defs = true
 ignore_errors = false
@@ -251,18 +247,11 @@ ignore = [
 "mimesis/builder/**/*.py" = [
     "SLF001",  # intentional private access between builder types
 ]
-"minifier.py" = [
-    "T20",     # CLI script uses print
-]
 "tasks/**/*.py" = [
     "T20",
     "INP001",
     "D",       # internal scripts
     "E501",    # colorful CLI output lines
-]
-"example.py" = [
-    "T20",
-    "INP001",
 ]
 
 [tool.ruff.lint.mccabe]

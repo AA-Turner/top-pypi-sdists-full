@@ -1,0 +1,1 @@
+import{p as e,t}from"./utils-CRVOceX-.js";import{U as n}from"./index-ClLsmNAr.js";var r=e();function i({children:e,className:i,intent:a,button:o,...s}){let c=a===`warning`?`warning`:a===`error`?`destructive`:a===`neutral`?`neutral`:`default`;return(0,r.jsx)(n,{...s,variant:c,className:t(i),action:o,children:e})}export{i as t};

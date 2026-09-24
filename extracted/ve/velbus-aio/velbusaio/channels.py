@@ -436,6 +436,14 @@ class Button(Channel):
         memory = self._module.get_memory()
         if memory is None:
             return self._enabled
+        if not refresh:
+            cached = memory.get_cached(spec["address"])
+            if cached is not None:
+                enabled = cached != spec["disabled_value"]
+                if enabled:
+                    self._saved_reaction_time = cached
+                self._enabled = enabled
+                return enabled
         value = await memory.read_byte(spec["address"], use_cache=not refresh)
         enabled = value != spec["disabled_value"]
         if enabled:
@@ -607,6 +615,14 @@ class ButtonCounter(Button):
             return round(self._counter / self._pulses, 2)
         return None
 
+    def get_counter_total(self) -> float | None:
+        """Return the accumulated counter total in its native unit (kWh, m³ or L)."""
+        if self._energy is not None:
+            return round(self._energy / 1000, 3)
+        if self._counter is not None and self._pulses:
+            return round(self._counter / self._pulses, 2)
+        return None
+
     def _rate_from_pulse_interval(self) -> float:
         """Return the instantaneous rate derived from the interval between pulses.
 
@@ -668,6 +684,14 @@ class ButtonCounter(Button):
     def is_water(self) -> bool:
         """Return if this channel is a water channel."""
         return bool(self._counter and self._Unit == VOLUME_LITERS_HOUR)
+
+    def is_gas(self) -> bool:
+        """Return if this channel is a gas channel."""
+        return bool(self._counter and self._Unit == VOLUME_CUBIC_METER_HOUR)
+
+    def is_electricity(self) -> bool:
+        """Return if this channel is an electricity channel."""
+        return self._Unit == ENERGY_KILO_WATT_HOUR
 
 
 class Sensor(Button):

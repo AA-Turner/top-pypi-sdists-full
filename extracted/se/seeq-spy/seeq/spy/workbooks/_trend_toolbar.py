@@ -200,6 +200,7 @@ class Labels(ContextSwitchable):
         self._parent = parent
         super().__init__(parent)
         self._signals = Signals(parent)
+        self._histograms = Histograms(parent, self._signals)
         self._conditions = Conditions(parent)
         self._cursors = Cursors(parent)
 
@@ -209,6 +210,10 @@ class Labels(ContextSwitchable):
         Labels configuration for Signals.
         """
         return self._signals
+
+    @property
+    def histograms(self) -> Histograms:
+        return self._histograms
 
     @property
     def conditions(self) -> Conditions:
@@ -228,6 +233,7 @@ class Labels(ContextSwitchable):
         return ("Labels:\n" +
                 textwrap.indent(
                     f"- {repr(self.signals)}\n"
+                    f"- {repr(self.histograms)}\n"
                     f"- {repr(self.conditions)}\n"
                     f"- {repr(self.cursors)}",
                     prefix="  "
@@ -348,7 +354,7 @@ class Signals(ContextSwitchable):
     @docstring_parameter(CONSTANTS.OFF, CONSTANTS.LANE, CONSTANTS.AXIS)
     def custom(self) -> str:
         """
-        The string value indication Signals Custom Labels visibility.
+        The shared display location for signal and histogram custom labels.
         Can be either '{0}', '{1}', or '{2}'.
         """
         return self._get_custom()
@@ -447,13 +453,21 @@ class Signals(ContextSwitchable):
         if value in self._valid_labels:
             previous_value = self._get_custom()
             if value == self.CONSTANTS.OFF or previous_value != value:
-                self._set_custom_labels([])  # Reset custom labels when custom visibility changes
+                # Reset all custom labels when custom visibility changes, as the UI does
+                workstep = self._setter_workstep
+                config = self._get_store(workstep, self.CONSTANTS.TREND_STORE_NAME).setdefault(
+                    self.CONSTANTS.LABEL_DISPLAY_CONFIGURATION, {})
+                config[self.CONSTANTS.CUSTOM_LABELS] = []
+                config[self.CONSTANTS.CUSTOM] = value
+                for item in workstep.get_workstep_stores().get('sqTrendTableStore', {}).get('items', []):
+                    item.pop('customLabel', None)
+                return
             self._set_trend_store_label_display_config(self.CONSTANTS.CUSTOM, value)
         else:
             raise SPyValueError(f"'custom' must be one of {self._valid_labels}")
 
     def _get_custom_labels(self) -> List[str]:
-        def labels_to_list(labels: List[str], location: str):
+        def labels_to_list(labels: List[dict], location: str):
             if location == self.CONSTANTS.OFF or len(labels) == 0:
                 return []
 
@@ -506,6 +520,50 @@ class Signals(ContextSwitchable):
                f"  - Unit of Measure: {self.unit_of_measure}\n" \
                f"  - Custom: {self.custom}\n" \
                f"  - Custom Labels: {self.custom_labels}"
+
+
+class Histograms(ContextSwitchable):
+    def __init__(self, parent, signals: Signals) -> None:
+        super().__init__(parent)
+        self._signals = signals
+
+    @property
+    def custom(self) -> str:
+        # Histograms and signals share the same lane/axis/off setting in the UI.
+        return self._signals.custom
+
+    @custom.setter
+    def custom(self, value: str) -> None:
+        self._signals.custom = value
+
+    @property
+    def custom_labels(self) -> Dict[str, str]:
+        if self.custom == Signals.CONSTANTS.OFF:
+            return {}
+        items = self._getter_workstep.get_workstep_stores().get('sqTrendTableStore', {}).get('items', [])
+        return {item['id']: item['customLabel'] for item in items if item.get('customLabel')}
+
+    @custom_labels.setter
+    def custom_labels(self, value: Dict[str, str]) -> None:
+        if not isinstance(value, dict) or any(
+                not isinstance(item_id, str) or not item_id.strip() or not isinstance(text, str)
+                for item_id, text in value.items()):
+            raise SPyTypeError("'custom_labels' must be a dictionary of non-empty histogram item IDs to strings")
+
+        items = self._getter_workstep.get_workstep_stores().get('sqTrendTableStore', {}).get('items', [])
+        unknown = set(value) - {item['id'] for item in items}
+        if unknown:
+            raise SPyValueError(f"Histogram items are not present in this workstep: {sorted(unknown)}")
+        enabled = self.custom != Signals.CONSTANTS.OFF
+        for item in self._setter_workstep.get_workstep_stores().get('sqTrendTableStore', {}).get('items', []):
+            text = value.get(item['id'], '')
+            if enabled and text.strip():
+                item['customLabel'] = text
+            else:
+                item.pop('customLabel', None)
+
+    def __repr__(self) -> str:
+        return f"Histograms:\n  - Custom (shared with signals): {self.custom}\n  - Custom Labels: {self.custom_labels}"
 
 
 class Conditions(ContextSwitchable):

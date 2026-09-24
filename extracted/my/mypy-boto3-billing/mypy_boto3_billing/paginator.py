@@ -13,6 +13,7 @@ Usage::
     from mypy_boto3_billing.client import BillingClient
     from mypy_boto3_billing.paginator import (
         GetCreditAllocationHistoryPaginator,
+        ListBillingViewSegmentsPaginator,
         ListBillingViewsPaginator,
         ListEnterpriseSupportLinkedAccountChargesPaginator,
         ListSourceViewsForBillingViewPaginator,
@@ -22,6 +23,7 @@ Usage::
     client: BillingClient = session.client("billing")
 
     get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = client.get_paginator("get_credit_allocation_history")
+    list_billing_view_segments_paginator: ListBillingViewSegmentsPaginator = client.get_paginator("list_billing_view_segments")
     list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
     list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator("list_enterprise_support_linked_account_charges")
     list_source_views_for_billing_view_paginator: ListSourceViewsForBillingViewPaginator = client.get_paginator("list_source_views_for_billing_view")
@@ -38,6 +40,8 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     GetCreditAllocationHistoryRequestPaginateTypeDef,
     GetCreditAllocationHistoryResponseTypeDef,
+    ListBillingViewSegmentsRequestPaginateTypeDef,
+    ListBillingViewSegmentsResponseTypeDef,
     ListBillingViewsRequestPaginateTypeDef,
     ListBillingViewsResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef,
@@ -54,6 +58,7 @@ else:
 
 __all__ = (
     "GetCreditAllocationHistoryPaginator",
+    "ListBillingViewSegmentsPaginator",
     "ListBillingViewsPaginator",
     "ListEnterpriseSupportLinkedAccountChargesPaginator",
     "ListSourceViewsForBillingViewPaginator",
@@ -78,6 +83,27 @@ class GetCreditAllocationHistoryPaginator(_GetCreditAllocationHistoryPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/GetCreditAllocationHistory.html#Billing.Paginator.GetCreditAllocationHistory.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#getcreditallocationhistorypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListBillingViewSegmentsPaginatorBase = Paginator[ListBillingViewSegmentsResponseTypeDef]
+else:
+    _ListBillingViewSegmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListBillingViewSegmentsPaginator(_ListBillingViewSegmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBillingViewSegments.html#Billing.Paginator.ListBillingViewSegments)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbillingviewsegmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBillingViewSegmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListBillingViewSegmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBillingViewSegments.html#Billing.Paginator.ListBillingViewSegments.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/paginators/#listbillingviewsegmentspaginator)
         """
 
 

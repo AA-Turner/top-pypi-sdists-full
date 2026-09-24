@@ -266,6 +266,10 @@ target_encodings = ['sincos', 'anchored']
 ; stops a national calendar row copied across zones from sitting on both sides
 ; of a fold. cv_schemes.csv reports that duplicate rate per scheme.
 cv_schemes = ['random', 'country', 'spatial_block', 'country_block']
+; Optional {scheme: [models]} -- run only those models under that scheme.
+; Leave-one-country-out is 145 folds; at ~3 min a fold tabpfn/tabicl need
+; 30+ h there, catboost minutes. Leave unset to run every model everywhere.
+; cv_scheme_models = {'country': ['catboost']}
 n_splits = 5
 block_degrees = 10
 seed = 0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.18
+Version: 4.6.19
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -52,6 +52,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 Changelog
 ----------
 
+4.6.19
+********
+
+- `Changed` ``tb datasource append`` and ``tb datasource replace`` submit remote CSV, NDJSON, and Parquet URLs through the v1 import endpoint by default.
+
 4.6.18
 ********
 
@@ -61,6 +66,11 @@ Changelog
 ********
 
 - `Added` ``tb job retry <job_id>`` to retry eligible import and S3/GCS sync jobs in ``error`` or ``cancelled`` status.
+
+4.6.18
+********
+
+- `Added` ``Markdown`` is now a valid ``FORMAT`` for SQL queries (for example ``tb sql "SELECT 1 FORMAT Markdown"``), returned as a Markdown table.
 
 4.6.16
 ********

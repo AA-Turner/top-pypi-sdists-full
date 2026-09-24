@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: httpx2
-Version: 2.13.0
+Version: 2.13.1
 Summary: The next generation HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpx2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.10; sys_platform != 'emscripten'
-Requires-Dist: httpcore2==2.13.0; sys_platform != 'emscripten'
+Requires-Dist: httpcore2==2.13.1; sys_platform != 'emscripten'
 Requires-Dist: httpx2-jsfetch; sys_platform == 'emscripten' and python_version >= '3.12'
 Requires-Dist: idna>=3.18
 Requires-Dist: truststore>=0.10; sys_platform != 'emscripten'
@@ -213,20 +213,14 @@ inspiration around the lower-level networking details.
 
 ## Release Information
 
-## 2.13.0 (September 14th, 2026)
-
-### Changed
-
-* Require `brotlicffi` 1.2.0.2 or later for the `brotli` extra on non-CPython implementations.
-  ([#1179](https://github.com/pydantic/httpx2/pull/1179))
+## 2.13.1 (September 23rd, 2026)
 
 ### Fixed
 
-* Make the `--no-verify` CLI flag disable TLS certificate verification and add an explicit `--verify` counterpart.
-  ([#1140](https://github.com/pydantic/httpx2/pull/1140),
-  [#1186](https://github.com/pydantic/httpx2/pull/1186))
-* Avoid nested async generator finalization errors when streamed responses are abandoned early.
-  ([#1204](https://github.com/pydantic/httpx2/pull/1204))
+* Calculate `Content-Length` from the remaining bytes when a file is passed as `content=`, respecting its current position.
+  ([#1214](https://github.com/pydantic/httpx2/pull/1214))
+* Stop the sync WebSocket keepalive thread cleanly when a ping races with connection shutdown.
+  ([#1228](https://github.com/pydantic/httpx2/pull/1228))
 
 ---
 

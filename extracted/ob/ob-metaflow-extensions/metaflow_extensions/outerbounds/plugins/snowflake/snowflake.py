@@ -3,6 +3,7 @@ This library is an abstraction layer for connecting to snowflake using Outerboun
 OIDC tokens. It expects that a security integration that authenticates tokens minted
 by Outerbounds has already been configured in the target snowflake account.
 """
+
 from metaflow.metaflow_config import SERVICE_URL
 from metaflow.metaflow_config_funcs import init_config
 from typing import Dict
@@ -362,7 +363,13 @@ class SnowflakeIntegrationProvisioner:
                 f"Server error: {response.text}. Please reach out to your Outerbounds support team."
             )
 
-        body = response.json()
+        try:
+            body = response.json()
+        except requests.JSONDecodeError:
+            raise OuterboundsSnowflakeConnectorException(
+                f"Expected JSON response, got [{response.status_code}] {response.text}"
+            )
+
         status_code = body.get("error", {}).get("statusCode", response.status_code)
         if status_code == 404:
             raise OuterboundsSnowflakeConnectorException(f"Secret not found: {body}")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-openai-agents
-Version: 2.4.1
+Version: 2.5.0
 Summary: OpenInference OpenAI Agents Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-openai-agents
 Author-email: OpenInference Authors <oss@arize.com>
@@ -217,3 +217,4 @@ The realtime instrumentor recognizes three environment variables for redacting c
 * [More info on OpenInference and Arize AX](https://arize.com/products/ax?utm_source=docs&utm_medium=web&utm_content=openinference)
 * [How to customize spans to track sessions, metadata, etc.](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#customizing-spans)
 * [How to account for private information and span payload customization](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#tracing-configuration)
+* [How prompt cache reads and writes are counted](https://github.com/Arize-ai/openinference/blob/main/spec/semantic_conventions.md#token-count-details), with a [Phoenix round-trip example](https://github.com/Arize-ai/openinference/blob/main/python/instrumentation/openinference-instrumentation-openai/examples/cache_tokens.md)

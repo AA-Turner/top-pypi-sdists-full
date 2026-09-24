@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-Du4lyTbb.js";import{t}from"./entity-service-DCbP65tr.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allExperiments:n,isLoading:r,error:i,refresh:a}}export{n as t};

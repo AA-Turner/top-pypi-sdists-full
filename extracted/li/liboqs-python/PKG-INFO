@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: liboqs-python
-Version: 0.16.0
+Version: 0.16.0.1
 Summary: Python bindings for liboqs, providing post-quantum public key cryptography algorithms
 Project-URL: homepage, https://github.com/open-quantum-safe/liboqs-python
 Project-URL: repository, https://github.com/open-quantum-safe/liboqs-python.git
@@ -34,7 +34,7 @@ Requires-Dist: isort==5.13.2; extra == 'dev'
 Requires-Dist: nose2==0.15.1; extra == 'dev'
 Requires-Dist: pre-commit==4.1.0; extra == 'dev'
 Requires-Dist: pyasn1-alt-modules==0.4.6; extra == 'dev'
-Requires-Dist: pyasn1==0.6.3; extra == 'dev'
+Requires-Dist: pyasn1==0.6.4; extra == 'dev'
 Requires-Dist: ruff==0.9.4; extra == 'dev'
 Provides-Extra: lint
 Requires-Dist: mypy==1.14.1; extra == 'lint'
@@ -148,12 +148,15 @@ This is convenient in case you want to avoid installing liboqs manually, as
 described in the subsection above.
 
 By default, liboqs-python installs the liboqs release that matches its own
-version. Set the `PYOQS_VERSION` environment variable to override this:
+version; a maintenance release such as liboqs-python 0.16.0.1 installs liboqs
+0.16.0. Set the `PYOQS_VERSION` environment variable to override this:
 
 ```shell
 export PYOQS_VERSION=0.16.0   # install a specific liboqs release
 export PYOQS_VERSION=latest   # install liboqs from main (HEAD)
 ```
+
+Other values must be a liboqs release version, e.g., `0.16.0` or `0.16.0-rc1`.
 
 ### Install and activate a Python virtual environment
 
@@ -223,6 +226,34 @@ Execute
 ```shell
 nose2 --verbose
 ```
+
+
+### Platform-specific notes
+
+The instructions above apply to all platforms; the notes below cover
+prerequisites that are easy to miss on Windows and on Debian-based Linux
+(including Raspberry Pi).
+
+**Windows:** If you do not already have a C++ compiler and CMake, install the
+[Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads)
+(scroll to "All Downloads" → "Tools for Visual Studio"). In the installer,
+select the **Desktop development with C++** workload, which provides the MSVC
+compiler, the Windows SDK, and CMake. Then run the CMake commands from a
+**Developer Command Prompt for VS** so the compiler is on your `PATH`. Remember
+the `-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=TRUE` flag and the `PATH` setting for
+`oqs.dll` described above.
+
+**Debian-based Linux (including Raspberry Pi):** Install the build
+prerequisites with
+
+```shell
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build libssl-dev git python3-pip python3-venv
+```
+
+After `cmake --build ... --target install`, run `sudo ldconfig` so the newly
+installed shared library is found at runtime (an alternative to setting
+`LD_LIBRARY_PATH` as described above).
 
 ---
 

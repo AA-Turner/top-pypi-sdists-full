@@ -1,6 +1,7 @@
 """Common functionality for all aggregate implementations."""
 
 import platform
+
 import numpy as np
 
 aggregate_common_doc = """
@@ -36,27 +37,181 @@ aggregate_common_doc = """
         ``group_idx`` will set the size of the output.  Note that for
         multidimensional output you need to list the size of each dimension
         here, or give ``None``.
-    fill_value: default=0
+    fill_value: default=DEFAULT_FILL_VALUE
         in the example above, group 2 does not have any data, so requires some
-        kind of filling value - in this case the default of ``0`` is used.  If
-        you had set ``fill_value=nan`` or something else, that value would
-        appear instead of ``0`` for the 2 element in the output.  Note that
-        there are some subtle interactions between what is permitted for
-        ``fill_value`` and the input/output ``dtype`` - exceptions should be
-        raised in most cases to alert the programmer if issue arrise.
+        kind of filling value.  By default the value is chosen per function,
+        following what the corresponding numpy function returns for an empty
+        slice: ``0`` for sums and counts, ``1`` for products, ``False`` for the
+        boolean functions, ``nan`` for the averaging ones (mean, median, var,
+        std, and min/max/first/last on floating input), ``0`` for the
+        trapezoidal integral (as it is for a single sample), ``-1`` for
+        argmax/argmin, and an empty sequence for array/sort.  Integer output
+        cannot hold ``nan``, so those functions fall back to ``0``.  Use
+        ``utils.default_fill_value(func, dtype)`` to query the value, or pass
+        your own.  Note that there are some subtle interactions between what is
+        permitted for ``fill_value`` and the input/output ``dtype`` - exceptions
+        should be raised in most cases to alert the programmer if issues arise.
     order: default='C'
-        this is relevant only for multimensional output.  It controls the
+        this is relevant only for multidimensional output.  It controls the
         layout of the output array in memory, can be ``'F'`` for fortran-style.
     dtype: default=None
         the ``dtype`` of the output.  By default something sensible is chosen
         based on the input, aggregation function, and ``fill_value``.
+    axis: default=None
+        allows aggregation to be performed along a single axis of a
+        multi-dimensional array ``a``.  In that case ``group_idx`` must be 1D
+        with length matching ``a.shape[axis]``, or have the same
+        dimensionality as ``a`` with a shape broadcastable to ``a.shape``
+        (e.g. to use separate group labels for each row).  In either case the
+        groups are broadcast out along the remaining axes of ``a``.  Not
+        supported by the pure python implementation.
+    reverse: default=False
+        only relevant for ``func='sort'`` - sorts the items within each group
+        in descending order instead of ascending.
     ddof: default=0
         passed through into calculations of variance and standard deviation
         (see above).
+    dx: default=1.0
+        passed through into the calculation of the trapezoidal integral
+        ``trapezoid`` (see above), where it is the sample spacing.
 """
 
-funcs_common = "first last len mean var std allnan anynan max min argmax argmin sumofsquares cumsum cumprod cummax cummin".split()
-funcs_no_separate_nan = frozenset(["sort", "rsort", "array", "allnan", "anynan"])
+funcs_common = [
+    "first",
+    "last",
+    "len",
+    "mean",
+    "median",
+    "trapezoid",
+    "var",
+    "std",
+    "allnan",
+    "anynan",
+    "max",
+    "min",
+    "argmax",
+    "argmin",
+    "sumofsquares",
+    "cumsum",
+    "cumprod",
+    "cummax",
+    "cummin",
+]
+funcs_no_separate_nan = frozenset(["sort", "array", "allnan", "anynan"])
+
+
+class _DefaultFillValue:
+    """Sentinel for ``fill_value``, asking for the function specific default."""
+
+    def __repr__(self):
+        return "DEFAULT_FILL_VALUE"
+
+    def __reduce__(self):
+        # keep the singleton through pickling and deepcopy
+        return (_get_default_fill_value, ())
+
+
+def _get_default_fill_value():
+    return DEFAULT_FILL_VALUE
+
+
+DEFAULT_FILL_VALUE = _DefaultFillValue()
+
+
+# The value an absent group gets, per aggregation function, following the
+# convention that it is whatever numpy returns for an empty slice - where the
+# output datatype can represent it (see ``resolve_fill_value``).
+_default_fill_values = {
+    "sum": 0,
+    "prod": 1,
+    "all": False,
+    "any": False,
+    "allnan": False,
+    "anynan": False,
+    "len": 0,
+    "mean": np.nan,
+    "median": np.nan,
+    # an empty domain has a zero integral, just like a single sample does
+    "trapezoid": 0,
+    "var": np.nan,
+    "std": np.nan,
+    "min": np.nan,
+    "max": np.nan,
+    "first": np.nan,
+    "last": np.nan,
+    "argmax": -1,
+    "argmin": -1,
+    "sumofsquares": 0,
+    "cumsum": 0,
+    "cumprod": 1,
+    "cummax": 0,
+    "cummin": 0,
+    # 'array' and 'sort' ask for an empty sequence, which their implementations
+    # interpret as 'leave the empty group as it is' - a fresh list per call is
+    # handed out below so that callers cannot alias each other's results.
+    "array": [],
+    "sort": [],
+}
+
+
+def _fill_value_key(func):
+    """Map a function (name, alias or callable) onto a ``_default_fill_values`` key."""
+    try:
+        name = aliasing[func]
+    except (KeyError, TypeError):
+        name = getattr(func, "__name__", "")
+    if name not in _default_fill_values and str(name).startswith("nan"):
+        # nan-variants fill like their plain counterparts
+        name = name[3:]
+    return name
+
+
+def resolve_fill_value(func, fill_value, dtype):
+    """Replace the ``DEFAULT_FILL_VALUE`` sentinel with the default of ``func``.
+
+    Anything else than the sentinel is returned untouched.  ``nan`` is only
+    handed out if ``dtype`` can represent it, otherwise the value falls back to
+    ``0`` - changing the output datatype of e.g. an integer ``min`` would be a
+    worse surprise than an unspectacular filling value.
+    """
+    if fill_value is not DEFAULT_FILL_VALUE:
+        return fill_value
+    key = _fill_value_key(func)
+    # nan only fits where the output can hold it - the averaging functions
+    # coerce their result to a float type anyway
+    fits = dtype is None or key in _forced_float_types or np.issubdtype(dtype, np.inexact)
+    value = _default_fill_values.get(key)
+    if value is None:
+        # a custom callable has no function specific default
+        value = np.nan if fits else 0
+    elif value != value and not fits:
+        value = 0
+    return list(value) if isinstance(value, list) else value
+
+
+def default_fill_value(func, dtype=None):
+    """The value ``aggregate`` uses for groups missing from ``group_idx``.
+
+    ``func`` may be a name, an alias or a callable.  Pass the ``dtype`` of your
+    actual output to get the value that would really be used, ``None`` assumes
+    a floating result (which is what the averaging functions give anyway).
+    """
+    return resolve_fill_value(func, DEFAULT_FILL_VALUE, np.dtype(dtype) if dtype is not None else np.float64)
+
+
+def check_nton_shape(ret, size, func):
+    """Complain early when a one-out-per-in function has to fill a hole.
+
+    ``sort`` and the ``cum``-functions emit exactly one value per input item,
+    so a group without items leaves the output too short for the requested
+    shape - which numpy would otherwise report as a plain reshape error.
+    """
+    if ret.size != int(np.prod(size)):
+        name = getattr(func, "__name__", func)
+        raise ValueError(
+            f"'{name}' gives one value per input item and cannot fill the "
+            f"{int(np.prod(size)) - ret.size} absent group entries of size {tuple(size)}"
+        )
 
 
 _alias_str = {
@@ -79,7 +234,6 @@ _alias_str = {
     "asorted": "sort",
     "rsorted": "sort",
     "dsort": "sort",
-    "dsorted": "rsort",
 }
 
 _alias_builtin = {
@@ -111,6 +265,7 @@ _alias_numpy = {
     np.argmax: "argmax",
     np.argmin: "argmin",
     np.mean: "mean",
+    np.median: "median",
     np.std: "std",
     np.var: "var",
     np.array: "array",
@@ -121,6 +276,7 @@ _alias_numpy = {
     np.nansum: "nansum",
     np.nanprod: "nanprod",
     np.nanmean: "nanmean",
+    np.nanmedian: "nanmedian",
     np.nanvar: "nanvar",
     np.nanmax: "nanmax",
     np.nanmin: "nanmin",
@@ -129,6 +285,9 @@ _alias_numpy = {
     np.nanargmin: "nanargmin",
     np.nancumsum: "nancumsum",
 }
+if hasattr(np, "trapezoid"):
+    # np.trapezoid replaced np.trapz in numpy 2.0
+    _alias_numpy[np.trapezoid] = "trapezoid"
 
 
 def get_aliasing(*extra):
@@ -141,7 +300,7 @@ def get_aliasing(*extra):
 
     This function should only be called during import.
     """
-    alias = dict((k, k) for k in funcs_common)
+    alias = {k: k for k in funcs_common}
     alias.update(_alias_str)
     alias.update((fn, fn) for fn in _alias_builtin.values())
     alias.update(_alias_builtin)
@@ -174,9 +333,7 @@ def get_func(func, aliasing, implementations):
             raise ValueError(f"{func_str[3:]} does not have a nan-version")
         else:
             raise NotImplementedError("No such function available")
-    raise ValueError(
-        f"func {func} is neither a valid function string nor a callable object"
-    )
+    raise ValueError(f"func {func} is neither a valid function string nor a callable object")
 
 
 def check_boolean(x):
@@ -184,22 +341,22 @@ def check_boolean(x):
         raise ValueError("Value not boolean")
 
 
-_next_int_dtype = dict(
-    bool=np.int8,
-    uint8=np.int16,
-    int8=np.int16,
-    uint16=np.int32,
-    int16=np.int32,
-    uint32=np.int64,
-    int32=np.int64,
-)
+_next_int_dtype = {
+    "bool": np.int8,
+    "uint8": np.int16,
+    "int8": np.int16,
+    "uint16": np.int32,
+    "int16": np.int32,
+    "uint32": np.int64,
+    "int32": np.int64,
+}
 
-_next_float_dtype = dict(
-    float16=np.float32,
-    float32=np.float64,
-    float64=np.complex64,
-    complex64=np.complex128,
-)
+_next_float_dtype = {
+    "float16": np.float32,
+    "float32": np.float64,
+    "float64": np.complex64,
+    "complex64": np.complex128,
+}
 
 
 def minimum_dtype(x, dtype=np.bool_):
@@ -212,10 +369,10 @@ def minimum_dtype(x, dtype=np.bool_):
         try:
             with np.errstate(invalid="ignore"):
                 converted = np.array(x).astype(dtype)
-        except (ValueError, OverflowError, RuntimeWarning):
+        except (ValueError, OverflowError):
             return False
         # False if some overflow has happened
-        return converted == x or np.isnan(x)
+        return bool(converted == x) or (np.ndim(x) == 0 and np.isnan(x))
 
     def type_loop(x, dtype, dtype_dict, default=None):
         while True:
@@ -275,7 +432,18 @@ if platform.architecture()[0] == "32bit":
         "nanargmin": np.int32,
         "nanargmax": np.int32,
     }
-_forced_float_types = {"mean", "var", "std", "nanmean", "nanvar", "nanstd"}
+_forced_float_types = {
+    "mean",
+    "median",
+    "trapezoid",
+    "var",
+    "std",
+    "nanmean",
+    "nanmedian",
+    "nantrapezoid",
+    "nanvar",
+    "nanstd",
+}
 _forced_same_type = {
     "min",
     "max",
@@ -291,9 +459,7 @@ _forced_same_type = {
 def check_dtype(dtype, func_str, a, n):
     if np.isscalar(a) or not a.shape:
         if func_str not in ("sum", "prod", "len"):
-            raise ValueError(
-                "scalar inputs are supported only for 'sum', 'prod' and 'len'"
-            )
+            raise ValueError("scalar inputs are supported only for 'sum', 'prod' and 'len'")
         a_dtype = np.dtype(type(a))
     else:
         a_dtype = a.dtype
@@ -301,12 +467,8 @@ def check_dtype(dtype, func_str, a, n):
     if dtype is not None:
         # dtype set by the user
         # Careful here: np.bool != np.bool_ !
-        if np.issubdtype(dtype, np.bool_) and not (
-            "all" in func_str or "any" in func_str
-        ):
-            raise TypeError(
-                f"function {func_str} requires a more complex datatype than bool"
-            )
+        if np.issubdtype(dtype, np.bool_) and not ("all" in func_str or "any" in func_str):
+            raise TypeError(f"function {func_str} requires a more complex datatype than bool")
         if not np.issubdtype(dtype, np.integer) and func_str in ("len", "nanlen"):
             raise TypeError(f"function {func_str} requires an integer datatype")
         # TODO: Maybe have some more checks here
@@ -369,9 +531,7 @@ def check_fill_value(fill_value, dtype, func=None):
         try:
             return dtype.type(fill_value)
         except ValueError:
-            raise ValueError(
-                f"fill_value must be convertible into {dtype.type.__name__}"
-            )
+            raise ValueError(f"fill_value must be convertible into {dtype.type.__name__}")
 
 
 def check_group_idx(group_idx, a=None, check_min=True):
@@ -394,10 +554,20 @@ def _ravel_group_idx(group_idx, a, axis, size, order, method="ravel"):
     size = []
     for ii, s in enumerate(a.shape):
         if method == "ravel":
-            ii_idx = group_idx_in if ii == axis else np.arange(s)
-            ii_shape = [1] * ndim_a
-            ii_shape[ii] = s
-            group_idx.append(ii_idx.reshape(ii_shape))
+            if ii == axis:
+                ii_idx = group_idx_in
+                if ii_idx.ndim == 1:
+                    # 1d labels only carry the axis dimension - reshape so
+                    # that ravel_multi_index broadcasts them against the
+                    # arange-pieces of the other dimensions
+                    ii_shape = [1] * ndim_a
+                    ii_shape[ii] = s
+                    ii_idx = ii_idx.reshape(ii_shape)
+            else:
+                ii_shape = [1] * ndim_a
+                ii_shape[ii] = s
+                ii_idx = np.arange(s).reshape(ii_shape)
+            group_idx.append(ii_idx)
         size.append(size_in if ii == axis else s)
     # Use the indexing, and return. It's a bit simpler than
     # using trying to keep all the logic below happy
@@ -416,16 +586,12 @@ def offset_labels(group_idx, inshape, axis, order, size):
     https://stackoverflow.com/questions/46256279/bin-elements-per-row-vectorized-2d-bincount-for-numpy
     """
 
-    newaxes = tuple(ax for ax in range(len(inshape)) if ax != axis)
-    group_idx = np.broadcast_to(np.expand_dims(group_idx, newaxes), inshape)
+    group_idx = np.broadcast_to(group_idx, inshape)
     if axis not in (-1, len(inshape) - 1):
         group_idx = np.moveaxis(group_idx, axis, -1)
     newshape = group_idx.shape[:-1] + (-1,)
 
-    group_idx = (
-        group_idx
-        + np.arange(np.prod(newshape[:-1]), dtype=int).reshape(newshape) * size
-    )
+    group_idx = group_idx + np.arange(np.prod(newshape[:-1]), dtype=int).reshape(newshape) * size
     if axis not in (-1, len(inshape) - 1):
         return np.moveaxis(group_idx, -1, axis)
     else:
@@ -448,6 +614,9 @@ def input_validation(
     """
     if not isinstance(a, (int, float, complex)) and not is_duck_array(a):
         a = np.asanyarray(a)
+
+    if len(group_idx) == 0:
+        raise ValueError("group_idx must not be empty")
     if not is_duck_array(group_idx):
         group_idx = np.asanyarray(group_idx)
 
@@ -465,27 +634,30 @@ def input_validation(
     # multi-dimensional indexing along the specified axis.
     if axis is None:
         if ndim_a > 1:
-            raise ValueError(
-                "a must be scalar or 1 dimensional, use .ravel to flatten. Alternatively specify axis."
-            )
+            raise ValueError("a must be scalar or 1 dimensional, use .ravel to flatten. Alternatively specify axis.")
     elif axis >= ndim_a or axis < -ndim_a:
         raise ValueError("axis arg too large for np.ndim(a)")
     else:
         axis = axis if axis >= 0 else ndim_a + axis  # negative indexing
         if ndim_idx > 1:
-            # TODO: we could support a sequence of axis values for multiple
-            # dimensions of group_idx.
-            raise NotImplementedError(
-                "only 1d indexing currently supported with axis arg."
-            )
-        elif a.shape[axis] != len(group_idx):
+            # multidimensional group labels - e.g. separate group labels for
+            # each row - broadcast across the non-axis dimensions of a
+            # (issue #74)
+            if ndim_idx != ndim_a:
+                raise ValueError("when using axis arg, group_idx must be 1d, or of the same dimensionality as a")
+            try:
+                group_idx = np.broadcast_to(group_idx, a.shape)
+            except ValueError as err:
+                raise ValueError(
+                    f"group_idx with shape {group_idx.shape} cannot be broadcast to a with shape {a.shape}"
+                ) from err
+            ndim_idx = 1
+        if group_idx.ndim == 1 and a.shape[axis] != group_idx.shape[0]:
             raise ValueError("a.shape[axis] doesn't match length of group_idx.")
         elif size is not None and not np.isscalar(size):
-            raise NotImplementedError(
-                "when using axis arg, size must be None or scalar."
-            )
+            raise NotImplementedError("when using axis arg, size must be None or scalar.")
         else:
-            is_form_3 = group_idx.ndim == 1 and a.ndim > 1 and axis is not None
+            is_form_3 = ndim_a > 1
             orig_shape = a.shape if is_form_3 else group_idx.shape
             if isinstance(func, str) and "arg" in func:
                 unravel_shape = orig_shape
@@ -493,16 +665,10 @@ def input_validation(
                 unravel_shape = None
 
             method = "offset" if axis == ndim_a - 1 else "ravel"
-            group_idx, size = _ravel_group_idx(
-                group_idx, a, axis, size, order, method=method
-            )
+            group_idx, size = _ravel_group_idx(group_idx, a, axis, size, order, method=method)
             flat_size = np.prod(size)
             ndim_idx = ndim_a
-            size = (
-                orig_shape
-                if is_form_3 and not callable(func) and "cum" in func
-                else size
-            )
+            size = orig_shape if is_form_3 and not callable(func) and "cum" in func else size
             return (
                 group_idx.ravel(),
                 a.ravel(),
@@ -527,17 +693,13 @@ def input_validation(
         elif np.isscalar(size):
             raise ValueError(f"output size must be of length {len(group_idx)}")
         elif len(size) != len(group_idx):
-            raise ValueError(
-                f"{len(size)} sizes given, but {len(group_idx)} output dimensions specified in index"
-            )
+            raise ValueError(f"{len(size)} sizes given, but {len(group_idx)} output dimensions specified in index")
         if ravel_group_idx:
             group_idx = np.ravel_multi_index(group_idx, size, order=order, mode="raise")
         flat_size = np.prod(size)
 
     if not (np.ndim(a) == 0 or len(a) == group_idx.size):
-        raise ValueError(
-            "group_idx and a must be of the same length, or a can be scalar"
-        )
+        raise ValueError("group_idx and a must be of the same length, or a can be scalar")
 
     return group_idx, a, flat_size, ndim_idx, size, None
 
@@ -640,7 +802,7 @@ def relabel_groups_unique(group_idx):
     ret:         [0 3 3 3 0 2 4 2 0 1 1 0 3 4 4]
 
     Description of above: unique groups in input was ``1,2,3,5``, i.e.
-    ``4`` was missing, so group 5 was relabled to be ``4``.
+    ``4`` was missing, so group 5 was relabeled to be ``4``.
     Relabeling maintains order, just "compressing" the higher numbers
     to fill gaps.
     """
@@ -665,7 +827,7 @@ def relabel_groups_masked(group_idx, keep_group):
     but the user supplied mask said to keep group 4, so group 5 is only moved up by one place to fill
     the gap created by removing group 2.
 
-    That is, the mask describes which groups to remove, the remaining groups are relabled to remove the
+    That is, the mask describes which groups to remove, the remaining groups are relabeled to remove the
     gaps created by the falsy elements in ``keep_group``. Note that ``keep_group[0]`` has no particular
     meaning because it refers to the zero group which cannot be "removed".
 

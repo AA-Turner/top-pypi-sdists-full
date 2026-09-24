@@ -44,7 +44,8 @@ class AgentClient:
         event if the run fails; prefer streaming for long analyses. Pass chat_id
         to continue a saved conversation, or save=true to save the run as a new
         chat visible in the web UI; if saving fails, the answer is still returned
-        but its chat_id is null.
+        but its chat_id is null. Tools that change data are available to the run
+        only when the API key holds the write scope.
 
         Requires an API key with the `read` scope.
 
@@ -101,7 +102,8 @@ class AgentClient:
         event if the run fails; prefer streaming for long analyses. Pass chat_id
         to continue a saved conversation, or save=true to save the run as a new
         chat visible in the web UI; if saving fails, the answer is still returned
-        but its chat_id is null.
+        but its chat_id is null. Tools that change data are available to the run
+        only when the API key holds the write scope.
 
         Requires an API key with the `read` scope.
 
@@ -172,7 +174,8 @@ class AsyncAgentClient:
         event if the run fails; prefer streaming for long analyses. Pass chat_id
         to continue a saved conversation, or save=true to save the run as a new
         chat visible in the web UI; if saving fails, the answer is still returned
-        but its chat_id is null.
+        but its chat_id is null. Tools that change data are available to the run
+        only when the API key holds the write scope.
 
         Requires an API key with the `read` scope.
 
@@ -238,7 +241,8 @@ class AsyncAgentClient:
         event if the run fails; prefer streaming for long analyses. Pass chat_id
         to continue a saved conversation, or save=true to save the run as a new
         chat visible in the web UI; if saving fails, the answer is still returned
-        but its chat_id is null.
+        but its chat_id is null. Tools that change data are available to the run
+        only when the API key holds the write scope.
 
         Requires an API key with the `read` scope.
 

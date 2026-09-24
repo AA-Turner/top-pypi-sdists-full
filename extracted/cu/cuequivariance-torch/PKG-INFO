@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cuequivariance-torch
-Version: 0.11.1
+Version: 0.12.0
 Summary: CUDA accelerated equivariant operations
 Author: NVIDIA Corporation
 License: 

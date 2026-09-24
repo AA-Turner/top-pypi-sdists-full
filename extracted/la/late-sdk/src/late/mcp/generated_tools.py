@@ -4994,6 +4994,9 @@ def register_generated_tools(mcp, _get_client):
         dsa_payor: str | None = None,
         lead_gen_form_id: str | None = None,
         status: str | None = None,
+        budget_level: str | None = None,
+        attribution_spec: list[dict[str, Any]] | None = None,
+        bodies: list[str] | None = None,
         optimization_goal: str | None = None,
     ) -> str:
         """Boost post as ad
@@ -5136,6 +5139,9 @@ def register_generated_tools(mcp, _get_client):
         a default payor.
                 lead_gen_form_id: Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals.
                 status: Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default); PAUSED creates them paused so you can review before they spend. On Meta a new campaign stays paused until explicitly activated; an attached ad is itself paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
+                budget_level: Meta only, same semantics as POST /v1/ads/create: campaign = Advantage campaign budget (CBO), the budget and bid strategy sit on the campaign and the ad set inherits them. Default adset. Not allowed with adSetId.
+                attribution_spec: Meta only. Ad-set attribution windows, same shape as POST /v1/ads/create. Applied on OUTCOME_SALES, OUTCOME_LEADS and OUTCOME_APP_PROMOTION campaigns (conversions, lead_conversion, lead_generation, app_promotion); other objectives keep Meta's default. Not allowed with adSetId.
+                bodies: Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.
                 optimization_goal: Meta, or TikTok with `goal: video_views`. TikTok: ENGAGED_VIEW (6-second
         Focused View, the default) or ENGAGED_VIEW_FIFTEEN (15-second views), both
         billed per view (CPV); any other value is a 400. Meta: explicit ad-set
@@ -5196,6 +5202,9 @@ def register_generated_tools(mcp, _get_client):
                 dsa_payor=dsa_payor,
                 lead_gen_form_id=lead_gen_form_id,
                 status=status,
+                budget_level=budget_level,
+                attribution_spec=attribution_spec,
+                bodies=bodies,
                 optimization_goal=optimization_goal,
             )
             return _format_response(response)
@@ -5411,7 +5420,12 @@ def register_generated_tools(mcp, _get_client):
         `body` field is used as the `object_story_spec.link_data.message` (the preview text) and
         `headlines` must also be present. On a video creative the copy lands in
         `video_data.message` / `video_data.title` instead of `link_data`. Mutually exclusive
-        with `dynamicCreative`, `placementAssets`, `carouselCards`, and `creatives[]`. For placement-specific copy, use the singular `placementAssets.rules[].body` and `headline` fields instead.
+        with `dynamicCreative`, `carouselCards`, and `creatives[]`. With `placementAssets` the pool
+        is applied to the placement-customized creative instead (`optimization_type: PLACEMENT`,
+        every body carries the label of each rule that does not pin its own `body`, and the same for
+        `headlines`), so Meta rotates the options per placement while media stays pinned; a rule's
+        own `body` / `headline` stays pinned for that placement. `descriptions[]` cannot join a
+        placement-customized creative (Meta refuses a second description per rule, subcode 1885878).
                 headlines: Meta only. Headline variations for Multiple Text Options. Must be sent alongside `bodies`.
         The top-level `headline` field is used as the `object_story_spec.link_data.name`
         (`video_data.title` on a video creative).
@@ -10766,7 +10780,7 @@ def register_generated_tools(mcp, _get_client):
         """Get post comments
 
         Args:
-            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook and Instagram, a comment ID is also accepted here and returns that comment's replies. (required)
+            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies (not supported on Instagram). (required)
             account_id: (required)
             subreddit: (Reddit only) Subreddit name
             limit: Maximum number of comments to return
@@ -16027,6 +16041,32 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a test lead",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def lead_gen_delete_test_lead(
+        form_id: str, account_id: str, lead_id: str | None = None
+    ) -> str:
+        """Delete a test lead
+
+        Args:
+            form_id: (required)
+            account_id: The facebook or metaads account whose Page owns the form. (required)
+            lead_id: The test lead id returned by createTestLead (or shown in the Testing Tool). Omitted = the test lead currently on the form."""
+        client = _get_client()
+        try:
+            response = client.lead_gen.delete_test_lead(
+                form_id=form_id, account_id=account_id, lead_id=lead_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # LOGS
 
     @mcp.tool(
@@ -16267,7 +16307,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: The account ID to send from (required)
-            participant_id: Recipient identifier. For X this is the numeric user ID; for WhatsApp and SMS, the recipient phone number in international format (digits, country code included); for Slack, the workspace member id (e.g. U01ABCDEF). Provide either this or participantUsername.
+            participant_id: Recipient identifier. For X this is the numeric user ID; for WhatsApp and SMS, the recipient phone number in international format (digits, country code included); for Slack, the workspace member id (e.g. U01ABCDEF); for iMessage, a phone number in international format with the leading + or an iMessage email. Provide either this or participantUsername.
             participant_username: Recipient handle/username, an X or Bluesky handle (with or without @) or a Reddit username (with or without u/). Resolved via lookup. Provide either this or participantId.
             message: Text content of the message. At least one of message, attachment, or (for WhatsApp) templateName is required. Required when category is set (a Direct Send utility message is a text message).
             skip_dm_check: X only. Skip the receives_your_dm eligibility check before sending. Use if you have already verified the recipient accepts DMs.
@@ -18900,7 +18940,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: A facebook, instagram, metaads or whatsapp account ID (required)
             catalog_account_id: A facebook, instagram or metaads account whose Meta login carries catalog_management; its token is used instead of the account's own (needed for WhatsApp connections, whose token cannot manage catalogs).
             ad_account_id: Meta ad account ID (act_...) whose owner business to list
-            business_id: Meta business portfolio ID to list"""
+            business_id: Meta business portfolio ID to list. When it is omitted and the Meta login can see several portfolios, the 400 carries `details.businesses` (id + name) so a client can offer the choice."""
         client = _get_client()
         try:
             response = client.product_catalogs.list_ad_catalogs(

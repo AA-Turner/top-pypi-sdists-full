@@ -48,7 +48,7 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 
-from xbsl import __version__, i18n
+from xbsl import __version__, i18n, mcpjournal
 
 #: Where the files come from. The simple index (PEP 691) is served straight from the upload,
 #: while the JSON metadata below is a cache that lags behind a release by minutes - see
@@ -237,6 +237,11 @@ def _wheel_url(version: str | None) -> tuple[str, str, str]:
     because the files were read from that same lagging document. A minute later the same
     command went through. The JSON stays as the fallback for an index that does not answer
     PEP 691 (and it is the one that reports an outage in words).
+
+    The index lags too. On 23.09.2026 it served the previous release for more than half an
+    hour after publishing, while the version page already listed every file. So a version
+    named explicitly and missing from the index is looked up on its own page; only a 404
+    there means the version does not exist.
     """
     files = _simple_files()
     if files:
@@ -248,8 +253,6 @@ def _wheel_url(version: str | None) -> tuple[str, str, str]:
         if target and entries:
             url, kind = _pick_wheel(entries)
             return url, target, kind
-        if version:  # the index is readable and simply does not carry this version
-            raise SelfUpdateError(i18n.t("selfupdate.no-version"))
     data = _fetch_json(PYPI_VERSION.format(version=version) if version else PYPI_LATEST)
     resolved = data["info"]["version"]
     url, kind = _pick_wheel(data["urls"])
@@ -379,8 +382,13 @@ def _process_listing() -> list[tuple[int, int, str, str]]:
     ]
 
 
-def stop_holders(processes: list[dict], log) -> list[dict]:
-    """End the listed processes; returns those that survived."""
+def stop_holders(processes: list[dict], log, reason: str = "self-update --stop-holders") -> list[dict]:
+    """End the listed processes; returns those that survived.
+
+    A forced stop leaves the stopped server no chance to write its own end, so the MCP
+    journal gets the record from here: a client of that server sees only a closed transport,
+    and `xbsl mcp-log` then names the update that ended it.
+    """
     alive = []
     for process in processes:
         pid = int(process["pid"])
@@ -390,6 +398,7 @@ def stop_holders(processes: list[dict], log) -> list[dict]:
                                timeout=30, stdin=subprocess.DEVNULL)
             else:
                 os.kill(pid, 15)
+            mcpjournal.record("stopped", target=pid, name=process.get("name") or "", reason=reason)
             log(i18n.t("selfupdate.holder-stopped", name=process.get("name") or "", pid=pid))
         except (OSError, subprocess.SubprocessError) as error:
             alive.append({**process, "error": str(error)})
@@ -564,7 +573,7 @@ def self_update(version: str | None = None, log=print, *, stop_busy: bool = Fals
     if stop_busy:
         busy = holders()
         if busy:
-            stop_holders(busy, log)
+            stop_holders(busy, log, reason=f"self-update {__version__} -> {target}")
 
     try:
         moved = _move_aside(site)

@@ -67,12 +67,13 @@ class SMatrix(ABC):
 
         # Standard dimensions from AcousticFields
         if self.isComplexSMatrix:
-            self.N = len(experiment.AcousticFields_demodulated)
+            self.N = len(experiment.AcousticFields_demodulated) if experiment.AcousticFields_demodulated is not None else None
         else:
-            self.N = len(experiment.AcousticFields)
-        self.T = experiment.AcousticFields[0].field.shape[0]
-        self.Z = experiment.AcousticFields[0].field.shape[1]
-        self.X = experiment.AcousticFields[0].field.shape[2]
+            self.N = len(experiment.AcousticFields) if experiment.AcousticFields is not None else None
+                
+        self.T = experiment.AcousticFields[0].field.shape[0] if experiment.AcousticFields is not None else None
+        self.Z = experiment.AcousticFields[0].field.shape[1] if experiment.AcousticFields is not None else None
+        self.X = experiment.AcousticFields[0].field.shape[2] if experiment.AcousticFields is not None else None
         
         # Common attributes
         self.norm_factor_inv = None

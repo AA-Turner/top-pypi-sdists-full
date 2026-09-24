@@ -1337,6 +1337,8 @@ def test_load_device_from_storage_shallow_degrades_package_fields(tmp_path: Path
     assert shallow.uses_mqtt is False
     assert deep.uses_mqtt is True
     assert shallow.directly_referenced_integrations == []
+    assert shallow.component_ids == []
+    assert {"esphome", "esp32", "mqtt"} <= set(deep.component_ids)
 
 
 def test_load_device_from_storage_shallow_mqtt_extract_from_raw_text(tmp_path: Path) -> None:
@@ -2086,7 +2088,7 @@ def test_generate_yaml_omits_wifi_for_plain_rp2040_pico() -> None:
     """RP2040 ``rpipico`` board → no ``wifi:`` block.
 
     The plain Pico has no CYW43; only the W variants do. The
-    inference reads ``esphome.components.rp2040.boards.BOARDS`` so
+    inference reads ``esphome.components.rp2.boards.BOARDS`` so
     we don't carry a hand-maintained list parallel to upstream.
     """
     board = _make_board(platform=Platform.RP2, pio_board="rpipico")

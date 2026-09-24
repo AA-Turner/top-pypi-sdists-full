@@ -10,8 +10,10 @@ use either::Either;
 
 use crate::ast::{AstNode, LitKind, PrefixOp};
 use crate::unescape::{escape_unicode_esc_str, uescape_char};
-use crate::{SyntaxNode, SyntaxToken, ast, match_ast, syntax_error::SyntaxError};
-use rowan::{TextRange, TextSize};
+use crate::{
+    SyntaxNode, SyntaxToken, ast, match_ast, sql_body::SqlBody, syntax_error::SyntaxError,
+};
+use rowan::{TextRange, TextSize, WalkEvent};
 use squawk_parser::{
     SyntaxKind::*, is_col_name_keyword, is_reserved_keyword, is_type_func_name_keyword,
 };
@@ -49,6 +51,33 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
                 ast::NonStandardParam(it) => validate_non_standard_param(it, errors),
                 ast::ParenFromItem(it) => validate_paren_from_item(it, errors),
                 ast::PartitionForValuesWith(it) => validate_hash_partition_bounds(it, errors),
+                ast::PercentType(it) => validate_plpgsql_percent_type(
+                    it.syntax(),
+                    it.percent_type_clause().and_then(|it| it.percent_token()),
+                    "%TYPE",
+                    errors,
+                ),
+                ast::PlpgsqlBlock(it) => validate_plpgsql_block(it, errors),
+                ast::PlpgsqlCaseStmt(it) => validate_no_bare_case(it.subject(), errors),
+                ast::PlpgsqlCompOptionPrintStrictParams(it) => {
+                    validate_print_strict_params(it, errors)
+                },
+                ast::PlpgsqlCaseWhen(it) => validate_no_bare_case(it.cond(), errors),
+                ast::PlpgsqlElsifClause(it) => validate_no_bare_case(it.cond(), errors),
+                ast::PlpgsqlFetchStmt(it) => {
+                    validate_fetch_no_strict(it.into_clause(), errors);
+                    validate_fetch_single_row(it, errors)
+                },
+                ast::PlpgsqlForCursorStmt(it) => validate_for_cursor_single_var(it, errors),
+                ast::PlpgsqlForIStmt(it) => validate_for_i_single_var(it, errors),
+                ast::PlpgsqlForQueryStmt(it) => validate_for_query_no_reverse(it, errors),
+                ast::PlpgsqlIfStmt(it) => validate_no_bare_case(it.cond(), errors),
+                ast::PlpgsqlPercentRowtype(it) => validate_plpgsql_percent_type(
+                    it.syntax(),
+                    it.percent_token(),
+                    "%ROWTYPE",
+                    errors,
+                ),
                 ast::RelationFromItem(it) => validate_relation_from_item(it, errors),
                 ast::RuleStmtList(it) => validate_rule_stmt_list(it, errors),
                 ast::Select(it) => validate_select(it, errors),
@@ -340,6 +369,173 @@ fn validate_atomic_body(it: ast::AtomicBody, acc: &mut Vec<SyntaxError>) {
             "Missing semicolon after statement",
             TextRange::empty(end),
         ));
+    }
+}
+
+// -- err
+// declare x U&"tbl" UESCAPE '!'%type;
+// declare x U&"tbl" UESCAPE '!'%rowtype;
+fn validate_plpgsql_percent_type(
+    syntax: &SyntaxNode,
+    percent: Option<SyntaxToken>,
+    percent_type: &str,
+    acc: &mut Vec<SyntaxError>,
+) {
+    if !syntax
+        .parent()
+        .is_some_and(|parent| matches!(parent.kind(), PLPGSQL_VAR_DECL | PLPGSQL_CURSOR_ARG))
+    {
+        return;
+    }
+    let has_uescape = syntax
+        .descendants_with_tokens()
+        .any(|element| element.kind() == UESCAPE_KW);
+    if !has_uescape {
+        return;
+    }
+    let Some(percent) = percent else {
+        return;
+    };
+    acc.push(SyntaxError::new(
+        format!("UESCAPE is not allowed before {percent_type}"),
+        percent.text_range(),
+    ));
+}
+
+fn validate_plpgsql_block(it: ast::PlpgsqlBlock, acc: &mut Vec<SyntaxError>) {
+    if it.semicolon_token().is_some()
+        || it
+            .syntax()
+            .parent()
+            .is_none_or(|parent| parent.kind() != PLPGSQL_BODY)
+    {
+        return;
+    }
+    acc.push(SyntaxError::new(
+        "Missing semicolon after block",
+        TextRange::empty(it.syntax().text_range().end()),
+    ));
+}
+
+fn validate_print_strict_params(
+    it: ast::PlpgsqlCompOptionPrintStrictParams,
+    acc: &mut Vec<SyntaxError>,
+) {
+    let Some(value) = it.option_value() else {
+        return;
+    };
+    let text = value.text();
+    if text != "on" && text != "off" {
+        acc.push(SyntaxError::new(
+            format!("unrecognized print_strict_params option {text}"),
+            value.syntax().text_range(),
+        ));
+    }
+}
+
+// -- err
+// fetch all from c into x;
+// fetch forward 2 from c into x;
+// -- ok
+// fetch forward from c into x;
+fn validate_fetch_single_row(it: ast::PlpgsqlFetchStmt, acc: &mut Vec<SyntaxError>) {
+    let Some(direction) = it.direction() else {
+        return;
+    };
+    let multiple_rows = match &direction {
+        ast::CursorAction::All(_) | ast::CursorAction::Expr(_) => true,
+        ast::CursorAction::Forward(it) => it.all_token().is_some() || it.expr().is_some(),
+        ast::CursorAction::Backward(it) => it.all_token().is_some() || it.expr().is_some(),
+        _ => false,
+    };
+    if multiple_rows {
+        acc.push(SyntaxError::new(
+            "FETCH statement cannot return multiple rows",
+            direction.syntax().text_range(),
+        ));
+    }
+}
+
+// -- err
+// fetch c into strict x;
+// -- ok
+// execute q into strict x;
+fn validate_fetch_no_strict(it: Option<ast::PlpgsqlIntoClause>, acc: &mut Vec<SyntaxError>) {
+    let Some(strict) = it.and_then(|it| it.strict_token()) else {
+        return;
+    };
+    acc.push(SyntaxError::new(
+        "FETCH does not support STRICT",
+        strict.text_range(),
+    ));
+}
+
+// -- err
+// for i, j in 1..2 loop null; end loop;
+// -- ok
+// for i in 1..2 loop null; end loop;
+fn validate_for_i_single_var(it: ast::PlpgsqlForIStmt, acc: &mut Vec<SyntaxError>) {
+    for var in it.vars().skip(1) {
+        acc.push(SyntaxError::new(
+            "integer FOR loop takes one variable",
+            var.syntax().text_range(),
+        ));
+    }
+}
+
+// -- err
+// for a, b in c loop null; end loop;
+// -- ok
+// for a in c loop null; end loop;
+fn validate_for_cursor_single_var(it: ast::PlpgsqlForCursorStmt, acc: &mut Vec<SyntaxError>) {
+    for var in it.vars().skip(1) {
+        acc.push(SyntaxError::new(
+            "cursor FOR loop takes one variable",
+            var.syntax().text_range(),
+        ));
+    }
+}
+
+// -- err
+// for r in reverse select 1 loop null; end loop;
+// -- ok
+// for r in select 1 loop null; end loop;
+fn validate_for_query_no_reverse(it: ast::PlpgsqlForQueryStmt, acc: &mut Vec<SyntaxError>) {
+    let Some(reverse) = it.reverse_token() else {
+        return;
+    };
+    acc.push(SyntaxError::new(
+        "cannot specify REVERSE in query FOR loop",
+        reverse.text_range(),
+    ));
+}
+
+// -- err
+// if case when a then 1 end then
+// -- ok
+// if (case when a then 1 end) then
+fn validate_no_bare_case(cond: Option<ast::PlpgsqlExpr>, acc: &mut Vec<SyntaxError>) {
+    let Some(cond) = cond else {
+        return;
+    };
+    let mut depth = 0i32;
+    let mut preorder = cond.syntax().preorder_with_tokens();
+    while let Some(event) = preorder.next() {
+        let WalkEvent::Enter(element) = event else {
+            continue;
+        };
+        match element.kind() {
+            L_PAREN | L_BRACK => depth += 1,
+            R_PAREN | R_BRACK => depth -= 1,
+            CASE_EXPR if depth == 0 => {
+                acc.push(SyntaxError::new(
+                    "CASE expression must be parenthesized",
+                    element.text_range(),
+                ));
+                preorder.skip_subtree();
+            }
+            _ => (),
+        }
     }
 }
 
@@ -1303,7 +1499,17 @@ fn validate_do(do_: ast::Do, acc: &mut Vec<SyntaxError>) {
     let mut seen_body = false;
     for part in do_.language_and_body() {
         let (seen, range) = match part {
-            Either::Left(language) => (&mut seen_language, language.syntax().text_range()),
+            Either::Left(language) => {
+                if let Some(language_name) = language.language_name()
+                    && language_name.name == SqlBody::LANGUAGE
+                {
+                    acc.push(SyntaxError::new(
+                        "SQL is not a valid language for DO statements.",
+                        language_name.range,
+                    ));
+                }
+                (&mut seen_language, language.syntax().text_range())
+            }
             Either::Right(body) => (&mut seen_body, body.syntax().text_range()),
         };
         if *seen {

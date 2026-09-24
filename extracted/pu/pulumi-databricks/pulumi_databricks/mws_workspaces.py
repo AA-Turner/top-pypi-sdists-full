@@ -107,8 +107,8 @@ class MwsWorkspacesArgs:
         if gcp_managed_network_config is not None:
             pulumi.set(__self__, "gcp_managed_network_config", gcp_managed_network_config)
         if gke_config is not None:
-            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_config is not None:
             pulumi.set(__self__, "gke_config", gke_config)
         if is_no_public_ip_enabled is not None:
@@ -301,7 +301,7 @@ class MwsWorkspacesArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeConfig")
-    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_config(self) -> pulumi.Input[Optional['MwsWorkspacesGkeConfigArgs']]:
         return pulumi.get(self, "gke_config")
 
@@ -566,8 +566,8 @@ class _MwsWorkspacesState:
         if gcp_workspace_sa is not None:
             pulumi.set(__self__, "gcp_workspace_sa", gcp_workspace_sa)
         if gke_config is not None:
-            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_config is not None:
             pulumi.set(__self__, "gke_config", gke_config)
         if is_no_public_ip_enabled is not None:
@@ -774,7 +774,7 @@ class _MwsWorkspacesState:
 
     @_builtins.property
     @pulumi.getter(name="gkeConfig")
-    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_config(self) -> pulumi.Input[Optional['MwsWorkspacesGkeConfigArgs']]:
         return pulumi.get(self, "gke_config")
 
@@ -963,7 +963,7 @@ class MwsWorkspaces(pulumi.CustomResource):
                  account_id: pulumi.Input[Optional[_builtins.str]] = None,
                  aws_region: pulumi.Input[Optional[_builtins.str]] = None,
                  cloud: pulumi.Input[Optional[_builtins.str]] = None,
-                 cloud_resource_container: pulumi.Input[Optional[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict']]] = None,
+                 cloud_resource_container: pulumi.Input[Optional[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict', 'outputs.MwsWorkspacesCloudResourceContainer']]] = None,
                  compute_mode: pulumi.Input[Optional[_builtins.str]] = None,
                  creation_time: pulumi.Input[Optional[_builtins.int]] = None,
                  credentials_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -971,9 +971,9 @@ class MwsWorkspaces(pulumi.CustomResource):
                  customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
                  deployment_name: pulumi.Input[Optional[_builtins.str]] = None,
                  expected_workspace_status: pulumi.Input[Optional[_builtins.str]] = None,
-                 external_customer_info: pulumi.Input[Optional[Union['MwsWorkspacesExternalCustomerInfoArgs', 'MwsWorkspacesExternalCustomerInfoArgsDict']]] = None,
-                 gcp_managed_network_config: pulumi.Input[Optional[Union['MwsWorkspacesGcpManagedNetworkConfigArgs', 'MwsWorkspacesGcpManagedNetworkConfigArgsDict']]] = None,
-                 gke_config: pulumi.Input[Optional[Union['MwsWorkspacesGkeConfigArgs', 'MwsWorkspacesGkeConfigArgsDict']]] = None,
+                 external_customer_info: pulumi.Input[Optional[Union['MwsWorkspacesExternalCustomerInfoArgs', 'MwsWorkspacesExternalCustomerInfoArgsDict', 'outputs.MwsWorkspacesExternalCustomerInfo']]] = None,
+                 gcp_managed_network_config: pulumi.Input[Optional[Union['MwsWorkspacesGcpManagedNetworkConfigArgs', 'MwsWorkspacesGcpManagedNetworkConfigArgsDict', 'outputs.MwsWorkspacesGcpManagedNetworkConfig']]] = None,
+                 gke_config: pulumi.Input[Optional[Union['MwsWorkspacesGkeConfigArgs', 'MwsWorkspacesGkeConfigArgsDict', 'outputs.MwsWorkspacesGkeConfig']]] = None,
                  is_no_public_ip_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  location: pulumi.Input[Optional[_builtins.str]] = None,
                  managed_services_customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -983,7 +983,7 @@ class MwsWorkspaces(pulumi.CustomResource):
                  private_access_settings_id: pulumi.Input[Optional[_builtins.str]] = None,
                  storage_configuration_id: pulumi.Input[Optional[_builtins.str]] = None,
                  storage_customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 token: pulumi.Input[Optional[Union['MwsWorkspacesTokenArgs', 'MwsWorkspacesTokenArgsDict']]] = None,
+                 token: pulumi.Input[Optional[Union['MwsWorkspacesTokenArgs', 'MwsWorkspacesTokenArgsDict', 'outputs.MwsWorkspacesToken']]] = None,
                  workspace_id: pulumi.Input[Optional[_builtins.str]] = None,
                  workspace_name: pulumi.Input[Optional[_builtins.str]] = None,
                  workspace_status: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1250,7 +1250,7 @@ class MwsWorkspaces(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/).
         :param pulumi.Input[_builtins.str] aws_region: region of VPC.
-        :param pulumi.Input[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict']] cloud_resource_container: A block that specifies GCP workspace configurations, consisting of following blocks:
+        :param pulumi.Input[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict', 'outputs.MwsWorkspacesCloudResourceContainer']] cloud_resource_container: A block that specifies GCP workspace configurations, consisting of following blocks:
         :param pulumi.Input[_builtins.str] compute_mode: The compute mode for the workspace. When unset, a classic workspace is created, and both `credentials_id` and `storage_configuration_id` must be specified. When set to `SERVERLESS`, the resulting workspace is a serverless workspace, and `credentials_id` and `storage_configuration_id` must not be set. The only allowed value for this is `SERVERLESS`. Changing this field requires recreation of the workspace.
         :param pulumi.Input[_builtins.int] creation_time: (Integer) time when workspace was created
         :param pulumi.Input[_builtins.str] credentials_id: `credentials_id` from credentials. This must not be specified when `compute_mode` is set to `SERVERLESS`.
@@ -1552,7 +1552,7 @@ class MwsWorkspaces(pulumi.CustomResource):
                  account_id: pulumi.Input[Optional[_builtins.str]] = None,
                  aws_region: pulumi.Input[Optional[_builtins.str]] = None,
                  cloud: pulumi.Input[Optional[_builtins.str]] = None,
-                 cloud_resource_container: pulumi.Input[Optional[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict']]] = None,
+                 cloud_resource_container: pulumi.Input[Optional[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict', 'outputs.MwsWorkspacesCloudResourceContainer']]] = None,
                  compute_mode: pulumi.Input[Optional[_builtins.str]] = None,
                  creation_time: pulumi.Input[Optional[_builtins.int]] = None,
                  credentials_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1560,9 +1560,9 @@ class MwsWorkspaces(pulumi.CustomResource):
                  customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
                  deployment_name: pulumi.Input[Optional[_builtins.str]] = None,
                  expected_workspace_status: pulumi.Input[Optional[_builtins.str]] = None,
-                 external_customer_info: pulumi.Input[Optional[Union['MwsWorkspacesExternalCustomerInfoArgs', 'MwsWorkspacesExternalCustomerInfoArgsDict']]] = None,
-                 gcp_managed_network_config: pulumi.Input[Optional[Union['MwsWorkspacesGcpManagedNetworkConfigArgs', 'MwsWorkspacesGcpManagedNetworkConfigArgsDict']]] = None,
-                 gke_config: pulumi.Input[Optional[Union['MwsWorkspacesGkeConfigArgs', 'MwsWorkspacesGkeConfigArgsDict']]] = None,
+                 external_customer_info: pulumi.Input[Optional[Union['MwsWorkspacesExternalCustomerInfoArgs', 'MwsWorkspacesExternalCustomerInfoArgsDict', 'outputs.MwsWorkspacesExternalCustomerInfo']]] = None,
+                 gcp_managed_network_config: pulumi.Input[Optional[Union['MwsWorkspacesGcpManagedNetworkConfigArgs', 'MwsWorkspacesGcpManagedNetworkConfigArgsDict', 'outputs.MwsWorkspacesGcpManagedNetworkConfig']]] = None,
+                 gke_config: pulumi.Input[Optional[Union['MwsWorkspacesGkeConfigArgs', 'MwsWorkspacesGkeConfigArgsDict', 'outputs.MwsWorkspacesGkeConfig']]] = None,
                  is_no_public_ip_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
                  location: pulumi.Input[Optional[_builtins.str]] = None,
                  managed_services_customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1572,7 +1572,7 @@ class MwsWorkspaces(pulumi.CustomResource):
                  private_access_settings_id: pulumi.Input[Optional[_builtins.str]] = None,
                  storage_configuration_id: pulumi.Input[Optional[_builtins.str]] = None,
                  storage_customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
-                 token: pulumi.Input[Optional[Union['MwsWorkspacesTokenArgs', 'MwsWorkspacesTokenArgsDict']]] = None,
+                 token: pulumi.Input[Optional[Union['MwsWorkspacesTokenArgs', 'MwsWorkspacesTokenArgsDict', 'outputs.MwsWorkspacesToken']]] = None,
                  workspace_id: pulumi.Input[Optional[_builtins.str]] = None,
                  workspace_name: pulumi.Input[Optional[_builtins.str]] = None,
                  workspace_status: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1637,7 +1637,7 @@ class MwsWorkspaces(pulumi.CustomResource):
             account_id: pulumi.Input[Optional[_builtins.str]] = None,
             aws_region: pulumi.Input[Optional[_builtins.str]] = None,
             cloud: pulumi.Input[Optional[_builtins.str]] = None,
-            cloud_resource_container: pulumi.Input[Optional[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict']]] = None,
+            cloud_resource_container: pulumi.Input[Optional[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict', 'outputs.MwsWorkspacesCloudResourceContainer']]] = None,
             compute_mode: pulumi.Input[Optional[_builtins.str]] = None,
             creation_time: pulumi.Input[Optional[_builtins.int]] = None,
             credentials_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1646,10 +1646,10 @@ class MwsWorkspaces(pulumi.CustomResource):
             deployment_name: pulumi.Input[Optional[_builtins.str]] = None,
             effective_compute_mode: pulumi.Input[Optional[_builtins.str]] = None,
             expected_workspace_status: pulumi.Input[Optional[_builtins.str]] = None,
-            external_customer_info: pulumi.Input[Optional[Union['MwsWorkspacesExternalCustomerInfoArgs', 'MwsWorkspacesExternalCustomerInfoArgsDict']]] = None,
-            gcp_managed_network_config: pulumi.Input[Optional[Union['MwsWorkspacesGcpManagedNetworkConfigArgs', 'MwsWorkspacesGcpManagedNetworkConfigArgsDict']]] = None,
+            external_customer_info: pulumi.Input[Optional[Union['MwsWorkspacesExternalCustomerInfoArgs', 'MwsWorkspacesExternalCustomerInfoArgsDict', 'outputs.MwsWorkspacesExternalCustomerInfo']]] = None,
+            gcp_managed_network_config: pulumi.Input[Optional[Union['MwsWorkspacesGcpManagedNetworkConfigArgs', 'MwsWorkspacesGcpManagedNetworkConfigArgsDict', 'outputs.MwsWorkspacesGcpManagedNetworkConfig']]] = None,
             gcp_workspace_sa: pulumi.Input[Optional[_builtins.str]] = None,
-            gke_config: pulumi.Input[Optional[Union['MwsWorkspacesGkeConfigArgs', 'MwsWorkspacesGkeConfigArgsDict']]] = None,
+            gke_config: pulumi.Input[Optional[Union['MwsWorkspacesGkeConfigArgs', 'MwsWorkspacesGkeConfigArgsDict', 'outputs.MwsWorkspacesGkeConfig']]] = None,
             is_no_public_ip_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
             location: pulumi.Input[Optional[_builtins.str]] = None,
             managed_services_customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1659,7 +1659,7 @@ class MwsWorkspaces(pulumi.CustomResource):
             private_access_settings_id: pulumi.Input[Optional[_builtins.str]] = None,
             storage_configuration_id: pulumi.Input[Optional[_builtins.str]] = None,
             storage_customer_managed_key_id: pulumi.Input[Optional[_builtins.str]] = None,
-            token: pulumi.Input[Optional[Union['MwsWorkspacesTokenArgs', 'MwsWorkspacesTokenArgsDict']]] = None,
+            token: pulumi.Input[Optional[Union['MwsWorkspacesTokenArgs', 'MwsWorkspacesTokenArgsDict', 'outputs.MwsWorkspacesToken']]] = None,
             workspace_id: pulumi.Input[Optional[_builtins.str]] = None,
             workspace_name: pulumi.Input[Optional[_builtins.str]] = None,
             workspace_status: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1674,7 +1674,7 @@ class MwsWorkspaces(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/).
         :param pulumi.Input[_builtins.str] aws_region: region of VPC.
-        :param pulumi.Input[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict']] cloud_resource_container: A block that specifies GCP workspace configurations, consisting of following blocks:
+        :param pulumi.Input[Union['MwsWorkspacesCloudResourceContainerArgs', 'MwsWorkspacesCloudResourceContainerArgsDict', 'outputs.MwsWorkspacesCloudResourceContainer']] cloud_resource_container: A block that specifies GCP workspace configurations, consisting of following blocks:
         :param pulumi.Input[_builtins.str] compute_mode: The compute mode for the workspace. When unset, a classic workspace is created, and both `credentials_id` and `storage_configuration_id` must be specified. When set to `SERVERLESS`, the resulting workspace is a serverless workspace, and `credentials_id` and `storage_configuration_id` must not be set. The only allowed value for this is `SERVERLESS`. Changing this field requires recreation of the workspace.
         :param pulumi.Input[_builtins.int] creation_time: (Integer) time when workspace was created
         :param pulumi.Input[_builtins.str] credentials_id: `credentials_id` from credentials. This must not be specified when `compute_mode` is set to `SERVERLESS`.
@@ -1848,7 +1848,7 @@ class MwsWorkspaces(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="gkeConfig")
-    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.133.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.134.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_config(self) -> pulumi.Output[Optional['outputs.MwsWorkspacesGkeConfig']]:
         return pulumi.get(self, "gke_config")
 

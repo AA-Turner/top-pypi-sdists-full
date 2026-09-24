@@ -188,7 +188,7 @@ class MAVLink_message(object):
 
     def __init__(self, msgId: int, name: str) -> None:
         self._header = MAVLink_header(msgId)
-        self._payload: Optional[bytes] = None
+        self._payload: Optional[Union[bytes, bytearray]] = None
         self._msgbuf = bytearray(b"")
         self._crc: Optional[int] = None
         self._fieldnames: List[str] = []
@@ -211,7 +211,7 @@ class MAVLink_message(object):
     def get_header(self) -> MAVLink_header:
         return self._header
 
-    def get_payload(self) -> Optional[bytes]:
+    def get_payload(self) -> Optional[Union[bytes, bytearray]]:
         return self._payload
 
     def get_crc(self) -> Optional[int]:
@@ -325,9 +325,8 @@ class MAVLink_message(object):
         self._msgbuf = bytearray(self._header.pack(force_mavlink1=force_mavlink1))
         self._msgbuf += self._payload
         crc = x25crc(self._msgbuf[1:])
-        if ${crc_extra}:
-            # we are using CRC extra
-            crc.accumulate(struct.pack("B", crc_extra))
+        # we are using CRC extra
+        crc.accumulate(struct.pack("B", crc_extra))
         self._crc = crc.crc
         self._msgbuf += struct.pack("<H", self._crc)
         if mav.signing.sign_outgoing and not force_mavlink1:
@@ -387,6 +386,7 @@ class EnumEntry(object):
         self.name = name
         self.description = description
         self.param: Dict[int, str] = {}
+        self.label: Dict[int, str] = {}
         self.has_location = False
 
 class Enum(Dict[int, EnumEntry]):
@@ -428,6 +428,11 @@ enums: Dict[str, Enum] = {}
                     outf.write(
                         'enums["%s"][%d].param[%d] = """%s"""\n'
                         % (e.name, int(entry.value), int(param.index), description)
+                    )
+                if param.label:
+                    outf.write(
+                        'enums["%s"][%d].label[%d] = """%s"""\n'
+                        % (e.name, int(entry.value), int(param.index), param.label)
                     )
 
 
@@ -705,7 +710,7 @@ class MAVLink_bad_data(MAVLink_message):
     a piece of bad data in a mavlink stream
     """
 
-    def __init__(self, data: bytes, reason: str) -> None:
+    def __init__(self, data: Union[bytes, bytearray], reason: str) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_BAD_DATA, "BAD_DATA")
         self._fieldnames = ["data", "reason"]
         self.data = data
@@ -724,7 +729,7 @@ class MAVLink_unknown(MAVLink_message):
     a message that we don't have in the XML used when built
     """
 
-    def __init__(self, msgid: int, data: bytes) -> None:
+    def __init__(self, msgid: int, data: Union[bytes, bytearray]) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_UNKNOWN, "UNKNOWN_%u" % msgid)
         self._fieldnames = ["data"]
         self.data = data
@@ -777,9 +782,9 @@ class MAVLink(object):
         self.have_prefix_error = False
         self.robust_parsing = False
         self.protocol_marker = ${protocol_marker}
-        self.little_endian = ${little_endian}
-        self.crc_extra = ${crc_extra}
-        self.sort_fields = ${sort_fields}
+        self.little_endian = True
+        self.crc_extra = True
+        self.sort_fields = True
         self.total_packets_sent = 0
         self.total_bytes_sent = 0
         self.total_packets_received = 0
@@ -840,12 +845,12 @@ class MAVLink(object):
         if m is not None:
             self.total_packets_received += 1
             self.__callbacks(m)
-        else:
-            # XXX The idea here is if we've read something and there's nothing left in
-            # the buffer, reset it to 0 which frees the memory
-            if self.buf_len() == 0 and self.buf_index != 0:
-                self.buf = bytearray()
-                self.buf_index = 0
+
+        # See if there's nothing left in the buffer, reset it to 0
+        # which frees the memory
+        if self.buf_index != 0 and self.buf_len() == 0:
+            self.buf = bytearray()
+            self.buf_index = 0
 
         return m
 
@@ -999,9 +1004,8 @@ class MAVLink(object):
         except struct.error as emsg:
             raise MAVError("Unable to unpack MAVLink CRC: %s" % emsg)
         crcbuf = msgbuf[1 : -(2 + signature_len)]
-        if ${crc_extra}:
-            # using CRC extra
-            crcbuf.append(crc_extra)
+        # using CRC extra
+        crcbuf.append(crc_extra)
         crc2 = x25crc(crcbuf)
         if crc != crc2.crc and not MAVLINK_IGNORE_CRC:
             raise MAVError("invalid MAVLink CRC in msgID %u 0x%04x should be 0x%04x" % (msgId, crc, crc2.crc))
@@ -1048,23 +1052,22 @@ class MAVLink(object):
 
         tlist: List[Union[bytes, float, int, Sequence[Union[bytes, float, int]]]] = list(t)
         # handle sorted fields
-        if ${sort_fields}:
-            if sum(len_map) == len(len_map):
-                # message has no arrays in it
-                for i in range(0, len(tlist)):
-                    tlist[i] = t[order_map[i]]
-            else:
-                # message has some arrays
-                tlist = []
-                for i in range(0, len(order_map)):
-                    order = order_map[i]
-                    L = len_map[order]
-                    tip = sum(len_map[:order])
-                    field = t[tip]
-                    if L == 1 or isinstance(field, bytes):
-                        tlist.append(field)
-                    else:
-                        tlist.append(list(t[tip : (tip + L)]))
+        if sum(len_map) == len(len_map):
+            # message has no arrays in it
+            for i in range(0, len(tlist)):
+                tlist[i] = t[order_map[i]]
+        else:
+            # message has some arrays
+            tlist = []
+            for i in range(0, len(order_map)):
+                order = order_map[i]
+                L = len_map[order]
+                tip = sum(len_map[:order])
+                field = t[tip]
+                if L == 1 or isinstance(field, bytes):
+                    tlist.append(field)
+                else:
+                    tlist.append(list(t[tip : (tip + L)]))
 
         # terminate any strings
         for i, elem in enumerate(tlist):
@@ -1173,10 +1176,7 @@ def generate(basename, xml):
 
     for m in msgs:
         m.fielddefaults = []
-        if xml[0].little_endian:
-            m.fmtstr = "<"
-        else:
-            m.fmtstr = ">"
+        m.fmtstr = "<"
         m.native_fmtstr = m.fmtstr
         m.instance_field = None
         for f in m.ordered_fields:
@@ -1196,7 +1196,7 @@ def generate(basename, xml):
             m.len_map[n] = m.fieldlengths[i]
 
     print("Generating %s" % filename)
-    outf = open(filename, "w")
+    outf = open(filename, "w", encoding='utf-8')
     xml = xml[0].__dict__
     generate_preamble(outf, msgs, basename, filelist, xml)
     generate_enums(outf, enums)

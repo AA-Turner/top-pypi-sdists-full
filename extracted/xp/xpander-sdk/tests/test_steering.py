@@ -195,6 +195,34 @@ def test_key_is_minted_once_and_cleared_on_unregister():
     assert get_steer_key("task-1") == ""
 
 
+def test_a_secret_makes_the_key_stable_across_mints_of_the_same_execution():
+    first = ensure_steer_key("conv-1", "runner-key")
+    unregister_steer_provider("conv-1")
+    assert ensure_steer_key("conv-1", "runner-key") == first
+    assert ensure_steer_key("conv-2", "runner-key") != first
+    unregister_steer_provider("conv-2")
+    unregister_steer_provider("conv-1")
+    assert ensure_steer_key("conv-1", "another-key") != first
+    unregister_steer_provider("conv-1")
+
+
+def test_a_scope_keys_two_executions_of_one_conversation_alike():
+    first = ensure_steer_key("turn-1", "runner-key", scope="conv-1")
+    second = ensure_steer_key("turn-2", "runner-key", scope="conv-1")
+    assert first == second
+    assert get_steer_key("turn-1") == first and get_steer_key("turn-2") == first
+    assert ensure_steer_key("turn-3", "runner-key", scope="conv-2") != first
+    for execution in ("turn-1", "turn-2", "turn-3"):
+        unregister_steer_provider(execution)
+
+
+def test_without_a_secret_the_key_is_random_per_mint():
+    first = ensure_steer_key("conv-1")
+    unregister_steer_provider("conv-1")
+    assert ensure_steer_key("conv-1") != first
+    unregister_steer_provider("conv-1")
+
+
 def test_contract_and_block_carry_the_same_key():
     contract = steering_contract_block("task-1")
     key = get_steer_key("task-1")

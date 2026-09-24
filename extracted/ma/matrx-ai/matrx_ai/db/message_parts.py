@@ -17,8 +17,10 @@ To regenerate TypeScript types:
 import base64
 from typing import Annotated, Any, Literal
 
+from matrx_graph.content_ir.envelope import KIND_KEY
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     GetJsonSchemaHandler,
@@ -28,13 +30,19 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
-from matrx_graph.content_ir.envelope import KIND_KEY
-
 from matrx_ai.config.citations import NormalizedCitation
 from matrx_ai.db.content_types.data_ref import DataRef
 from matrx_ai.decisions.kinds import DecisionAnswer, DecisionQuestion, DecisionUsage
-from matrx_ai.speech.kinds import SpeechScript, SpeechTurn
 from matrx_ai.media.image_reference_roles import ImageReferenceRole
+from matrx_ai.media.video_reference_roles import (
+    AudioReferenceRole,
+    VideoReferenceRole,
+    validate_reference_name,
+)
+from matrx_ai.speech.kinds import SpeechScript, SpeechTurn
+
+#: A tag the prompt addresses as ``@name``; validated by the one rule.
+ReferenceName = Annotated[str | None, BeforeValidator(validate_reference_name)]
 
 # ---------------------------------------------------------------------------
 # Base
@@ -287,6 +295,9 @@ class ImageMediaPart(_StoredMediaPartBase):
     # Image-generation reference role. Absent = a plain image the model sees.
     # Vocabulary + the refusal gate: matrx_ai/media/image_reference_roles.py.
     role: ImageReferenceRole | None = None
+    # Tag a video prompt addresses as ``@name`` (Kling elements, Pika
+    # storyboards). Gate: matrx_ai/media/video_reference_roles.py.
+    name: ReferenceName = None
 
 
 class AudioMediaPart(_StoredMediaPartBase):
@@ -294,6 +305,9 @@ class AudioMediaPart(_StoredMediaPartBase):
     kind: Literal["audio"] = "audio"
     duration_ms: int | None = None
     transcription_result: str | None = None
+    # lip_sync = the speech the on-screen face mouths (a video-generation
+    # content input, distinct from the generate-audio toggle).
+    role: AudioReferenceRole | None = None
 
 
 class VideoMediaPart(_StoredMediaPartBase):
@@ -302,6 +316,9 @@ class VideoMediaPart(_StoredMediaPartBase):
     width: int | None = None
     height: int | None = None
     duration_ms: int | None = None
+    # extend = continue this clip; restyle = re-render it. Absent = a plain video.
+    role: VideoReferenceRole | None = None
+    name: ReferenceName = None
 
 
 class DocumentMediaPart(_StoredMediaPartBase):
@@ -856,6 +873,7 @@ class UserImageMediaPart(_UserMediaInputPartBase):
     width: int | None = None
     height: int | None = None
     role: ImageReferenceRole | None = None
+    name: ReferenceName = None
 
 
 class UserAudioMediaPart(_UserMediaInputPartBase):
@@ -863,6 +881,7 @@ class UserAudioMediaPart(_UserMediaInputPartBase):
     kind: Literal["audio"] = "audio"
     duration_ms: int | None = None
     transcription_result: str | None = None
+    role: AudioReferenceRole | None = None
 
 
 class UserVideoMediaPart(_UserMediaInputPartBase):
@@ -871,6 +890,8 @@ class UserVideoMediaPart(_UserMediaInputPartBase):
     width: int | None = None
     height: int | None = None
     duration_ms: int | None = None
+    role: VideoReferenceRole | None = None
+    name: ReferenceName = None
 
 
 class UserDocumentMediaPart(_UserMediaInputPartBase):

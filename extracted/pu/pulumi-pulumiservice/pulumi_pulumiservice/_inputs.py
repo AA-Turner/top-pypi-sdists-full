@@ -28,14 +28,16 @@ __all__ = [
     'DeploymentSettingsCacheOptionsArgsDict',
     'DeploymentSettingsExecutorContextArgs',
     'DeploymentSettingsExecutorContextArgsDict',
+    'DeploymentSettingsExecutorImageCredentialsArgs',
+    'DeploymentSettingsExecutorImageCredentialsArgsDict',
     'DeploymentSettingsGitAuthBasicAuthArgs',
     'DeploymentSettingsGitAuthBasicAuthArgsDict',
     'DeploymentSettingsGitAuthSSHAuthArgs',
     'DeploymentSettingsGitAuthSSHAuthArgsDict',
-    'DeploymentSettingsGitSourceGitAuthArgs',
-    'DeploymentSettingsGitSourceGitAuthArgsDict',
     'DeploymentSettingsGitSourceArgs',
     'DeploymentSettingsGitSourceArgsDict',
+    'DeploymentSettingsGitSourceGitAuthArgs',
+    'DeploymentSettingsGitSourceGitAuthArgsDict',
     'DeploymentSettingsGithubArgs',
     'DeploymentSettingsGithubArgsDict',
     'DeploymentSettingsOperationContextArgs',
@@ -255,6 +257,10 @@ class AuthPolicyDefinitionArgsDict(TypedDict):
     """
     The permission level for organization tokens.
     """
+    role_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The role ID for organization tokens.
+    """
     runner_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The runner ID for deployment runner tokens.
@@ -275,6 +281,7 @@ class AuthPolicyDefinitionArgs:
                  rules: pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]],
                  token_type: pulumi.Input['AuthPolicyTokenType'],
                  authorized_permissions: pulumi.Input[Optional[Sequence[pulumi.Input['AuthPolicyPermissionLevel']]]] = None,
+                 role_id: pulumi.Input[Optional[_builtins.str]] = None,
                  runner_id: pulumi.Input[Optional[_builtins.str]] = None,
                  team_name: pulumi.Input[Optional[_builtins.str]] = None,
                  user_login: pulumi.Input[Optional[_builtins.str]] = None):
@@ -283,6 +290,7 @@ class AuthPolicyDefinitionArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] rules: OIDC rules to set for this policy.
         :param pulumi.Input['AuthPolicyTokenType'] token_type: The token type for this policy definition.
         :param pulumi.Input[Sequence[pulumi.Input['AuthPolicyPermissionLevel']]] authorized_permissions: The permission level for organization tokens.
+        :param pulumi.Input[_builtins.str] role_id: The role ID for organization tokens.
         :param pulumi.Input[_builtins.str] runner_id: The runner ID for deployment runner tokens.
         :param pulumi.Input[_builtins.str] team_name: The team name for team tokens.
         :param pulumi.Input[_builtins.str] user_login: The user login for personal tokens.
@@ -292,6 +300,8 @@ class AuthPolicyDefinitionArgs:
         pulumi.set(__self__, "token_type", token_type)
         if authorized_permissions is not None:
             pulumi.set(__self__, "authorized_permissions", authorized_permissions)
+        if role_id is not None:
+            pulumi.set(__self__, "role_id", role_id)
         if runner_id is not None:
             pulumi.set(__self__, "runner_id", runner_id)
         if team_name is not None:
@@ -346,6 +356,18 @@ class AuthPolicyDefinitionArgs:
     @authorized_permissions.setter
     def authorized_permissions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AuthPolicyPermissionLevel']]]]):
         pulumi.set(self, "authorized_permissions", value)
+
+    @_builtins.property
+    @pulumi.getter(name="roleID")
+    def role_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The role ID for organization tokens.
+        """
+        return pulumi.get(self, "role_id")
+
+    @role_id.setter
+    def role_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "role_id", value)
 
     @_builtins.property
     @pulumi.getter(name="runnerID")
@@ -494,17 +516,25 @@ class DeploymentSettingsExecutorContextArgsDict(TypedDict):
     """
     Allows overriding the default executor image with a custom image. E.g. 'pulumi/pulumi-nodejs:latest'
     """
+    credentials: NotRequired[pulumi.Input[Optional['DeploymentSettingsExecutorImageCredentialsArgsDict']]]
+    """
+    Credentials for pulling `executorImage` from a private container registry. Only needed when the image is not publicly accessible.
+    """
 
 @pulumi.input_type
 class DeploymentSettingsExecutorContextArgs:
     def __init__(__self__, *,
-                 executor_image: pulumi.Input[_builtins.str]):
+                 executor_image: pulumi.Input[_builtins.str],
+                 credentials: pulumi.Input[Optional['DeploymentSettingsExecutorImageCredentialsArgs']] = None):
         """
         The executor context defines information about the executor where the deployment is executed. If unspecified, the default 'pulumi/pulumi' image is used.
 
         :param pulumi.Input[_builtins.str] executor_image: Allows overriding the default executor image with a custom image. E.g. 'pulumi/pulumi-nodejs:latest'
+        :param pulumi.Input['DeploymentSettingsExecutorImageCredentialsArgs'] credentials: Credentials for pulling `executorImage` from a private container registry. Only needed when the image is not publicly accessible.
         """
         pulumi.set(__self__, "executor_image", executor_image)
+        if credentials is not None:
+            pulumi.set(__self__, "credentials", credentials)
 
     @_builtins.property
     @pulumi.getter(name="executorImage")
@@ -517,6 +547,70 @@ class DeploymentSettingsExecutorContextArgs:
     @executor_image.setter
     def executor_image(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "executor_image", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def credentials(self) -> pulumi.Input[Optional['DeploymentSettingsExecutorImageCredentialsArgs']]:
+        """
+        Credentials for pulling `executorImage` from a private container registry. Only needed when the image is not publicly accessible.
+        """
+        return pulumi.get(self, "credentials")
+
+    @credentials.setter
+    def credentials(self, value: pulumi.Input[Optional['DeploymentSettingsExecutorImageCredentialsArgs']]):
+        pulumi.set(self, "credentials", value)
+
+
+class DeploymentSettingsExecutorImageCredentialsArgsDict(TypedDict):
+    """
+    Credentials for pulling the executor image from a private container registry.
+    """
+    password: pulumi.Input[_builtins.str]
+    """
+    Password or access token for authenticating with the container registry.
+    """
+    username: pulumi.Input[_builtins.str]
+    """
+    Username for authenticating with the container registry.
+    """
+
+@pulumi.input_type
+class DeploymentSettingsExecutorImageCredentialsArgs:
+    def __init__(__self__, *,
+                 password: pulumi.Input[_builtins.str],
+                 username: pulumi.Input[_builtins.str]):
+        """
+        Credentials for pulling the executor image from a private container registry.
+
+        :param pulumi.Input[_builtins.str] password: Password or access token for authenticating with the container registry.
+        :param pulumi.Input[_builtins.str] username: Username for authenticating with the container registry.
+        """
+        pulumi.set(__self__, "password", password)
+        pulumi.set(__self__, "username", username)
+
+    @_builtins.property
+    @pulumi.getter
+    def password(self) -> pulumi.Input[_builtins.str]:
+        """
+        Password or access token for authenticating with the container registry.
+        """
+        return pulumi.get(self, "password")
+
+    @password.setter
+    def password(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "password", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def username(self) -> pulumi.Input[_builtins.str]:
+        """
+        Username for authenticating with the container registry.
+        """
+        return pulumi.get(self, "username")
+
+    @username.setter
+    def username(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "username", value)
 
 
 class DeploymentSettingsGitAuthBasicAuthArgsDict(TypedDict):
@@ -624,60 +718,6 @@ class DeploymentSettingsGitAuthSSHAuthArgs:
         pulumi.set(self, "password", value)
 
 
-class DeploymentSettingsGitSourceGitAuthArgsDict(TypedDict):
-    """
-    Git source settings for a deployment.
-    """
-    basic_auth: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']]]
-    """
-    Basic auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
-    """
-    ssh_auth: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']]]
-    """
-    SSH auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
-    """
-
-@pulumi.input_type
-class DeploymentSettingsGitSourceGitAuthArgs:
-    def __init__(__self__, *,
-                 basic_auth: pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']] = None,
-                 ssh_auth: pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']] = None):
-        """
-        Git source settings for a deployment.
-
-        :param pulumi.Input['DeploymentSettingsGitAuthBasicAuthArgs'] basic_auth: Basic auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
-        :param pulumi.Input['DeploymentSettingsGitAuthSSHAuthArgs'] ssh_auth: SSH auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
-        """
-        if basic_auth is not None:
-            pulumi.set(__self__, "basic_auth", basic_auth)
-        if ssh_auth is not None:
-            pulumi.set(__self__, "ssh_auth", ssh_auth)
-
-    @_builtins.property
-    @pulumi.getter(name="basicAuth")
-    def basic_auth(self) -> pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']]:
-        """
-        Basic auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
-        """
-        return pulumi.get(self, "basic_auth")
-
-    @basic_auth.setter
-    def basic_auth(self, value: pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']]):
-        pulumi.set(self, "basic_auth", value)
-
-    @_builtins.property
-    @pulumi.getter(name="sshAuth")
-    def ssh_auth(self) -> pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']]:
-        """
-        SSH auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
-        """
-        return pulumi.get(self, "ssh_auth")
-
-    @ssh_auth.setter
-    def ssh_auth(self, value: pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']]):
-        pulumi.set(self, "ssh_auth", value)
-
-
 class DeploymentSettingsGitSourceArgsDict(TypedDict):
     """
     Git source settings for a deployment.
@@ -690,7 +730,7 @@ class DeploymentSettingsGitSourceArgsDict(TypedDict):
     """
     The commit to deploy. One of either `branch` or `commit` must be specified.
     """
-    git_auth: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitSourceGitAuthArgs']]]
+    git_auth: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitSourceGitAuthArgsDict']]]
     """
     Git authentication configuration for this deployment. Should not be specified if there are `gitHub` settings for this deployment.
     """
@@ -790,6 +830,60 @@ class DeploymentSettingsGitSourceArgs:
     @repo_url.setter
     def repo_url(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "repo_url", value)
+
+
+class DeploymentSettingsGitSourceGitAuthArgsDict(TypedDict):
+    """
+    Git source settings for a deployment.
+    """
+    basic_auth: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgsDict']]]
+    """
+    Basic auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
+    """
+    ssh_auth: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgsDict']]]
+    """
+    SSH auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
+    """
+
+@pulumi.input_type
+class DeploymentSettingsGitSourceGitAuthArgs:
+    def __init__(__self__, *,
+                 basic_auth: pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']] = None,
+                 ssh_auth: pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']] = None):
+        """
+        Git source settings for a deployment.
+
+        :param pulumi.Input['DeploymentSettingsGitAuthBasicAuthArgs'] basic_auth: Basic auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
+        :param pulumi.Input['DeploymentSettingsGitAuthSSHAuthArgs'] ssh_auth: SSH auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
+        """
+        if basic_auth is not None:
+            pulumi.set(__self__, "basic_auth", basic_auth)
+        if ssh_auth is not None:
+            pulumi.set(__self__, "ssh_auth", ssh_auth)
+
+    @_builtins.property
+    @pulumi.getter(name="basicAuth")
+    def basic_auth(self) -> pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']]:
+        """
+        Basic auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
+        """
+        return pulumi.get(self, "basic_auth")
+
+    @basic_auth.setter
+    def basic_auth(self, value: pulumi.Input[Optional['DeploymentSettingsGitAuthBasicAuthArgs']]):
+        pulumi.set(self, "basic_auth", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sshAuth")
+    def ssh_auth(self) -> pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']]:
+        """
+        SSH auth for git authentication. Only one of `personalAccessToken`, `sshAuth`, or `basicAuth` must be defined.
+        """
+        return pulumi.get(self, "ssh_auth")
+
+    @ssh_auth.setter
+    def ssh_auth(self, value: pulumi.Input[Optional['DeploymentSettingsGitAuthSSHAuthArgs']]):
+        pulumi.set(self, "ssh_auth", value)
 
 
 class DeploymentSettingsGithubArgsDict(TypedDict):
@@ -920,11 +1014,11 @@ class DeploymentSettingsOperationContextArgsDict(TypedDict):
     """
     Environment variables to set for the deployment.
     """
-    oidc: NotRequired[pulumi.Input[Optional['OperationContextOIDCArgs']]]
+    oidc: NotRequired[pulumi.Input[Optional['OperationContextOIDCArgsDict']]]
     """
     OIDC configuration to use during the deployment.
     """
-    options: NotRequired[pulumi.Input[Optional['OperationContextOptionsArgs']]]
+    options: NotRequired[pulumi.Input[Optional['OperationContextOptionsArgsDict']]]
     """
     Options to override default behavior during the deployment.
     """
@@ -1010,7 +1104,7 @@ class DeploymentSettingsSourceContextArgsDict(TypedDict):
     """
     Settings related to the source of the deployment.
     """
-    git: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitSourceArgs']]]
+    git: NotRequired[pulumi.Input[Optional['DeploymentSettingsGitSourceArgsDict']]]
     """
     Git source settings for a deployment.
     """
@@ -1480,15 +1574,15 @@ class GCPOIDCConfigurationArgs:
 
 
 class OperationContextOIDCArgsDict(TypedDict):
-    aws: NotRequired[pulumi.Input[Optional['AWSOIDCConfigurationArgs']]]
+    aws: NotRequired[pulumi.Input[Optional['AWSOIDCConfigurationArgsDict']]]
     """
     AWS-specific OIDC configuration.
     """
-    azure: NotRequired[pulumi.Input[Optional['AzureOIDCConfigurationArgs']]]
+    azure: NotRequired[pulumi.Input[Optional['AzureOIDCConfigurationArgsDict']]]
     """
     Azure-specific OIDC configuration.
     """
-    gcp: NotRequired[pulumi.Input[Optional['GCPOIDCConfigurationArgs']]]
+    gcp: NotRequired[pulumi.Input[Optional['GCPOIDCConfigurationArgsDict']]]
     """
     GCP-specific OIDC configuration.
     """
@@ -1885,7 +1979,7 @@ class PolicyPackPolicyInputArgsDict(TypedDict):
     """
     One of: advisory, mandatory, remediate, disabled.
     """
-    framework: NotRequired[pulumi.Input[Optional['PolicyPackComplianceFrameworkInputArgs']]]
+    framework: NotRequired[pulumi.Input[Optional['PolicyPackComplianceFrameworkInputArgsDict']]]
     """
     Compliance framework this policy belongs to.
     """

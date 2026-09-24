@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo
-Version: 0.24.2
+Version: 0.25.0
 Summary: A library for making reactive notebooks and apps
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Dist: click>=8.0,<9 ; sys_platform != 'emscripten'
-Requires-Dist: jedi>=0.18.0,<0.20.0
+Requires-Dist: jedi>=0.18.0,<0.21.0
 Requires-Dist: markdown>=3.6,<4
 Requires-Dist: pymdown-extensions>=10.21.2,<12
 Requires-Dist: pygments>=2.19,<3
@@ -47,12 +47,12 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.28.0 ; extra == 'otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.28.0 ; extra == 'otel'
 Requires-Dist: marimo[sql] ; extra == 'recommended'
 Requires-Dist: marimo[sandbox] ; extra == 'recommended'
+Requires-Dist: marimo-lens>=0.2.0 ; extra == 'recommended'
 Requires-Dist: cryptography>=42.0.0 ; extra == 'recommended'
 Requires-Dist: altair>=5.4.0 ; extra == 'recommended'
 Requires-Dist: pydantic-ai-slim[openai]>=1.107.0,<3.0.0 ; extra == 'recommended'
 Requires-Dist: ruff ; extra == 'recommended'
 Requires-Dist: nbformat>=5.7.0 ; extra == 'recommended'
-Requires-Dist: pyzmq>=27.1.0 ; extra == 'sandbox'
 Requires-Dist: uv>=0.9.21 ; extra == 'sandbox'
 Requires-Dist: duckdb>=1.0.0 ; extra == 'sql'
 Requires-Dist: polars[pyarrow]>=1.9.0 ; extra == 'sql'

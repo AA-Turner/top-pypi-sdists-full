@@ -55,6 +55,8 @@ STATES=(
   "pr75_faf92a4:faf92a4:PR75 @id via post-process"
   "v4_8_2:v4.8.2:v4.8.2"
   "v4_8_5:v4.8.5:v4.8.5 PolicySet reuse handle"
+  "gh111_d76174b:d76174b:GH-111 cedar 4.12.0 engine bump"
+  "v4_12_0:v4.12.0:v4.12.0 release"
 )
 
 # Write states-manifest.json for the aggregator to consume.

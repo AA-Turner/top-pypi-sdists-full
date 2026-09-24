@@ -12,7 +12,7 @@ from uhi.typing.serialization import HistogramIR
 
 T = typing.TypeVar("T", bound=Any)
 
-__all__ = ["Indexing1D", "Indexing3D"]
+__all__ = ["Indexing1D", "Indexing2D", "Indexing3D"]
 
 
 if typing.TYPE_CHECKING:
@@ -61,7 +61,7 @@ class Indexing(abc.ABC, unittest.TestCase):
         self.assertEqual(self.sum_to_value(bin), value)
 
 
-class Indexing1D(typing.Generic[T], Indexing):
+class Indexing1D(Indexing, typing.Generic[T]):
     """
     This test requires a histogram to be created first.
 
@@ -234,7 +234,7 @@ class Indexing1D(typing.Generic[T], Indexing):
         self.assertEqualSum(v, 94)
 
     def test_non_flow_integration(self) -> None:
-        v = self.h[0:len:sum]  # type: ignore[misc]
+        v = self.h[0:len:sum]
         self.assertEqualSum(v, 90)
 
     def test_ranged_integration(self) -> None:
@@ -384,7 +384,7 @@ class Indexing1D(typing.Generic[T], Indexing):
             h[1:4] = self.values_to_bins(range(5))
 
 
-class Indexing2D(typing.Generic[T], Indexing):
+class Indexing2D(Indexing, typing.Generic[T]):
     """
     This test requires histograms to be created first.
 
@@ -427,9 +427,9 @@ class Indexing2D(typing.Generic[T], Indexing):
             },
         }
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def make_histogram() -> T:
+    def make_histogram(cls) -> T:
         pass
 
     @classmethod
@@ -584,7 +584,7 @@ class Indexing2D(typing.Generic[T], Indexing):
         self.assertEqualBinValue(h[1, 4], 43)
 
 
-class Indexing3D(typing.Generic[T], Indexing):
+class Indexing3D(Indexing, typing.Generic[T]):
     """
     This test requires histograms to be created first.
 

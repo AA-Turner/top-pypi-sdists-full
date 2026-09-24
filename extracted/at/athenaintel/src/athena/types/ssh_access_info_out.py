@@ -26,6 +26,11 @@ class SshAccessInfoOut(UniversalBaseModel):
     SSH gateway port.
     """
 
+    token_expiry_minutes_options: typing.List[int] = pydantic.Field()
+    """
+    Lifetimes, in minutes, this environment offers for a temporary token from `create_ssh_access`, ascending. The first is the default when none is requested; a request above the last is refused.
+    """
+
     username: str = pydantic.Field()
     """
     The SSH username — the computer's asset id, which selects identity (registered-key) authentication at the gateway.

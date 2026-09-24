@@ -1,8 +1,8 @@
-from . import KeyEncoder
-from .util import bytes_to_int, int_bytelen, int_to_bytes
 from ..curve import Curve
 from ..point import Point
 from ..util import mod_sqrt
+from . import KeyEncoder
+from .util import bytes_to_int, int_bytelen, int_to_bytes
 
 
 class InvalidSEC1PublicKey(Exception):
@@ -12,29 +12,27 @@ class InvalidSEC1PublicKey(Exception):
 class SEC1Encoder(KeyEncoder):
     binary_data = True
 
-    @staticmethod
-    def encode_public_key(point: Point, compressed: bool = True) -> bytes:
+    def encode_public_key(self, Q: Point, compressed: bool = True) -> bytes:
         """Encode a public key as described in http://www.secg.org/SEC1-Ver-1.0.pdf
             in sections 2.3.3/2.3.4
                 uncompressed:   04 + x_bytes + y_bytes
                 compressed:     02 or 03 + x_bytes
         Args:
-            point (fastecdsa.point.Point): Public key to encode
+            Q (fastecdsa.point.Point): Public key to encode
             compressed (bool): Set to False if you want an uncompressed format
 
         Returns:
             bytes: The SEC1 encoded public key
         """
-        bytelen = int_bytelen(point.curve.q)
+        bytelen = int_bytelen(Q.curve.p)
         if compressed:
-            if point.y & 1:  # odd root
-                return b"\x03" + int_to_bytes(point.x, bytelen)
+            if Q.y & 1:  # odd root
+                return b"\x03" + int_to_bytes(Q.x, bytelen)
             else:  # even root
-                return b"\x02" + int_to_bytes(point.x, bytelen)
-        return b"\x04" + int_to_bytes(point.x, bytelen) + int_to_bytes(point.y, bytelen)
+                return b"\x02" + int_to_bytes(Q.x, bytelen)
+        return b"\x04" + int_to_bytes(Q.x, bytelen) + int_to_bytes(Q.y, bytelen)
 
-    @staticmethod
-    def decode_public_key(key: bytes, curve: Curve) -> Point:
+    def decode_public_key(self, key: bytes, curve: Curve) -> Point:
         """Decode a public key as described in http://www.secg.org/SEC1-Ver-1.0.pdf
             in sections 2.3.3/2.3.4
 
@@ -51,18 +49,17 @@ class SEC1Encoder(KeyEncoder):
         Raises:
             InvalidSEC1PublicKey
         """
-        bytelen = int_bytelen(curve.q)
+        bytelen = int_bytelen(curve.p)
         if key.startswith(b"\x04"):  # uncompressed key
             if len(key) != bytelen * 2 + 1:
                 raise InvalidSEC1PublicKey(
-                    "An uncompressed public key must be %d bytes long"
-                    % (bytelen * 2 + 1)
+                    f"An uncompressed public key must be {bytelen * 2 + 1} bytes long"
                 )
             x, y = bytes_to_int(key[1 : bytelen + 1]), bytes_to_int(key[bytelen + 1 :])
         else:  # compressed key
             if len(key) != bytelen + 1:
                 raise InvalidSEC1PublicKey(
-                    "A compressed public key must be %d bytes long" % (bytelen + 1)
+                    f"A compressed public key must be {bytelen + 1} bytes long"
                 )
             x = bytes_to_int(key[1:])
             root = mod_sqrt(curve.evaluate(x), curve.p)[0]
@@ -72,10 +69,11 @@ class SEC1Encoder(KeyEncoder):
                 y = root if root % 2 == 0 else -root % curve.p
             else:
                 raise InvalidSEC1PublicKey("Wrong key format")
+
         return Point(x, y, curve=curve)
 
-    def encode_private_key(self, _: int, __: Curve) -> bytes:
+    def encode_private_key(self, d: int, curve: Curve) -> bytes:
         raise NotImplementedError("SEC1Encoder only encodes public keys")
 
-    def decode_private_key(self, _: bytes) -> int:
+    def decode_private_key(self, key: bytes) -> int:
         raise NotImplementedError("SEC1Encoder only decodes public keys")

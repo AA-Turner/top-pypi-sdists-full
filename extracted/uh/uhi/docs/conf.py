@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
+from typing import Any
+
+import sphinx_github_changelog.changelog
 
 # -- Project information -----------------------------------------------------
 
@@ -30,6 +33,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "sphinx_github_changelog",
+    "sphinx_llm.txt",
 ]
 
 source_suffix = [".rst", ".md"]
@@ -46,6 +50,14 @@ myst_enable_extensions = [
     "colon_fence",
 ]
 
+# -- Options for LLM-friendly output -----------------------------------------
+
+# The default is the full README, which is too long for the summary block
+llms_txt_description = (
+    "Documentation of histogram indexing, the PlottableHistogram Protocol, and"
+    " the histogram serialization format, with tools for library authors."
+)
+
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -53,8 +65,28 @@ myst_enable_extensions = [
 # a list of builtin themes.
 html_theme = "furo"
 
+html_theme_options = {
+    "source_repository": "https://github.com/scikit-hep/uhi",
+    "source_branch": "main",
+    "source_directory": "docs/",
+}
+
 
 # -- Changelog builder -------------------------------------------------------
+
+# GitHub release notes start at H2. The changelog extension parses them with
+# default docutils settings, so suppress_warnings in this file has no effect.
+_changelog_default_settings = sphinx_github_changelog.changelog.get_default_settings
+
+
+def _changelog_settings(*components: Any) -> Any:
+    settings = _changelog_default_settings(*components)
+    settings.myst_suppress_warnings = ["myst.header"]
+    return settings
+
+
+sphinx_github_changelog.changelog.get_default_settings = _changelog_settings
+
 if "GITHUB_API_TOKEN" in os.environ:
     sphinx_github_changelog_token = os.environ["GITHUB_API_TOKEN"]
 

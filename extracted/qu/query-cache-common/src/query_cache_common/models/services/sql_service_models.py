@@ -39,6 +39,7 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     default_catalog: str
     execution_type: shared_models.ModelExecutionType
     sql: str
+    ignore_external_modifications: bool
     tables: t.List[shared_models.TableModifiedInfo] = field(default_factory=list)
     query_dependencies: t.List[shared_models.QueryDependency] = field(default_factory=list)
     semantic_extras: t.Dict[str, str] = field(default_factory=dict)

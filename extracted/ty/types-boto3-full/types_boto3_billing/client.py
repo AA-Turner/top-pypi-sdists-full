@@ -28,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     GetCreditAllocationHistoryPaginator,
+    ListBillingViewSegmentsPaginator,
     ListBillingViewsPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
@@ -55,6 +56,8 @@ from .type_defs import (
     GetEnterpriseSupportContractDetailsResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    ListBillingViewSegmentsRequestTypeDef,
+    ListBillingViewSegmentsResponseTypeDef,
     ListBillingViewsRequestTypeDef,
     ListBillingViewsResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestTypeDef,
@@ -240,6 +243,16 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_resource_policy)
         """
 
+    def list_billing_view_segments(
+        self, **kwargs: Unpack[ListBillingViewSegmentsRequestTypeDef]
+    ) -> ListBillingViewSegmentsResponseTypeDef:
+        """
+        Lists the segments of a billing view over a given time period.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_billing_view_segments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_billing_view_segments)
+        """
+
     def list_billing_views(
         self, **kwargs: Unpack[ListBillingViewsRequestTypeDef]
     ) -> ListBillingViewsResponseTypeDef:
@@ -330,6 +343,17 @@ class BillingClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_credit_allocation_history"]
     ) -> GetCreditAllocationHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_billing_view_segments"]
+    ) -> ListBillingViewSegmentsPaginator:
         """
         Create a paginator for an operation.
 

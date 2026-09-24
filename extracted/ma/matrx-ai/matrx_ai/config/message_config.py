@@ -310,6 +310,20 @@ class UnifiedMessage:
             else None
         )
 
+        metadata = dict(data.get("metadata") or {})
+        # Message FLAGS (prefill / cache_boundary / example) — an authored
+        # definition message carries them top-level; at runtime they live in
+        # metadata so cx_message.metadata round-trips them. Validated here:
+        # an unknown flag raises, never rides along silently.
+        if "flags" in data:
+            from matrx_ai.config.message_flags import FLAGS_METADATA_KEY, parse_flags
+
+            parsed_flags = parse_flags(data.get("flags"))
+            if parsed_flags:
+                metadata[FLAGS_METADATA_KEY] = parsed_flags
+            else:
+                metadata.pop(FLAGS_METADATA_KEY, None)
+
         return cls(
             role=data.get("role", "user"),
             content=parsed_content,
@@ -317,7 +331,7 @@ class UnifiedMessage:
             name=data.get("name"),
             timestamp=data.get("timestamp"),
             status=data.get("status", "active"),
-            metadata=dict(data.get("metadata") or {}),
+            metadata=metadata,
             user_content=parsed_user_content,
             position=data.get("position"),
         )
@@ -1850,7 +1864,24 @@ class MessageList:
     def append_or_extend_user_input(self, user_input: str | list[dict[str, Any]]) -> None:
         """
         Add user input to the message list.
+
+        A trailing PREFILL (an authored assistant turn flagged ``prefill``) must
+        stay last — the reply continues from it — so the input lands before it.
         """
+        from matrx_ai.config.message_flags import flags_of
+
+        if self._messages:
+            tail = self._messages[-1]
+            if (
+                flags_of(tail).get("prefill")
+                and not (getattr(tail, "id", None) is not None and getattr(tail, "position", None) is not None)
+            ):
+                self._messages.pop()
+                try:
+                    self.append_or_extend_user_input(user_input)
+                finally:
+                    self._messages.append(tail)
+                return
         if isinstance(user_input, str):
             self.append_or_extend_user_text(user_input)
         elif isinstance(user_input, list):

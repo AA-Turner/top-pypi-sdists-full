@@ -1,0 +1,1 @@
+import{n as e,p as t}from"./utils-CRVOceX-.js";var n=t();function r({children:t,className:r,...i}){return(0,n.jsx)(`div`,{className:e(`flex items-center justify-end`,r),...i,children:t})}export{r as t};

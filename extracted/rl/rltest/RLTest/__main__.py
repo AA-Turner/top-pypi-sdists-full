@@ -149,6 +149,12 @@ parser.add_argument(
     help='sets the node timeout on cluster in milliseconds')
 
 parser.add_argument(
+    '--cluster_bus_port_protected_mode', default=None, choices=['yes', 'no'],
+    help='sets cluster-bus-port-protected-mode; only pass it to a redis that has the option '
+         '(8.12 and up, or a backported 8.2.10/8.4.7/8.6.7/8.8.3/8.10.2), as an unknown '
+         'directive stops the server from starting')
+
+parser.add_argument(
     '--cluster-start-timeout', default=40, type=int,
     help='timeout in seconds to wait for cluster to be ready (default 40 seconds). '
          'Increase for large shard counts (e.g., 99 shards).')
@@ -543,6 +549,7 @@ class RLTest:
         Defaults.tls_passphrase = self.args.tls_passphrase
         Defaults.oss_password = self.args.oss_password
         Defaults.cluster_node_timeout = self.args.cluster_node_timeout
+        Defaults.cluster_bus_port_protected_mode = self.args.cluster_bus_port_protected_mode
         Defaults.cluster_start_timeout = self.args.cluster_start_timeout
         if Defaults.cluster_start_timeout < 5:
             raise Exception('--cluster-start-timeout must be at least 5 seconds')

@@ -1093,6 +1093,12 @@ class DFReader(object):
         self.data_map.close()
         self.filehandle.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
 
 class DFReader_binary(DFReader):
     '''parse a binary dataflash file'''
@@ -1326,6 +1332,8 @@ class DFReader_binary(DFReader):
         for ofs in offsets[fmt_type]:
             # Parse the FMT message
             body = data[ofs+3:ofs+fmt_fmt.len]
+            if len(body)+3 < fmt_fmt.len:
+                break
             elements = list(struct.unpack(fmt_fmt.msg_struct, body))
             ftype = elements[0]
             mfmt = DFFormat(

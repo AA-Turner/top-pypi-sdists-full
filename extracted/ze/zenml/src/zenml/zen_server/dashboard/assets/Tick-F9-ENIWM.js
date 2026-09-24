@@ -1,0 +1,1 @@
+import{p as e,t}from"./utils-CRVOceX-.js";import{t as n}from"./check-Bttd4z5p.js";var r=e();function i({tickClasses:e,className:i,...a}){return(0,r.jsx)(`span`,{...a,className:t(`bg-success-muted text-success-text inline-flex size-6 shrink-0 items-center justify-center rounded-full`,i),children:(0,r.jsx)(n,{"aria-hidden":`true`,className:t(`size-4`,e)})})}export{i as t};

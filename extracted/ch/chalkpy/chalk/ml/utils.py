@@ -37,6 +37,8 @@ MODEL_TRAIN_METADATA_HYPERPARAMETERS = "chalk_model_train_hyperparameters"
 
 MODEL_TRAIN_METADATA_EXPERIMENT_NAME = f"{MODEL_METADATA_PREFIX}experiment_name__"
 
+MODEL_TRAIN_METADATA_OUTPUT_METRICS = f"{MODEL_METADATA_PREFIX}output_metrics__"
+
 
 def get_model_metadata_run_name_from_env():
     return os.getenv(MODEL_TRAIN_RUN_NAME_ENV_VAR, "")

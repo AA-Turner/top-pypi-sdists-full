@@ -100,6 +100,7 @@ from .type_defs import (
     UpdateShardCountInputTypeDef,
     UpdateShardCountOutputTypeDef,
     UpdateStreamModeInputTypeDef,
+    UpdateStreamRecordDistributionStrategyInputTypeDef,
     UpdateStreamWarmThroughputInputTypeDef,
     UpdateStreamWarmThroughputOutputTypeDef,
 )
@@ -594,6 +595,17 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_stream_mode.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_stream_mode)
+        """
+
+    def update_stream_record_distribution_strategy(
+        self, **kwargs: Unpack[UpdateStreamRecordDistributionStrategyInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the record distribution strategy for the specified Amazon Kinesis Data
+        Streams on-demand data stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_stream_record_distribution_strategy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_stream_record_distribution_strategy)
         """
 
     def update_stream_warm_throughput(

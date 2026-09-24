@@ -80,6 +80,16 @@ class ExecutionAgentDefinition(BaseModel):
             raise InvalidExecutionAgentDefinition(
                 f"Agent {self.definition_id!r} has no authored messages; refusing execution."
             )
+        # Message flags (prefill / cache_boundary / example) obey placement rules
+        # — a prefill anywhere but the last assistant turn is refused by name.
+        from matrx_ai.config.message_flags import InvalidMessageFlags, validate_message_flags
+
+        try:
+            validate_message_flags([m for m in self.messages if isinstance(m, dict)])
+        except InvalidMessageFlags as exc:
+            raise InvalidExecutionAgentDefinition(
+                f"Agent {self.definition_id!r}: {exc}; refusing execution."
+            ) from exc
         return self
 
     def content_hash(self) -> str:

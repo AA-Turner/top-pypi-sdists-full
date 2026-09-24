@@ -10,8 +10,11 @@ from __future__ import annotations
 import logging
 
 from dataclasses import dataclass
+from enum import Enum
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Final
 from typing import cast
 
 from setuptools.command.build_py import build_py as _build_py
@@ -22,6 +25,13 @@ if TYPE_CHECKING:
     from vcs_versioning import ScmVersion
     from vcs_versioning._backends._scm_workdir import ScmWorkdir
     from vcs_versioning._fallback_workdir import FallbackWorkdir
+
+    # Typing-only base for the mixin: it supplies the command attributes and
+    # the ``super()`` targets the mixin uses, without placing setuptools'
+    # ``build_py`` in the runtime MRO.  See ``ScmVersionFileMixin``.
+    _MixinBase = _build_py
+else:
+    _MixinBase = object
 
 log = logging.getLogger(__name__)
 
@@ -141,6 +151,21 @@ def _transform_version_file_path(
     return version_file
 
 
+class _NotDiscovered(Enum):
+    """Sentinel type for "discovery has not run yet"."""
+
+    token = 0
+
+
+NOT_DISCOVERED: Final = _NotDiscovered.token
+"""Marks a :class:`VersionInferenceData` whose workdir is still unknown.
+
+Distinct from ``None``, which means discovery ran and found no checkout.
+Collapsing the two is what let a pretended version drop every tracked file
+from the built artifacts (#1540).
+"""
+
+
 @dataclass(frozen=True)
 class VersionInferenceData:
     """Data from version inference stored on the distribution.
@@ -158,9 +183,44 @@ class VersionInferenceData:
     scm_version: ScmVersion | None
     """The ScmVersion object (may be None if from fallback/pretend)."""
 
-    workdir: ScmWorkdir | FallbackWorkdir | None = None
-    """The discovered workdir, if any.  Carried here so the egg_info mixin
-    can write metadata files and provide file-finder data without a ContextVar."""
+    _workdir: ScmWorkdir | FallbackWorkdir | _NotDiscovered | None = NOT_DISCOVERED
+    """Backing store for :attr:`workdir`.
+
+    Inference passes the workdir it discovered on its way to a version, or
+    :data:`NOT_DISCOVERED` when it short-circuited and never looked.
+    """
+
+    @cached_property
+    def workdir(self) -> ScmWorkdir | FallbackWorkdir | None:
+        """The project's workdir, discovered on first use.
+
+        Most builds only ever want a version, so inference does not discover
+        a workdir it does not need -- a pretended version answers without
+        touching the SCM at all.  Only the consumers that need a *file list*
+        ask for this, and discovery runs then, once.
+
+        The laziness has to be invisible from the outside.  Handing out
+        ``None`` for "nobody looked yet" reads as "there is no checkout
+        here", and the egg_info mixin acts on that by suppressing the file
+        finders, which silently empties the sdist and the wheel (#1540).
+        """
+        if isinstance(self._workdir, _NotDiscovered):
+            log.debug("discovering workdir on demand for file listing")
+            return self.config.discover_workdir()
+        return self._workdir
+
+    @cached_property
+    def file_workdir(self) -> ScmWorkdir | None:
+        """The checkout containing the project, for listing files.
+
+        :attr:`workdir` answers to ``root``, so a project whose
+        ``pyproject.toml`` sits in a subdirectory of a checkout finds no SCM
+        there and would ship none of its tracked files (#1540).  The file
+        list follows the checkout the project sits in instead.
+        """
+        from vcs_versioning._worktree_discovery import discover_file_workdir
+
+        return discover_file_workdir(self.config)
 
 
 class _DistWithScm:
@@ -186,11 +246,18 @@ def set_version_inference_data(dist: Distribution, data: VersionInferenceData) -
     cast(_DistWithScm, dist)._setuptools_scm_version_inference_data = data
 
 
-class ScmVersionFileMixin(_build_py):
+class ScmVersionFileMixin(_MixinBase):
     """Mixin that writes version files to build_lib and registers them as outputs.
 
     Place at the front of the MRO so its methods run first, then delegate
     to the next class via super(). Works with any build_py implementation.
+
+    The mixin has **no runtime base class**.  Inheriting from setuptools'
+    ``build_py`` here would inject it into the MRO of every wrapped project
+    command, ahead of the project's own class whenever that class derives
+    from ``distutils.command.build_py`` instead.  ``super().run()`` would
+    then reach ``setuptools.build_py.run()`` -- which does not delegate
+    further -- and the project's ``run()`` would never execute (#1529).
 
     For editable installs (strict mode), version files are registered in
     get_outputs() so setuptools copies them to the persistent auxiliary

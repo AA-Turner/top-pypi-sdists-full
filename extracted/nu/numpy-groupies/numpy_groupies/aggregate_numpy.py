@@ -1,11 +1,13 @@
 import numpy as np
 
 from .utils import (
+    DEFAULT_FILL_VALUE,
     aggregate_common_doc,
     aliasing,
     check_boolean,
     check_dtype,
     check_fill_value,
+    check_nton_shape,
     funcs_no_separate_nan,
     get_func,
     input_validation,
@@ -14,6 +16,7 @@ from .utils import (
     minimum_dtype,
     minimum_dtype_scalar,
     minval,
+    resolve_fill_value,
 )
 
 
@@ -30,9 +33,7 @@ def _sum(group_idx, a, size, fill_value, dtype=None):
             ret.real = np.bincount(group_idx, weights=a.real, minlength=size)
             ret.imag = np.bincount(group_idx, weights=a.imag, minlength=size)
         else:
-            ret = np.bincount(group_idx, weights=a, minlength=size).astype(
-                dtype, copy=False
-            )
+            ret = np.bincount(group_idx, weights=a, minlength=size).astype(dtype, copy=False)
 
     if fill_value != 0:
         _fill_untouched(group_idx, ret, fill_value)
@@ -83,7 +84,14 @@ def _any(group_idx, a, size, fill_value, dtype=None):
     ret = np.full(size, fill_value, dtype=bool)
     if fill_value:
         ret[group_idx] = False
-    ret[group_idx.compress(a)] = True
+    # convert to bool explicitly - ndarray.compress on a float mask is slow
+    mask = np.asarray(a, dtype=bool)
+    # numpy quirk: compress wins for sparse masks, fancy indexing for dense
+    # ones (up to ~3x either way) - so pick based on mask density
+    if np.count_nonzero(mask) < mask.size / 2:
+        ret[group_idx.compress(mask)] = True
+    else:
+        ret[group_idx[mask]] = True
     return ret
 
 
@@ -119,9 +127,7 @@ def _argmax(group_idx, a, size, fill_value, dtype=int, _nansqueeze=False):
     ret = np.full(size, fill_value, dtype=dtype)
     group_idx_max = group_idx[is_max]
     (argmax,) = is_max.nonzero()
-    ret[group_idx_max[::-1]] = argmax[
-        ::-1
-    ]  # reverse to ensure first value for each group wins
+    ret[group_idx_max[::-1]] = argmax[::-1]  # reverse to ensure first value for each group wins
     return ret
 
 
@@ -133,9 +139,7 @@ def _argmin(group_idx, a, size, fill_value, dtype=int, _nansqueeze=False):
     ret = np.full(size, fill_value, dtype=dtype)
     group_idx_min = group_idx[is_min]
     (argmin,) = is_min.nonzero()
-    ret[group_idx_min[::-1]] = argmin[
-        ::-1
-    ]  # reverse to ensure first value for each group wins
+    ret[group_idx_min[::-1]] = argmin[::-1]  # reverse to ensure first value for each group wins
     return ret
 
 
@@ -161,6 +165,93 @@ def _mean(group_idx, a, size, fill_value, dtype=np.dtype(np.float64)):
         return ret.astype(dtype, copy=False)
 
 
+def _median(group_idx, a, size, fill_value, dtype=None):
+    """
+    Aggregate operation of the median within each group.
+
+    The median is an order statistic, so unlike the streaming reductions it
+    works on group-ordered data: the values are gathered group by group and
+    the middle of each group is then *selected* via partition (O(n) on
+    average) instead of sorting the values within the groups.
+
+    group_idx = np.array([4, 3, 3, 4, 4, 1, 1, 1, 7, 8, 7, 4, 3, 3, 1, 1])
+    a = np.array([3, 4, 1, 3, 9, 9, 6, 7, 7, 0, 8, 2, 1, 8, 9, 8])
+    _median(group_idx, a, np.max(group_idx) + 1)
+    >>> array([0. , 8. , 4.5, 3. , 0. , 0. , 0. , 7.5, 0. ])
+    """
+    if group_idx.size == 0:
+        return np.full(size, fill_value, dtype=dtype or np.float64)
+    # any argsort kind works - the median is insensitive to the order of
+    # equal group labels
+    sortidx = np.argsort(group_idx, kind="stable")
+    group_idx_srt = group_idx[sortidx]
+    a_srt = a[sortidx]
+
+    new_group = np.empty(group_idx_srt.size, dtype=bool)
+    new_group[0] = True
+    np.not_equal(group_idx_srt[1:], group_idx_srt[:-1], out=new_group[1:])
+    starts = np.flatnonzero(new_group)
+    counts = np.diff(np.append(starts, group_idx_srt.size))
+    mids = counts // 2
+    odd = counts % 2 == 1
+
+    # partition places the kth element(s) at their sorted position while
+    # leaving the rest unsorted - the two middles of even-sized groups are
+    # obtained with a single call using both kths
+    vals = np.empty(starts.size, dtype=np.float64)
+    for grp in range(starts.size):
+        start, mid = starts[grp], mids[grp]
+        part = np.partition(a_srt[start : start + counts[grp]], (mid - 1, mid))
+        if odd[grp]:
+            vals[grp] = part[mid]
+        else:
+            vals[grp] = (part[mid - 1] + part[mid]) / 2
+    if np.issubdtype(a_srt.dtype, np.floating):
+        # like np.median, any nan poisons its whole group - partition does
+        # not order nans, so they are detected with a per-group reduction
+        nan_groups = np.logical_or.reduceat(np.isnan(a_srt), starts)
+        vals[nan_groups] = np.nan
+
+    ret = np.full(size, fill_value, dtype=dtype or vals.dtype)
+    ret[group_idx_srt[starts]] = vals
+    return ret
+
+
+def _trapezoid(group_idx, a, size, fill_value, dtype=None, dx=1.0):
+    """
+    Trapezoidal integration of each group, keeping the order of the input.
+
+    With the constant sample spacing dx, the integral of a group of n
+    samples collapses to its sum minus the half weighted endpoints:
+
+        sum_{k=1..n-1} dx / 2 * (y[k-1] + y[k])
+        = dx * (sum(y) - (y[0] + y[n-1]) / 2)
+
+    which spares both the grouping sort and the pairwise products - the
+    order sensitive endpoints are exactly what the order sensitive "first"
+    and "last" reductions deliver.
+
+    group_idx = np.array([4, 3, 3, 4, 4, 1, 1, 1, 7, 8, 7, 4, 3, 3, 1, 1])
+    a = np.array([3, 4, 1, 3, 9, 9, 6, 7, 7, 0, 8, 2, 1, 8, 9, 8])
+    _trapezoid(group_idx, a, np.max(group_idx) + 1)
+    >>> array([ 0. , 30.5,  0. ,  8. , 14.5,  0. ,  0. ,  7.5,  0. ])
+    """
+    dtype = dtype or np.float64
+    total = _sum(group_idx, a, size, 0, dtype=dtype)
+    first = _first(group_idx, a, size, 0, dtype=dtype)
+    last = _last(group_idx, a, size, 0, dtype=dtype)
+    ret = (total - 0.5 * (first + last)) * dx
+
+    counts = np.bincount(group_idx, minlength=size)
+    if np.any(counts < 2):
+        # without a whole pair there is no extent to integrate over, so the
+        # group integrates to zero rather than to whatever sum - y - y is
+        ret[counts < 2] = 0.0
+    if np.any(counts == 0):
+        ret[counts == 0] = fill_value
+    return ret
+
+
 def _sum_of_squres(group_idx, a, size, fill_value, dtype=np.dtype(np.float64)):
     ret = np.bincount(group_idx, weights=a * a, minlength=size)
     if fill_value != 0:
@@ -172,9 +263,7 @@ def _sum_of_squres(group_idx, a, size, fill_value, dtype=np.dtype(np.float64)):
         return ret.astype(dtype, copy=False)
 
 
-def _var(
-    group_idx, a, size, fill_value, dtype=np.dtype(np.float64), sqrt=False, ddof=0
-):
+def _var(group_idx, a, size, fill_value, dtype=np.dtype(np.float64), sqrt=False, ddof=0):
     if np.ndim(a) == 0:
         raise ValueError("cannot take variance with scalar a")
     counts = np.bincount(group_idx, minlength=size)
@@ -182,9 +271,7 @@ def _var(
     with np.errstate(divide="ignore", invalid="ignore"):
         means = sums / counts
         counts = np.where(counts > ddof, counts - ddof, 0)
-        ret = (
-            np.bincount(group_idx, (a - means[group_idx]) ** 2, minlength=size) / counts
-        )
+        ret = np.bincount(group_idx, (a - means[group_idx]) ** 2, minlength=size) / counts
     if sqrt:
         ret = np.sqrt(ret)  # this is now std not var
     if not np.isnan(fill_value):
@@ -209,16 +296,20 @@ def _anynan(group_idx, a, size, fill_value, dtype=bool):
 
 def _sort(group_idx, a, size=None, fill_value=None, dtype=None, reverse=False):
     sortidx = np.lexsort((-a if reverse else a, group_idx))
-    # Reverse sorting back to into grouped order, but preserving groupwise sorting
-    revidx = np.argsort(np.argsort(group_idx, kind="mergesort"), kind="mergesort")
-    return a[sortidx][revidx]
+    # Unsort back into original order, but preserving the groupwise value
+    # sorting: scattering through the group-stable argsort is exactly the
+    # inverse permutation, avoiding the classic argsort-of-argsort.
+    gsort = np.argsort(group_idx, kind="stable")
+    ret = np.empty_like(a)
+    ret[gsort] = a[sortidx]
+    return ret
 
 
 def _array(group_idx, a, size, fill_value, dtype=None):
     """groups a into separate arrays, keeping the order intact."""
     if fill_value is not None and not (np.isscalar(fill_value) or len(fill_value) == 0):
         raise ValueError("fill_value must be None, a scalar or an empty sequence")
-    order_group_idx = np.argsort(group_idx, kind="mergesort")
+    order_group_idx = np.argsort(group_idx, kind="stable")
     counts = np.bincount(group_idx, minlength=size)
     ret = np.split(a[order_group_idx], np.cumsum(counts)[:-1])
     ret = np.asanyarray(ret, dtype="object")
@@ -227,9 +318,7 @@ def _array(group_idx, a, size, fill_value, dtype=None):
     return ret
 
 
-def _generic_callable(
-    group_idx, a, size, fill_value, dtype=None, func=lambda g: g, **kwargs
-):
+def _generic_callable(group_idx, a, size, fill_value, dtype=None, func=lambda g: g, **kwargs):
     """groups a by inds, and then applies foo to each group in turn, placing
     the results in an array."""
     groups = _array(group_idx, a, size, ())
@@ -241,67 +330,99 @@ def _generic_callable(
     return ret
 
 
+def _group_cumsum_sorted(group_idx_srt, a_srt, dtype=None):
+    """
+    Cumsum within each group of a group-sorted nan-free array.
+
+    group_idx_srt is sorted, so each group occupies one contiguous block and
+    the cumulative sum of every group simply needs offsetting by the value
+    of its first element (minus the preceding groups' sums, which the
+    global cumsum already includes).
+    """
+    a_srt_cumsum = np.cumsum(a_srt, dtype=dtype)
+
+    new_group = np.empty(group_idx_srt.size, dtype=bool)
+    new_group[0] = True
+    np.not_equal(group_idx_srt[1:], group_idx_srt[:-1], out=new_group[1:])
+    start_positions = np.flatnonzero(new_group)
+    group_starts = start_positions[np.cumsum(new_group) - 1]
+    # First subtract large numbers
+    a_srt_cumsum -= a_srt_cumsum[group_starts]
+    # Then add potentially small numbers
+    a_srt_cumsum += a_srt[group_starts]
+    return a_srt_cumsum
+
+
 def _cumsum(group_idx, a, size, fill_value=None, dtype=None):
     """
     N to N aggregate operation of cumsum. Perform cumulative sum for each group.
+
+    NaNs propagate within their own group only - entries of other groups as
+    well as entries preceding the first NaN of the same group are unaffected
+    (issue #91).
 
     group_idx = np.array([4, 3, 3, 4, 4, 1, 1, 1, 7, 8, 7, 4, 3, 3, 1, 1])
     a = np.array([3, 4, 1, 3, 9, 9, 6, 7, 7, 0, 8, 2, 1, 8, 9, 8])
     _cumsum(group_idx, a, np.max(group_idx) + 1)
     >>> array([ 3,  4,  5,  6, 15,  9, 15, 22,  7,  0, 15, 17,  6, 14, 31, 39])
     """
-    sortidx = np.argsort(group_idx, kind="mergesort")
-    invsortidx = np.argsort(sortidx, kind="mergesort")
+    sortidx = np.argsort(group_idx, kind="stable")
     group_idx_srt = group_idx[sortidx]
-
     a_srt = a[sortidx]
-    a_srt_cumsum = np.cumsum(a_srt, dtype=dtype)
 
-    increasing = np.arange(len(a), dtype=int)
-    group_starts = _min(group_idx_srt, increasing, size, fill_value=0)[group_idx_srt]
-    # First subtract large numbers
-    a_srt_cumsum -= a_srt_cumsum[group_starts]
-    # Then add potentially small numbers
-    a_srt_cumsum += a_srt[group_starts]
-    return a_srt_cumsum[invsortidx]
+    nans_from = None
+    if np.issubdtype(a_srt.dtype, np.floating):
+        nans = np.isnan(a_srt)
+        if nans.any():
+            # nan-free running sums cannot be poisoned across group
+            # boundaries; the per-group prefix-count of nans (itself a
+            # nan-free cumsum) flags every position from the first nan of
+            # its group onwards.
+            a_srt = np.where(nans, 0, a_srt)
+            nan_prefix = _group_cumsum_sorted(group_idx_srt, nans.astype(np.int64))
+            nans_from = nan_prefix > 0
+
+    a_srt_cumsum = _group_cumsum_sorted(group_idx_srt, a_srt, dtype=dtype)
+    if nans_from is not None:
+        a_srt_cumsum[nans_from] = np.nan
+
+    ret = np.empty_like(a_srt_cumsum)
+    ret[sortidx] = a_srt_cumsum
+    return ret
 
 
 def _nancumsum(group_idx, a, size, fill_value=None, dtype=None):
     a_nonans = np.where(np.isnan(a), 0, a)
-    group_idx_nonans = np.where(
-        np.isnan(group_idx), np.nanmax(group_idx) + 1, group_idx
-    )
+    group_idx_nonans = np.where(np.isnan(group_idx), np.nanmax(group_idx) + 1, group_idx)
     return _cumsum(group_idx_nonans, a_nonans, size, fill_value=fill_value, dtype=dtype)
 
 
-_impl_dict = dict(
-    min=_min,
-    max=_max,
-    sum=_sum,
-    prod=_prod,
-    last=_last,
-    first=_first,
-    all=_all,
-    any=_any,
-    mean=_mean,
-    std=_std,
-    var=_var,
-    anynan=_anynan,
-    allnan=_allnan,
-    sort=_sort,
-    array=_array,
-    argmax=_argmax,
-    argmin=_argmin,
-    len=_len,
-    cumsum=_cumsum,
-    sumofsquares=_sum_of_squres,
-    generic=_generic_callable,
-)
-_impl_dict.update(
-    ("nan" + k, v)
-    for k, v in list(_impl_dict.items())
-    if k not in funcs_no_separate_nan
-)
+_impl_dict = {
+    "min": _min,
+    "max": _max,
+    "sum": _sum,
+    "prod": _prod,
+    "last": _last,
+    "first": _first,
+    "all": _all,
+    "any": _any,
+    "mean": _mean,
+    "median": _median,
+    "std": _std,
+    "var": _var,
+    "anynan": _anynan,
+    "allnan": _allnan,
+    "sort": _sort,
+    "array": _array,
+    "argmax": _argmax,
+    "argmin": _argmin,
+    "len": _len,
+    "cumsum": _cumsum,
+    "sumofsquares": _sum_of_squres,
+    "trapezoid": _trapezoid,
+    "generic": _generic_callable,
+}
+_impl_dict.update(("nan" + k, v) for k, v in list(_impl_dict.items()) if k not in funcs_no_separate_nan)
 _impl_dict["nancumsum"] = _nancumsum
 
 
@@ -310,7 +431,7 @@ def _aggregate_base(
     a,
     func="sum",
     size=None,
-    fill_value=0,
+    fill_value=DEFAULT_FILL_VALUE,
     order="C",
     dtype=None,
     axis=None,
@@ -326,7 +447,9 @@ def _aggregate_base(
         group_idx = group_idx.astype(int)
 
     func = get_func(func, aliasing, _impl_dict)
+    funcname = func
     if not isinstance(func, str):
+        fill_value = resolve_fill_value(func, fill_value, dtype if dtype is not None else np.asarray(a).dtype)
         # do simple grouping and execute function in loop
         ret = _impl_dict.get("generic", _generic_callable)(
             group_idx, a, flat_size, fill_value, func=func, dtype=dtype, **kwargs
@@ -349,11 +472,10 @@ def _aggregate_base(
                     group_idx = group_idx[good]
 
         dtype = check_dtype(dtype, func, a, flat_size)
+        fill_value = resolve_fill_value(func, fill_value, dtype)
         check_fill_value(fill_value, dtype, func=func)
-        func = _impl_dict[func]
-        ret = func(
-            group_idx, a, flat_size, fill_value=fill_value, dtype=dtype, **kwargs
-        )
+        funcname, func = func, _impl_dict[func]
+        ret = func(group_idx, a, flat_size, fill_value=fill_value, dtype=dtype, **kwargs)
 
     # deal with ndimensional indexing
     if ndim_idx > 1:
@@ -363,6 +485,7 @@ def _aggregate_base(
             ret[mask] = 0
             ret = np.unravel_index(ret, unravel_shape)[axis]
             ret[mask] = fill_value
+        check_nton_shape(ret, size, funcname)
         ret = ret.reshape(size, order=order)
     return ret
 
@@ -372,7 +495,7 @@ def aggregate(
     a,
     func="sum",
     size=None,
-    fill_value=0,
+    fill_value=DEFAULT_FILL_VALUE,
     order="C",
     dtype=None,
     axis=None,

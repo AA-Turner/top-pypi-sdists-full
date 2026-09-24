@@ -13,10 +13,10 @@ tests.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from matrx_files.cloud_sync.media_ref import MediaRef
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 from matrx_ai.config.custom_tool import CustomTool
 from matrx_ai.config.dictionary_config import DictionaryConfig
@@ -133,6 +133,12 @@ def normalize_max_output_tokens(value: Any) -> Any:
     return value
 
 
+
+def _validate_camera_control(value: Any) -> dict[str, Any] | None:
+    from matrx_ai.media.video_reference_roles import validate_camera_control
+
+    return validate_camera_control(value)
+
 class LLMParams(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -245,6 +251,11 @@ class LLMParams(BaseModel):
     disable_safety_checker: bool | None = None
     generate_audio: bool | None = None
     enhance_prompt: bool | None = None
+    # Structured camera direction {moves: [...], strength?: 0..1}; validated by
+    # matrx_ai.media.video_reference_roles.validate_camera_control.
+    camera_control: Annotated[
+        dict[str, Any] | None, BeforeValidator(_validate_camera_control)
+    ] = None
 
     image_input: MediaRef | None = None
     image_inputs: list[MediaRef] | None = None

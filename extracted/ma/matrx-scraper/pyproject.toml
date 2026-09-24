@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "matrx-scraper"
-version = "0.2.247"
+version = "0.2.248"
 description = "Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem"
 readme = "README.md"
 license = { text = "MIT" }
@@ -49,7 +49,7 @@ dependencies = [
     # web_crawl/schedules.py imports detached_task at module scope; detached_task
     # and the package's utcnow imports were first exported by matrx-utils 1.1.0.
     "matrx-utils>=2.0.53",
-    "matrx-files>=0.2.198",
+    "matrx-files>=0.2.199",
     "croniter>=2.0",
     # Residential egress (`matrx_scraper.egress_adapter`): one consumer
     # WebSocket per tunnelled TCP connection. httpx cannot open a WebSocket and
@@ -87,14 +87,14 @@ connect = ["matrx-connect>=0.1.128"]
 # 'PLATFORM_DB_ENV_PREFIX' from 'matrx_orm'` — which is exactly how matrx-local
 # (matrx-orm 3.1.16) died on `from matrx_scraper.cache import MemoryCache`.
 # Same defect class as MXL-D-075. Do not lower it.
-db = ["matrx-orm>=3.1.177"]
+db = ["matrx-orm>=3.1.178"]
 # Enables the DURABLE crawl frontier (RuntimeWorkQueueBackend over the matrx-runtime
 # work queue) so a deploy/OOM/restart mid-crawl is a non-event. Without this extra the
 # crawler runs on the in-memory frontier (fine for short runs; no resume).
-durable = ["matrx-runtime>=0.0.119"]
+durable = ["matrx-runtime>=0.0.120"]
 # Enables the matrx_scraper.graph_nodes submodule — optional, since the
 # core scraper has no need to know about workflow orchestration.
-graph = ["matrx-graph>=0.2.191"]
+graph = ["matrx-graph>=0.2.193"]
 # Enables MinHash/SimHash-based near-duplicate detection in the parser.
 # Without this extra the parser still works; hashing fields are just empty.
 dedup = ["datasketch>=1.6", "simhash>=2.1", "cachetools>=5.3"]

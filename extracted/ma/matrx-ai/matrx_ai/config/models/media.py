@@ -63,6 +63,7 @@ class ImageContentModel(BaseModel):
     width: int | None = None
     height: int | None = None
     role: str | None = None
+    name: str | None = None
     vision_class: str | None = None
     resolved_url: str | None = None
     file_size: int | None = None
@@ -93,6 +94,7 @@ class AudioContentModel(BaseModel):
     transcription_language: str | None = None
     transcription_result: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    role: str | None = None
 
 
 class VideoContentModel(BaseModel):
@@ -109,6 +111,8 @@ class VideoContentModel(BaseModel):
     width: int | None = None
     height: int | None = None
     duration_ms: int | None = None
+    role: str | None = None
+    name: str | None = None
     resolved_url: str | None = None
     file_size: int | None = None
     owner_id: str | None = None

@@ -5058,6 +5058,9 @@ class TestTranscriptStream:
 
         monkeypatch.setattr(hook_dispatch, "start_transcript_stream", _fake_start)
         monkeypatch.setattr(hook_dispatch, "forward_event", _fake_forward)
+        monkeypatch.setattr(
+            hook_dispatch, "build_plugin_context", lambda client, cwd: None
+        )
 
         hook_dispatch._dispatch(
             hook_type="UserPromptSubmit",
@@ -5094,6 +5097,9 @@ class TestTranscriptStream:
 
         monkeypatch.setattr(hook_dispatch, "start_transcript_stream", _fake_start)
         monkeypatch.setattr(hook_dispatch, "forward_event", _fake_forward)
+        monkeypatch.setattr(
+            hook_dispatch, "build_plugin_context", lambda client, cwd: None
+        )
 
         hook_dispatch._dispatch(
             hook_type="UserPromptSubmit",

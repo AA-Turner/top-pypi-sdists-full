@@ -358,7 +358,7 @@ class TestReapRestoresDeadSmokeSession:
 
         with patch("coord.interactive.tmux_available", return_value=True), \
              patch("coord.interactive.tmux_session_alive", return_value=False), \
-             patch("coord.interactive._get_local_short_hostname", return_value="mymachine"):
+             patch("coord.config._local_short_hostname", return_value="mymachine"):
             reaped = reap_stale_interactive_sessions(board, cfg)
 
         assert aid in reaped
@@ -393,7 +393,7 @@ class TestReapRestoresDeadSmokeSession:
 
         with patch("coord.interactive.tmux_available", return_value=True), \
              patch("coord.interactive.tmux_session_alive", return_value=False), \
-             patch("coord.interactive._get_local_short_hostname", return_value="mymachine"), \
+             patch("coord.config._local_short_hostname", return_value="mymachine"), \
              patch("coord.interactive._remove_worktree"), \
              patch(
                  "coord.interactive.restore_live_checkout_from_smoke_snapshot"
@@ -424,7 +424,7 @@ class TestReapRestoresDeadSmokeSession:
 
         with patch("coord.interactive.tmux_available", return_value=True), \
              patch("coord.interactive.tmux_session_alive", return_value=False), \
-             patch("coord.interactive._get_local_short_hostname", return_value="mymachine"), \
+             patch("coord.config._local_short_hostname", return_value="mymachine"), \
              patch(
                  "coord.interactive.restore_live_checkout_from_smoke_snapshot",
                  return_value=([], "boom"),

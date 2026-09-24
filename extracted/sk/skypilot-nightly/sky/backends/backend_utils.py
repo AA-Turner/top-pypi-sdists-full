@@ -2859,8 +2859,33 @@ def _update_cluster_status(
     # from cloud -> provision layer.
     should_check_ray = (cloud is not None and cloud.uses_ray() and
                         handle.provision_runtime_metadata.has_ray)
-    if (all_nodes_up and (not should_check_ray or
-                          run_ray_status_to_check_ray_cluster_healthy()) and
+    # A handle without cached IPs is the bare pre-provision handle that
+    # `sky launch` persists (at INIT) before provisioning starts; the
+    # completed handle (with IPs and has_ray=True) is only persisted after
+    # runtime setup finishes. If the launch is interrupted in that window
+    # (process death, cancellation, a lost cluster lock) while the nodes
+    # keep running, all_nodes_up can be True here — e.g. Kubernetes pods
+    # report Running long before the runtime is set up. Never mark such a
+    # cluster UP: with has_ray=False the ray health check (which fails
+    # closed on missing IPs) is skipped entirely, and every operation on
+    # an UP cluster requires handle.head_ip (see check_cluster_available),
+    # so promoting would only trade INIT for a ClusterNotUpError later.
+    # Fall through to the abnormal-cluster handling below to keep it INIT.
+    #
+    # Only apply this gate when the ray health check is skipped. When it
+    # runs, it is the authority: it already fails closed when there is no
+    # way to reach the head node, and it is what surfaces the recovery hint
+    # for a cluster restarted outside SkyPilot. Stopping a cluster clears
+    # head_ip on purpose (see global_user_state.remove_cluster), so a
+    # stopped-then-manually-restarted cluster also has head_ip=None here;
+    # gating it on head_ip would skip the probe and drop that hint.
+    handle_has_cached_ips = handle.head_ip is not None
+    if all_nodes_up and not should_check_ray and not handle_has_cached_ips:
+        ray_status_details = ('no cached IPs on the cluster handle; the '
+                              'last launch was likely interrupted before '
+                              'the SkyPilot runtime was set up')
+    if (all_nodes_up and (run_ray_status_to_check_ray_cluster_healthy()
+                          if should_check_ray else handle_has_cached_ips) and
             not external_cluster_failures):
         # NOTE: all_nodes_up calculation is fast due to calling cloud CLI;
         # run_ray_status_to_check_all_nodes_up() is slow due to calling `ray get

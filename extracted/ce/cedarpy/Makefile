@@ -93,11 +93,11 @@ benchmark-history:
 
 .PHONY: benchmark-baseline
 # Synthesize a median-of-N baseline JSON from BASELINE_STATE's committed
-# historical runs (default v4_8_0; override with BASELINE_STATE=...). Output
+# historical runs (default v4_12_0; override with BASELINE_STATE=...). Output
 # lands in tests/benchmark/results/baseline-<state>-median.json — a new file
 # alongside the existing baseline.json, not a replacement. The maintainer
 # decides when (and whether) to point `make benchmark-compare` at it.
-BASELINE_STATE ?= v4_8_0
+BASELINE_STATE ?= v4_12_0
 benchmark-baseline:
 	@echo Synthesizing $(BENCHMARK_RESULTS_DIR)/baseline-$(BASELINE_STATE)-median.json from $(BASELINE_STATE) historical runs
 	python3 tests/benchmark/aggregate.py --build-baseline-from $(BASELINE_STATE)

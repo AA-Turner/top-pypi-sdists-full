@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1047
+Version: 0.4.1048
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -340,7 +340,9 @@ quantity) and an out-of-fold **climatology null** for all four (circular
 median per crop, hemisphere and season). Each target is regressed two ways --
 sine/cosine with `atan2`, and a signed offset from the NDVI steepest-rise day --
 and `metrics.csv` reports skill against the null with a spatial-tile bootstrap
-interval, under shuffled K-fold (leaky, the optimistic reference),
+interval alongside the Franch et al. (2022, WorldCereal) comparables -- linearised and circular R2, calibration line, debiased RMSE and the >60-day
+blunder share -- plus a `consistency.csv` of season order and length across the
+four predicted days, under shuffled K-fold (leaky, the optimistic reference),
 leave-one-country-out and grouped K-fold over 10 deg centroid tiles, with the
 duplicate-calendar-row leakage each scheme permits stated in `cv_schemes.csv`.
 Metrics are also split by `CM_Group`: the original method was only ever

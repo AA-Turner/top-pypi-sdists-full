@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.37.3+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-09-04T19:03:46.244935                                                            #
+# MF version: 2.19.37.5+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-09-23T18:04:53.795142                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -39,21 +39,21 @@ from .user_decorators.user_step_decorator import UserStepDecorator as UserStepDe
 from .user_decorators.user_step_decorator import StepMutator as StepMutator
 from .user_decorators.user_step_decorator import user_step_decorator as user_step_decorator
 from .user_decorators.user_flow_decorator import FlowMutator as FlowMutator
+from . import tuple_util as tuple_util
 from . import cards as cards
 from . import metaflow_git as metaflow_git
 from . import system_context as system_context
-from . import tuple_util as tuple_util
 from . import events as events
 from . import runner as runner
 from . import plugins as plugins
 from .mf_extensions.outerbounds.toplevel.global_aliases_for_metaflow_package import S3 as S3
 from . import includefile as includefile
 from .includefile import IncludeFile as IncludeFile
-from .plugins.pypi.parsers import conda_environment_yml_parser as conda_environment_yml_parser
-from .plugins.pypi.parsers import pyproject_toml_parser as pyproject_toml_parser
 from .plugins.parsers import yaml_parser as yaml_parser
 from .plugins.namespaced_events import namespaced_event_name as namespaced_event_name
+from .plugins.pypi.parsers import conda_environment_yml_parser as conda_environment_yml_parser
 from .plugins.pypi.parsers import requirements_txt_parser as requirements_txt_parser
+from .plugins.pypi.parsers import pyproject_toml_parser as pyproject_toml_parser
 from . import client as client
 from .client.core import namespace as namespace
 from .client.core import get_namespace as get_namespace
@@ -198,635 +198,6 @@ def step(f = None, *, start = False, end = False, node_info = None):
     """
     ...
 
-@typing.overload
-def fast_bakery_internal(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    """
-    Internal decorator to support Fast bakery
-    """
-    ...
-
-@typing.overload
-def fast_bakery_internal(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def fast_bakery_internal(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None):
-    """
-    Internal decorator to support Fast bakery
-    """
-    ...
-
-def ollama(*, models: list, backend: str, force_pull: bool, cache_update_policy: str, force_cache_update: bool, debug: bool, circuit_breaker_config: dict, timeout_config: dict) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    This decorator is used to run Ollama APIs as Metaflow task sidecars.
-    
-    User code call
-    --------------
-    @ollama(
-        models=[...],
-        ...
-    )
-    
-    Valid backend options
-    ---------------------
-    - 'local': Run as a separate process on the local task machine.
-    - (TODO) 'managed': Outerbounds hosts and selects compute provider.
-    - (TODO) 'remote': Spin up separate instance to serve Ollama models.
-    
-    Valid model options
-    -------------------
-    Any model here https://ollama.com/search, e.g. 'llama3.2', 'llama3.3'
-    
-    
-    Parameters
-    ----------
-    models: list[str]
-        List of Ollama containers running models in sidecars.
-    backend: str
-        Determines where and how to run the Ollama process.
-    force_pull: bool
-        Whether to run `ollama pull` no matter what, or first check the remote cache in Metaflow datastore for this model key.
-    cache_update_policy: str
-        Cache update policy: "auto", "force", or "never".
-    force_cache_update: bool
-        Simple override for "force" cache update policy.
-    debug: bool
-        Whether to turn on verbose debugging logs.
-    circuit_breaker_config: dict
-        Configuration for circuit breaker protection. Keys: failure_threshold, recovery_timeout, reset_timeout.
-    timeout_config: dict
-        Configuration for various operation timeouts. Keys: pull, stop, health_check, install, server_startup.
-    """
-    ...
-
-def nvct(*, gpu: int, gpu_type: str) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies that this step should execute on DGX cloud.
-    
-    
-    Parameters
-    ----------
-    gpu : int
-        Number of GPUs to use.
-    gpu_type : str
-        Type of Nvidia GPU to use.
-    """
-    ...
-
-def coreweave_s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: typing.Union[str, None] = None, debug: typing.Union[bool, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    `@coreweave_s3_proxy` is a CoreWeave-specific S3 Proxy decorator for routing S3 requests through a local proxy service.
-    It exists to make it easier for users to know that this decorator should only be used with
-    a Neo Cloud like CoreWeave. The underlying mechanics of the decorator is the same as the `@s3_proxy`:
-    
-    
-    Set up an S3 proxy that caches objects in an external, S3‑compatible bucket
-    for S3 read and write requests.
-    
-    This decorator requires an integration in the Outerbounds platform that
-    points to an external bucket. It affects S3 operations performed via
-    Metaflow's `get_aws_client` and `S3` within a `@step`.
-    
-    Read operations
-    ---------------
-    All read operations pass through the proxy. If an object does not already
-    exist in the external bucket, it is cached there. For example, if code reads
-    from buckets `FOO` and `BAR` using the `S3` interface, objects from both
-    buckets are cached in the external bucket.
-    
-    During task execution, all S3‑related read requests are routed through the
-    proxy:
-        - If the object is present in the external object store, the proxy
-          streams it directly from there without accessing the requested origin
-          bucket.
-        - If the object is not present in the external storage, the proxy
-          fetches it from the requested bucket, caches it in the external
-          storage, and streams the response from the origin bucket.
-    
-    Warning
-    -------
-    All READ operations (e.g., GetObject, HeadObject) pass through the external
-    bucket regardless of the bucket specified in user code. Even
-    `S3(run=self)` and `S3(s3root="mybucketfoo")` requests go through the
-    external bucket cache.
-    
-    Write operations
-    ----------------
-    Write behavior is controlled by the `write_mode` parameter, which determines
-    whether writes also persist objects in the cache.
-    
-    `write_mode` values:
-        - `origin-and-cache`: objects are written both to the cache and to their
-          intended origin bucket.
-        - `origin`: objects are written only to their intended origin bucket.
-    
-    
-    Parameters
-    ----------
-    integration_name : str, optional
-        [Outerbounds integration name](https://docs.outerbounds.com/outerbounds/configuring-secrets/#integrations-view)
-        that holds the configuration for the external, S3‑compatible object
-        storage bucket. If not specified, the only available S3 proxy
-        integration in the namespace is used (fails if multiple exist).
-    write_mode : str, optional
-        Controls whether writes also go to the external bucket.
-            - `origin` (default)
-            - `origin-and-cache`
-    debug : bool, optional
-        Enables debug logging for proxy operations.
-    """
-    ...
-
-def nvidia(*, gpu: int, gpu_type: str, queue_timeout: int) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies that this step should execute on DGX cloud.
-    
-    
-    Parameters
-    ----------
-    gpu : int
-        Number of GPUs to use.
-    gpu_type : str
-        Type of Nvidia GPU to use.
-    queue_timeout : int
-        Time to keep the job in NVCF's queue.
-    """
-    ...
-
-@typing.overload
-def catch(*, var: typing.Union[str, None] = None, print_exception: bool = True) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies that the step will success under all circumstances.
-    
-    The decorator will create an optional artifact, specified by `var`, which
-    contains the exception raised. You can use it to detect the presence
-    of errors, indicating that all happy-path artifacts produced by the step
-    are missing.
-    
-    
-    Parameters
-    ----------
-    var : str, optional, default None
-        Name of the artifact in which to store the caught exception.
-        If not specified, the exception is not stored.
-    print_exception : bool, default True
-        Determines whether or not the exception is printed to
-        stdout when caught.
-    """
-    ...
-
-@typing.overload
-def catch(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def catch(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def catch(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, var: typing.Union[str, None] = None, print_exception: bool = True):
-    """
-    Specifies that the step will success under all circumstances.
-    
-    The decorator will create an optional artifact, specified by `var`, which
-    contains the exception raised. You can use it to detect the presence
-    of errors, indicating that all happy-path artifacts produced by the step
-    are missing.
-    
-    
-    Parameters
-    ----------
-    var : str, optional, default None
-        Name of the artifact in which to store the caught exception.
-        If not specified, the exception is not stored.
-    print_exception : bool, default True
-        Determines whether or not the exception is printed to
-        stdout when caught.
-    """
-    ...
-
-@typing.overload
-def anaconda(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['https://repo.anaconda.com/pkgs/main'], extra_configs: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies the Anaconda environment for the step.
-    
-    Identical to ``@conda`` but defaults to the ``anaconda`` channel
-    instead of the globally configured channel (typically ``conda-forge``).
-    
-    Information in this decorator will augment any
-    attributes set in the ``@anaconda_base`` flow-level decorator. Hence,
-    you can use ``@anaconda_base`` to set packages required by all
-    steps and use ``@anaconda`` to specify step-specific overrides.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this step. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables @anaconda.
-    channels : List[str], default ["https://repo.anaconda.com/pkgs/main"]
-        Conda channels to use for package resolution.
-    extra_configs : Dict[str, str], default {}
-        Additional key-value configuration passed through to the environment
-        solver/builder. Merged with any ``extra_configs`` set in
-        ``@anaconda_base``, with step-level values taking precedence.
-    """
-    ...
-
-@typing.overload
-def anaconda(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def anaconda(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def anaconda(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['https://repo.anaconda.com/pkgs/main'], extra_configs: typing.Dict[str, str] = {}):
-    """
-    Specifies the Anaconda environment for the step.
-    
-    Identical to ``@conda`` but defaults to the ``anaconda`` channel
-    instead of the globally configured channel (typically ``conda-forge``).
-    
-    Information in this decorator will augment any
-    attributes set in the ``@anaconda_base`` flow-level decorator. Hence,
-    you can use ``@anaconda_base`` to set packages required by all
-    steps and use ``@anaconda`` to specify step-specific overrides.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this step. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables @anaconda.
-    channels : List[str], default ["https://repo.anaconda.com/pkgs/main"]
-        Conda channels to use for package resolution.
-    extra_configs : Dict[str, str], default {}
-        Additional key-value configuration passed through to the environment
-        solver/builder. Merged with any ``extra_configs`` set in
-        ``@anaconda_base``, with step-level values taking precedence.
-    """
-    ...
-
-@typing.overload
-def parallel(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    """
-    Decorator prototype for all step decorators. This function gets specialized
-    and imported for all decorators types by _import_plugin_decorators().
-    """
-    ...
-
-@typing.overload
-def parallel(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def parallel(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None):
-    """
-    Decorator prototype for all step decorators. This function gets specialized
-    and imported for all decorators types by _import_plugin_decorators().
-    """
-    ...
-
-@typing.overload
-def checkpoint(*, load_policy: str = 'fresh', temp_dir_root: str = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Enables checkpointing for a step.
-    
-    > Examples
-    
-    - Saving Checkpoints
-    
-    ```python
-    @checkpoint
-    @step
-    def train(self):
-        model = create_model(self.parameters, checkpoint_path = None)
-        for i in range(self.epochs):
-            # some training logic
-            loss = model.train(self.dataset)
-            if i % 10 == 0:
-                model.save(
-                    current.checkpoint.directory,
-                )
-                # saves the contents of the `current.checkpoint.directory` as a checkpoint
-                # and returns a reference dictionary to the checkpoint saved in the datastore
-                self.latest_checkpoint = current.checkpoint.save(
-                    name="epoch_checkpoint",
-                    metadata={
-                        "epoch": i,
-                        "loss": loss,
-                    }
-                )
-    ```
-    
-    - Using Loaded Checkpoints
-    
-    ```python
-    @retry(times=3)
-    @checkpoint
-    @step
-    def train(self):
-        # Assume that the task has restarted and the previous attempt of the task
-        # saved a checkpoint
-        checkpoint_path = None
-        if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
-            print("Loaded checkpoint from the previous attempt")
-            checkpoint_path = current.checkpoint.directory
-    
-        model = create_model(self.parameters, checkpoint_path = checkpoint_path)
-        for i in range(self.epochs):
-            ...
-    ```
-    
-    
-    Parameters
-    ----------
-    load_policy : str, default: "fresh"
-        The policy for loading the checkpoint. The following policies are supported:
-            - "eager": Loads the the latest available checkpoint within the namespace.
-            With this mode, the latest checkpoint written by any previous task (can be even a different run) of the step
-            will be loaded at the start of the task.
-            - "none": Do not load any checkpoint
-            - "fresh": Loads the lastest checkpoint created within the running Task.
-            This mode helps loading checkpoints across various retry attempts of the same task.
-            With this mode, no checkpoint will be loaded at the start of a task but any checkpoints
-            created within the task will be loaded when the task is retries execution on failure.
-    
-    temp_dir_root : str, default: None
-        The root directory under which `current.checkpoint.directory` will be created.
-    """
-    ...
-
-@typing.overload
-def checkpoint(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def checkpoint(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def checkpoint(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, load_policy: str = 'fresh', temp_dir_root: str = None):
-    """
-    Enables checkpointing for a step.
-    
-    > Examples
-    
-    - Saving Checkpoints
-    
-    ```python
-    @checkpoint
-    @step
-    def train(self):
-        model = create_model(self.parameters, checkpoint_path = None)
-        for i in range(self.epochs):
-            # some training logic
-            loss = model.train(self.dataset)
-            if i % 10 == 0:
-                model.save(
-                    current.checkpoint.directory,
-                )
-                # saves the contents of the `current.checkpoint.directory` as a checkpoint
-                # and returns a reference dictionary to the checkpoint saved in the datastore
-                self.latest_checkpoint = current.checkpoint.save(
-                    name="epoch_checkpoint",
-                    metadata={
-                        "epoch": i,
-                        "loss": loss,
-                    }
-                )
-    ```
-    
-    - Using Loaded Checkpoints
-    
-    ```python
-    @retry(times=3)
-    @checkpoint
-    @step
-    def train(self):
-        # Assume that the task has restarted and the previous attempt of the task
-        # saved a checkpoint
-        checkpoint_path = None
-        if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
-            print("Loaded checkpoint from the previous attempt")
-            checkpoint_path = current.checkpoint.directory
-    
-        model = create_model(self.parameters, checkpoint_path = checkpoint_path)
-        for i in range(self.epochs):
-            ...
-    ```
-    
-    
-    Parameters
-    ----------
-    load_policy : str, default: "fresh"
-        The policy for loading the checkpoint. The following policies are supported:
-            - "eager": Loads the the latest available checkpoint within the namespace.
-            With this mode, the latest checkpoint written by any previous task (can be even a different run) of the step
-            will be loaded at the start of the task.
-            - "none": Do not load any checkpoint
-            - "fresh": Loads the lastest checkpoint created within the running Task.
-            This mode helps loading checkpoints across various retry attempts of the same task.
-            With this mode, no checkpoint will be loaded at the start of a task but any checkpoints
-            created within the task will be loaded when the task is retries execution on failure.
-    
-    temp_dir_root : str, default: None
-        The root directory under which `current.checkpoint.directory` will be created.
-    """
-    ...
-
-@typing.overload
-def secrets(*, sources: typing.List[typing.Union[str, typing.Dict[str, typing.Any]]] = [], role: typing.Union[str, None] = None, allow_override: typing.Union[bool, None] = False) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies secrets to be retrieved and injected as environment variables prior to
-    the execution of a step.
-    
-    
-    Parameters
-    ----------
-    sources : List[Union[str, Dict[str, Any]]], default: []
-        List of secret specs, defining how the secrets are to be retrieved
-    role : str, optional, default: None
-        Role to use for fetching secrets
-    allow_override : bool, optional, default: False
-        Toggle whether secrets can replace existing environment variables.
-    """
-    ...
-
-@typing.overload
-def secrets(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def secrets(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def secrets(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, sources: typing.List[typing.Union[str, typing.Dict[str, typing.Any]]] = [], role: typing.Union[str, None] = None, allow_override: typing.Union[bool, None] = False):
-    """
-    Specifies secrets to be retrieved and injected as environment variables prior to
-    the execution of a step.
-    
-    
-    Parameters
-    ----------
-    sources : List[Union[str, Dict[str, Any]]], default: []
-        List of secret specs, defining how the secrets are to be retrieved
-    role : str, optional, default: None
-        Role to use for fetching secrets
-    allow_override : bool, optional, default: False
-        Toggle whether secrets can replace existing environment variables.
-    """
-    ...
-
-def nebius_s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: typing.Union[str, None] = None, debug: typing.Union[bool, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    `@nebius_s3_proxy` is a Nebius-specific S3 Proxy decorator for routing S3 requests through a local proxy service.
-    It exists to make it easier for users to know that this decorator should only be used with
-    a Neo Cloud like Nebius. The underlying mechanics of the decorator is the same as the `@s3_proxy`:
-    
-    
-    Set up an S3 proxy that caches objects in an external, S3‑compatible bucket
-    for S3 read and write requests.
-    
-    This decorator requires an integration in the Outerbounds platform that
-    points to an external bucket. It affects S3 operations performed via
-    Metaflow's `get_aws_client` and `S3` within a `@step`.
-    
-    Read operations
-    ---------------
-    All read operations pass through the proxy. If an object does not already
-    exist in the external bucket, it is cached there. For example, if code reads
-    from buckets `FOO` and `BAR` using the `S3` interface, objects from both
-    buckets are cached in the external bucket.
-    
-    During task execution, all S3‑related read requests are routed through the
-    proxy:
-        - If the object is present in the external object store, the proxy
-          streams it directly from there without accessing the requested origin
-          bucket.
-        - If the object is not present in the external storage, the proxy
-          fetches it from the requested bucket, caches it in the external
-          storage, and streams the response from the origin bucket.
-    
-    Warning
-    -------
-    All READ operations (e.g., GetObject, HeadObject) pass through the external
-    bucket regardless of the bucket specified in user code. Even
-    `S3(run=self)` and `S3(s3root="mybucketfoo")` requests go through the
-    external bucket cache.
-    
-    Write operations
-    ----------------
-    Write behavior is controlled by the `write_mode` parameter, which determines
-    whether writes also persist objects in the cache.
-    
-    `write_mode` values:
-        - `origin-and-cache`: objects are written both to the cache and to their
-          intended origin bucket.
-        - `origin`: objects are written only to their intended origin bucket.
-    
-    
-    Parameters
-    ----------
-    integration_name : str, optional
-        [Outerbounds integration name](https://docs.outerbounds.com/outerbounds/configuring-secrets/#integrations-view)
-        that holds the configuration for the external, S3‑compatible object
-        storage bucket. If not specified, the only available S3 proxy
-        integration in the namespace is used (fails if multiple exist).
-    write_mode : str, optional
-        Controls whether writes also go to the external bucket.
-            - `origin` (default)
-            - `origin-and-cache`
-    debug : bool, optional
-        Enables debug logging for proxy operations.
-    """
-    ...
-
-@typing.overload
-def test_append_card(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    """
-    A simple decorator that demonstrates using CardDecoratorInjector
-    to inject a card and render simple markdown content.
-    """
-    ...
-
-@typing.overload
-def test_append_card(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def test_append_card(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None):
-    """
-    A simple decorator that demonstrates using CardDecoratorInjector
-    to inject a card and render simple markdown content.
-    """
-    ...
-
-@typing.overload
-def conda(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies the Conda environment for the step.
-    
-    Information in this decorator will augment any
-    attributes set in the `@conda_base` flow-level decorator. Hence,
-    you can use `@conda_base` to set packages required by all
-    steps and use `@conda` to specify step-specific overrides.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this step. The key is the name of the package
-        and the value is the version to use.
-    libraries : Dict[str, str], default {}
-        Supported for backward compatibility. When used with packages, packages will take precedence.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables @conda.
-    """
-    ...
-
-@typing.overload
-def conda(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def conda(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def conda(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False):
-    """
-    Specifies the Conda environment for the step.
-    
-    Information in this decorator will augment any
-    attributes set in the `@conda_base` flow-level decorator. Hence,
-    you can use `@conda_base` to set packages required by all
-    steps and use `@conda` to specify step-specific overrides.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this step. The key is the name of the package
-        and the value is the version to use.
-    libraries : Dict[str, str], default {}
-        Supported for backward compatibility. When used with packages, packages will take precedence.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables @conda.
-    """
-    ...
-
 def huggingface_hub(*, temp_dir_root: typing.Union[str, None] = None, cache_scope: typing.Union[str, None] = None, load: typing.Union[typing.List[str], typing.List[typing.Tuple[typing.Dict, str]], typing.List[typing.Tuple[str, str]], typing.List[typing.Dict], None]) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
     """
     Decorator that helps cache, version, and store models/datasets from the Hugging Face Hub.
@@ -964,6 +335,249 @@ def app_deploy_internal(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFl
     ...
 
 @typing.overload
+def conda(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies the Conda environment for the step.
+    
+    Information in this decorator will augment any
+    attributes set in the `@conda_base` flow-level decorator. Hence,
+    you can use `@conda_base` to set packages required by all
+    steps and use `@conda` to specify step-specific overrides.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this step. The key is the name of the package
+        and the value is the version to use.
+    libraries : Dict[str, str], default {}
+        Supported for backward compatibility. When used with packages, packages will take precedence.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables @conda.
+    """
+    ...
+
+@typing.overload
+def conda(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def conda(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def conda(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False):
+    """
+    Specifies the Conda environment for the step.
+    
+    Information in this decorator will augment any
+    attributes set in the `@conda_base` flow-level decorator. Hence,
+    you can use `@conda_base` to set packages required by all
+    steps and use `@conda` to specify step-specific overrides.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this step. The key is the name of the package
+        and the value is the version to use.
+    libraries : Dict[str, str], default {}
+        Supported for backward compatibility. When used with packages, packages will take precedence.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables @conda.
+    """
+    ...
+
+def s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: typing.Union[str, None] = None, debug: typing.Union[bool, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Set up an S3 proxy that caches objects in an external, S3‑compatible bucket
+    for S3 read and write requests.
+    
+    This decorator requires an integration in the Outerbounds platform that
+    points to an external bucket. It affects S3 operations performed via
+    Metaflow's `get_aws_client` and `S3` within a `@step`.
+    
+    Read operations
+    ---------------
+    All read operations pass through the proxy. If an object does not already
+    exist in the external bucket, it is cached there. For example, if code reads
+    from buckets `FOO` and `BAR` using the `S3` interface, objects from both
+    buckets are cached in the external bucket.
+    
+    During task execution, all S3‑related read requests are routed through the
+    proxy:
+        - If the object is present in the external object store, the proxy
+          streams it directly from there without accessing the requested origin
+          bucket.
+        - If the object is not present in the external storage, the proxy
+          fetches it from the requested bucket, caches it in the external
+          storage, and streams the response from the origin bucket.
+    
+    Warning
+    -------
+    All READ operations (e.g., GetObject, HeadObject) pass through the external
+    bucket regardless of the bucket specified in user code. Even
+    `S3(run=self)` and `S3(s3root="mybucketfoo")` requests go through the
+    external bucket cache.
+    
+    Write operations
+    ----------------
+    Write behavior is controlled by the `write_mode` parameter, which determines
+    whether writes also persist objects in the cache.
+    
+    `write_mode` values:
+        - `origin-and-cache`: objects are written both to the cache and to their
+          intended origin bucket.
+        - `origin`: objects are written only to their intended origin bucket.
+    
+    
+    Parameters
+    ----------
+    integration_name : str, optional
+        [Outerbounds integration name](https://docs.outerbounds.com/outerbounds/configuring-secrets/#integrations-view)
+        that holds the configuration for the external, S3‑compatible object
+        storage bucket. If not specified, the only available S3 proxy
+        integration in the namespace is used (fails if multiple exist).
+    write_mode : str, optional
+        Controls whether writes also go to the external bucket.
+            - `origin` (default)
+            - `origin-and-cache`
+    debug : bool, optional
+        Enables debug logging for proxy operations.
+    """
+    ...
+
+@typing.overload
+def resources(*, cpu: int = 1, gpu: typing.Union[int, None] = None, disk: typing.Union[int, None] = None, memory: int = 4096, shared_memory: typing.Union[int, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies the resources needed when executing this step.
+    
+    Use `@resources` to specify the resource requirements
+    independently of the specific compute layer (`@batch`, `@kubernetes`).
+    
+    You can choose the compute layer on the command line by executing e.g.
+    ```
+    python myflow.py run --with batch
+    ```
+    or
+    ```
+    python myflow.py run --with kubernetes
+    ```
+    which executes the flow on the desired system using the
+    requirements specified in `@resources`.
+    
+    
+    Parameters
+    ----------
+    cpu : int, default 1
+        Number of CPUs required for this step.
+    gpu : int, optional, default None
+        Number of GPUs required for this step.
+    disk : int, optional, default None
+        Disk size (in MB) required for this step. Only applies on Kubernetes.
+    memory : int, default 4096
+        Memory size (in MB) required for this step.
+    shared_memory : int, optional, default None
+        The value for the size (in MiB) of the /dev/shm volume for this step.
+        This parameter maps to the `--shm-size` option in Docker.
+    """
+    ...
+
+@typing.overload
+def resources(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def resources(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def resources(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, cpu: int = 1, gpu: typing.Union[int, None] = None, disk: typing.Union[int, None] = None, memory: int = 4096, shared_memory: typing.Union[int, None] = None):
+    """
+    Specifies the resources needed when executing this step.
+    
+    Use `@resources` to specify the resource requirements
+    independently of the specific compute layer (`@batch`, `@kubernetes`).
+    
+    You can choose the compute layer on the command line by executing e.g.
+    ```
+    python myflow.py run --with batch
+    ```
+    or
+    ```
+    python myflow.py run --with kubernetes
+    ```
+    which executes the flow on the desired system using the
+    requirements specified in `@resources`.
+    
+    
+    Parameters
+    ----------
+    cpu : int, default 1
+        Number of CPUs required for this step.
+    gpu : int, optional, default None
+        Number of GPUs required for this step.
+    disk : int, optional, default None
+        Disk size (in MB) required for this step. Only applies on Kubernetes.
+    memory : int, default 4096
+        Memory size (in MB) required for this step.
+    shared_memory : int, optional, default None
+        The value for the size (in MiB) of the /dev/shm volume for this step.
+        This parameter maps to the `--shm-size` option in Docker.
+    """
+    ...
+
+def ray_ui(*, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, public: bool = False, cleanup: bool = True, description: typing.Union[str, None] = None, readiness_condition: typing.Union[str, None] = None, max_wait_time: typing.Union[int, None] = None, app_kwargs: typing.Union[dict, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Serve a `@metaflow_ray` step's Ray dashboard through an Outerbounds Proxy app.
+    
+    The app is deployed on the control task just before the step body runs -- by
+    which point `@metaflow_ray` has already started the Ray processes -- and torn
+    down when the task finishes, since the pod it proxies dies with the step.
+    Worker tasks are left untouched.
+    
+    The step must also carry `@metaflow_ray`; `@ray_ui` raises otherwise.
+    
+    User code call
+    --------------
+    @ray_ui(
+        port=8265,
+        ...
+    )
+    
+    
+    Parameters
+    ----------
+    name : str, optional
+        App name. Defaults to `ray-ui-<flow>-<step>-<run id>`, which keeps
+        concurrent runs from redeploying over each other.
+    port : int, optional
+        Port on the control node to proxy. Defaults to the step's
+        `@metaflow_ray(dashboard_port=...)`, i.e. 8265.
+    public : bool, default False
+        Whether the app is reachable without authentication.
+    cleanup : bool, default True
+        Delete the app when the task finishes -- on a normal return, on an
+        exception, on SIGTERM/SIGINT, or at interpreter exit. Set to False to
+        leave it behind (it will point at a dead pod). A SIGKILLed task cannot
+        clean up after itself, so pair the step with
+        `@app_deploy(cleanup_policy="delete")` on the flow to cover that case.
+    description : str, optional
+        App description. Defaults to naming the task pathspec.
+    readiness_condition : str, optional
+        Forwarded to `AppDeployer.deploy()` when set.
+    max_wait_time : int, optional
+        Forwarded to `AppDeployer.deploy()` when set.
+    app_kwargs : dict, optional
+        Forwarded to `AppDeployer()`, and overrides anything set above.
+    """
+    ...
+
+@typing.overload
 def model(*, load: typing.Union[typing.List[str], str, typing.List[typing.Tuple[str, typing.Union[str, None]]]] = None, temp_dir_root: str = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
     """
     Enables loading / saving of models within a step.
@@ -1093,6 +707,322 @@ def model(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], ty
     ...
 
 @typing.overload
+def anaconda(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['https://repo.anaconda.com/pkgs/main'], extra_configs: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies the Anaconda environment for the step.
+    
+    Identical to ``@conda`` but defaults to the ``anaconda`` channel
+    instead of the globally configured channel (typically ``conda-forge``).
+    
+    Information in this decorator will augment any
+    attributes set in the ``@anaconda_base`` flow-level decorator. Hence,
+    you can use ``@anaconda_base`` to set packages required by all
+    steps and use ``@anaconda`` to specify step-specific overrides.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this step. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables @anaconda.
+    channels : List[str], default ["https://repo.anaconda.com/pkgs/main"]
+        Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder. Merged with any ``extra_configs`` set in
+        ``@anaconda_base``, with step-level values taking precedence.
+    """
+    ...
+
+@typing.overload
+def anaconda(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def anaconda(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def anaconda(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['https://repo.anaconda.com/pkgs/main'], extra_configs: typing.Dict[str, str] = {}):
+    """
+    Specifies the Anaconda environment for the step.
+    
+    Identical to ``@conda`` but defaults to the ``anaconda`` channel
+    instead of the globally configured channel (typically ``conda-forge``).
+    
+    Information in this decorator will augment any
+    attributes set in the ``@anaconda_base`` flow-level decorator. Hence,
+    you can use ``@anaconda_base`` to set packages required by all
+    steps and use ``@anaconda`` to specify step-specific overrides.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this step. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables @anaconda.
+    channels : List[str], default ["https://repo.anaconda.com/pkgs/main"]
+        Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder. Merged with any ``extra_configs`` set in
+        ``@anaconda_base``, with step-level values taking precedence.
+    """
+    ...
+
+def nvct(*, gpu: int, gpu_type: str) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies that this step should execute on DGX cloud.
+    
+    
+    Parameters
+    ----------
+    gpu : int
+        Number of GPUs to use.
+    gpu_type : str
+        Type of Nvidia GPU to use.
+    """
+    ...
+
+def nvidia(*, gpu: int, gpu_type: str, queue_timeout: int) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies that this step should execute on DGX cloud.
+    
+    
+    Parameters
+    ----------
+    gpu : int
+        Number of GPUs to use.
+    gpu_type : str
+        Type of Nvidia GPU to use.
+    queue_timeout : int
+        Time to keep the job in NVCF's queue.
+    """
+    ...
+
+@typing.overload
+def checkpoint(*, load_policy: str = 'fresh', temp_dir_root: str = None, show_card: bool = True) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Enables checkpointing for a step.
+    
+    > Examples
+    
+    - Saving Checkpoints
+    
+    ```python
+    @checkpoint
+    @step
+    def train(self):
+        model = create_model(self.parameters, checkpoint_path = None)
+        for i in range(self.epochs):
+            # some training logic
+            loss = model.train(self.dataset)
+            if i % 10 == 0:
+                model.save(
+                    current.checkpoint.directory,
+                )
+                # saves the contents of the `current.checkpoint.directory` as a checkpoint
+                # and returns a reference dictionary to the checkpoint saved in the datastore
+                self.latest_checkpoint = current.checkpoint.save(
+                    name="epoch_checkpoint",
+                    metadata={
+                        "epoch": i,
+                        "loss": loss,
+                    }
+                )
+    ```
+    
+    - Using Loaded Checkpoints
+    
+    ```python
+    @retry(times=3)
+    @checkpoint
+    @step
+    def train(self):
+        # Assume that the task has restarted and the previous attempt of the task
+        # saved a checkpoint
+        checkpoint_path = None
+        if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
+            print("Loaded checkpoint from the previous attempt")
+            checkpoint_path = current.checkpoint.directory
+    
+        model = create_model(self.parameters, checkpoint_path = checkpoint_path)
+        for i in range(self.epochs):
+            ...
+    ```
+    
+    
+    Parameters
+    ----------
+    load_policy : str, default: "fresh"
+        The policy for loading the checkpoint. The following policies are supported:
+            - "eager": Loads the the latest available checkpoint within the namespace.
+            With this mode, the latest checkpoint written by any previous task (can be even a different run) of the step
+            will be loaded at the start of the task.
+            - "none": Do not load any checkpoint
+            - "fresh": Loads the lastest checkpoint created within the running Task.
+            This mode helps loading checkpoints across various retry attempts of the same task.
+            With this mode, no checkpoint will be loaded at the start of a task but any checkpoints
+            created within the task will be loaded when the task is retries execution on failure.
+    
+    temp_dir_root : str, default: None
+        The root directory under which `current.checkpoint.directory` will be created.
+    
+    show_card : bool, default: True
+        appends an [@card decorator](https://docs.metaflow.org/metaflow/visualizing-results) that surfaces information about checkpoints created during the task. For @parallel tasks the card only surfaces checkpoint information about the control task. When to False no checkpoint related @card decorator is appended.
+    """
+    ...
+
+@typing.overload
+def checkpoint(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def checkpoint(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def checkpoint(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, load_policy: str = 'fresh', temp_dir_root: str = None, show_card: bool = True):
+    """
+    Enables checkpointing for a step.
+    
+    > Examples
+    
+    - Saving Checkpoints
+    
+    ```python
+    @checkpoint
+    @step
+    def train(self):
+        model = create_model(self.parameters, checkpoint_path = None)
+        for i in range(self.epochs):
+            # some training logic
+            loss = model.train(self.dataset)
+            if i % 10 == 0:
+                model.save(
+                    current.checkpoint.directory,
+                )
+                # saves the contents of the `current.checkpoint.directory` as a checkpoint
+                # and returns a reference dictionary to the checkpoint saved in the datastore
+                self.latest_checkpoint = current.checkpoint.save(
+                    name="epoch_checkpoint",
+                    metadata={
+                        "epoch": i,
+                        "loss": loss,
+                    }
+                )
+    ```
+    
+    - Using Loaded Checkpoints
+    
+    ```python
+    @retry(times=3)
+    @checkpoint
+    @step
+    def train(self):
+        # Assume that the task has restarted and the previous attempt of the task
+        # saved a checkpoint
+        checkpoint_path = None
+        if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
+            print("Loaded checkpoint from the previous attempt")
+            checkpoint_path = current.checkpoint.directory
+    
+        model = create_model(self.parameters, checkpoint_path = checkpoint_path)
+        for i in range(self.epochs):
+            ...
+    ```
+    
+    
+    Parameters
+    ----------
+    load_policy : str, default: "fresh"
+        The policy for loading the checkpoint. The following policies are supported:
+            - "eager": Loads the the latest available checkpoint within the namespace.
+            With this mode, the latest checkpoint written by any previous task (can be even a different run) of the step
+            will be loaded at the start of the task.
+            - "none": Do not load any checkpoint
+            - "fresh": Loads the lastest checkpoint created within the running Task.
+            This mode helps loading checkpoints across various retry attempts of the same task.
+            With this mode, no checkpoint will be loaded at the start of a task but any checkpoints
+            created within the task will be loaded when the task is retries execution on failure.
+    
+    temp_dir_root : str, default: None
+        The root directory under which `current.checkpoint.directory` will be created.
+    
+    show_card : bool, default: True
+        appends an [@card decorator](https://docs.metaflow.org/metaflow/visualizing-results) that surfaces information about checkpoints created during the task. For @parallel tasks the card only surfaces checkpoint information about the control task. When to False no checkpoint related @card decorator is appended.
+    """
+    ...
+
+@typing.overload
+def secrets(*, sources: typing.List[typing.Union[str, typing.Dict[str, typing.Any]]] = [], role: typing.Union[str, None] = None, allow_override: typing.Union[bool, None] = False) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies secrets to be retrieved and injected as environment variables prior to
+    the execution of a step.
+    
+    
+    Parameters
+    ----------
+    sources : List[Union[str, Dict[str, Any]]], default: []
+        List of secret specs, defining how the secrets are to be retrieved
+    role : str, optional, default: None
+        Role to use for fetching secrets
+    allow_override : bool, optional, default: False
+        Toggle whether secrets can replace existing environment variables.
+    """
+    ...
+
+@typing.overload
+def secrets(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def secrets(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def secrets(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, sources: typing.List[typing.Union[str, typing.Dict[str, typing.Any]]] = [], role: typing.Union[str, None] = None, allow_override: typing.Union[bool, None] = False):
+    """
+    Specifies secrets to be retrieved and injected as environment variables prior to
+    the execution of a step.
+    
+    
+    Parameters
+    ----------
+    sources : List[Union[str, Dict[str, Any]]], default: []
+        List of secret specs, defining how the secrets are to be retrieved
+    role : str, optional, default: None
+        Role to use for fetching secrets
+    allow_override : bool, optional, default: False
+        Toggle whether secrets can replace existing environment variables.
+    """
+    ...
+
+@typing.overload
+def fast_bakery_internal(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    """
+    Internal decorator to support Fast bakery
+    """
+    ...
+
+@typing.overload
+def fast_bakery_internal(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def fast_bakery_internal(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None):
+    """
+    Internal decorator to support Fast bakery
+    """
+    ...
+
+@typing.overload
 def timeout(*, seconds: int = 0, minutes: int = 0, hours: int = 0) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
     """
     Specifies a timeout for your step.
@@ -1201,61 +1131,6 @@ def card(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typ
     ...
 
 @typing.overload
-def retry(*, times: int = 3, minutes_between_retries: int = 2) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies the number of times the task corresponding
-    to a step needs to be retried.
-    
-    This decorator is useful for handling transient errors, such as networking issues.
-    If your task contains operations that can't be retried safely, e.g. database updates,
-    it is advisable to annotate it with `@retry(times=0)`.
-    
-    This can be used in conjunction with the `@catch` decorator. The `@catch`
-    decorator will execute a no-op task after all retries have been exhausted,
-    ensuring that the flow execution can continue.
-    
-    
-    Parameters
-    ----------
-    times : int, default 3
-        Number of times to retry this task.
-    minutes_between_retries : int, default 2
-        Number of minutes between retries.
-    """
-    ...
-
-@typing.overload
-def retry(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def retry(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def retry(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, times: int = 3, minutes_between_retries: int = 2):
-    """
-    Specifies the number of times the task corresponding
-    to a step needs to be retried.
-    
-    This decorator is useful for handling transient errors, such as networking issues.
-    If your task contains operations that can't be retried safely, e.g. database updates,
-    it is advisable to annotate it with `@retry(times=0)`.
-    
-    This can be used in conjunction with the `@catch` decorator. The `@catch`
-    decorator will execute a no-op task after all retries have been exhausted,
-    ensuring that the flow execution can continue.
-    
-    
-    Parameters
-    ----------
-    times : int, default 3
-        Number of times to retry this task.
-    minutes_between_retries : int, default 2
-        Number of minutes between retries.
-    """
-    ...
-
-@typing.overload
 def pypi(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, index_strategy: typing.Union[str, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
     """
     Specifies the PyPI packages for the step.
@@ -1310,8 +1185,32 @@ def pypi(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typ
     """
     ...
 
-def s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: typing.Union[str, None] = None, debug: typing.Union[bool, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+@typing.overload
+def parallel(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
     """
+    Decorator prototype for all step decorators. This function gets specialized
+    and imported for all decorators types by _import_plugin_decorators().
+    """
+    ...
+
+@typing.overload
+def parallel(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def parallel(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None):
+    """
+    Decorator prototype for all step decorators. This function gets specialized
+    and imported for all decorators types by _import_plugin_decorators().
+    """
+    ...
+
+def coreweave_s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: typing.Union[str, None] = None, debug: typing.Union[bool, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    `@coreweave_s3_proxy` is a CoreWeave-specific S3 Proxy decorator for routing S3 requests through a local proxy service.
+    It exists to make it easier for users to know that this decorator should only be used with
+    a Neo Cloud like CoreWeave. The underlying mechanics of the decorator is the same as the `@s3_proxy`:
+    
+    
     Set up an S3 proxy that caches objects in an external, S3‑compatible bucket
     for S3 read and write requests.
     
@@ -1369,134 +1268,22 @@ def s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: ty
     """
     ...
 
-def vllm(*, model: str, backend: str, source: str, openai_api_server: bool, debug: bool, card_refresh_interval: int, max_retries: int, retry_alert_frequency: int, engine_args: dict) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+@typing.overload
+def test_append_card(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
     """
-    This decorator is used to run vllm APIs as Metaflow task sidecars.
-    
-    User code call
-    --------------
-    @vllm(
-        model="...",
-        ...
-    )
-    
-    Valid backend options
-    ---------------------
-    - 'local': Run as a separate process on the local task machine.
-    
-    Valid model options
-    -------------------
-    Any HuggingFace model identifier, e.g. 'meta-llama/Llama-3.2-1B'
-    
-    NOTE: vLLM's OpenAI-compatible server serves ONE model per server instance.
-    If you need multiple models, you must create multiple @vllm decorators.
-    
-    
-    Parameters
-    ----------
-    model: str
-        HuggingFace or Anaconda model identifier to be served by vLLM.
-    backend: str
-        Determines where and how to run the vLLM process.
-    source: str
-        Where to obtain the model from: 'huggingface' (default) or 'anaconda'.
-    openai_api_server: bool
-        Whether to use OpenAI-compatible API server mode (subprocess) instead of native engine.
-        Default is False (uses native engine).
-        Set to True for backward compatibility with existing code.
-    debug: bool
-        Whether to turn on verbose debugging logs.
-    card_refresh_interval: int
-        Interval in seconds for refreshing the vLLM status card.
-        Only used when openai_api_server=True.
-    max_retries: int
-        Maximum number of retries checking for vLLM server startup.
-        Only used when openai_api_server=True.
-    retry_alert_frequency: int
-        Frequency of alert logs for vLLM server startup retries.
-        Only used when openai_api_server=True.
-    engine_args : dict
-        Additional keyword arguments to pass to the vLLM engine.
-        For example, `tensor_parallel_size=2`.
+    A simple decorator that demonstrates using CardDecoratorInjector
+    to inject a card and render simple markdown content.
     """
     ...
 
 @typing.overload
-def resources(*, cpu: int = 1, gpu: typing.Union[int, None] = None, disk: typing.Union[int, None] = None, memory: int = 4096, shared_memory: typing.Union[int, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Specifies the resources needed when executing this step.
-    
-    Use `@resources` to specify the resource requirements
-    independently of the specific compute layer (`@batch`, `@kubernetes`).
-    
-    You can choose the compute layer on the command line by executing e.g.
-    ```
-    python myflow.py run --with batch
-    ```
-    or
-    ```
-    python myflow.py run --with kubernetes
-    ```
-    which executes the flow on the desired system using the
-    requirements specified in `@resources`.
-    
-    
-    Parameters
-    ----------
-    cpu : int, default 1
-        Number of CPUs required for this step.
-    gpu : int, optional, default None
-        Number of GPUs required for this step.
-    disk : int, optional, default None
-        Disk size (in MB) required for this step. Only applies on Kubernetes.
-    memory : int, default 4096
-        Memory size (in MB) required for this step.
-    shared_memory : int, optional, default None
-        The value for the size (in MiB) of the /dev/shm volume for this step.
-        This parameter maps to the `--shm-size` option in Docker.
-    """
+def test_append_card(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
     ...
 
-@typing.overload
-def resources(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
-    ...
-
-@typing.overload
-def resources(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
-    ...
-
-def resources(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, cpu: int = 1, gpu: typing.Union[int, None] = None, disk: typing.Union[int, None] = None, memory: int = 4096, shared_memory: typing.Union[int, None] = None):
+def test_append_card(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None):
     """
-    Specifies the resources needed when executing this step.
-    
-    Use `@resources` to specify the resource requirements
-    independently of the specific compute layer (`@batch`, `@kubernetes`).
-    
-    You can choose the compute layer on the command line by executing e.g.
-    ```
-    python myflow.py run --with batch
-    ```
-    or
-    ```
-    python myflow.py run --with kubernetes
-    ```
-    which executes the flow on the desired system using the
-    requirements specified in `@resources`.
-    
-    
-    Parameters
-    ----------
-    cpu : int, default 1
-        Number of CPUs required for this step.
-    gpu : int, optional, default None
-        Number of GPUs required for this step.
-    disk : int, optional, default None
-        Disk size (in MB) required for this step. Only applies on Kubernetes.
-    memory : int, default 4096
-        Memory size (in MB) required for this step.
-    shared_memory : int, optional, default None
-        The value for the size (in MiB) of the /dev/shm volume for this step.
-        This parameter maps to the `--shm-size` option in Docker.
+    A simple decorator that demonstrates using CardDecoratorInjector
+    to inject a card and render simple markdown content.
     """
     ...
 
@@ -1595,6 +1382,271 @@ def kubernetes(*, cpu: int = 1, memory: int = 4096, disk: int = 10240, image: ty
     """
     ...
 
+def nebius_s3_proxy(*, integration_name: typing.Union[str, None] = None, write_mode: typing.Union[str, None] = None, debug: typing.Union[bool, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    `@nebius_s3_proxy` is a Nebius-specific S3 Proxy decorator for routing S3 requests through a local proxy service.
+    It exists to make it easier for users to know that this decorator should only be used with
+    a Neo Cloud like Nebius. The underlying mechanics of the decorator is the same as the `@s3_proxy`:
+    
+    
+    Set up an S3 proxy that caches objects in an external, S3‑compatible bucket
+    for S3 read and write requests.
+    
+    This decorator requires an integration in the Outerbounds platform that
+    points to an external bucket. It affects S3 operations performed via
+    Metaflow's `get_aws_client` and `S3` within a `@step`.
+    
+    Read operations
+    ---------------
+    All read operations pass through the proxy. If an object does not already
+    exist in the external bucket, it is cached there. For example, if code reads
+    from buckets `FOO` and `BAR` using the `S3` interface, objects from both
+    buckets are cached in the external bucket.
+    
+    During task execution, all S3‑related read requests are routed through the
+    proxy:
+        - If the object is present in the external object store, the proxy
+          streams it directly from there without accessing the requested origin
+          bucket.
+        - If the object is not present in the external storage, the proxy
+          fetches it from the requested bucket, caches it in the external
+          storage, and streams the response from the origin bucket.
+    
+    Warning
+    -------
+    All READ operations (e.g., GetObject, HeadObject) pass through the external
+    bucket regardless of the bucket specified in user code. Even
+    `S3(run=self)` and `S3(s3root="mybucketfoo")` requests go through the
+    external bucket cache.
+    
+    Write operations
+    ----------------
+    Write behavior is controlled by the `write_mode` parameter, which determines
+    whether writes also persist objects in the cache.
+    
+    `write_mode` values:
+        - `origin-and-cache`: objects are written both to the cache and to their
+          intended origin bucket.
+        - `origin`: objects are written only to their intended origin bucket.
+    
+    
+    Parameters
+    ----------
+    integration_name : str, optional
+        [Outerbounds integration name](https://docs.outerbounds.com/outerbounds/configuring-secrets/#integrations-view)
+        that holds the configuration for the external, S3‑compatible object
+        storage bucket. If not specified, the only available S3 proxy
+        integration in the namespace is used (fails if multiple exist).
+    write_mode : str, optional
+        Controls whether writes also go to the external bucket.
+            - `origin` (default)
+            - `origin-and-cache`
+    debug : bool, optional
+        Enables debug logging for proxy operations.
+    """
+    ...
+
+def ollama(*, models: list, backend: str, force_pull: bool, cache_update_policy: str, force_cache_update: bool, debug: bool, circuit_breaker_config: dict, timeout_config: dict) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    This decorator is used to run Ollama APIs as Metaflow task sidecars.
+    
+    User code call
+    --------------
+    @ollama(
+        models=[...],
+        ...
+    )
+    
+    Valid backend options
+    ---------------------
+    - 'local': Run as a separate process on the local task machine.
+    - (TODO) 'managed': Outerbounds hosts and selects compute provider.
+    - (TODO) 'remote': Spin up separate instance to serve Ollama models.
+    
+    Valid model options
+    -------------------
+    Any model here https://ollama.com/search, e.g. 'llama3.2', 'llama3.3'
+    
+    
+    Parameters
+    ----------
+    models: list[str]
+        List of Ollama containers running models in sidecars.
+    backend: str
+        Determines where and how to run the Ollama process.
+    force_pull: bool
+        Whether to run `ollama pull` no matter what, or first check the remote cache in Metaflow datastore for this model key.
+    cache_update_policy: str
+        Cache update policy: "auto", "force", or "never".
+    force_cache_update: bool
+        Simple override for "force" cache update policy.
+    debug: bool
+        Whether to turn on verbose debugging logs.
+    circuit_breaker_config: dict
+        Configuration for circuit breaker protection. Keys: failure_threshold, recovery_timeout, reset_timeout.
+    timeout_config: dict
+        Configuration for various operation timeouts. Keys: pull, stop, health_check, install, server_startup.
+    """
+    ...
+
+@typing.overload
+def catch(*, var: typing.Union[str, None] = None, print_exception: bool = True) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies that the step will success under all circumstances.
+    
+    The decorator will create an optional artifact, specified by `var`, which
+    contains the exception raised. You can use it to detect the presence
+    of errors, indicating that all happy-path artifacts produced by the step
+    are missing.
+    
+    
+    Parameters
+    ----------
+    var : str, optional, default None
+        Name of the artifact in which to store the caught exception.
+        If not specified, the exception is not stored.
+    print_exception : bool, default True
+        Determines whether or not the exception is printed to
+        stdout when caught.
+    """
+    ...
+
+@typing.overload
+def catch(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def catch(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def catch(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, var: typing.Union[str, None] = None, print_exception: bool = True):
+    """
+    Specifies that the step will success under all circumstances.
+    
+    The decorator will create an optional artifact, specified by `var`, which
+    contains the exception raised. You can use it to detect the presence
+    of errors, indicating that all happy-path artifacts produced by the step
+    are missing.
+    
+    
+    Parameters
+    ----------
+    var : str, optional, default None
+        Name of the artifact in which to store the caught exception.
+        If not specified, the exception is not stored.
+    print_exception : bool, default True
+        Determines whether or not the exception is printed to
+        stdout when caught.
+    """
+    ...
+
+def vllm(*, model: str, backend: str, source: str, openai_api_server: bool, debug: bool, card_refresh_interval: int, max_retries: int, retry_alert_frequency: int, engine_args: dict) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    This decorator is used to run vllm APIs as Metaflow task sidecars.
+    
+    User code call
+    --------------
+    @vllm(
+        model="...",
+        ...
+    )
+    
+    Valid backend options
+    ---------------------
+    - 'local': Run as a separate process on the local task machine.
+    
+    Valid model options
+    -------------------
+    Any HuggingFace model identifier, e.g. 'meta-llama/Llama-3.2-1B'
+    
+    NOTE: vLLM's OpenAI-compatible server serves ONE model per server instance.
+    If you need multiple models, you must create multiple @vllm decorators.
+    
+    
+    Parameters
+    ----------
+    model: str
+        HuggingFace or Anaconda model identifier to be served by vLLM.
+    backend: str
+        Determines where and how to run the vLLM process.
+    source: str
+        Where to obtain the model from: 'huggingface' (default) or 'anaconda'.
+    openai_api_server: bool
+        Whether to use OpenAI-compatible API server mode (subprocess) instead of native engine.
+        Default is False (uses native engine).
+        Set to True for backward compatibility with existing code.
+    debug: bool
+        Whether to turn on verbose debugging logs.
+    card_refresh_interval: int
+        Interval in seconds for refreshing the vLLM status card.
+        Only used when openai_api_server=True.
+    max_retries: int
+        Maximum number of retries checking for vLLM server startup.
+        Only used when openai_api_server=True.
+    retry_alert_frequency: int
+        Frequency of alert logs for vLLM server startup retries.
+        Only used when openai_api_server=True.
+    engine_args : dict
+        Additional keyword arguments to pass to the vLLM engine.
+        For example, `tensor_parallel_size=2`.
+    """
+    ...
+
+@typing.overload
+def retry(*, times: int = 3, minutes_between_retries: int = 2) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
+    """
+    Specifies the number of times the task corresponding
+    to a step needs to be retried.
+    
+    This decorator is useful for handling transient errors, such as networking issues.
+    If your task contains operations that can't be retried safely, e.g. database updates,
+    it is advisable to annotate it with `@retry(times=0)`.
+    
+    This can be used in conjunction with the `@catch` decorator. The `@catch`
+    decorator will execute a no-op task after all retries have been exhausted,
+    ensuring that the flow execution can continue.
+    
+    
+    Parameters
+    ----------
+    times : int, default 3
+        Number of times to retry this task.
+    minutes_between_retries : int, default 2
+        Number of minutes between retries.
+    """
+    ...
+
+@typing.overload
+def retry(f: typing.Callable[[FlowSpecDerived, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, StepFlag], None]:
+    ...
+
+@typing.overload
+def retry(f: typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]) -> typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]:
+    ...
+
+def retry(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None], None] = None, *, times: int = 3, minutes_between_retries: int = 2):
+    """
+    Specifies the number of times the task corresponding
+    to a step needs to be retried.
+    
+    This decorator is useful for handling transient errors, such as networking issues.
+    If your task contains operations that can't be retried safely, e.g. database updates,
+    it is advisable to annotate it with `@retry(times=0)`.
+    
+    This can be used in conjunction with the `@catch` decorator. The `@catch`
+    decorator will execute a no-op task after all retries have been exhausted,
+    ensuring that the flow execution can continue.
+    
+    
+    Parameters
+    ----------
+    times : int, default 3
+        Number of times to retry this task.
+    minutes_between_retries : int, default 2
+        Number of minutes between retries.
+    """
+    ...
+
 @typing.overload
 def environment(*, vars: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
     """
@@ -1625,435 +1677,6 @@ def environment(f: typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], Non
     ----------
     vars : Dict[str, str], default {}
         Dictionary of environment variables to set.
-    """
-    ...
-
-def ray_ui(*, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, public: bool = False, cleanup: bool = True, description: typing.Union[str, None] = None, readiness_condition: typing.Union[str, None] = None, max_wait_time: typing.Union[int, None] = None, app_kwargs: typing.Union[dict, None] = None) -> typing.Callable[[typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]], typing.Union[typing.Callable[[FlowSpecDerived, StepFlag], None], typing.Callable[[FlowSpecDerived, typing.Any, StepFlag], None]]]:
-    """
-    Serve a `@metaflow_ray` step's Ray dashboard through an Outerbounds Proxy app.
-    
-    The app is deployed on the control task just before the step body runs -- by
-    which point `@metaflow_ray` has already started the Ray processes -- and torn
-    down when the task finishes, since the pod it proxies dies with the step.
-    Worker tasks are left untouched.
-    
-    The step must also carry `@metaflow_ray`; `@ray_ui` raises otherwise.
-    
-    User code call
-    --------------
-    @ray_ui(
-        port=8265,
-        ...
-    )
-    
-    
-    Parameters
-    ----------
-    name : str, optional
-        App name. Defaults to `ray-ui-<flow>-<step>-<run id>`, which keeps
-        concurrent runs from redeploying over each other.
-    port : int, optional
-        Port on the control node to proxy. Defaults to the step's
-        `@metaflow_ray(dashboard_port=...)`, i.e. 8265.
-    public : bool, default False
-        Whether the app is reachable without authentication.
-    cleanup : bool, default True
-        Delete the app when the task finishes -- on a normal return, on an
-        exception, on SIGTERM/SIGINT, or at interpreter exit. Set to False to
-        leave it behind (it will point at a dead pod). A SIGKILLed task cannot
-        clean up after itself, so pair the step with
-        `@app_deploy(cleanup_policy="delete")` on the flow to cover that case.
-    description : str, optional
-        App description. Defaults to naming the task pathspec.
-    readiness_condition : str, optional
-        Forwarded to `AppDeployer.deploy()` when set.
-    max_wait_time : int, optional
-        Forwarded to `AppDeployer.deploy()` when set.
-    app_kwargs : dict, optional
-        Forwarded to `AppDeployer()`, and overrides anything set above.
-    """
-    ...
-
-@typing.overload
-def pypi_base(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, index_strategy: typing.Union[str, None] = None) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies the PyPI packages for all steps of the flow.
-    
-    Use `@pypi_base` to set common packages required by all
-    steps and use `@pypi` to specify step-specific overrides.
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default: {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default: None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    index_strategy : str, optional, default: None
-        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
-    """
-    ...
-
-@typing.overload
-def pypi_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
-    ...
-
-def pypi_base(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, index_strategy: typing.Union[str, None] = None):
-    """
-    Specifies the PyPI packages for all steps of the flow.
-    
-    Use `@pypi_base` to set common packages required by all
-    steps and use `@pypi` to specify step-specific overrides.
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default: {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default: None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    index_strategy : str, optional, default: None
-        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
-    """
-    ...
-
-@typing.overload
-def trigger_on_finish(*, flow: typing.Union[typing.Dict[str, str], str, None] = None, flows: typing.List[typing.Union[str, typing.Dict[str, str]]] = [], options: typing.Dict[str, typing.Any] = {}) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies the flow(s) that this flow depends on.
-    
-    ```
-    @trigger_on_finish(flow='FooFlow')
-    ```
-    or
-    ```
-    @trigger_on_finish(flows=['FooFlow', 'BarFlow'])
-    ```
-    This decorator respects the @project decorator and triggers the flow
-    when upstream runs within the same namespace complete successfully
-    
-    Additionally, you can specify project aware upstream flow dependencies
-    by specifying the fully qualified project_flow_name.
-    ```
-    @trigger_on_finish(flow='my_project.branch.my_branch.FooFlow')
-    ```
-    or
-    ```
-    @trigger_on_finish(flows=['my_project.branch.my_branch.FooFlow', 'BarFlow'])
-    ```
-    
-    You can also specify just the project or project branch (other values will be
-    inferred from the current project or project branch):
-    ```
-    @trigger_on_finish(flow={"name": "FooFlow", "project": "my_project", "project_branch": "branch"})
-    ```
-    
-    Note that `branch` is typically one of:
-      - `prod`
-      - `user.bob`
-      - `test.my_experiment`
-      - `prod.staging`
-    
-    
-    Parameters
-    ----------
-    flow : Union[str, Dict[str, str]], optional, default None
-        Upstream flow dependency for this flow.
-    flows : List[Union[str, Dict[str, str]]], default []
-        Upstream flow dependencies for this flow.
-    options : Dict[str, Any], default {}
-        Backend-specific configuration for tuning eventing behavior.
-    """
-    ...
-
-@typing.overload
-def trigger_on_finish(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
-    ...
-
-def trigger_on_finish(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, flow: typing.Union[typing.Dict[str, str], str, None] = None, flows: typing.List[typing.Union[str, typing.Dict[str, str]]] = [], options: typing.Dict[str, typing.Any] = {}):
-    """
-    Specifies the flow(s) that this flow depends on.
-    
-    ```
-    @trigger_on_finish(flow='FooFlow')
-    ```
-    or
-    ```
-    @trigger_on_finish(flows=['FooFlow', 'BarFlow'])
-    ```
-    This decorator respects the @project decorator and triggers the flow
-    when upstream runs within the same namespace complete successfully
-    
-    Additionally, you can specify project aware upstream flow dependencies
-    by specifying the fully qualified project_flow_name.
-    ```
-    @trigger_on_finish(flow='my_project.branch.my_branch.FooFlow')
-    ```
-    or
-    ```
-    @trigger_on_finish(flows=['my_project.branch.my_branch.FooFlow', 'BarFlow'])
-    ```
-    
-    You can also specify just the project or project branch (other values will be
-    inferred from the current project or project branch):
-    ```
-    @trigger_on_finish(flow={"name": "FooFlow", "project": "my_project", "project_branch": "branch"})
-    ```
-    
-    Note that `branch` is typically one of:
-      - `prod`
-      - `user.bob`
-      - `test.my_experiment`
-      - `prod.staging`
-    
-    
-    Parameters
-    ----------
-    flow : Union[str, Dict[str, str]], optional, default None
-        Upstream flow dependency for this flow.
-    flows : List[Union[str, Dict[str, str]]], default []
-        Upstream flow dependencies for this flow.
-    options : Dict[str, Any], default {}
-        Backend-specific configuration for tuning eventing behavior.
-    """
-    ...
-
-def airflow_s3_key_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, bucket_key: typing.Union[str, typing.List[str]], bucket_name: str, wildcard_match: bool, aws_conn_id: str, verify: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    The `@airflow_s3_key_sensor` decorator attaches a Airflow [S3KeySensor](https://airflow.apache.org/docs/apache-airflow-providers-amazon/stable/_api/airflow/providers/amazon/aws/sensors/s3/index.html#airflow.providers.amazon.aws.sensors.s3.S3KeySensor)
-    before the start step of the flow. This decorator only works when a flow is scheduled on Airflow
-    and is compiled using `airflow create`. More than one `@airflow_s3_key_sensor` can be
-    added as a flow decorators. Adding more than one decorator will ensure that `start` step
-    starts only after all sensors finish.
-    
-    
-    Parameters
-    ----------
-    timeout : int
-        Time, in seconds before the task times out and fails. (Default: 3600)
-    poke_interval : int
-        Time in seconds that the job should wait in between each try. (Default: 60)
-    mode : str
-        How the sensor operates. Options are: { poke | reschedule }. (Default: "poke")
-    exponential_backoff : bool
-        allow progressive longer waits between pokes by using exponential backoff algorithm. (Default: True)
-    pool : str
-        the slot pool this task should run in,
-        slot pools are a way to limit concurrency for certain tasks. (Default:None)
-    soft_fail : bool
-        Set to true to mark the task as SKIPPED on failure. (Default: False)
-    name : str
-        Name of the sensor on Airflow
-    description : str
-        Description of sensor in the Airflow UI
-    bucket_key : Union[str, List[str]]
-        The key(s) being waited on. Supports full s3:// style url or relative path from root level.
-        When it's specified as a full s3:// url, please leave `bucket_name` as None
-    bucket_name : str
-        Name of the S3 bucket. Only needed when bucket_key is not provided as a full s3:// url.
-        When specified, all the keys passed to bucket_key refers to this bucket. (Default:None)
-    wildcard_match : bool
-        whether the bucket_key should be interpreted as a Unix wildcard pattern. (Default: False)
-    aws_conn_id : str
-        a reference to the s3 connection on Airflow. (Default: None)
-    verify : bool
-        Whether or not to verify SSL certificates for S3 connection. (Default: None)
-    """
-    ...
-
-def airflow_external_task_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, external_dag_id: str, external_task_ids: typing.List[str], allowed_states: typing.List[str], failed_states: typing.List[str], execution_delta: "datetime.timedelta", check_existence: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    The `@airflow_external_task_sensor` decorator attaches a Airflow [ExternalTaskSensor](https://airflow.apache.org/docs/apache-airflow/stable/_api/airflow/sensors/external_task/index.html#airflow.sensors.external_task.ExternalTaskSensor) before the start step of the flow.
-    This decorator only works when a flow is scheduled on Airflow and is compiled using `airflow create`. More than one `@airflow_external_task_sensor` can be added as a flow decorators. Adding more than one decorator will ensure that `start` step starts only after all sensors finish.
-    
-    
-    Parameters
-    ----------
-    timeout : int
-        Time, in seconds before the task times out and fails. (Default: 3600)
-    poke_interval : int
-        Time in seconds that the job should wait in between each try. (Default: 60)
-    mode : str
-        How the sensor operates. Options are: { poke | reschedule }. (Default: "poke")
-    exponential_backoff : bool
-        allow progressive longer waits between pokes by using exponential backoff algorithm. (Default: True)
-    pool : str
-        the slot pool this task should run in,
-        slot pools are a way to limit concurrency for certain tasks. (Default:None)
-    soft_fail : bool
-        Set to true to mark the task as SKIPPED on failure. (Default: False)
-    name : str
-        Name of the sensor on Airflow
-    description : str
-        Description of sensor in the Airflow UI
-    external_dag_id : str
-        The dag_id that contains the task you want to wait for.
-    external_task_ids : List[str]
-        The list of task_ids that you want to wait for.
-        If None (default value) the sensor waits for the DAG. (Default: None)
-    allowed_states : List[str]
-        Iterable of allowed states, (Default: ['success'])
-    failed_states : List[str]
-        Iterable of failed or dis-allowed states. (Default: None)
-    execution_delta : datetime.timedelta
-        time difference with the previous execution to look at,
-        the default is the same logical date as the current task or DAG. (Default: None)
-    check_existence: bool
-        Set to True to check if the external task exists or check if
-        the DAG to wait for exists. (Default: True)
-    """
-    ...
-
-def project(*, name: str, branch: typing.Union[str, None] = None, production: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies what flows belong to the same project.
-    
-    A project-specific namespace is created for all flows that
-    use the same `@project(name)`.
-    
-    
-    Parameters
-    ----------
-    name : str
-        Project name. Make sure that the name is unique amongst all
-        projects that use the same production scheduler. The name may
-        contain only lowercase alphanumeric characters and underscores.
-    
-    branch : Optional[str], default None
-        The branch to use. If not specified, the branch is set to
-        `user.<username>` unless `production` is set to `True`. This can
-        also be set on the command line using `--branch` as a top-level option.
-        It is an error to specify `branch` in the decorator and on the command line.
-    
-    production : bool, default False
-        Whether or not the branch is the production branch. This can also be set on the
-        command line using `--production` as a top-level option. It is an error to specify
-        `production` in the decorator and on the command line.
-        The project branch name will be:
-          - if `branch` is specified:
-            - if `production` is True: `prod.<branch>`
-            - if `production` is False: `test.<branch>`
-          - if `branch` is not specified:
-            - if `production` is True: `prod`
-            - if `production` is False: `user.<username>`
-    """
-    ...
-
-@typing.overload
-def conda_base(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies the Conda environment for all steps of the flow.
-    
-    Use `@conda_base` to set common libraries required by all
-    steps and use `@conda` to specify step-specific additions.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    libraries : Dict[str, str], default {}
-        Supported for backward compatibility. When used with packages, packages will take precedence.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables Conda.
-    """
-    ...
-
-@typing.overload
-def conda_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
-    ...
-
-def conda_base(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False):
-    """
-    Specifies the Conda environment for all steps of the flow.
-    
-    Use `@conda_base` to set common libraries required by all
-    steps and use `@conda` to specify step-specific additions.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    libraries : Dict[str, str], default {}
-        Supported for backward compatibility. When used with packages, packages will take precedence.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables Conda.
-    """
-    ...
-
-@typing.overload
-def anaconda_base(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['anaconda'], extra_configs: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
-    """
-    Specifies the Anaconda environment for all steps of the flow.
-    
-    Identical to ``@conda_base`` but defaults to the ``anaconda`` channel
-    instead of the globally configured channel (typically ``conda-forge``).
-    
-    Use ``@anaconda_base`` to set common libraries required by all
-    steps and use ``@anaconda`` to specify step-specific additions.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables Anaconda.
-    channels : List[str], default ["anaconda"]
-        Conda channels to use for package resolution.
-    extra_configs : Dict[str, str], default {}
-        Additional key-value configuration passed through to the environment
-        solver/builder for all steps. Step-level ``@anaconda(extra_configs=...)``
-        values take precedence on key conflicts.
-    """
-    ...
-
-@typing.overload
-def anaconda_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
-    ...
-
-def anaconda_base(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['anaconda'], extra_configs: typing.Dict[str, str] = {}):
-    """
-    Specifies the Anaconda environment for all steps of the flow.
-    
-    Identical to ``@conda_base`` but defaults to the ``anaconda`` channel
-    instead of the globally configured channel (typically ``conda-forge``).
-    
-    Use ``@anaconda_base`` to set common libraries required by all
-    steps and use ``@anaconda`` to specify step-specific additions.
-    
-    
-    Parameters
-    ----------
-    packages : Dict[str, str], default {}
-        Packages to use for this flow. The key is the name of the package
-        and the value is the version to use.
-    python : str, optional, default None
-        Version of Python to use, e.g. '3.7.4'. A default value of None implies
-        that the version used will correspond to the version of the Python interpreter used to start the run.
-    disabled : bool, default False
-        If set to True, disables Anaconda.
-    channels : List[str], default ["anaconda"]
-        Conda channels to use for package resolution.
-    extra_configs : Dict[str, str], default {}
-        Additional key-value configuration passed through to the environment
-        solver/builder for all steps. Step-level ``@anaconda(extra_configs=...)``
-        values take precedence on key conflicts.
     """
     ...
 
@@ -2168,6 +1791,150 @@ def with_artifact_store(f: typing.Union[typing.Type[FlowSpecDerived], None] = No
         - role_arn (optional): AWS IAM role to access s3 bucket (only when `type` is 's3')
         - session_vars (optional): AWS session variables to access s3 bucket (only when `type` is 's3')
         - client_params (optional): AWS client parameters to access s3 bucket (only when `type` is 's3')
+    """
+    ...
+
+@typing.overload
+def trigger_on_finish(*, flow: typing.Union[typing.Dict[str, str], str, None] = None, flows: typing.List[typing.Union[str, typing.Dict[str, str]]] = [], options: typing.Dict[str, typing.Any] = {}) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies the flow(s) that this flow depends on.
+    
+    ```
+    @trigger_on_finish(flow='FooFlow')
+    ```
+    or
+    ```
+    @trigger_on_finish(flows=['FooFlow', 'BarFlow'])
+    ```
+    This decorator respects the @project decorator and triggers the flow
+    when upstream runs within the same namespace complete successfully
+    
+    Additionally, you can specify project aware upstream flow dependencies
+    by specifying the fully qualified project_flow_name.
+    ```
+    @trigger_on_finish(flow='my_project.branch.my_branch.FooFlow')
+    ```
+    or
+    ```
+    @trigger_on_finish(flows=['my_project.branch.my_branch.FooFlow', 'BarFlow'])
+    ```
+    
+    You can also specify just the project or project branch (other values will be
+    inferred from the current project or project branch):
+    ```
+    @trigger_on_finish(flow={"name": "FooFlow", "project": "my_project", "project_branch": "branch"})
+    ```
+    
+    Note that `branch` is typically one of:
+      - `prod`
+      - `user.bob`
+      - `test.my_experiment`
+      - `prod.staging`
+    
+    
+    Parameters
+    ----------
+    flow : Union[str, Dict[str, str]], optional, default None
+        Upstream flow dependency for this flow.
+    flows : List[Union[str, Dict[str, str]]], default []
+        Upstream flow dependencies for this flow.
+    options : Dict[str, Any], default {}
+        Backend-specific configuration for tuning eventing behavior.
+    """
+    ...
+
+@typing.overload
+def trigger_on_finish(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
+    ...
+
+def trigger_on_finish(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, flow: typing.Union[typing.Dict[str, str], str, None] = None, flows: typing.List[typing.Union[str, typing.Dict[str, str]]] = [], options: typing.Dict[str, typing.Any] = {}):
+    """
+    Specifies the flow(s) that this flow depends on.
+    
+    ```
+    @trigger_on_finish(flow='FooFlow')
+    ```
+    or
+    ```
+    @trigger_on_finish(flows=['FooFlow', 'BarFlow'])
+    ```
+    This decorator respects the @project decorator and triggers the flow
+    when upstream runs within the same namespace complete successfully
+    
+    Additionally, you can specify project aware upstream flow dependencies
+    by specifying the fully qualified project_flow_name.
+    ```
+    @trigger_on_finish(flow='my_project.branch.my_branch.FooFlow')
+    ```
+    or
+    ```
+    @trigger_on_finish(flows=['my_project.branch.my_branch.FooFlow', 'BarFlow'])
+    ```
+    
+    You can also specify just the project or project branch (other values will be
+    inferred from the current project or project branch):
+    ```
+    @trigger_on_finish(flow={"name": "FooFlow", "project": "my_project", "project_branch": "branch"})
+    ```
+    
+    Note that `branch` is typically one of:
+      - `prod`
+      - `user.bob`
+      - `test.my_experiment`
+      - `prod.staging`
+    
+    
+    Parameters
+    ----------
+    flow : Union[str, Dict[str, str]], optional, default None
+        Upstream flow dependency for this flow.
+    flows : List[Union[str, Dict[str, str]]], default []
+        Upstream flow dependencies for this flow.
+    options : Dict[str, Any], default {}
+        Backend-specific configuration for tuning eventing behavior.
+    """
+    ...
+
+def airflow_external_task_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, external_dag_id: str, external_task_ids: typing.List[str], allowed_states: typing.List[str], failed_states: typing.List[str], execution_delta: "datetime.timedelta", check_existence: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    The `@airflow_external_task_sensor` decorator attaches a Airflow [ExternalTaskSensor](https://airflow.apache.org/docs/apache-airflow/stable/_api/airflow/sensors/external_task/index.html#airflow.sensors.external_task.ExternalTaskSensor) before the start step of the flow.
+    This decorator only works when a flow is scheduled on Airflow and is compiled using `airflow create`. More than one `@airflow_external_task_sensor` can be added as a flow decorators. Adding more than one decorator will ensure that `start` step starts only after all sensors finish.
+    
+    
+    Parameters
+    ----------
+    timeout : int
+        Time, in seconds before the task times out and fails. (Default: 3600)
+    poke_interval : int
+        Time in seconds that the job should wait in between each try. (Default: 60)
+    mode : str
+        How the sensor operates. Options are: { poke | reschedule }. (Default: "poke")
+    exponential_backoff : bool
+        allow progressive longer waits between pokes by using exponential backoff algorithm. (Default: True)
+    pool : str
+        the slot pool this task should run in,
+        slot pools are a way to limit concurrency for certain tasks. (Default:None)
+    soft_fail : bool
+        Set to true to mark the task as SKIPPED on failure. (Default: False)
+    name : str
+        Name of the sensor on Airflow
+    description : str
+        Description of sensor in the Airflow UI
+    external_dag_id : str
+        The dag_id that contains the task you want to wait for.
+    external_task_ids : List[str]
+        The list of task_ids that you want to wait for.
+        If None (default value) the sensor waits for the DAG. (Default: None)
+    allowed_states : List[str]
+        Iterable of allowed states, (Default: ['success'])
+    failed_states : List[str]
+        Iterable of failed or dis-allowed states. (Default: None)
+    execution_delta : datetime.timedelta
+        time difference with the previous execution to look at,
+        the default is the same logical date as the current task or DAG. (Default: None)
+    check_existence: bool
+        Set to True to check if the external task exists or check if
+        the DAG to wait for exists. (Default: True)
     """
     ...
 
@@ -2334,6 +2101,245 @@ def schedule(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, hour
     timezone : str, optional, default None
         Timezone on which the schedule runs (default: None). Currently supported only for Argo workflows,
         which accepts timezones in [IANA format](https://nodatime.org/TimeZones).
+    """
+    ...
+
+def airflow_s3_key_sensor(*, timeout: int, poke_interval: int, mode: str, exponential_backoff: bool, pool: str, soft_fail: bool, name: str, description: str, bucket_key: typing.Union[str, typing.List[str]], bucket_name: str, wildcard_match: bool, aws_conn_id: str, verify: bool) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    The `@airflow_s3_key_sensor` decorator attaches a Airflow [S3KeySensor](https://airflow.apache.org/docs/apache-airflow-providers-amazon/stable/_api/airflow/providers/amazon/aws/sensors/s3/index.html#airflow.providers.amazon.aws.sensors.s3.S3KeySensor)
+    before the start step of the flow. This decorator only works when a flow is scheduled on Airflow
+    and is compiled using `airflow create`. More than one `@airflow_s3_key_sensor` can be
+    added as a flow decorators. Adding more than one decorator will ensure that `start` step
+    starts only after all sensors finish.
+    
+    
+    Parameters
+    ----------
+    timeout : int
+        Time, in seconds before the task times out and fails. (Default: 3600)
+    poke_interval : int
+        Time in seconds that the job should wait in between each try. (Default: 60)
+    mode : str
+        How the sensor operates. Options are: { poke | reschedule }. (Default: "poke")
+    exponential_backoff : bool
+        allow progressive longer waits between pokes by using exponential backoff algorithm. (Default: True)
+    pool : str
+        the slot pool this task should run in,
+        slot pools are a way to limit concurrency for certain tasks. (Default:None)
+    soft_fail : bool
+        Set to true to mark the task as SKIPPED on failure. (Default: False)
+    name : str
+        Name of the sensor on Airflow
+    description : str
+        Description of sensor in the Airflow UI
+    bucket_key : Union[str, List[str]]
+        The key(s) being waited on. Supports full s3:// style url or relative path from root level.
+        When it's specified as a full s3:// url, please leave `bucket_name` as None
+    bucket_name : str
+        Name of the S3 bucket. Only needed when bucket_key is not provided as a full s3:// url.
+        When specified, all the keys passed to bucket_key refers to this bucket. (Default:None)
+    wildcard_match : bool
+        whether the bucket_key should be interpreted as a Unix wildcard pattern. (Default: False)
+    aws_conn_id : str
+        a reference to the s3 connection on Airflow. (Default: None)
+    verify : bool
+        Whether or not to verify SSL certificates for S3 connection. (Default: None)
+    """
+    ...
+
+@typing.overload
+def pypi_base(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, index_strategy: typing.Union[str, None] = None) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies the PyPI packages for all steps of the flow.
+    
+    Use `@pypi_base` to set common packages required by all
+    steps and use `@pypi` to specify step-specific overrides.
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default: {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default: None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    index_strategy : str, optional, default: None
+        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
+    """
+    ...
+
+@typing.overload
+def pypi_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
+    ...
+
+def pypi_base(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, index_strategy: typing.Union[str, None] = None):
+    """
+    Specifies the PyPI packages for all steps of the flow.
+    
+    Use `@pypi_base` to set common packages required by all
+    steps and use `@pypi` to specify step-specific overrides.
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default: {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default: None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    index_strategy : str, optional, default: None
+        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
+    """
+    ...
+
+@typing.overload
+def anaconda_base(*, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['anaconda'], extra_configs: typing.Dict[str, str] = {}) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies the Anaconda environment for all steps of the flow.
+    
+    Identical to ``@conda_base`` but defaults to the ``anaconda`` channel
+    instead of the globally configured channel (typically ``conda-forge``).
+    
+    Use ``@anaconda_base`` to set common libraries required by all
+    steps and use ``@anaconda`` to specify step-specific additions.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables Anaconda.
+    channels : List[str], default ["anaconda"]
+        Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder for all steps. Step-level ``@anaconda(extra_configs=...)``
+        values take precedence on key conflicts.
+    """
+    ...
+
+@typing.overload
+def anaconda_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
+    ...
+
+def anaconda_base(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, packages: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False, channels: typing.List[str] = ['anaconda'], extra_configs: typing.Dict[str, str] = {}):
+    """
+    Specifies the Anaconda environment for all steps of the flow.
+    
+    Identical to ``@conda_base`` but defaults to the ``anaconda`` channel
+    instead of the globally configured channel (typically ``conda-forge``).
+    
+    Use ``@anaconda_base`` to set common libraries required by all
+    steps and use ``@anaconda`` to specify step-specific additions.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables Anaconda.
+    channels : List[str], default ["anaconda"]
+        Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder for all steps. Step-level ``@anaconda(extra_configs=...)``
+        values take precedence on key conflicts.
+    """
+    ...
+
+@typing.overload
+def conda_base(*, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies the Conda environment for all steps of the flow.
+    
+    Use `@conda_base` to set common libraries required by all
+    steps and use `@conda` to specify step-specific additions.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    libraries : Dict[str, str], default {}
+        Supported for backward compatibility. When used with packages, packages will take precedence.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables Conda.
+    """
+    ...
+
+@typing.overload
+def conda_base(f: typing.Type[FlowSpecDerived]) -> typing.Type[FlowSpecDerived]:
+    ...
+
+def conda_base(f: typing.Union[typing.Type[FlowSpecDerived], None] = None, *, packages: typing.Dict[str, str] = {}, libraries: typing.Dict[str, str] = {}, python: typing.Union[str, None] = None, disabled: bool = False):
+    """
+    Specifies the Conda environment for all steps of the flow.
+    
+    Use `@conda_base` to set common libraries required by all
+    steps and use `@conda` to specify step-specific additions.
+    
+    
+    Parameters
+    ----------
+    packages : Dict[str, str], default {}
+        Packages to use for this flow. The key is the name of the package
+        and the value is the version to use.
+    libraries : Dict[str, str], default {}
+        Supported for backward compatibility. When used with packages, packages will take precedence.
+    python : str, optional, default None
+        Version of Python to use, e.g. '3.7.4'. A default value of None implies
+        that the version used will correspond to the version of the Python interpreter used to start the run.
+    disabled : bool, default False
+        If set to True, disables Conda.
+    """
+    ...
+
+def project(*, name: str, branch: typing.Union[str, None] = None, production: bool = False) -> typing.Callable[[typing.Type[FlowSpecDerived]], typing.Type[FlowSpecDerived]]:
+    """
+    Specifies what flows belong to the same project.
+    
+    A project-specific namespace is created for all flows that
+    use the same `@project(name)`.
+    
+    
+    Parameters
+    ----------
+    name : str
+        Project name. Make sure that the name is unique amongst all
+        projects that use the same production scheduler. The name may
+        contain only lowercase alphanumeric characters and underscores.
+    
+    branch : Optional[str], default None
+        The branch to use. If not specified, the branch is set to
+        `user.<username>` unless `production` is set to `True`. This can
+        also be set on the command line using `--branch` as a top-level option.
+        It is an error to specify `branch` in the decorator and on the command line.
+    
+    production : bool, default False
+        Whether or not the branch is the production branch. This can also be set on the
+        command line using `--production` as a top-level option. It is an error to specify
+        `production` in the decorator and on the command line.
+        The project branch name will be:
+          - if `branch` is specified:
+            - if `production` is True: `prod.<branch>`
+            - if `production` is False: `test.<branch>`
+          - if `branch` is not specified:
+            - if `production` is True: `prod`
+            - if `production` is False: `user.<username>`
     """
     ...
 

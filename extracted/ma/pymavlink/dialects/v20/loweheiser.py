@@ -162,7 +162,7 @@ class MAVLink_message(object):
 
     def __init__(self, msgId: int, name: str) -> None:
         self._header = MAVLink_header(msgId)
-        self._payload: Optional[bytes] = None
+        self._payload: Optional[Union[bytes, bytearray]] = None
         self._msgbuf = bytearray(b"")
         self._crc: Optional[int] = None
         self._fieldnames: List[str] = []
@@ -185,7 +185,7 @@ class MAVLink_message(object):
     def get_header(self) -> MAVLink_header:
         return self._header
 
-    def get_payload(self) -> Optional[bytes]:
+    def get_payload(self) -> Optional[Union[bytes, bytearray]]:
         return self._payload
 
     def get_crc(self) -> Optional[int]:
@@ -299,9 +299,8 @@ class MAVLink_message(object):
         self._msgbuf = bytearray(self._header.pack(force_mavlink1=force_mavlink1))
         self._msgbuf += self._payload
         crc = x25crc(self._msgbuf[1:])
-        if True:
-            # we are using CRC extra
-            crc.accumulate(struct.pack("B", crc_extra))
+        # we are using CRC extra
+        crc.accumulate(struct.pack("B", crc_extra))
         self._crc = crc.crc
         self._msgbuf += struct.pack("<H", self._crc)
         if mav.signing.sign_outgoing and not force_mavlink1:
@@ -350,6 +349,7 @@ class EnumEntry(object):
         self.name = name
         self.description = description
         self.param: Dict[int, str] = {}
+        self.label: Dict[int, str] = {}
         self.has_location = False
 
 class Enum(Dict[int, EnumEntry]):
@@ -510,8 +510,20 @@ MAV_TYPE_GPS = 41
 enums["MAV_TYPE"][41] = EnumEntry("MAV_TYPE_GPS", """GPS""")
 MAV_TYPE_WINCH = 42
 enums["MAV_TYPE"][42] = EnumEntry("MAV_TYPE_WINCH", """Winch""")
-MAV_TYPE_ENUM_END = 43
-enums["MAV_TYPE"][43] = EnumEntry("MAV_TYPE_ENUM_END", """""")
+MAV_TYPE_GENERIC_MULTIROTOR = 43
+enums["MAV_TYPE"][43] = EnumEntry("MAV_TYPE_GENERIC_MULTIROTOR", """Generic multirotor that does not fit into a specific type or whose type is unknown""")
+MAV_TYPE_ILLUMINATOR = 44
+enums["MAV_TYPE"][44] = EnumEntry("MAV_TYPE_ILLUMINATOR", """Illuminator. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).""")
+MAV_TYPE_SPACECRAFT_ORBITER = 45
+enums["MAV_TYPE"][45] = EnumEntry("MAV_TYPE_SPACECRAFT_ORBITER", """Orbiter spacecraft. Includes satellites orbiting terrestrial and extra-terrestrial bodies. Follows NASA Spacecraft Classification.""")
+MAV_TYPE_GROUND_QUADRUPED = 46
+enums["MAV_TYPE"][46] = EnumEntry("MAV_TYPE_GROUND_QUADRUPED", """A generic four-legged ground vehicle (e.g., a robot dog).""")
+MAV_TYPE_VTOL_GYRODYNE = 47
+enums["MAV_TYPE"][47] = EnumEntry("MAV_TYPE_VTOL_GYRODYNE", """VTOL hybrid of helicopter and autogyro. It has a main rotor for lift and separate propellers for forward flight. The rotor must be powered for hover but can autorotate in cruise flight. See: https://en.wikipedia.org/wiki/Gyrodyne""")
+MAV_TYPE_GRIPPER = 48
+enums["MAV_TYPE"][48] = EnumEntry("MAV_TYPE_GRIPPER", """Gripper""")
+MAV_TYPE_ENUM_END = 49
+enums["MAV_TYPE"][49] = EnumEntry("MAV_TYPE_ENUM_END", """""")
 
 # MAV_MODE_FLAG
 enums["MAV_MODE_FLAG"] = Enum()
@@ -571,13 +583,13 @@ enums["MAV_STATE"][3] = EnumEntry("MAV_STATE_STANDBY", """System is grounded and
 MAV_STATE_ACTIVE = 4
 enums["MAV_STATE"][4] = EnumEntry("MAV_STATE_ACTIVE", """System is active and might be already airborne. Motors are engaged.""")
 MAV_STATE_CRITICAL = 5
-enums["MAV_STATE"][5] = EnumEntry("MAV_STATE_CRITICAL", """System is in a non-normal flight mode. It can however still navigate.""")
+enums["MAV_STATE"][5] = EnumEntry("MAV_STATE_CRITICAL", """System is in a non-normal flight mode (failsafe). It can however still navigate.""")
 MAV_STATE_EMERGENCY = 6
-enums["MAV_STATE"][6] = EnumEntry("MAV_STATE_EMERGENCY", """System is in a non-normal flight mode. It lost control over parts or over the whole airframe. It is in mayday and going down.""")
+enums["MAV_STATE"][6] = EnumEntry("MAV_STATE_EMERGENCY", """System is in a non-normal flight mode (failsafe). It lost control over parts or over the whole airframe. It is in mayday and going down.""")
 MAV_STATE_POWEROFF = 7
 enums["MAV_STATE"][7] = EnumEntry("MAV_STATE_POWEROFF", """System just initialized its power-down sequence, will shut down now.""")
 MAV_STATE_FLIGHT_TERMINATION = 8
-enums["MAV_STATE"][8] = EnumEntry("MAV_STATE_FLIGHT_TERMINATION", """System is terminating itself.""")
+enums["MAV_STATE"][8] = EnumEntry("MAV_STATE_FLIGHT_TERMINATION", """System is terminating itself (failsafe or commanded).""")
 MAV_STATE_ENUM_END = 9
 enums["MAV_STATE"][9] = EnumEntry("MAV_STATE_ENUM_END", """""")
 
@@ -794,6 +806,8 @@ MAV_COMP_ID_FLARM = 160
 enums["MAV_COMPONENT"][160] = EnumEntry("MAV_COMP_ID_FLARM", """FLARM collision alert component.""")
 MAV_COMP_ID_PARACHUTE = 161
 enums["MAV_COMPONENT"][161] = EnumEntry("MAV_COMP_ID_PARACHUTE", """Parachute component.""")
+MAV_COMP_ID_WINCH = 169
+enums["MAV_COMPONENT"][169] = EnumEntry("MAV_COMP_ID_WINCH", """Winch component.""")
 MAV_COMP_ID_GIMBAL2 = 171
 enums["MAV_COMPONENT"][171] = EnumEntry("MAV_COMP_ID_GIMBAL2", """Gimbal #2.""")
 MAV_COMP_ID_GIMBAL3 = 172
@@ -850,8 +864,10 @@ MAV_COMP_ID_UART_BRIDGE = 241
 enums["MAV_COMPONENT"][241] = EnumEntry("MAV_COMP_ID_UART_BRIDGE", """Component to bridge to UART (i.e. from UDP).""")
 MAV_COMP_ID_TUNNEL_NODE = 242
 enums["MAV_COMPONENT"][242] = EnumEntry("MAV_COMP_ID_TUNNEL_NODE", """Component handling TUNNEL messages (e.g. vendor specific GUI of a component).""")
+MAV_COMP_ID_ILLUMINATOR = 243
+enums["MAV_COMPONENT"][243] = EnumEntry("MAV_COMP_ID_ILLUMINATOR", """Illuminator""")
 MAV_COMP_ID_SYSTEM_CONTROL = 250
-enums["MAV_COMPONENT"][250] = EnumEntry("MAV_COMP_ID_SYSTEM_CONTROL", """Component for handling system messages (e.g. to ARM, takeoff, etc.).""")
+enums["MAV_COMPONENT"][250] = EnumEntry("MAV_COMP_ID_SYSTEM_CONTROL", """Deprecated, don't use. Component for handling system messages (e.g. to ARM, takeoff, etc.).""")
 MAV_COMPONENT_ENUM_END = 251
 enums["MAV_COMPONENT"][251] = EnumEntry("MAV_COMPONENT_ENUM_END", """""")
 
@@ -991,7 +1007,7 @@ class MAVLink_bad_data(MAVLink_message):
     a piece of bad data in a mavlink stream
     """
 
-    def __init__(self, data: bytes, reason: str) -> None:
+    def __init__(self, data: Union[bytes, bytearray], reason: str) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_BAD_DATA, "BAD_DATA")
         self._fieldnames = ["data", "reason"]
         self.data = data
@@ -1010,7 +1026,7 @@ class MAVLink_unknown(MAVLink_message):
     a message that we don't have in the XML used when built
     """
 
-    def __init__(self, msgid: int, data: bytes) -> None:
+    def __init__(self, msgid: int, data: Union[bytes, bytearray]) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_UNKNOWN, "UNKNOWN_%u" % msgid)
         self._fieldnames = ["data"]
         self.data = data
@@ -1126,12 +1142,12 @@ class MAVLink(object):
         if m is not None:
             self.total_packets_received += 1
             self.__callbacks(m)
-        else:
-            # XXX The idea here is if we've read something and there's nothing left in
-            # the buffer, reset it to 0 which frees the memory
-            if self.buf_len() == 0 and self.buf_index != 0:
-                self.buf = bytearray()
-                self.buf_index = 0
+
+        # See if there's nothing left in the buffer, reset it to 0
+        # which frees the memory
+        if self.buf_index != 0 and self.buf_len() == 0:
+            self.buf = bytearray()
+            self.buf_index = 0
 
         return m
 
@@ -1285,9 +1301,8 @@ class MAVLink(object):
         except struct.error as emsg:
             raise MAVError("Unable to unpack MAVLink CRC: %s" % emsg)
         crcbuf = msgbuf[1 : -(2 + signature_len)]
-        if True:
-            # using CRC extra
-            crcbuf.append(crc_extra)
+        # using CRC extra
+        crcbuf.append(crc_extra)
         crc2 = x25crc(crcbuf)
         if crc != crc2.crc and not MAVLINK_IGNORE_CRC:
             raise MAVError("invalid MAVLink CRC in msgID %u 0x%04x should be 0x%04x" % (msgId, crc, crc2.crc))
@@ -1334,23 +1349,22 @@ class MAVLink(object):
 
         tlist: List[Union[bytes, float, int, Sequence[Union[bytes, float, int]]]] = list(t)
         # handle sorted fields
-        if True:
-            if sum(len_map) == len(len_map):
-                # message has no arrays in it
-                for i in range(0, len(tlist)):
-                    tlist[i] = t[order_map[i]]
-            else:
-                # message has some arrays
-                tlist = []
-                for i in range(0, len(order_map)):
-                    order = order_map[i]
-                    L = len_map[order]
-                    tip = sum(len_map[:order])
-                    field = t[tip]
-                    if L == 1 or isinstance(field, bytes):
-                        tlist.append(field)
-                    else:
-                        tlist.append(list(t[tip : (tip + L)]))
+        if sum(len_map) == len(len_map):
+            # message has no arrays in it
+            for i in range(0, len(tlist)):
+                tlist[i] = t[order_map[i]]
+        else:
+            # message has some arrays
+            tlist = []
+            for i in range(0, len(order_map)):
+                order = order_map[i]
+                L = len_map[order]
+                tip = sum(len_map[:order])
+                field = t[tip]
+                if L == 1 or isinstance(field, bytes):
+                    tlist.append(field)
+                else:
+                    tlist.append(list(t[tip : (tip + L)]))
 
         # terminate any strings
         for i, elem in enumerate(tlist):

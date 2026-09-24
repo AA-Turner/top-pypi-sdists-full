@@ -2,7 +2,6 @@
 
 # std imports
 import os
-import sys
 import unicodedata
 
 # 3rd party
@@ -118,6 +117,11 @@ def test_width_ascii(benchmark):
     benchmark(wcwidth.width, 'hello world')
 
 
+def test_width_ascii_default_corrections(benchmark):
+    """Benchmark width() with the default corrections passed explicitly."""
+    benchmark(wcwidth.width, 'hello world', ambiguous_width=1, term_program=False)
+
+
 def test_width_with_ansi_codes(benchmark):
     """Benchmark width() with ANSI escape sequences."""
     text = '\x1b[31mred text\x1b[0m'
@@ -180,6 +184,11 @@ def test_iter_graphemes_reverse_long(benchmark):
 def test_ljust_ascii(benchmark):
     """Benchmark ljust() with ASCII string."""
     benchmark(wcwidth.ljust, 'hello', 20)
+
+
+def test_ljust_ascii_default_corrections(benchmark):
+    """Benchmark ljust() with the default corrections passed explicitly."""
+    benchmark(wcwidth.ljust, 'hello', 20, ambiguous_width=1, term_program=False)
 
 
 def test_ljust_japanese(benchmark):
@@ -536,13 +545,8 @@ _udhr_skip = pytest.mark.skipif(
     reason=f"{os.path.basename(UDHR_FILE)} is missing; run bin/update-tables.py",
 )
 
-_py38_skip_pedantic = pytest.mark.skipif(
-    sys.version_info[:2] < (3, 9),
-    reason='benchmark.pedantic() not supported in python 3.8 or earlier')
-
 
 @_udhr_skip
-@_py38_skip_pedantic
 def test_wrap_udhr(benchmark):
     """Benchmark wrap() with multilingual UDHR text."""
     if not hasattr(benchmark, 'pedantic'):
@@ -553,7 +557,6 @@ def test_wrap_udhr(benchmark):
 
 
 @_udhr_skip
-@_py38_skip_pedantic
 def test_width_udhr(benchmark):
     """Benchmark width() with multilingual UDHR text."""
     if not hasattr(benchmark, 'pedantic'):
@@ -563,7 +566,6 @@ def test_width_udhr(benchmark):
 
 
 @_udhr_skip
-@_py38_skip_pedantic
 def test_width_udhr_lines(benchmark):
     """Benchmark width() on individual UDHR lines."""
     if not hasattr(benchmark, 'pedantic'):
@@ -574,7 +576,6 @@ def test_width_udhr_lines(benchmark):
 
 
 @_udhr_skip
-@_py38_skip_pedantic
 def test_width_wcswidth_consistency_udhr(benchmark):
     """Verify width() and wcswidth() agree for printable multilingual text."""
 
@@ -595,7 +596,6 @@ def test_width_wcswidth_consistency_udhr(benchmark):
 
 
 @_udhr_skip
-@_py38_skip_pedantic
 def test_width_fastpath_integrity_udhr(benchmark):
     """Verify width() produces identical results with and without the fast path."""
     saved = _width_module._WIDTH_FAST_PATH_MIN_LEN
@@ -615,7 +615,6 @@ def test_width_fastpath_integrity_udhr(benchmark):
 
 
 @_udhr_skip
-@_py38_skip_pedantic
 def test_ljust_udhr_lines(benchmark):
     """Benchmark ljust() on UDHR lines."""
     if not hasattr(benchmark, 'pedantic'):

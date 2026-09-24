@@ -22646,6 +22646,9 @@ class CollectionChild(bpy_struct):
     def light_linking(self) -> CollectionLightLinking:
         """Light linking settings of the collection object (readonly, never None)"""
 
+    sort_index: int
+    """ Custom sort index of the collection in the parent collection (in [-inf, inf], default -1)"""
+
     @classmethod
     def bl_rna_get_subclass(
         cls,
@@ -22797,6 +22800,12 @@ class CollectionObject(bpy_struct):
     @property
     def light_linking(self) -> CollectionLightLinking:
         """Light linking settings of the collection (readonly, never None)"""
+
+    parented_sort_index: int
+    """ Custom sort index when the object is shown under a parent of another object (in [-inf, inf], default -1)"""
+
+    sort_index: int
+    """ Custom sort index of the object in the collection (in [-inf, inf], default -1)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -23053,6 +23062,11 @@ class ColorManagedDisplaySettings(bpy_struct):
 class ColorManagedInputColorspaceSettings(bpy_struct):
     """Input color space settings"""
 
+    interop_id: typing.Literal[
+        bpy.stub_internal.rna_enums.ColorSpaceInteropIdDefaultItems
+    ]
+    """ Identifier of the color space that works across OpenColorIO configurations, as defined by the ASWF Color Interop Forum (default 'NONE')"""
+
     is_data: bool
     """ Treat image as non-color data without color management, like normal or displacement maps (default False)"""
 
@@ -23089,6 +23103,11 @@ class ColorManagedInputColorspaceSettings(bpy_struct):
 
 class ColorManagedSequencerColorspaceSettings(bpy_struct):
     """Input color space settings"""
+
+    interop_id: typing.Literal[
+        bpy.stub_internal.rna_enums.ColorSpaceInteropIdDefaultItems
+    ]
+    """ Identifier of the color space that works across OpenColorIO configurations, as defined by the ASWF Color Interop Forum (default 'NONE')"""
 
     name: typing.Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
     """ Color space that the sequencer operates in (default 'NONE')"""
@@ -24456,10 +24475,20 @@ class CompositorNodeConvertColorSpace(CompositorNode, NodeInternal, Node, bpy_st
     ]
     """ Color space of the input image (default 'NONE')"""
 
+    from_interop_id: typing.Literal[
+        bpy.stub_internal.rna_enums.ColorSpaceInteropIdDefaultItems
+    ]
+    """ Interop ID of the input color space (default 'NONE')"""
+
     to_color_space: typing.Literal[
         bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems
     ]
     """ Color space of the output image (default 'NONE')"""
+
+    to_interop_id: typing.Literal[
+        bpy.stub_internal.rna_enums.ColorSpaceInteropIdDefaultItems
+    ]
+    """ Interop ID of the output color space (default 'NONE')"""
 
     inputs: _CompositorNodeConvertColorSpace_NodeInputs | None
     outputs: _CompositorNodeConvertColorSpace_NodeOutputs | None
@@ -104913,7 +104942,7 @@ class SpaceOutliner(Space, bpy_struct):
     """ Type of information to display (default 'SCENES')"""
 
     expand_on_focus: bool
-    """ Uncollapse the active item and scroll it into view when it changes outside the Outliner (default False)"""
+    """ Uncollapse the active item when scrolling it into view (default False)"""
 
     filter_id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ Data-block type to show (default 'ACTION')"""
@@ -104931,7 +104960,7 @@ class SpaceOutliner(Space, bpy_struct):
     """ Choose different visualizations of library override data (default 'PROPERTIES')"""
 
     scroll_to_active: bool
-    """ Scroll the active item into view when it changes outside of the Outliner (default False)"""
+    """ Scroll the active item into view when it changes outside of the outliner (default False)"""
 
     show_mode_column: bool
     """ Show the mode column for mode toggle and activation (default False)"""
@@ -104956,6 +104985,9 @@ class SpaceOutliner(Space, bpy_struct):
 
     show_restrict_column_viewport: bool
     """ Globally disable in viewports (default False)"""
+
+    sort_method: typing.Literal["ALPHA", "CUSTOM", "NONE"]
+    """ Sorting method for Outliner elements (default 'CUSTOM')"""
 
     use_filter_bone_collections: bool
     """ Show armature bone collections (default True)"""
@@ -105034,9 +105066,6 @@ class SpaceOutliner(Space, bpy_struct):
 
     use_filter_view_layers: bool
     """ Show all the view layers (default True)"""
-
-    use_sort_alpha: bool
-    """ (default True)"""
 
     use_sync_select: bool
     """ Sync outliner selection with other editors (default False)"""

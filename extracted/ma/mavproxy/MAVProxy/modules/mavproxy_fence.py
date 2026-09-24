@@ -17,6 +17,14 @@ if mp_util.has_wxpython:
     from MAVProxy.modules.lib.mp_menu import MPMenuCallTextDialog
     from MAVProxy.modules.lib.mp_menu import MPMenuItem
 
+DEFAULT_CIRCLE_SIZE = 500
+
+# pymavlink may not yet carry the enumeration entry for the
+# home-centred inclusion circle.  Fall back to its known value (from
+# development.xml) so we don't raise AttributeError on older pymavlink:
+MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION = getattr(
+    mavutil.mavlink, "MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION", 5005)
+
 
 class FenceModule(mission_item_protocol.MissionItemProtocolModule):
     '''uses common MISSION_ITEM protocol base class to provide fence
@@ -36,14 +44,14 @@ class FenceModule(mission_item_protocol.MissionItemProtocolModule):
                 'Add Inclusion Circle', 'Add Inclusion Circle', '# fence addcircle inc ',
                 handler=MPMenuCallTextDialog(
                     title='Radius (m)',
-                    default=500
+                    default=DEFAULT_CIRCLE_SIZE
                 )
             ),
             MPMenuItem(
                 'Add Exclusion Circle', 'Add Exclusion Circle', '# fence addcircle exc ',
                 handler=MPMenuCallTextDialog(
                     title='Radius (m)',
-                    default=500
+                    default=DEFAULT_CIRCLE_SIZE
                 )
             ),
             MPMenuItem(
@@ -54,6 +62,13 @@ class FenceModule(mission_item_protocol.MissionItemProtocolModule):
             ),
             MPMenuItem(
                 'Add Return Point', 'Add Return Point', '# fence addreturnpoint',
+            ),
+            MPMenuItem(
+                'Add Home Centered Inclusion Circle', 'Add Home Inclusion Circle', '# fence addhomecircle ',
+                handler=MPMenuCallTextDialog(
+                    title='Radius (m)',
+                    default=DEFAULT_CIRCLE_SIZE
+                )
             ),
         ])
         return ret
@@ -82,11 +97,16 @@ class FenceModule(mission_item_protocol.MissionItemProtocolModule):
             if p.command != t:
                 continue
             ret.append(p)
+
         return ret
 
     def inclusion_circles(self):
         '''return a list of Circle inclusion fences - a single MISSION_ITEM each'''
         return self.circles_of_type(mavutil.mavlink.MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION)
+
+    def home_inclusion_circles(self):
+        '''return a list of around-home Circle inclusion fences - a single MISSION_ITEM each'''
+        return self.circles_of_type(MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION)
 
     def exclusion_circles(self):
         '''return a list of Circle exclusion fences - a single MISSION_ITEM each'''
@@ -341,6 +361,35 @@ class FenceModule(mission_item_protocol.MissionItemProtocolModule):
         self.append(m)
         self.send_all_items()
 
+    def cmd_addhomecircle(self, args):
+        '''adds a home-centered circle to the map with given radius'''
+        if not self.check_have_list():
+            return
+        if len(args) < 1:
+            print("Usage: fence addhomecircle RADIUS")
+            return
+        radius = float(args[0])
+
+        m = mavutil.mavlink.MAVLink_mission_item_int_message(
+            self.target_system,
+            self.target_component,
+            0,  # seq
+            mavutil.mavlink.MAV_FRAME_GLOBAL,  # frame
+            MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION,  # command
+            0,    # current
+            0,    # autocontinue
+            radius, # param1,
+            0.0,  # param2,
+            0.0,  # param3
+            0.0,  # param4
+            0,  # x (latitude), ignored
+            0,  # y (longitude), ignored
+            0,  # z (altitude)
+            self.mav_mission_type(),
+        )
+        self.append(m)
+        self.send_all_items()
+
     def cmd_addreturnpoint(self, args):
         '''adds a returnpoint at the map click location'''
         if not self.check_have_list():
@@ -569,6 +618,7 @@ class FenceModule(mission_item_protocol.MissionItemProtocolModule):
         return item.command in [
             mavutil.mavlink.MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION,
             mavutil.mavlink.MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION,
+            MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION,
         ]
 
     def find_polygon_point(self, polygon_start_seq, item_offset):
@@ -784,6 +834,7 @@ class FenceModule(mission_item_protocol.MissionItemProtocolModule):
         ret = super(FenceModule, self).commands()
         ret.update({
             'addcircle': (self.cmd_addcircle, ["<inclusion|inc|exclusion|exc>", "RADIUS"]),
+            'addhomecircle': (self.cmd_addhomecircle, ["RADIUS"]),
             'movecircle': (self.cmd_movecircle, []),
             'setcircleradius': (self.cmd_setcircleradius, ["seq radius"]),
             'addpoly': (self.cmd_addpoly, ["<inclusion|inc|exclusion|exc>", "<radius>" "<pointcount>", "<rotation>"]),

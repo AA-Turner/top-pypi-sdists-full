@@ -69,8 +69,11 @@ class OpenAIVideoGeneration(BaseMediaGeneration):
             "prompt": prompt,
             **params,
         }
+        from matrx_ai.media.video_reference_roles import collect_video_references, first_of
+
+        typed_start = first_of(collect_video_references(unified_config.messages), "first_frame")
         start = (
-            pick_image_by_role(unified_config.messages, "start_image")
+            typed_start
             or pick_image_by_role(unified_config.messages, None)
             or unified_config.image_input
         )
@@ -78,7 +81,15 @@ class OpenAIVideoGeneration(BaseMediaGeneration):
             ref = self.translator._mediaref_to_file_tuple(start)
             if ref is not None:
                 kwargs["input_reference"] = ref
+            elif typed_start is not None:
+                raise ValueError(
+                    "The First frame image could not be read. Re-upload it and run again."
+                )
         return kwargs
+
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """Sora generate takes one first frame (``input_reference``)."""
+        return frozenset({"first_frame"})
 
     def _telemetry_url(self, unified_config: UnifiedConfig, kwargs: dict[str, Any]) -> str:
         if self._video_action == "extend":

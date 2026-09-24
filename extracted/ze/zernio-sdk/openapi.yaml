@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.53.0"
+  version: "1.63.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -813,13 +813,22 @@ components:
             card on file; this gate is about contract terms, not card
             collection.
 
+          - `card_verification_required`: the card on file was flagged
+            at add time (prepaid, or issued in a different country than
+            the billing address) and a one-time verification charge of
+            `details.verification_amount_cents` (USD) is pending. The
+            charge is credited to the team's usage balance, not a fee.
+            `dashboard_url` opens the billing page on the verification
+            step; the request succeeds once it is paid.
+
         SDK consumers should switch on `reason` to render the right
-        prompt. For `free_tier_exceeded` and `twitter_passthrough`,
-        redirect the end-user to `dashboard_url`: it opens the
-        add-payment-method drawer on the Zernio billing page, and the
-        request succeeds once the card is on file. For
-        `enterprise_required`, redirect to `dashboard_url` (the
-        enterprise contact form) to adjust the contract's limit.
+        prompt. For `free_tier_exceeded`, `twitter_passthrough` and
+        `card_verification_required`, redirect the end-user to
+        `dashboard_url`: it opens the add-payment-method drawer on the
+        Zernio billing page, and the request succeeds once the card is
+        on file (or verified). For `enterprise_required`, redirect to
+        `dashboard_url` (the enterprise contact form) to adjust the
+        contract's limit.
       content:
         application/json:
           schema:
@@ -836,7 +845,7 @@ components:
                 description: Machine-readable error code. Stable across versions.
               reason:
                 type: string
-                enum: [free_tier_exceeded, twitter_passthrough, enterprise_required]
+                enum: [free_tier_exceeded, twitter_passthrough, enterprise_required, card_verification_required]
                 description: Discriminator for which gate fired.
               documentation_url:
                 type: string
@@ -868,6 +877,10 @@ components:
                   has_payment_method:
                     type: boolean
                     description: Whether the team currently has a card on file in Stripe. Set when reason=free_tier_exceeded or reason=twitter_passthrough.
+                  verification_amount_cents:
+                    type: integer
+                    description: 'One-time card verification charge in USD cents, credited to usage. Only set when reason=card_verification_required.'
+                    example: 1000
                   effective_account_limit:
                     type: integer
                     description: |
@@ -4892,8 +4905,12 @@ components:
           $ref: '#/components/schemas/InboxWebhookAccount'
         metadata:
           type: object
-          description: 'Platform-specific context for the sent message: a quote-reply reference, a WhatsApp location pin, WhatsApp contact cards or the TikTok message type. The key is present only when the send carried some context, and absent otherwise: it is never null and never an empty object. Read it to tell a location or contact-card message from a text one without a GET on the message.'
+          description: 'Platform-specific context for the sent message: a quote-reply reference, a WhatsApp location pin, WhatsApp contact cards, the TikTok message type, or outgoing Instagram/Facebook buttons, quick replies and template. The key is present only when the send carried some context, and absent otherwise: it is never null and never an empty object. Read it to tell a location or contact-card message from a text one without a GET on the message.'
           properties:
+            metaInteractive:
+              type: object
+              description: 'Instagram/Facebook only. The buttons, quickReplies and/or template this outgoing message carried, as sent (tracked urls included when link tracking wrapped a button). Absent when the send carried none.'
+              additionalProperties: true
             location:
               type: object
               description: |
@@ -7757,6 +7774,9 @@ components:
             - profileData.bio: The member's headline for personal accounts, or the organization description for organization accounts. null when the member has not set one.
             - profileData.extraData.vanityName: The member's profile slug, i.e. the /in/{vanityName} segment of profileUrl. Personal accounts only; an organization's own slug is in metadata.organizationInfo.vanityName.
 
+            For Instagram accounts:
+            - loginMethod: "facebook_login" when the account was connected through Facebook Login. Absent on accounts connected with Instagram Login. On facebook_login accounts, comment reads leave hidden comments out entirely instead of returning them with isHidden true.
+
             For X (Twitter) accounts:
             - profileData.extraData.isPremium: Whether X reports a paid subscription (Basic, Premium, Premium+, or a blue verified badge), which raises the post length limit from 280 to 25,000 characters. Read live at connect and reconnect and refreshed by the daily follower snapshot; because X intermittently reports no subscription for subscribed accounts, a cancellation is stored on the fourth consecutive daily snapshot that reports it (about four days). Accounts connected before the extraData layout carry the same flag at profileData.isPremium.
     AccountWithFollowerStats:
@@ -8303,7 +8323,7 @@ components:
           description: 'TikTok accounts connected through the TikTok for Business app only: share of views by viewer country as fractions 0 to 1, keyed by upper-case ISO-3166 alpha-2 code (T+24-48h, only for posts active in the last 7 days). At most 20 country keys plus `other`: the catch-all bucket TikTok sends, any country below 0.001 and anything past the twentieth all sum into `other`, so the values still add up to 1. Empty object when TikTok reports nothing, and for other platforms. Views-weighted across accounts like impressionSources.'
         reposts: { type: integer, example: 0, description: 'Instagram accounts connected with Facebook Login only: reposts of the media by other users, minus deleted reposts, on feed posts, reels and stories. Meta does not expose this metric for accounts connected with Instagram Login, so those always report 0. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
-        engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. The engagementRate on the LinkedIn account endpoints is a different formula.' }
+        engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. When this object is the post-level roll-up of a cross-posted post, the denominator is the SUM of the denominators resolved per platform entry: an entry reporting none of impressions, reach or views is excluded from both sides of the ratio. Each platformAnalytics entry below keeps its own single denominator. The engagementRate on the LinkedIn account endpoints is a different formula.' }
         lastUpdated: { type: string, format: date-time }
     PlatformAnalytics:
       type: object
@@ -29981,7 +30001,9 @@ paths:
       description: |
         Start a direct message conversation with a user. If a conversation with that recipient already exists, the message is added to the existing thread.
 
-        Supported platforms: X, Bluesky, Reddit, WhatsApp, SMS, and Slack. Other platforms return PLATFORM_NOT_SUPPORTED.
+        Supported platforms: X, Bluesky, Reddit, WhatsApp, SMS, Slack, and iMessage. Other platforms return PLATFORM_NOT_SUPPORTED.
+
+        **iMessage.** Pass the recipient as participantId: a phone number in international format (+15551234567) or an iMessage email. Senders ordered through Zernio can message contacts who never wrote to them. The first message to such a contact must be a personal, plain-text note: no links, email addresses, phone numbers, prices, attachments or marketing. It is checked against those rules and reviewed for spam before sending; one that fails returns 400 with code `invalid_content` and nothing is sent. Each sender may open at most one new conversation every 15 minutes, and a new sender warms up: 2 new conversations per 24 hours on days 1-2 after activation, 5 on days 3-4, 10 on days 5-7, 20 on days 8-14, 30 on days 15-21 and 50 after that. Beyond that the request returns 429 with code `new_contact_limit` and a time to retry. The warm-up counts from when a sender ordered through Zernio went live; senders registered from your own provider account are not warmed up by Zernio. Until the contact replies, the opening is the only message the thread accepts: further sends return 409 `recipient_must_message_first`. Once the contact has written, the thread behaves like any other and is not limited. Recipients can report a first message as junk, and reports can get a sender blocked permanently, so keep the reply rate high (above roughly 30%). A sender registered with your own provider account may lack the add-on for new contacts; its sends to them return 409 `recipient_must_message_first`, and an opt-in link is the way in. A contact who opted out returns 409 `recipient_opted_out`.
 
         **Slack.** Pass a workspace member id as participantId (list them with GET /v1/accounts/{accountId}/slack-members). Zernio opens the DM channel with that member and sends the message; the thread then behaves like any other Slack conversation in the inbox. The member must belong to the connected workspace.
 
@@ -30019,7 +30041,7 @@ paths:
                   description: The account ID to send from
                 participantId:
                   type: string
-                  description: 'Recipient identifier. For X this is the numeric user ID; for WhatsApp and SMS, the recipient phone number in international format (digits, country code included); for Slack, the workspace member id (e.g. U01ABCDEF). Provide either this or participantUsername.'
+                  description: 'Recipient identifier. For X this is the numeric user ID; for WhatsApp and SMS, the recipient phone number in international format (digits, country code included); for Slack, the workspace member id (e.g. U01ABCDEF); for iMessage, a phone number in international format with the leading + or an iMessage email. Provide either this or participantUsername.'
                 participantUsername:
                   type: string
                   description: "Recipient handle/username, an X or Bluesky handle (with or without @) or a Reddit username (with or without u/). Resolved via lookup. Provide either this or participantId."
@@ -30270,7 +30292,7 @@ paths:
                         type: [string, "null"]
                         description: X username of the recipient
         '400':
-          description: 'Validation error, platform not supported, an attachment the platform does not accept (PLATFORM_LIMITATION), template required to start a WhatsApp conversation (TEMPLATE_REQUIRED), template variables that do not match the approved definition (INVALID_TEMPLATE_PARAMS, INVALID_TEMPLATE_BUTTON_PARAM), a missing or incompatible required template header (INVALID_TEMPLATE_HEADER), templateCards that do not match the approved carousel definition (INVALID_TEMPLATE_CARD_PARAM), category combined with templateName or used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send: DIRECT_SEND_NOT_ELIGIBLE and DIRECT_SEND_BLOCKED require Meta to grant or restore Direct Send access, while DIRECT_SEND_LIMITED is temporary and lifts on its own'
+          description: 'Validation error, platform not supported, an attachment the platform does not accept (PLATFORM_LIMITATION), template required to start a WhatsApp conversation (TEMPLATE_REQUIRED), template variables that do not match the approved definition (INVALID_TEMPLATE_PARAMS, INVALID_TEMPLATE_BUTTON_PARAM), a missing or incompatible required template header (INVALID_TEMPLATE_HEADER), templateCards that do not match the approved carousel definition (INVALID_TEMPLATE_CARD_PARAM), category combined with templateName or used on a non-WhatsApp account, the WhatsApp Business Account is not eligible for Direct Send: DIRECT_SEND_NOT_ELIGIBLE and DIRECT_SEND_BLOCKED require Meta to grant or restore Direct Send access, while DIRECT_SEND_LIMITED is temporary and lifts on its own, or an iMessage first message to a new contact that breaks the content rule (invalid_content)'
           content:
             application/json:
               schema:
@@ -30278,7 +30300,7 @@ paths:
                   - type: object
                     properties:
                       error: { type: string }
-                      code: { type: string, enum: [PLATFORM_NOT_SUPPORTED, PLATFORM_LIMITATION, TEMPLATE_REQUIRED, INVALID_TEMPLATE_PARAMS, INVALID_TEMPLATE_BUTTON_PARAM, INVALID_TEMPLATE_HEADER, INVALID_TEMPLATE_CARD_PARAM, DIRECT_SEND_NOT_ELIGIBLE, DIRECT_SEND_LIMITED, DIRECT_SEND_BLOCKED] }
+                      code: { type: string, enum: [PLATFORM_NOT_SUPPORTED, PLATFORM_LIMITATION, TEMPLATE_REQUIRED, INVALID_TEMPLATE_PARAMS, INVALID_TEMPLATE_BUTTON_PARAM, INVALID_TEMPLATE_HEADER, INVALID_TEMPLATE_CARD_PARAM, DIRECT_SEND_NOT_ELIGIBLE, DIRECT_SEND_LIMITED, DIRECT_SEND_BLOCKED, invalid_content] }
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
@@ -30294,6 +30316,15 @@ paths:
                       error: { type: string }
                       code: { type: string, enum: [account_not_found, PARTICIPANT_NOT_FOUND] }
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
+        '409':
+          description: 'iMessage only. The contact opted out of this sender (recipient_opted_out); or this contact has never written to the sender and either the sender lacks the add-on for new contacts or the opening message already went out and the contact has not replied yet (recipient_must_message_first).'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [recipient_opted_out, recipient_must_message_first] }
         '422':
           description: 'Recipient does not accept DMs from this account (X), or does not accept direct messages from you (Reddit)'
           content:
@@ -30306,7 +30337,7 @@ paths:
                       code: { type: string, enum: [DM_NOT_ALLOWED] }
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '429':
-          description: 'X API rate limit exceeded, Reddit rate limit reached, or Meta rejected the WhatsApp template-definition lookup. A lookup failure sends no message.'
+          description: 'X API rate limit exceeded, Reddit rate limit reached, Meta rejected the WhatsApp template-definition lookup (a lookup failure sends no message), or an iMessage sender reached its new-contact pacing or warm-up limit (new_contact_limit; the error says when to retry).'
           content:
             application/json:
               schema:
@@ -30314,7 +30345,7 @@ paths:
                   - type: object
                     properties:
                       error: { type: string }
-                      code: { type: string, enum: [rate_limited] }
+                      code: { type: string, enum: [rate_limited, new_contact_limit] }
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '502':
           description: The exact approved WhatsApp template definition is unavailable. No message was sent.
@@ -30848,11 +30879,13 @@ paths:
                             delivered as `message.platformMessageId` on webhooks),
                             `waInteractive` (a compact descriptor of WhatsApp interactive
                             content sent: buttons / list / cta_url / flow / location_request),
-                            and for inbound interactive taps `interactiveType` / `interactiveId`.
-                            It can also carry `source` (`whatsapp_business_app` /
-                            `coexistence_history` on a WhatsApp Coexistence number, `bulk-api` on
-                            a POST /v1/whatsapp/bulk send), which is where the message reached us
-                            from rather than who produced it: read `sentVia` for that.
+                            `metaInteractive` (outgoing Instagram/Facebook buttons, quickReplies
+                            and template, as sent), and for inbound interactive taps
+                            `interactiveType` / `interactiveId`. It can also carry `source`
+                            (`whatsapp_business_app` / `coexistence_history` on a WhatsApp
+                            Coexistence number, `bulk-api` on a POST /v1/whatsapp/bulk send),
+                            which is where the message reached us from rather than who produced
+                            it: read `sentVia` for that.
                           additionalProperties: true
                         sentVia:
                           type: [string, "null"]
@@ -30892,6 +30925,15 @@ paths:
         sends to a single recipient at roughly 10 per minute; bursts above that
         return a `400` with code `131056`. Sends to other recipients are
         unaffected, so parallelise across recipients rather than flooding one.
+
+        iMessage pacing: messages to contacts who have not written to the
+        sender in the last 24 hours must be at least 2 minutes apart per
+        sender; a send inside that window returns `429` with code
+        `new_contact_limit` and the time to retry. Replies to contacts who
+        wrote within the last day are not paced. A thread opened with
+        `POST /v1/inbox/conversations` accepts no message after the opening
+        until the contact replies (`409 recipient_must_message_first`). Text
+        must be shorter than 10,000 characters.
 
         WhatsApp template messages: to send an approved template into this
         conversation (required when the 24-hour customer-service window is
@@ -32555,9 +32597,10 @@ paths:
       description: |
         Fetch comments for a specific post. Requires accountId query parameter.
 
-        On Facebook and Instagram, passing a COMMENT id as `postId` is also supported and
-        returns that comment's replies instead of the post's top-level comments. This is not
-        available on YouTube, where `postId` must be a video id.
+        On Facebook, passing a COMMENT id as `postId` is also supported and returns that
+        comment's replies instead of the post's top-level comments. Instagram does not support
+        this and returns 400: its replies come nested in each comment's `replies` array, with no
+        separate paging. YouTube does not support it either, `postId` must be a video id.
 
         Responses are cached for up to 10 minutes, so a page may lag new comments by that
         window. Do not poll this endpoint for real-time updates: subscribe to the
@@ -32568,13 +32611,18 @@ paths:
         is the TikTok video id, each top-level comment carries up to three inline replies, and
         `commentId` pages the full reply list of one comment. Developer-app TikTok accounts
         return 400 with code `PLATFORM_LIMITATION`.
+
+        Hidden comments: Facebook Pages and Instagram accounts connected through Instagram Login
+        return them with `isHidden: true`. Instagram accounts connected through Facebook Login do
+        not return them at all (Meta omits them, together with their replies), so a hidden comment
+        and a deleted one look the same on this read.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
         - name: postId
           in: path
           required: true
-          description: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook and Instagram, a comment ID is also accepted here and returns that comment's replies.
+          description: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies (not supported on Instagram).
           schema: { type: string }
         - name: accountId
           in: query
@@ -32641,7 +32689,7 @@ paths:
                         canDelete: { type: boolean }
                         canHide: { type: boolean, description: "Whether this comment can be hidden (Facebook, Instagram, Threads)" }
                         canLike: { type: boolean, description: "Whether this comment can be liked (Facebook, X, Bluesky, Reddit, LinkedIn)" }
-                        isHidden: { type: boolean, description: Whether the comment is currently hidden }
+                        isHidden: { type: boolean, description: "Whether the comment is currently hidden. On Instagram accounts connected through Facebook Login, Meta leaves hidden comments (and their replies) out of the list entirely, so they never appear with isHidden true; Instagram Login accounts and Facebook Pages return them with isHidden true." }
                         isLiked: { type: boolean, description: Whether the current user has liked this comment }
                         likeUri: { type: [string, "null"], description: Bluesky like URI for unliking }
                         cid: { type: [string, "null"], description: Bluesky content identifier }
@@ -33001,7 +33049,7 @@ paths:
                   hidden: { type: boolean }
                   platform: { type: string }
         '400':
-          description: Platform does not support hiding comments
+          description: 'Platform does not support hiding comments (code PLATFORM_LIMITATION), or the platform rejected the call (code PLATFORM_API_ERROR with the upstream status, for example a comment that no longer exists; the platform''s own error code and subcode are in platformError).'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -33040,7 +33088,7 @@ paths:
                   hidden: { type: boolean }
                   platform: { type: string }
         '400':
-          description: Platform does not support unhiding comments
+          description: 'Platform does not support unhiding comments (code PLATFORM_LIMITATION), or the platform rejected the call (code PLATFORM_API_ERROR with the upstream status, for example a comment that no longer exists; the platform''s own error code and subcode are in platformError).'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -36217,10 +36265,11 @@ paths:
       summary: Create a tracked iMessage opt-in link
       description: |
         Generates a per-campaign link that opens Messages on this sender with
-        `body` prefilled. iMessage is send-first: a sender can only message a
-        contact who has written to it (a send to anyone else fails with
-        `recipient_must_message_first`), and the contact's tap-and-send is
-        what opens that door.
+        `body` prefilled. A thread the contact opens skips the pacing and the
+        first-message content rule that apply when the sender writes first,
+        and it is the only way in for senders without the add-on for new
+        contacts (their sends to anyone else fail with
+        `recipient_must_message_first`).
 
         Each link carries a unique code in place of the `[opt-in-code]`
         placeholder; when the contact sends it, the resulting `message.received`
@@ -38749,14 +38798,14 @@ paths:
             another number was purchased within the last 10 minutes; retry
             with allowMultiple: true to confirm), or the requested areaCode
             has no deliverable inventory right now (code
-            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number; COUNTRY_OUT_OF_STOCK: this country and type have no orderable numbers right now, pick another).
+            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number; COUNTRY_OUT_OF_STOCK: this country and type have no orderable numbers right now, pick another; NO_WHATSAPP_ELIGIBLE_NUMBER: every number the carrier offered is one WhatsApp refuses, pass an areaCode or try again for a fresh batch).
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error: { type: string }
-                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE, COUNTRY_OUT_OF_STOCK] }
+                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE, COUNTRY_OUT_OF_STOCK, NO_WHATSAPP_ELIGIBLE_NUMBER] }
         '503':
           description: 'The carrier could not take the order just now (code CARRIER_UNAVAILABLE); the number is not taken, retry the same request in a minute.'
           content:
@@ -39202,14 +39251,14 @@ paths:
             another number was purchased within the last 10 minutes; retry
             with allowMultiple: true to confirm), or the requested areaCode
             has no deliverable inventory right now (code
-            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number; COUNTRY_OUT_OF_STOCK: this country and type have no orderable numbers right now, pick another).
+            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number; COUNTRY_OUT_OF_STOCK: this country and type have no orderable numbers right now, pick another; NO_WHATSAPP_ELIGIBLE_NUMBER: every number the carrier offered is one WhatsApp refuses, pass an areaCode or try again for a fresh batch).
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error: { type: string }
-                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE, COUNTRY_OUT_OF_STOCK] }
+                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE, COUNTRY_OUT_OF_STOCK, NO_WHATSAPP_ELIGIBLE_NUMBER] }
         '503':
           description: 'The carrier could not take the order just now (code CARRIER_UNAVAILABLE); the number is not taken, retry the same request in a minute.'
           content:
@@ -45174,7 +45223,7 @@ paths:
                           type: object
                           description: "Platform error codes of the failed DM (Meta `code` and `error_subcode`), when the platform sent them. Absent on successful rows and on rows written before this field existed."
                           properties: { code: { type: integer }, subcode: { type: integer } }
-                        privateReplyConsumed: { type: boolean, description: "True when the failed send spent the comment's single Instagram private reply (subcode 1545133 or 2534023), the same rule as `details.privateReplyConsumed` on the private-reply endpoint. Absent on direct DMs, on Facebook, and on rows written before this field existed." }
+                        privateReplyConsumed: { type: boolean, description: "True when the failed send spent the comment's single private reply (Instagram subcode 1545133 or 2534023, or Meta code 10900 on Instagram and Facebook), the same rule as `details.privateReplyConsumed` on the private-reply endpoint. Absent on direct DMs and on rows written before this field existed." }
                         commentReplyStatus: { type: string, enum: [sent, failed, skipped], description: "Outcome of the optional public reply on the triggering comment. 'skipped' if no commentReply was configured or if the DM failed (the public reply is not attempted in that case)." }
                         commentReplyError: { type: string, description: Public-reply error message if commentReplyStatus is failed }
                         nextDueAt: { type: string, format: date-time, description: "When the next queued send fires. Present only while something is still pending." }
@@ -45329,7 +45378,7 @@ paths:
                           type: object
                           description: "Platform error codes of the failed DM (Meta `code` and `error_subcode`), when the platform sent them. Absent on successful rows and on rows written before this field existed."
                           properties: { code: { type: integer }, subcode: { type: integer } }
-                        privateReplyConsumed: { type: boolean, description: "True when the failed send spent the comment's single Instagram private reply (subcode 1545133 or 2534023), the same rule as `details.privateReplyConsumed` on the private-reply endpoint. Absent on direct DMs, on Facebook, and on rows written before this field existed." }
+                        privateReplyConsumed: { type: boolean, description: "True when the failed send spent the comment's single private reply (Instagram subcode 1545133 or 2534023, or Meta code 10900 on Instagram and Facebook), the same rule as `details.privateReplyConsumed` on the private-reply endpoint. Absent on direct DMs and on rows written before this field existed." }
                         commentReplyStatus: { type: string, enum: [sent, failed, skipped], description: "Outcome of the optional public reply on the triggering comment. 'skipped' if no commentReply was configured or if the DM failed (the public reply is not attempted in that case)." }
                         commentReplyError: { type: string, description: Public-reply error message if commentReplyStatus is failed }
                         nextDueAt: { type: string, format: date-time, description: "When the next queued send fires. Present only while something is still pending." }
@@ -53482,7 +53531,7 @@ paths:
               properties:
                 creativeFeatures: { $ref: '#/components/schemas/MetaCreativeFeatures' }
                 postId: { type: string, description: Zernio post ID (provide this or platformPostId) }
-                platformPostId: { type: string, description: Platform post ID (alternative to postId) }
+                platformPostId: { type: string, description: 'Platform post ID (alternative to postId). Meta: a Page post id (`<pageId>_<postId>` or the bare post id) or an Instagram media id. On a Meta Ads business-login connection (platform metaads) the id is resolved live: an Instagram media id is boosted as that media, running as the Instagram account that owns it.' }
                 accountId: { type: string, description: "Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter) or a googleads account. TikTok: the TikTok Ads connection (platform tiktokads) is accepted too when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected; such a call must use platformPostId, not postId." }
                 adAccountId: { type: string, description: Platform ad account ID }
                 name: { type: string, maxLength: 255 }
@@ -53813,6 +53862,27 @@ paths:
                   type: string
                   enum: [ACTIVE, PAUSED]
                   description: 'Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default); PAUSED creates them paused so you can review before they spend. On Meta a new campaign stays paused until explicitly activated; an attached ad is itself paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).'
+                budgetLevel:
+                  type: string
+                  enum: [adset, campaign]
+                  description: 'Meta only, same semantics as POST /v1/ads/create: campaign = Advantage campaign budget (CBO), the budget and bid strategy sit on the campaign and the ad set inherits them. Default adset. Not allowed with adSetId.'
+                attributionSpec:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  description: 'Meta only. Ad-set attribution windows, same shape as POST /v1/ads/create. Applied on OUTCOME_SALES, OUTCOME_LEADS and OUTCOME_APP_PROMOTION campaigns (conversions, lead_conversion, lead_generation, app_promotion); other objectives keep Meta''s default. Not allowed with adSetId.'
+                  items:
+                    type: object
+                    required: [eventType, windowDays]
+                    properties:
+                      eventType: { type: string, enum: [CLICK_THROUGH, VIEW_THROUGH, ENGAGED_VIDEO_VIEW] }
+                      windowDays: { type: integer, enum: [1, 7, 28] }
+                bodies:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: { type: string }
+                  description: 'Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.'
                 optimizationGoal:
                   type: string
                   description: |
@@ -53946,7 +54016,7 @@ paths:
 
         - Legacy single-creative shape (all platforms, the default).
         - Meta-only multi-creative shape via the creatives array: one ad set with N ads sharing budget and targeting.
-        - Attach shape via adSetId: adds one new ad to an existing ad set, inheriting its budget, targeting, and schedule (Meta, Google Ads, TikTok, and LinkedIn). On LinkedIn adSetId is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted.
+        - Attach shape via adSetId: adds one new ad to an existing ad set, inheriting its budget, targeting, and schedule (Meta, Google Ads, TikTok, and LinkedIn). On LinkedIn adSetId is the existing Campaign id, and the budget, schedule, targeting and bidding fields must be omitted. On LinkedIn `goal` may be omitted too (taken from the Campaign's objective), and the created ad's `targeting` echoes the Campaign's audience.
 
         Meta accepts `creativeFeatures` on the single and attach shapes and as defaults for
         `creatives[]`; an item replaces the whole feature map. `promotion` is not supported on any
@@ -54070,7 +54140,12 @@ paths:
                     `body` field is used as the `object_story_spec.link_data.message` (the preview text) and
                     `headlines` must also be present. On a video creative the copy lands in
                     `video_data.message` / `video_data.title` instead of `link_data`. Mutually exclusive
-                    with `dynamicCreative`, `placementAssets`, `carouselCards`, and `creatives[]`. For placement-specific copy, use the singular `placementAssets.rules[].body` and `headline` fields instead.
+                    with `dynamicCreative`, `carouselCards`, and `creatives[]`. With `placementAssets` the pool
+                    is applied to the placement-customized creative instead (`optimization_type: PLACEMENT`,
+                    every body carries the label of each rule that does not pin its own `body`, and the same for
+                    `headlines`), so Meta rotates the options per placement while media stays pinned; a rule's
+                    own `body` / `headline` stays pinned for that placement. `descriptions[]` cannot join a
+                    placement-customized creative (Meta refuses a second description per rule, subcode 1885878).
                 headlines:
                   type: array
                   minItems: 1
@@ -55524,6 +55599,31 @@ paths:
               schema: { type: object, properties: { status: { type: string }, testLead: { type: object, properties: { id: { type: string } } } } }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      x-resource-group: "contacts"
+      operationId: deleteTestLead
+      tags: ["Lead Gen"]
+      x-platforms: ["meta"]
+      summary: Delete a test lead
+      description: >
+        Removes a test lead created for the form (DELETE /{leadgen_id}), so a new
+        one can be submitted: Meta keeps one test lead per form and refuses a
+        second until the first is gone. The same test lead appears in Meta's
+        Lead Ads Testing Tool. Meta only deletes test leads; a real lead is
+        refused.
+      parameters:
+        - { name: formId, in: path, required: true, schema: { type: string } }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: 'The facebook or metaads account whose Page owns the form.' }
+        - { name: leadId, in: query, required: false, schema: { type: string }, description: 'The test lead id returned by createTestLead (or shown in the Testing Tool). Omitted = the test lead currently on the form.' }
+      responses:
+        '200':
+          description: Test lead deleted.
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { type: string }, deleted: { type: array, items: { type: string }, description: 'Ids of the test leads removed.' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'The form has no test lead.' }
 
   /v1/ads/images:
     post:
@@ -56275,7 +56375,7 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "A facebook, instagram, metaads or whatsapp account ID" }
         - { name: catalogAccountId, in: query, required: false, schema: { type: string }, description: "A facebook, instagram or metaads account whose Meta login carries catalog_management; its token is used instead of the account's own (needed for WhatsApp connections, whose token cannot manage catalogs)." }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Meta ad account ID (act_...) whose owner business to list" }
-        - { name: businessId, in: query, required: false, schema: { type: string }, description: "Meta business portfolio ID to list" }
+        - { name: businessId, in: query, required: false, schema: { type: string }, description: "Meta business portfolio ID to list. When it is omitted and the Meta login can see several portfolios, the 400 carries `details.businesses` (id + name) so a client can offer the choice." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }

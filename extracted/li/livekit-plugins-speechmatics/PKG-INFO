@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-speechmatics
-Version: 1.8.2
+Version: 1.8.3
 Summary: Agent Framework plugin for Speechmatics
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -17,7 +17,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents>=1.8.2
+Requires-Dist: livekit-agents>=1.8.3
 Requires-Dist: speechmatics-agent-stt~=0.1.0
 Requires-Dist: speechmatics-voice>=0.2.8
 Description-Content-Type: text/markdown

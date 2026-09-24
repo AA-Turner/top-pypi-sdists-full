@@ -407,3 +407,72 @@ def test_a_refused_script_is_never_retried_and_names_the_remedy(provider):
     assert info.is_retryable is False
     assert info.error_type == "speech_script_refused"
     assert "at most 2" in info.user_message
+
+
+# ------------------------------------------------------------ pronunciation
+
+DICTIONARY = {"entries": [{"term": "Ortiz", "pronunciation": "or-TEEZ"}]}
+
+
+def test_gemini_script_takes_inline_phonetic_substitution():
+    config = _config(PODCAST_TURNS, dictionary=DICTIONARY)
+    compiled = compile_google(find_speech_script(config), config, _gemini())
+    assert "Dr. Lena or-TEEZ" in compiled.transcript
+    assert "Ortiz" not in compiled.transcript
+    # the performed script shown beside the audio keeps the author's words
+    assert "Dr. Lena Ortiz" in find_speech_script(config).turns[0].text
+
+
+def test_elevenlabs_script_substitutes_an_in_config_dictionary():
+    config = _config(PODCAST_TURNS, dictionary=DICTIONARY)
+    compiled = compile_elevenlabs(find_speech_script(config), config, _eleven_v3())
+    assert "or-TEEZ" in compiled.turns[0]["text"]
+    assert "Ortiz" not in compiled.turns[0]["text"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dialogue", [True, False])
+async def test_elevenlabs_script_sends_native_dictionary_locators(monkeypatch, dialogue):
+    from matrx_ai.providers.eleven_labs import elevenlabs_api
+    from matrx_ai.providers.eleven_labs.elevenlabs_api import ElevenLabsChat
+
+    sent: dict[str, Any] = {}
+
+    class _Dialogue:
+        def convert_with_timestamps(self, **kwargs: Any):
+            sent.update(kwargs)
+            return _recorded_dialogue_response()
+
+    class _Speech:
+        def convert_with_timestamps(self, voice_id: str, **kwargs: Any):
+            sent.update(kwargs)
+            return _recorded_dialogue_response()
+
+    class _Client:
+        text_to_dialogue = _Dialogue()
+        text_to_speech = _Speech()
+
+    async def _fake_save(self, **kwargs: Any):
+        return "saved"
+
+    async def _no_capture(**_: Any) -> None:
+        return None
+
+    monkeypatch.setattr(ElevenLabsChat, "_save_and_emit", _fake_save)
+    monkeypatch.setattr(elevenlabs_api, "stamp_call_meta", lambda **_: None)
+    monkeypatch.setattr(elevenlabs_api, "emit_explicit_context_analysis", _no_capture)
+    monkeypatch.setattr(ElevenLabsChat, "_tts_stream_id", staticmethod(lambda: "stream-1"))
+    chat = ElevenLabsChat.__new__(ElevenLabsChat)
+    chat.client = _Client()
+    turns = PODCAST_TURNS if dialogue else PODCAST_TURNS[:1]
+    config = _config(turns)
+    config.pronunciation_dictionary_locators = [
+        {"pronunciation_dictionary_id": "pd_1", "version_id": "v_7"}
+    ]
+    await chat._execute_speech_script(
+        config, _eleven_v3(), _FakeEmitter(), "eleven_v3", find_speech_script(config)
+    )
+    locators = sent["pronunciation_dictionary_locators"]
+    assert [(loc.pronunciation_dictionary_id, loc.version_id) for loc in locators] == [
+        ("pd_1", "v_7")
+    ]

@@ -163,6 +163,12 @@ def build_parser() -> argparse.ArgumentParser:
         help=i18n.t("cli.help.enable"),
     )
     parser.add_argument(
+        "--other-system",
+        metavar=i18n.t("cli.help.meta.system"),
+        action="append",
+        help=i18n.t("cli.help.other-system"),
+    )
+    parser.add_argument(
         "--as-ci",
         nargs="?",
         const="",
@@ -305,6 +311,11 @@ def _parse_set(values: list[str] | None) -> set[str] | None:
     return parts or None
 
 
+def _parse_systems(values: list[str] | None) -> list[str]:
+    """The `--other-system` names in their order; a value may list several, comma-separated."""
+    return [part.strip() for value in values or () for part in value.split(",") if part.strip()]
+
+
 def _emit_report(text: str, out: str | None) -> None:
     """Print the check report to stdout, or write it to `out`.
 
@@ -353,6 +364,53 @@ def _selfupdate_main(argv: list[str]) -> int:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False))
         return 2
     print(json.dumps({"updated": old != new, "from": old, "to": new}, ensure_ascii=False))
+    return 0
+
+
+def _mcplog_parser() -> argparse.ArgumentParser:
+    parser = i18n.ArgumentParser(prog="xbsl mcp-log",
+                                 description=i18n.t("cli.help.commands.mcp-log"))
+    parser.add_argument("--last", type=int, default=20, help=i18n.t("cli.help.mcplog-last"))
+    parser.add_argument("--json", action="store_true", help=i18n.t("cli.help.mcplog-json"))
+    return parser
+
+
+def _mcplog_line(event: dict) -> str:
+    """One journal event in words: the time, the writing process and what happened."""
+    kind = event.get("event")
+    if kind == "start":
+        text = i18n.t("mcplog.start", version=event.get("version", "?"),
+                      parent=event.get("parent", "?"))
+    elif kind == "exit":
+        reason = event.get("reason", "")
+        if reason == "failed":
+            text = i18n.t("mcplog.exit.failed", error=event.get("error", ""))
+        elif reason in ("input-closed", "interrupted"):
+            text = i18n.t(f"mcplog.exit.{reason}")
+        else:
+            text = i18n.t("mcplog.unknown", event=f"exit {reason}")
+    elif kind == "stopped":
+        text = i18n.t("mcplog.stopped", target=event.get("target", "?"),
+                      name=event.get("name", ""), reason=event.get("reason", ""))
+    else:
+        text = i18n.t("mcplog.unknown", event=kind)
+    return f"{event.get('time', '?')}  pid {event.get('pid', '?')}  {text}"
+
+
+def _mcplog_main(argv: list[str]) -> int:
+    from xbsl import mcpjournal
+
+    args = _mcplog_parser().parse_args(argv)
+    events = mcpjournal.read(max(args.last, 0))
+    if args.json:
+        for event in events:
+            print(json.dumps(event, ensure_ascii=False))
+        return 0
+    print(i18n.t("mcplog.path", path=mcpjournal.journal_path()))
+    if not events:
+        print(i18n.t("mcplog.empty"))
+    for event in events:
+        print(_mcplog_line(event))
     return 0
 
 
@@ -1396,6 +1454,7 @@ def _check_main(argv: list[str]) -> int:
     from xbsl.engine import (
         RULES, active_rules, load, make_source, matching_rules, near_rule_groups, run_sources,
     )
+    from xbsl.rules import comment_names
 
     adopted: cijob.CiLint | None = None
     if args.as_ci is not None or args.as_ci_job:
@@ -1421,6 +1480,7 @@ def _check_main(argv: list[str]) -> int:
         args.select = (args.select or []) + list(job.select)
         args.ignore = (args.ignore or []) + list(job.ignore)
         args.enable = (args.enable or []) + list(job.enable)
+        args.other_system = (args.other_system or []) + list(job.other_systems)
         if not args.baseline and not args.no_baseline:
             args.baseline = job.baseline_file()
             args.no_baseline = job.no_baseline
@@ -1439,6 +1499,7 @@ def _check_main(argv: list[str]) -> int:
     select = _parse_set(args.select)
     ignore = _parse_set(args.ignore)
     enable = _parse_set(args.enable)
+    comment_names.set_other_systems(_parse_systems(args.other_system))
 
     if args.list_rules:
         # Narrowed the way a run is: `--list-rules --select code/duplicate-method-body`
@@ -1819,6 +1880,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("translate", "cli.help.commands.translate", _translate_main, reference=False),
     Command("self-update", "cli.help.commands.self-update", _selfupdate_main,
             parser=_selfupdate_parser),
+    Command("mcp-log", "cli.help.commands.mcp-log", _mcplog_main, parser=_mcplog_parser),
     *(Command(name, f"cli.help.scaf.{name}", partial(_scaffold_run, name),
               parser=_scaffold_parser, scaffold=True) for name in _META_COMMANDS),
 )

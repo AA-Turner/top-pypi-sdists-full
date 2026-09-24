@@ -16,7 +16,7 @@ def generate_enums(basename, xml):
     directory = os.path.join(basename, '''enums''')
     mavparse.mkdir_p(directory)
     for en in xml.enum:
-        f = open(os.path.join(directory, en.name+".java"), mode='w')
+        f = open(os.path.join(directory, en.name+".java"), mode='w', encoding='utf-8')
         t.write(f, '''
 /* AUTO-GENERATED FILE.  DO NOT MODIFY.
  *
@@ -54,7 +54,7 @@ def generate_CRC(directory, xml):
     for msgid, crc in sorted(xml.message_crcs.items()):
         xml.message_crcs_array += 'MAVLINK_MESSAGE_CRCS.put(%u, %u);\n        ' % (msgid, crc)
 
-    f = open(os.path.join(directory, "CRC.java"), mode='w')
+    f = open(os.path.join(directory, "CRC.java"), mode='w', encoding='utf-8')
     t.write(f,'''
 /* AUTO-GENERATED FILE.  DO NOT MODIFY.
  *
@@ -140,7 +140,7 @@ public class CRC {
 
 def generate_message_h(directory, m):
     '''generate per-message header for a XML file'''
-    f = open(os.path.join(directory, 'msg_%s.java' % m.name_lower), mode='w')
+    f = open(os.path.join(directory, 'msg_%s.java' % m.name_lower), mode='w', encoding='utf-8')
 
     (path_head, path_tail) = os.path.split(directory)
     if path_tail == "":
@@ -281,7 +281,7 @@ public class msg_${name_lower} extends MAVLinkMessage {
 
 
 def generate_MAVLinkMessage(directory, xml_list):
-    f = open(os.path.join(directory, "MAVLinkPacket.java"), mode='w')
+    f = open(os.path.join(directory, "MAVLinkPacket.java"), mode='w', encoding='utf-8')
 
     imports = []
 
@@ -315,7 +315,7 @@ ${importString}
  * MAVLink 1 Packet Format
  *
  * Byte Index  Content              Value       Explanation
- * 0            Packet start sign  v1.0: 0xFE   Indicates the start of a new packet.  (v0.9: 0x55; v1.0: 0xFE; v2.0 0xFD)
+ * 0            Packet start sign  v1.0: 0xFE   Indicates the start of a new packet.  (v1.0: 0xFE; v2.0 0xFD)
  * 1            Payload length      0 - 255     Indicates length of the following payload.
  * 2            Packet sequence     0 - 255     Each component counts up its send sequence. Allows to detect packet loss
  * 3            System ID           1 - 255     ID of the SENDING system. Allows to differentiate different MAVs on the same network.
@@ -332,7 +332,7 @@ ${importString}
  * MAVLink 2 Packet Format
  *
  * Byte Index     Content             Value              Explanation
- * 0              Packet start sign  v2.0: 0xFD          Indicates the start of a new packet.  (v0.9: 0x55; v1.0: 0xFE; v2.0 0xFD)
+ * 0              Packet start sign  v2.0: 0xFD          Indicates the start of a new packet.  (v1.0: 0xFE; v2.0 0xFD)
  * 1              Payload length      0 - 255            Indicates length of the following payload.
  * 2              Incompatible Flags  0 - 255            Flags that must be understood
  * 3              Compatible Flags    0 - 255            Flags that can be ignored if not understood
@@ -632,20 +632,9 @@ def generate_one(basename, xml):
     print("Generating Java implementation in directory %s" % directory)
     mavparse.mkdir_p(directory)
 
-    if xml.little_endian:
-        xml.mavlink_endian = "MAVLINK_LITTLE_ENDIAN"
-    else:
-        xml.mavlink_endian = "MAVLINK_BIG_ENDIAN"
-
-    if xml.crc_extra:
-        xml.crc_extra_define = "1"
-    else:
-        xml.crc_extra_define = "0"
-
-    if xml.sort_fields:
-        xml.aligned_fields_define = "1"
-    else:
-        xml.aligned_fields_define = "0"
+    xml.mavlink_endian = "MAVLINK_LITTLE_ENDIAN"
+    xml.crc_extra_define = "1"
+    xml.aligned_fields_define = "1"
 
     # work out the included headers
     xml.include_list = []
@@ -676,10 +665,7 @@ def generate_one(basename, xml):
     # add some extra field attributes for convenience with arrays
     for m in xml.message:
         m.msg_name = m.name
-        if xml.crc_extra:
-            m.crc_extra_arg = ", %s" % m.crc_extra
-        else:
-            m.crc_extra_arg = ""
+        m.crc_extra_arg = ", %s" % m.crc_extra
         for f in m.fields:
             if f.print_format is None:
                 f.c_print_format = 'NULL'

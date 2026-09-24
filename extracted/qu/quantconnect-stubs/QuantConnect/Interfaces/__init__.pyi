@@ -1010,13 +1010,15 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def create_backtest(self, project_id: int, compile_id: str, backtest_name: str) -> QuantConnect.Api.Backtest:
+    def create_backtest(self, project_id: int, compile_id: str, backtest_name: str, parameters: System.Collections.Generic.Dictionary[str, str] = None) -> QuantConnect.Api.Backtest:
         """
         Create a new backtest from a specified project_id and compile_id
         
-        :param project_id: 
-        :param compile_id: 
-        :param backtest_name: 
+        :param project_id: Id for the project to backtest
+        :param compile_id: Compile id for the project
+        :param backtest_name: Name for the new backtest
+        :param parameters: Parameters to use for the backtest
+        :returns: Backtest result object.
         """
         ...
 
@@ -1190,7 +1192,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def list_backtests(self, project_id: int, include_statistics: bool = False) -> QuantConnect.Api.BacktestSummaryList:
+    def list_backtests(self, project_id: int, include_statistics: bool = True) -> QuantConnect.Api.BacktestSummaryList:
         """
         Get a list of backtest summaries for a specific project id
         
@@ -1200,11 +1202,12 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def list_live_algorithms(self, status: typing.Optional[QuantConnect.AlgorithmStatus] = None) -> QuantConnect.Api.LiveList:
+    def list_live_algorithms(self, status: typing.Optional[QuantConnect.AlgorithmStatus] = None, project_id: typing.Optional[int] = None) -> QuantConnect.Api.LiveList:
         """
         Get a list of live running algorithms for a logged in user.
         
         :param status: Filter the statuses of the algorithms returned from the api
+        :param project_id: Id of the project to include in the response
         :returns: List of live algorithm instances.
         """
         ...
@@ -1228,10 +1231,12 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def list_projects(self) -> QuantConnect.Api.ProjectResponse:
+    def list_projects(self, start: int = 0, end: int = 0) -> QuantConnect.Api.ProjectResponse:
         """
         Read back a list of all projects on the account for a user.
         
+        :param start: Starting (inclusive, zero-based) index of the projects to be fetched
+        :param end: Last (exclusive) index of the projects to be fetched
         :returns: Container for list of projects.
         """
         ...
@@ -1347,12 +1352,11 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """Gets a list of LEAN versions with their corresponding basic descriptions"""
         ...
 
-    def read_live_algorithm(self, project_id: int, deploy_id: str) -> QuantConnect.Api.LiveAlgorithmResults:
+    def read_live_algorithm(self, project_id: int) -> QuantConnect.Api.LiveAlgorithmResults:
         """
-        Read out a live algorithm in the project id specified.
+        Read out the latest deployment of the live algorithm of the project id specified.
         
         :param project_id: Project id to read
-        :param deploy_id: Specific instance id to read
         :returns: Live object with the results.
         """
         ...
@@ -1369,13 +1373,14 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def read_live_insights(self, project_id: int, start: int = 0, end: int = 0) -> QuantConnect.Api.InsightResponse:
+    def read_live_insights(self, project_id: int, algorithm_id: str, start: int = 0, end: int = 0) -> QuantConnect.Api.InsightResponse:
         """
         Read out the insights of a live algorithm
         
         :param project_id: Id of the project from which to read the live algorithm
+        :param algorithm_id: Deploy id (algorithm id) of the live running algorithm, null for the latest deployment
         :param start: Starting index of the insights to be fetched
-        :param end: Last index of the insights to be fetched. Note that end - start must be less than 100
+        :param end: Last index of the insights to be fetched
         :returns: InsightResponse.
         """
         ...
@@ -1525,7 +1530,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def update_backtest(self, project_id: int, backtest_id: str, name: str = ..., note: str = ...) -> QuantConnect.Api.RestResponse:
+    def update_backtest(self, project_id: int, backtest_id: str, name: str = None, note: str = ...) -> QuantConnect.Api.RestResponse:
         """
         Update the backtest name
         
@@ -1555,6 +1560,17 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         :param optimization_id: Optimization id we want to update
         :param name: Name we'd like to assign to the optimization
         :returns: RestResponse.
+        """
+        ...
+
+    def update_project(self, project_id: int, name: str = None, description: str = None) -> QuantConnect.Api.RestResponse:
+        """
+        Update a project's name or description
+        
+        :param project_id: Project id to update
+        :param name: The new name for the project
+        :param description: The new description for the project
+        :returns: RestResponse indicating success.
         """
         ...
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import dataclasses
 
 import numpy as np
+import pytest
 
 from phonopy import Phonopy
 from phonopy.qha.anisotropic_dataset import (
@@ -96,10 +97,10 @@ def test_dataset_grid_shape_roundtrip(tmp_path):
 
     """
     points = (_grid_point(0, True), _grid_point(1, False))
-    with_shape = AnisoQHADataset(grid_points=points, grid_shape=(5, 5))
+    with_shape = AnisoQHADataset(grid_points=points, grid_shape=(2, 1))
     path = tmp_path / "with_shape.hdf5"
     write_aniso_qha_dataset(with_shape, path)
-    assert read_aniso_qha_dataset(path).grid_shape == (5, 5)
+    assert read_aniso_qha_dataset(path).grid_shape == (2, 1)
 
     without_shape = AnisoQHADataset(grid_points=points)
     path = tmp_path / "without_shape.hdf5"
@@ -234,11 +235,13 @@ def test_type1_dataset_roundtrip_and_fc(tmp_path):
     """A type-1 grid point survives HDF5 I/O and yields identical FC.
 
     The stored dataset keeps its type-1 form, and force constants from
-    AnisoQHAGridPoint.to_phonopy match those computed directly.
+    AnisoQHAGridPoint.to_phonopy match those computed directly and
+    symmetrized by the symfc projector.
 
     """
     ph = _omega_ti_type1_phonon()
     ph.produce_force_constants()
+    ph.symmetrize_force_constants(use_symfc_projector=True)
     fc_direct = np.array(ph.force_constants)
 
     point = AnisoQHAGridPoint(
@@ -258,6 +261,31 @@ def test_type1_dataset_roundtrip_and_fc(tmp_path):
     assert out.n_displacements == 2
     fc_roundtrip = np.array(out.to_phonopy().force_constants)
     np.testing.assert_allclose(fc_direct, fc_roundtrip, atol=1e-12)
+
+
+def test_type1_to_phonopy_acoustic_modes_at_gamma():
+    """Force constants of a type-1 grid point give zero acoustic modes at Gamma.
+
+    Omega-Ti has two inequivalent sites, so the site-symmetry solver alone
+    leaves the index permutation symmetry and the sum over the first index
+    unimposed. The symfc projector applied in to_phonopy imposes both.
+
+    """
+    ph = _omega_ti_type1_phonon()
+    point = AnisoQHAGridPoint(
+        index=0,
+        cell=ph.unitcell,
+        supercell_matrix=np.array(ph.supercell_matrix, dtype="int64"),
+        primitive_matrix=np.array(ph.primitive_matrix, dtype="double"),
+        dataset=ph.dataset,
+        internal_energy=0.0,
+    )
+    out = point.to_phonopy()
+    fc = np.array(out.force_constants)
+    np.testing.assert_allclose(fc.sum(axis=0), 0, atol=1e-10)
+    out.run_qpoints([[0, 0, 0]])
+    acoustic = np.sort(np.abs(out.qpoints.frequencies[0]))[:3]
+    np.testing.assert_allclose(acoustic, 0, atol=1e-5)
 
 
 def test_type2_to_phonopy_fc(tmp_path):
@@ -298,8 +326,6 @@ def test_dataset_without_displacements_roundtrip(tmp_path):
     force constants differ at every temperature, enters the workflow.
 
     """
-    import pytest
-
     point = _grid_point(1, with_electronic=True)
     static_only = dataclasses.replace(point, dataset=None)
     assert static_only.n_displacements == 0
@@ -335,3 +361,85 @@ def test_dataset_mixed_points_roundtrip(tmp_path):
     assert [p.n_displacements for p in loaded.grid_points] == [3, 0]
     assert loaded.grid_points[0].dataset is not None
     assert loaded.grid_points[1].dataset is None
+
+
+def _phonopy_at(a: float, c: float) -> Phonopy:
+    """Return an HCP Phonopy at (a, c) with a type-2 displacement dataset."""
+    cell = PhonopyAtoms(
+        symbols=["Ti", "Ti"],
+        cell=[[a, 0.0, 0.0], [-a / 2, a * np.sqrt(3) / 2, 0.0], [0.0, 0.0, c]],
+        scaled_positions=[[1.0 / 3, 2.0 / 3, 0.25], [2.0 / 3, 1.0 / 3, 0.75]],
+    )
+    ph = Phonopy(cell, supercell_matrix=np.diag([2, 2, 2]), log_level=0)
+    rng = np.random.default_rng(int(round(1000 * a)))
+    n_satom = len(ph.supercell)
+    ph.dataset = {
+        "displacements": rng.normal(scale=0.01, size=(2, n_satom, 3)),
+        "forces": rng.normal(size=(2, n_satom, 3)),
+    }
+    return ph
+
+
+def test_build_dataset_from_phonopys(tmp_path):
+    """The API builds what the file format holds, metadata included.
+
+    The counterpart of run_anisotropic_qha: a caller that already has the
+    Phonopy of every grid point and its static energy reaches a dataset
+    without going through the command and its directory layout.
+
+    """
+    from phonopy.qha.anisotropic_dataset import build_aniso_qha_dataset
+
+    a_values = [2.94, 2.95, 2.96]
+    c_values = [4.66, 4.68]
+    phonopys = [_phonopy_at(a, c) for a in a_values for c in c_values]
+    energies = [-15.0 - 0.1 * i for i in range(len(phonopys))]
+
+    dataset = build_aniso_qha_dataset(phonopys, energies)
+
+    # The metadata is read off the cells, not passed in.
+    assert dataset.free_dof == ("a", "c")
+    assert dataset.crystal_system == "hexagonal"
+    assert dataset.tie_description == "b = a"
+    assert dataset.grid_shape == (3, 2)
+    assert [p.index for p in dataset.grid_points] == list(range(6))
+
+    path = tmp_path / "built.hdf5"
+    write_aniso_qha_dataset(dataset, path)
+    loaded = read_aniso_qha_dataset(path)
+
+    assert loaded.grid_shape == (3, 2)
+    assert [p.n_displacements for p in loaded.grid_points] == [2] * 6
+    np.testing.assert_allclose(
+        [p.internal_energy for p in loaded.grid_points], energies
+    )
+    np.testing.assert_allclose(
+        loaded.grid_points[0].cell.cell, phonopys[0].unitcell.cell
+    )
+
+
+def test_build_dataset_checks_its_sequences(tmp_path):
+    """Mismatched lengths and stray cells are refused before any file is made."""
+    from phonopy.qha.anisotropic_dataset import build_aniso_qha_dataset
+
+    phonopys = [_phonopy_at(a, 4.68) for a in (2.94, 2.95, 2.96)]
+    energies = [-15.0, -15.1, -15.2]
+
+    with pytest.raises(ValueError, match="internal_energies has"):
+        build_aniso_qha_dataset(phonopys, energies[:2])
+    with pytest.raises(ValueError, match="indices has"):
+        build_aniso_qha_dataset(phonopys, energies, indices=[0, 1])
+
+    # A cell of its own among otherwise matching ones is caught by the
+    # dataset's own check, whatever built the points.
+    odd = Phonopy(
+        phonopys[1].unitcell, supercell_matrix=np.diag([2, 2, 3]), log_level=0
+    )
+    rng = np.random.default_rng(0)
+    n_satom = len(odd.supercell)
+    odd.dataset = {
+        "displacements": rng.normal(scale=0.01, size=(2, n_satom, 3)),
+        "forces": rng.normal(size=(2, n_satom, 3)),
+    }
+    with pytest.raises(ValueError, match="supercell matrix of its own"):
+        build_aniso_qha_dataset([phonopys[0], odd], energies[:2])

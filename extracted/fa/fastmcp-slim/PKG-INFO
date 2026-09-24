@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastmcp-slim
-Version: 4.0.5
+Version: 4.0.8
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -44,6 +44,8 @@ Requires-Dist: pydantic-monty==0.0.21; extra == 'code-mode'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Requires-Dist: jsonref>=1.1.0; extra == 'gemini'
+Provides-Extra: jev
+Requires-Dist: typesafe-sdk>=0.5.7; extra == 'jev'
 Provides-Extra: mcp
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'mcp'
 Requires-Dist: httpx2>=2.5.0; extra == 'mcp'

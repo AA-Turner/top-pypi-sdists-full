@@ -10,6 +10,7 @@ import google.protobuf.duration_pb2
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import query_cache_protobuf.query_cache.services.selector_service_pb2
 import query_cache_protobuf.query_cache.struct_pb2
 import sys
 import typing
@@ -200,6 +201,7 @@ class ClientTelemetryEvent(google.protobuf.message.Message):
     ENRICHED_SQL_PREPARED_FIELD_NUMBER: builtins.int
     SESSION_START_FIELD_NUMBER: builtins.int
     SESSION_END_FIELD_NUMBER: builtins.int
+    CLIENT_SELECTOR_EVENT_FIELD_NUMBER: builtins.int
     EVENT_ORDER_FIELD_NUMBER: builtins.int
     event_order: builtins.int
     @property
@@ -212,20 +214,23 @@ class ClientTelemetryEvent(google.protobuf.message.Message):
         future event payloads should be called FooEvent, not FooRequest
         """
 
+    @property
+    def client_selector_event(self) -> global___ClientSelectorEvent: ...
     def __init__(
         self,
         *,
         enriched_sql_prepared: global___ClientPrepareEnrichedSQLRequest | None = ...,
         session_start: global___SessionStartRequest | None = ...,
         session_end: global___SessionEndRequest | None = ...,
+        client_selector_event: global___ClientSelectorEvent | None = ...,
         event_order: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_event_order", b"_event_order", "enriched_sql_prepared", b"enriched_sql_prepared", "event_order", b"event_order", "request", b"request", "session_end", b"session_end", "session_start", b"session_start"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_event_order", b"_event_order", "enriched_sql_prepared", b"enriched_sql_prepared", "event_order", b"event_order", "request", b"request", "session_end", b"session_end", "session_start", b"session_start"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_event_order", b"_event_order", "client_selector_event", b"client_selector_event", "enriched_sql_prepared", b"enriched_sql_prepared", "event_order", b"event_order", "request", b"request", "session_end", b"session_end", "session_start", b"session_start"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_event_order", b"_event_order", "client_selector_event", b"client_selector_event", "enriched_sql_prepared", b"enriched_sql_prepared", "event_order", b"event_order", "request", b"request", "session_end", b"session_end", "session_start", b"session_start"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_event_order", b"_event_order"]) -> typing.Literal["event_order"] | None: ...
     @typing.overload
-    def WhichOneof(self, oneof_group: typing.Literal["request", b"request"]) -> typing.Literal["enriched_sql_prepared", "session_start", "session_end"] | None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["request", b"request"]) -> typing.Literal["enriched_sql_prepared", "session_start", "session_end", "client_selector_event"] | None: ...
 
 global___ClientTelemetryEvent = ClientTelemetryEvent
 
@@ -259,3 +264,36 @@ class SubmitTelemetryBatchResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["success", b"success"]) -> None: ...
 
 global___SubmitTelemetryBatchResponse = SubmitTelemetryBatchResponse
+
+@typing.final
+class ClientSelectorEvent(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    REQUEST_ID_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
+    DBT_TARGET_FIELD_NUMBER: builtins.int
+    SELECTOR_CRITERIA_FIELD_NUMBER: builtins.int
+    NUM_NODES_FIELD_NUMBER: builtins.int
+    PROCESSING_TIME_MS_FIELD_NUMBER: builtins.int
+    HASH_CALCULATION_TIME_MS_FIELD_NUMBER: builtins.int
+    request_id: builtins.str
+    project_id: builtins.str
+    dbt_target: builtins.str
+    selector_criteria: query_cache_protobuf.query_cache.services.selector_service_pb2.SelectorCriteria.ValueType
+    num_nodes: builtins.int
+    processing_time_ms: builtins.int
+    hash_calculation_time_ms: builtins.int
+    def __init__(
+        self,
+        *,
+        request_id: builtins.str = ...,
+        project_id: builtins.str = ...,
+        dbt_target: builtins.str = ...,
+        selector_criteria: query_cache_protobuf.query_cache.services.selector_service_pb2.SelectorCriteria.ValueType = ...,
+        num_nodes: builtins.int = ...,
+        processing_time_ms: builtins.int = ...,
+        hash_calculation_time_ms: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["dbt_target", b"dbt_target", "hash_calculation_time_ms", b"hash_calculation_time_ms", "num_nodes", b"num_nodes", "processing_time_ms", b"processing_time_ms", "project_id", b"project_id", "request_id", b"request_id", "selector_criteria", b"selector_criteria"]) -> None: ...
+
+global___ClientSelectorEvent = ClientSelectorEvent

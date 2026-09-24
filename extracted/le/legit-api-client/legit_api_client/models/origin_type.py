@@ -46,6 +46,7 @@ class OriginType(str, Enum):
     UNKNOWN = 'Unknown'
     MESSAGINGAPPCHANNEL = 'MessagingAppChannel'
     PACKAGEVERSION = 'PackageVersion'
+    REPOSITORYBRANCH = 'RepositoryBranch'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

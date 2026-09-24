@@ -334,15 +334,40 @@ _ALL_LAZY: dict[str, str] = {
     "ObservabilityOptions": "dcc_mcp_core.server",
     "ObservabilityQuery": "dcc_mcp_core.observability_query",
     "build_query_response": "dcc_mcp_core.observability_query",
+    # Skill promotion proposals (escape-hatch repetition -> advisory proposal).
+    #
+    # ``DEFAULT_PROMOTION_THRESHOLD`` is deliberately NOT re-exported here: the
+    # facade name is owned by ``dcc_mcp_core.escape_hatch_policy`` (see below),
+    # which is what ``from dcc_mcp_core import DEFAULT_PROMOTION_THRESHOLD`` has
+    # always resolved to. Import the advisory threshold from
+    # ``dcc_mcp_core.skill_promotion`` directly. A second entry here would be a
+    # duplicate dict key: Python keeps the last one silently and ruff F601 fails.
+    "DECISION_MANUAL_REVIEW": "dcc_mcp_core.skill_promotion",
+    "DECISION_PROPOSE_SKILL": "dcc_mcp_core.skill_promotion",
+    "RECOMMENDED_ACTION_REVIEW_ONLY": "dcc_mcp_core.skill_promotion",
+    "SkillPromotionProposal": "dcc_mcp_core.skill_promotion",
+    "build_skill_promotion_proposal": "dcc_mcp_core.skill_promotion",
+    "build_skill_promotion_proposals": "dcc_mcp_core.skill_promotion",
+    "candidate_id_for_evidence": "dcc_mcp_core.skill_promotion",
+    "suggest_skill_name": "dcc_mcp_core.skill_promotion",
     "StandaloneMainThreadExecution": "dcc_mcp_core.server",
     # Lifecycle hooks (issue #1337)
     "HookContext": "dcc_mcp_core.lifecycle_hooks",
     "HookDeny": "dcc_mcp_core.lifecycle_hooks",
     "HookEvent": "dcc_mcp_core.lifecycle_hooks",
     "LifecycleHooks": "dcc_mcp_core.lifecycle_hooks",
-    # Escape-hatch demotion policy (issue #1325)
+    # Escape-hatch demotion policy (issue #1325) and skill-promotion hints (#2297).
+    #
+    # This block owns the public ``DEFAULT_PROMOTION_THRESHOLD`` name.
+    "DEFAULT_PROMOTION_THRESHOLD": "dcc_mcp_core.escape_hatch_policy",
     "EscapeHatchInvocation": "dcc_mcp_core.escape_hatch_policy",
     "EscapeHatchPolicy": "dcc_mcp_core.escape_hatch_policy",
+    "EscapeHatchPromotionCandidate": "dcc_mcp_core.escape_hatch_policy",
+    "MAX_TRACKED_SCRIPTS": "dcc_mcp_core.escape_hatch_policy",
+    "PROMOTION_HINT_KEY": "dcc_mcp_core.escape_hatch_policy",
+    "escape_hatch_candidate_id": "dcc_mcp_core.escape_hatch_policy",
+    "install_escape_hatch_policy": "dcc_mcp_core.escape_hatch_policy",
+    "suggested_skill_name": "dcc_mcp_core.escape_hatch_policy",
     # Capability graph (issue #1336)
     "CapabilityEdge": "dcc_mcp_core.capability_graph",
     "CapabilityGraph": "dcc_mcp_core.capability_graph",

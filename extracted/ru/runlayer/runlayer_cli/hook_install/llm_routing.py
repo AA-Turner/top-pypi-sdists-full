@@ -13,7 +13,6 @@ import socket
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TypedDict, cast
 from urllib.parse import urlsplit
@@ -30,6 +29,7 @@ from runlayer_cli.hook_install.clients import (
     _codex_features_toml_file,
     _reown_to_console_user,
     _write_config,
+    _write_config_with_backup,
 )
 from runlayer_cli.hook_install.paths import (
     HelperCommand,
@@ -696,38 +696,19 @@ def _apply_prepared_write(prepared: _PreparedWrite) -> None:
     if rendered is None:
         return
 
-    path = prepared["path"]
-    previous = prepared["previous"]
-    if previous is not None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        backup_path = path.with_name(f"{path.stem}.backup_{timestamp}{path.suffix}")
-        if is_unsafe_windows_mdm_path(
-            backup_path,
-            mdm=prepared["mdm"],
-            path_check=path_has_link_or_reparse_point,
-        ):
-            raise OSError(errno.ELOOP, "unsafe Windows MDM backup path", backup_path)
-        _write_config(
-            backup_path,
-            previous,
-            home=prepared["home"],
-            mode=0o600,
-            replace_symlink=False,
-            mdm=prepared["mdm"],
-        )
-        if prepared["mdm"]:
-            _reown_to_console_user(backup_path)
-
-    _write_config(
-        path,
+    # Backups stay private regardless of the active file's mode: the previous
+    # content may predate the helper-based config and carry a raw key.
+    _write_config_with_backup(
+        prepared["path"],
         rendered,
+        existing_text=prepared["previous"],
         home=prepared["home"],
         mode=prepared["mode"],
         replace_symlink=not prepared["mdm"],
         mdm=prepared["mdm"],
+        reown=prepared["mdm"],
+        backup_mode=0o600,
     )
-    if prepared["mdm"]:
-        _reown_to_console_user(path)
 
 
 def _parse_claude_settings(path: Path, content: str) -> dict[str, Any]:

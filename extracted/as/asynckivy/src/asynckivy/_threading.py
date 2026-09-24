@@ -1,5 +1,5 @@
 from threading import Thread
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Executor
 from kivy.clock import Clock
 import asyncgui
 
@@ -26,7 +26,8 @@ async def run_in_thread(func, *, daemon=None):
     See :ref:`io-in-asynckivy` for details.
 
     .. warning::
-        When the caller Task is cancelled, the ``func`` will be left running, which violates "structured concurrency".
+        When the caller Task is cancelled, the ``func`` will be left running, which violates structured concurrency.
+        Also, do not call this function from outside the main thread unless you know what you're doing.
     '''
     ev = asyncgui.ExclusiveEvent()
     Thread(
@@ -39,9 +40,9 @@ async def run_in_thread(func, *, daemon=None):
     return ret
 
 
-async def run_in_executor(executor: ThreadPoolExecutor, func):
+async def run_in_executor(executor: Executor, func, *args):
     '''
-    Runs a function within a :class:`concurrent.futures.ThreadPoolExecutor`, and waits for the completion of the
+    Runs a function within a :class:`concurrent.futures.Executor`, and waits for the completion of the
     function.
 
     .. code-block::
@@ -50,20 +51,24 @@ async def run_in_executor(executor: ThreadPoolExecutor, func):
         ...
         return_value = await run_in_executor(executor, func)
 
-    See :ref:`io-in-asynckivy` for details.
+    :param args: Arguments to pass to the ``executor.submit`` method.
 
     .. warning::
         When the caller Task is cancelled, the ``func`` will be left running if it has already started,
-        which violates "structured concurrency".
+        which violates structured concurrency.
+        Also, do not call this function from outside the main thread unless you know what you're doing.
+
+    .. versionchanged:: 0.11.1
+        Added support for passing arguments to the ``executor.submit`` method.
+        Added support for :class:`~concurrent.futures.ProcessPoolExecutor` and
+        :class:`~concurrent.futures.InterpreterPoolExecutor`.
     '''
     ev = asyncgui.ExclusiveEvent()
-    future = executor.submit(_wrapper, func, ev)
+    fut = executor.submit(func, *args)
+    fut.add_done_callback(lambda __: Clock.schedule_once(ev.fire))
     try:
-        ret, exc = (await ev.wait())[0]
+        await ev.wait()
     except asyncgui.Cancelled:
-        future.cancel()
+        fut.cancel()
         raise
-    assert future.done()
-    if exc is not None:
-        raise exc
-    return ret
+    return fut.result()

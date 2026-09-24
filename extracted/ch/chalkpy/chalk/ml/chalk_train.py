@@ -15,6 +15,7 @@ from chalk.ml.utils import (
     CHALK_TRAINING_RUN_ID_ENV_VAR,
     MODEL_TRAIN_METADATA_EXPERIMENT_NAME,
     MODEL_TRAIN_METADATA_HYPERPARAMETERS,
+    MODEL_TRAIN_METADATA_OUTPUT_METRICS,
     MODEL_TRAIN_METADATA_RUN_ID,
     MODEL_TRAIN_METADATA_RUN_NAME,
     get_model_metadata_run_name_from_env,
@@ -365,7 +366,8 @@ class Experiment:
         """Create one v2 training run for every hyperparameter combination in the grid.
 
         Each training run's metadata includes a `chalk_model_train_hyperparameters` entry
-        with the hyperparameter values used for that run.
+        with the hyperparameter values used for that run, as well as entries for the
+        experiment name and the expected output metrics.
 
         Returns
         -------
@@ -396,6 +398,7 @@ class Experiment:
                 metadata={
                     MODEL_TRAIN_METADATA_HYPERPARAMETERS: combo,
                     MODEL_TRAIN_METADATA_EXPERIMENT_NAME: self.experiment_name,
+                    MODEL_TRAIN_METADATA_OUTPUT_METRICS: self.output_metrics,
                 },
                 max_retries=self.max_retries,
             )

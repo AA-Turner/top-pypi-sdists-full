@@ -60,6 +60,9 @@ HOOK_ENV_ALLOWLIST = frozenset(
         # Retry kill switch: read at send time in relay._post; must ride the
         # request env or daemon-served hooks silently keep the default retries.
         "RUNLAYER_HOOK_RETRIES",
+        # Plugin routing-context kill switch (hook/plugin_context.py): same
+        # reason as the gzip switch above.
+        "RUNLAYER_PLUGIN_CONTEXT",
         "USERPROFILE",
     }
 )

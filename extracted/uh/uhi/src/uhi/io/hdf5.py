@@ -44,6 +44,36 @@ def _handle_metadata_writer_info(
                 inner_wi_grp.attrs[k] = v
 
 
+def _create_dataset(
+    group: h5py.Group,
+    name: str,
+    data: Any,
+    *,
+    compression: str,
+    compression_opts: int,
+    min_compress_elements: int,
+) -> None:
+    """
+    Create an HDF5 dataset, applying compression only when the element count
+    meets the minimum threshold.
+
+    ``data`` may be a NumPy array, a scalar, or a (possibly nested) Python
+    list (e.g. string categories). The element count comes from
+    ``np.asarray(data).size``, but the original ``data`` goes to h5py
+    unchanged.
+    """
+    size = np.asarray(data).size
+    if size < min_compress_elements:
+        group.create_dataset(name, data=data)
+    else:
+        group.create_dataset(
+            name,
+            data=data,
+            compression=compression,
+            compression_opts=compression_opts,
+        )
+
+
 def write(
     grp: h5py.Group,
     /,
@@ -88,25 +118,23 @@ def write(
         for key, val2 in ax_info.items():
             ax_group.attrs[key] = val2
         if ax_edges is not None:
-            if ax_edges.size < min_compress_elements:
-                ax_group.create_dataset("edges", data=ax_edges)
-            else:
-                ax_group.create_dataset(
-                    "edges",
-                    data=ax_edges,
-                    compression=compression,
-                    compression_opts=compression_opts,
-                )
+            _create_dataset(
+                ax_group,
+                "edges",
+                ax_edges,
+                compression=compression,
+                compression_opts=compression_opts,
+                min_compress_elements=min_compress_elements,
+            )
         if ax_cats is not None:
-            if len(ax_cats) < min_compress_elements:
-                ax_group.create_dataset("categories", data=ax_cats)
-            else:
-                ax_group.create_dataset(
-                    "categories",
-                    data=ax_cats,
-                    compression=compression,
-                    compression_opts=compression_opts,
-                )
+            _create_dataset(
+                ax_group,
+                "categories",
+                ax_cats,
+                compression=compression,
+                compression_opts=compression_opts,
+                min_compress_elements=min_compress_elements,
+            )
         axes_dataset[i] = ax_group.ref
 
     # Storage
@@ -118,16 +146,14 @@ def write(
     for key, val3 in histogram["storage"].items():
         if key == "type":
             continue
-        npvalue = np.asarray(val3)
-        if npvalue.size < min_compress_elements:
-            storage_grp.create_dataset(key, data=npvalue)
-        else:
-            storage_grp.create_dataset(
-                key,
-                data=npvalue,
-                compression=compression,
-                compression_opts=compression_opts,
-            )
+        _create_dataset(
+            storage_grp,
+            key,
+            val3,
+            compression=compression,
+            compression_opts=compression_opts,
+            min_compress_elements=min_compress_elements,
+        )
 
 
 def _convert_item(name: str, item: Any, /) -> Any:
@@ -192,7 +218,9 @@ def read(grp: h5py.Group, /) -> HistogramIR:
     assert isinstance(axes_ref, h5py.Group)
     assert isinstance(axes_grp, h5py.Dataset)
 
-    axes = [_convert_axes(axes_ref[unref_axis_ref]) for unref_axis_ref in axes_ref]
+    # Dereference the ordered ``axes`` dataset rather than iterating the
+    # ``ref_axes`` group, which h5py yields in alphabetical (not numeric) order.
+    axes = [_convert_axes(axes_ref[ref]) for ref in axes_grp]
 
     storage_grp = grp["storage"]
     assert isinstance(storage_grp, h5py.Group)

@@ -40,6 +40,7 @@ __all__ = (
     "MinimumThroughputBillingCommitmentOutputStatusType",
     "PaginatorName",
     "PartitionTransformType",
+    "RecordDistributionStrategyType",
     "RecordFormatTypeType",
     "RegionName",
     "ResourceServiceName",
@@ -84,6 +85,7 @@ MinimumThroughputBillingCommitmentOutputStatusType = Literal[
     "DISABLED", "ENABLED", "ENABLED_UNTIL_EARLIEST_ALLOWED_END"
 ]
 PartitionTransformType = Literal["TIME_HOUR"]
+RecordDistributionStrategyType = Literal["AUTO", "USER_PARTITION_KEY"]
 RecordFormatTypeType = Literal["BYTE_ARRAY", "GSR_JSON", "JSON", "STRING"]
 S3CompressionTypeType = Literal["GZIP", "NONE", "ZSTD"]
 S3StorageClassType = Literal["GLACIER_IR", "INTELLIGENT_TIERING", "STANDARD"]
@@ -383,6 +385,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

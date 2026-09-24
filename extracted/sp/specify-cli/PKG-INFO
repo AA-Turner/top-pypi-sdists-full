@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: specify-cli
-Version: 1.0.10
+Version: 1.0.11
 Summary: Specify CLI, part of GitHub Spec Kit. A tool to bootstrap your projects for Spec-Driven Development (SDD).
 License-File: LICENSE
 Requires-Python: >=3.11
@@ -8,7 +8,6 @@ Requires-Dist: click>=8.2.1
 Requires-Dist: json5>=0.13.0
 Requires-Dist: packaging>=23.0
 Requires-Dist: pathspec>=0.12.0
-Requires-Dist: platformdirs
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: readchar
 Requires-Dist: rich
@@ -33,7 +32,8 @@ Description-Content-Type: text/markdown
 
 <p align="center">
     <strong>English</strong> ·
-    <a href="./README.zh-CN.md">简体中文</a>
+    <a href="./README.zh-CN.md">简体中文</a> ·
+    <a href="./README.ja.md">日本語</a>
 </p>
 
 Spec Kit is an open source toolkit that gives AI coding agents structured

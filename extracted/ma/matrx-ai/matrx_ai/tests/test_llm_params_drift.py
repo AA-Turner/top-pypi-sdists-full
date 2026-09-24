@@ -28,6 +28,10 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     # Ephemeral sibling-offering reroute pin. Executor-owned and deliberately
     # never persisted or exposed as a caller override.
     "runtime_offering_id",
+    # Provider-loop cache identity, derived by send_boundary._set_prompt_cache_key.
+    "prompt_cache_key",
+    # Resolver-owned live-holder provenance; prevents persistence re-freezing structure.
+    "responder_mandate_key",
     # Host-resolved ElevenLabs dictionary locators (aidream/services/dictionary/locators.py)
     "pronunciation_dictionary_locators",
     # Skill-injection bookkeeping — the tool ids the skill-merge pipeline injected
@@ -77,3 +81,9 @@ def test_llm_params_has_no_extra_fields():
         f"Fields in LLMParams but missing from UnifiedConfig: {extra_in_params}. "
         f"Either add them to UnifiedConfig or remove from LLMParams."
     )
+
+
+def test_internal_config_fields_are_not_client_overrides():
+    """Classifying runtime state as internal must also forbid wire exposure."""
+    assert not (UNIFIED_CONFIG_INTERNAL_FIELDS & LLMParams.model_fields.keys())
+    assert not (UNIFIED_CONFIG_INTERNAL_FIELDS & LLMParams.model_json_schema()["properties"].keys())

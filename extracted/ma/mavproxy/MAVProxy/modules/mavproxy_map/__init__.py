@@ -5,7 +5,8 @@ Andrew Tridgell
 June 2012
 '''
 
-import sys, os, math
+import os
+import math
 import functools
 import time
 import datetime
@@ -16,9 +17,20 @@ from MAVProxy.modules.lib.mp_menu import *
 from pymavlink import mavutil
 from PIL import ImageColor
 
+# Older pymavlink releases lack this common.xml command.
+MAV_CMD_NAV_ARC_WAYPOINT = getattr(mavutil.mavlink, "MAV_CMD_NAV_ARC_WAYPOINT", 36)
+MAV_CMD_DO_ORBIT = getattr(mavutil.mavlink, "MAV_CMD_DO_ORBIT", 34)
+
+# pymavlink may not yet carry the enumeration entry for the
+# home-centred inclusion circle.  Fall back to its known value (from
+# development.xml) so we don't raise AttributeError on older pymavlink:
+MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION = getattr(
+    mavutil.mavlink, "MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION", 5005)
+
+
 class MapModule(mp_module.MPModule):
     def __init__(self, mpstate):
-        super(MapModule, self).__init__(mpstate, "map", "map display", public = True, multi_instance=True, multi_vehicle=True)
+        super(MapModule, self).__init__(mpstate, "map", "map display", public=True, multi_instance=True, multi_vehicle=True)
         cmdname = "map"
         if self.instance > 1:
             cmdname += "%u" % self.instance
@@ -50,32 +62,33 @@ class MapModule(mp_module.MPModule):
         self.unload_check_interval = 0.1 # seconds
         self.trajectory_layers = set()
         self.vehicle_type_override = {}
-        self.map_settings = mp_settings.MPSettings(
-            [ ('showgpspos', int, 1),
-              ('showgps2pos', int, 1),
-              ('showsimpos', int, 0),
-              ('showahrspos', int, 1),
-              ('showahrs2pos', int, 0),
-              ('showahrs3pos', int, 0),
-              ('brightness', float, 1),
-              ('rallycircle', bool, False),
-              ('loitercircle',bool, False),
-              ('showclicktime',int, 2),
-              ('showwpnum',bool, True),
-              ('circle_linewidth', int, 1),
-              ('showdirection', bool, False),
-              ('setpos_accuracy', float, 50),
-              ('mission_color', str, "white"),
-              ('font_size', float, 0.5),
-              ('contour_levels', int, 20),
-              ('contour_grid_spacing', float, 30.0),
-              ('contour_grid_extent', float, 20000.0),
-            ])
-        
-        service='MicrosoftHyb'
+        self.map_settings = mp_settings.MPSettings([
+            ('showgpspos', int, 1),
+            ('showgps2pos', int, 1),
+            ('showsimpos', int, 0),
+            ('showahrspos', int, 1),
+            ('showahrs2pos', int, 0),
+            ('showahrs3pos', int, 0),
+            ('brightness', float, 1),
+            ('rallycircle', bool, False),
+            ('loitercircle', bool, False),
+            ('showclicktime', int, 2),
+            ('showwpnum', bool, True),
+            ('circle_linewidth', int, 1),
+            ('showdirection', bool, False),
+            ('setpos_accuracy', float, 50),
+            ('mission_color', str, "white"),
+            ('font_size', float, 0.5),
+            ('contour_levels', int, 20),
+            ('contour_grid_spacing', float, 30.0),
+            ('contour_grid_extent', float, 20000.0),
+        ])
+        self.home_pos = ()
+        self.last_rendered_home_pos = ()
+
+        service = 'MicrosoftHyb'
         if 'MAP_SERVICE' in os.environ:
             service = os.environ['MAP_SERVICE']
-        import platform
         from MAVProxy.modules.mavproxy_map import mp_slipmap
         title = "Map"
         if self.instance > 1:
@@ -87,7 +100,7 @@ class MapModule(mp_module.MPModule):
         self.map = mp_slipmap.MPSlipMap(service=service, elevation=elevation, title=title)
         if self.instance == 1:
             self.mpstate.map = self.map
-            mpstate.map_functions = { 'draw_lines' : self.draw_lines }
+            mpstate.map_functions = {'draw_lines' : self.draw_lines}
 
         self.map.add_callback(functools.partial(self.map_callback))
         self.add_command(cmdname, self.cmd_map, "map control", ['icon',
@@ -102,15 +115,20 @@ class MapModule(mp_module.MPModule):
         self.add_completion_function('(MAPSETTING)', self.map_settings.completion)
 
         self.default_popup = MPMenuSubMenu('Popup', items=[])
-        self.add_menu(MPMenuItem('Fly To', 'Fly To', '# guided ',
-                                 handler=MPMenuCallTextDropdownDialog(title='Altitude', default=self.mpstate.settings.guidedalt,
-                                                                      dropdown_label='Frame',
-                                                                      dropdown_options=['AboveHome','AGL','AMSL'],
-                                                                      default_dropdown=self.settings.flytoframe)))
+        self.add_menu(MPMenuItem(
+            'Fly To', 'Fly To', '# guided ',
+            handler=MPMenuCallTextDropdownDialog(
+                title='Altitude', default=self.mpstate.settings.guidedalt,
+                dropdown_label='Frame',
+                dropdown_options=['AboveHome', 'AGL', 'AMSL'],
+                default_dropdown=self.settings.flytoframe,
+            )
+        ))
         self.add_menu(MPMenuItem('Terrain Check', 'Terrain Check', '# terrain check'))
         self.add_menu(MPMenuItem('Show Position', 'Show Position', 'showPosition'))
         self.add_menu(MPMenuItem('Google Maps Link', 'Google Maps Link', 'printGoogleMapsLink'))
-        self.add_menu(MPMenuItem('Set ROI', 'Set ROI', '# map setroi '))
+        self.camera_roi_items = None
+        self.update_roi_menu()
         self.add_menu(MPMenuItem('Set Position', 'Set Position', '# map setposition '))
         self.add_menu(MPMenuSubMenu('Home', items=[
             MPMenuItem('Set Home', 'Set Home', '# confirm "Set HOME?" map sethomepos '),
@@ -125,26 +143,40 @@ class MapModule(mp_module.MPModule):
 
         self._colour_for_wp_command = {
             # takeoff commands
-            mavutil.mavlink.MAV_CMD_NAV_TAKEOFF: (255,0,0),
-            mavutil.mavlink.MAV_CMD_NAV_TAKEOFF_LOCAL: (255,0,0),
-            mavutil.mavlink.MAV_CMD_NAV_VTOL_TAKEOFF: (255,0,0),
+            mavutil.mavlink.MAV_CMD_NAV_TAKEOFF: (255, 0, 0),
+            mavutil.mavlink.MAV_CMD_NAV_TAKEOFF_LOCAL: (255, 0, 0),
+            mavutil.mavlink.MAV_CMD_NAV_VTOL_TAKEOFF: (255, 0, 0),
 
             # land commands
-            mavutil.mavlink.MAV_CMD_NAV_LAND_LOCAL: (255,255,0),
-            mavutil.mavlink.MAV_CMD_NAV_LAND: (255,255,0),
-            mavutil.mavlink.MAV_CMD_NAV_VTOL_LAND: (255,255,0),
+            mavutil.mavlink.MAV_CMD_NAV_LAND_LOCAL: (255, 255, 0),
+            mavutil.mavlink.MAV_CMD_NAV_LAND: (255, 255, 0),
+            mavutil.mavlink.MAV_CMD_NAV_VTOL_LAND: (255, 255, 0),
 
             # waypoint commands
-            mavutil.mavlink.MAV_CMD_NAV_WAYPOINT: (0,255,255),
-            mavutil.mavlink.MAV_CMD_NAV_SPLINE_WAYPOINT: (64,255,64),
+            mavutil.mavlink.MAV_CMD_NAV_WAYPOINT: (0, 255, 255),
+            mavutil.mavlink.MAV_CMD_NAV_SPLINE_WAYPOINT: (64, 255, 64),
+            MAV_CMD_NAV_ARC_WAYPOINT: (64, 255, 255),
+
+            # circling commands
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_UNLIM: (255, 64, 255),
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_TURNS: (255, 64, 255),
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_TIME: (255, 64, 255),
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_TO_ALT: (255, 64, 255),
+            MAV_CMD_DO_ORBIT: (255, 64, 255),
 
             # other commands
-            mavutil.mavlink.MAV_CMD_DO_LAND_START: (255,127,0),
+            mavutil.mavlink.MAV_CMD_DO_LAND_START: (255, 127, 0),
         }
         self._label_suffix_for_wp_command = {
             mavutil.mavlink.MAV_CMD_NAV_TAKEOFF: "TOff",
             mavutil.mavlink.MAV_CMD_DO_LAND_START: "DLS",
             mavutil.mavlink.MAV_CMD_NAV_SPLINE_WAYPOINT: "SW",
+            MAV_CMD_NAV_ARC_WAYPOINT: "AW",
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_UNLIM: "LU",
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_TURNS: "LT",
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_TIME: "LTime",
+            mavutil.mavlink.MAV_CMD_NAV_LOITER_TO_ALT: "LAlt",
+            MAV_CMD_DO_ORBIT: "Orbit",
             mavutil.mavlink.MAV_CMD_NAV_VTOL_LAND: "VL",
         }
 
@@ -153,6 +185,20 @@ class MapModule(mp_module.MPModule):
             MPMenuItem('Hide Contours', returnkey='hideTerrainContours'),
             MPMenuItem('Remove Contours', returnkey='removeTerrainContours'),
         ]))
+
+    def update_roi_menu(self):
+        """Offer individual camera targets when multiple cameras are discovered."""
+        camera = self.module('camera')
+        items = camera.roi.menu_items() if camera is not None else []
+        if items == self.camera_roi_items:
+            return
+        self.camera_roi_items = items
+        if items:
+            menu = MPMenuSubMenu('Set ROI', items=[
+                MPMenuItem(label, returnkey=command) for label, command in items])
+        else:
+            menu = MPMenuItem('Set ROI', 'Set ROI', '# map setroi ')
+        self.add_menu(menu)
 
     def add_menu(self, menu):
         '''add to the default popup menu'''
@@ -178,7 +224,7 @@ class MapModule(mp_module.MPModule):
             return
         if args[0] == 'add':
             self.cmd_menu_add(args[1:])
-        
+
     def remove_menu(self, menu):
         '''add to the default popup menu'''
         from MAVProxy.modules.mavproxy_map import mp_slipmap
@@ -189,7 +235,7 @@ class MapModule(mp_module.MPModule):
         '''show map position click information'''
         pos = self.mpstate.click_location
         dms = (mp_util.degrees_to_dms(pos[0]), mp_util.degrees_to_dms(pos[1]))
-        msg =  "Coordinates in WGS84\n"
+        msg = "Coordinates in WGS84\n"
         msg += "Decimal: %.6f %.6f\n" % (pos[0], pos[1])
         msg += "DMS:     %s %s\n" % (dms[0], dms[1])
         msg += "Grid:    %s\n" % mp_util.latlon_to_grid(pos)
@@ -216,7 +262,7 @@ class MapModule(mp_module.MPModule):
 
     def cmd_map_marker(self, args, latlon=None):
         '''add a map marker'''
-        usage = "Usage: map marker <icon>"
+        # usage = "Usage: map marker <icon>"
         if latlon is None:
             latlon = self.mpstate.click_location
         if latlon is None:
@@ -234,8 +280,8 @@ class MapModule(mp_module.MPModule):
 
         icon = self.map.icon(flag)
         self.map.add_object(mp_slipmap.SlipIcon(
-            'icon - %s [%u]' % (str(flag),self.icon_counter),
-            (float(lat),float(lon)),
+            'icon - %s [%u]' % (str(flag), self.icon_counter),
+            (float(lat), float(lon)),
             icon, layer=3, rotation=0, follow=False))
         self.icon_counter += 1
         now = time.time()
@@ -244,10 +290,10 @@ class MapModule(mp_module.MPModule):
         millis = int(subsec * 1000)
         fname = "marker_%s_%03u.json" % (tstr, millis)
 
-        gpi = self.master.messages.get('GLOBAL_POSITION_INT',None)
-        att = self.master.messages.get('ATTITUDE',None)
+        gpi = self.master.messages.get('GLOBAL_POSITION_INT', None)
+        att = self.master.messages.get('ATTITUDE', None)
 
-        self.write_JSON(fname,'''{
+        self.write_JSON(fname, '''{
 "marker" : {{MARKER}},
 "text" : "{{TEXT}}",
 "tsec" : {{TIMESEC}},
@@ -308,8 +354,8 @@ class MapModule(mp_module.MPModule):
 
             icon = self.map.icon(flag)
             self.map.add_object(mp_slipmap.SlipIcon(
-                'icon - %s [%u]' % (str(flag),self.icon_counter),
-                (float(lat),float(lon)),
+                'icon - %s [%u]' % (str(flag), self.icon_counter),
+                (float(lat), float(lon)),
                 icon, layer=3, rotation=0, follow=False))
             self.icon_counter += 1
 
@@ -390,11 +436,11 @@ Usage: map circle <radius> <colour>
             colour = "red"
 
         if colour == "red":
-            colour = (255,0,0)
+            colour = (255, 0, 0)
         elif colour == "green":
-            colour = (0,255,0)
+            colour = (0, 255, 0)
         elif colour == "blue":
-            colour = (0,0,255)
+            colour = (0, 0, 255)
         else:
             colour = eval(colour)
 
@@ -413,7 +459,7 @@ Usage: map circle <radius> <colour>
         '''return a tuple describing the colour a waypoint should appear on the map'''
         wp = self.module('wp').wploader.wp(wp_num)
         command = wp.command
-        return self._colour_for_wp_command.get(command, (0,255,0))
+        return self._colour_for_wp_command.get(command, (0, 255, 0))
 
     def label_for_waypoint(self, wp_num):
         '''return the label the waypoint which should appear on the map'''
@@ -429,18 +475,26 @@ Usage: map circle <radius> <colour>
         self.mission_list = self.module('wp').wploader.view_list()
         polygons = self.module('wp').wploader.polygon_list()
         self.map.add_object(mp_slipmap.SlipClearLayer('Mission'))
-        items = [MPMenuItem('WP Set', returnkey='popupMissionSet'),
-                     MPMenuItem('WP Remove', returnkey='popupMissionRemove'),
-                     MPMenuItem('WP Move', returnkey='popupMissionMove'),
-                     MPMenuItem('WP Split', returnkey='popupMissionSplit'),
-                    ]
+        items = [
+            MPMenuItem('WP Set', returnkey='popupMissionSet'),
+            MPMenuItem('WP Remove', returnkey='popupMissionRemove'),
+            MPMenuItem('WP Move', returnkey='popupMissionMove'),
+            MPMenuItem('WP Split', returnkey='popupMissionSplit'),
+        ]
         for i in range(len(polygons)):
             p = polygons[i]
             if len(p) > 1:
                 popup = MPMenuSubMenu('Popup', items)
-                self.map.add_object(mp_slipmap.SlipPolygon('mission %u' % i, p,
-                                                                   layer='Mission', linewidth=2, colour=ImageColor.getrgb(self.map_settings.mission_color),
-                                                                   arrow = self.map_settings.showdirection, popup_menu=popup))
+                self.map.add_object(mp_slipmap.SlipPolygon(
+                    'mission %u' % i,
+                    p,
+                    layer='Mission',
+                    linewidth=2,
+                    colour=ImageColor.getrgb(self.map_settings.mission_color),
+                    arrow=self.map_settings.showdirection, popup_menu=popup,
+                    arcs=mp_slipmap.mission_arcs(
+                        self.module('wp').wploader, self.mission_list[i]),
+                ))
         labeled_wps = {}
         self.map.add_object(mp_slipmap.SlipClearLayer('LoiterCircles'))
         if not self.map_settings.showwpnum:
@@ -449,30 +503,30 @@ Usage: map circle <radius> <colour>
         for i in range(len(self.mission_list)):
             next_list = self.mission_list[i]
             for j in range(len(next_list)):
-                #label already printed for this wp?
+                # label already printed for this wp?
                 if (next_list[j] not in labeled_wps):
                     label = self.label_for_waypoint(next_list[j])
                     colour = self.colour_for_wp(next_list[j])
                     self.map.add_object(mp_slipmap.SlipLabel(
-                        'miss_cmd %u/%u' % (i,j), polygons[i][j], label, 'Mission', colour=colour, size=font_size))
+                        'miss_cmd %u/%u' % (i, j), polygons[i][j], label, 'Mission', colour=colour, size=font_size))
 
-                    if (self.map_settings.loitercircle and
-                        self.module('wp').wploader.wp_is_loiter(next_list[j])):
-                        wp = self.module('wp').wploader.wp(next_list[j])                    
-                        if wp.command != mavutil.mavlink.MAV_CMD_NAV_LOITER_TO_ALT and wp.param3 != 0:
-                            # wp radius and direction is defined by the mission
-                            loiter_rad = wp.param3
-                        elif wp.command == mavutil.mavlink.MAV_CMD_NAV_LOITER_TO_ALT and wp.param2 != 0:
-                            # wp radius and direction is defined by the mission
-                            loiter_rad = wp.param2
-                        else:
-                            # wp radius and direction is defined by the parameter
-                            loiter_rad = self.get_mav_param('WP_LOITER_RAD')
-                            
-                        self.map.add_object(mp_slipmap.SlipCircle('Loiter Circle %u' % (next_list[j] + 1), 'LoiterCircles', polygons[i][j],
-                                                                          loiter_rad, (255, 255, 255), 2, arrow = self.map_settings.showdirection))
+                    if self.map_settings.loitercircle:
+                        wp = self.module('wp').wploader.wp(next_list[j])
+                        loiter_rad = mp_slipmap.mission_circle_radius(
+                            wp, self.default_circle_radius(),
+                            self.vehicle_type)
+                        if loiter_rad is not None:
+                            self.map.add_object(mp_slipmap.SlipCircle(
+                                'Loiter Circle %u' % (next_list[j] + 1),
+                                'LoiterCircles',
+                                polygons[i][j],
+                                loiter_rad,
+                                (255, 255, 255),
+                                2,
+                                arrow=self.map_settings.showdirection,
+                            ))
 
-                    labeled_wps[next_list[j]] = (i,j)
+                    labeled_wps[next_list[j]] = (i, j)
 
     # Start: handling of PolyFence popup menu items
     def polyfence_remove_circle(self, id):
@@ -534,11 +588,14 @@ Usage: map circle <radius> <colour>
     def display_polyfences_circles(self, circles, colour):
         '''draws circles in the PolyFence layer with colour colour'''
         for circle in circles:
-            lat = circle.x
-            lng = circle.y
-            if circle.get_type() == 'MISSION_ITEM_INT':
-                lat *= 1e-7
-                lng *= 1e-7
+            if circle.command == MAV_CMD_NAV_FENCE_HOME_CIRCLE_INCLUSION:
+                (lat, lng) = self.home_pos
+            else:
+                lat = circle.x
+                lng = circle.y
+                if circle.get_type() == 'MISSION_ITEM_INT':
+                    lat *= 1e-7
+                    lng *= 1e-7
             items = [
                 MPMenuItem('Remove Circle', returnkey='popupPolyFenceRemoveCircle'),
                 MPMenuItem('Move Circle', returnkey='popupPolyFenceMoveCircle'),
@@ -559,6 +616,11 @@ Usage: map circle <radius> <colour>
         '''draws inclusion circles in the PolyFence layer with colour colour'''
         inclusions = self.module('fence').inclusion_circles()
         self.display_polyfences_circles(inclusions, (0, 255, 0))
+
+    def display_polyfences_home_inclusion_circles(self):
+        '''draws around-inclusion circles in the PolyFence layer'''
+        inclusions = self.module('fence').home_inclusion_circles()
+        self.display_polyfences_circles(inclusions, (0, 255, 96))
 
     def display_polyfences_exclusion_circles(self):
         '''draws exclusion circles in the PolyFence layer with colour colour'''
@@ -615,7 +677,7 @@ Usage: map circle <radius> <colour>
             'PolyFence',
             (lat, lng),
             10,
-            (255,127,127),
+            (255, 127, 127),
             2,
             popup_menu=popup,
         ))
@@ -634,6 +696,7 @@ Usage: map circle <radius> <colour>
         '''draws PolyFence items in the PolyFence layer'''
         self.map.add_object(mp_slipmap.SlipClearLayer('PolyFence'))
         self.display_polyfences_inclusion_circles()
+        self.display_polyfences_home_inclusion_circles()
         self.display_polyfences_exclusion_circles()
         self.display_polyfences_inclusion_polygons()
         self.display_polyfences_exclusion_polygons()
@@ -652,11 +715,27 @@ Usage: map circle <radius> <colour>
         points = self.module('fence').fenceloader.polygon()
         self.map.add_object(mp_slipmap.SlipClearLayer('Fence'))
         if len(points) > 1:
-            popup = MPMenuSubMenu('Popup',
-                                  items=[MPMenuItem('FencePoint Remove', returnkey='popupFenceRemove'),
-                                         MPMenuItem('FencePoint Move', returnkey='popupFenceMove')])
-            self.map.add_object(mp_slipmap.SlipPolygon('Fence', points, layer=1,
-                                                               linewidth=2, colour=(0,255,0), popup_menu=popup))
+            popup = MPMenuSubMenu(
+                'Popup',
+                items=[
+                    MPMenuItem(
+                        'FencePoint Remove',
+                        returnkey='popupFenceRemove',
+                    ),
+                    MPMenuItem(
+                        'FencePoint Move',
+                        returnkey='popupFenceMove',
+                    ),
+                ],
+            )
+            self.map.add_object(mp_slipmap.SlipPolygon(
+                'Fence',
+                points,
+                layer=1,
+                linewidth=2,
+                colour=(0, 255, 0),
+                popup_menu=popup,
+            ))
         else:
             self.map.remove_object('Fence')
 
@@ -841,7 +920,7 @@ Usage: map circle <radius> <colour>
             return
         elif obj.event.leftIsDown:
             if (self.mpstate.click_time is None or
-                time.time() - self.mpstate.click_time > 0.1):
+                    time.time() - self.mpstate.click_time > 0.1):
                 self.mpstate.click(obj.latlon)
                 self.drawing_update()
 
@@ -850,7 +929,7 @@ Usage: map circle <radius> <colour>
                 self.drawing_end()
                 return
             if (self.mpstate.click_time is None or
-                time.time() - self.mpstate.click_time > 0.1):
+                    time.time() - self.mpstate.click_time > 0.1):
                 self.mpstate.click(obj.latlon)
 
         if obj.event.leftIsDown and self.moving_circle is not None:
@@ -890,6 +969,7 @@ Usage: map circle <radius> <colour>
             self.mpstate.map_functions = {}
 
     def idle_task(self):
+        self.update_roi_menu()
         now = time.time()
         if self.last_unload_check_time + self.unload_check_interval < now:
             self.last_unload_check_time = now
@@ -908,11 +988,17 @@ Usage: map circle <radius> <colour>
             return
         self.have_vehicle[name] = vehicle_type
         icon = self.map.icon(colour + vehicle_type + '.png')
-        self.map.add_object(mp_slipmap.SlipIcon(name, (0,0), icon, layer=3, rotation=0, follow=follow,
-                                                   trail=mp_slipmap.SlipTrail()))
+        self.map.add_object(mp_slipmap.SlipIcon(
+            name,
+            (0, 0),
+            icon,
+            layer=3,
+            rotation=0,
+            follow=follow,
+            trail=mp_slipmap.SlipTrail(),
+        ))
 
     def remove_vehicle_icon(self, name, vehicle_type=None):
-        from MAVProxy.modules.mavproxy_map import mp_slipmap
         if vehicle_type is None:
             vehicle_type = self.vehicle_type_name
         if name not in self.have_vehicle or self.have_vehicle[name] != vehicle_type:
@@ -927,8 +1013,13 @@ Usage: map circle <radius> <colour>
             return
         self.draw_line.append(self.mpstate.click_location)
         if len(self.draw_line) > 1:
-            self.map.add_object(mp_slipmap.SlipPolygon('drawing', self.draw_line,
-                                                          layer='Drawing', linewidth=2, colour=self.draw_colour))
+            self.map.add_object(mp_slipmap.SlipPolygon(
+                'drawing',
+                self.draw_line,
+                layer='Drawing',
+                linewidth=2,
+                colour=self.draw_colour,
+            ))
 
     def drawing_end(self):
         '''end line drawing'''
@@ -940,7 +1031,7 @@ Usage: map circle <radius> <colour>
         self.map.add_object(mp_slipmap.SlipDefaultPopup(self.default_popup, combine=True))
         self.map.add_object(mp_slipmap.SlipClearLayer('Drawing'))
 
-    def draw_lines(self, callback, colour=(128,128,255)):
+    def draw_lines(self, callback, colour=(128, 128, 255)):
         '''draw a series of connected lines on the map, calling callback when done'''
         from MAVProxy.modules.mavproxy_map import mp_slipmap
         self.draw_callback = callback
@@ -986,9 +1077,15 @@ Usage: map circle <radius> <colour>
     def cmd_set_roi(self, args):
         '''called when user selects "Set ROI" on map'''
         (lat, lon) = (self.mpstate.click_location[0], self.mpstate.click_location[1])
-        alt = self.module('terrain').ElevationModel.GetElevation(lat, lon)
+        terrain = self.module('terrain')
+        if terrain is None:
+            print("Unable to set ROI: terrain module is not loaded")
+            return
+        alt = terrain.ElevationModel.GetElevation(lat, lon)
+        if alt is None or not math.isfinite(alt):
+            print("Unable to set ROI: terrain elevation unavailable at %.7f %.7f; try again when terrain data is available" % (lat, lon))
+            return
         print("Setting ROI to: ", lat, lon, alt)
-        self.current_ROI = (lat,lon,alt)
         self.master.mav.command_int_send(
             self.settings.target_system, self.settings.target_component,
             mavutil.mavlink.MAV_FRAME_GLOBAL,
@@ -1002,13 +1099,13 @@ Usage: map circle <radius> <colour>
             int(lat*1e7), # lat
             int(lon*1e7), # lon
             alt) # param7
+        self.current_ROI = (lat, lon, alt)
 
     def cmd_set_position(self, args):
         '''called when user selects "Set Position" on map'''
         (lat, lon) = (self.mpstate.click_location[0], self.mpstate.click_location[1])
         accuracy = self.map_settings.setpos_accuracy
         print("Setting position to (%.7f %.7f) with accuracy %.1fm" % (lat, lon, accuracy))
-        now = time.time()
         self.master.mav.command_int_send(
             self.settings.target_system, self.settings.target_component,
             mavutil.mavlink.MAV_FRAME_GLOBAL,
@@ -1022,7 +1119,7 @@ Usage: map circle <radius> <colour>
             int(lat*1e7), # lat
             int(lon*1e7), # lon
             float('NaN')) # alt, send as NaN for ignore
-            
+
     def cmd_set_origin(self, args):
         '''called when user selects "Set Origin (with height)" on map'''
         (lat, lon) = (self.mpstate.click_location[0], self.mpstate.click_location[1])
@@ -1086,7 +1183,7 @@ Usage: map circle <radius> <colour>
         agl = m.alt * 0.001 - alt
         agl_s = str(int(agl)) + 'm'
         self.create_vehicle_icon('VehiclePos2', 'blue', follow=False, vehicle_type='plane')
-        self.map.set_position('VehiclePos2', (lat, lon), rotation=heading, label=agl_s, colour=(0,255,255))
+        self.map.set_position('VehiclePos2', (lat, lon), rotation=heading, label=agl_s, colour=(0, 255, 255))
 
     def update_vehicle_icon(self, name, vehicle, colour, m, display):
         '''update display of a vehicle on the map.  m is expected to store
@@ -1120,38 +1217,12 @@ Usage: map circle <radius> <colour>
         sysid = m.get_srcSystem()
 
         if mtype == "HEARTBEAT" or mtype == "HIGH_LATENCY2":
-            vname = None
             vtype = self.vehicle_type_override.get(sysid, m.type)
-            if vtype in [mavutil.mavlink.MAV_TYPE_FIXED_WING,
-                            mavutil.mavlink.MAV_TYPE_VTOL_DUOROTOR,
-                            mavutil.mavlink.MAV_TYPE_VTOL_QUADROTOR,
-                            mavutil.mavlink.MAV_TYPE_VTOL_TILTROTOR]:
-                vname = 'plane'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_GROUND_ROVER]:
-                vname = 'rover'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_SUBMARINE]:
-                vname = 'sub'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_SURFACE_BOAT]:
-                vname = 'boat'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_QUADROTOR,
-                            mavutil.mavlink.MAV_TYPE_HEXAROTOR,
-                            mavutil.mavlink.MAV_TYPE_OCTOROTOR,
-                            mavutil.mavlink.MAV_TYPE_TRICOPTER,
-                            mavutil.mavlink.MAV_TYPE_DODECAROTOR,
-                            mavutil.mavlink.MAV_TYPE_DECAROTOR]:
-                vname = 'copter'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_COAXIAL]:
-                vname = 'singlecopter'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_HELICOPTER]:
-                vname = 'heli'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_ANTENNA_TRACKER]:
-                vname = 'antenna'
-            elif vtype in [mavutil.mavlink.MAV_TYPE_AIRSHIP]:
-                vname = 'blimp'
+            vname = mp_util.vehicle_type_name(vtype)
             if vname is not None:
                 self.vehicle_type_by_sysid[sysid] = vname
 
-        if not sysid in self.vehicle_type_by_sysid:
+        if sysid not in self.vehicle_type_by_sysid:
             self.vehicle_type_by_sysid[sysid] = 'plane'
         self.vehicle_type_name = self.vehicle_type_by_sysid[sysid]
 
@@ -1171,15 +1242,15 @@ Usage: map circle <radius> <colour>
                 if m.vel > 300 or m.get_srcSystem() not in self.lat_lon_heading:
                     heading = m.cog*0.01
                 else:
-                    (_,_,heading) = self.lat_lon_heading[m.get_srcSystem()]
+                    (_, _, heading) = self.lat_lon_heading[m.get_srcSystem()]
                 self.update_vehicle_icon_to_loc('GPS', vehicle, 'blue', self.map_settings.showgpspos, (lat, lon), heading)
         elif mtype == "GPS2_RAW":
             (lat, lon) = (m.lat*1.0e-7, m.lon*1.0e-7)
             if lat != 0 or lon != 0:
-                self.update_vehicle_icon_to_loc('GPS2', vehicle, 'green', self.map_settings.showgps2pos, (lat, lon), m.cog*0.01)
+                self.update_vehicle_icon_to_loc('GPS2', vehicle, 'green', self.map_settings.showgps2pos, (lat, lon), m.cog*0.01)  # noqa:E501
         elif mtype == 'GLOBAL_POSITION_INT':
             (lat, lon, heading) = (m.lat*1.0e-7, m.lon*1.0e-7, m.hdg*0.01)
-            self.lat_lon_heading[m.get_srcSystem()] = (lat,lon,heading)
+            self.lat_lon_heading[m.get_srcSystem()] = (lat, lon, heading)
             if self.map_settings.showahrspos:
                 if abs(lat) > 1.0e-3 or abs(lon) > 1.0e-3:
                     self.have_global_position = True
@@ -1188,7 +1259,7 @@ Usage: map circle <radius> <colour>
                         label = str(sysid)
                     else:
                         label = None
-                    self.map.set_position('Pos' + vehicle, (lat, lon), rotation=heading, label=label, colour=(255,255,255))
+                    self.map.set_position('Pos' + vehicle, (lat, lon), rotation=heading, label=label, colour=(255, 255, 255))
                     self.map.set_follow_object('Pos' + vehicle, self.message_is_from_primary_vehicle(m))
             else:
                 self.remove_vehicle_icon('Pos' + vehicle)
@@ -1203,26 +1274,37 @@ Usage: map circle <radius> <colour>
                     label = str(sysid)
                 else:
                     label = None
-                self.map.set_position('Pos' + vehicle, (lat, lon), rotation=cog, label=label, colour=(255,255,255))
+                self.map.set_position('Pos' + vehicle, (lat, lon), rotation=cog, label=label, colour=(255, 255, 255))
                 self.map.set_follow_object('Pos' + vehicle, self.message_is_from_primary_vehicle(m))
 
         elif mtype == 'HOME_POSITION':
-            (lat, lon) = (m.latitude*1.0e-7, m.longitude*1.0e-7)
+            self.home_pos = (m.latitude*1.0e-7, m.longitude*1.0e-7)
             icon = self.map.icon('home.png')
-            self.map.add_object(mp_slipmap.SlipIcon('HOME_POSITION',
-                                                            (lat,lon),
-                                                            icon, layer=3, rotation=0, follow=False))
+            self.map.add_object(mp_slipmap.SlipIcon(
+                'HOME_POSITION',
+                self.home_pos,
+                icon,
+                layer=3,
+                rotation=0,
+                follow=False,
+            ))
 
         elif mtype == "NAV_CONTROLLER_OUTPUT":
             tlayer = 'Trajectory%u' % m.get_srcSystem()
-            if (self.master.flightmode in [ "AUTO", "GUIDED", "LOITER", "RTL", "QRTL", "QLOITER", "QLAND", "FOLLOW", "ZIGZAG" ] and
-                m.get_srcSystem() in self.lat_lon_heading):
-                (lat,lon,_) = self.lat_lon_heading[m.get_srcSystem()]
-                trajectory = [ (lat, lon),
-                                mp_util.gps_newpos(lat, lon, m.target_bearing, m.wp_dist) ]
-                self.map.add_object(mp_slipmap.SlipPolygon('trajectory',
-                                                           trajectory, layer=tlayer,
-                                                               linewidth=2, colour=(255,0,180)))
+            if (self.master.flightmode in ["AUTO", "GUIDED", "LOITER", "RTL", "QRTL", "QLOITER", "QLAND", "FOLLOW", "ZIGZAG"] and  # noqa:E501
+                    m.get_srcSystem() in self.lat_lon_heading):
+                (lat, lon, _) = self.lat_lon_heading[m.get_srcSystem()]
+                trajectory = [
+                    (lat, lon),
+                    mp_util.gps_newpos(lat, lon, m.target_bearing, m.wp_dist)
+                ]
+                self.map.add_object(mp_slipmap.SlipPolygon(
+                    'trajectory',
+                    trajectory,
+                    layer=tlayer,
+                    linewidth=2,
+                    colour=(255, 0, 180),
+                ))
                 self.trajectory_layers.add(tlayer)
             else:
                 if tlayer in self.trajectory_layers:
@@ -1234,17 +1316,16 @@ Usage: map circle <radius> <colour>
             if not m.get_srcSystem() in self.lat_lon_heading:
                 return
             tlayer = 'PostionTarget%u' % m.get_srcSystem()
-            (lat,lon,_) = self.lat_lon_heading[m.get_srcSystem()]
-            if (self.master.flightmode in [ "AUTO", "GUIDED", "LOITER", "RTL", "QRTL", "QLOITER", "QLAND", "FOLLOW" ]):
+            (lat, lon, _) = self.lat_lon_heading[m.get_srcSystem()]
+            if (self.master.flightmode in ["AUTO", "GUIDED", "LOITER", "RTL", "QRTL", "QLOITER", "QLAND", "FOLLOW"]):
                 lat_float = m.lat_int*1e-7
                 lon_float = m.lon_int*1e-7
-                vec = [ (lat_float, lon_float),
-                        (lat, lon) ]
+                vec = [(lat_float, lon_float), (lat, lon)]
                 self.map.add_object(mp_slipmap.SlipPolygon('position_target',
                                                            vec,
                                                            layer=tlayer,
                                                            linewidth=2,
-                                                           colour=(0,255,0)))
+                                                           colour=(0, 255, 0)))
             else:
                 self.map.add_object(mp_slipmap.SlipClearLayer(tlayer))
 
@@ -1270,7 +1351,7 @@ Usage: map circle <radius> <colour>
             self.wp_change_time = last_wp_change
             self.display_waypoints()
 
-            #this may have affected the landing lines from the rally points:
+            # this may have affected the landing lines from the rally points:
             self.rally_change_time = time.time()
 
     def check_redisplay_fencepoints(self):
@@ -1283,39 +1364,59 @@ Usage: map circle <radius> <colour>
             else:
                 # old fence module
                 last_change = fence_module.fenceloader.last_change
-            if self.fence_change_time != last_change:
+            if (self.fence_change_time != last_change or
+                    self.home_pos != self.last_rendered_home_pos):
                 self.fence_change_time = last_change
+                self.last_rendered_home_pos = self.home_pos
                 self.display_fence()
 
     def check_redisplay_rallypoints(self):
         # if the rallypoints have changed, redisplay
         if (self.module('rally') and
-            self.rally_change_time != self.module('rally').last_change()):
+                self.rally_change_time != self.module('rally').last_change()):
             self.rally_change_time = self.module('rally').last_change()
             icon = self.map.icon('rallypoint.png')
+            from MAVProxy.modules.mavproxy_map import mp_slipmap
             self.map.add_object(mp_slipmap.SlipClearLayer('RallyPoints'))
             for i in range(self.module('rally').rally_count()):
                 rp = self.module('rally').rally_point(i)
-                popup = MPMenuSubMenu('Popup',
-                                      items=[MPMenuItem('Rally Remove', returnkey='popupRallyRemove'),
-                                             MPMenuItem('Rally Move', returnkey='popupRallyMove')])
-                self.map.add_object(mp_slipmap.SlipIcon('Rally %u' % (i+1), (rp.lat*1.0e-7, rp.lng*1.0e-7), icon,
-                                                                layer='RallyPoints', rotation=0, follow=False,
-                                                                popup_menu=popup))
+                popup = MPMenuSubMenu(
+                    'Popup',
+                    items=[
+                        MPMenuItem('Rally Remove', returnkey='popupRallyRemove'),
+                        MPMenuItem('Rally Move', returnkey='popupRallyMove'),
+                    ]
+                )
+                self.map.add_object(mp_slipmap.SlipIcon(
+                    'Rally %u' % (i+1),
+                    (rp.lat*1.0e-7, rp.lng*1.0e-7),
+                    icon,
+                    layer='RallyPoints',
+                    rotation=0,
+                    follow=False,
+                    popup_menu=popup,
+                ))
 
                 loiter_rad = self.get_mav_param('WP_LOITER_RAD')
 
                 if self.map_settings.rallycircle:
-                    self.map.add_object(mp_slipmap.SlipCircle('Rally Circ %u' % (i+1), 'RallyPoints', (rp.lat*1.0e-7, rp.lng*1.0e-7),
-                                                                      loiter_rad, (255,255,0), 2, arrow = self.map_settings.showdirection))
+                    self.map.add_object(mp_slipmap.SlipCircle(
+                        'Rally Circ %u' % (i+1),
+                        'RallyPoints',
+                        (rp.lat*1.0e-7, rp.lng*1.0e-7),
+                        loiter_rad,
+                        (255, 255, 0),
+                        2,
+                        arrow=self.map_settings.showdirection,
+                    ))
 
-                #draw a line between rally point and nearest landing point
+                # draw a line between rally point and nearest landing point
                 nearest_land_wp = None
                 nearest_distance = 10000000.0
                 for j in range(self.module('wp').wploader.count()):
                     w = self.module('wp').wploader.wp(j)
-                    if (w.command == 21): #if landing waypoint
-                        #get distance between rally point and this waypoint
+                    if (w.command == 21): # if landing waypoint
+                        # get distance between rally point and this waypoint
                         dis = mp_util.gps_distance(w.x, w.y, rp.lat*1.0e-7, rp.lng*1.0e-7)
                         if (dis < nearest_distance):
                             nearest_land_wp = w
@@ -1323,20 +1424,26 @@ Usage: map circle <radius> <colour>
 
                 if nearest_land_wp is not None:
                     points = []
-                    #tangential approach?
+                    # tangential approach?
                     if self.get_mav_param('LAND_BREAK_PATH') == 0:
                         theta = math.degrees(math.atan(loiter_rad / nearest_distance))
                         tan_dis = math.sqrt(nearest_distance * nearest_distance - (loiter_rad * loiter_rad))
 
-                        ral_bearing = mp_util.gps_bearing(nearest_land_wp.x, nearest_land_wp.y,rp.lat*1.0e-7, rp.lng*1.0e-7)
+                        ral_bearing = mp_util.gps_bearing(nearest_land_wp.x, nearest_land_wp.y, rp.lat*1.0e-7, rp.lng*1.0e-7)
 
-                        points.append(mp_util.gps_newpos(nearest_land_wp.x,nearest_land_wp.y, ral_bearing + theta, tan_dis))
+                        points.append(mp_util.gps_newpos(nearest_land_wp.x, nearest_land_wp.y, ral_bearing + theta, tan_dis))
 
-                    else: #not tangential approach
+                    else:  # not tangential approach
                         points.append((rp.lat*1.0e-7, rp.lng*1.0e-7))
 
                     points.append((nearest_land_wp.x, nearest_land_wp.y))
-                    self.map.add_object(mp_slipmap.SlipPolygon('Rally Land %u' % (i+1), points, 'RallyPoints', (255,255,0), 2))
+                    self.map.add_object(mp_slipmap.SlipPolygon(
+                        'Rally Land %u' % (i+1),
+                        points,
+                        'RallyPoints',
+                        (255, 255, 0),
+                        2,
+                    ))
 
     def display_terrain_contours(self):
         """
@@ -1347,7 +1454,7 @@ Usage: map circle <radius> <colour>
 
         # configure matplotlib for non-gui use
         import matplotlib
-        matplotlib.use('Agg') 
+        matplotlib.use('Agg')
 
         # disable interactive plotting mode
         import matplotlib.pyplot as plt
@@ -1414,7 +1521,7 @@ Usage: map circle <radius> <colour>
 
         # generate surface and contours
         z_grid = np.array(terrain_surface(lat, lon, x, y))
-        _, (ax1) = plt.subplots(1, 1, figsize=(10,10))
+        _, (ax1) = plt.subplots(1, 1, figsize=(10, 10))
         cs = ax1.contour(x_grid, y_grid, z_grid, levels=levels)
         contours = ned_to_latlon(cs.allsegs, lat, lon)
 
@@ -1428,7 +1535,7 @@ Usage: map circle <radius> <colour>
             for j in range(len(polygons)):
                 p = polygons[j]
                 if len(p) > 1:
-                    id = f"terrain {i} {j}" 
+                    id = f"terrain {i} {j}"
                     self.terrain_contour_ids.append(id)
                     contour_colour = (255, 255, 255)
                     self.map.add_object(mp_slipmap.SlipPolygon(

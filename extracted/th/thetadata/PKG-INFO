@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: thetadata
-Version: 1.0.10
+Version: 1.0.11
 Summary: Python client library for ThetaData market data APIs
 Project-URL: Homepage, https://www.thetadata.net
 Project-URL: Repository, https://github.com/AXIOMXLLC/python_library

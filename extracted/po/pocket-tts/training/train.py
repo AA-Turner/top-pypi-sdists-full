@@ -43,6 +43,7 @@ from training.train_utils import (
     ProgressLog,
     _compile_models,
     add_file_logging,
+    build_optimizer,
     ensure_train_latents,
     git_commit,
     lr_at,
@@ -112,6 +113,10 @@ def setup(config_path: str) -> Run:
         save_args(args, run_dir / "args.yaml")
 
     model, mimi, _config = build_models(args)
+    if args.freeze_head:
+        for name, p in model.named_parameters():
+            if "flow_net." in name:
+                p.requires_grad_(False)
     model.to(device)
     mimi.to(device)
     ensure_train_latents(args, mimi, device, rank, world_size)
@@ -119,14 +124,7 @@ def setup(config_path: str) -> Run:
     if rank == 0:
         logger.info(f"flow_lm + objective: {n_params / 1e6:.1f}M trainable params")
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=args.optim.lr,
-        betas=args.optim.betas,
-        eps=args.optim.eps,
-        weight_decay=args.optim.weight_decay,
-        fused=device.type == "cuda",
-    )
+    optimizer = build_optimizer(model, args, device, rank)
     ema = EMA(model, args.ema_decay) if args.ema_decay > 0 else None
 
     start_step = 0
@@ -170,27 +168,29 @@ def main(config_path: str):
     optimizer, ema, device, rank = run.optimizer, run.ema, run.device, run.rank
     progress, start_step = run.progress, run.start_step
 
-    sentence_piece = model.flow_lm.conditioner.tokenizer.sp
+    sentence_piece = model.flow_lm.conditioner.tokenizer
     tokenize = sentence_piece.encode
-    train_loader = iter(
-        SubprocessDataLoader(
-            args.data.train_jsonl,
-            sentence_piece,
-            args.batch_size,
-            mimi.sample_rate,
-            mimi.frame_rate,
-            args.data.max_duration_sec,
-            args.data.max_voice_prompt_sec,
-            rank,
-            run.world_size,
-            # Fold the resume step into the seed: the loader keeps no state
-            # across restarts, so a fixed seed would replay the same
-            # permutation from the top and bias coverage toward its head.
-            seed=args.seed + start_step,
-            shuffle=args.data.shuffle,
-            num_procs=args.data.loader_procs,
-        )
+    train_data = SubprocessDataLoader(
+        args.data.train_jsonl,
+        sentence_piece,
+        args.batch_size,
+        mimi.sample_rate,
+        mimi.frame_rate,
+        args.data.max_duration_sec,
+        args.data.max_voice_prompt_sec,
+        rank,
+        run.world_size,
+        # Fold the resume step into the seed: the loader keeps no state
+        # across restarts, so a fixed seed would replay the same
+        # permutation from the top and bias coverage toward its head.
+        seed=args.seed + start_step,
+        shuffle=args.data.shuffle,
+        num_procs=args.data.loader_procs,
+        num_bucket_batches=args.data.num_bucket_batches,
+        prompt_trim_max_sec=args.data.prompt_trim_max_sec,
+        final_punct_dropout=args.data.final_punct_dropout,
     )
+    train_loader = iter(train_data)
 
     autocast = torch.autocast(
         device_type=device.type, dtype=torch.bfloat16, enabled=device.type == "cuda"
@@ -215,7 +215,7 @@ def main(config_path: str):
         step_start = time.time()
         lr = lr_at(step, args)
         for group in optimizer.param_groups:
-            group["lr"] = lr
+            group["lr"] = lr * group.get("lr_scale", 1.0)
         optimizer.zero_grad()
         for micro in range(args.grad_accum_steps):
             batch = next(train_loader)
@@ -260,6 +260,7 @@ def main(config_path: str):
                     args.run_dir, step + 1, model, optimizer, ema, args.num_ckpt_keep, mimi
                 )
                 progress.log("checkpoint", step + 1)
+            train_data.close()
             shutdown_distributed()
             return
 
@@ -306,7 +307,10 @@ def main(config_path: str):
             args.run_dir, args.max_steps, model, optimizer, ema, args.num_ckpt_keep, mimi
         )
         progress.log("checkpoint", args.max_steps)
+        if device.type == "cuda":
+            logger.info(f"peak GPU memory {torch.cuda.max_memory_allocated() / 2**30:.1f} GiB")
         logger.info("done")
+    train_data.close()
     shutdown_distributed()
 
 
@@ -321,7 +325,7 @@ def validate(
     step: int,
 ) -> dict[str, float]:
     model.eval()
-    tokenize = model.flow_lm.conditioner.tokenizer.sp.encode
+    tokenize = model.flow_lm.conditioner.tokenizer.encode
     loader = iter(
         DataLoader(
             args.data.valid_jsonl,

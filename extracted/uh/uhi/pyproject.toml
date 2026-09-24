@@ -8,7 +8,7 @@ description = "Unified Histogram Interface: tools to help library authors work w
 authors = [
   {name="Henry Schreiner", email="henryschreineriii@gmail.com"},
   {name="Hans Dembinski", email="hans.dembinski@gmail.com"},
-  {name="Jim Pivaski", email="jpivarski@gmail.com"},
+  {name="Jim Pivarski", email="jpivarski@gmail.com"},
   {name="Silia Taider", email="siliataider@gmail.com"},
 ]
 maintainers = [
@@ -43,12 +43,19 @@ Repository = "https://github.com/Scikit-HEP/uhi"
 Documentation = "https://uhi.readthedocs.io/en/latest/"
 Changelog = "https://github.com/scikit-hep/uhi/releases"
 
+[project.scripts]
+uhi = "uhi.__main__:main"
+
 [project.optional-dependencies]
 schema = [
   "fastjsonschema",
 ]
 hdf5 = [
   "h5py",
+]
+uproot = [
+  "awkward>=2",
+  "uproot>=5.7",
 ]
 
 [dependency-groups]
@@ -59,6 +66,7 @@ docs = [
   "sphinx-jsonschema",
   "myst-parser",
   "sphinx_github_changelog",
+  "sphinx-llm",
 ]
 test-core = [
   "pytest>=7",
@@ -71,9 +79,14 @@ test-core = [
 ]
 test = [
   { include-group = "test-core" },
-  "h5py; platform_python_implementation == 'CPython' and python_version<'3.14'",  # Doesn't support free-threaded Python currently
+  "h5py; platform_python_implementation == 'CPython'",  # No PyPy wheels
+  "uproot>=5.7; platform_python_implementation == 'CPython'",  # No PyPy wheels for awkward-cpp
 ]
 dev = [{ include-group = "test" }]
+
+
+[tool.uv]
+exclude-newer = "7 days"
 
 
 [tool.hatch]
@@ -101,7 +114,7 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["fastjsonschema", "h5py"]
+module = ["awkward", "fastjsonschema", "h5py", "ROOT", "uproot"]
 ignore_missing_imports = true
 
 

@@ -12739,6 +12739,11 @@ class Messages(System.Object):
             """
             ...
 
+        @staticmethod
+        def unsupported_combo_order_leg_count(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, leg_count: int) -> str:
+            """Returns a message indicating that the number of legs of the combo order is not supported by the given brokerage model."""
+            ...
+
     class AlphaStreamsBrokerageModel(System.Object):
         """Provides user-facing messages for the Brokerages.AlphaStreamsBrokerageModel class and its consumers or related classes"""
 

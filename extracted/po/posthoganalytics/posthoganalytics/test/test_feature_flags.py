@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import threading
 import unittest
 
@@ -24,6 +25,7 @@ from posthoganalytics.feature_flags import (
     relative_date_parse_for_feature_flag_matching,
 )
 from posthoganalytics.request import APIError, GetResponse
+from posthoganalytics.types import FeatureFlagEvaluationRuntime
 from posthoganalytics.test.test_utils import FAKE_TEST_API_KEY
 from posthoganalytics.utils import FlagCache
 
@@ -461,6 +463,101 @@ class TestLocalEvaluation(unittest.TestCase):
                 person_properties={"region": "USA"},
             )
         )
+
+    def _holdout_flag(self, exclusion_percentage, rollout_percentage=100):
+        return [
+            {
+                "id": 1,
+                "name": "Experiment Flag",
+                "key": "experiment-flag",
+                "active": True,
+                "filters": {
+                    "multivariate": {
+                        "variants": [
+                            {"key": "control", "rollout_percentage": 50},
+                            {"key": "test", "rollout_percentage": 50},
+                        ]
+                    },
+                    "groups": [
+                        {"properties": [], "rollout_percentage": rollout_percentage}
+                    ],
+                    "holdout": {
+                        "id": 727,
+                        "exclusion_percentage": exclusion_percentage,
+                    },
+                },
+            }
+        ]
+
+    def test_holdout_at_100_percent_excludes_every_distinct_id(self):
+        self.client.feature_flags = self._holdout_flag(100)
+
+        for distinct_id in ["user_1", "user_2", "user_3", "user_4", "user_5"]:
+            self.assertEqual(
+                self.client.get_feature_flag(
+                    "experiment-flag", distinct_id, only_evaluate_locally=True
+                ),
+                "holdout-727",
+            )
+
+    def test_holdout_at_0_percent_excludes_nobody(self):
+        self.client.feature_flags = self._holdout_flag(0)
+
+        for distinct_id in ["user_1", "user_2", "user_3", "user_4", "user_5"]:
+            self.assertIn(
+                self.client.get_feature_flag(
+                    "experiment-flag", distinct_id, only_evaluate_locally=True
+                ),
+                ["control", "test"],
+            )
+
+    def test_holdout_is_evaluated_before_release_conditions(self):
+        # The flag releases to nobody, but a held-out user is excluded before targeting
+        # is consulted, so they still get the holdout variant rather than False.
+        self.client.feature_flags = self._holdout_flag(100, rollout_percentage=0)
+
+        self.assertEqual(
+            self.client.get_feature_flag(
+                "experiment-flag", "user_1", only_evaluate_locally=True
+            ),
+            "holdout-727",
+        )
+
+    def test_holdout_membership_matches_server_bucketing(self):
+        # The server hashes "holdout-<distinct_id>". Pinning the exact membership set
+        # guards the string construction: reusing the flag hash helper, which joins with
+        # a dot, still looks uniform and deterministic but holds out different people.
+        distinct_ids = [f"user_{n}" for n in range(1, 21)]
+        exclusion_percentage = 20
+
+        def server_hash(prefix, distinct_id):
+            digest = hashlib.sha1(f"{prefix}{distinct_id}".encode("utf-8")).hexdigest()
+            return int(digest[:15], 16) / float(0xFFFFFFFFFFFFFFF)
+
+        expected = {
+            distinct_id
+            for distinct_id in distinct_ids
+            if server_hash("holdout-", distinct_id) <= exclusion_percentage / 100
+        }
+        dot_joined = {
+            distinct_id
+            for distinct_id in distinct_ids
+            if server_hash("holdout.", distinct_id) <= exclusion_percentage / 100
+        }
+        # Guard the guard: if these ever coincide the test would pass with the bug present.
+        self.assertNotEqual(expected, dot_joined)
+
+        self.client.feature_flags = self._holdout_flag(exclusion_percentage)
+        held_out = {
+            distinct_id
+            for distinct_id in distinct_ids
+            if self.client.get_feature_flag(
+                "experiment-flag", distinct_id, only_evaluate_locally=True
+            )
+            == "holdout-727"
+        }
+
+        self.assertEqual(held_out, expected)
 
     def test_early_exit_on_multivariate_flag(self):
         self.client.feature_flags = [
@@ -1263,7 +1360,7 @@ class TestLocalEvaluation(unittest.TestCase):
         ]
         self.assertEqual(
             client.get_all_flags_and_payloads("distinct_id")["featureFlagPayloads"],
-            {"beta-feature": "new"},
+            {"beta-feature": None},
         )
         # /flags is not called because this can be evaluated locally
         self.assertEqual(patch_flags.call_count, 0)
@@ -1403,7 +1500,7 @@ class TestLocalEvaluation(unittest.TestCase):
             client.get_all_flags_and_payloads(
                 "distinct_id", only_evaluate_locally=True
             )["featureFlagPayloads"],
-            {"beta-feature": "some-payload"},
+            {"beta-feature": None},
         )
         self.assertEqual(patch_flags.call_count, 0)
         self.assertEqual(patch_capture.call_count, 0)
@@ -5050,6 +5147,116 @@ class TestLocalEvaluation(unittest.TestCase):
 
         # Should fallback to API for all flags when any can't be evaluated locally
         self.assertEqual(patch_flags.call_count, 1)
+
+
+class TestEvaluationRuntime(unittest.TestCase):
+    def setUp(self):
+        self.client = Client(FAKE_TEST_API_KEY)
+        self.client.feature_flags = [
+            {"id": 1, "key": "everywhere-flag", "evaluation_runtime": "all"},
+            {"id": 2, "key": "browser-flag", "evaluation_runtime": "client"},
+            {"id": 3, "key": "backend-flag", "evaluation_runtime": "server"},
+            {"id": 4, "key": "unset-flag", "evaluation_runtime": None},
+            {"id": 5, "key": "legacy-flag"},
+        ]
+
+    @parameterized.expand(
+        [
+            ("everywhere-flag", FeatureFlagEvaluationRuntime.ALL),
+            ("browser-flag", FeatureFlagEvaluationRuntime.CLIENT),
+            ("backend-flag", FeatureFlagEvaluationRuntime.SERVER),
+            # A definition without a runtime reports the default PostHog applies.
+            ("unset-flag", FeatureFlagEvaluationRuntime.ALL),
+            ("legacy-flag", FeatureFlagEvaluationRuntime.ALL),
+        ]
+    )
+    def test_runtime_of_loaded_flag(self, key, expected):
+        self.assertEqual(self.client.get_feature_flag_evaluation_runtime(key), expected)
+
+    def test_runtime_of_unknown_flag_is_none(self):
+        self.assertIsNone(
+            self.client.get_feature_flag_evaluation_runtime("no-such-flag")
+        )
+
+    def test_runtime_before_definitions_are_loaded_is_none(self):
+        client = Client(FAKE_TEST_API_KEY)
+        self.assertIsNone(client.get_feature_flag_evaluation_runtime("browser-flag"))
+        self.assertEqual(
+            client.get_feature_flag_keys_by_evaluation_runtime("client"), []
+        )
+
+    @parameterized.expand(
+        [
+            (
+                FeatureFlagEvaluationRuntime.CLIENT,
+                ["everywhere-flag", "browser-flag", "unset-flag", "legacy-flag"],
+            ),
+            (
+                FeatureFlagEvaluationRuntime.SERVER,
+                ["everywhere-flag", "backend-flag", "unset-flag", "legacy-flag"],
+            ),
+            (
+                FeatureFlagEvaluationRuntime.ALL,
+                [
+                    "everywhere-flag",
+                    "browser-flag",
+                    "backend-flag",
+                    "unset-flag",
+                    "legacy-flag",
+                ],
+            ),
+            (
+                "client",
+                ["everywhere-flag", "browser-flag", "unset-flag", "legacy-flag"],
+            ),
+        ]
+    )
+    def test_keys_by_evaluation_runtime(self, runtime, expected):
+        self.assertEqual(
+            self.client.get_feature_flag_keys_by_evaluation_runtime(runtime), expected
+        )
+
+    def test_unrecognized_runtime_argument_raises(self):
+        with self.assertRaises(ValueError):
+            self.client.get_feature_flag_keys_by_evaluation_runtime("serverless")
+
+    @mock.patch("posthog.client.Poller")
+    @mock.patch("posthog.client.get")
+    def test_runtime_survives_a_local_evaluation_fetch(self, patch_get, patch_poll):
+        patch_get.return_value = GetResponse(
+            data={
+                "flags": [
+                    {
+                        "id": 1,
+                        "name": "Browser Feature",
+                        "key": "browser-feature",
+                        "active": True,
+                        "evaluation_runtime": "client",
+                    }
+                ],
+                "group_type_mapping": {},
+                "cohorts": {},
+            }
+        )
+        client = Client(FAKE_TEST_API_KEY, secret_key="test")
+        client.load_feature_flags()
+
+        self.assertEqual(
+            client.get_feature_flag_evaluation_runtime("browser-feature"),
+            FeatureFlagEvaluationRuntime.CLIENT,
+        )
+        self.assertEqual(
+            client.get_feature_flag_keys_by_evaluation_runtime(
+                FeatureFlagEvaluationRuntime.CLIENT
+            ),
+            ["browser-feature"],
+        )
+        self.assertEqual(
+            client.get_feature_flag_keys_by_evaluation_runtime(
+                FeatureFlagEvaluationRuntime.SERVER
+            ),
+            [],
+        )
 
 
 class TestMatchProperties(unittest.TestCase):

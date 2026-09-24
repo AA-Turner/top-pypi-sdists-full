@@ -343,6 +343,72 @@ def test_bias_is_calendar_minus_prediction_and_extra_thresholds_exist():
     assert single["bias_days"] == pytest.approx(10.0)          # calendar later than prediction
 
 
+def test_franch_comparable_metrics():
+    """Franch et al. (2022): 60-d bin, debiased RMSE, calibration line, R2."""
+    obs = np.array([100.0, 120.0, 140.0, 160.0, 180.0])
+    perfect = models.circular_metrics(obs, obs)
+    assert perfect["rmse_debiased_days"] == 0 and perfect["pct_blunders"] == 0
+    assert perfect["calibration_slope"] == pytest.approx(1.0) and perfect["calibration_intercept_days"] == pytest.approx(0.0)
+    assert perfect["r2_linearised"] == pytest.approx(1.0) and perfect["r2_circular"] == pytest.approx(1.0)
+    assert {"pct_within_15d", "pct_within_30d", "pct_within_45d", "pct_within_60d"} <= set(perfect)
+
+    # A constant offset is all bias and no scatter.
+    offset = models.circular_metrics(obs - 10, obs)
+    assert offset["bias_days"] == pytest.approx(10.0)
+    assert offset["rmse_days"] == pytest.approx(10.0)
+    assert offset["rmse_debiased_days"] == pytest.approx(0.0)
+    assert offset["calibration_intercept_days"] == pytest.approx(10.0)
+    assert offset["r2_linearised"] == pytest.approx(1 - 500 / 4000)
+
+    # Predictions shrunk toward the mean read as a slope above one.
+    shrunk = 140 + 0.5 * (obs - 140)
+    assert models.circular_metrics(shrunk, obs)["calibration_slope"] == pytest.approx(2.0)
+
+    # Blunders are counted, and the unwrap handles the year end.
+    wrap = models.circular_metrics([360.0, 5.0, 10.0, 200.0], [5.0, 10.0, 15.0, 15.0])
+    assert wrap["pct_blunders"] == pytest.approx(25.0)
+    assert wrap["mae_days"] == pytest.approx((10 + 5 + 5 + 180) / 4)
+
+    # Two hemispheric clusters: the linearised R2 is near 1 by construction,
+    # which is exactly why it is not the headline number.
+    ns = models.circular_metrics([100, 105, 110, 280, 285, 290.0], [102, 108, 112, 283, 287, 292.0])
+    assert ns["r2_linearised"] > 0.99 and ns["calibration_slope"] == pytest.approx(1.0, abs=0.05)
+
+
+def test_season_consistency_orders_and_measures_length():
+    los, ordered = models.season_consistency(
+        planting=[300.0, 100.0, 100.0, np.nan],
+        midgreenup=[340.0, 130.0, 200.0, 130.0],
+        midgreendown=[20.0, 170.0, 150.0, 170.0],
+        harvest=[60.0, 210.0, 210.0, 210.0],
+    )
+    assert los[0] == pytest.approx(125.0)                 # wraps 31 December
+    assert ordered.tolist() == [True, True, False, False]  # third is out of order, fourth has a NaN
+    assert np.isnan(los[3])
+
+
+def test_consistency_table_and_scheme_models(archive, monkeypatch):
+    monkeypatch.setattr(models, "_fit_one", lambda name, X, y, names: _Mean(y))
+    design = _design(archive, n=9)
+    schemes = cv.build_schemes(design, n_splits=3, names=("random", "spatial_block"))
+    evaluation = models.evaluate(
+        design, models=["cheap", "dear"], schemes=schemes, bootstrap_resamples=0,
+        scheme_models={"random": ["cheap"]},
+    )
+    preds = evaluation.predictions
+    # 'dear' is skipped under random but runs under spatial_block; the null runs everywhere.
+    assert set(preds[preds["scheme"] == "random"]["model"]) == {"cheap", models.CLIMATOLOGY}
+    assert set(preds[preds["scheme"] == "spatial_block"]["model"]) == {"cheap", "dear", models.CLIMATOLOGY}
+
+    table = evaluation.consistency
+    assert {"model", "scheme", "encoding", "n", "median_los_days", "pct_los_plausible", "pct_ordered"} <= set(table.columns)
+    calendar = table[table["model"] == "calendar"].iloc[0]
+    assert calendar["pct_ordered"] == 100.0                # the calendar is ordered by construction
+    assert models.BASELINE not in set(table["model"])       # two targets cannot make a season
+    assert {models.CLIMATOLOGY, "cheap", "dear"} <= set(table["model"])
+    assert table["pct_los_plausible"].between(0, 100).all()
+
+
 def test_paired_skill_and_bootstrap_interval():
     keys = [f"k{i}" for i in range(40)]
     tiles = [f"t{i % 8}" for i in range(40)]
@@ -630,3 +696,6 @@ def test_runner_and_config_generator_know_about_encodings_and_baselines():
     assert "cv_schemes = ['random', 'country', 'spatial_block', 'country_block']" in generator
     # and the runner hands the tile size it built the folds with to the bootstrap
     assert "block_degrees=obj.block_degrees," in runner
+    assert 'self._get("cv_scheme_models")' in runner and "scheme_models=obj.scheme_models" in runner
+    assert 'consistency.to_csv(model_dir / "consistency.csv"' in runner
+    assert "cv_scheme_models" in generator

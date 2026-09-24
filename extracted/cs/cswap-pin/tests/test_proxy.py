@@ -663,7 +663,8 @@ def _canon_sha(doc):
 
 
 def _seed_trusted_stamp(cfg, old_doc, *, identity=_TEST_IDENTITY, kind="org",
-                        hipaa_seen=None, confirmed_at=1, witness=True):
+                        hipaa_seen=None, confirmed_at=1, witness=True,
+                        incomplete=False, ruled_out=None):
     """Leave `old_doc` on disk with a stamp CC itself could have minted for
     it -- the ground truth `_trusted_stamp_identity` reuses (T0681
     correctness review: no env var or credential-precedence guess is
@@ -684,20 +685,45 @@ def _seed_trusted_stamp(cfg, old_doc, *, identity=_TEST_IDENTITY, kind="org",
     consulted only where an identity is about to be carried onto a body it
     was never confirmed against.
 
+    `incomplete`/`ruled_out` seed CC's two 2.1.275+ optional keys
+    (`hipaa_seen_incomplete`, `hipaa_ruled_out`), written only when
+    `incomplete` is true -- CC's own writer never emits one without the
+    other either.
+
     Returns `old_doc`'s canonical sha.
     """
     (cfg / "policy-limits.json").write_text(json.dumps(old_doc))
     sha = _canon_sha(old_doc)
-    (cfg / "policy-limits.json.stamp.json").write_text(json.dumps({
+    stamp = {
         "v": 1, "identity": identity, "kind": kind, "sha": sha,
         "confirmed_at": confirmed_at, "hipaa_seen": hipaa_seen or [],
-    }))
+    }
+    if incomplete:
+        stamp["hipaa_seen_incomplete"] = True
+        stamp["hipaa_ruled_out"] = ruled_out or []
+    (cfg / "policy-limits.json.stamp.json").write_text(json.dumps(stamp))
     if witness:
         (cfg / "policy-limits.json.pin-witness.json").write_text(json.dumps({
             "token_sha": hashlib.sha256(_TEST_TOKEN.encode()).hexdigest(),
             "account": _TEST_ACCOUNT_LABEL,
         }))
     return sha
+
+
+def _stale_stamp_dict(*, hipaa_seen=None, incomplete=False, ruled_out=None):
+    """A stamp that fully parses per CC's own `.stamp.json` schema but
+    names a `sha` that will not match whatever body is really on disk --
+    the shape of a genuinely TORN CC stamp (the T0656/f465796 scenario, CC
+    wrote it correctly for a body since replaced), never the schema-invalid
+    content CC's own `deleteCacheFile` calls unparseable and leaves alone.
+    """
+    stamp = {"v": 1, "identity": "a" * 64, "kind": "org",
+             "sha": "sha256:" + "9" * 64, "confirmed_at": 1,
+             "hipaa_seen": hipaa_seen or []}
+    if incomplete:
+        stamp["hipaa_seen_incomplete"] = True
+        stamp["hipaa_ruled_out"] = ruled_out or []
+    return stamp
 
 
 class TestLiveRemoteControlSessions:
@@ -1611,7 +1637,7 @@ class TestLiveRemoteControlSessions:
         cfg = tmp_path / "config"
         cfg.mkdir()
         stamp = cfg / "policy-limits.json.stamp.json"
-        stamp.write_text(json.dumps({"sha": "stale"}))
+        stamp.write_text(json.dumps(_stale_stamp_dict()))
         doc = {"restrictions": {}, "compliance_taints": []}
 
         monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
@@ -1640,12 +1666,13 @@ class TestLiveRemoteControlSessions:
         the on-disk stamp is CC's own rather than a leftover: only the
         unlink heals it without waiting for the policy value itself to
         change. NOT unconditional since T0681 round 2: the stamp seeded here
-        is `{"sha": "stale"}`, which `_trusted_stamp_identity` refuses on
-        shape alone -- a genuinely trusted stamp on this same skip path
+        is `_stale_stamp_dict()`, well-formed but naming a sha that will
+        never match this body, which `_trusted_stamp_identity` refuses on
+        the sha check -- a genuinely trusted stamp on this same skip path
         survives untouched instead (`case_a_matching_stamp_is_left_alone`).
-        Per CC's own gate, unlinking an untrusted one costs nothing: an
-        absent stamp reads "legacy" and serves the body verbatim, exactly
-        like "match" does.
+        Per CC's own gate, unlinking an untrusted one with no HIPAA
+        evidence on it costs nothing (T1004): an absent stamp reads
+        "legacy" and serves the body verbatim, exactly like "match" does.
 
         ALSO THE POSITIVE CONTROL for `case_a_failed_heal_unlink_does_not_
         log_a_removal`'s negative (round 5 correctness review): that case
@@ -1664,7 +1691,7 @@ class TestLiveRemoteControlSessions:
         body_path.write_text(json.dumps(doc))
         before = body_path.stat().st_mtime_ns
         stamp = cfg / "policy-limits.json.stamp.json"
-        stamp.write_text(json.dumps({"sha": "stale"}))
+        stamp.write_text(json.dumps(_stale_stamp_dict()))
 
         monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
         monkeypatch.setattr(pin_proxy, "policy_limits_for", lambda _t: doc)
@@ -1707,7 +1734,7 @@ class TestLiveRemoteControlSessions:
         doc = {"restrictions": {}, "compliance_taints": []}
         (cfg / "policy-limits.json").write_text(json.dumps(doc))
         stamp = cfg / "policy-limits.json.stamp.json"
-        stamp.write_text(json.dumps({"sha": "stale"}))
+        stamp.write_text(json.dumps(_stale_stamp_dict()))
 
         monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
         monkeypatch.setattr(pin_proxy, "policy_limits_for", lambda _t: doc)
@@ -1762,12 +1789,23 @@ class TestLiveRemoteControlSessions:
     ):
         """THE SWEEP IS A TIMER CALLBACK and must stay non-fatal. An OSError
         out of the unlink (e.g. a permissions race) must not propagate and
-        must not change the sweep's own return value."""
+        must not change the sweep's own return value.
+
+        T1004: SEEDS A REAL (empty-evidence) STALE STAMP. `_fall_back_to_
+        unlink` no longer unlinks unconditionally -- "absent -> nothing"
+        never even calls `unlink` (nothing there to remove), so a run with
+        no stamp file at all no longer reaches the monkeypatched raise and
+        proves nothing about the OSError being swallowed. A stamp that
+        parses but carries no HIPAA evidence still takes the unlink branch
+        exactly as before, which is what this case is about.
+        """
         from cswap_pin import proxy as pin_proxy
 
         cfg = tmp_path / "config"
         cfg.mkdir()
         doc = {"restrictions": {}, "compliance_taints": []}
+        (cfg / "policy-limits.json.stamp.json").write_text(
+            json.dumps(_stale_stamp_dict()))
 
         monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
         monkeypatch.setattr(pin_proxy, "policy_limits_for", lambda _t: doc)
@@ -1801,8 +1839,9 @@ class TestLiveRemoteControlSessions:
         every other path — old body, no stamp, reads "legacy" — and this is
         the one occasion the heal is needed most: skipping it would leave an
         unstamped body for as long as the write keeps failing. NOT true of
-        every stamp: the one seeded here is `{"sha": "stale"}`, which
-        `_trusted_stamp_identity` refuses on shape alone --
+        every stamp: the one seeded here is `_stale_stamp_dict()`, which
+        `_trusted_stamp_identity` refuses on the sha check and carries no
+        HIPAA evidence to lose (T1004) --
         `case_a_failed_write_leaves_a_trusted_prior_stamp_untouched` is the
         control where a genuinely trusted stamp survives this same failure
         untouched.
@@ -1814,7 +1853,7 @@ class TestLiveRemoteControlSessions:
         different = {"restrictions": {"allow_remote_control": {"allowed": False}}}
         (cfg / "policy-limits.json").write_text(json.dumps(different))
         stamp = cfg / "policy-limits.json.stamp.json"
-        stamp.write_text(json.dumps({"sha": "stale"}))
+        stamp.write_text(json.dumps(_stale_stamp_dict()))
 
         doc = {"restrictions": {}, "compliance_taints": []}
         monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
@@ -1994,6 +2033,50 @@ class TestLiveRemoteControlSessions:
             "identity was rewritten anyway"
         )
 
+    def case_a_stamp_with_no_hipaa_seen_key_is_still_trusted(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004: CC's own schema declares `hipaa_seen` with `.default([])`
+        -- a stamp missing the key entirely is `ok` to CC, not unparseable.
+        A trusted stamp that omits it must still mint, treating the
+        absent key as an empty list rather than falling back to the
+        unlink."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        (cfg / "policy-limits.json").write_text(json.dumps(old_doc))
+        sha = _canon_sha(old_doc)
+        stamp = {"v": 1, "identity": _TEST_IDENTITY, "kind": "org",
+                 "sha": sha, "confirmed_at": 1}  # no "hipaa_seen" key
+        (cfg / "policy-limits.json.stamp.json").write_text(json.dumps(stamp))
+        (cfg / "policy-limits.json.pin-witness.json").write_text(json.dumps({
+            "token_sha": hashlib.sha256(_TEST_TOKEN.encode()).hexdigest(),
+            "account": _TEST_ACCOUNT_LABEL,
+        }))
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: _TEST_ACCOUNT_LABEL)
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+
+        new_stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert new_stamp["identity"] == _TEST_IDENTITY, (
+            "a missing hipaa_seen key made the prior stamp unparseable, "
+            "falling back to the unlink instead of minting")
+        assert new_stamp["hipaa_seen"] == []
+
     def case_a_hipaa_taint_adds_this_identity_to_hipaa_seen(
         self, tmp_path, monkeypatch
     ):
@@ -2069,7 +2152,15 @@ class TestLiveRemoteControlSessions:
         """THE CAP (T0681 round 3 review named this untested too): CC's `ce`
         keeps only the last 8. Seed 8 OTHER identities already at the cap,
         taint the fresh body, and the 9th (this identity) must push out the
-        OLDEST (index 0), not truncate from the end or grow past 8."""
+        OLDEST (index 0), not truncate from the end or grow past 8.
+
+        T1004: THE CAP ALSO MARKS THE EVIDENCE INCOMPLETE. Once the 9th
+        entry drops the oldest, `hipaa_seen` no longer names everyone this
+        identity was ever seen alongside -- CC's own `mZn` sets
+        `hipaa_seen_incomplete` the same instant it computes `h = d.length >
+        8`, so this asserts the marker lands beside the capped list, not
+        only the list itself.
+        """
         from cswap_pin import proxy as pin_proxy
 
         cfg = tmp_path / "config"
@@ -2095,8 +2186,93 @@ class TestLiveRemoteControlSessions:
             (cfg / "policy-limits.json.stamp.json").read_text())
         assert stamp["hipaa_seen"] == others[1:] + [_TEST_IDENTITY], (
             "the cap did not drop the oldest entry when the 9th was added")
+        assert stamp.get("hipaa_seen_incomplete") is True, (
+            "dropping the oldest entry off the cap must mark the evidence "
+            "incomplete")
+        assert stamp.get("hipaa_ruled_out") == [], (
+            "the incomplete marker must carry its (here still empty) "
+            "ruled-out list beside it")
 
-    def case_a_malformed_hipaa_seen_entry_falls_back_to_the_unlink(
+    def case_an_already_incomplete_stamp_appends_to_ruled_out(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, A2: a trusted stamp already marked incomplete, with its
+        own `hipaa_ruled_out` history, sweeping an UNTAINTED fresh body --
+        CC's own `mZn` appends this identity to `ruled_out` in that branch
+        (`else if(prev.incomplete) f.push(c)`), because the evidence was
+        never complete enough to say this identity was truly never seen;
+        the marker itself stays set.
+
+        `ruled_out` SEEDS THIS IDENTITY TOO (T1004 correctness review): the
+        filter that drops any earlier record of THIS identity before
+        re-adding it (proxy.py:13184) had no case where `_TEST_IDENTITY`
+        was already in `hipaa_ruled_out` -- an implementation that skipped
+        the filter and just appended would still pass a seed of `[other]`
+        alone, producing a duplicate this seed catches instead.
+        """
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        other = "b" * 64
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        _seed_trusted_stamp(cfg, old_doc, incomplete=True,
+                            ruled_out=[other, _TEST_IDENTITY])
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: _TEST_ACCOUNT_LABEL)
+
+        fresh_doc = {"restrictions": {"allow_web_fetch": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+
+        stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert stamp.get("hipaa_seen_incomplete") is True, (
+            "an already-incomplete stamp must keep the marker set")
+        assert stamp.get("hipaa_ruled_out") == [other, _TEST_IDENTITY], (
+            "an untainted sweep of an incomplete stamp must append this "
+            "identity to hipaa_ruled_out")
+
+    def case_a_padded_uppercase_hipaa_taint_still_counts(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, A3: CC normalises a taint (trim + lowercase) before
+        testing it against "hipaa" -- a body naming it " HIPAA " must be
+        read exactly like the bare lowercase string."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        _seed_trusted_stamp(cfg, old_doc)
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: _TEST_ACCOUNT_LABEL)
+
+        fresh_doc = {"restrictions": {}, "compliance_taints": [" HIPAA "]}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+
+        stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert stamp["hipaa_seen"] == [_TEST_IDENTITY], (
+            "a padded, differently-cased 'hipaa' taint must still count")
+
+    def case_a_malformed_hipaa_seen_entry_is_left_untouched(
         self, tmp_path, monkeypatch
     ):
         """THE PER-ELEMENT hipaa_seen REGEX HAS NO NEGATIVE CASE ABOVE
@@ -2105,20 +2281,25 @@ class TestLiveRemoteControlSessions:
         entries -- nothing exercises `re.fullmatch(...) for h in
         hipaa_seen` actually REJECTING a malformed one. A single non-hex
         entry must sink the whole stamp exactly like a bad `kind` or a
-        missing `v` already does: `_trusted_stamp_identity` returns None,
-        and the sweep falls back to the plain unlink instead of trusting a
-        record CC's own schema would never have produced.
+        missing `v` already does: `_trusted_stamp_identity` returns None.
+
+        T1004: THE OUTCOME THIS PROVES MOVED. A malformed `hipaa_seen`
+        entry is exactly what CC's own schema would reject too --
+        `_stamp_evidence` returns None for it, the same UNPARSEABLE bucket
+        CC's own `deleteCacheFile` leaves untouched rather than deletes (it
+        cannot read what evidence, if any, is on the record either). The
+        identity is still refused as untrusted; only the fallback's own
+        action changed, from unlink to leave-as-is.
 
         SEEDED THROUGH `_seed_trusted_stamp`, WITH ITS MATCHING WITNESS
         (round 5 correctness review): a hand-written stamp with no witness
-        of ours reaches the SAME plain-unlink outcome through the witness
-        gate's own mismatch fallback regardless of what `_trusted_stamp_
-        identity` decides, so deleting the hipaa_seen regex entirely left
-        this test green -- it was never exercising the regex at all. With
-        a matching witness AND matching active token/label, a stamp the
-        regex wrongly accepted would reach the mint branch and actually
-        write a new stamp, which is what the assertion below must be able
-        to catch.
+        of ours reaches the SAME fallback through the witness gate's own
+        mismatch path regardless of what `_trusted_stamp_identity` decides,
+        so deleting the hipaa_seen regex entirely left this test green -- it
+        was never exercising the regex at all. With a matching witness AND
+        matching active token/label, a stamp the regex wrongly accepted
+        would reach the mint branch and actually write a new stamp, which
+        is what the assertion below must be able to catch.
         """
         from cswap_pin import proxy as pin_proxy
 
@@ -2126,6 +2307,249 @@ class TestLiveRemoteControlSessions:
         cfg.mkdir()
         old_doc = {"restrictions": {}, "compliance_taints": []}
         _seed_trusted_stamp(cfg, old_doc, hipaa_seen=["not-a-64-hex-hash"])
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: _TEST_ACCOUNT_LABEL)
+
+        stamp_path = cfg / "policy-limits.json.stamp.json"
+        before = stamp_path.read_bytes()
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+        assert stamp_path.read_bytes() == before, (
+            "a hipaa_seen entry that is not a 64-hex hash is unparseable "
+            "per CC's own schema; CC's deleteCacheFile leaves an "
+            "unparseable stamp exactly as it found it"
+        )
+
+    def case_a_malformed_hipaa_ruled_out_entry_is_left_untouched(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004: THE SAME REGEX, THE OTHER LIST. `hipaa_ruled_out` is
+        checked with the same `_is_hex64_list` `_stamp_evidence` uses for
+        `hipaa_seen` (proxy.py), and had no negative case of its own -- a
+        non-hex entry there must sink the whole stamp as unparseable too,
+        the same leave-as-is `_fall_back_to_unlink` gives every other
+        unparseable shape."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        _seed_trusted_stamp(cfg, old_doc, incomplete=True,
+                            ruled_out=["not-a-64-hex-hash"])
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: _TEST_ACCOUNT_LABEL)
+
+        stamp_path = cfg / "policy-limits.json.stamp.json"
+        before = stamp_path.read_bytes()
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+        assert stamp_path.read_bytes() == before, (
+            "a hipaa_ruled_out entry that is not a 64-hex hash is "
+            "unparseable per CC's own schema; CC's deleteCacheFile leaves "
+            "an unparseable stamp exactly as it found it"
+        )
+
+    def case_a_stale_stamp_carrying_evidence_becomes_a_tombstone(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, B1: a torn stamp (CC's own sha check already refuses it)
+        that still carries HIPAA evidence must not be thrown away with a
+        plain unlink -- CC's own `deleteCacheFile` writes a tombstone that
+        carries the evidence forward instead, and this sweep's own body
+        write still lands exactly as it does today."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        (cfg / "policy-limits.json").write_text(json.dumps(old_doc))
+        evidence = "c" * 64
+        (cfg / "policy-limits.json.stamp.json").write_text(
+            json.dumps(_stale_stamp_dict(hipaa_seen=[evidence])))
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+        assert json.loads(
+            (cfg / "policy-limits.json").read_text()) == fresh_doc, (
+            "the body write itself must still land")
+
+        stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert stamp == {
+            "v": 1, "identity": "0" * 64, "kind": "token", "sha": "none",
+            "confirmed_at": 0, "hipaa_seen": [evidence],
+        }, "a stale stamp with evidence on it must become CC's own tombstone"
+
+    def case_a_stale_stamp_with_empty_seen_but_incomplete_becomes_a_tombstone(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, B1b (correctness review): the cap-overflow shape -- every
+        prior `hipaa_seen` entry has since aged out, leaving the list
+        EMPTY, but `hipaa_seen_incomplete`/`hipaa_ruled_out` still say this
+        identity's history is not fully known. `not seen and not
+        incomplete` (proxy.py) is the fail-open surface B1 alone cannot
+        catch: `not seen` on its own would unlink this exactly like the
+        genuinely-empty control below, and dropping the tombstone's own
+        `incomplete`/`ruled_out` tail would write it as if the evidence
+        were complete. Neither is true here."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        (cfg / "policy-limits.json").write_text(json.dumps(old_doc))
+        ruled_out = ["f" * 64]
+        (cfg / "policy-limits.json.stamp.json").write_text(
+            json.dumps(_stale_stamp_dict(incomplete=True, ruled_out=ruled_out)))
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+
+        stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert stamp == {
+            "v": 1, "identity": "0" * 64, "kind": "token", "sha": "none",
+            "confirmed_at": 0, "hipaa_seen": [],
+            "hipaa_seen_incomplete": True, "hipaa_ruled_out": ruled_out,
+        }, ("an empty hipaa_seen with the incomplete marker set is still "
+            "evidence and must tombstone with both fields intact, not "
+            "unlink and not drop the incomplete/ruled_out tail")
+
+    def case_ccs_own_tombstone_with_no_body_survives_unchanged(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, B2: CC's own `deleteCacheFile` may already have left
+        exactly this tombstone beside an absent body -- its own cache-miss
+        state, the body it once guarded already gone. Re-sweeping it must
+        not unlink the evidence it carries, and must not even rewrite it,
+        since it already IS the tombstone this sweep would otherwise mint."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        evidence = "d" * 64
+        tombstone = {"v": 1, "identity": "0" * 64, "kind": "token",
+                     "sha": "none", "confirmed_at": 0,
+                     "hipaa_seen": [evidence]}
+        stamp_path = cfg / "policy-limits.json.stamp.json"
+        stamp_path.write_text(json.dumps(tombstone))
+        # `st_ino`, not `st_mtime_ns`: `replace` always mints a NEW inode,
+        # so this catches a rewrite the mtime clock's own coarseness could
+        # otherwise land inside the same tick and miss.
+        before = stamp_path.stat().st_ino
+
+        doc = {"restrictions": {}, "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for", lambda _t: doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True  # no prior body: wrote=True
+        assert json.loads(stamp_path.read_text()) == tombstone
+        assert stamp_path.stat().st_ino == before, (
+            "a stamp already equal to the tombstone this sweep would "
+            "write must not be rewritten"
+        )
+
+    def case_a_witness_mismatch_with_evidence_becomes_a_tombstone(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, B3: the witness gate's own mismatch fallback (T0681
+        round 4) must ALSO keep evidence instead of discarding it -- a
+        trusted stamp with real hipaa_seen history, whose witness no
+        longer matches the active account, still has to land as CC's
+        tombstone rather than an unlink; and the witness itself is still
+        recorded on this fallback, exactly as the empty-evidence case
+        already does (`case_a_changed_account_label_does_not_inherit`)."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        evidence = "e" * 64
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        _seed_trusted_stamp(cfg, old_doc, hipaa_seen=[evidence])
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: "a-different-account")
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+
+        stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert stamp == {
+            "v": 1, "identity": "0" * 64, "kind": "token", "sha": "none",
+            "confirmed_at": 0, "hipaa_seen": [evidence],
+        }, ("a witness mismatch on an evidence-carrying stamp must "
+            "tombstone, not unlink")
+        witness = json.loads(
+            (cfg / "policy-limits.json.pin-witness.json").read_text())
+        assert witness == {
+            "token_sha": hashlib.sha256(_TEST_TOKEN.encode()).hexdigest(),
+            "account": "a-different-account",
+        }, "the fallback must still record the freshly-read witness"
+
+    def case_a_bad_optional_key_is_left_untouched(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, B4: `hipaa_seen_incomplete` must be a bool per CC's own
+        schema (2.1.275+) -- a string there is exactly as unparseable to
+        `_stamp_evidence` as a missing `v` or a malformed `hipaa_seen`
+        entry is, and CC's own `deleteCacheFile` leaves an unparseable
+        stamp exactly as it found it."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        _seed_trusted_stamp(cfg, old_doc)
+        stamp_path = cfg / "policy-limits.json.stamp.json"
+        bad = json.loads(stamp_path.read_text())
+        bad["hipaa_seen_incomplete"] = "true"  # schema wants a bool
+        stamp_path.write_text(json.dumps(bad))
+        before = stamp_path.read_bytes()
         monkeypatch.setattr(pin_proxy, "_active_oauth_token",
                             lambda: _TEST_TOKEN)
         monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
@@ -2140,9 +2564,85 @@ class TestLiveRemoteControlSessions:
         daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
         daemon._pin_token_provider = lambda: "tok"
         assert daemon.sweep_policy_once() is True
-        assert not (cfg / "policy-limits.json.stamp.json").exists(), (
-            "a hipaa_seen entry that is not a 64-hex hash still let the "
-            "stamp's identity through as trusted"
+        assert stamp_path.read_bytes() == before, (
+            "a bad optional key makes the stamp unparseable, and an "
+            "unparseable stamp must be left exactly as it was found"
+        )
+
+    def case_a_failed_tombstone_write_leaves_the_stamp_byte_identical(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004: THE TOMBSTONE WRITE'S OWN OSError (proxy.py) -- a
+        permissions race or a full disk mid-write must not leave a
+        half-written tombstone. Unlike every other OSError on this path,
+        falling through to an unlink here is exactly the evidence loss the
+        tombstone branch exists to avoid, so the stale stamp must survive
+        byte for byte instead."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        (cfg / "policy-limits.json").write_text(json.dumps(old_doc))
+        evidence = "9" * 64
+        stamp_path = cfg / "policy-limits.json.stamp.json"
+        stamp_path.write_text(
+            json.dumps(_stale_stamp_dict(hipaa_seen=[evidence])))
+        before = stamp_path.read_bytes()
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        real_write_text = Path.write_text
+
+        def failing_write_text(self, *a, **kw):
+            if ".stamp.json." in self.name and self.name.endswith(".tmp"):
+                raise OSError("simulated")
+            return real_write_text(self, *a, **kw)
+
+        monkeypatch.setattr(Path, "write_text", failing_write_text)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+        assert stamp_path.read_bytes() == before, (
+            "a tombstone write that fails must leave the stale stamp "
+            "exactly as it was, never a partial tombstone and never an "
+            "unlink"
+        )
+
+    def case_a_stale_stamp_with_empty_evidence_is_still_unlinked(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004, CONTROL: the negative space for B1 -- a torn stamp that
+        parses fine but carries NO evidence (every host today, since no
+        HIPAA taint has ever landed) must still be unlinked exactly as
+        before this round; nothing here should ever reach for a
+        tombstone."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        (cfg / "policy-limits.json").write_text(json.dumps(old_doc))
+        stamp_path = cfg / "policy-limits.json.stamp.json"
+        stamp_path.write_text(json.dumps(_stale_stamp_dict()))
+
+        fresh_doc = {"restrictions": {"allow_remote_control": {"allowed": True}},
+                     "compliance_taints": []}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+        assert not stamp_path.exists(), (
+            "a stale stamp with no HIPAA evidence must still be unlinked, "
+            "exactly as before this round"
         )
 
     def case_a_failed_mint_falls_through_to_the_unlink(
@@ -2190,6 +2690,57 @@ class TestLiveRemoteControlSessions:
             "a mint that failed to write left the old stamp attached to "
             "the new body instead of falling through to the unlink")
 
+    def case_a_witness_write_failure_after_a_successful_mint_keeps_the_fresh_evidence(
+        self, tmp_path, monkeypatch
+    ):
+        """T1004: THE MINT'S STAMP REPLACE CAN LAND BEFORE THE WITNESS
+        WRITE THAT FOLLOWS IT FAILS. `_fall_back_to_unlink` used to decide
+        what to keep from `pre_sweep_stamp` -- the record read BEFORE this
+        sweep touched anything -- so a witness-write OSError here
+        overwrote the mint's own just-written stamp (carrying THIS
+        sweep's fresh taint) with a tombstone of the OLD, pre-sweep
+        evidence, losing the fresh entry. Reading the stamp fresh off
+        disk at decision time carries the new evidence into the
+        fallback's tombstone instead."""
+        from cswap_pin import proxy as pin_proxy
+
+        cfg = tmp_path / "config"
+        cfg.mkdir()
+        other = "7" * 64
+        old_doc = {"restrictions": {}, "compliance_taints": []}
+        _seed_trusted_stamp(cfg, old_doc, hipaa_seen=[other])
+        monkeypatch.setattr(pin_proxy, "_active_oauth_token",
+                            lambda: _TEST_TOKEN)
+        monkeypatch.setattr(pin_proxy, "_active_pin_account_label",
+                            lambda: _TEST_ACCOUNT_LABEL)
+
+        fresh_doc = {"restrictions": {}, "compliance_taints": ["hipaa"]}
+        monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
+        monkeypatch.setattr(pin_proxy, "policy_limits_for",
+                            lambda _t: fresh_doc)
+
+        real_write_text = Path.write_text
+
+        def failing_write_text(self, *a, **kw):
+            if "pin-witness.json." in self.name and self.name.endswith(".tmp"):
+                raise OSError("simulated")
+            return real_write_text(self, *a, **kw)
+
+        monkeypatch.setattr(Path, "write_text", failing_write_text)
+
+        daemon = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        daemon._pin_token_provider = lambda: "tok"
+        assert daemon.sweep_policy_once() is True
+
+        stamp = json.loads(
+            (cfg / "policy-limits.json.stamp.json").read_text())
+        assert stamp == {
+            "v": 1, "identity": "0" * 64, "kind": "token", "sha": "none",
+            "confirmed_at": 0, "hipaa_seen": [other, _TEST_IDENTITY],
+        }, ("a witness write that failed after the mint's own stamp "
+            "replace succeeded must tombstone THIS sweep's fresh "
+            "evidence, not the stale pre-sweep record")
+
     def case_no_hipaa_taint_leaves_hipaa_seen_empty(
         self, tmp_path, monkeypatch
     ):
@@ -2233,7 +2784,7 @@ class TestLiveRemoteControlSessions:
         cfg = tmp_path / "config"
         cfg.mkdir()
         stamp = cfg / "policy-limits.json.stamp.json"
-        stamp.write_text(json.dumps({"sha": "stale"}))
+        stamp.write_text(json.dumps(_stale_stamp_dict()))
         doc = {"restrictions": {}, "compliance_taints": []}
 
         monkeypatch.setattr(pin_proxy, "_config_home_for_policy", lambda: cfg)
@@ -4178,6 +4729,16 @@ class TestIsPinnedRoute:
              "the machine never appears on the pinned account's claude.ai"),
             ("/v1/environments/bridge/env_01", True,
              "deregister must reach the account that owns the environment"),
+            # markEnvironmentOffline (CC 2.1.280) carries the ENVIRONMENT
+            # SECRET as bearer, exactly like the /work/* routes below --
+            # swapped, the take-back ran and the unswapped re-send was
+            # refused too ("Bridge environments are not available for this
+            # organization"). It shares the `bridge/<env>` prefix with
+            # deregister above, so the boundary has to stop one segment
+            # deeper than deregister's own.
+            ("/v1/environments/bridge/env_01/offline", False,
+             "carries the environment secret, not the OAuth bearer -- same "
+             "credential shape as /work/*, not the register/deregister pair"),
             ("/v1/environments/env_01/bridge/reconnect", True,
              "reconnect re-mints a session token for the environment, the "
              "same bargain as /v1/sessions/<id>/unarchive"),
@@ -8157,7 +8718,71 @@ class TestRefcount:
             "an unreferenced daemon lingered — the reaper stopped working"
         )
 
+    def case_the_last_holder_leaving_with_a_missing_record_still_republishes(
+        self, tmp_path, monkeypatch
+    ):
+        """`watch_refcount` reaches `_is_claimed` with `republish` through TWO
+        doors: the first-holder timeout (~8666, covered by the 00:41:13Z case
+        above, which never opens a FIFO writer at all) and this one — the EOF
+        re-check after the LAST holder closes (~8697). A record gone missing
+        when the last holder leaves is the same 2026-09-24 class of failure,
+        reached by the other door, and nothing proved `republish` actually
+        runs there: only that it runs on the first-holder path.
+        """
+        import json as _json, os, threading
 
+        import claude_swap.paths as paths
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import (
+            refcount_fifo_path,
+            watch_refcount,
+            write_daemon_state,
+            daemon_fingerprint,
+        )
+
+        certdir = tmp_path / "pin-proxy"; certdir.mkdir()
+        fifo = refcount_fifo_path(certdir)
+        os.mkfifo(fifo)
+        write_daemon_state(certdir, 40404, os.getpid(), daemon_fingerprint())
+        (certdir / "proxy.json").unlink()  # missing by the time the watcher checks
+        cfg = tmp_path / ".claude.json"
+        cfg.write_text(_json.dumps({"env": {"CSWAP_PIN_PORT": "59999"}}))  # not us
+        monkeypatch.setattr(paths, "get_global_config_path", lambda: cfg)
+        monkeypatch.setattr("cswap_pin.proxy._CLAIM_RECHECK_INTERVAL", 0.05)
+        # A live Remote Control tunnel is the claim carrying this — the same
+        # channel-only shape as the 00:41:13Z case, so `live_clients` alone
+        # cannot be what keeps `_is_claimed` from ending the claim here.
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+
+        republished = []
+
+        def _republish():
+            republished.append(1)
+            write_daemon_state(certdir, 40404, os.getpid(), daemon_fingerprint())
+
+        holder = os.open(fifo, os.O_RDWR)  # a wrapper-launched session attaches
+        reached = _watch_blocking_phase(monkeypatch)  # as above
+        fired = threading.Event()
+        threading.Thread(
+            target=watch_refcount,
+            args=(fifo, fired.set),
+            kwargs={"live_clients": lambda: 0, "republish": _republish},
+            daemon=True,
+        ).start()
+        assert reached.wait(timeout=5.0), "watcher never reached the blocking read"
+        os.close(holder)  # the last FIFO holder leaves, with the record missing
+        assert not fired.wait(timeout=0.3), (
+            "watch_refcount tore the daemon down on the EOF re-check even "
+            "though a channel was still live"
+        )
+        assert republished == [1], (
+            "the EOF-recheck door never called republish — only the "
+            "first-holder-timeout door (00:41:13Z case) is covered"
+        )
+        assert pin_proxy.read_daemon_state(certdir) == {
+            "port": 40404, "pid": os.getpid(),
+            "fingerprint": daemon_fingerprint(),
+        }, "republish ran but did not actually restore the record"
 
 
 # The badge is rendered by `claude_swap.tui.autoview`, and the version that
@@ -11231,6 +11856,86 @@ print("OK", port)
             "leave the address held forever"
         )
 
+    def case_a_handover_wins_the_race_even_when_the_flag_is_not_set_yet(
+        self, tmp_path
+    ):
+        """`_replacing` alone is TIMING, not proof. `_on_replace_request` runs
+        `self._spawn()` — which reassigns `self._proc` to the successor as
+        its very last line — and only THEN sets `self._replacing = True`. The
+        predecessor's own exit is asked for by a signal sent across process
+        boundaries (`os.kill`, then a 0.25s settle and a possibly-instant
+        drain), so nothing orders it after the SECOND of those two lines —
+        only after the first. A `self._proc.wait()` that returns between them
+        must still be read as a handover, or `_supervise` closes the
+        successor's socket out from under it (`self.stop()`) on exactly the
+        exit the flag was supposed to catch.
+
+        Reproduced here without threads or signals: `self._proc` is swapped
+        to the successor from INSIDE the predecessor's own `wait()` — the
+        one place production genuinely cannot promise `_replacing` is set
+        yet — and `_replacing` is never set True at all.
+        """
+        from cswap_pin import proxy as pin_proxy
+
+        closed = []
+
+        class _Sock:
+            def close(self):
+                closed.append("closed")
+
+        class _Proc:
+            def __init__(self, code):
+                self._code = code
+
+            def wait(self):
+                return self._code
+
+        class _RacyHolder(pin_proxy.PortHolder):
+            def __init__(self):
+                self._stop = False
+                self._replacing = False  # never set True — see docstring
+                self._srv = _Sock()
+                self.port = 36301
+                self.daemon_pid = 4242
+                self._rounds = 0
+                self.successor = _Proc(0)
+                predecessor = _Proc(0)
+
+                def _predecessor_wait():
+                    # THE RACE: `self._proc` is reassigned before this
+                    # returns, exactly as `_spawn()`'s last line does — but
+                    # `self._replacing` is not set, exactly as the gap
+                    # before `_on_replace_request`'s own next line allows.
+                    self._proc = self.successor
+                    return 0
+
+                predecessor.wait = _predecessor_wait
+                self._proc = predecessor
+
+            def _reap_standby(self):
+                pass
+
+        # A round-2 wait, reached only if the branch under test correctly
+        # `continue`s on round 1 instead of falling through to `stop()`.
+        def _successor_wait():
+            h._rounds += 1
+            h._stop = True
+            return 0
+
+        h = _RacyHolder()
+        h.successor.wait = _successor_wait
+        h._supervise()
+        assert closed == [], (
+            "the holder closed its listening socket on a HANDOVER exit "
+            "whose `_replacing` flag lost the race — `self._proc` had "
+            "already been swapped to the successor and `_supervise` never "
+            "looked"
+        )
+        assert h._rounds == 1, (
+            "corollary: with the fix, round 2 (the successor's own wait()) "
+            "must be reached too"
+        )
+
     def case_a_held_exit_does_not_drain_before_letting_the_holder_respawn(
         self, tmp_path
     ):
@@ -11920,6 +12625,73 @@ print("OK", port)
             f"the report does not name how many attempts failed: {said[0]!r}"
         )
 
+    def case_a_clean_exit_releases_the_standby_too(self, tmp_path):
+        """`_supervise`'s own code==0 branch used to close only ITS OWN
+        listener, never `stop()` — so the standby's dup of the same
+        descriptor was never signalled. It stayed LISTENing, still completing
+        handshakes into a backlog nobody would ever drain.
+
+        MEASURED: 2026-09-24 00:41:13Z, an idle refcount teardown left port
+        36301 accepting connects and answering nothing for 13 minutes, until
+        a human ran `cswap pin --heal`. `stop()` is what `_supervise` must
+        call on a clean exit — same release path its OWN tests already cover
+        when something calls it directly (see the two cases above and
+        below); this is the one caller that never did.
+        """
+        import socket
+        import time
+
+        from cswap_pin.proxy import PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+
+        def _fake_spawn():
+            holder._proc = _ExitedProc(0)  # a clean, voluntary exit
+            holder.daemon_pid = 4242
+
+        holder._spawn = _fake_spawn
+        holder.start()  # the fake daemon "exits" 0 at once; the standby is real
+        try:
+            deadline = time.monotonic() + 5
+            while holder._thread.is_alive() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert not holder._thread.is_alive(), (
+                "_supervise never returned after the clean exit"
+            )
+
+            survivors = []
+            for entry in pathlib.Path("/proc").glob("[0-9]*"):
+                try:
+                    argv = (entry / "cmdline").read_bytes().replace(b"\0", b" ")
+                except OSError:
+                    continue
+                cmd = argv.decode(errors="replace")
+                if "cswap_pin.proxy" in cmd and str(tmp_path) in cmd:
+                    survivors.append(f"{entry.name} {cmd.strip()}")
+            assert not survivors, (
+                "a clean daemon exit left the standby running, still holding "
+                f"a dup of the listener: {survivors}"
+            )
+
+            # AND THE PORT ITSELF: with the standby released too, nothing
+            # anywhere still holds the descriptor, so a connect must be
+            # REFUSED at once rather than parked in a backlog nobody drains.
+            try:
+                socket.create_connection(
+                    ("127.0.0.1", holder.port), timeout=1
+                ).close()
+            except ConnectionRefusedError:
+                pass
+            else:
+                pytest.fail(
+                    "the port still accepted connects after a clean exit — "
+                    "the standby's dup of the listener was never closed"
+                )
+        finally:
+            from conftest import _reap_pin_processes
+            _reap_pin_processes(tmp_path)
+
     def case_the_teardown_does_not_leave_the_standby_running(self, tmp_path):
         """`stop()` returning must mean the whole lineage let go — standby
         included, not just the daemon it stubs out here.
@@ -11997,6 +12769,300 @@ print("OK", port)
             )
         finally:
             _reap_pin_processes(tmp_path)
+
+    def case_a_still_serving_displaced_pid_gets_its_record_restored(
+        self, tmp_path
+    ):
+        """`_clear_handover_mark` used to delete unconditionally. A holder
+        that finds the port already answering exits without ever spawning a
+        successor (736bb88) — correctly, since a healthy daemon already owns
+        it — so `_spawn_daemon`'s wait for a new record times out with the
+        OLD daemon still up. Deleting the mark then erased that live
+        daemon's only record. Measured 2026-09-24 00:39-00:41Z: daemon
+        2147854 stayed up the whole window and was torn down under 22 open
+        channels two minutes after its record vanished.
+        """
+        import socket
+
+        from cswap_pin.proxy import (
+            _clear_handover_mark, read_daemon_state, write_daemon_state,
+        )
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(2)
+        port = srv.getsockname()[1]
+        try:
+            write_daemon_state(certdir, port, os.getpid(), "fp", handover=True)
+            assert _clear_handover_mark(certdir) is True
+            st = read_daemon_state(certdir)
+            assert st == {"port": port, "pid": os.getpid(), "fingerprint": "fp"}, (
+                "a still-serving displaced daemon's record was not restored: "
+                f"{st!r}"
+            )
+        finally:
+            srv.close()
+
+    def case_CONTROL_a_dead_displaced_pid_still_gets_the_delete(self, tmp_path):
+        """The restore above must not become "never delete a handover mark" —
+        a genuinely departed predecessor's record is exactly what this
+        function exists to clear, and the control that proves the case above
+        is not "the mark is never cleared any more"."""
+        import subprocess
+        import sys
+
+        from cswap_pin.proxy import (
+            _clear_handover_mark, read_daemon_state, write_daemon_state,
+        )
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait()  # reaped: genuinely gone, not merely "probably"
+        write_daemon_state(certdir, 41234, dead.pid, "fp", handover=True)
+        assert _clear_handover_mark(certdir) is True
+        assert read_daemon_state(certdir) is None, (
+            "a mark left by a pid that had actually exited was not cleared"
+        )
+
+    def case_an_alive_pid_on_a_dead_port_still_gets_the_delete(self, tmp_path):
+        """ALIVE ALONE IS NOT ENOUGH — the restore is keyed on the PAIR. A
+        pid can survive the crash of the very socket it held, or belong to
+        something else entirely by the time we look, so an alive pid whose
+        port answers nothing must still be cleared. Restoring it anyway
+        would tell every reader a pin is up when nothing is behind it."""
+        import socket
+
+        from cswap_pin.proxy import (
+            _clear_handover_mark, read_daemon_state, write_daemon_state,
+        )
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        probe = socket.socket()
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+        probe.close()  # freed at once — nothing serves this port
+
+        write_daemon_state(certdir, port, os.getpid(), "fp", handover=True)
+        assert _clear_handover_mark(certdir) is True
+        assert read_daemon_state(certdir) is None, (
+            "an alive pid on a port that answers nothing had its record "
+            "restored instead of cleared"
+        )
+
+    def case_a_successor_publishing_mid_check_is_not_overwritten(
+        self, tmp_path, monkeypatch
+    ):
+        """The pid-alive and port-answers checks above cost real wall time
+        (a signal-0, a 0.5s connect budget), and a successor can publish its
+        own record in exactly that window. Restoring the displaced
+        predecessor's snapshot over it would erase a fresh, correct record
+        with a stale one — so the record is re-read immediately before the
+        write, and the write is skipped unless it is still the same
+        handover mark for that pid."""
+        import socket
+
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import (
+            _clear_handover_mark, read_daemon_state, write_daemon_state,
+        )
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(2)
+        port = srv.getsockname()[1]
+        try:
+            write_daemon_state(certdir, port, os.getpid(), "fp", handover=True)
+
+            real_port_answers = pin_proxy._port_answers
+
+            def _publish_then_answer(p, timeout=0.5):
+                # A successor publishes its own record WHILE this connect
+                # runs — the exact window the fix has to close.
+                write_daemon_state(certdir, 45678, 424242, "successor-fp")
+                return real_port_answers(p, timeout=timeout)
+
+            monkeypatch.setattr(pin_proxy, "_port_answers", _publish_then_answer)
+
+            assert _clear_handover_mark(certdir) is True
+            st = read_daemon_state(certdir)
+            assert st == {
+                "port": 45678, "pid": 424242, "fingerprint": "successor-fp"
+            }, (
+                "the displaced predecessor's stale record overwrote the "
+                f"successor that published during the check: {st!r}"
+            )
+        finally:
+            srv.close()
+
+    def case_a_successor_publishing_mid_check_is_not_deleted(
+        self, tmp_path, monkeypatch
+    ):
+        """THE SAME RACE, on the DELETE branch. `_pid_alive`/`_port_answers`
+        cost real wall time, and a successor can publish its own record in
+        exactly that window — reaching here not because the predecessor is
+        still serving, but because it is NOT (`_port_answers` about to
+        return False, which is what sends this call to the delete branch
+        rather than the restore one). Deleting unconditionally there does
+        not clear a stale mark, it erases the successor's fresh record:
+        `_is_claimed` then reads the daemon it named as unclaimed.
+        """
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import (
+            _clear_handover_mark, read_daemon_state, write_daemon_state,
+        )
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        # No listener on this port — the predecessor's own port never
+        # answers, whatever the mock below does, so this case genuinely
+        # reaches the delete branch rather than faking its way there.
+        write_daemon_state(certdir, 41234, os.getpid(), "fp", handover=True)
+
+        def _publish_then_refuse(p, timeout=0.5):
+            # A successor publishes its own record WHILE this connect runs —
+            # the exact window the fix has to close.
+            write_daemon_state(certdir, 45678, 424242, "successor-fp")
+            return False
+
+        monkeypatch.setattr(pin_proxy, "_port_answers", _publish_then_refuse)
+
+        assert _clear_handover_mark(certdir) is True
+        st = read_daemon_state(certdir)
+        assert st == {
+            "port": 45678, "pid": 424242, "fingerprint": "successor-fp"
+        }, (
+            "the delete branch erased the successor's fresh record instead "
+            f"of leaving it alone: {st!r}"
+        )
+
+    def case_the_00_41_13Z_tick_never_stops_a_still_serving_daemon(
+        self, tmp_path, monkeypatch
+    ):
+        """Full incident reproduction, 2026-09-24 00:39:13-00:41:13Z.
+
+        `_spawn_daemon` marks a live daemon's own record as a handover, no
+        successor ever publishes one (its holder found the port already
+        answering and exited without spawning anything, 736bb88 — correct by
+        design), and `_clear_handover_mark` used to unconditionally DELETE
+        that record. `watch_refcount`'s periodic `_is_claimed` then read a
+        state file naming nobody and tore the daemon down two minutes later,
+        with 22 channels and 16 requests still live. Items 1 and 2 close
+        this together: the mark is restored rather than deleted, and even
+        where it were not, `live_clients` keeps the claim open. Either way
+        the teardown callback must never fire.
+
+        THE 22 CHANNELS, not just the 16 requests. Those channels were Remote
+        Control tunnels — `_PUMP.live_pairs()`, which `live_clients` never
+        counts (a CONNECT that reached its 101 upgrade detaches its socket
+        from `live_client_count` entirely). `claim["live"]` starts at 0 here
+        so the channel count is what has to carry the claim alone; if the
+        `_PUMP.live_pairs()` gate in `_is_claimed` regressed, this fires on
+        the FIRST tick rather than being coincidentally saved by a live
+        request.
+        """
+        import socket
+        import threading
+        import time
+
+        from cswap_pin.proxy import (
+            _clear_handover_mark, _republish_own_record, read_daemon_state,
+            refcount_fifo_path, watch_refcount, write_daemon_state,
+        )
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(2)
+        port = srv.getsockname()[1]
+        try:
+            write_daemon_state(certdir, port, os.getpid(), "fp")
+            # `_spawn_daemon` marks the departing record before forking a
+            # successor...
+            write_daemon_state(certdir, port, os.getpid(), "fp", handover=True)
+            # ...and here that successor's holder found the port already
+            # answering and exited (736bb88) — no successor ever published a
+            # record, so `_spawn_daemon`'s wait loop times out and clears the
+            # mark, exactly as it did at 00:39:23Z.
+            assert _clear_handover_mark(certdir) is True
+            st = read_daemon_state(certdir)
+            assert st and st["pid"] == os.getpid() and not st.get("handover"), (
+                f"the mark was cleared by deleting a still-serving daemon's "
+                f"own record instead of restoring it: {st!r}"
+            )
+            # ITEM 2 NEEDS THE RECORD MISSING, not merely restored — a
+            # second race (another stray delete, another `_clear_handover_
+            # mark` call) can still take it after the restore lands. With the
+            # record present, `_is_claimed` never calls `republish` at all,
+            # and item 2's gating never runs.
+            (certdir / "proxy.json").unlink()
+
+            fifo = refcount_fifo_path(certdir)
+            os.mkfifo(fifo)
+            fired = threading.Event()
+            # A MUTABLE CLAIM, not a fixed `lambda: 1`. The thread below is
+            # daemon=True and loops on its own `first_holder_timeout` forever
+            # once claimed — with no claim left to drop, it would keep
+            # ticking `_is_claimed` past this test's own monkeypatches (none
+            # here, but every sibling case in this file patches
+            # `paths.get_global_config_path`), reading real host state from a
+            # thread nothing is watching. Flipping this to 0 after the
+            # assertion below lets the SAME loop tear itself down so the
+            # thread can be joined before the test returns.
+            claim = {"live": 0, "channel": 1}
+            monkeypatch.setattr(
+                pin_proxy._PUMP, "live_pairs", lambda *a, **k: claim["channel"]
+            )
+            thread = threading.Thread(
+                target=watch_refcount,
+                args=(fifo, fired.set),
+                kwargs={
+                    "first_holder_timeout": 0.15,
+                    # `live` stays 0 — the 22 Remote Control TUNNELS carry
+                    # the claim here, not the 16 requests (covered by the
+                    # sibling `live_clients` cases elsewhere in this file).
+                    "live_clients": lambda: claim["live"],
+                    # THE GATED FUNCTION, exactly as `daemon_main` wires it —
+                    # a raw `write_daemon_state` here would republish whether
+                    # or not the gates hold, which is not what production
+                    # runs, and the record being missing (above) is what
+                    # makes `_is_claimed` call this at all.
+                    "republish": lambda: _republish_own_record(
+                        certdir, port, os.getpid(), "fp",
+                        still_accepting=True,
+                        live_clients=lambda: claim["live"],
+                    ),
+                },
+                daemon=True,
+            )
+            thread.start()
+            try:
+                assert not fired.wait(timeout=1.0), (
+                    "watch_refcount tore the daemon down — the 00:41:13Z "
+                    "refcount stop, reproduced"
+                )
+            finally:
+                # STOP THE THREAD before the test returns — see the comment
+                # on `claim` above. Both claims, or the channel alone keeps
+                # it alive forever.
+                claim["live"] = 0
+                claim["channel"] = 0
+                assert fired.wait(timeout=3.0), (
+                    "watch_refcount thread never stopped during test cleanup"
+                )
+                thread.join(timeout=3.0)
+        finally:
+            srv.close()
 
     def case_a_mark_that_cannot_be_cleared_is_not_reported_as_cleared(
         self, tmp_path
@@ -13684,6 +14750,56 @@ class TestUnwireWhenDead:
             "idle teardown leaves every later session dialling a dead port"
         )
 
+    def case_daemon_main_wires_the_gated_republish(self):
+        """`watch_refcount`'s `republish` kwarg, as `daemon_main` wires it,
+        must be the GATED `_republish_own_record` — never a raw
+        `write_daemon_state`. Only the gated form checks
+        not-draining/still-accepting/already-claimed before writing; a
+        draining predecessor's own `watch_refcount` thread is still ticking
+        after a handover starts (`announce_draining` runs before the socket
+        is released, not atomically with it), and an unconditional write
+        there is the same incident this module's own docstrings describe:
+        `_spawn_daemon`'s wait reads the stale record as proof a successor
+        exists and TERMs the real one.
+
+        ASSERTED ON THE PARSE TREE, for the same reason
+        `case_teardown_restores_the_config` is: the wiring lives inside
+        `daemon_main`, which starts real threads and installs real signal
+        handlers, so reconstructing it end to end is a harness that can be
+        wrong in its own right.
+        """
+        import ast
+        import inspect
+        import textwrap
+
+        from cswap_pin import proxy as pin_proxy
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(pin_proxy.daemon_main)))
+        republish = None
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            for key, value in zip(node.keys, node.values):
+                if isinstance(key, ast.Constant) and key.value == "republish":
+                    republish = value
+        assert republish is not None, (
+            "daemon_main no longer wires a 'republish' callable into "
+            "watch_refcount's kwargs at all"
+        )
+        assert isinstance(republish, ast.Lambda), (
+            f"'republish' must be a zero-arg callable: {ast.dump(republish)}"
+        )
+        callee = getattr(republish.body, "func", None)
+        assert (
+            isinstance(republish.body, ast.Call)
+            and getattr(callee, "id", None) == "_republish_own_record"
+        ), (
+            f"'republish' calls {getattr(callee, 'id', ast.dump(republish.body))!r}"
+            ", not the gated _republish_own_record — an unconditional write "
+            "here lets a draining predecessor's watch_refcount thread "
+            "republish a record for a port it no longer serves"
+        )
+
 
 def _recording_server(events):
     """A stand-in for PinProxy that records the handover calls it receives.
@@ -15318,6 +16434,344 @@ class TestClearingThePinDoesNotStrandLiveSessions:
         )
         assert pin_proxy._is_claimed(certdir, lambda: 1) is True, (
             "a live client was ignored because the platform cannot be probed"
+        )
+
+    def case_a_missing_record_with_an_open_channel_is_republished(
+        self, tmp_path, monkeypatch
+    ):
+        """A record can go missing while the daemon it names is still
+        serving — `_clear_handover_mark` deleting a live daemon's own mark
+        was one way (2026-09-24 00:39-00:41Z), a race or a corrupt read are
+        others. `_is_claimed` used to end the claim right there, on the
+        theory that "no record" and "someone else's record" prove the same
+        thing. They do not, so a caller that HAS a way to republish gets to
+        re-assert its own record — the way `ensure_wired_to` re-asserts the
+        global wiring — and the usual checks run on it. A live Remote
+        Control tunnel (`_PUMP`) is one of those checks: `live_client_count`
+        does not track it at all once the 101 upgrade detaches its socket, so
+        this is also the "any channel is open" clause on its own.
+        """
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(
+            pin_proxy, "clients_that_arming_would_cut_off", lambda _p: 0
+        )
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+
+        republished = []
+
+        def _republish():
+            republished.append(1)
+            pin_proxy.write_daemon_state(certdir, 45678, os.getpid(), "fp")
+
+        assert pin_proxy._is_claimed(
+            certdir, live_clients=lambda: 0, republish=_republish
+        ) is True, "an open channel on a missing record did not keep the claim"
+        assert republished == [1], "the caller's republish was never invoked"
+        assert pin_proxy.read_daemon_state(certdir) == {
+            "port": 45678, "pid": os.getpid(), "fingerprint": "fp"
+        }
+
+    def case_CONTROL_a_missing_record_with_nothing_claiming_still_ends_it(
+        self, tmp_path, monkeypatch
+    ):
+        """The republish above must not become "a missing record is always
+        claimed" — 7b4b77e's whole point is that a cleared pin with nothing
+        live still lets its daemon go."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(
+            pin_proxy, "clients_that_arming_would_cut_off", lambda _p: 0
+        )
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 0)
+
+        assert pin_proxy._is_claimed(
+            certdir, live_clients=lambda: 0,
+            republish=lambda: pin_proxy.write_daemon_state(
+                certdir, 45678, os.getpid(), "fp"
+            ),
+        ) is False, "an idle, unclaimed daemon must still time out"
+
+    def case_CONTROL_a_record_naming_another_live_pid_still_ends_the_claim(
+        self, tmp_path
+    ):
+        """A real handover — another daemon's record, and it is actually
+        alive — must end the claim without ever calling `republish`:
+        overwriting a record that genuinely belongs to someone else would be
+        the hijack `_repair_wiring_if_ours` was written to refuse."""
+        import subprocess
+        import sys
+
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        other = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(5)"]
+        )
+        try:
+            pin_proxy.write_daemon_state(certdir, 45678, other.pid, "fp")
+
+            def _must_not_republish():
+                pytest.fail("republished over another live daemon's record")
+
+            assert pin_proxy._is_claimed(
+                certdir, live_clients=lambda: 1, republish=_must_not_republish
+            ) is False, "another live daemon's record was overridden"
+        finally:
+            other.kill()
+            other.wait()
+
+    def case_a_record_naming_a_dead_pid_is_republished_and_kept_while_live(
+        self, tmp_path, monkeypatch
+    ):
+        """A record naming ANOTHER pid ends the claim only when that pid is
+        actually alive — that is a real handover. A record naming a pid that
+        has already exited proves nothing, exactly like a missing record, so
+        it must fall through to `republish` the same way and the claim must
+        still be honoured once we own the record again."""
+        import subprocess
+        import sys
+
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait()  # reaped: genuinely gone, not merely "probably"
+        pin_proxy.write_daemon_state(certdir, 45678, dead.pid, "fp")
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(
+            pin_proxy, "clients_that_arming_would_cut_off", lambda _p: 0
+        )
+
+        republished = []
+
+        def _republish():
+            republished.append(1)
+            pin_proxy.write_daemon_state(certdir, 45678, os.getpid(), "fp2")
+
+        assert pin_proxy._is_claimed(
+            certdir, live_clients=lambda: 1, republish=_republish
+        ) is True, (
+            "a record naming a dead pid ended the claim instead of falling "
+            "through to republish"
+        )
+        assert republished == [1], (
+            "a record naming a dead pid never reached republish"
+        )
+
+    def case_a_wedged_tunnel_past_the_drain_ttl_no_longer_claims(
+        self, tmp_path, monkeypatch
+    ):
+        """`await_inflight` treats a `_PUMP` pair as WEDGED, not live, once it
+        has been quiet past `_DRAINING_MARKER_TTL` (c5aa0ad, d4167e0) — that
+        is the same discriminator the reply wait uses. `_is_claimed` used to
+        count `live_pairs() > 0` on its own, with no silence bound, so a
+        daemon with exactly one wedged pair was claimed forever and never
+        reached the teardown that `await_inflight` would otherwise have
+        released it from."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(
+            pin_proxy, "clients_that_arming_would_cut_off", lambda _p: 0
+        )
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+        monkeypatch.setattr(
+            pin_proxy._PUMP, "quiet_for",
+            lambda: pin_proxy._DRAINING_MARKER_TTL + 1,
+        )
+
+        assert pin_proxy._is_claimed(
+            certdir, live_clients=lambda: 0,
+            republish=lambda: pin_proxy.write_daemon_state(
+                certdir, 45678, os.getpid(), "fp"
+            ),
+        ) is False, (
+            "a tunnel wedged past the drain TTL was still read as a live "
+            "claim"
+        )
+
+    def case_a_wedged_tunnel_control_still_below_ttl(self, tmp_path, monkeypatch):
+        """CONTROL for the case above: a pair quiet for LESS than the TTL —
+        the ordinary, still-live state — must still keep the claim."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(
+            pin_proxy, "clients_that_arming_would_cut_off", lambda _p: 0
+        )
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+        monkeypatch.setattr(pin_proxy._PUMP, "quiet_for", lambda: 1.0)
+
+        assert pin_proxy._is_claimed(
+            certdir, live_clients=lambda: 0,
+            republish=lambda: pin_proxy.write_daemon_state(
+                certdir, 45678, os.getpid(), "fp"
+            ),
+        ) is True, (
+            "CONTROL FAILED: a tunnel still within the drain TTL must keep "
+            "the claim, or the case above proves nothing"
+        )
+
+    def case_a_draining_process_never_republishes(self, tmp_path, monkeypatch):
+        """A draining predecessor's own `watch_refcount` thread is still
+        ticking during a handover — `announce_draining` runs before the
+        socket is released — and if it rewrites `proxy.json` naming itself,
+        `_spawn_daemon`'s wait for a fresh successor record accepts a
+        record that answers for nobody, and
+        `_sweep_orphan_daemons(keep_pid=<predecessor>)` TERMs the real,
+        freshly spawned successor. `this_process_is_draining()` must stop
+        the write before it ever reaches disk, whatever the claim looks
+        like otherwise."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: 45678)
+        done = pin_proxy.announce_draining(certdir)
+        try:
+            pin_proxy._republish_own_record(
+                certdir, 45678, os.getpid(), "fp",
+                still_accepting=True, live_clients=lambda: 5,
+            )
+        finally:
+            done()
+        assert pin_proxy.read_daemon_state(certdir) is None, (
+            "a draining process republished its own record"
+        )
+
+    def case_a_process_past_release_listener_never_republishes(
+        self, tmp_path, monkeypatch
+    ):
+        """`release_listener` nils `proxy._srv` before a handover's drain is
+        even announced (the direct-spawn path releases the fd first) — so a
+        process that has already given up its listener must not republish
+        either, even where the draining marker has not caught up yet."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: 45678)
+
+        pin_proxy._republish_own_record(
+            certdir, 45678, os.getpid(), "fp",
+            still_accepting=False, live_clients=lambda: 5,
+        )
+        assert pin_proxy.read_daemon_state(certdir) is None, (
+            "a process that already released its listener republished anyway"
+        )
+
+    def case_a_process_with_no_claim_never_republishes(self, tmp_path, monkeypatch):
+        """Still accepting and not draining is not enough on its own — a
+        process with nothing established yet (no live client, no tunnel, no
+        wiring) has nothing to protect, so a spurious republish would create
+        a claim out of thin air rather than preserving one."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 0)
+
+        pin_proxy._republish_own_record(
+            certdir, 45678, os.getpid(), "fp",
+            still_accepting=True, live_clients=lambda: 0,
+        )
+        assert pin_proxy.read_daemon_state(certdir) is None, (
+            "a process with no established claim republished anyway"
+        )
+
+    def case_an_accepting_non_draining_claimed_process_republishes(
+        self, tmp_path, monkeypatch
+    ):
+        """CONTROL for the three cases above: with every gate satisfied —
+        not draining, still accepting, and a live claim — the republish
+        must still happen, or this whole family proves nothing."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 0)
+
+        pin_proxy._republish_own_record(
+            certdir, 45678, os.getpid(), "fp",
+            still_accepting=True, live_clients=lambda: 3,
+        )
+        assert pin_proxy.read_daemon_state(certdir) == {
+            "port": 45678, "pid": os.getpid(), "fingerprint": "fp",
+            "plain_relay_ungated": True,
+        }, "CONTROL FAILED: every gate satisfied must still republish"
+
+    def case_a_republish_wedged_past_the_drain_ttl_does_not_claim(
+        self, tmp_path, monkeypatch
+    ):
+        """`_is_claimed`'s own `_PUMP.live_pairs()` read is bounded by
+        `quiet_for() <= _DRAINING_MARKER_TTL`
+        (`case_a_wedged_tunnel_past_the_drain_ttl_no_longer_claims`), because
+        an unbounded read claims a daemon forever on one wedged pair and it
+        never reaches the teardown `await_inflight` would otherwise release
+        it from. `_republish_own_record` reads the exact same
+        `_PUMP.live_pairs()` to decide whether it has anything to protect —
+        with no bound there, a wedged pair `_is_claimed` would refuse to
+        count still gets a fresh `proxy.json` written for it here, undoing
+        the bound from the writing side."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+        monkeypatch.setattr(
+            pin_proxy._PUMP, "quiet_for",
+            lambda: pin_proxy._DRAINING_MARKER_TTL + 1,
+        )
+
+        pin_proxy._republish_own_record(
+            certdir, 45678, os.getpid(), "fp",
+            still_accepting=True, live_clients=lambda: 0,
+        )
+        assert pin_proxy.read_daemon_state(certdir) is None, (
+            "a tunnel wedged past the drain TTL still got a fresh record "
+            "republished for it"
+        )
+
+    def case_a_republish_wedged_tunnel_control_still_below_ttl(
+        self, tmp_path, monkeypatch
+    ):
+        """CONTROL for the case above: a pair quiet for LESS than the TTL —
+        the ordinary, still-live state — must still republish, or the case
+        above proves nothing."""
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir(parents=True)
+        monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
+        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+        monkeypatch.setattr(pin_proxy._PUMP, "quiet_for", lambda: 1.0)
+
+        pin_proxy._republish_own_record(
+            certdir, 45678, os.getpid(), "fp",
+            still_accepting=True, live_clients=lambda: 0,
+        )
+        assert pin_proxy.read_daemon_state(certdir) == {
+            "port": 45678, "pid": os.getpid(), "fingerprint": "fp",
+            "plain_relay_ungated": True,
+        }, (
+            "CONTROL FAILED: a tunnel still within the drain TTL must still "
+            "republish"
         )
 
     def case_the_daemon_counts_its_own_live_clients(self, tmp_path):
@@ -20414,6 +21868,326 @@ class TestTheSweepClosesAReplacedTwin:
             "an archived twin was closed by the replaced-twin path -- "
             f"archived is history, never a duplicate: {deleted}")
         assert closed == 0
+
+
+class TestTheSweepArchivesATranscriptProvenTwin:
+    """The FOURTH proof `sweep_superseded_bridges` accepts before disposing
+    of an active+disconnected twin that neither the dead-creator nor the
+    replaced-twin proof names: a `bridge-session` record in an ENDED
+    transcript sitting in the SAME project directory as a LIVE session's own
+    transcript, naming the twin. Disposed of by ARCHIVE, never DELETE --
+    this proof alone does not rule out the twin being exactly what someone
+    meant to keep.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    def _home(self, tmp_path, monkeypatch):
+        home = tmp_path / "cfg"
+        (home / "sessions").mkdir(parents=True)
+        (home / "jobs").mkdir(parents=True)
+        (home / "projects" / "proj").mkdir(parents=True)
+        monkeypatch.setattr("claude_swap.paths.get_claude_config_home",
+                            lambda: home)
+        return home
+
+    def _live_session(self, home, title, session_id="s-live",
+                       bridge="cse_local_new"):
+        """A live session on this host named `title`, holding `bridge`, with
+        its own (empty) transcript in `projects/proj` -- the file
+        `_archived_twin_proof` uses to find that directory."""
+        (home / "sessions" / f"{session_id}.json").write_text(json.dumps({
+            "pid": os.getpid(), "sessionId": session_id, "name": title,
+            "bridgeSessionId": bridge}))
+        (home / "projects" / "proj" / f"{session_id}.jsonl").write_text("")
+
+    def _daemon(self, sessions, deleted, archived, archive_ok=True):
+        from cswap_pin import proxy as pin_proxy
+
+        d = pin_proxy.PinProxy.__new__(pin_proxy.PinProxy)
+        d._list_bridges = lambda tok: sessions
+        d._listing_complete = True
+        d._restore_bridge_titles = lambda s, tok: None
+
+        def _api(m, path, tok, **kw):
+            if m == "DELETE":
+                deleted.append(path.rsplit("/", 1)[-1])
+                return {"ok": True}
+            if path.endswith("/archive"):
+                archived.append(path.rsplit("/", 2)[-2])
+                return {"ok": True} if archive_ok else None
+            return {"ok": True}
+
+        d._bridge_api = _api
+        return d
+
+    def _roster(self, twin_status="active", twin_connection="disconnected",
+                twin_worker_status="idle"):
+        """A live bridge and an older, offline twin -- both titled `work`,
+        a generic title with nothing to identify."""
+        return [
+            {"id": "cse_local_new", "title": "work", "status": "active",
+             "connection_status": "connected", "worker_status": "idle",
+             "last_event_at": "2026-01-02T00:00:00Z",
+             "created_at": "2020-01-01T00:00:00Z"},
+            {"id": "cse_twin", "title": "work",
+             "status": twin_status, "connection_status": twin_connection,
+             "worker_status": twin_worker_status,
+             "last_event_at": "2026-01-01T00:00:00Z",
+             "created_at": "2020-01-01T00:00:00Z"},
+        ]
+
+    def _stub_other_proofs(self, monkeypatch, live=("cse_local_new",)):
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(pin_proxy, "_live_bridge_ids", lambda: set(live))
+        monkeypatch.setattr(pin_proxy, "_dead_creator_bridge_ids", lambda: set())
+        monkeypatch.setattr(pin_proxy, "_replaced_twin_bridge_ids", lambda: set())
+
+    def case_a_the_pair_archives_the_twin_never_deletes(
+            self, tmp_path, monkeypatch):
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")
+        (home / "projects" / "proj" / "ended123.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "ended123",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == ["cse_twin"], archived
+        assert deleted == [], deleted
+        assert result == 1
+
+    def case_b_control_an_offline_only_title_is_kept(
+            self, tmp_path, monkeypatch):
+        """CONTROL: the only `work` is this offline session -- no live
+        session shares its title, though a transcript still names it."""
+        home = self._home(tmp_path, monkeypatch)
+        (home / "projects" / "proj" / "ended123.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "ended123",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch, live=())
+        deleted, archived = [], []
+        roster = [{"id": "cse_twin", "title": "work", "status": "active",
+                   "connection_status": "disconnected", "worker_status": "idle",
+                   "last_event_at": "2026-01-01T00:00:00Z",
+                   "created_at": "2020-01-01T00:00:00Z"}]
+        result = self._daemon(roster, deleted, archived) \
+            .sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_c_no_proof_another_machines_twin_is_kept(
+            self, tmp_path, monkeypatch):
+        """As (a), but nothing in the live session's project directory
+        names THIS twin -- the one record there names a different bridge,
+        the shape another machine's sleeping twin of the same title takes."""
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")
+        (home / "projects" / "proj" / "ended123.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "ended123",
+                        "bridgeSessionId": "cse_some_other_machine"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_e_a_record_past_the_64kb_tail_is_still_archived(
+            self, tmp_path, monkeypatch):
+        """As (a), but the naming record sits in the LIVE session's OWN
+        transcript, more than `_POINTER_TAIL_BYTES` before the end --
+        outside `_transcript_bridge_history`'s bounded tail. The new proof
+        reads the whole file and still finds it."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")  # writes an EMPTY s-live.jsonl
+        naming = json.dumps({"type": "bridge-session", "sessionId": "s-live",
+                              "bridgeSessionId": "cse_twin"}) + "\n"
+        filler = ("x" * 200 + "\n") * 400  # comfortably over 64 KiB
+        tx = home / "projects" / "proj" / "s-live.jsonl"
+        tx.write_text(naming + filler)
+        assert len(tx.read_bytes()) - len(naming) > pin_proxy._POINTER_TAIL_BYTES
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == ["cse_twin"], archived
+        assert deleted == [], deleted
+        assert result == 1
+
+    def case_f_a_live_holders_own_current_pointer_is_not_proof(
+            self, tmp_path, monkeypatch):
+        """[C] An interactive live session H, named `work`, whose registry
+        `bridgeSessionId` a rotation teardown nulled and never rewrote (the
+        shape `case_a_pointer_cleared_on_teardown_is_still_listed` measures)
+        -- H still holds `cse_twin`, but `_live_bridge_records` cannot see
+        that, so `live` does not either. A second live session, also named
+        `work`, holds the newer bridge. H's own CURRENT transcript names
+        `cse_twin` -- that is H holding it now, not history -- and must not
+        be read as proof. Nothing here can rule out H's own bridge (no
+        registry value, no job), so the file is withheld, not scanned."""
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")  # the newer bridge's own holder
+        (home / "sessions" / "s-h.json").write_text(json.dumps({
+            "pid": os.getpid(), "sessionId": "s-h", "name": "work"}))
+        # NO `bridgeSessionId` -- exactly the nulled-on-teardown shape.
+        (home / "projects" / "proj" / "s-h.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "s-h",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_g_a_dead_namesake_is_not_a_source(self, tmp_path, monkeypatch):
+        """[I] The only session named `work` in the fixture is DEAD -- its
+        pid does not exist -- so it must never be a source directory to
+        scan. Negative row for the `_pid_alive` guard."""
+        home = self._home(tmp_path, monkeypatch)
+        (home / "sessions" / "s-dead.json").write_text(json.dumps({
+            "pid": 999999,  # not a real pid on this box
+            "sessionId": "s-dead", "name": "work",
+            "bridgeSessionId": "cse_local_new"}))
+        (home / "projects" / "proj" / "s-dead.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "s-dead",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_h_another_names_directory_is_not_scanned(
+            self, tmp_path, monkeypatch):
+        """[I] No live session is named `work` at all -- only a live session
+        named `elsewhere`, sharing the directory with the record that names
+        the twin. Negative row for the `name != title` match: the directory
+        alone holding the record is not enough."""
+        home = self._home(tmp_path, monkeypatch)
+        (home / "sessions" / "s-other.json").write_text(json.dumps({
+            "pid": os.getpid(), "sessionId": "s-other", "name": "elsewhere",
+            "bridgeSessionId": "cse_something_else"}))
+        (home / "projects" / "proj" / "s-other.jsonl").write_text("")
+        (home / "projects" / "proj" / "ended123.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "ended123",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_i_a_record_naming_a_different_session_is_kept(
+            self, tmp_path, monkeypatch):
+        """[I] A `bridge-session` record naming the twin sits in a file
+        whose OWN `sessionId` differs from the file's stem -- a record
+        about some other conversation. Negative row for the sessionId/stem
+        filter `_transcript_names_bridge` shares with
+        `_transcript_bridge_history`."""
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")
+        (home / "projects" / "proj" / "other.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "not-the-stem",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_j_a_resume_found_only_through_resumeSessionId_is_archived(
+            self, tmp_path, monkeypatch):
+        """[I] Positive row for the `resumeSessionId` resolution: the live
+        job's registry record keeps its ORIGINAL sessionId, and only the
+        job's own `resumeSessionId` names the transcript the twin's record
+        actually lives in -- there is no `s-orig.jsonl` at all, so reading
+        `sessionId` alone finds nothing."""
+        home = self._home(tmp_path, monkeypatch)
+        (home / "jobs" / "j1").mkdir(parents=True, exist_ok=True)
+        (home / "jobs" / "j1" / "state.json").write_text(json.dumps({
+            "resumeSessionId": "s-resumed", "bridgeSessionId": "cse_local_new"}))
+        (home / "sessions" / "s-orig.json").write_text(json.dumps({
+            "pid": os.getpid(), "sessionId": "s-orig", "jobId": "j1",
+            "name": "work", "bridgeSessionId": "cse_local_new"}))
+        (home / "projects" / "proj" / "s-resumed.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "s-resumed",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == ["cse_twin"], archived
+        assert deleted == [], deleted
+        assert result == 1
+
+    def case_k_a_running_worker_status_keeps_the_twin(
+            self, tmp_path, monkeypatch):
+        """[m] This proof carries no pid evidence of its own, unlike the
+        dead-creator/replaced-twin ones -- so rule 4
+        (`worker_status != "running"`) still applies to it: a server-side
+        `running` flag saves the twin even though every local condition for
+        the transcript proof holds."""
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")
+        (home / "projects" / "proj" / "ended123.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "ended123",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(twin_worker_status="running"), deleted, archived
+        ).sweep_superseded_bridges("tok")
+        assert archived == [], archived
+        assert deleted == [], deleted
+        assert result == 0
+
+    def case_l_a_refused_archive_is_counted_and_logged(
+            self, tmp_path, monkeypatch):
+        """[m] A refused `POST .../archive` must not vanish silently --
+        the sweep counts it and reports it through `_log_lifecycle`, the
+        same discipline `closed`/`archived` already get."""
+        from cswap_pin import proxy as pin_proxy
+
+        home = self._home(tmp_path, monkeypatch)
+        self._live_session(home, "work")
+        (home / "projects" / "proj" / "ended123.jsonl").write_text(
+            json.dumps({"type": "bridge-session", "sessionId": "ended123",
+                        "bridgeSessionId": "cse_twin"}) + "\n")
+        self._stub_other_proofs(monkeypatch)
+        lines: list[str] = []
+        monkeypatch.setattr(pin_proxy, "_log_lifecycle", lines.append)
+        deleted, archived = [], []
+        result = self._daemon(
+            self._roster(), deleted, archived, archive_ok=False
+        ).sweep_superseded_bridges("tok")
+        assert archived == ["cse_twin"], archived  # the attempt was made
+        assert deleted == [], deleted
+        assert result == 0  # never counted -- the API refused it
+        assert any("refused" in line and "1" in line for line in lines), lines
 
 
 #: THE LONGEST BYTE-FREE WAIT IN THE FLEET WATCHER'S CORPUS -- not the longest

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import print_function
-
 '''
 log analysis program
 Andrew Tridgell December 2014
@@ -20,6 +18,7 @@ from math import *
 os.environ['MAVLINK20'] = '1'
 
 from MAVProxy.modules.lib import multiproc
+from MAVProxy.modules.lib import grapher
 from MAVProxy.modules.lib import rline
 from MAVProxy.modules.lib import wxconsole
 from MAVProxy.modules.lib import param_help
@@ -35,7 +34,10 @@ from MAVProxy.modules.lib.mp_settings import MPSettings, MPSetting
 from MAVProxy.modules.lib import wxsettings
 from MAVProxy.modules.lib.graphdefinition import GraphDefinition
 from lxml import objectify
-import pkg_resources
+
+import importlib
+import importlib.resources
+
 from builtins import input
 import datetime
 import matplotlib
@@ -111,11 +113,15 @@ class MEState(object):
               MPSetting('sync_xmap', bool, True, 'sync X-axis zoom for map'),
               MPSetting('legend', str, 'upper left', 'legend position'),
               MPSetting('legend2', str, 'upper right', 'legend2 position'),
+              MPSetting('axis_mode', str, 'auto', 'y-axis layout mode',
+                        choice=['auto', 'dual', 'multi']),
               MPSetting('title', str, None, 'Graph title'),
               MPSetting('debug', int, 0, 'debug level'),
               MPSetting('paramdocs', bool, True, 'show param docs'),
               MPSetting('max_rate', float, 0, 'maximum display rate of graphs in Hz'),
               MPSetting('vehicle_type', str, 'Auto', 'force vehicle type for mode handling'),
+              MPSetting('showdirection', bool, False,
+                        'show direction of travel on the 3D map mission'),
               ]
             )
 
@@ -127,10 +133,13 @@ class MEState(object):
             "set"       : ["(SETTING)"],
             "condition" : ["(VARIABLE)"],
             "graph"     : ['(VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE)'],
+            "graphs"    : ['(PREDEFINED_GRAPH)'],
             "dump"      : ['(MESSAGETYPE)', '--verbose (MESSAGETYPE)'],
             "map"       : ['(VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE) (VARIABLE)'],
+            "map3d"     : [],
             "param"     : ['download', 'check', 'help (PARAMETER)', 'save', 'savechanged', 'diff', 'show', 'check'],
             "logmessage": ['download', 'help (MESSAGETYPE)'],
+            "locationAnalysis"  : [],
             }
         self.aliases = {}
         self.graphs = []
@@ -254,7 +263,8 @@ def setup_menus():
     TopMenu.add(MPMenuSubMenu('Tools',
                               items=[MPMenuItem('MagFit', 'MagFit', '# magfit'),
                                      MPMenuItem('Stats', 'Stats', '# stats'),
-                                     MPMenuItem('FFT', 'FFT', '# fft')]))
+                                     MPMenuItem('FFT', 'FFT', '# fft'),
+                                     MPMenuItem('Location Analysis', 'Location', '# locationAnalysis')]))
 
     mestate.console.set_menu(TopMenu, menu_callback)
 
@@ -272,7 +282,7 @@ def expression_ok(expression, msgs=None):
                 a2 = f.rfind("<")
                 if a2 != -1:
                     f = f[:a2]
-            if f.endswith(':2'):
+            if len(f) >= 2 and f[-2] == ':' and f[-1] in '23456789':
                 f = f[:-2]
             if f[-1] == '}':
                 # avoid passing nocondition unless needed to allow us to work witih older
@@ -347,32 +357,45 @@ def load_graphs():
             continue
         # skip parameter files.  They specify an encoding, and under
         # Python3 this leads to a warning from etree
-        if os.path.basename(file) in ["ArduSub.xml", "ArduPlane.xml", "APMrover2.xml", "ArduCopter.xml",
-                                      "AntennaTracker.xml", "Blimp.xml", "Rover.xml", "Heli.xml"]:
+        parameter_files = frozenset([
+            "AntennaTracker.xml",
+            "APMrover2.xml",
+            "ArduCopter.xml",
+            "ArduPlane.xml",
+            "ArduSub.xml",
+            "Blimp.xml",
+            "Copter.xml",
+            "Heli.xml",
+            "Plane.xml",
+            "Rover.xml",
+            "Sub.xml",
+        ])
+        if os.path.basename(file) in parameter_files:
             continue
         graphs = load_graph_xml(open(file).read(), file)
         if graphs:
             mestate.graphs.extend(graphs)
             mestate.console.writeln("Loaded %s" % file)
+
     # also load the built in graphs
-    try:
-        dlist = pkg_resources.resource_listdir("MAVProxy", "tools/graphs")
-        for f in dlist:
-            raw = pkg_resources.resource_stream("MAVProxy", "tools/graphs/%s" % f).read()
-            graphs = load_graph_xml(raw, None)
-            if graphs:
-                mestate.graphs.extend(graphs)
-                mestate.console.writeln("Loaded %s" % f)
-    except Exception:
-        #we're in a Windows exe, where pkg_resources doesn't work
-        import pkgutil
-        for f in ["ekf3Graphs.xml", "ekfGraphs.xml", "mavgraphs.xml", "mavgraphs2.xml"]:
-            raw = pkgutil.get_data( 'MAVProxy', 'tools//graphs//' + f)
-            graphs = load_graph_xml(raw, None)
-            if graphs:
-                mestate.graphs.extend(graphs)
-                mestate.console.writeln("Loaded %s" % f)
+    load_built_in_graphs()
+
     mestate.graphs = sorted(mestate.graphs, key=lambda g: g.name)
+    # Update completions with actual graph names
+    if len(mestate.graphs) > 0:
+        # Some default graph names have spaces: replace with -
+        graph_names = [g.name.replace(' ', '-') for g in mestate.graphs]
+        mestate.completions["graphs"] = graph_names
+
+def load_built_in_graphs():
+    '''load graph definitions from packaged resources'''
+    dlist = importlib.resources.files("MAVProxy.tools.graphs")
+    for f in dlist.iterdir():
+        raw = importlib.resources.files("MAVProxy.tools.graphs").joinpath(f).open('r').read()
+        graphs = load_graph_xml(raw, None)
+        if graphs:
+            mestate.graphs.extend(graphs)
+            mestate.console.writeln("Loaded %s" % f)
 
 def flightmode_colours():
     '''return mapping of flight mode to colours'''
@@ -386,6 +409,125 @@ def flightmode_colours():
             if idx >= len(flightmode_colours):
                 idx = 0
     return mapping
+
+def cmd_location(args):
+    '''analyze GPS locations and identify nearest cities/countries'''
+    try:
+        from geopy.geocoders import Nominatim
+        from geopy.distance import geodesic
+        from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+    except ImportError:
+        print("Error: geopy library not installed. Install with: pip install geopy")
+        return
+
+    # Initialize geocoder
+    geolocator = Nominatim(user_agent="MAVExplorer")
+
+    # Sample every 5km
+    sample_distance_km = 5.0
+
+    mestate.mlog.rewind()
+
+    # Track sampled positions
+    last_sampled_pos = None
+    sampled_positions = []
+    locations = set()  # Store display_name strings
+
+    print("Scanning log for GPS coordinates...")    # Read all GPS messages
+    msg_types = ['GPS', 'GPS_RAW_INT', 'GLOBAL_POSITION_INT']
+    while True:
+        msg = mestate.mlog.recv_match(type=msg_types, condition=mestate.settings.condition)
+        if msg is None:
+            break
+
+        msg_type = msg.get_type()
+        lat = None
+        lon = None
+
+        # Extract coordinates based on message type
+        if msg_type == 'GPS':
+            # Binary log format - uppercase Lat/Lng
+            if hasattr(msg, 'Lat') and hasattr(msg, 'Lng'):
+                lat = msg.Lat
+                lon = msg.Lng
+        elif msg_type in ['GPS_RAW_INT', 'GLOBAL_POSITION_INT']:
+            # MAVLink format - degE7
+            if hasattr(msg, 'lat') and hasattr(msg, 'lon'):
+                lat = msg.lat * 1.0e-7
+                lon = msg.lon * 1.0e-7
+
+        # Validate coordinates
+        if lat is None or lon is None:
+            continue
+        if lat == 0 and lon == 0:
+            continue
+
+        # Always sample first valid coordinate
+        if last_sampled_pos is None:
+            last_sampled_pos = (lat, lon, msg._timestamp)
+            sampled_positions.append((lat, lon, msg._timestamp))
+            continue
+
+        # Calculate distance from last sampled position
+        distance_km = geodesic(last_sampled_pos[:2], (lat, lon)).kilometers
+
+        # Sample if distance >= 5km
+        if distance_km >= sample_distance_km:
+            last_sampled_pos = (lat, lon, msg._timestamp)
+            sampled_positions.append((lat, lon, msg._timestamp))
+
+    mestate.mlog.rewind()
+
+    if len(sampled_positions) == 0:
+        print("No valid GPS coordinates found in log.")
+        return
+
+    print("Found %d GPS samples, performing reverse geocoding..." % len(sampled_positions))
+
+    # Geocode sampled positions
+    for idx, (lat, lon, timestamp) in enumerate(sampled_positions):
+        print("Geocoding sample %d/%d..." % (idx + 1, len(sampled_positions)))
+
+        try:
+            # Use 50km search radius to find nearest city
+            location = geolocator.reverse((lat, lon), timeout=10, language='en', addressdetails=True, zoom=8)
+
+            if location and location.raw:
+                # Use display_name from location.raw
+                display_name = location.raw.get('display_name', '')
+
+                if display_name:
+                    locations.add(display_name)
+
+                    # Show location for first and last samples
+                    if idx == 0:
+                        ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+                        print("  Start location: %s at %s" % (display_name, ts_str))
+                    elif idx == len(sampled_positions) - 1:
+                        ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+                        print("  End location: %s at %s" % (display_name, ts_str))
+
+            # Rate limiting: 1 second between requests
+            time.sleep(1)
+
+        except GeocoderTimedOut:
+            print("  Geocoding timeout for sample %d, skipping..." % (idx + 1))
+            continue
+        except GeocoderServiceError as e:
+            print("  Geocoding service error for sample %d: %s" % (idx + 1, str(e)))
+            continue
+        except Exception as e:
+            print("  Error geocoding sample %d: %s" % (idx + 1, str(e)))
+            continue
+
+    # Display summary
+    print("\n=== Location Summary ===")
+    if len(locations) > 0:
+        print("Locations visited:")
+        for location_name in sorted(locations):
+            print("  %s" % location_name)
+    else:
+        print("No location information could be retrieved.")
 
 def check_vehicle_type():
     '''check vehicle_type option'''
@@ -441,6 +583,40 @@ def cmd_graph(args):
         #print("initial: ", xlimits.last_xlim)
         grui[-1].set_xlim(xlimits.last_xlim)
 
+def cmd_graphs(args):
+    '''graphs command'''
+    usage = "usage: graphs <PREDEFINED_GRAPH_NAME>"
+    if len(args) < 1:
+        print(usage)
+        return
+    check_vehicle_type()
+    graph_name = ' '.join(args)
+
+    # Normalize search term and graph names by replacing spaces with dashes
+    normalized_search = graph_name.replace(' ', '-').upper()
+
+    # Find matching predefined graph
+    matching_graphs = [g for g in mestate.graphs if normalized_search in g.name.replace(' ', '-').upper()]
+    if not matching_graphs:
+        print("No predefined graph found matching: %s" % graph_name)
+        return
+
+    # Display the first matching graph
+    g = matching_graphs[0]
+    mestate.console.write("Added predefined graph: %s\n" % g.name)
+    if g.description:
+        mestate.console.write("%s\n" % g.description, fg='blue')
+    mestate.rl.add_history("graphs %s" % g.name)
+    mestate.last_graph = g
+    if mestate.settings.debug > 0:
+        print("Adding graph: %s" % mestate.last_graph.expression)
+    grui.append(Graph_UI(mestate))
+    grui[-1].display_graph(mestate.last_graph, flightmode_colours())
+    global xlimits
+    if xlimits.last_xlim is not None and mestate.settings.sync_xzoom:
+        #print("initial: ", xlimits.last_xlim)
+        grui[-1].set_xlim(xlimits.last_xlim)
+
 map_timelim_pipes = []
 
 def cmd_map(args):
@@ -483,9 +659,151 @@ def cmd_map(args):
     child.start()
     mestate.mlog.rewind()
 
+map3d_views = []
+
+def cmd_map3d(args):
+    '''show a 3D map view: draped satellite imagery over terrain'''
+    try:
+        from MAVProxy.modules.mavproxy_map3d.map3d import (
+            Map3D, missing_packages, missing_packages_message)
+    except ImportError as ex:
+        print("map3d needs extra packages: pip install 'MAVProxy[map3d]' (%s)" % ex)
+        return
+    # map3d.py itself does not import VTK; the viewer child process does
+    missing = missing_packages()
+    if missing:
+        print(missing_packages_message(missing))
+        return
+
+    mlog = mestate.mlog
+    path = []
+    mission = []
+    while True:
+        m = mlog.recv_match(type=['POS', 'CMD'], condition=mestate.settings.condition)
+        if m is None:
+            break
+        mtype = m.get_type()
+        if mtype == 'POS':
+            path.append((m.Lat, m.Lng, m.Alt,
+                         grapher.timestamp_to_days(m._timestamp)))
+        elif mtype == 'CMD' and (m.Lat != 0 or m.Lng != 0):
+            params = tuple(getattr(m, 'Prm%u' % i, 0.0) for i in range(1, 5))
+            mission.append((m.Lat, m.Lng, m.Alt, getattr(m, 'Frame', 3),
+                            m.CId, m.CNum, params))
+    mlog.rewind()
+
+    if len(path) == 0:
+        print("No POS messages found for 3D map")
+        return
+
+    # note: sum/min/max are shadowed in this namespace (mavextra import *), so
+    # accumulate explicitly
+    sumlat = sumlon = 0.0
+    minlat = maxlat = path[0][0]
+    minlon = maxlon = path[0][1]
+    ground0 = path[0][2]
+    for p in path:
+        la, lo, al = p[:3]
+        sumlat += la
+        sumlon += lo
+        if al < ground0:
+            ground0 = al
+        minlat = la if la < minlat else minlat
+        maxlat = la if la > maxlat else maxlat
+        minlon = lo if lo < minlon else minlon
+        maxlon = lo if lo > maxlon else maxlon
+    lat0 = sumlat / len(path)
+    lon0 = sumlon / len(path)
+    span_ns = mp_util.gps_distance(minlat, minlon, maxlat, minlon)
+    span_ew = mp_util.gps_distance(minlat, minlon, minlat, maxlon)
+    span = span_ns if span_ns > span_ew else span_ew
+    if span < 1000.0:
+        span = 1000.0
+
+    # resolve mission item altitudes to AMSL before sending. Terrain-frame
+    # waypoints (MAV_FRAME_GLOBAL_TERRAIN_ALT = 10/11) are "z above terrain", so
+    # they need the terrain elevation at the waypoint, not home + z.
+    if mission:
+        mission = resolve_mission_amsl(mission, ground0, mlog.params,
+                                       getattr(mlog, 'mav_type', None))
+
+    # drop views the user has already closed, so their child processes are reaped
+    for old in [v for v in map3d_views if not v.is_alive()]:
+        old.close()
+        map3d_views.remove(old)
+
+    m3d = Map3D(title="MAVExplorer 3D Map")
+    map3d_views.append(m3d)
+    m3d.set_origin(lat0, lon0, ground0)
+    m3d.set_home(ground0)
+    m3d.set_mission_arrows(mestate.settings.showdirection)
+    m3d.set_path(path)
+    if xlimits.last_xlim is not None and mestate.settings.sync_xmap:
+        m3d.set_time_range(xlimits.last_xlim)
+    if mission:
+        m3d.set_mission(mission)
+    m3d.look_at(lat0, lon0, ground0, dist=1.6 * span)
+
+def resolve_mission_amsl(mission, ground0, params=None, mav_type=None):
+    '''convert mission items to MissionItems in AMSL (frame 0). mission items
+    are (lat, lon, z, frame, cmd, seq, params).
+
+    Terrain-frame waypoints are resolved using the quantized terrain mesh (the
+    same source rendered in the 3D view), which is fetched per 1-degree tile and
+    cached, so it never stalls the command thread per waypoint.'''
+    from MAVProxy.modules.mavproxy_map3d.map3d import MissionItem
+    # home AMSL: the home item (seq 0) altitude, else takeoff ground
+    home_amsl = ground0
+    for item in mission:
+        if item[5] == 0:
+            home_amsl = item[2]
+            break
+    sampler = None
+    if any(item[3] in (10, 11) for item in mission):
+        try:
+            from MAVProxy.modules.mavproxy_map3d.terrain import sample_terrain
+            sampler = sample_terrain
+        except Exception as ex:
+            print("map3d: terrain elevation unavailable (%s)" % ex)
+    default_radius = mp_util.param_value(params, 'WP_LOITER_RAD')
+    out = []
+    previous = None
+    for (la, lo, z, frame, cid, seq, prm) in mission:
+        if frame in (0, 5):
+            amsl = z
+        elif frame in (10, 11):
+            terr = sampler(la, lo) if sampler is not None else None
+            amsl = (terr if terr is not None else home_amsl) + z
+        else:
+            amsl = home_amsl + z
+        radius = mp_util.mission_circle_radius(cid, prm, default_radius,
+                                               mav_type)
+        turns = None
+        if cid == mavutil.mavlink.MAV_CMD_NAV_LOITER_TO_ALT:
+            approach = None
+            if previous is not None:
+                approach = mp_util.gps_distance(previous[0], previous[1], la, lo)
+            turns = mp_util.loiter_to_alt_turns(
+                radius,
+                amsl - previous[2] if previous is not None else None,
+                params, approach)
+        converge = None
+        if radius is not None and not (prm[3] > 0):
+            # param4 == 0 asks for the next leg to be crosstracked from the
+            # loiter centre rather than from where it was left
+            converge = mp_util.vehicle_track_convergence(params)
+        out.append(MissionItem(la, lo, amsl, 0, cid, seq, prm[0],
+                               radius, turns, converge))
+        previous = (la, lo, amsl)
+    return out
+
 def cmd_set(args):
     '''control MAVExporer options'''
     mestate.settings.command(args)
+    # settings the open 3D views care about
+    for view in map3d_views:
+        if view.is_alive():
+            view.set_mission_arrows(mestate.settings.showdirection)
 
 def cmd_condition(args):
     '''control MAVExporer conditions'''
@@ -530,6 +848,7 @@ def cmd_stats(args):
 
 def cmd_dump(args):
     '''dump messages from log'''
+    import re
     global xlimits
 
     # understand --verbose to give as much information about message as possible
@@ -541,17 +860,27 @@ def cmd_dump(args):
     if len(args) > 0:
         wildcard = args[0]
     else:
-        print("Usage: dump PATTERN")
+        print("Usage: dump MSG1,MSG2[0]...")
         return
     mlog = mestate.mlog
     mlog.rewind()
-    types = []
-    for p in wildcard.split(','):
-        for t in mlog.name_to_id.keys():
-            if fnmatch.fnmatch(t, p):
-                types.extend([t])
+    types_inst = []
+    types_filt_inst_id = []
+    types_inst_no_id = []
+    for t in wildcard.split(','):
+                #remove instance id if it exists
+                t2 = re.sub(r'\[.*\]', '', t)
+                types_filt_inst_id.extend([t2])
+                if t.find('[') != -1:
+                    # add message with instance id to instances list
+                    types_inst.extend([t])
+                    types_inst_no_id.extend([t2])
+
+    #begin first dump msg on new line
+    print("")
+    ext = False
     while True:
-        msg = mlog.recv_match(type=types, condition=mestate.settings.condition)
+        msg = mlog.recv_match(type=types_filt_inst_id, condition=mestate.settings.condition)
         if msg is None:
             break
         in_range = xlimits.timestamp_in_range(msg._timestamp)
@@ -559,12 +888,31 @@ def cmd_dump(args):
             continue
         if in_range > 0:
             continue
+
+        instid = None
+        if msg.get_type() in types_inst_no_id:
+            if msg.fmt.instance_field is not None:
+                idx = types_inst_no_id.index(msg.get_type())
+                type_inst = types_inst[idx]
+                instid = re.sub(r'.*\[', '', type_inst)
+                instid = re.sub(r'\]', '', instid)
+            else:
+                print(f"{msg.get_type()} is not instance.")
+                ext = True
+        if ext:
+            break
+
         if verbose and "pymavlink.dialects" in str(type(msg)):
             mavutil.dump_message_verbose(sys.stdout, msg)
         elif verbose and hasattr(msg,"dump_verbose"):
             msg.dump_verbose(sys.stdout)
         else:
-            print("%s %s" % (timestring(msg), msg))
+            if instid is not None:
+                inst = getattr(msg, msg.fmt.instance_field, None)
+                if str(inst) == instid:
+                    print("%s %s" % (timestring(msg), msg))  
+            else:
+                print("%s %s" % (timestring(msg), msg))
     mlog.rewind()
 
 mfit_tool = None
@@ -908,18 +1256,25 @@ def cmd_messages(args):
             mstr = m.text
 
         # special handling for statustext:
-        if hasattr(m, 'id') and hasattr(m, 'chunk_seq') and m.chunk_seq != 0:  # assume STATUSTEXT
-            if m.id != statustext_current_id:
+        chunking_id = getattr(m, "id", getattr(m, "ID", None))
+        chunking_seq = getattr(m, "chunk_seq", getattr(m, "Seq", None))
+
+        if chunking_id is not None and chunking_seq is not None and chunking_id != 0:
+            if chunking_id != statustext_current_id:
                 if statustext_accumulation is not None:
                     print_if_match(statustext_timestring, statustext_accumulation)
                 statustext_accumulation = ""
-                statustext_current_id = m.id
+                statustext_current_id = chunking_id
                 statustext_next_seq = 0
                 statustext_timestring = timestring(m)
-            if m.chunk_seq != statustext_next_seq:
+            if chunking_seq != statustext_next_seq:
                 statustext_accumulation += "..."
-            statustext_next_seq = m.chunk_seq + 1
-            statustext_accumulation += m.text
+            statustext_next_seq = chunking_seq + 1
+            t_str = getattr(m, "text", None)
+            if t_str is None:
+                t_str = getattr(m, 'Message')
+            statustext_accumulation += t_str
+
             continue
 
         print_if_match(timestring(m), mstr)
@@ -968,6 +1323,18 @@ def cmd_file(args):
             print("%s (length %u)" % (n, len(files[n])))
         return
     fname = args[0]
+    if any(c in fname for c in '*?['):
+        # wildcard: extract all matching files to a directory (default cwd)
+        matches = sorted(n for n in files if fnmatch.fnmatch(n, fname))
+        if not matches:
+            print("No files match %s" % fname)
+            return
+        destdir = args[1] if len(args) > 1 else '.'
+        for n in matches:
+            dest = os.path.join(destdir, os.path.basename(n))
+            open(dest, "wb").write(files[n])
+            print("Saved %s to %s" % (n, dest))
+        return
     if not fname in files:
         print("File %s not found" % fname)
         return
@@ -1225,6 +1592,52 @@ def cmd_paramchange(args):
     mestate.mlog.rewind()
 
 
+def present_message_types(mlog):
+    '''return a set of message names that have at least one instance in
+    the currently loaded log. Uses mlog.counts (combined with
+    id_to_name where the dict is keyed by msg id) because mlog.messages
+    is cleared whenever DFReader rewinds, which happens during normal
+    MAVExplorer load (flightmode_list, etc.).'''
+    counts = getattr(mlog, 'counts', None)
+    if counts is None:
+        return set()
+    id_to_name = getattr(mlog, 'id_to_name', {}) or {}
+    out = set()
+    if isinstance(counts, dict):
+        # tlog -> {msg_id: count}; DFReader_text -> {name: count}
+        for k, v in counts.items():
+            if not v:
+                continue
+            if isinstance(k, str):
+                out.add(k)
+            else:
+                n = id_to_name.get(k)
+                if n:
+                    out.add(n)
+    else:
+        # DFReader_binary -> list[count] indexed by msg id
+        for mid, v in enumerate(counts):
+            if v:
+                n = id_to_name.get(mid)
+                if n:
+                    out.add(n)
+    return out
+
+
+def show_mavlink_message_help(name):
+    '''print MAVLink message help by introspecting the pymavlink-generated
+    <msgname>_encode docstring (used for telemetry .tlog files where the
+    DFMetaData XML doesn't apply)'''
+    import textwrap
+    method = getattr(mavutil.mavlink.MAVLink, name.lower() + '_encode', None)
+    doc = getattr(method, '__doc__', None) if method is not None else None
+    if not doc:
+        print("No help found for message: %s" % name)
+        return
+    print("Log Message: %s" % name)
+    print(textwrap.dedent(doc).strip())
+
+
 def cmd_logmessage(args):
     '''show log message information'''
     mlog = mestate.mlog
@@ -1238,12 +1651,16 @@ def cmd_logmessage(args):
         if len(args) < 2:
             print(usage)
             return
-        if hasattr(mlog, 'metadata'):
+        present = present_message_types(mlog)
+        if present and args[1] not in present:
+            print("Message %s is not present in this log" % args[1])
+            return
+        if isinstance(mlog, DFReader.DFReader):
             mlog.metadata.print_help(args[1])
         elif isinstance(mlog, mavutil.mavlogfile):
-            print("logmessage help is not supported for telemetry log files")
+            show_mavlink_message_help(args[1])
         else:
-            print("Incompatible pymavlink; upgrade pymavlink?")
+            print("unsupported log type")
         return
     # download: download XML files for log messages
     if args[0] == 'download':
@@ -1255,17 +1672,109 @@ def cmd_logmessage(args):
             child.start()
         except Exception as e:
             print(e)
-        if hasattr(mlog, 'metadata'):
+        if isinstance(mlog, DFReader.DFReader):
             mlog.metadata.reset()
         return
     # Print usage if we've dropped through the ifs
     print(usage)
 
 
+def mavlink_message_fields(msgname):
+    '''return [(field_name, units, description), ...] for a MAVLink message
+    by parsing the pymavlink-generated <msgname>_encode docstring; used by
+    find/help when the master is a telemetry log'''
+    import re
+    import textwrap
+    method = getattr(mavutil.mavlink.MAVLink, msgname.lower() + '_encode', None)
+    doc = getattr(method, '__doc__', None) if method is not None else None
+    if not doc:
+        return []
+    line_re = re.compile(
+        r'^(\S+)\s+:\s+(.*?)(?:\s*\[([^\]]+)\])?\s*\(type:[^)]+\)\s*$'
+    )
+    out = []
+    for line in textwrap.dedent(doc).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = line_re.match(line)
+        if not m:
+            continue
+        name = m.group(1)
+        desc = m.group(2).strip()
+        units = (m.group(3) or '').strip()
+        out.append((name, units, desc))
+    return out
+
+
+def cmd_find(args):
+    '''find log message fields whose name or description contains a
+    case-insensitive substring; prints MSG.field [units] : description'''
+    if len(args) == 0:
+        print("Usage: find <substring>")
+        return
+    query = ' '.join(args).lower()
+    mlog = mestate.mlog
+    matches = []
+    present = present_message_types(mlog)
+
+    if isinstance(mlog, DFReader.DFReader):
+        # DataFlash log: walk the LogMessages XML metadata tree, skipping
+        # any messages that don't actually appear in this log
+        data = mlog.metadata.metadata_tree(verbose=True)
+        if data is None:
+            return
+        for msg_name in sorted(data.keys()):
+            if present and msg_name not in present:
+                continue
+            node = data[msg_name]
+            if not hasattr(node, 'fields') or not hasattr(node.fields, 'field'):
+                continue
+            msg_match = query in msg_name.lower()
+            for f in node.fields.field:
+                fname = f.get('name') or ''
+                try:
+                    desc = f.description.text or ''
+                except AttributeError:
+                    desc = ''
+                if (not msg_match and query not in fname.lower()
+                        and query not in desc.lower()):
+                    continue
+                units = f.get('units') or ''
+                matches.append((msg_name, fname, units, desc))
+    elif isinstance(mlog, mavutil.mavlogfile):
+        # telemetry tlog: introspect every MAVLink message that actually
+        # appears in this log via pymavlink class metadata
+        for msg_name in sorted(present):
+            msg_match = query in msg_name.lower()
+            for (fname, units, desc) in mavlink_message_fields(msg_name):
+                if (not msg_match and query not in fname.lower()
+                        and query not in desc.lower()):
+                    continue
+                matches.append((msg_name, fname, units, desc))
+    else:
+        print("unsupported log type")
+        return
+
+    if not matches:
+        print("No fields matching %r" % query)
+        return
+    full_names = ['%s.%s' % (m, fn) for (m, fn, _, _) in matches]
+    unit_strs = ['[%s]' % u if u else '' for (_, _, u, _) in matches]
+    name_w = max(len(s) for s in full_names)
+    unit_w = max(len(s) for s in unit_strs) if any(unit_strs) else 0
+    for (full, ustr, (_, _, _, desc)) in zip(full_names, unit_strs, matches):
+        print("%-*s %-*s : %s" % (name_w, full, unit_w, ustr, desc))
+
+
+mission_viewers = []
+
+
 def cmd_mission(args):
     '''show mission'''
-    if (len(args) == 1):
-        print("Usage: mission <save FILENAME>")
+    if (args and args != ['--gui'] and
+            not (len(args) == 2 and args[0] == 'save')):
+        print("Usage: mission [--gui | save FILENAME]")
         return
     mestate.mlog.rewind()
     types = set(['CMD','MISSION_ITEM_INT'])
@@ -1316,6 +1825,15 @@ def cmd_mission(args):
         wp.save(args[1])
         mestate.mlog.rewind()
         return
+    if args == ['--gui']:
+        from MAVProxy.modules.mavproxy_misseditor.mission_editor import MissionViewer
+        for old in [viewer for viewer in mission_viewers
+                    if not viewer.is_alive()]:
+            old.close()
+            mission_viewers.remove(old)
+        mission_viewers.append(MissionViewer(wp))
+        mestate.mlog.rewind()
+        return
     for i in range(wp.count()):
         w = wp.wp(i)
         print("%u\t%u\t%u\t%u\t%f\t%f\t%f\t%f\t%f\t\t%f\t\t%f\t%u" % (
@@ -1339,6 +1857,8 @@ def cmd_devid(args):
         if p.startswith('BARO') and p.endswith('DEVID'):
             mp_util.decode_devid(params[p], p)
         if p.startswith('ARSPD') and p.endswith('DEVID'):
+            mp_util.decode_devid(params[p], p)
+        if p.startswith('MAV') and p.endswith('DEVID'):
             mp_util.decode_devid(params[p], p)
 
 def cmd_loadfile(args):
@@ -1408,6 +1928,21 @@ def cmd_help(args):
             print("%-15s : %s" % (cmd, help))
         return
     cmd = args[0]
+    # an all-caps token is treated as a log message name and produces the
+    # same output as 'logmessage help <MSG>'
+    if cmd.isupper() and all(c.isalnum() or c == '_' for c in cmd):
+        mlog = mestate.mlog
+        present = present_message_types(mlog)
+        if present and cmd not in present:
+            print("Message %s is not present in this log" % cmd)
+            return
+        if isinstance(mlog, DFReader.DFReader):
+            mlog.metadata.print_help(cmd)
+        elif isinstance(mlog, mavutil.mavlogfile):
+            show_mavlink_message_help(cmd)
+        else:
+            print("Incompatible pymavlink; upgrade pymavlink?")
+        return
     if cmd in command_map.keys():
         (fn, help) = command_map[cmd]
         print("%-15s : %s" % (cmd, help))
@@ -1484,7 +2019,7 @@ def epoch_time(num):
 
 def main_loop():
     '''main processing loop, display graphs and maps'''
-    global grui, xlimits
+    global grui, xlimits, map3d_views
     while True:
         if mestate is None or mestate.exit:
             return
@@ -1507,7 +2042,7 @@ def main_loop():
                 from dateutil.tz import tzlocal
                 localtimezone = tzlocal()
                 tbase = epoch_time(xlim[0])
-                tzofs = localtimezone.utcoffset(datetime.datetime.utcfromtimestamp(tbase)).total_seconds()
+                tzofs = localtimezone.utcoffset(datetime.datetime.fromtimestamp(tbase, datetime.timezone.utc)).total_seconds()
                 xlimits.xlim_low = epoch_time(xlim[0]) - tzofs
                 xlimits.xlim_high = epoch_time(xlim[1]) - tzofs
                 
@@ -1519,6 +2054,12 @@ def main_loop():
                             p[0].send(xlim)
                         except Exception:
                             map_timelim_pipes.remove(p)
+                    for view in map3d_views[:]:
+                        if not view.is_alive():
+                            view.close()
+                            map3d_views.remove(view)
+                            continue
+                        view.set_time_range(xlim)
                 break
         if len(remlist) > 0:
             # remove stale graphs
@@ -1533,6 +2074,7 @@ def main_loop():
 
 command_map = {
     'graph'      : (cmd_graph,     'display a graph'),
+    'graphs'     : (cmd_graphs,    'display a predefined graph'),
     'set'        : (cmd_set,       'control settings'),
     'reload'     : (cmd_reload,    'reload graphs'),
     'save'       : (cmd_save,      'save a graph'),
@@ -1542,6 +2084,7 @@ command_map = {
     'messages'   : (cmd_messages,  'show messages'),
     'devid'      : (cmd_devid,     'show device IDs'),
     'map'        : (cmd_map,       'show map view'),
+    'map3d'      : (cmd_map3d,     'show 3D map view'),
     'fft'        : (cmd_fft,       'show a FFT (if available)'),
     'loadLog'    : (cmd_loadfile,  'load a log file'),
     'stats'      : (cmd_stats,     'show statistics on the log'),
@@ -1550,6 +2093,8 @@ command_map = {
     'file'       : (cmd_file,      'show files'),
     'mission'    : (cmd_mission,   'show mission'),
     'logmessage' : (cmd_logmessage, 'show log message information'),
+    'find'       : (cmd_find,       'find log message fields by name or description'),
+    'locationAnalysis'   : (cmd_location,  'Output a descriptive list of locations from the log' ),
     }
 
 def progress_bar(pct):
@@ -1565,16 +2110,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.version:
-        #pkg_resources doesn't work in the windows exe build, so read the version file
-        try:
-            version = pkg_resources.require("mavproxy")[0].version
-        except Exception as e:
-            start_script = mp_util.dot_mavproxy("version.txt")
-            f = open(start_script, 'r')
-            version = f.readline()
+        import importlib.metadata
+        version = importlib.metadata.version("mavproxy")
         print("MAVExplorer Version: " + version)
         sys.exit(1)
-    
+
     mestate = MEState()
     setup_file_menu()
 
@@ -1601,4 +2141,3 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             mestate.exit = True
             break
-

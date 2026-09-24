@@ -22,6 +22,7 @@
 #include "SciQLopPlots/Products/ProductsModel.hpp"
 #include "SciQLopPlots/Products/ProductsNode.hpp"
 #include <QIODevice>
+#include <QPointer>
 #include <QDebug>
 #include <QThread>
 #include <qapplicationstatic.h>
@@ -34,24 +35,24 @@ QModelIndex ProductsModel::make_index(ProductsModelNode* node)
     return createIndex(parent_node->child_row(node), 0, node);
 }
 
-void ProductsModel::_add_to_completer(const QString& value)
+void ProductsModel::node_data_changed(ProductsModelNode* node, const QList<int>& roles)
 {
-    if (m_completer_model->stringList().contains(value))
+    if (QThread::currentThread() != thread())
+    {
+        QMetaObject::invokeMethod(
+            this,
+            [this, guarded = QPointer<ProductsModelNode>(node), roles]
+            {
+                if (guarded)
+                    node_data_changed(guarded, roles);
+            },
+            Qt::QueuedConnection);
         return;
-    m_completer_model->insertRow(m_completer_model->rowCount());
-    m_completer_model->setData(m_completer_model->index(m_completer_model->rowCount() - 1), value);
+    }
+    const auto index = make_index(node);
+    Q_EMIT dataChanged(index, index, roles);
 }
 
-void ProductsModel::_add_to_completer(ProductsModelNode* node)
-{
-    for (auto str : node->completions())
-        _add_to_completer(str);
-}
-
-// simplify: remove_node leaves m_completer_model alone. Its entries (name and "key: value"
-// strings) are shared between nodes, and pruning them means walking the whole tree (77k+
-// products). Nothing in this repo reads it; the search bar's own suggestions are rebuilt
-// by ProductsView on removal. Upgrade path: refcounted completer entries.
 void ProductsModel::_remove_child(ProductsModelNode* parent, int row)
 {
     beginRemoveRows(make_index(parent), row, row);
@@ -73,7 +74,6 @@ void ProductsModel::_insert_node(ProductsModelNode* node, ProductsModelNode* par
     }
     beginInsertRows(make_index(parent), parent->children_count(), parent->children_count());
     parent->add_child(node);
-    _add_to_completer(node);
     endInsertRows();
 }
 
@@ -94,7 +94,6 @@ void ProductsModel::_add_text_mime_data(QMimeData* mime_data, const QModelIndexL
 ProductsModel::ProductsModel(QObject* parent) : QAbstractItemModel(parent)
 {
     m_rootNode = new ProductsModelNode("root", {}, "", this);
-    m_completer_model = new QStringListModel(this);
 }
 
 QModelIndex ProductsModel::index(int row, int column, const QModelIndex& parent) const
@@ -225,7 +224,7 @@ QList<QStringList> ProductsModel::decode_mime_data(const QMimeData* mime_data)
     return data;
 }
 
-void ProductsModel::add_node(QStringList path, ProductsModelNode* obj)
+bool ProductsModel::add_node(QStringList path, ProductsModelNode* obj)
 {
     // Filter models purge dangling nodes from synchronous begin/endRemoveRows
     // signals; emitted from another thread they would arrive queued, after
@@ -237,18 +236,18 @@ void ProductsModel::add_node(QStringList path, ProductsModelNode* obj)
         {
             qWarning() << "ProductsModel::add_node: refusing" << obj->name()
                        << "- it cannot be moved to the model thread (already parented?)";
-            return;
+            return false;
         }
         QMetaObject::invokeMethod(this, [this, path, obj] { add_node(path, obj); },
                                   Qt::QueuedConnection);
-        return;
+        return true;
     }
     // Qt refuses to parent across threads, which would leave the node listed but unowned.
     if (obj->thread() != thread())
     {
         qWarning() << "ProductsModel::add_node: refusing" << obj->name()
                    << "- it lives in another thread and can only be moved by that thread";
-        return;
+        return false;
     }
     auto parent = m_rootNode;
     for (const auto& name : path)
@@ -265,6 +264,7 @@ void ProductsModel::add_node(QStringList path, ProductsModelNode* obj)
         }
     }
     _insert_node(obj, parent);
+    return true;
 }
 
 ProductsModelNode* ProductsModel::_resolve(const QStringList& path) const

@@ -6,7 +6,6 @@ import platform as plat
 import sys
 from collections.abc import MutableMapping
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, cast
@@ -54,6 +53,7 @@ from runlayer_cli.hook_install.clients import (
 from runlayer_cli.hook_install.clients import (
     uninstall_client as _hook_install_uninstall_client,
 )
+from runlayer_cli.hook_install.config_backup import backup_path_for, prune_backups
 from runlayer_cli.hook_install.console_user import reown_to_console_user
 from runlayer_cli.hook_install.paths import (
     InstallScope,
@@ -323,17 +323,16 @@ def _backup_file(file_path: Path, *, home: Path | None = None) -> Path | None:
     With *home* set the read/write are link-safe (root MDM writes into the
     user-controlled home can't be redirected by a planted symlink, nor leak a
     root-only file into a user-readable backup — ENG-3217); otherwise plain path
-    ops are used. Returns the backup path, or ``None`` when there is no real file
-    to back up.
+    ops are used. Older backups beyond the retention cap are pruned so repeated
+    installs never pile up. Returns the backup path, or ``None`` when there is
+    no real file to back up.
     """
     data = maybe_safe_read_bytes(file_path, home=home)
     if data is None:
         return None
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = file_path.with_name(
-        f"{file_path.stem}.backup_{timestamp}{file_path.suffix}"
-    )
+    backup_path = backup_path_for(file_path)
     maybe_safe_write_bytes(backup_path, data, home=home)
+    prune_backups(file_path, home=home)
     return backup_path
 
 

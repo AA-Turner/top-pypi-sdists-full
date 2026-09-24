@@ -8,12 +8,14 @@ from fontTools.misc.bezierTools import (
     calcCubicArcLength,
     curveLineIntersections,
     curveCurveIntersections,
+    lineLineIntersections,
     segmentPointAtT,
     splitLine,
     splitQuadratic,
     splitCubic,
     splitQuadraticAtT,
     splitCubicAtT,
+    splitCubicAtTC,
     solveCubic,
 )
 import pytest
@@ -152,6 +154,41 @@ def test_splitCubicAtT_robustness():
     assert tail[-1] == segment[-1]
 
 
+def test_splitCubicAtTC_robustness():
+    # Same curve and t as test_splitCubicAtT_robustness, as complex numbers:
+    # without the fixup the tail ends at (5.999999999999993-245j).
+    segment = (-103 - 231j, -61 - 240j, -31.009 - 245j, 6 - 245j)
+    head, tail = splitCubicAtTC(*segment, 0.386637)
+    assert head[0] == segment[0]
+    assert tail[-1] == segment[-1]
+
+
+def test_splitQuadraticAtT_robustness():
+    # Without the fixup the tail ends at (-143.85999999999996, -158.18399999999994).
+    segment = ((69.996, 92.927), (286.522, 231.449), (-143.86, -158.184))
+    head, tail = splitQuadraticAtT(*segment, 0.14299)
+    assert head[0] == segment[0]
+    assert tail[-1] == segment[-1]
+
+
+def test_splitQuadratic_robustness():
+    # Without the fixup the tail ends at (-143.85999999999996, -158.18399999999994).
+    segment = ((69.996, 92.927), (286.522, 231.449), (-143.86, -158.184))
+    split = splitQuadratic(*segment, -120.0, False)
+    assert len(split) == 2
+    assert split[0][0] == segment[0]
+    assert split[-1][-1] == segment[-1]
+
+
+def test_splitCubic_robustness():
+    # Without the fixup the tail ends at (5.999999999999993, -245.0).
+    segment = ((-103, -231), (-61, -240), (-31.009, -245), (6, -245))
+    split = splitCubic(*segment, -98.8, False)
+    assert len(split) == 2
+    assert split[0][0] == segment[0]
+    assert split[-1][-1] == segment[-1]
+
+
 def test_solveCubic():
     assert solveCubic(1, 1, -6, 0) == [-3.0, -0.0, 2.0]
     assert solveCubic(-10.0, -9.0, 48.0, -29.0) == [-2.9, 1.0, 1.0]
@@ -192,6 +229,10 @@ def test_intersections_straight_line():
     e = (110, 0)
     pt = (109.05194805194802, 0.0)
     assert bezierTools._line_t_of_pt(s, e, pt) == pytest.approx(0.98958184)
+
+
+def test_collinear_vertical_lines_do_not_intersect():
+    assert not lineLineIntersections((310, 0), (310, 10), (310, 800), (310, 810))
 
 
 def test_calcQuadraticArcLength():

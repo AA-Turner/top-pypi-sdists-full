@@ -220,6 +220,7 @@ class CommentDict(BaseModel):
     handle_duplicate_outputs: Optional[str]
     use_native_sql: Optional[bool]
     retry_policy: Optional[RetryPolicySQLFileResolver]
+    max_row_version_lookback: Optional[Duration]
 
     @validator("tags", "environment", "unique_on", "partitioned_by", pre=True)
     @classmethod
@@ -245,13 +246,15 @@ class CommentDict(BaseModel):
             return value
         raise ValueError(f"Value {value} must be a string or a Cron")
 
-    @validator("timeout")
+    @validator("timeout", "max_row_version_lookback")
     @classmethod
-    def validate_timedelta(cls, string: Optional[str]):
-        if string is None:
+    def validate_timedelta(cls, duration: Optional[Duration]):
+        if duration is None:
             return None
-        parse_chalk_duration_s(string)
-        return string
+        # Raises ValueError with a user-facing message if unparseable; callers turn that into an
+        # LSP diagnostic. Accepts a timedelta as well as a string -- parse_chalk_duration_s does.
+        parse_chalk_duration_s(duration)
+        return duration
 
     @validator("type")
     @classmethod
@@ -636,6 +639,13 @@ def get_sql_file_resolver(
             path=path,
             errors=errors,
         )
+        max_row_version_lookback = _convert_max_row_version_lookback(
+            parsed.comment_dict.max_row_version_lookback,
+            outputs=outputs,
+            error_builder=error_builder,
+            path=path,
+            errors=errors,
+        )
         resolver_type_str = parsed.comment_dict.type if parsed.comment_dict.type else "online"
         resolver_type = _RESOLVER_TYPES[resolver_type_str]
 
@@ -819,6 +829,7 @@ def get_sql_file_resolver(
                     use_native_sql=parsed.comment_dict.use_native_sql,
                     is_chalk_sql_source=parsed.is_chalk_sql,
                     retry_policy=retry_policy,
+                    max_row_version_lookback=max_row_version_lookback,
                 ),
                 postprocessing=sql_string_result.postprocessing_expr,
                 handle_duplicate_outputs=parsed.comment_dict.handle_duplicate_outputs,
@@ -2224,6 +2235,7 @@ def make_sql_file_resolver(
     handle_duplicate_outputs: Optional[str] = None,
     use_native_sql: Optional[bool] = None,
     retry_policy: Optional[SQLResolverRetryPolicy] = None,
+    max_row_version_lookback: Optional[Duration] = None,
 ):
     """Generate a Chalk SQL file resolver from a filepath and a sql string.
     This will generate a resolver in your web dashboard that can be queried,
@@ -2370,6 +2382,15 @@ def make_sql_file_resolver(
         and/or ``if_timeout`` to re-run a query that failed with a server-side
         statement timeout, each backing off exponentially. Only honored by the
         native SQL operator.
+    max_row_version_lookback
+        Asserts that for any observation time ``t``, if a key has any row at or
+        before ``t``, then the most recent such row is at or after
+        ``t - max_row_version_lookback``. Set this on a resolver reading a
+        CDC or snapshot table to let Chalk bound the query's feature time from
+        below, instead of scanning all history to find each key's latest
+        version. Requires the resolver to select its namespace's ``FeatureTime``.
+        Chalk looks back exactly this far and adds no margin, so include any
+        tolerable delay in the pipeline that populates the table.
 
     Examples
     --------
@@ -2433,6 +2454,11 @@ def make_sql_file_resolver(
         handle_duplicate_outputs=handle_duplicate_outputs,
         use_native_sql=use_native_sql,
         retry_policy=None if retry_policy is None else _convert_retry_policy_to_comment_dict(retry_policy),
+        max_row_version_lookback=(
+            timedelta_to_duration(max_row_version_lookback)
+            if isinstance(max_row_version_lookback, timedelta)
+            else max_row_version_lookback
+        ),
     )
     _GENERATED_SQL_FILE_RESOLVER_REGISTRY.add_sql_file_resolver(
         filepath=filename,
@@ -2564,6 +2590,53 @@ def _convert_retry_policy(
             )
         ),
     )
+
+
+def _convert_max_row_version_lookback(
+    raw: Optional[Duration],
+    outputs: List[Feature],
+    error_builder: SQLFileResolverErrorBuilder,
+    path: str,
+    errors: List[ResolverError],
+) -> Optional[timedelta]:
+    """Parse and validate `-- max_row_version_lookback:`.
+
+    Rejects rather than ignores the two cases where the directive could never take effect, so a
+    typo surfaces at deploy time instead of silently costing the optimization it was added for.
+    """
+    if raw is None:
+        return None
+
+    def reject(message: str) -> None:
+        error_builder.add_diagnostic(
+            message=message,
+            code="216",
+            label="invalid max_row_version_lookback",
+            range=error_builder.comment_range_by_key("max_row_version_lookback"),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter="max_row_version_lookback"))
+
+    try:
+        lookback = parse_chalk_duration(raw)
+    except ValueError as e:
+        reject(f"'max_row_version_lookback' is not a valid duration: {e}")
+        return None
+
+    if lookback <= timedelta(0):
+        reject(f"'max_row_version_lookback' must be a positive duration, but got '{timedelta_to_duration(lookback)}'.")
+        return None
+
+    # The lower bound is applied to the resolver's FeatureTime output. Without one there is no
+    # column to bound, so the directive would be inert.
+    if not any(output.is_feature_time for output in outputs):
+        reject(
+            "'max_row_version_lookback' requires the resolver to select its namespace's "
+            + "FeatureTime, since that is the column bounded from below. Alias the source table's "
+            + "version/update timestamp to the FeatureTime feature, or remove the comment."
+        )
+        return None
+
+    return lookback
 
 
 def parse_finalizer(count: Literal[1, "one", "one_or_none", "all"] | None) -> Finalizer | None:

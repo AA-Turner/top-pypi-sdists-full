@@ -1231,11 +1231,20 @@ class TokenUsage:
         provider_model_name: str = "",
         response_id: str = "",
     ) -> TokenUsage:
+        # ``prompt_token_count`` INCLUDES cached content (mirrors the image
+        # path's ``google_image_api._token_usage``), so the cached share is
+        # split out and billed at the cached rate, never double-counted into
+        # plain input. ``thoughts_token_count`` is billed as output by Google
+        # but is NOT part of ``candidates_token_count``, so it is added in.
         raw = _safe_to_dict(usage_metadata)
+        prompt = int(usage_metadata.prompt_token_count or 0)
+        cached = int(usage_metadata.cached_content_token_count or 0)
+        thoughts = int(getattr(usage_metadata, "thoughts_token_count", 0) or 0)
+        candidates = int(usage_metadata.candidates_token_count or 0)
         return cls(
-            input_tokens=usage_metadata.prompt_token_count or 0,
-            output_tokens=usage_metadata.candidates_token_count or 0,
-            cached_input_tokens=usage_metadata.cached_content_token_count or 0,
+            input_tokens=max(0, prompt - cached),
+            output_tokens=candidates + thoughts,
+            cached_input_tokens=cached,
             matrx_model_name=matrx_model_name,
             provider_model_name=provider_model_name,
             api="google",

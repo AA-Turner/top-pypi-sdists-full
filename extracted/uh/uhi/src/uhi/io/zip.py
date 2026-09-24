@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import json
 import zipfile
 from typing import Any
@@ -28,16 +27,24 @@ def write(
     Write a histogram to a zip file.
     """
     histogram = _convert_input(histogram)
+    # Copy the histogram and the dicts/lists we mutate below so the caller's
+    # arrays are not replaced with path strings.
+    histogram = histogram.copy()
+
     # Write out numpy arrays to files in the zipfile
-    for storage_key in ARRAY_KEYS & histogram["storage"].keys():
+    storage = histogram["storage"].copy()
+    histogram["storage"] = storage
+    for storage_key in ARRAY_KEYS & storage.keys():
         path = f"{name}_storage_{storage_key}.npy"
         with zip_file.open(path, "w") as f:
-            np.save(f, histogram["storage"][storage_key])  # type: ignore[literal-required]
-        histogram["storage"][storage_key] = path  # type: ignore[literal-required]
+            np.save(f, storage[storage_key])  # type: ignore[literal-required]
+        storage[storage_key] = path  # type: ignore[literal-required]
 
-    for axis in histogram["axes"]:
+    axes = [axis.copy() for axis in histogram["axes"]]
+    histogram["axes"] = axes
+    for i, axis in enumerate(axes):
         for key in ARRAY_KEYS & axis.keys():
-            path = f"{name}_axis_{key}.npy"
+            path = f"{name}_axis_{i}_{key}.npy"
             with zip_file.open(path, "w") as f:
                 np.save(f, axis[key])  # type: ignore[literal-required]
             axis[key] = path  # type: ignore[literal-required]
@@ -46,13 +53,13 @@ def write(
     zip_file.writestr(f"{name}.json", hist_json)
 
 
-def _object_hook(
-    dct: dict[str, Any], /, *, zip_file: zipfile.ZipFile
-) -> dict[str, Any]:
+def _load_arrays(dct: dict[str, Any], /, *, zip_file: zipfile.ZipFile) -> None:
+    """
+    Replace the stored paths with the arrays they point at, in-place.
+    """
     for item in ARRAY_KEYS & dct.keys():
         if isinstance(dct[item], str):
             dct[item] = np.load(zip_file.open(dct[item]))
-    return dct
 
 
 def read(zip_file: zipfile.ZipFile, /, name: str) -> dict[str, Any]:
@@ -60,8 +67,14 @@ def read(zip_file: zipfile.ZipFile, /, name: str) -> dict[str, Any]:
     Read histograms from a zip file.
     """
 
-    object_hook = functools.partial(_object_hook, zip_file=zip_file)
     with zip_file.open(f"{name}.json") as f:
-        output: dict[str, Any] = json.load(f, object_hook=object_hook)
-        _check_uhi_schema_version(output["uhi_schema"])
-        return output
+        output: dict[str, Any] = json.load(f)
+    _check_uhi_schema_version(output["uhi_schema"])
+
+    # Only storage and axes hold arrays; metadata and writer_info can contain
+    # any keys, including ones that look like array keys.
+    _load_arrays(output["storage"], zip_file=zip_file)
+    for axis in output["axes"]:
+        _load_arrays(axis, zip_file=zip_file)
+
+    return output

@@ -57,7 +57,7 @@ class GetWorkspaceEntityTagAssignmentsResult:
     @pulumi.getter(name="entityType")
     def entity_type(self) -> _builtins.str:
         """
-        (string) - The type of entity to which the tag is assigned. Allowed values are apps, dashboards, geniespaces, notebooks
+        (string) - The type of entity to which the tag is assigned. Allowed values are apps, dashboards, designerfiles, geniespaces, notebooks
         """
         return pulumi.get(self, "entity_type")
 
@@ -93,7 +93,7 @@ class AwaitableGetWorkspaceEntityTagAssignmentsResult(GetWorkspaceEntityTagAssig
 def get_workspace_entity_tag_assignments(entity_id: Optional[_builtins.str] = None,
                                          entity_type: Optional[_builtins.str] = None,
                                          page_size: Optional[_builtins.int] = None,
-                                         provider_config: Optional[Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict']] = None,
+                                         provider_config: Optional[Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict', 'outputs.GetWorkspaceEntityTagAssignmentsProviderConfigResult']] = None,
                                          opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetWorkspaceEntityTagAssignmentsResult:
     """
     [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
@@ -120,9 +120,9 @@ def get_workspace_entity_tag_assignments(entity_id: Optional[_builtins.str] = No
 
 
     :param _builtins.str entity_id: The identifier of the entity to which the tag is assigned. For apps, the entity_id is the app name
-    :param _builtins.str entity_type: The type of entity to which the tag is assigned. Allowed values are apps, dashboards, geniespaces, notebooks
+    :param _builtins.str entity_type: The type of entity to which the tag is assigned. Allowed values are apps, dashboards, designerfiles, geniespaces, notebooks
     :param _builtins.int page_size: Optional. Maximum number of tag assignments to return in a single page
-    :param Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider.
+    :param Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict', 'outputs.GetWorkspaceEntityTagAssignmentsProviderConfigResult'] provider_config: Configure the provider for management through account provider.
     """
     __args__ = dict()
     __args__['entityId'] = entity_id
@@ -141,7 +141,7 @@ def get_workspace_entity_tag_assignments(entity_id: Optional[_builtins.str] = No
 def get_workspace_entity_tag_assignments_output(entity_id: pulumi.Input[Optional[_builtins.str]] = None,
                                                 entity_type: pulumi.Input[Optional[_builtins.str]] = None,
                                                 page_size: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
-                                                provider_config: pulumi.Input[Optional[Optional[Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict']]]] = None,
+                                                provider_config: pulumi.Input[Optional[Optional[Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict', 'outputs.GetWorkspaceEntityTagAssignmentsProviderConfigResult']]]] = None,
                                                 opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetWorkspaceEntityTagAssignmentsResult]:
     """
     [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
@@ -168,9 +168,9 @@ def get_workspace_entity_tag_assignments_output(entity_id: pulumi.Input[Optional
 
 
     :param _builtins.str entity_id: The identifier of the entity to which the tag is assigned. For apps, the entity_id is the app name
-    :param _builtins.str entity_type: The type of entity to which the tag is assigned. Allowed values are apps, dashboards, geniespaces, notebooks
+    :param _builtins.str entity_type: The type of entity to which the tag is assigned. Allowed values are apps, dashboards, designerfiles, geniespaces, notebooks
     :param _builtins.int page_size: Optional. Maximum number of tag assignments to return in a single page
-    :param Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider.
+    :param Union['GetWorkspaceEntityTagAssignmentsProviderConfigArgs', 'GetWorkspaceEntityTagAssignmentsProviderConfigArgsDict', 'outputs.GetWorkspaceEntityTagAssignmentsProviderConfigResult'] provider_config: Configure the provider for management through account provider.
     """
     __args__ = dict()
     __args__['entityId'] = entity_id

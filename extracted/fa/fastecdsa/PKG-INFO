@@ -1,51 +1,29 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: fastecdsa
-Version: 3.0.1
-Summary: Fast elliptic curve digital signatures
-Author-email: Anton Kueltz <kueltz.anton@gmail.com>
-License: This is free and unencumbered software released into the public domain.
-        
-        Anyone is free to copy, modify, publish, use, compile, sell, or
-        distribute this software, either in source code form or as a compiled
-        binary, for any purpose, commercial or non-commercial, and by any
-        means.
-        
-        In jurisdictions that recognize copyright laws, the author or authors
-        of this software dedicate any and all copyright interest in the
-        software to the public domain. We make this dedication for the benefit
-        of the public at large and to the detriment of our heirs and
-        successors. We intend this dedication to be an overt act of
-        relinquishment in perpetuity of all present and future rights to this
-        software under copyright law.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-        IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-        OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-        ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-        OTHER DEALINGS IN THE SOFTWARE.
-        
-        For more information, please refer to <http://unlicense.org/>
-        
-Project-URL: repo, https://github.com/AntonKueltz/fastecdsa
-Project-URL: docs, https://fastecdsa.readthedocs.io
-Project-URL: pypi, https://pypi.org/project/fastecdsa/
-Keywords: elliptic,curve,cryptography,ecdsa,ecc
-Classifier: Development Status :: 4 - Beta
+Version: 4.0.0
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security :: Cryptography
-Classifier: License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Rust
 Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
 License-File: LICENSE
+Summary: Fast elliptic curve digital signatures
+Keywords: elliptic,curve,cryptography,ecdsa,ecc
+Home-Page: https://pypi.org/project/fastecdsa/
+Author-email: Anton Kueltz <kueltz.anton@gmail.com>
+License-Expression: CC0-1.0
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst; charset=UTF-8
+Project-URL: docs, https://fastecdsa.readthedocs.io
+Project-URL: pypi, https://pypi.org/project/fastecdsa/
+Project-URL: repo, https://github.com/AntonKueltz/fastecdsa
 
 fastecdsa
 =========
@@ -66,32 +44,41 @@ digital signatures.
 
 Security
 --------
-There is no nonce reuse, no branching on secret material,
-and all points are validated before any operations are performed on them. Timing side challenges
-are mitigated via Montgomery point multiplication. Nonces are generated per RFC6979_. The default
-curve used throughout the package is P256 which provides 128 bits of security. If you require a
-higher level of security you can specify the curve parameter in a method to use a curve over a
-bigger field e.g. P384. All that being said, crypto is tricky and I'm not beyond making mistakes.
-Please use a more established and reviewed library for security critical applications. Open an
-issue or email me if you see any security issue or risk with this library.
+There is no nonce reuse, no branching on secret material, and all points are validated before
+being operations are performed on them. Timing side challenges are mitigated via constant time
+arithmetic, complete point arithmetic formulas, constant time combs for base point scaling and
+constant time montgomery ladders for arbitrary point scaling. Nonces are generated per RFC6979_.
+
+The default curve used throughout the package is P256 which provides 128 bits of security. If
+you require a higher level of security you can specify the curve parameter in a method to use a
+curve over a bigger field e.g. P384. For more details on timing analysis see the jupyter notebook
+at :code:`side-channel-analysis.ipynb`.
+
+The above security discussion pertains to the operations that are exposed via the
+:code:`fastecdsa.ecdsa` and :code:`fastecdsa.eddsa` modules. Timing considerations do not apply
+to verify as verify does not operate on secret material. Primitive operations like point arithmetic,
+as well as user-defined curves, have no security guarantees.
+
+If you have any security concerns or disclosures please use the author's email found in the
+:code:`pyproject.toml` file.
 
 Python Versions Supported
 -------------------------
 The initial release of this package was targeted at python2.7. Earlier versions may work but have
 no guarantee of correctness or stability. As of release 1.2.1+ python3 is supported as well. Due to
-python2's EOL on January 1st 2020 release 2.x of this package only supports python3.5+.
+python2's EOL on January 1st 2020 release 2.x of this package only supports python3.
 
 Operating Systems Supported
 ---------------------------
-This package is targeted at the Linux and MacOS operating systems. Due to the the dependency on
-the GMP C library building this package on Windows is difficult and no official support or
-distributions are provided for Windows OSes. See issue11_ for what users have done to get things
-building.
+As of v4 most flavors of Linux/MacOS/Windows are supported. v3 and below requires the GMP library
+which has historically made building and installing on the Windows platform difficult. Note that
+this package is optimized for 64bit operating systems that support 64bit arithmetic operations
+like multiplication in their instruction set.
 
 Supported Primitives
 --------------------
-Curves over Prime Fields
-~~~~~~~~~~~~~~~~~~~~~~~~
+ECDSA
+~~~~~
 
 +---------------------------+-----------------------------------------+-------------+
 | Name                      | Class                                   | Proposed By |
@@ -127,26 +114,42 @@ Curves over Prime Fields
 | brainpoolP512r1           | :code:`fastecdsa.curve.brainpoolP512r1` | BSI         |
 +---------------------------+-----------------------------------------+-------------+
 
-Arbitrary Curves
-~~~~~~~~~~~~~~~~
+EdDSA
+~~~~~
++---------------------------+-----------------------------------------+--------------+
+| Name                      | Module                                  | Proposed By  |
++===========================+=========================================+==============+
+| ed25519                   | :code:`fastecdsa.eddsa`                 | DJB et al.   |
++---------------------------+-----------------------------------------+--------------+
+| ed448                     | :code:`fastecdsa.eddsa`                 | Mike Hamburg |
++---------------------------+-----------------------------------------+--------------+
+
+Arbitrary Weierstrass Curves
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 As of version 1.5.1 construction of arbitrary curves in Weierstrass form
 (:code:`y^2 = x^3 + ax + b (mod p)`) is supported. I advise against using custom curves for any
-security critical applications. It's up to you to make sure that the parameters you pass here are
-correct, no validation of the base point is done, and in general no sanity checks are done. Use
-at your own risk.
+security sensitive applications. In versions before release 4.0.0 no checks on the curve parameters
+are done. In 4.0.0+ some sanity checks are applied -
+
+- :code:`p` must be a non-even (not 2) prime
+- The curve cannot be singular (discriminant equal to 0)
+- :code:`(gx, gy)` must be a point on the curve
+- :code:`q` must be prime
+
+Exhaustive validation checks are not performed e.g., no check that :code:`q` is actually the order of
+point :code:`(gx, gy)` is performed.
 
 .. code:: python
 
     from fastecdsa.curve import Curve
     curve = Curve(
         name,  # (str): The name of the curve
-        p,  # (long): The value of p in the curve equation.
-        a,  # (long): The value of a in the curve equation.
-        b,  # (long): The value of b in the curve equation.
-        q,  # (long): The order of the base point of the curve.
-        gx,  # (long): The x coordinate of the base point of the curve.
-        gy,  # (long): The y coordinate of the base point of the curve.
-        oid  # (str): The object identifier of the curve (optional).
+        p,     # (int): The value of p in the curve equation.
+        a,     # (int): The value of a in the curve equation.
+        b,     # (int): The value of b in the curve equation.
+        q,     # (int): The order of the base point of the curve.
+        gx,    # (int): The x coordinate of the base point of the curve.
+        gy,    # (int): The y coordinate of the base point of the curve.
     )
 
 Hash Functions
@@ -160,67 +163,90 @@ that :code:`sha3_224, sha3_256, sha3_384, sha3_512` are all in :code:`hashlib` a
 
 Performance
 -----------
+You can see the times for 1,000 signature and verification operations over
+various curves below. These were run on a machine with a 3.6 GHz Intel Core i9-9900K.
 
-Curves over Prime Fields
-~~~~~~~~~~~~~~~~~~~~~~~~
-Currently it does elliptic curve arithmetic significantly faster than the :code:`ecdsa`
-package. You can see the times for 1,000 signature and verification operations over
-various curves below. These were run on an early 2014 MacBook Air with a 1.4 GHz Intel
-Core i5.
+ECDSA
+~~~~~
++-----------------+------------------------+-------------------------------+-------------------------+
+| Curve           | :code:`fastecdsa` v4   | :code:`ecdsa` (gmpy2 backend) | :code:`fastecdsa` v3    |
++-----------------+------------------------+-------------------------------+-------------------------+
+| P192            | 0.14s                  | 0.98s                         | 1.16s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| P224            | 0.25s                  | 1.21s                         | 1.51s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| P256            | 0.31s                  | 1.38s                         | 1.91s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| P384            | 0.75s                  | 2.25s                         | 4.08s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| P521            | 1.60s                  | 3.63s                         | 7.08s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Secp192k1       | 0.11s                  | N/A                           | 1.19s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Secp224k1       | 0.22s                  | N/A                           | 1.56s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Secp256k1       | 0.24s                  | 1.34s                         | 1.92s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp160r1 | 0.14s                  | 0.83s                         | 0.88s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp192r1 | 0.16s                  | 1.01s                         | 1.18s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp224r1 | 0.26s                  | 1.21s                         | 1.55s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp256r1 | 0.30s                  | 1.35                          | 1.88s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp320r1 | 0.52s                  | 1.80s                         | 2.91s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp384r1 | 0.82s                  | 2.27s                         | 4.08s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Brainpoolp512r1 | 1.60s                  | 3.33s                         | 7.06s                   |
++-----------------+------------------------+-------------------------------+-------------------------+
 
-+-----------+------------------------+--------------------+---------+
-| Curve     | :code:`fastecdsa` time | :code:`ecdsa` time | Speedup |
-+-----------+------------------------+--------------------+---------+
-| P192      | 3.62s                  | 1m35.49s           | ~26x    |
-+-----------+------------------------+--------------------+---------+
-| P224      | 4.50s                  | 2m13.42s           | ~29x    |
-+-----------+------------------------+--------------------+---------+
-| P256      | 6.15s                  | 2m52.43s           | ~28x    |
-+-----------+------------------------+--------------------+---------+
-| P384      | 12.11s                 | 6m21.01s           | ~31x    |
-+-----------+------------------------+--------------------+---------+
-| P521      | 22.21s                 | 11m39.53s          | ~31x    |
-+-----------+------------------------+--------------------+---------+
-| secp256k1 | 5.92s                  | 2m57.19s           | ~30x    |
-+-----------+------------------------+--------------------+---------+
+EdDSA
+~~~~~
++-----------------+------------------------+-------------------------------+-------------------------+
+| Curve           | :code:`fastecdsa` v4   | :code:`ecdsa` (gmpy2 backend) | :code:`fastecdsa` v3    |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Edwards25519    | 0.20s                  | 1.28s                         | N/A                     |
++-----------------+------------------------+-------------------------------+-------------------------+
+| Edwards448      | 0.64s                  | 2.53s                         | N/A                     |
++-----------------+------------------------+-------------------------------+-------------------------+
+
+If you'd like to benchmark performance on your machine you can do so using the command:
+
+.. code:: bash
+
+    $ uv run benchmark
+
+This will use the :code:`timeit` module to benchmark 1000 signature and verification operations
+for each curve supported by this package. Alternatively, if you have not cloned the repo but
+have installed the package to your site packages you can use the following command:
+
+.. code:: bash
+
+    $ python -m fastecdsa.benchmark
 
 Installing
 ----------
-You can use pip: :code:`$ pip install fastecdsa` or clone the repo and use
-:code:`$ python setup.py install`. Note that you need to have a C compiler.
-You  also need to have GMP_ on your system as the underlying
-C code in this package includes the :code:`gmp.h` header (and links against gmp
-via the :code:`-lgmp` flag). You can install all dependencies as follows:
-
-apt
-~~~
+You can use the usual tools to install / add this package to your project -
 
 .. code:: bash
 
-    $ sudo apt-get install python3-dev libgmp3-dev
+    $ uv add fastecdsa
+    $ poetry add fastecdsa
+    $ pip install fastecdsa
 
-brew
-~~~~
-
-.. code:: bash
-
-    $ brew install gmp
-
-yum
-~~~
-
-.. code:: bash
-
-    $ sudo yum install python-devel gmp-devel
+You can also clone the repo and use :code:`$ uv run maturin develop`. Note that you need to have
+the rust toolchain on your machine if you clone and build.
 
 Development
 -----------
 This package uses :code:`uv` for package management. You can install it via `pip install uv`. First build
-the C extension modules
+the rust bindings
 
 .. code:: bash
 
-    $ uv run python setup.py build_ext --inplace
+    $ uv run maturin develop -r
 
 To run the test suite use the following command
 
@@ -253,36 +279,15 @@ To build a release first install all supported versions of python into the envir
 
 .. code:: bash
 
-   $ uv python install 3.9 3.10 3.11 3.12 3.13
+   $ uv python install 3.11 3.12 3.13 3.14
 
 Then build a source distribution, followed by wheels for each supported python version
 
 .. code:: bash
 
-    $ uv build --sdist
-    $ uv build --wheel -p 3.x  # do this for each supported python version
+    $ uv run maturin sdist
+    $ uv run maturin build -r -i python3.x
 
-Then publish the source and wheels distributions to the test PyPI account.
-
-.. code:: bash
-
-    $ uv publish --token {token} --url https://test.pypi.org/simple/
-
-Benchmarking
-------------
-If you'd like to benchmark performance on your machine you can do so using the command:
-
-.. code:: bash
-
-    $ uv run benchmark
-
-This will use the :code:`timeit` module to benchmark 1000 signature and verification operations
-for each curve supported by this package. Alternatively, if you have not cloned the repo but
-have installed the package via e.g. :code:`pip` you can use the following command:
-
-.. code:: bash
-
-    $ python -m fastecdsa.benchmark
 
 Usage
 -----
@@ -387,6 +392,94 @@ standard python operators (:code:`+` and :code:`*` respectively):
     # Joint Scalar Multiplication
     R = d * S + e * T
 
+Points on Edwards Curves
+________________________
+The edwards curves that underpin Ed25519 and Ed448 have their own dedicated point classes
+as they use different point arithmetic and representations than the Weierstrass points. See
+below for some example usage.
+
+.. code:: python
+
+    In [1]: from fastecdsa.eddsa import Ed25519Point as e25519
+
+    In [2]: G = e25519.g()
+
+    In [3]: G
+    Out[3]:
+    X: 0x216936d3cd6e53fec0a4e231fdd6dc5c692cc7609525a7b2c9562d608f25d51a
+    Y: 0x6666666666666666666666666666666666666666666666666666666666666658
+    (Affine point on curve Edwards25519)
+
+    In [4]: G * 2
+    Out[4]:
+    X: 0x36ab384c9f5a046c3d043b7d1833e7ac080d8e4515d7a45f83c5a14e2843ce0e
+    Y: 0x2260cdf3092329c21da25ee8c9a21f5697390f51643851560e5f46ae6af8a3c9
+    (Affine point on curve Edwards25519)
+
+    In [5]: G + G
+    Out[5]:
+    X: 0x36ab384c9f5a046c3d043b7d1833e7ac080d8e4515d7a45f83c5a14e2843ce0e
+    Y: 0x2260cdf3092329c21da25ee8c9a21f5697390f51643851560e5f46ae6af8a3c9
+    (Affine point on curve Edwards25519)
+
+    In [6]: e25519.scale_base(2)
+    Out[6]:
+    X: 0x5881d418cc897a3a0eb49cdb9e6859fe2c55894bcdf7f8095714be2d5cf2e79a
+    Y: 0x27e006a46c706615d5ef0e2ff33fb48a6fbc113c77c0bd916574e8d0e2c42106
+    Z: 0x1f7616052c96e0810d7ff513e392dfbad03e66e0a95c8d2796a29516b07725f4
+    T: 0x5dec8aec83e2c5266dd025b8da706eed6a2729713b3f035372c8624d35caa7b
+    (Extended projective point on curve Edwards25519)
+
+    In [7]: _.normalize()
+    Out[7]:
+    X: 0x36ab384c9f5a046c3d043b7d1833e7ac080d8e4515d7a45f83c5a14e2843ce0e
+    Y: 0x2260cdf3092329c21da25ee8c9a21f5697390f51643851560e5f46ae6af8a3c9
+    (Affine point on curve Edwards25519
+
+Note that :code:`fastecdsa.eddsa.Ed448Point` has the same interface, but it uses standard
+projective coordinates that omit "T".
+
+Projective Points
+~~~~~~~~~~~~~~~~~
+As of release 4.0.0 you can also use the projective representation of points. This
+may be desirable if you are doing a lot of intermediate calculations with points
+before you need an affine representation as arithmetic on projective points is cheaper.
+Note that comparisons between projective points and affine points are also possible,
+but they are less performant than comparisons between two affine points. By default
+all representations and operations on points are affine. To convert a projective point
+back to an affine point use the :code:`normalize` method.
+
+.. code:: python
+
+    In [1]: from fastecdsa.curve import P256
+
+    In [2]: from fastecdsa.point import Point
+
+    In [3]: x = 0xdeadc0de
+
+    In [4]: x * P256.G
+    Out[4]:
+    X: 0x32079326d26449f8b36bde4410f805eb520c0120da1585c79c369f356c8a298f
+    Y: 0x249daa2c57c8d6a90575630635aa5448fa56d21f5e363c155fe98c597b1c70ae
+    (Affine point on curve "P256")
+
+    In [5]: g_ = Point(P256.G.x, P256.G.y, P256, projective=True)
+
+    In [6]: h = x * g_
+
+    In [7]: h
+    Out[7]:
+    X: 0x15819ed127c46b11b751a1d575a6e7712fe72c03e693ea0783268e2f0d4bdfac
+    Y: 0x879367bd0ebcf1b97fdb0841c33333f7c321a41c2ced6ab14a1cd2cc7684f6bf
+    Z: 0x99682c948ddc2ddd15966aecfe83fe52b1df7d76255d460f90d7bd615bb80cfc
+    (Projective point on curve "P256")
+
+    In [8]: h.normalize()  # gives the same result as x * P256.G
+    Out[8]:
+    X: 0x32079326d26449f8b36bde4410f805eb520c0120da1585c79c369f356c8a298f
+    Y: 0x249daa2c57c8d6a90575630635aa5448fa56d21f5e363c155fe98c597b1c70ae
+    (Affine point on curve "P256")
+
 Importing and Exporting Keys
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 You can also export keys as files, ASN.1 encoded and formatted per RFC5480_ and RFC5915_. Both
@@ -395,24 +488,31 @@ private keys and public keys can be exported as follows:
 .. code:: python
 
     from fastecdsa.curve import P256
-    from fastecdsa.keys import export_key, gen_keypair
+    from fastecdsa.encoding.pem import PEMEncoder
+    from fastecdsa.keys import export_private_key, export_public_key, gen_keypair
 
     d, Q = gen_keypair(P256)
+    encoder = PEMEncoder()
+
     # save the private key to disk
-    export_key(d, curve=P256, filepath='/path/to/exported/p256.key')
-    # save the public key to disk
-    export_key(Q, curve=P256, filepath='/path/to/exported/p256.pub')
+    export_private_key(d, curve=P256, encoder=encoder, filepath='/path/to/exported/p256.key')
+    # save the public key to disk (curve inferred from Q)
+    export_public_key(Q, encoder=encoder, filepath='/path/to/exported/p256.pub')
 
 Keys stored in this format can also be imported. The import function will figure out if the key
 is a public or private key and parse it accordingly:
 
 .. code:: python
 
-    from fastecdsa.keys import import_key
+    from fastecdsa.curve import P256
+    from fastecdsa.encoding.pem import PEMEncoder
+    from fastecdsa.keys import import_public_key, import_private_key
 
-    # if the file is a private key then parsed_d is a long and parsed_Q is a Point object
-    # if the file is a public key then parsed_d will be None
-    parsed_d, parsed_Q = import_key('/path/to/file.key')
+    decoder = PEMEncoder()
+    # returns an int
+    parsed_d = import_private_key('/path/to/exported/p256.key', decoder=decoder)
+    # returns a fastecdsa.point.Point
+    parsed_Q = import_public_key('/path/to/exported/p256.pub', curve=P256, decoder=decoder)
 
 Other encoding formats can also be specified, such as SEC1_ for public keys. This is done using
 classes found in the :code:`fastecdsa.encoding` package, and passing them as keyword args to
@@ -422,11 +522,13 @@ the key functions:
 
     from fastecdsa.curve import P256
     from fastecdsa.encoding.sec1 import SEC1Encoder
-    from fastecdsa.keys import export_key, gen_keypair, import_key
+    from fastecdsa.keys import export_public_key, gen_keypair, import_public_key
 
     _, Q = gen_keypair(P256)
-    export_key(Q, curve=P256, filepath='/path/to/p256.key', encoder=SEC1Encoder)
-    parsed_Q = import_key('/path/to/p256.key', curve=P256, public=True, decoder=SEC1Encoder)
+    encoder = SEC1Encoder()
+
+    export_public_key(Q, encoder=encoder, filepath='/path/to/exported/p256.pub')
+    parsed_Q = import_public_key('/path/to/exported/p256.pub', curve=P256, decoder=encoder)
 
 Encoding Signatures
 ~~~~~~~~~~~~~~~~~~~
@@ -459,11 +561,32 @@ Thanks to those below for contributing improvements:
 - sylvainpelissier
 - akaIDIOT
 - Peter-Bergman
+- DimitriPapadopoulos
 
-.. _issue11: https://github.com/AntonKueltz/fastecdsa/issues/11
-.. _GMP: https://gmplib.org/
+Much of this work is based upon the following articles, research and standards:
+
+- `FIPS 186-5: Digital Signature Standard (DSS) <https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf>`_
+- `SEC 2: Recommended Elliptic Curve Domain Parameters <https://www.secg.org/sec2-v2.pdf>`_
+- `RFC 5639: Elliptic Curve Cryptography (ECC) Brainpool Standard Curves and Curve Generation <https://www.rfc-editor.org/info/rfc5639/>`_
+- `Curve25519: new Diffie-Hellman speed records <https://cr.yp.to/ecdh/curve25519-20060209.pdf>`_
+- `Ed25519: high-speed high-security signatures <https://ed25519.cr.yp.to/software.html>`_
+- `Ed448-Goldilocks, a new elliptic curve <https://eprint.iacr.org/2015/625.pdf>`_
+- `Tanja Lange and DJB's explicit-formulas database <https://hyperelliptic.org/EFD/>`_
+- `Michael McLoughlin's add chains for fast inversions in various fields <https://github.com/mmcloughlin/addchain>`_
+- `More Flexible Exponentiation with Precomputation <https://link.springer.com/content/pdf/10.1007/3-540-48658-5_11.pdf>`_
+- `Optimized Lattice Basis Reduction In Dimension 2, and Fast Schnorr and EdDSA Signature Verification <https://eprint.iacr.org/2020/454.pdf>`_
+- `Accelerating EdDSA Signature Verification with Faster Scalar Size Halving <https://tches.iacr.org/index.php/TCHES/article/view/12225/12032>`_
+- Hankerson, Menezes, Vanstone - Guide to Elliptic Curve Cryptography
+- `RFC 6979: Deterministic Usage of the Digital Signature Algorithm (DSA) and Elliptic Curve Digital Signature Algorithm (ECDSA) <https://www.rfc-editor.org/info/rfc6979/>`_
+- `RFC 8032: Edwards-Curve Digital Signature Algorithm (EdDSA) <https://www.rfc-editor.org/info/rfc8032/>`_
+- `Taming the many EdDSAs <https://eprint.iacr.org/2020/1244.pdf>`_
+- `point-at-infinity's NIST test vectors <http://point-at-infinity.org/ecc/nisttv>`_
+- `Automated Cryptographic Validation Test System - Gen/Vals <https://github.com/usnistgov/ACVP-Server>`_
+- `ECTester: Reverse-engineering side-channel countermeasures of ECC implementations <https://eprint.iacr.org/2025/1293.pdf>`_
+
 .. _RFC2459: https://tools.ietf.org/html/rfc2459
 .. _RFC5480: https://tools.ietf.org/html/rfc5480
 .. _RFC5915: https://tools.ietf.org/html/rfc5915
 .. _RFC6979: https://tools.ietf.org/html/rfc6979
 .. _SEC1: http://www.secg.org/sec1-v2.pdf
+

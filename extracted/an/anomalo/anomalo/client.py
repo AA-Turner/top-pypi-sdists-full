@@ -1156,7 +1156,7 @@ class Client:
         self,
         name: str,
         description: str | NotSet = NOT_SET,
-        context_document: str | None | NotSet = NOT_SET,
+        context_document: str | NotSet | None = NOT_SET,
         add_table_ids: list[int] | None = None,
     ):
         kwargs: dict[str, Any] = {"name": name, "add_table_ids": add_table_ids or []}
@@ -1171,7 +1171,7 @@ class Client:
         data_domain_id: int,
         name: str | NotSet = NOT_SET,
         description: str | NotSet = NOT_SET,
-        context_document: str | None | NotSet = NOT_SET,
+        context_document: str | NotSet | None = NOT_SET,
         add_table_ids: list[int] | None = None,
         remove_table_ids: list[int] | None = None,
     ):

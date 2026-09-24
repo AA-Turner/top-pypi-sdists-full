@@ -20,8 +20,10 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/Products/ProductsNode.hpp"
+#include "SciQLopPlots/Products/ProductsModel.hpp"
 #include "SciQLopPlots/Icons/icons.hpp"
 #include "fmt/format.h"
+#include <QDebug>
 
 ProductsModelNode* ProductsModelNode::_root_node()
 {
@@ -64,10 +66,19 @@ ProductsModelNode::ProductsModelNode(const QString& name, const QString& provide
 // No silent same-name replacement here: structural changes on a node that is
 // already in the ProductsModel must be announced through the model
 // (begin/endRemoveRows) — _insert_node handles the re-publish case.
-void ProductsModelNode::add_child(ProductsModelNode* child)
+bool ProductsModelNode::add_child(ProductsModelNode* child)
 {
+    // Qt refuses to parent across threads, which would leave the child listed but unowned.
+    if (child->thread() != thread())
+    {
+        qWarning() << "ProductsModelNode::add_child: refusing" << child->name()
+                   << "- it lives in another thread than" << name();
+        return false;
+    }
+    child->m_row = m_children.size();
     m_children.append(child);
     child->setParent(this);
+    return true;
 }
 
 QStringList ProductsModelNode::path()
@@ -84,7 +95,12 @@ QStringList ProductsModelNode::path()
 
 void ProductsModelNode::set_icon(const QString& name)
 {
+    if (m_icon == name)
+        return;
     m_icon = name;
+    // Published nodes hang under the model's root node, whose QObject parent is the model.
+    if (auto* model = qobject_cast<ProductsModel*>(_root_node()->parent()))
+        model->node_data_changed(this, { Qt::DecorationRole });
 }
 
 const QIcon& ProductsModelNode::icon()
@@ -97,14 +113,3 @@ void ProductsModelNode::set_tooltip(const QString& tooltip)
     m_tooltip = tooltip;
 }
 
-QStringList ProductsModelNode::completions() const noexcept
-{
-    QStringList completions;
-    completions.append(this->name());
-    for (auto [key, value] : m_metadata.asKeyValueRange())
-    {
-        if (auto v = value.toString(); v.size() < 100)
-            completions.append(key + ": " + v);
-    }
-    return completions;
-}

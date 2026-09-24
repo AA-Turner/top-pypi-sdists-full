@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pylibjpeg-openjpeg
-Version: 2.5.0
+Version: 2.6.0
 Summary: A Python wrapper for openjpeg, with a focus on use as a plugin for for pylibjpeg
 Home-page: https://github.com/pydicom/pylibjpeg-openjpeg
 License: MIT
@@ -8,7 +8,7 @@ Keywords: dicom pydicom python imaging jpg jpeg jpeg2k jpeg2000 pylibjpeg openjp
 Author: pylibjpeg-openjpeg contributors
 Maintainer: scaramallion
 Maintainer-email: scaramallion@users.noreply.github.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Healthcare Industry
@@ -17,12 +17,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: numpy (>=2.0,<3.0)
@@ -39,7 +39,7 @@ Description-Content-Type: text/markdown
 
 ## pylibjpeg-openjpeg
 
-A Python 3.8+ wrapper for
+A Python wrapper for
 [openjpeg](https://github.com/uclouvain/openjpeg), with a focus on use as a plugin for [pylibjpeg](http://github.com/pydicom/pylibjpeg).
 
 Linux, OSX and Windows are all supported.

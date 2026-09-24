@@ -1178,10 +1178,13 @@ accessed. Python regular expressions are accepted.",
 
             try:
                 attr_nodes = owner.getattr(node.attrname)
-            except AttributeError:
+            except (AttributeError, astroid.DuplicateBasesError):
                 continue
-            except astroid.DuplicateBasesError:
-                continue
+            except astroid.InferenceError:
+                # Nothing is known about this owner, so it may have the
+                # attribute: judging the other inferred owners alone would
+                # emit a false positive, bail out as for opaque inference.
+                return
             except astroid.NotFoundError:
                 # Avoid false positive in case a decorator supplies member.
                 if (
@@ -1863,8 +1866,8 @@ accessed. Python regular expressions are accepted.",
             # Ignore descriptor instances
             if "__get__" in inferred_call.locals:
                 return
-            # NamedTuple instances are callable
-            if inferred_call.qname() == "typing.NamedTuple":
+            # These instances are callable despite not exposing __call__ in astroid.
+            if inferred_call.qname() in {"builtins.function", "typing.NamedTuple"}:
                 return
 
         self.add_message("not-callable", node=node, args=node.func.as_string())

@@ -34,6 +34,7 @@ from django.template.response import SimpleTemplateResponse, TemplateResponse
 from django.urls import re_path
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_str
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.text import capfirst
 from django.utils.translation import gettext as _
@@ -107,15 +108,22 @@ class PageDeleteMessageMixin:
                 item = recursively_remove(obj)
                 if isinstance(item, str):
                     if obj.startswith(f"{capfirst(Page._meta.verbose_name)}: "):
+                        # ``Page`` is registered in the admin, so Django built this entry with
+                        # ``format_html()`` as ``Page: <a href="...">title</a>``: the title inside the
+                        # anchor is already escaped and must not be escaped a second time.
                         text = re.findall(r">(.*)<", obj)
                         if text:
-                            result.append(mark_safe("<b>" + text[0] + "</b>"))
+                            result.append(format_html("<b>{}</b>", mark_safe(text[0])))
                         else:
+                            # No admin link, so this is Django's raw ``"Page: %s" % obj`` string.
                             result.append(
-                                mark_safe("<b>" + item.removeprefix(f"{capfirst(Page._meta.verbose_name)}: ") + "</b>")
+                                format_html("<b>{}</b>", item.removeprefix(f"{capfirst(Page._meta.verbose_name)}: "))
                             )
                     elif obj.startswith(f"{capfirst(PageUrl._meta.verbose_name)}: "):
-                        result.insert(0, mark_safe(item.removeprefix(f"{capfirst(PageUrl._meta.verbose_name)}: ")))
+                        # ``PageUrl`` has no admin, so Django returns the raw, unescaped
+                        # ``"Page url: %s" % obj`` string. The path is author-controlled (it can be set
+                        # through "Overwrite URL"), so it must not be marked safe (CWE-79).
+                        result.insert(0, escape(item.removeprefix(f"{capfirst(PageUrl._meta.verbose_name)}: ")))
                 elif item:
                     result.append(item)
             return result
@@ -562,6 +570,18 @@ class PageAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
             message = _("Error! You don't have permissions to move this page. Please reload the page")
             return jsonify_request(HttpResponseForbidden(message))
 
+        # The whole subtree moves along, so authorize the whole subtree: the
+        # destination may grant access that the source did not.
+        target_page, position = form.get_tree_options()
+        if position in ("first-child", "last-child"):
+            parent_page = target_page
+        else:
+            parent_page = target_page.parent if target_page else None
+
+        if not page_permissions.user_can_move_descendants(user, page, page.site, parent_page):
+            message = _("Error! You don't have permissions to move this page. Please reload the page")
+            return jsonify_request(HttpResponseForbidden(message))
+
         operation_token = send_pre_page_operation(
             request=request,
             operation=operations.MOVE_PAGE,
@@ -569,7 +589,7 @@ class PageAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
             sender=self.model,
         )
 
-        form.move_page()
+        form.move_page(user=user)
 
         send_post_page_operation(
             request=request,
@@ -662,6 +682,16 @@ class PageAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
         elif can_copy_page:
             # User can only copy / paste a page if he has permission to add a page
             can_copy_page = page_permissions.user_can_add_page(user, site)
+
+        if can_copy_page:
+            target_page, position = form.get_tree_options()
+            if position in ("first-child", "last-child"):
+                parent_page = target_page
+            else:
+                parent_page = target_page.parent if target_page else None
+            can_copy_page = page_permissions.user_can_copy_descendants(
+                user, page, site, parent_page, form.cleaned_data["copy_permissions"]
+            )
 
         if not can_copy_page:
             message = _("Error! You don't have permissions to copy this page.")

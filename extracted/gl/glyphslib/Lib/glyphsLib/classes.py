@@ -1565,8 +1565,16 @@ class GSMetricValue(GSBase):
 
 GSMetricValue._add_parsers(
     [
-        {"plist_name": "over", "object_name": "overshoot"},
-        {"plist_name": "pos", "object_name": "position"},
+        {
+            "plist_name": "over",
+            "object_name": "overshoot",
+            "converter": parse_float_or_int,
+        },
+        {
+            "plist_name": "pos",
+            "object_name": "position",
+            "converter": parse_float_or_int,
+        },
     ]
 )
 
@@ -1890,6 +1898,9 @@ class GSFontMaster(GSBase):
         return self.metrics[metricIndex].position
 
     def _set_metric(self, metricname, value):
+        if isinstance(value, str):
+            # Older Glyphs versions quote negative numbers, e.g. descender = "-200";
+            value = parse_float_or_int(value)
         if not self.font:
             metrics = GSFont._defaultMetrics
         else:
@@ -5083,11 +5094,13 @@ class GSFont(GSBase):
         # synthesise one.
 
         # However, if the axes are default, we don't synthesise one *unless*
-        # we also have an Axis Mappings custom parameter.
+        # we also have an Axis Mappings custom parameter or one of the axes
+        # is hidden (GSAxis equality ignores 'hidden').
         if (
             len(self.axes) == 2
             and self.axes[0] == self._defaultAxes[0]
             and self.axes[1] == self._defaultAxes[1]
+            and not any(ax.hidden for ax in self.axes)
         ) and "Axis Mappings" not in self.customParameters:
             return None
         values = []

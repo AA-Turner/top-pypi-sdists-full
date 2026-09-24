@@ -12,6 +12,14 @@ FEATURE.md``, the Image generation row; research in
     edit_target          the base image being edited
     composition_control  geometry/layout to follow (depth, edge, sketch)
 
+Video generation reads an image as a frame or a reference (the Video
+generation row; the video-side gate is ``media/video_reference_roles.py``):
+
+    first_frame          the clip starts on this exact image
+    last_frame           the clip ends on this exact image
+    asset                keep this subject/object/character in the clip
+    style                (shared) take its look only
+
 The role rides on the image part itself (``ImageContent.role`` /
 ``ImageMediaPart.role``). Absent role = today's behaviour: a plain image the
 model sees.
@@ -42,9 +50,26 @@ ImageReferenceRole = Literal[
     "mask",
     "edit_target",
     "composition_control",
+    # Video-generation image roles (``style`` is shared with image generation).
+    "first_frame",
+    "last_frame",
+    "asset",
 ]
 
 IMAGE_REFERENCE_ROLES: tuple[str, ...] = get_args(ImageReferenceRole)
+
+#: The roles an IMAGE-generating model can take (the image gate's order).
+IMAGE_GENERATION_ROLES: tuple[str, ...] = (
+    "subject",
+    "character",
+    "style",
+    "mask",
+    "edit_target",
+    "composition_control",
+)
+
+#: The image roles a VIDEO-generating model can take.
+VIDEO_IMAGE_ROLES: tuple[str, ...] = ("first_frame", "last_frame", "asset", "style")
 
 #: Reserved key in ``capabilities.image_reference_roles`` for the combined cap.
 TOTAL_KEY = "total"
@@ -58,6 +83,9 @@ ROLE_LABELS: dict[str, str] = {
     "mask": "Mask",
     "edit_target": "Edit this",
     "composition_control": "Composition",
+    "first_frame": "First frame",
+    "last_frame": "Last frame",
+    "asset": "Asset",
 }
 
 #: What the model is told each role means when the transport is a flat image
@@ -84,6 +112,12 @@ ROLE_INSTRUCTIONS: dict[str, str] = {
     "composition_control": (
         "composition reference — follow its layout, pose and geometry; do not "
         "copy its appearance"
+    ),
+    "first_frame": "first frame — the video starts on exactly this image",
+    "last_frame": "last frame — the video ends on exactly this image",
+    "asset": (
+        "asset reference — keep this subject, object or character recognisable "
+        "and consistent throughout the video"
     ),
 }
 
@@ -285,8 +319,10 @@ def resolve_roled(
 
 __all__ = [
     "resolve_roled",
+    "IMAGE_GENERATION_ROLES",
     "IMAGE_REFERENCE_ROLES",
     "ROLE_INSTRUCTIONS",
+    "VIDEO_IMAGE_ROLES",
     "ROLE_LABELS",
     "TOTAL_KEY",
     "ImageReferenceRole",

@@ -292,6 +292,124 @@ class TestMDMScopeWrites:
         )
         assert list(console_claude_root.glob("settings.backup_*.json")) == backups
 
+    @staticmethod
+    def _seed_claude_backups(console_claude_root: Path) -> list[Path]:
+        """Seven stale copies mixing legacy second-only and microsecond names."""
+        stamps = [
+            "20250101_000000",
+            "20250102_000000_000000",
+            "20250103_000000",
+            "20250104_000000_000000",
+            "20250105_000000",
+            "20250106_000000_000000",
+            "20250107_000000",
+        ]
+        seeded = []
+        for stamp in stamps:
+            stale = console_claude_root / f"settings.backup_{stamp}.json"
+            stale.write_text("stale")
+            seeded.append(stale)
+        return seeded
+
+    def _mdm_claude_fixture(self, tmp_path, monkeypatch) -> tuple[Path, Path]:
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_home = tmp_path / "Users" / "alice"
+        console_claude_root = console_home / ".claude"
+        console_claude_root.mkdir(parents=True)
+        settings_path = console_claude_root / "settings.json"
+        settings_path.write_text('{"permissions": {"allow": ["Bash"]}}\n')
+        monkeypatch.setattr(
+            clients_module, "enterprise_claude_code_dir", lambda: console_claude_root
+        )
+        _patch_console_home(monkeypatch, console_home)
+        return console_claude_root, settings_path
+
+    def test_mdm_claude_code_changed_reconcile_prunes_stale_backups(
+        self, tmp_path, monkeypatch
+    ):
+        """A changed reconcile keeps its fresh copy plus the newest stale ones."""
+        from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+        console_claude_root, settings_path = self._mdm_claude_fixture(
+            tmp_path, monkeypatch
+        )
+        original = settings_path.read_text()
+        seeded = self._seed_claude_backups(console_claude_root)
+        bystander = console_claude_root / "settings.local.json"
+        bystander.write_text("{}")
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        remaining = sorted(console_claude_root.glob("settings.backup_*.json"))
+        assert len(remaining) == BACKUP_KEEP
+        assert remaining[:-1] == seeded[-(BACKUP_KEEP - 1) :]
+        assert remaining[-1].read_text() == original
+        assert bystander.exists()
+        assert "hooks" in json.loads(settings_path.read_text())
+
+    def test_mdm_claude_code_unchanged_reconcile_creates_no_backup_but_prunes(
+        self, tmp_path, monkeypatch
+    ):
+        """The hourly no-op reconcile still drains a pile left by older builds."""
+        from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+        console_claude_root, settings_path = self._mdm_claude_fixture(
+            tmp_path, monkeypatch
+        )
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+        [fresh] = list(console_claude_root.glob("settings.backup_*.json"))
+        seeded = self._seed_claude_backups(console_claude_root)
+        rendered = settings_path.read_text()
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch hook",
+        )
+
+        remaining = sorted(console_claude_root.glob("settings.backup_*.json"))
+        assert remaining == seeded[-(BACKUP_KEEP - 1) :] + [fresh]
+        assert settings_path.read_text() == rendered
+
+    def test_mdm_claude_code_failed_write_leaves_every_backup(
+        self, tmp_path, monkeypatch
+    ):
+        """Retention runs only after the active write lands."""
+        from runlayer_cli.hook_install import clients as clients_module
+
+        console_claude_root, settings_path = self._mdm_claude_fixture(
+            tmp_path, monkeypatch
+        )
+        seeded = self._seed_claude_backups(console_claude_root)
+        real_write_config = clients_module._write_config
+
+        def fail_active_write(path, text, **kwargs):
+            if path == settings_path:
+                raise OSError("active write failed")
+            return real_write_config(path, text, **kwargs)
+
+        monkeypatch.setattr(clients_module, "_write_config", fail_active_write)
+
+        with pytest.raises(OSError, match="active write failed"):
+            install_client(
+                Client.CLAUDE_CODE,
+                scope=InstallScope.MDM,
+                hook_command="/usr/local/bin/aiwatch hook",
+            )
+
+        remaining = sorted(console_claude_root.glob("settings.backup_*.json"))
+        assert len(remaining) == len(seeded) + 1
+        assert remaining[:-1] == seeded
+
     def test_mdm_claude_code_preserves_restrictive_settings_mode(
         self, tmp_path, monkeypatch
     ):

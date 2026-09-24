@@ -62,9 +62,23 @@ class AnacondaModelClient:
         - METAFLOW_SERVICE_HEADERS: JSON dict of auth headers (contains x-api-key)
     """
 
+    def _resolve_from_conf_or_env(self, key):
+        from metaflow_extensions.outerbounds.remote_config import init_config
+
+        conf = init_config()
+        if key in conf:
+            return conf[key]
+        return os.environ.get(key, "")
+
     def __init__(self):
-        self._api_server = os.environ.get("OBP_API_SERVER")
-        self._integrations_url = os.environ.get("OBP_INTEGRATIONS_URL", "")
+        self._api_server = self._resolve_from_conf_or_env("OBP_API_SERVER")
+        self._integrations_url = self._resolve_from_conf_or_env(
+            "OBP_INTEGRATIONS_URL",
+        )
+        self._perimeter = self._resolve_from_conf_or_env("OBP_PERIMETER")
+        headers_json = self._resolve_from_conf_or_env("METAFLOW_SERVICE_HEADERS")
+        key_val = self._resolve_from_conf_or_env("METAFLOW_SERVICE_AUTH_KEY")
+
         if not self._api_server:
             if self._integrations_url.endswith("/integrations"):
                 self._api_server = self._integrations_url[: -len("/integrations")]
@@ -79,16 +93,18 @@ class AnacondaModelClient:
             if not server.startswith("https://") and not server.startswith("http://"):
                 server = "https://%s" % server
             self._integrations_url = "%s/integrations" % server.rstrip("/")
-        self._perimeter = os.environ.get("OBP_PERIMETER")
+
         if not self._perimeter:
             raise RuntimeError(
                 "@anaconda_models: OBP_PERIMETER not found in environment."
             )
-        headers_json = os.environ.get("METAFLOW_SERVICE_HEADERS")
+
         if not headers_json:
-            raise RuntimeError(
-                "@anaconda_models: METAFLOW_SERVICE_HEADERS not found in environment."
-            )
+            if not key_val:
+                raise RuntimeError(
+                    "@anaconda_models: METAFLOW_SERVICE_HEADERS not found in environment."
+                )
+            headers_json = json.dumps({"x-api-key": key_val})
         self._session = requests.Session()
         self._session.headers.update(json.loads(headers_json))
 

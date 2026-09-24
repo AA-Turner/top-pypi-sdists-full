@@ -17,7 +17,7 @@ Usage::
 
 from __future__ import annotations
 
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser, BooleanOptionalAction, Namespace
 from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
@@ -67,7 +67,7 @@ def suggest_eos_cells(result: AnisotropicQHAResult, indices: Sequence[int]) -> N
     sampled over equal fractional ranges has its main diagonal among them.
 
     """
-    lengths = result.lattice_lengths
+    lengths = result.lattice_grid.lattice_lengths
     order = np.argsort(lengths.prod(axis=1))
     ratios = np.round(lengths[:, 2] / lengths[:, 0], 4)
 
@@ -167,6 +167,7 @@ def compare_thermal_expansion_eos(
     mesh: float,
     positions: Sequence[int],
     verbose: bool = False,
+    exclude_gamma_acoustic: bool = False,
 ) -> None:
     """Compare thermal expansion: anisotropic 2D fit vs Vinet volume-path QHA.
 
@@ -197,7 +198,7 @@ def compare_thermal_expansion_eos(
 
     print(f"# Vinet volume path over {len(selected)} diagonal cells")
     for k in selected:
-        a, b, c = result.lattice_lengths[k]
+        a, b, c = result.lattice_grid.lattice_lengths[k]
         print(f"  pos {k:3d}  a={a:.4f} c={c:.4f} c/a={c / a:.4f}")
 
     qha = run_qha(
@@ -208,6 +209,7 @@ def compare_thermal_expansion_eos(
         mesh=mesh,
         eos="vinet",
         verbose=verbose,
+        exclude_gamma_acoustic=exclude_gamma_acoustic,
     )
 
     t = result.temperatures
@@ -300,12 +302,20 @@ def get_options() -> Namespace:
         "~20%% while beta is already converged",
     )
     parser.add_argument(
+        "--exclude-gamma-acoustic",
+        action=BooleanOptionalAction,
+        default=True,
+        help="exclude the three acoustic modes at Gamma, whose frequencies are "
+        "nearly zero, from the phonon thermal properties "
+        "(default: %(default)s)",
+    )
+    parser.add_argument(
         "--fc-calculator",
         default="symfc",
         help="force-constant calculator (default: symfc)",
     )
     parser.add_argument(
-        "--surface-degree",
+        "--polynomial-degree",
         type=int,
         default=3,
         help="total degree of the F(a, c) surface polynomial (default: 3)",
@@ -380,6 +390,20 @@ def get_options() -> Namespace:
         "--decompose-contours",
         action="store_true",
         help="also write U / F_ph / F_el / total contour panels",
+    )
+    parser.add_argument(
+        "--margin",
+        type=float,
+        default=1.5,
+        help="width of the contour window as a multiple of the range of the "
+        "sampled cells, centred on the minimum of U (default: 1.5). Above 1 "
+        "the fitted surface is drawn where nothing constrains it",
+    )
+    parser.add_argument(
+        "--plot-format",
+        choices=("png", "pdf"),
+        default="png",
+        help="image format of the figures written (default: png)",
     )
     parser.add_argument(
         "--compare-eos",
@@ -519,7 +543,8 @@ def main() -> None:
         electronic_free_energies=electronic_free_energies,
         phonon_free_energies=phonon_free_energies,
         mesh=args.mesh,
-        surface_degree=args.surface_degree,
+        exclude_gamma_acoustic=args.exclude_gamma_acoustic,
+        polynomial_degree=args.polynomial_degree,
         lattice_smoothing=args.smooth_lattice,
         smoothing_terms=args.smooth_terms,
         verbose=True,
@@ -534,31 +559,42 @@ def main() -> None:
         f"dataset={args.filename}",
         f"fc_calculator={args.fc_calculator}",
     ]
+    provenance.append(
+        f"exclude_gamma_acoustic={str(args.exclude_gamma_acoustic).lower()}"
+    )
     anisotropic_output.write_lattice_parameters_temperature(
         result, provenance=provenance
     )
     anisotropic_output.write_axial_thermal_expansion(result, provenance=provenance)
     anisotropic_output.write_volume_temperature(result, provenance=provenance)
     fig = anisotropic_plot.plot_anisotropic_qha(result)
-    fig.savefig("anisotropic_qha.png")
+    fig.savefig(f"anisotropic_qha.{args.plot_format}")
     plt.close(fig)
     print(
         "Wrote lattice_parameters-temperature.dat, axial_thermal_expansion.dat, "
-        "volume-temperature.dat and anisotropic_qha.png"
+        f"volume-temperature.dat and anisotropic_qha.{args.plot_format}"
     )
 
-    # Only a smoothed run has minima of its own to show the fit against.
-    if result.unsmoothed_lattice_parameters is not None:
+    # Only a smoothed run has a fit to show against the minima.
+    if result.lattice_smoothing_fit is not None:
         fig = anisotropic_plot.plot_lattice_smoothing(result)
-        fig.savefig("lattice_smoothing.png")
+        fig.savefig(f"lattice_smoothing.{args.plot_format}")
         plt.close(fig)
-        print("Wrote lattice_smoothing.png")
+        print(f"Wrote lattice_smoothing.{args.plot_format}")
 
     # The highest temperature of the run, which --tmax need not have set.
     contour_temps = (
         args.contour_temp if args.contour_temp else [float(temperatures[-1])]
     )
-    written = anisotropic_plot.plot_F_contours(result, contour_temps)
+    written = anisotropic_plot.plot_F_contours(
+        result,
+        contour_temps,
+        image_format=args.plot_format,
+        # The static energy fixes the origin of the strain axes; it is the one
+        # reference the vibrational model does not move.
+        internal_energies=internal_energies,
+        margin=args.margin,
+    )
     if written:
         print("Wrote " + ", ".join(written))
 
@@ -573,6 +609,8 @@ def main() -> None:
                 if electronic_free_energies is None
                 else electronic_free_energies[: len(result.temperatures)]
             ),
+            image_format=args.plot_format,
+            margin=args.margin,
         )
         if written:
             print("Wrote " + ", ".join(written))
@@ -607,6 +645,7 @@ def main() -> None:
                 args.mesh,
                 positions,
                 verbose=True,
+                exclude_gamma_acoustic=args.exclude_gamma_acoustic,
             )
 
 

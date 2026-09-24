@@ -918,7 +918,9 @@ a metaclass class method.",
             match child:
                 case nodes.AnnAssign(
                     target=nodes.AssignName(name=name), value=None
-                ) if (name not in slot_names):
+                ) if name not in slot_names and not utils.is_assign_name_annotated_with(
+                    child.target, "ClassVar"
+                ):
                     self.add_message(
                         "declare-non-slot",
                         args=child.target.name,
@@ -1351,7 +1353,7 @@ a metaclass class method.",
             for ancestor in klass.ancestors():
                 if node.name in ancestor.instance_attrs and is_attr_private(node.name):
                     return
-                for obj in ancestor.lookup(node.name)[1]:
+                for obj in ancestor.locals.get(node.name, ()):
                     if isinstance(obj, nodes.FunctionDef):
                         return
             args = (overridden.root().name, overridden.fromlineno)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sap-ai-sdk-gen
-Version: 7.4.0
+Version: 7.4.1
 Summary: SAP Cloud SDK for AI (Python): generative AI SDK
 Author: SAP SE
 License-Expression: Apache-2.0
@@ -40,10 +40,9 @@ Requires-Dist: langcodes~=3.5.1
 Requires-Dist: pandas>=2.2.0
 Requires-Dist: langchain~=1.4.0
 Requires-Dist: langchain-classic~=1.0.0
-Requires-Dist: langchain-community~=0.4.1
 Requires-Dist: langchain-openai~=1.6.0
 Provides-Extra: google
-Requires-Dist: google-genai~=2.22.0; extra == "google"
+Requires-Dist: google-genai~=2.23.0; extra == "google"
 Requires-Dist: langchain-google-genai<4.3.7,~=4.3.6; extra == "google"
 Provides-Extra: amazon
 Requires-Dist: boto3>=1.40.61; extra == "amazon"

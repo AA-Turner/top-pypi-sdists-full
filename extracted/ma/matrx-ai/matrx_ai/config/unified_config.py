@@ -137,6 +137,12 @@ _OVERRIDE_NORMALIZERS: dict[str, Callable[[object], object]] = {
 _OMISSION_MARK = "[matrx:not-delivered]"
 
 
+def _camera_control(value: Any) -> dict | None:
+    from matrx_ai.media.video_reference_roles import validate_camera_control
+
+    return validate_camera_control(value)
+
+
 @dataclass
 class UnifiedConfig:
     """
@@ -388,6 +394,11 @@ class UnifiedConfig:
     generate_audio: bool | None = None
     # Veo 3.1 + several Together models — server-side prompt enhancement.
     enhance_prompt: bool | None = None
+    # Structured camera direction for video: {"moves": [...], "strength"?}.
+    # Structural — each video adapter maps it (Luma concepts, Kling
+    # camera_control) or the gate refuses it by name. Never prose.
+    # Vocabulary: matrx_ai/media/video_reference_roles.py.
+    camera_control: dict | None = None
 
     # MediaRef-shaped inputs for image/video generation. All resolved at the
     # AI Dream API boundary via FileManager.resolve_media_async — provider
@@ -761,6 +772,7 @@ class UnifiedConfig:
             disable_safety_checker=data.get("disable_safety_checker"),
             generate_audio=data.get("generate_audio"),
             enhance_prompt=data.get("enhance_prompt"),
+            camera_control=_camera_control(data.get("camera_control")),
             # MediaRef inputs
             image_input=data.get("image_input"),
             image_inputs=data.get("image_inputs"),

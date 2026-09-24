@@ -15,13 +15,13 @@ import os
 import platform
 import shlex
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable, TypedDict, cast
 
 import yaml
 
 from runlayer_cli import regex_safe
+from runlayer_cli.hook_install.config_backup import backup_path_for, prune_backups
 from runlayer_cli.hook_install.paths import (
     InstallScope,
     codex_toml_file_name,
@@ -1440,6 +1440,32 @@ def _read_existing_config(
     return maybe_safe_read_text(path, home=home)
 
 
+class _ExistingConfig(TypedDict):
+    """Text and permission bits of a config file captured from one open."""
+
+    text: str | None
+    mode: int
+
+
+def _read_existing_config_file(
+    path: Path, *, home: Path | None, mdm: bool = False
+) -> _ExistingConfig:
+    """``_read_existing_config`` that also captures the file's mode.
+
+    Writers that rewrite a user-owned file pass the mode back so a private
+    (0600) config is not widened to the 0644 default; absent or unreadable
+    files report the default mode for a fresh write.
+    """
+    _ensure_windows_mdm_path_safe(path, mdm=mdm)
+    existing_file = maybe_safe_read_file(path, home=home)
+    if existing_file is None:
+        return {"text": None, "mode": 0o644}
+    return {
+        "text": existing_file["data"].decode("utf-8"),
+        "mode": existing_file["mode"],
+    }
+
+
 def _write_config(
     path: Path,
     text: str,
@@ -1458,6 +1484,51 @@ def _write_config(
         mode=mode,
         replace_symlink=replace_symlink,
     )
+
+
+def _write_config_with_backup(
+    path: Path,
+    text: str,
+    *,
+    existing_text: str | None,
+    home: Path | None,
+    mode: int = 0o644,
+    replace_symlink: bool = True,
+    mdm: bool = False,
+    reown: bool = False,
+    backup_mode: int | None = None,
+) -> None:
+    """Write *text*, keeping the previous content as a bounded recovery copy.
+
+    The copy is written only when the content actually changes, so an unchanged
+    reconcile leaves the directory alone. Retention runs after the active write
+    succeeds; a failed write keeps every copy, including the fresh one. The copy
+    never replaces a symlink (a planted link must not redirect the previous
+    content), and in MDM scope both files are handed back to the console user.
+    """
+    if existing_text is not None and existing_text != text:
+        backup_path = backup_path_for(path)
+        _write_config(
+            backup_path,
+            existing_text,
+            home=home,
+            mode=mode if backup_mode is None else backup_mode,
+            replace_symlink=False,
+            mdm=mdm,
+        )
+        if reown:
+            _reown_to_console_user(backup_path)
+    _write_config(
+        path,
+        text,
+        home=home,
+        mode=mode,
+        replace_symlink=replace_symlink,
+        mdm=mdm,
+    )
+    if reown:
+        _reown_to_console_user(path)
+    prune_backups(path, home=home)
 
 
 def _vscode_home_for_hooks_dir(config_dir: Path) -> Path:
@@ -1505,14 +1576,14 @@ def write_vscode_claude_hook_location_settings(config_dir: Path, *, mdm: bool) -
         locations[location] = False
     existing["chat.hookFilesLocations"] = locations
 
-    _write_config(
+    _write_config_with_backup(
         settings_path,
         json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
         home=home,
         mdm=mdm,
+        reown=mdm,
     )
-    if mdm:
-        _reown_to_console_user(settings_path)
     return settings_path
 
 
@@ -1855,9 +1926,11 @@ def _write_cursor(
     path.parent.mkdir(parents=True, exist_ok=True)
 
     existing: dict = {}
-    if path.exists():
+    existing_file = _read_existing_config_file(path, home=None)
+    existing_text = existing_file["text"]
+    if existing_text:
         try:
-            existing = read_dict(path.read_text(encoding="utf-8"))
+            existing = read_dict(existing_text)
         except (ValueError, OSError):
             existing = {}
 
@@ -1874,7 +1947,13 @@ def _write_cursor(
 
     existing["version"] = 1
     existing["hooks"] = merged
-    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=None,
+        mode=existing_file["mode"],
+    )
     return path
 
 
@@ -1908,17 +1987,17 @@ def _write_vscode(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_cursor_hooks(existing_hooks, runlayer_hooks)
-    _write_config(
-        path,
-        json.dumps(existing, indent=2) + "\n",
-        home=home,
-        mdm=mdm,
-    )
-    write_vscode_claude_hook_location_settings(config_dir, mdm=mdm)
     # VS Code hooks live in the console user's ~/.copilot/hooks, so MDM-scope
     # writes need the same ownership handoff as other console-home clients.
-    if scope == InstallScope.MDM:
-        _reown_to_console_user(path)
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=home,
+        mdm=mdm,
+        reown=mdm,
+    )
+    write_vscode_claude_hook_location_settings(config_dir, mdm=mdm)
     return path
 
 
@@ -1951,7 +2030,12 @@ def _write_github_copilot_cli(
     )
     existing.setdefault("version", 1)
     existing["hooks"] = _merge_cursor_hooks(existing_hooks, runlayer_hooks)
-    _write_config(path, json.dumps(existing, indent=2) + "\n", home=None)
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=None,
+    )
     return path
 
 
@@ -1986,7 +2070,12 @@ def _write_windsurf(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_cursor_hooks(existing_hooks, runlayer_hooks)
-    _write_config(path, json.dumps(existing, indent=2) + "\n", home=None)
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=None,
+    )
     return path
 
 
@@ -2126,7 +2215,12 @@ def _write_qwen_code(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_claude_hooks(existing_hooks, runlayer_hooks)
-    _write_config(path, json.dumps(existing, indent=2) + "\n", home=None)
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=None,
+    )
     return path
 
 
@@ -2162,9 +2256,13 @@ def _write_devin_cli(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_claude_hooks(existing_hooks, runlayer_hooks)
-    _write_config(path, json.dumps(existing, indent=2) + "\n", home=home)
-    if scope == InstallScope.MDM:
-        _reown_to_console_user(path)
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=home,
+        reown=scope == InstallScope.MDM,
+    )
     return path
 
 
@@ -2208,7 +2306,12 @@ def _write_gemini_cli(
             hooks_config = {}
         hooks_config["enabled"] = True
         existing["hooksConfig"] = hooks_config
-    _write_config(path, json.dumps(existing, indent=2) + "\n", home=None)
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=None,
+    )
     return path
 
 
@@ -2243,14 +2346,14 @@ def _write_grok_cli(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_claude_hooks(existing_hooks, runlayer_hooks)
-    _write_config(
+    _write_config_with_backup(
         path,
         json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
         home=home,
         mdm=mdm,
+        reown=mdm,
     )
-    if scope == InstallScope.MDM:
-        _reown_to_console_user(path)
     return path
 
 
@@ -2322,46 +2425,20 @@ def _write_claude_code(
     existing["hooks"] = _merge_claude_hooks(existing_hooks, runlayer_hooks)
     existing["showThinkingSummaries"] = True
     rendered = json.dumps(existing, indent=2) + "\n"
-    backup_path: Path | None = None
-    if existing_text is not None and existing_text != rendered:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        backup_path = path.with_name(f"{path.stem}.backup_{timestamp}{path.suffix}")
-        if is_unsafe_windows_mdm_path(
-            backup_path,
-            mdm=mdm,
-            path_check=path_has_link_or_reparse_point,
-        ):
-            raise OSError(
-                errno.ELOOP,
-                f"unreadable or unsafe Claude Code settings at {path}",
-            )
-        _write_config(
-            backup_path,
-            existing_text,
-            home=home,
-            mode=settings_mode,
-            replace_symlink=False,
-            mdm=mdm,
-        )
-        if scope == InstallScope.MDM:
-            _reown_to_console_user(backup_path)
+    # ENG-3204: MDM scope writes the console user's ~/.claude/settings.json as
+    # root; settings.json is user-writable (Claude Code's /config writes it), so
+    # hand ownership back or the user's own writes fail. ENG-3217: the write is
+    # link-safe so a planted symlink can't redirect it.
     try:
-        if is_unsafe_windows_mdm_path(
-            path,
-            mdm=mdm,
-            path_check=path_has_link_or_reparse_point,
-        ):
-            raise OSError(
-                errno.ELOOP,
-                f"unreadable or unsafe Claude Code settings at {path}",
-            )
-        _write_config(
+        _write_config_with_backup(
             path,
             rendered,
+            existing_text=existing_text,
             home=home,
             mode=settings_mode,
             replace_symlink=scope != InstallScope.MDM,
             mdm=mdm,
+            reown=scope == InstallScope.MDM,
         )
     except OSError as exc:
         if scope == InstallScope.MDM and exc.errno == errno.ELOOP:
@@ -2370,12 +2447,6 @@ def _write_claude_code(
                 f"unsafe Claude Code settings: refusing symlink at {path}",
             ) from exc
         raise
-    # ENG-3204: MDM scope writes the console user's ~/.claude/settings.json as
-    # root; settings.json is user-writable (Claude Code's /config writes it), so
-    # hand ownership back or the user's own writes fail. ENG-3217: the write
-    # above is link-safe so a planted symlink can't redirect it.
-    if scope == InstallScope.MDM:
-        _reown_to_console_user(path)
     return path
 
 
@@ -2425,9 +2496,11 @@ def _write_codex(
     path.parent.mkdir(parents=True, exist_ok=True)
 
     existing: dict = {}
-    if path.exists():
+    existing_file = _read_existing_config_file(path, home=None)
+    existing_text = existing_file["text"]
+    if existing_text:
         try:
-            existing = read_dict(path.read_text(encoding="utf-8"))
+            existing = read_dict(existing_text)
         except (ValueError, OSError):
             existing = {}
 
@@ -2441,7 +2514,13 @@ def _write_codex(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_claude_hooks(existing_hooks, runlayer_hooks)
-    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    _write_config_with_backup(
+        path,
+        json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
+        home=None,
+        mode=existing_file["mode"],
+    )
 
     _enable_codex_hooks_feature(_codex_features_toml_file(scope))
     return path
@@ -2485,17 +2564,17 @@ def _write_hermes(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_hermes_hooks(existing_hooks, runlayer_hooks)
-    _write_config(
-        path,
-        yaml.safe_dump(existing, default_flow_style=False, sort_keys=False),
-        home=home,
-        mdm=mdm,
-    )
     # MDM scope writes the console user's ~/.hermes/config.yaml as root — hand
     # ownership back so the user (and Hermes) can rewrite it later. ENG-3217:
-    # the write above is link-safe so a planted symlink can't redirect it.
-    if scope == InstallScope.MDM:
-        _reown_to_console_user(path)
+    # the write is link-safe so a planted symlink can't redirect it.
+    _write_config_with_backup(
+        path,
+        yaml.safe_dump(existing, default_flow_style=False, sort_keys=False),
+        existing_text=existing_text,
+        home=home,
+        mdm=mdm,
+        reown=mdm,
+    )
     return path
 
 
@@ -2531,21 +2610,22 @@ def _write_goose(
         metadata_only=metadata_only,
     )
     existing["hooks"] = _merge_claude_hooks(existing_hooks, runlayer_hooks)
-    _write_config(
+    _write_config_with_backup(
         path,
         json.dumps(existing, indent=2) + "\n",
+        existing_text=existing_text,
         home=home,
         mdm=mdm,
+        reown=mdm,
     )
+    # The manifest is Runlayer-owned boilerplate, so it needs no recovery copy.
     _write_config(
         manifest_path,
         json.dumps(_GOOSE_PLUGIN_MANIFEST, indent=2) + "\n",
         home=home,
         mdm=mdm,
     )
-
     if scope == InstallScope.MDM:
-        _reown_to_console_user(path)
         _reown_to_console_user(manifest_path)
     return path
 
@@ -2553,12 +2633,14 @@ def _write_goose(
 def _enable_codex_hooks_feature(config_path: Path) -> None:
     """Ensure ``features.hooks = true`` in the Codex TOML config (line-based edit)."""
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    if config_path.exists():
-        content = config_path.read_text(encoding="utf-8")
-    else:
-        content = ""
+    existing_file = _read_existing_config_file(config_path, home=None)
+    existing_text = existing_file["text"]
+    content = existing_text or ""
 
     if _toml_has_features_hooks_true(content):
+        # Already enabled: skip the rewrite but still drain older copies so a
+        # steady-state reconcile converges on the retention cap.
+        prune_backups(config_path, home=None)
         return
 
     if "[features]" in content:
@@ -2567,7 +2649,16 @@ def _enable_codex_hooks_feature(config_path: Path) -> None:
         suffix = "\n" if content and not content.endswith("\n") else ""
         new_content = content + suffix + "\n[features]\nhooks = true\n"
 
-    config_path.write_text(new_content, encoding="utf-8")
+    # The TOML also carries model-provider auth, so the recovery copy stays
+    # private regardless of the active file's mode (same rule as llm_routing).
+    _write_config_with_backup(
+        config_path,
+        new_content,
+        existing_text=existing_text,
+        home=None,
+        mode=existing_file["mode"],
+        backup_mode=0o600,
+    )
 
 
 def _toml_has_features_hooks_true(content: str) -> bool:

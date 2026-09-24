@@ -23,6 +23,7 @@ __all__ = [
     'AzureOIDCConfiguration',
     'DeploymentSettingsCacheOptions',
     'DeploymentSettingsExecutorContext',
+    'DeploymentSettingsExecutorImageCredentials',
     'DeploymentSettingsGitAuthBasicAuth',
     'DeploymentSettingsGitAuthSSHAuth',
     'DeploymentSettingsGitSource',
@@ -42,6 +43,7 @@ __all__ = [
     'PolicyGroupStackReference',
     'PolicyPackComplianceFrameworkInput',
     'PolicyPackPolicyInput',
+    'PolicyPackSummary',
     'RoleScopeInfo',
     'TemplateSourceDestination',
 ]
@@ -203,6 +205,8 @@ class AuthPolicyDefinition(dict):
             suggest = "token_type"
         elif key == "authorizedPermissions":
             suggest = "authorized_permissions"
+        elif key == "roleID":
+            suggest = "role_id"
         elif key == "runnerID":
             suggest = "runner_id"
         elif key == "teamName":
@@ -226,6 +230,7 @@ class AuthPolicyDefinition(dict):
                  rules: Mapping[str, _builtins.str],
                  token_type: 'AuthPolicyTokenType',
                  authorized_permissions: Optional[Sequence['AuthPolicyPermissionLevel']] = None,
+                 role_id: Optional[_builtins.str] = None,
                  runner_id: Optional[_builtins.str] = None,
                  team_name: Optional[_builtins.str] = None,
                  user_login: Optional[_builtins.str] = None):
@@ -234,6 +239,7 @@ class AuthPolicyDefinition(dict):
         :param Mapping[str, _builtins.str] rules: OIDC rules to set for this policy.
         :param 'AuthPolicyTokenType' token_type: The token type for this policy definition.
         :param Sequence['AuthPolicyPermissionLevel'] authorized_permissions: The permission level for organization tokens.
+        :param _builtins.str role_id: The role ID for organization tokens.
         :param _builtins.str runner_id: The runner ID for deployment runner tokens.
         :param _builtins.str team_name: The team name for team tokens.
         :param _builtins.str user_login: The user login for personal tokens.
@@ -243,6 +249,8 @@ class AuthPolicyDefinition(dict):
         pulumi.set(__self__, "token_type", token_type)
         if authorized_permissions is not None:
             pulumi.set(__self__, "authorized_permissions", authorized_permissions)
+        if role_id is not None:
+            pulumi.set(__self__, "role_id", role_id)
         if runner_id is not None:
             pulumi.set(__self__, "runner_id", runner_id)
         if team_name is not None:
@@ -281,6 +289,14 @@ class AuthPolicyDefinition(dict):
         The permission level for organization tokens.
         """
         return pulumi.get(self, "authorized_permissions")
+
+    @_builtins.property
+    @pulumi.getter(name="roleID")
+    def role_id(self) -> Optional[_builtins.str]:
+        """
+        The role ID for organization tokens.
+        """
+        return pulumi.get(self, "role_id")
 
     @_builtins.property
     @pulumi.getter(name="runnerID")
@@ -417,13 +433,17 @@ class DeploymentSettingsExecutorContext(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 executor_image: _builtins.str):
+                 executor_image: _builtins.str,
+                 credentials: Optional['outputs.DeploymentSettingsExecutorImageCredentials'] = None):
         """
         The executor context defines information about the executor where the deployment is executed. If unspecified, the default 'pulumi/pulumi' image is used.
 
         :param _builtins.str executor_image: Allows overriding the default executor image with a custom image. E.g. 'pulumi/pulumi-nodejs:latest'
+        :param 'DeploymentSettingsExecutorImageCredentials' credentials: Credentials for pulling `executorImage` from a private container registry. Only needed when the image is not publicly accessible.
         """
         pulumi.set(__self__, "executor_image", executor_image)
+        if credentials is not None:
+            pulumi.set(__self__, "credentials", credentials)
 
     @_builtins.property
     @pulumi.getter(name="executorImage")
@@ -432,6 +452,48 @@ class DeploymentSettingsExecutorContext(dict):
         Allows overriding the default executor image with a custom image. E.g. 'pulumi/pulumi-nodejs:latest'
         """
         return pulumi.get(self, "executor_image")
+
+    @_builtins.property
+    @pulumi.getter
+    def credentials(self) -> Optional['outputs.DeploymentSettingsExecutorImageCredentials']:
+        """
+        Credentials for pulling `executorImage` from a private container registry. Only needed when the image is not publicly accessible.
+        """
+        return pulumi.get(self, "credentials")
+
+
+@pulumi.output_type
+class DeploymentSettingsExecutorImageCredentials(dict):
+    """
+    Credentials for pulling the executor image from a private container registry.
+    """
+    def __init__(__self__, *,
+                 password: _builtins.str,
+                 username: _builtins.str):
+        """
+        Credentials for pulling the executor image from a private container registry.
+
+        :param _builtins.str password: Password or access token for authenticating with the container registry.
+        :param _builtins.str username: Username for authenticating with the container registry.
+        """
+        pulumi.set(__self__, "password", password)
+        pulumi.set(__self__, "username", username)
+
+    @_builtins.property
+    @pulumi.getter
+    def password(self) -> _builtins.str:
+        """
+        Password or access token for authenticating with the container registry.
+        """
+        return pulumi.get(self, "password")
+
+    @_builtins.property
+    @pulumi.getter
+    def username(self) -> _builtins.str:
+        """
+        Username for authenticating with the container registry.
+        """
+        return pulumi.get(self, "username")
 
 
 @pulumi.output_type
@@ -1846,6 +1908,86 @@ class PolicyPackPolicyInput(dict):
         URL with more information about the policy.
         """
         return pulumi.get(self, "url")
+
+
+@pulumi.output_type
+class PolicyPackSummary(dict):
+    """
+    Summary metadata for a policy pack available to an organization, including its Pulumi Registry provenance.
+    """
+    def __init__(__self__, *,
+                 display_name: _builtins.str,
+                 name: _builtins.str,
+                 version_tags: Sequence[_builtins.str],
+                 versions: Sequence[_builtins.int],
+                 publisher: Optional[_builtins.str] = None,
+                 source: Optional[_builtins.str] = None):
+        """
+        Summary metadata for a policy pack available to an organization, including its Pulumi Registry provenance.
+
+        :param _builtins.str display_name: The display name of the policy pack.
+        :param _builtins.str name: The name of the policy pack.
+        :param Sequence[_builtins.str] version_tags: List of version tags for this policy pack.
+        :param Sequence[_builtins.int] versions: List of version numbers for this policy pack.
+        :param _builtins.str publisher: The organization or user that published the policy pack. `pulumi` for Pulumi-published packs, otherwise the publishing organization's name. Omitted when the provider could not determine registry metadata for this pack.
+        :param _builtins.str source: Where the policy pack is hosted in the Pulumi Registry: `pulumi` for packs published by Pulumi (for example `cis-aws`), `private` for packs published by an organization. Omitted when the provider could not determine registry metadata for this pack.
+        """
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "version_tags", version_tags)
+        pulumi.set(__self__, "versions", versions)
+        if publisher is not None:
+            pulumi.set(__self__, "publisher", publisher)
+        if source is not None:
+            pulumi.set(__self__, "source", source)
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> _builtins.str:
+        """
+        The display name of the policy pack.
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the policy pack.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="versionTags")
+    def version_tags(self) -> Sequence[_builtins.str]:
+        """
+        List of version tags for this policy pack.
+        """
+        return pulumi.get(self, "version_tags")
+
+    @_builtins.property
+    @pulumi.getter
+    def versions(self) -> Sequence[_builtins.int]:
+        """
+        List of version numbers for this policy pack.
+        """
+        return pulumi.get(self, "versions")
+
+    @_builtins.property
+    @pulumi.getter
+    def publisher(self) -> Optional[_builtins.str]:
+        """
+        The organization or user that published the policy pack. `pulumi` for Pulumi-published packs, otherwise the publishing organization's name. Omitted when the provider could not determine registry metadata for this pack.
+        """
+        return pulumi.get(self, "publisher")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> Optional[_builtins.str]:
+        """
+        Where the policy pack is hosted in the Pulumi Registry: `pulumi` for packs published by Pulumi (for example `cis-aws`), `private` for packs published by an organization. Omitted when the provider could not determine registry metadata for this pack.
+        """
+        return pulumi.get(self, "source")
 
 
 @pulumi.output_type

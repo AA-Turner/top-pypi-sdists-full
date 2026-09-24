@@ -47,6 +47,11 @@ Conventions (documented decisions):
       destination slot of a move, whose key survives a full reorder. move_nodes keeps
       the DOCUMENT order of the nodes, not the order of the selection, and reports the
       FIRST node of the moved run.
+    - Every node argument (parent, node, nodes, new_parent, before, after) is a path from
+      the tree or the `Name` of a component unique in the form, resolved by
+      formmodel.get_node. Where two arguments are COMPARED (a node positioned against
+      itself, a destination inside a moved node), the resolved paths are compared, never
+      the strings as given.
     - The property_* operations edit the top-level Свойства section only. The section is
       created right after the Наследует block - the accepted spelling (
       Свойства immediately after Наследует). property_rename does NOT rewrite the
@@ -273,6 +278,38 @@ def _encode_scalar(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _encode_property_scalar(node: Node, key: str, value: str) -> str:
+    """Avoid double quotes only when schema proves the binding is not string-valued."""
+    if not value.startswith("=") or not node.type:
+        return _encode_scalar(value)
+    try:
+        record = uischema.component_property(
+            uischema.canonical_component(node.type), uischema.canonical_property(key),
+        )
+    except Exception:  # noqa: BLE001 - without type data, retain the existing spelling
+        return _encode_scalar(value)
+    prop = record.get("property") or {}
+    types = prop.get("types") or []
+    if not types or any(
+        str(type_).strip().rstrip("?") in {"Строка", "Объект", "String", "Object"}
+        for type_ in types
+    ):
+        return _encode_scalar(value)
+    if "\n" in value or "\r" in value:
+        raise FormModelError("Привязка свойства должна быть однострочной")
+    try:
+        parsed = yaml.compose("value: " + value + "\n", Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        parsed = None
+    if isinstance(parsed, yaml.MappingNode) and parsed.value:
+        scalar = parsed.value[0][1]
+        if isinstance(scalar, yaml.ScalarNode) and scalar.style is None and scalar.value == value:
+            return value
+    # The platform accepts a single-quoted binding of a typed property. YAML needs that
+    # spelling when the expression contains a colon followed by whitespace.
+    return "'" + value.replace("'", "''") + "'"
+
+
 def _not_root(node: Node, действие: str) -> Node:
     if node.id == ROOT_KEY:
         raise FormModelError(f"Корневой узел формы нельзя {действие}")
@@ -288,6 +325,21 @@ def _resolve_sibling(form: Form, slot_node: Node, sib_id: str | None) -> Node | 
     return sib
 
 
+def _ref_id(form: Form, ref: str | None) -> str | None:
+    """The path a node reference resolves to, or the reference itself when it resolves to none.
+
+    For COMPARING references, such as a node against the sibling it is positioned by: a
+    reference may be a name as well as a path, so two of them cannot be compared as given.
+    An unknown or a repeated name is still refused where the node is actually looked up.
+    """
+    if ref is None:
+        return None
+    try:
+        return get_node(form, ref).id
+    except FormModelError:
+        return ref
+
+
 # --- the shared insertion planner ---------------------------------------------------------
 
 
@@ -298,24 +350,29 @@ class _Plan:
     consumed: list[Span] = field(default_factory=list)  # removals folded into the edits
 
 
-def _slot_takes_a_list(parent: Node, slot_name: str) -> bool:
-    """Is the parent's slot declared `Массив<...>` - i.e. must a first child be a list item?
+def _type_slot_takes_a_list(owner: str | None, slot_name: str) -> bool:
+    """Is this component slot declared as only array alternatives?
 
     Proof required: the owner's component type is known, the ui schema knows the property,
     and EVERY alternative of its type union is an array (a union that also allows a single
     Компонент is written as a mapping). Anything unproven answers False and
     keeps the historical single-mapping spelling.
     """
-    owner = parent.type
     if not owner:
         return False  # a page item has no Тип - nothing to look the slot up by
     try:
-        record = uischema.component_property(owner, slot_name)
+        record = uischema.component_property(
+            uischema.canonical_component(owner), uischema.canonical_property(slot_name),
+        )
     except Exception:  # noqa: BLE001 - no data, no cardinality
         return False
     prop = record.get("property") or {}
     types = prop.get("types") or []
     return bool(types) and all(t.startswith("Массив<") for t in types)
+
+
+def _slot_takes_a_list(parent: Node, slot_name: str) -> bool:
+    return _type_slot_takes_a_list(parent.type, slot_name)
 
 
 def _plan_insert(form, parent, slot_name, item_fn, map_fn, before, after,
@@ -390,12 +447,12 @@ def _plan_insert(form, parent, slot_name, item_fn, map_fn, before, after,
 
     # a single nested mapping: the slot converts to the "-" list form
     child = slot_node.children[0]
-    _resolve_sibling(form, slot_node, before)
+    sib_before = _resolve_sibling(form, slot_node, before)
     _resolve_sibling(form, slot_node, after)
     inside = [c for c in cuts if child.content_span.encloses(c)]
     converted = _convert_child_to_item(form, child, inside)
     item = item_fn(child.body_col)
-    new_first = before == child.id
+    new_first = sib_before is child
     replacement = item + converted if new_first else converted + item
     region = child.span
     anchor = region.start + shift(region.start) + (0 if new_first else len(converted))
@@ -786,9 +843,9 @@ def move_node(text: str, node_id: str, new_parent_id: str, slot: str,
     if new_parent.body_col is None:
         raise FormModelError(f"У узла {new_parent_id} нет блока свойств – вставка невозможна")
     _check_slot(slot)
-    if new_parent_id == node_id or new_parent_id.startswith(node_id + "/"):
+    if new_parent.id == node.id or new_parent.id.startswith(node.id + "/"):
         raise FormModelError("Нельзя переместить узел внутрь его собственного поддерева")
-    if node_id in (before, after):
+    if node.id in (_ref_id(form, before), _ref_id(form, after)):
         raise FormModelError("Нельзя позиционировать узел относительно самого себя")
     src_slot = get_node(form, node.parent_id)
     dest_slot = next(
@@ -889,16 +946,16 @@ def move_nodes(text: str, node_ids: list[str], new_parent_id: str, slot: str,
     moved node. The reported node is the FIRST of the moved run in the new text.
     """
     form = parse_form(text)
-    requested = {str(i) for i in node_ids if i is not None and str(i)}
+    requested = {_ref_id(form, str(i)) for i in node_ids if i is not None and str(i)}
     group = _resolve_batch(form, node_ids, "переместить")
     new_parent = get_component(form, new_parent_id)
     if new_parent.body_col is None:
         raise FormModelError(f"У узла {new_parent_id} нет блока свойств – вставка невозможна")
     _check_slot(slot)
     for node in group:
-        if new_parent_id == node.id or new_parent_id.startswith(node.id + "/"):
+        if new_parent.id == node.id or new_parent.id.startswith(node.id + "/"):
             raise FormModelError("Нельзя переместить узел внутрь его собственного поддерева")
-    if before in requested or after in requested:
+    if _ref_id(form, before) in requested or _ref_id(form, after) in requested:
         raise FormModelError("Нельзя позиционировать узел относительно самого себя")
     dest_slot = next(
         (c for c in new_parent.children if c.kind == "slot" and c.name == slot), None
@@ -966,6 +1023,7 @@ def wrap_node(text: str, node_id: str, container_type: str,
     if name:
         _check_name(name)
     nl, step = form.nl, form.step
+    list_content = _type_slot_takes_a_list(container_type, "Содержимое")
     region = node.content_span
     _, content = _split_payload(form, node)
     if node.dash_col is not None:
@@ -974,14 +1032,20 @@ def wrap_node(text: str, node_id: str, container_type: str,
         if name:
             head += " " * body + f"Имя: {name}" + nl
         head += " " * body + "Содержимое:" + nl
-        replacement = head + _item_content_to_mapping(form, node, content, body + step)
+        replacement = (
+            head + _reindent(content, body + step - dash) if list_content
+            else head + _item_content_to_mapping(form, node, content, body + step)
+        )
     else:
         body = node.body_col
         head = " " * body + f"Тип: {container_type}" + nl
         if name:
             head += " " * body + f"Имя: {name}" + nl
         head += " " * body + "Содержимое:" + nl
-        replacement = head + _reindent(content, step)
+        replacement = (
+            head + " " * (body + step) + "-" + nl + _reindent(content, 2 * step)
+            if list_content else head + _reindent(content, step)
+        )
     return _finish(text, [TextEdit(region.start, region.end, replacement)], region.start)
 
 
@@ -1156,10 +1220,11 @@ def set_property(text: str, node_id: str, key: str, value: str | None = None,
     nl, step = form.nl, form.step
     pair = node.pairs.get(key)
     if value is not None:
+        encoded = _encode_property_scalar(node, key, value)
         if pair is not None and pair.scalar_span is not None:
-            edits = [TextEdit(pair.scalar_span.start, pair.scalar_span.end, _encode_scalar(value))]
+            edits = [TextEdit(pair.scalar_span.start, pair.scalar_span.end, encoded)]
         else:
-            lines0 = [f"{key}: {_encode_scalar(value)}"]
+            lines0 = [f"{key}: {encoded}"]
             if pair is not None:
                 line = " " * pair.key_col + lines0[0] + nl
                 edits = [TextEdit(pair.span.start, pair.span.end, line)]

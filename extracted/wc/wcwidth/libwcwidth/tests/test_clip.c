@@ -1,0 +1,196 @@
+#include "test_common.h"
+#include "wcwidth/clip.h"
+#include "wcwidth/width.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+static void
+cs_assert(const char *text, size_t start, size_t end, const char *expected)
+{
+    size_t len = 0;
+    int error = WCWIDTH_ERROR_NONE;
+    char fillchar = ' ';
+    wcwidth_clip_opts_t opts = WCWIDTH_CLIP_OPTS_DEFAULT;
+    char *last;
+
+    opts.v_start = start;
+    opts.v_end = end;
+    opts.fillchar = &fillchar;
+    last = wcwidth_clip_u8(text, strlen(text), WCWIDTH_PARSE, &opts, &len, &error);
+    ASSERT_NOT_NULL(last);
+    ASSERT_EQ(WCWIDTH_ERROR_NONE, error);
+    ASSERT_EQ(len, strlen(last));
+    ASSERT_STREQ(expected, last);
+    free(last);
+}
+
+static void
+cs_assert_unsupported(const char *text)
+{
+    size_t len = 0;
+    int error = WCWIDTH_ERROR_NONE;
+    char fillchar = ' ';
+    wcwidth_clip_opts_t opts = WCWIDTH_CLIP_OPTS_DEFAULT;
+
+    opts.v_start = 0;
+    opts.v_end = 3;
+    opts.fillchar = &fillchar;
+    ASSERT_NULL(wcwidth_clip_u8(text, strlen(text), WCWIDTH_PARSE, &opts, &len, &error));
+    ASSERT_EQ(WCWIDTH_ERROR_UNSUPPORTED, error);
+}
+
+TEST(basic)
+{
+    cs_assert("hello", 0, 5, "hello");
+    cs_assert("hello", 1, 4, "ell");
+    cs_assert("hello", 5, 3, "");  /* zero-width window */
+    cs_assert("hi", 0, 100, "hi"); /* out of bounds */
+    cs_assert("\xe4\xb8\xad\xe6\x96\x87\xe5\xad\x97", 0, 4, "\xe4\xb8\xad\xe6\x96\x87");
+    cs_assert("\xe4\xb8\xad\xe6\x96\x87\xe5\xad\x97", 0, 3, "\xe4\xb8\xad "); /* fillchar */
+    cs_assert("\x1b[31mred\x1b[0m", 0, 3, "\x1b[31mred\x1b[0m");
+}
+
+TEST(unbounded_end)
+{
+    /* SIZE_MAX as v_end clips through the final column, matching the -1
+     * default of Python's clip(). */
+    cs_assert("hello", 0, SIZE_MAX, "hello");
+    cs_assert("hello", 1, SIZE_MAX, "ello");
+    cs_assert("\xe4\xb8\xad\xe6\x96\x87\xe5\xad\x97", 0, SIZE_MAX,
+              "\xe4\xb8\xad\xe6\x96\x87\xe5\xad\x97");
+    cs_assert("\x1b[1;34mHello world\x1b[0m", 6, SIZE_MAX, "\x1b[1;34mworld\x1b[0m");
+    /* a start past the clamp is an empty window */
+    cs_assert("\xe4\xb8\xad\xe6\x96\x87", SIZE_MAX, SIZE_MAX, "");
+}
+
+TEST(clip_u32_basic)
+{
+    size_t len;
+    int error = WCWIDTH_ERROR_NONE;
+    char fillchar = ' ';
+    const uint32_t cps[] = {'h', 'e', 'l', 'l', 'o'};
+    const uint32_t expect[] = {'e', 'l', 'l'};
+    wcwidth_clip_opts_t opts = WCWIDTH_CLIP_OPTS_DEFAULT;
+    uint32_t *result;
+
+    opts.v_start = 1;
+    opts.v_end = 4;
+    opts.fillchar = &fillchar;
+    result = wcwidth_clip_u32(cps, 5, WCWIDTH_PARSE, &opts, &len, &error);
+    ASSERT_NOT_NULL(result);
+    ASSERT_EQ(WCWIDTH_ERROR_NONE, error);
+    ASSERT_EQ((size_t) 3, len);
+    ASSERT_EQ(0, memcmp(expect, result, sizeof(expect)));
+    free(result);
+
+    /* U+4E2D U+6587: 4 display cells; partial grapheme gets fillchar */
+    {
+        const uint32_t zwhw[] = {0x4E2D, 0x6587};
+        const uint32_t exp2[] = {0x4E2D, ' '};
+
+        opts.v_start = 0;
+        opts.v_end = 3;
+        result = wcwidth_clip_u32(zwhw, 2, WCWIDTH_PARSE, &opts, &len, &error);
+        ASSERT_NOT_NULL(result);
+        ASSERT_EQ(WCWIDTH_ERROR_NONE, error);
+        ASSERT_EQ((size_t) 2, len);
+        ASSERT_EQ(0, memcmp(exp2, result, sizeof(exp2)));
+        free(result);
+    }
+}
+
+TEST(sequences_outside_window)
+{
+    cs_assert("a\x1b]0;t\x07", 0, 1, "a\x1b]0;t\x07");
+    cs_assert("\x1b]0;t\x07xy", 1, 2, "\x1b]0;t\x07y");
+
+    /* a tab past v_end must not end the scan */
+    cs_assert("\t\t\x1b]0;t\x07", 0, 1, " \x1b]0;t\x07");
+}
+
+TEST(sgr_inside_window)
+{
+    cs_assert("ab\x1b[31mcd\x1b[0mef", 0, 4, "ab\x1b[31mcd\x1b[0m");
+    cs_assert("ab\x1b[31mcdef", 0, 4, "ab\x1b[31mcd\x1b[0m");
+    cs_assert("\x1b[31mab\x1b[32mcd\x1b[0m", 0, 4, "\x1b[31mab\x1b[32mcd\x1b[0m");
+}
+
+TEST(tab_captures_style)
+{
+    cs_assert("\x1b[31m\tx", 0, 4, "\x1b[31m    \x1b[0m");
+    cs_assert("\x1b[31m\tx", 0, 9, "\x1b[31m        x\x1b[0m");
+}
+
+/* Unsupported sequences set WCWIDTH_ERROR_UNSUPPORTED. */
+TEST(unsupported_cursor_movement)
+{
+    cs_assert_unsupported("abcdef\x1b[5Cgh");
+    cs_assert_unsupported("abcdef\x1b[3Dgh");
+    cs_assert_unsupported("abcdef\x1b[2Ggh");
+    cs_assert_unsupported("abcdef\bgh");
+    cs_assert_unsupported("abcdef\rgh");
+    /* past the clip window, where the scan stops, and still reported */
+    cs_assert_unsupported("abcdefghijklmnop\x1b[3D");
+    cs_assert_unsupported("abcdefghijklmnop\b");
+}
+
+TEST(unsupported_osc)
+{
+    cs_assert_unsupported("ab\x1b]8;;http://e\x1b\\LNK\x1b]8;;\x1b\\");
+    cs_assert_unsupported("ab\x1b]66;w=2:A\x1b\\");
+    /* OSC 0 is an ordinary zero-width sequence and stays supported */
+    cs_assert("ab\x1b]0;t\x07xy", 0, 3, "ab\x1b]0;t\x07x");
+}
+
+TEST(null_opts_and_tabsize_zero)
+{
+    size_t len = 0;
+    int error = WCWIDTH_ERROR_NONE;
+    wcwidth_clip_opts_t opts = WCWIDTH_CLIP_OPTS_DEFAULT;
+    char *s;
+
+    s = wcwidth_clip_u8("a\tb", 3, WCWIDTH_PARSE, NULL, &len, &error);
+    ASSERT_NOT_NULL(s);
+    free(s);
+
+    opts.tabsize = 0;
+    s = wcwidth_clip_u8("a\tb", 3, WCWIDTH_PARSE, &opts, &len, &error);
+    ASSERT_STREQ("a\tb", s);
+    free(s);
+}
+
+TEST(u32_null_opts_and_past_end)
+{
+    uint32_t cps[] = {'h', 'i'};
+    size_t len = 0;
+    int error = WCWIDTH_ERROR_NONE;
+    wcwidth_clip_opts_t opts = WCWIDTH_CLIP_OPTS_DEFAULT;
+    uint32_t *u;
+
+    u = wcwidth_clip_u32(cps, 2, WCWIDTH_PARSE, NULL, &len, &error);
+    ASSERT_NOT_NULL(u);
+    free(u);
+
+    opts.v_start = 5;
+    opts.v_end = 9;
+    u = wcwidth_clip_u32(cps, 2, WCWIDTH_PARSE, &opts, &len, &error);
+    ASSERT_NOT_NULL(u);
+    free(u);
+}
+
+int
+main(void)
+{
+    RUN_TEST(basic);
+    RUN_TEST(unbounded_end);
+    RUN_TEST(clip_u32_basic);
+    RUN_TEST(sequences_outside_window);
+    RUN_TEST(sgr_inside_window);
+    RUN_TEST(tab_captures_style);
+    RUN_TEST(unsupported_cursor_movement);
+    RUN_TEST(unsupported_osc);
+    RUN_TEST(null_opts_and_tabsize_zero);
+    RUN_TEST(u32_null_opts_and_past_end);
+    return test_summary();
+}

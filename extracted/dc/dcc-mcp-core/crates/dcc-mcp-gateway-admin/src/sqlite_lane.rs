@@ -9,20 +9,24 @@
 
 use std::path::PathBuf;
 
-#[cfg(not(feature = "persist-sqlite"))]
-use std::path::Path;
 use std::time::SystemTime;
 
-use crate::{AdminAuditRecord, DispatchTrace};
+use crate::{AdminAuditRecord, DispatchTrace, FeedbackReportRow};
 
 #[cfg(feature = "persist-sqlite")]
 use std::time::{Duration, UNIX_EPOCH};
 
 #[cfg(feature = "persist-sqlite")]
 use dcc_mcp_db::{
-    GatewayAdminAuditPersistedJson, GatewayAdminSqliteLane as InnerLane,
-    GatewayAdminSqliteReader as InnerReader, GatewayDeregisteredInstanceJson,
+    FeedbackFindingInsert, FeedbackFindingRow, GatewayAdminAuditPersistedJson,
+    GatewayAdminSqliteLane as InnerLane, GatewayAdminSqliteReader as InnerReader,
+    GatewayDeregisteredInstanceJson, ScriptPromotionBumpJson, ScriptPromotionCounter,
 };
+
+// #2297-A3: the counter value object is pure data, so the no-op facade can
+// name it even when no SQLite driver is compiled in.
+#[cfg(not(feature = "persist-sqlite"))]
+use dcc_mcp_db::ScriptPromotionCounter;
 
 #[cfg(feature = "persist-sqlite")]
 #[derive(Clone)]
@@ -217,6 +221,50 @@ impl AdminSqliteReader {
             .filter_map(|s| serde_json::from_str(&s).ok())
             .collect()
     }
+
+    /// #2253-E1: List persisted feedback reports, newest first.
+    ///
+    /// `cutoff` filters on the report timestamp; `dcc` / `severity` are
+    /// case-insensitive equality filters. Returns an empty vector when the
+    /// `feedback_reports` table is absent or unreadable so callers can fall
+    /// back to the per-DCC JSONL mirror.
+    #[must_use]
+    pub fn list_feedback_reports(
+        &self,
+        cutoff_ms: Option<i64>,
+        dcc: Option<&str>,
+        severity: Option<&str>,
+        limit: usize,
+    ) -> Vec<serde_json::Value> {
+        self.inner
+            .list_feedback_reports_json(cutoff_ms, dcc, severity, limit)
+            .into_iter()
+            .filter_map(|s| serde_json::from_str(&s).ok())
+            .collect()
+    }
+
+    /// #2297-A3: Read one persisted repeat counter, if the key was observed.
+    #[must_use]
+    pub fn get_script_promotion_counter(
+        &self,
+        sha256: &str,
+        dcc_type: &str,
+        tool_name: &str,
+    ) -> Option<ScriptPromotionCounter> {
+        self.inner
+            .get_script_promotion_counter_json(sha256, dcc_type, tool_name)
+            .and_then(|s| serde_json::from_str(&s).ok())
+    }
+
+    /// #2297-A3: Read repeat counters, most recently bumped first.
+    #[must_use]
+    pub fn list_script_promotion_counters(&self, limit: usize) -> Vec<ScriptPromotionCounter> {
+        self.inner
+            .list_script_promotion_counters_json(limit)
+            .into_iter()
+            .filter_map(|s| serde_json::from_str(&s).ok())
+            .collect()
+    }
 }
 
 #[cfg(feature = "persist-sqlite")]
@@ -324,6 +372,16 @@ impl AdminSqliteLane {
         }
     }
 
+    /// #2297-A3: Record one repeat observation of a materialised script.
+    ///
+    /// Idempotent per `(sha256, dcc_type, tool_name)`: repeat observations
+    /// bump the existing row instead of creating a new one.
+    pub fn try_bump_script_promotion_counter(&self, bump: &ScriptPromotionBumpJson) {
+        if let Ok(json) = serde_json::to_string(bump) {
+            self.inner.try_bump_script_promotion_counter_json(&json);
+        }
+    }
+
     /// Persist a bounded recording projection in the existing session timeline.
     pub fn try_persist_session_event(&self, event: &serde_json::Value) {
         if let Ok(json) = serde_json::to_string(event) {
@@ -342,6 +400,30 @@ impl AdminSqliteLane {
     ) -> bool {
         self.inner
             .try_delete_agent_memory(id, layer, dcc_name, session_id, key_prefix)
+    }
+
+    /// #2253-E1: Persist an agent feedback report.
+    pub fn try_persist_feedback_report(&self, report: &FeedbackReportRow) {
+        if let Ok(json) = serde_json::to_string(report) {
+            self.inner.try_persist_feedback_report_json(&json);
+        }
+    }
+
+    /// #2253-E2: Collapse one finding onto its `(repo, fingerprint)` row.
+    ///
+    /// Synchronous because the caller needs the resulting id and
+    /// `occurrence_count` to answer the ingest request.
+    pub fn upsert_feedback_finding(
+        &self,
+        finding: &FeedbackFindingInsert,
+    ) -> Result<FeedbackFindingRow, dcc_mcp_db::DbError> {
+        self.inner.upsert_feedback_finding(finding)
+    }
+
+    /// #2253-E2: Most recently seen dedup rows, newest first.
+    #[must_use]
+    pub fn list_feedback_findings(&self, limit: usize) -> Vec<FeedbackFindingRow> {
+        self.inner.list_feedback_findings(limit)
     }
 }
 
@@ -540,6 +622,34 @@ impl AdminSqliteReader {
     ) -> Vec<serde_json::Value> {
         vec![]
     }
+
+    #[must_use]
+    pub fn list_feedback_reports(
+        &self,
+        _cutoff_ms: Option<i64>,
+        _dcc: Option<&str>,
+        _severity: Option<&str>,
+        _limit: usize,
+    ) -> Vec<serde_json::Value> {
+        vec![]
+    }
+
+    /// #2297-A3: no-op without `persist-sqlite`.
+    #[must_use]
+    pub fn get_script_promotion_counter(
+        &self,
+        _sha256: &str,
+        _dcc_type: &str,
+        _tool_name: &str,
+    ) -> Option<ScriptPromotionCounter> {
+        None
+    }
+
+    /// #2297-A3: no-op without `persist-sqlite`.
+    #[must_use]
+    pub fn list_script_promotion_counters(&self, _limit: usize) -> Vec<ScriptPromotionCounter> {
+        vec![]
+    }
 }
 
 #[cfg(not(feature = "persist-sqlite"))]
@@ -570,6 +680,8 @@ impl AdminSqliteLane {
 
     pub fn try_persist_session_event(&self, _: &serde_json::Value) {}
 
+    pub fn try_bump_script_promotion_counter(&self, _: &dcc_mcp_db::ScriptPromotionBumpJson) {}
+
     #[must_use]
     pub fn try_add_skill_path(&self, _: String) -> bool {
         false
@@ -591,11 +703,13 @@ impl AdminSqliteLane {
     ) -> bool {
         false
     }
+
+    pub fn try_persist_feedback_report(&self, _: &FeedbackReportRow) {}
 }
 
 #[cfg(not(feature = "persist-sqlite"))]
 #[must_use]
-pub fn read_custom_skill_paths_for_startup(_: &Path) -> Vec<PathBuf> {
+pub fn read_custom_skill_paths_for_startup(_: &std::path::Path) -> Vec<PathBuf> {
     Vec::new()
 }
 
@@ -603,6 +717,7 @@ pub fn read_custom_skill_paths_for_startup(_: &Path) -> Vec<PathBuf> {
 mod tests {
     use super::{AdminSqliteLane, AdminSqliteReader};
     use crate::DispatchTrace;
+    use crate::{FeedbackReportRow, FeedbackSubmissionKind};
     use std::time::SystemTime;
     use tempfile::tempdir;
 
@@ -660,5 +775,62 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0]["event_type"], "recording.stopped");
         assert_eq!(events[0]["recording_id"], "rec-1");
+    }
+    fn feedback_row(
+        id: &str,
+        timestamp_ms: i64,
+        dcc_type: &str,
+        severity: &str,
+    ) -> FeedbackReportRow {
+        FeedbackReportRow {
+            id: id.to_string(),
+            timestamp_ms,
+            recorded_at_ms: timestamp_ms,
+            recorded_at: "2026-09-21T17:22:56.000Z".to_string(),
+            kind: FeedbackSubmissionKind::Finding,
+            schema_version: 1,
+            fingerprint: Some(format!("sha256:{}", "a".repeat(64))),
+            severity: severity.to_string(),
+            dcc_type: dcc_type.to_string(),
+            instance_id: Some("instance-1".to_string()),
+            tool_slug: Some("maya_scene__save".to_string()),
+            report: serde_json::json!({
+                "id": id,
+                "timestamp": timestamp_ms as f64 / 1000.0,
+                "dcc_type": dcc_type,
+                "severity": severity,
+            }),
+        }
+    }
+
+    #[test]
+    fn roundtrip_feedback_report() {
+        let dir = tempdir().unwrap();
+        let db = dir.path().join("feedback.sqlite");
+        let lane = AdminSqliteLane::spawn(db.clone(), 30).expect("spawn");
+        lane.try_persist_feedback_report(&feedback_row(
+            "fb-1",
+            1_700_000_000_000,
+            "maya",
+            "blocked",
+        ));
+        lane.try_persist_feedback_report(&feedback_row(
+            "fb-2",
+            1_700_000_000_500,
+            "houdini",
+            "degraded",
+        ));
+        drop(lane);
+
+        let reader = AdminSqliteReader::new(db);
+        let rows = reader.list_feedback_reports(None, None, None, 10);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["id"], "fb-2", "newest first");
+        assert_eq!(rows[1]["id"], "fb-1");
+        assert_eq!(rows[0]["dcc_type"], "houdini");
+
+        let maya_only = reader.list_feedback_reports(None, Some("maya"), None, 10);
+        assert_eq!(maya_only.len(), 1);
+        assert_eq!(maya_only[0]["id"], "fb-1");
     }
 }

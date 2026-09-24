@@ -4,7 +4,7 @@ ci:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
     - id: check-added-large-files
     - id: check-case-conflict
@@ -18,21 +18,21 @@ repos:
     - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.15.9"
+    rev: "321478e58f4938179c6b86e4ddfa923d1547a49b"  # frozen: v0.16.6
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.0
+    rev: 7ff8d35ae36a7d2b968f2f90b4c723e292e594ee  # frozen: v2.3.1
     hooks:
     - id: mypy
       files: ^(src|tests)
       exclude: ^tests/utils
       args: []
       additional_dependencies:
-        - numpy
+        - numpy<2.5  # 3.12+ types
         - pytest
         - importlib_resources
         - tomli
@@ -41,14 +41,14 @@ repos:
         - dependency-groups>=1.3
 
   - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.10.0
+    rev: 3a6eb0fadf60b3cccfd80bad9dbb6fae7e47b316  # frozen: v1.10.0
     hooks:
       - id: rst-backticks
       - id: rst-directive-colons
       - id: rst-inline-touching-normal
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: 57b21406f092110c18776e39b0bda50d37c945c8  # frozen: v2.4.3
     hooks:
     - id: codespell
       args: ["-L", "hist,thist,ans,nd,gaus"]
@@ -60,26 +60,45 @@ repos:
         language: pygrep
         entry: PyBind|Numpy|Cmake|CCache|Github|PyTest|Weighed
         exclude: .pre-commit-config.yaml
+      # The $id would make check-jsonschema fetch histogram.schema.json from
+      # GitHub; a file:// base URI keeps the $ref local.
+      - id: validate-histograms
+        name: Validate Histogram examples
+        language: python
+        additional_dependencies: [check-jsonschema==0.38.0]
+        entry: >-
+          python -c "import pathlib, sys; from check_jsonschema import main;
+          schema = pathlib.Path('src/uhi/resources/histograms.schema.json');
+          main(['--base-uri', schema.resolve().as_uri(), '--schemafile',
+          str(schema), *sys.argv[1:]])"
+        files: ^tests/resources/valid/.*\.json
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.8.1"
+    rev: "0ee178619d696787ca73d210cc191d720868c631"  # frozen: v3.9.6
     hooks:
       - id: prettier
         types_or: [json]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.37.1
+    rev: c4654a7e007c9619a5eb63c39a456572a0fa1851  # frozen: 0.38.0
     hooks:
       - id: check-readthedocs
       - id: check-github-workflows
       - id: check-metaschema
-        files: ^src/uhi/resources/histogram.schema.json$
+        files: ^src/uhi/resources/histograms?\.schema\.json$
       - id: check-jsonschema
-        name: Validate Histogram examples
+        name: Validate single Histogram examples
         args: [--schemafile, src/uhi/resources/histogram.schema.json]
-        files: ^tests/resources/valid/.*\.json
+        files: ^tests/resources/valid_single/.*\.json
 
   - repo: https://github.com/henryiii/validate-pyproject-schema-store
-    rev: 2026.04.03
+    rev: 0cee1769d7b9f642b7545be04c079f94277d6833  # frozen: 2026.09.04
     hooks:
       - id: validate-pyproject
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: cef8b8350da46d8114c7e6b7272aebdccdf193ce  # frozen: v1.30.0
+    hooks:
+      - id: zizmor
+        files: "^\\.github"
+        args: [--persona=pedantic]

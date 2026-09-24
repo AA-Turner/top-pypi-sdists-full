@@ -25,6 +25,7 @@ from testmu._capability import (
     get_cdp_url,
     get_cdp_url_for_log,
     get_viewport,
+    resolve_custom_headers,
 )
 from testmu._downloads_path import _resolve_downloads_dir
 from testmu._reporter import reporter
@@ -93,6 +94,30 @@ def _apply_page_timeouts(page) -> None:
     page.context.set_default_navigation_timeout(nav_timeout)
 
 
+async def _install_custom_header_route(context, page, headers: dict) -> None:
+    """Attach custom headers through request interception rather than
+    extra_http_headers.
+
+    extra_http_headers adds a header before the browser decides whether a
+    request needs a CORS preflight, so a cross-origin call carrying a
+    non-safelisted header becomes a preflighted one, and an API that does not
+    answer OPTIONS with a 2xx has the real request withheld. A route handler runs
+    after that decision, so the request stays simple and still carries them.
+
+    route.continue_ replaces the whole header set and User-Agent is not among
+    the intercepted request's headers, so a request would otherwise go out with
+    no agent at all. A configured agent is already in `headers`; when none is,
+    the browser's own is carried over unchanged.
+    """
+    if not any(k.lower() == "user-agent" for k in headers):
+        headers = {**headers, "User-Agent": await page.evaluate("navigator.userAgent")}
+
+    async def _inject(route, request):
+        await route.continue_(headers={**await request.all_headers(), **headers})
+
+    await context.route("**/*", _inject)
+
+
 async def _create_page():
     """Create a Playwright page — cloud CDP or local browser."""
     from playwright.async_api import async_playwright
@@ -100,12 +125,16 @@ async def _create_page():
     pw = await async_playwright().start()
     state.pw = pw
 
-    raw_headers = _configure.get("custom_headers", {})
+    raw_headers = resolve_custom_headers()
     if raw_headers:
         from testmu._vars import var
         headers = {k: var(v) for k, v in raw_headers.items()}
     else:
         headers = {}
+
+    # Names only, never values: a custom header commonly carries a credential.
+    if headers:
+        _log.info("Custom headers applied: %s (values masked)", ", ".join(headers))
 
     if _config.run_target == "cloud":
         _log.info("Connecting to LT cloud...")
@@ -144,10 +173,10 @@ async def _create_page():
         _export_smart_env_from_session(browser, caps)
         _log.info("Connected to LT cloud via relay proxy")
         context_kwargs = {"viewport": viewport}
-        if headers:
-            context_kwargs["extra_http_headers"] = headers
         context = await browser.new_context(**context_kwargs)
         page = await context.new_page()
+        if headers:
+            await _install_custom_header_route(context, page, headers)
         _apply_page_timeouts(page)
         _log.info("Page created (viewport=%sx%s)", viewport.get("width"), viewport.get("height"))
     else:
@@ -157,10 +186,10 @@ async def _create_page():
         browser = await pw.chromium.launch(headless=headless)
         _export_smart_env_from_session(browser, {})
         context_kwargs = {"viewport": None}
-        if headers:
-            context_kwargs["extra_http_headers"] = headers
         context = await browser.new_context(**context_kwargs)
         page = await context.new_page()
+        if headers:
+            await _install_custom_header_route(context, page, headers)
         _apply_page_timeouts(page)
         _log.info("Page created")
 

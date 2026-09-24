@@ -74,6 +74,10 @@ FEATURE_KEYS: frozenset[str] = frozenset(
         # features, which are about billing and latency, not retention.
         "context_management",
         "partial_mode",
+        # The model continues a trailing assistant message (response prefill).
+        # Anthropic removed it on Sonnet 5 / Opus 5 / Fable / 4.6-4.8; older Claude
+        # models keep it. Read by matrx_ai/config/message_flags.py (the prefill flag).
+        "assistant_prefill",
         # Extraction family (GLiNER2 / fastino models)
         "ner",
         "classification",
@@ -152,7 +156,15 @@ INTERACTION_ALIASES: dict[str, str] = {
 }
 
 CANONICAL_KEYS: frozenset[str] = frozenset(
-    {"input", "output", "features", "interaction", "multilingual", "image_reference_roles"}
+    {
+        "input",
+        "output",
+        "features",
+        "interaction",
+        "multilingual",
+        "image_reference_roles",
+        "video_reference_roles",
+    }
 )
 
 #: ``image_reference_roles`` is ``{role: max_count, ..., "total": n}`` — how
@@ -160,6 +172,11 @@ CANONICAL_KEYS: frozenset[str] = frozenset(
 #: from the map is a role the model cannot take (the request is REFUSED, never
 #: silently stripped). Vocabulary: ``matrx_ai/media/image_reference_roles.py``.
 IMAGE_REFERENCE_ROLES_KEY = "image_reference_roles"
+
+#: ``video_reference_roles`` is ``{extend|restyle|lip_sync|named: max_count}``
+#: — the video/audio inputs and named references a video model accepts.
+#: Vocabulary: ``matrx_ai/media/video_reference_roles.py``.
+VIDEO_REFERENCE_ROLES_KEY = "video_reference_roles"
 
 VOCABULARY_FILE = "matrx_ai/providers/capability_vocabulary.py"
 
@@ -334,6 +351,29 @@ def normalize_capabilities(raw: Any, *, label: str = "") -> CapabilitiesNormaliz
                         "non-negative integer"
                     )
 
+    if VIDEO_REFERENCE_ROLES_KEY in raw:
+        from matrx_ai.media.video_reference_roles import (
+            AUDIO_REFERENCE_ROLES,
+            NAMED_KEY,
+            VIDEO_REFERENCE_ROLES,
+        )
+
+        allowed_video = set(VIDEO_REFERENCE_ROLES) | set(AUDIO_REFERENCE_ROLES) | {NAMED_KEY}
+        limits = raw[VIDEO_REFERENCE_ROLES_KEY]
+        if not isinstance(limits, dict):
+            rejections.append(
+                f"{VIDEO_REFERENCE_ROLES_KEY}{where} must be an object of role -> count"
+            )
+        else:
+            for role, count in limits.items():
+                if role not in allowed_video:
+                    rejections.append(f"{VIDEO_REFERENCE_ROLES_KEY} role {role!r}{where}")
+                elif isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                    rejections.append(
+                        f"{VIDEO_REFERENCE_ROLES_KEY}.{role} {count!r}{where} is not a "
+                        "non-negative integer"
+                    )
+
     return CapabilitiesNormalization(value=out, corrections=corrections, rejections=rejections)
 
 
@@ -345,6 +385,7 @@ __all__ = [
     "FEATURE_KEYS",
     "FEATURE_TO_INPUT_MODALITY",
     "IMAGE_REFERENCE_ROLES_KEY",
+    "VIDEO_REFERENCE_ROLES_KEY",
     "INTERACTION_ALIASES",
     "INTERACTION_MODES",
     "VOCABULARY_FILE",

@@ -63,7 +63,7 @@ class GetSandboxResult:
     @pulumi.getter(name="displayName")
     def display_name(self) -> _builtins.str:
         """
-        (string) - Human-readable display label for the sandbox. At most 256 bytes
+        (string) - Human-readable display label for the sandbox. At most 256 characters
         """
         return pulumi.get(self, "display_name")
 
@@ -71,7 +71,8 @@ class GetSandboxResult:
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The AIP-compliant resource name, such as "sandboxes/my-sandbox"
+        (string) - The sandbox resource name, in the form `sandboxes/{sandbox_id}`. Derived from
+        `sandbox_id`; any value supplied in a create or update request body is ignored
         """
         return pulumi.get(self, "name")
 
@@ -121,7 +122,7 @@ class AwaitableGetSandboxResult(GetSandboxResult):
 
 
 def get_sandbox(name: Optional[_builtins.str] = None,
-                provider_config: Optional[Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict']] = None,
+                provider_config: Optional[Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict', 'outputs.GetSandboxProviderConfigResult']] = None,
                 opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetSandboxResult:
     """
     [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
@@ -141,8 +142,9 @@ def get_sandbox(name: Optional[_builtins.str] = None,
     ```
 
 
-    :param _builtins.str name: The AIP-compliant resource name, such as "sandboxes/my-sandbox"
-    :param Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider.
+    :param _builtins.str name: The sandbox resource name, in the form `sandboxes/{sandbox_id}`. Derived from
+           `sandbox_id`; any value supplied in a create or update request body is ignored
+    :param Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict', 'outputs.GetSandboxProviderConfigResult'] provider_config: Configure the provider for management through account provider.
     """
     __args__ = dict()
     __args__['name'] = name
@@ -159,7 +161,7 @@ def get_sandbox(name: Optional[_builtins.str] = None,
         status=pulumi.get(__ret__, 'status'),
         update_time=pulumi.get(__ret__, 'update_time'))
 def get_sandbox_output(name: pulumi.Input[Optional[_builtins.str]] = None,
-                       provider_config: pulumi.Input[Optional[Optional[Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict']]]] = None,
+                       provider_config: pulumi.Input[Optional[Optional[Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict', 'outputs.GetSandboxProviderConfigResult']]]] = None,
                        opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetSandboxResult]:
     """
     [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
@@ -179,8 +181,9 @@ def get_sandbox_output(name: pulumi.Input[Optional[_builtins.str]] = None,
     ```
 
 
-    :param _builtins.str name: The AIP-compliant resource name, such as "sandboxes/my-sandbox"
-    :param Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider.
+    :param _builtins.str name: The sandbox resource name, in the form `sandboxes/{sandbox_id}`. Derived from
+           `sandbox_id`; any value supplied in a create or update request body is ignored
+    :param Union['GetSandboxProviderConfigArgs', 'GetSandboxProviderConfigArgsDict', 'outputs.GetSandboxProviderConfigResult'] provider_config: Configure the provider for management through account provider.
     """
     __args__ = dict()
     __args__['name'] = name

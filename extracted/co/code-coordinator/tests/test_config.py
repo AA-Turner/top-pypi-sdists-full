@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from coord import config as coord_config
 from coord.config import (
     ConfigError,
     PipelineConfig,
@@ -17,8 +20,14 @@ from coord.config import (
     _parse_merge,
     _parse_store,
     load,
+    resolve_local_machine,
 )
 from coord.uat_checks import HeaderAssertion
+
+# Captured at import time — before `tests/conftest.py`'s autouse
+# `_no_real_tailscale_probe` stub replaces the module attribute — so
+# `TestTailscaleSelfDnsName` below can put the real probe back.
+_REAL_TAILSCALE_SELF_DNS = coord_config._tailscale_self_dns_name
 
 
 def test_load_valid_config(valid_config_path: Path) -> None:
@@ -2599,3 +2608,275 @@ def test_capability_rule_command_index_named_for_second_rule(tmp_path: Path) -> 
                 "      command: false\n",
             )
         )
+
+
+# ── #3440: resolve_local_machine — the single shared "is this host local?"
+# resolver. The macmini incident: OS hostname (`johns-mac-mini`, macOS's
+# default) matches neither `name: macmini` nor the `macmini` label of
+# `host: macmini.tailf46ef8.ts.net`, so the pre-#3440 hostname comparison
+# alone resolved to "remote" and `coord assign --interactive` SSHed to
+# itself. ────────────────────────────────────────────────────────────────
+
+
+def _macmini_config_yaml(*, local_hostnames: bool = False) -> str:
+    alias_line = "    local_hostnames: [johns-mac-mini]\n" if local_hostnames else ""
+    return (
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: macmini\n    host: macmini.tailf46ef8.ts.net\n    repos: [api]\n"
+        f"{alias_line}"
+        "  - name: other\n    host: other.tailnet\n    repos: [api]\n"
+    )
+
+
+def test_local_hostnames_parsed(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=True))
+    cfg = load(p)
+    by_name = {m.name: m for m in cfg.machines}
+    assert by_name["macmini"].local_hostnames == ["johns-mac-mini"]
+    assert by_name["other"].local_hostnames == []
+
+
+def test_local_hostnames_defaults_to_empty_list(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=False))
+    cfg = load(p)
+    assert cfg.machines[0].local_hostnames == []
+
+
+def test_local_hostnames_rejects_non_list(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n    local_hostnames: \"nope\"\n"
+    )
+    with pytest.raises(ConfigError, match="local_hostnames must be a list of strings"):
+        load(p)
+
+
+def test_resolve_local_machine_via_alias_arm(tmp_path: Path, monkeypatch) -> None:
+    """The macmini shape resolves to local via the `local_hostnames:` alias
+    arm — with `tailscale` unavailable, proving the alias arm alone is
+    sufficient and doesn't depend on the Tailscale tier."""
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=True))
+    cfg = load(p)
+    monkeypatch.setattr("coord.config._local_short_hostname", lambda: "johns-mac-mini")
+    monkeypatch.setattr("coord.config._tailscale_self_dns_name", lambda **kw: None)
+
+    resolved = resolve_local_machine(cfg)
+
+    assert resolved is not None
+    assert resolved.name == "macmini"
+
+
+def test_resolve_local_machine_via_tailscale_arm(tmp_path: Path, monkeypatch) -> None:
+    """The macmini shape (no alias configured) resolves to local via the
+    Tailscale-identity arm: `Self.DNSName` equals `host:` exactly, which
+    neither `name` nor the OS short hostname can."""
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=False))
+    cfg = load(p)
+    monkeypatch.setattr("coord.config._local_short_hostname", lambda: "johns-mac-mini")
+    monkeypatch.setattr(
+        "coord.config._tailscale_self_dns_name",
+        lambda **kw: "macmini.tailf46ef8.ts.net",
+    )
+
+    resolved = resolve_local_machine(cfg)
+
+    assert resolved is not None
+    assert resolved.name == "macmini"
+
+
+def test_resolve_local_machine_returns_none_with_no_signal(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The gate must be able to fail: no alias, no Tailscale match, and an
+    OS hostname that matches nothing — `resolve_local_machine` must say
+    "unknown", never guess local or remote."""
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=False))
+    cfg = load(p)
+    monkeypatch.setattr("coord.config._local_short_hostname", lambda: "johns-mac-mini")
+    monkeypatch.setattr("coord.config._tailscale_self_dns_name", lambda **kw: None)
+
+    assert resolve_local_machine(cfg) is None
+
+
+def test_resolve_local_machine_hostname_fallback_unchanged(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The pre-#3440 behaviour — OS short hostname == machine name — still
+    resolves for a normal fleet machine with no alias and no Tailscale
+    match."""
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=False))
+    cfg = load(p)
+    monkeypatch.setattr("coord.config._local_short_hostname", lambda: "other")
+    monkeypatch.setattr("coord.config._tailscale_self_dns_name", lambda **kw: None)
+
+    resolved = resolve_local_machine(cfg)
+
+    assert resolved is not None
+    assert resolved.name == "other"
+
+
+def test_resolve_local_machine_env_override_last_resort(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """`$COORD_LOCAL_MACHINE` (or *env*'s override) is the last-resort
+    escape hatch for when none of the alias/Tailscale/hostname tiers can
+    match at all."""
+    p = tmp_path / "coordinator.yml"
+    p.write_text(_macmini_config_yaml(local_hostnames=False))
+    cfg = load(p)
+    monkeypatch.setattr("coord.config._local_short_hostname", lambda: "totally-unrelated")
+    monkeypatch.setattr("coord.config._tailscale_self_dns_name", lambda **kw: None)
+
+    resolved = resolve_local_machine(cfg, env={"COORD_LOCAL_MACHINE": "macmini"})
+
+    assert resolved is not None
+    assert resolved.name == "macmini"
+
+
+def test_resolve_local_machine_no_machines_is_none() -> None:
+    assert resolve_local_machine(SimpleNamespace(machines=[])) is None
+
+
+class TestTailscaleSelfDnsName:
+    """The real probe itself, driven hermetically by stubbing
+    `subprocess.run` rather than the probe function."""
+
+    @pytest.fixture(autouse=True)
+    def _real_tailscale_probe(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Undo `tests/conftest.py`'s global `_no_real_tailscale_probe` stub
+        for this class only.
+
+        That stub keeps the rest of the suite from shelling out to a real
+        `tailscale` binary via `resolve_local_machine`'s third tier. This
+        class is the one place that must exercise the real function, and it
+        does so hermetically by patching `config.subprocess.run`. A
+        class-level autouse fixture is instantiated after the conftest-level
+        one of the same scope, so this re-patch wins — same escape hatch as
+        `tests/test_network.py::TestClaudeCredentialReachable`.
+        """
+        monkeypatch.setattr(
+            coord_config, "_tailscale_self_dns_name", _REAL_TAILSCALE_SELF_DNS
+        )
+
+    def test_the_global_stub_is_overridden_here(self) -> None:
+        """Guard the fixture above: if conftest's autouse stub ever won the
+        ordering race, every test in this class would be asserting against
+        `lambda **kw: None` and passing for the wrong reason."""
+        assert coord_config._tailscale_self_dns_name is _REAL_TAILSCALE_SELF_DNS
+
+    def test_degrades_quietly_when_binary_absent(self, monkeypatch) -> None:
+        """#3440: `tailscale` missing must never raise — it's an optional
+        identity signal, not a hard dependency."""
+
+        def _raise(*args, **kwargs):
+            raise FileNotFoundError("no such file or directory: 'tailscale'")
+
+        monkeypatch.setattr("coord.config.subprocess.run", _raise)
+
+        assert coord_config._tailscale_self_dns_name() is None
+
+    def test_degrades_quietly_on_bad_json(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "coord.config.subprocess.run",
+            lambda *a, **kw: SimpleNamespace(returncode=0, stdout="not json"),
+        )
+
+        assert coord_config._tailscale_self_dns_name() is None
+
+    def test_parses_self_dns_name(self, monkeypatch) -> None:
+        payload = json.dumps({"Self": {"DNSName": "macmini.tailf46ef8.ts.net."}})
+        monkeypatch.setattr(
+            "coord.config.subprocess.run",
+            lambda *a, **kw: SimpleNamespace(returncode=0, stdout=payload),
+        )
+
+        assert (
+            coord_config._tailscale_self_dns_name() == "macmini.tailf46ef8.ts.net"
+        )
+
+
+class TestTailscaleSelfDnsCache:
+    """#3440: `resolve_local_machine` runs on a timer in `coord serve`, so
+    its Tailscale tier is memoized. A success is a stable fact and is cached
+    for the process; a failure is a fact about the last few seconds only and
+    must expire, or a daemon that started before `tailscaled` came up would
+    be permanently, uncontradictably wrong about its own identity."""
+
+    def _counting_probe(self, answer: str | None) -> tuple[object, list[int]]:
+        calls: list[int] = []
+
+        def probe(**_kw):
+            calls.append(1)
+            return answer
+
+        return probe, calls
+
+    def test_successful_answer_is_probed_once(self, monkeypatch) -> None:
+        probe, calls = self._counting_probe("macmini.tailf46ef8.ts.net")
+        monkeypatch.setattr(coord_config, "_tailscale_self_dns_name", probe)
+
+        first = coord_config._cached_tailscale_self_dns_name(now=0.0)
+        later = coord_config._cached_tailscale_self_dns_name(now=10_000.0)
+
+        assert first == later == "macmini.tailf46ef8.ts.net"
+        assert len(calls) == 1, "a stable identity must not be re-probed"
+
+    def test_failed_probe_is_retried_after_the_negative_ttl(self, monkeypatch) -> None:
+        probe, calls = self._counting_probe(None)
+        monkeypatch.setattr(coord_config, "_tailscale_self_dns_name", probe)
+
+        assert coord_config._cached_tailscale_self_dns_name(now=0.0) is None
+        # Still inside the TTL: the miss is remembered, not re-probed.
+        assert coord_config._cached_tailscale_self_dns_name(now=1.0) is None
+        assert len(calls) == 1
+
+        # Past the TTL, and `tailscaled` is up now — the cached negative must
+        # not survive as a permanent verdict.
+        monkeypatch.setattr(
+            coord_config,
+            "_tailscale_self_dns_name",
+            lambda **kw: "macmini.tailf46ef8.ts.net",
+        )
+        assert (
+            coord_config._cached_tailscale_self_dns_name(
+                now=coord_config.TS_SELF_DNS_NEGATIVE_TTL + 1.0
+            )
+            == "macmini.tailf46ef8.ts.net"
+        )
+
+    def test_resolver_recovers_once_the_probe_starts_answering(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """End to end through the public resolver: a host whose first probe
+        fails is "unknown", and becomes itself once the probe answers."""
+        p = tmp_path / "coordinator.yml"
+        p.write_text(_macmini_config_yaml(local_hostnames=False))
+        cfg = load(p)
+        monkeypatch.setattr(
+            "coord.config._local_short_hostname", lambda: "johns-mac-mini"
+        )
+        monkeypatch.setattr(coord_config, "_tailscale_self_dns_name", lambda **kw: None)
+
+        assert resolve_local_machine(cfg) is None
+
+        monkeypatch.setattr(
+            coord_config,
+            "_tailscale_self_dns_name",
+            lambda **kw: "macmini.tailf46ef8.ts.net",
+        )
+        coord_config.reset_tailscale_self_dns_cache()
+
+        resolved = resolve_local_machine(cfg)
+        assert resolved is not None
+        assert resolved.name == "macmini"

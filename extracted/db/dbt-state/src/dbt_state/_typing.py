@@ -46,4 +46,5 @@ ClientEvent = t.Union[
     client_telemetry_service_models.SessionStartRequest,
     client_telemetry_service_models.ClientPrepareEnrichedSQLRequest,
     client_telemetry_service_models.SessionEndRequest,
+    client_telemetry_service_models.ClientSelectorEvent,
 ]

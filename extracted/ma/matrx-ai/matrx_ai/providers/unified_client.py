@@ -49,6 +49,91 @@ _WEB_SEARCH_JSON_MODE_CONFLICT_WIRE_FORMAT = "openai_chat"
 _TOOL_STRUCTURED_OUTPUT_CONFLICT_WIRE_FORMATS = frozenset({"cerebras_chat", "groq_chat"})
 
 
+async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire_format: str) -> Any:
+    """Plan message flags for this call and shape the WIRE copy (never the live config).
+
+    The live ``config.messages`` keeps every authored message (persistence and
+    the next turn need them); only ``wire_config`` gets the filtered list — a
+    consumed or converted prefill never reaches a provider. The filtering is a
+    pure function of the flags, so it is byte-stable across loop rounds and
+    cannot disturb a cached prefix.
+    """
+    from matrx_ai.config.message_config import MessageList
+    from matrx_ai.config.message_flags import (
+        CACHE_BOUNDARY_BY_WIRE,
+        COMPAT_MODE_METADATA_KEY,
+        CONVERT_PREFILL_SLOT,
+        flags_of,
+        plan_message_flags,
+    )
+
+    messages = getattr(config, "messages", None)
+    if messages is None or not any(flags_of(m) for m in messages):
+        return None
+    metadata = getattr(config, "metadata", None) or {}
+    plan = plan_message_flags(
+        list(messages),
+        supports_prefill=bool(getattr(profile.capabilities, "supports_assistant_prefill", False)),
+        cache_boundary_support=CACHE_BOUNDARY_BY_WIRE.get(wire_format, "none"),
+        model_label=profile.model_name,
+        mode=metadata.get(COMPAT_MODE_METADATA_KEY) if isinstance(metadata, dict) else None,
+    )
+    if len(plan.wire_messages) != len(messages) or plan.convert_instruction:
+        wire_list = MessageList(list(plan.wire_messages))
+        wire_list._turn_context_blocks = dict(getattr(messages, "_turn_context_blocks", {}) or {})
+        if plan.convert_instruction:
+            wire_list.attach_turn_context(plan.convert_instruction, slot=CONVERT_PREFILL_SLOT)
+        wire_config.messages = wire_list
+    if plan.notes:
+        vcprint("\n".join(plan.notes), "[message flags]", color="yellow")
+        await _announce_flag_notes(plan.notes)
+    if plan.prefill_mode == "native" and plan.prefill_text and getattr(config, "stream", False):
+        # The provider streams only the continuation; the person sees the whole
+        # reply, starting from the prefill, exactly as it will be stored.
+        try:
+            from matrx_connect.context.app_context import try_get_app_context
+
+            ctx = try_get_app_context()
+            emitter = getattr(ctx, "emitter", None) if ctx is not None else None
+            if emitter is not None:
+                await emitter.send_chunk(plan.prefill_text)
+        except Exception as exc:  # noqa: BLE001 — display only; the stored reply is still whole
+            vcprint(f"[message flags] prefill chunk not streamed: {exc!r}", color="yellow")
+    return plan
+
+
+async def _announce_flag_notes(notes: list[str]) -> None:
+    """Every flag the model could not honour natively is SAID, never dropped silently."""
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+        from matrx_connect.context.events import InfoPayload
+
+        ctx = try_get_app_context()
+        emitter = getattr(ctx, "emitter", None) if ctx is not None else None
+        if emitter is None:
+            return
+        for note in notes:
+            await emitter.send_info(
+                InfoPayload(
+                    code="message_flag_adjusted",
+                    system_message=note,
+                    user_message=note,
+                )
+            )
+    except Exception as exc:  # noqa: BLE001 — the console banner above already fired
+        vcprint(f"[message flags] notes not emitted: {exc!r}", color="yellow")
+
+
+def _finish_message_flags(response: Any, plan: Any) -> Any:
+    """Make the answer carry its prefill (native) or say how it was honoured."""
+    if plan is None or not getattr(plan, "prefill_mode", None):
+        return response
+    from matrx_ai.config.message_flags import apply_prefill_to_reply
+
+    apply_prefill_to_reply(getattr(response, "messages", None) or [], plan)
+    return response
+
+
 def _build_provider_wire_config(config: Any, profile: Any) -> Any:
     # ``UnifiedConfig.model`` is durable conversation state and must retain the
     # canonical reference. Provider ids are per-call transport details.
@@ -992,6 +1077,10 @@ class UnifiedAIClient:
         # canonical model on the request so retry, persistence, and a later
         # conversation turn re-enter the catalog with a resolvable reference.
         wire_config = _build_provider_wire_config(config, profile)
+        # MESSAGE FLAGS (prefill / cache_boundary / example) — the capability
+        # gate for the translator instructions an author set on messages. Raises
+        # MessageFlagRefusal BEFORE the paid call when the org mode is refuse.
+        flag_plan = await _apply_message_flags(wire_config, config, profile, wire_format)
         client_attr = profile.client_attr
         if client_attr == self._GENERIC_OPENAI_CLIENT_ATTR:
             # Look up a registered local GenericOpenAIChat by CANONICAL model name
@@ -1003,14 +1092,17 @@ class UnifiedAIClient:
             )
             if instance is None:
                 instance = await self._get_provider_client("huggingface_chat")
-            return self._stamp_offering_usage(
-                await self._dispatch_with_billing_net(
-                    lambda: instance.execute(wire_config, profile, debug),
-                    profile=profile,
-                    provider_client=instance,
+            return _finish_message_flags(
+                self._stamp_offering_usage(
+                    await self._dispatch_with_billing_net(
+                        lambda: instance.execute(wire_config, profile, debug),
+                        profile=profile,
+                        provider_client=instance,
+                    ),
+                    profile,
+                    config,
                 ),
-                profile,
-                config,
+                flag_plan,
             )
 
         if client_attr not in self._PROVIDER_FACTORIES:
@@ -1026,14 +1118,17 @@ class UnifiedAIClient:
         # ResolvedCallProfile: param shaping is DB-driven (profile.controls),
         # structural branches read profile.capabilities / provider_model_id.
         provider_client = await self._get_provider_client(client_attr)
-        return self._stamp_offering_usage(
-            await self._dispatch_with_billing_net(
-                lambda: provider_client.execute(wire_config, profile, debug),
-                profile=profile,
-                provider_client=provider_client,
+        return _finish_message_flags(
+            self._stamp_offering_usage(
+                await self._dispatch_with_billing_net(
+                    lambda: provider_client.execute(wire_config, profile, debug),
+                    profile=profile,
+                    provider_client=provider_client,
+                ),
+                profile,
+                config,
             ),
-            profile,
-            config,
+            flag_plan,
         )
 
     @staticmethod

@@ -20,6 +20,7 @@ import base64
 import contextlib
 import datetime as _dt
 import glob
+import inspect
 import itertools
 import json
 import os
@@ -2873,7 +2874,13 @@ _ENV_BRIDGE = re.compile(
     # rest on it either way: listing creates nothing and mints nothing, so
     # there is no ownership to get wrong by including it.
     r"(?:$|\?"
-    r"|/(?:bridge(?:/|$|\?)"
+    # `bridge` alone is register; `bridge/<env>` is deregister -- both stop
+    # right there. `bridge/<env>/offline` (markEnvironmentOffline, CC
+    # 2.1.280) carries the ENVIRONMENT SECRET as bearer, exactly like the
+    # /work/* routes below, so it must not fall through this same prefix --
+    # swapped, the take-back ran and the unswapped re-send was refused too
+    # ("Bridge environments are not available for this organization").
+    r"|/(?:bridge(?:$|\?|/[^/?]*(?:$|\?))"
     r"|[^/?]+/bridge/reconnect(?:/|$|\?)))"
 )
 
@@ -4670,6 +4677,168 @@ def _replaced_twin_bridge_ids() -> set[str]:
                 continue
             out.update(_transcript_bridge_history(str(sid)))
     return out
+
+
+def _transcript_names_bridge(path: Path, ids: set[str]) -> bool:
+    """Whether a ``bridge-session`` record ANYWHERE in ``path`` names one of
+    ``ids``, with its own ``sessionId`` absent or equal to the file's stem.
+
+    STREAMED LINE BY LINE, unlike `_transcript_bridge_history`'s bounded
+    tail read: the record this looks for is not the file's own newest
+    pointer and can sit anywhere in an ended transcript up to 19 MB past
+    that window (measured), so there is no tail to bound it to.
+    """
+    stem = path.stem
+    try:
+        with path.open("rb") as fh:
+            for raw in fh:
+                if b"bridge-session" not in raw:
+                    continue
+                try:
+                    rec = json.loads(raw)
+                except ValueError:
+                    continue
+                if not isinstance(rec, dict) or rec.get("type") != "bridge-session":
+                    continue
+                bridge = rec.get("bridgeSessionId")
+                if not bridge or str(bridge) not in ids:
+                    continue
+                # SAME FILTER AS `_transcript_bridge_history`: a proof used
+                # to dispose of a bridge must decline at least as strictly
+                # as the one used to carry one.
+                if rec.get("sessionId") not in (None, stem):
+                    continue
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def _live_transcript_bridges() -> dict[str, str | None]:
+    """Every live session's own transcript id -> the bridge the same
+    two-file join `_live_bridge_records` uses (registry `bridgeSessionId`,
+    else the job record's), or ``None`` when neither can say.
+
+    UNLIKE THAT JOIN, an unresolved bridge is KEPT here rather than dropped:
+    `_archived_twin_proof` needs "this transcript is live and its bridge is
+    unknown" to WITHHOLD proof, not to lose the row -- see its own note on
+    the fault this closes.
+    """
+    try:
+        home = require("paths").get_claude_config_home()
+        entries = list((home / "sessions").glob("*.json"))
+    except Exception:  # noqa: BLE001 — no host, nothing to enumerate
+        return {}
+    out: dict[str, str | None] = {}
+    for path in entries:
+        rec = _read_json(path)
+        if not isinstance(rec, dict):
+            continue
+        pid = rec.get("pid")
+        if not isinstance(pid, int) or not _pid_alive(pid):
+            continue
+        job = rec.get("jobId")
+        tx_id, bridge = rec.get("sessionId"), rec.get("bridgeSessionId")
+        if job:
+            st = _read_json(home / "jobs" / str(job) / "state.json")
+            if isinstance(st, dict):
+                if st.get("resumeSessionId"):
+                    tx_id = st.get("resumeSessionId")
+                bridge = bridge or st.get("bridgeSessionId")
+        if not tx_id:
+            continue
+        out[str(tx_id)] = str(bridge) if bridge else None
+    return out
+
+
+def _archived_twin_proof(twin_id: str, title: str, created_at) -> bool:
+    """Whether an ENDED transcript in a LIVE session's own project directory
+    names ``twin_id`` -- the fourth proof `sweep_superseded_bridges` accepts
+    before ARCHIVING an active+disconnected twin that neither
+    `_dead_creator_bridge_ids` nor `_replaced_twin_bridge_ids` names.
+
+    THE LIVE SESSION IS FOUND THE WAY THE REST OF THIS FILE ALREADY DOES: a
+    ``sessions/<pid>.json`` record with a live pid and the twin's own title
+    as its ``name``, resolved to its transcript through ``resumeSessionId``
+    (set by a resume) or its own ``sessionId`` otherwise -- the same two
+    candidate ids `_replaced_twin_bridge_ids` reads for "the live
+    transcript". No parallel liveness reader: `_pid_alive` and `_read_json`
+    are the same ones every other proof in this file uses.
+
+    A CANDIDATE FILE THAT IS ITSELF A LIVE TRANSCRIPT is skipped UNLESS
+    `_live_transcript_bridges` can name that session's own bridge AND it is
+    not the twin (either spelling). Without this, a session whose registry
+    pointer a rotation teardown nulled and never rewrote -- so it holds the
+    twin right now, but `_live_bridge_records` cannot see that and neither
+    can ``live`` -- has its own CURRENT ``bridge-session`` record read as
+    history and the twin it is still holding gets archived out from under
+    it. An unknown bridge cannot be told apart from that shape, so it is
+    withheld rather than trusted.
+
+    CALLED ONLY FOR A CANDIDATE THAT ALREADY PASSED EVERY OTHER CONDITION of
+    its branch -- not live, older than the newest of its title, a same-title
+    superseder in ``live``, and not in dead_creator / replaced_twin -- so a
+    sweep with nothing left to explain reads no transcript.
+
+    ponytail: no cross-sweep memo of (path, size) already scanned, so a
+    candidate with no proof -- another machine's sleeping bridge sharing a
+    title -- is rescanned on every sweep. Measured 0 such rows on two hosts;
+    upgrade path is a process-local memo keyed on (path, size).
+    """
+    ids = set(_both_spellings(twin_id))
+    floor = None
+    if created_at:
+        try:
+            floor = _dt.datetime.fromisoformat(
+                str(created_at).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            floor = None
+    try:
+        home = require("paths").get_claude_config_home()
+        entries = list((home / "sessions").glob("*.json"))
+    except Exception:  # noqa: BLE001 — no host, nothing to enumerate
+        return False
+    live_map = _live_transcript_bridges()
+    seen_dirs: set[Path] = set()
+    for path in entries:
+        rec = _read_json(path)
+        if not isinstance(rec, dict):
+            continue
+        pid = rec.get("pid")
+        if (not isinstance(pid, int) or not _pid_alive(pid)
+                or rec.get("name") != title):
+            continue
+        job = rec.get("jobId")
+        tx_id = rec.get("sessionId")
+        if job:
+            st = _read_json(home / "jobs" / str(job) / "state.json")
+            if isinstance(st, dict) and st.get("resumeSessionId"):
+                tx_id = st.get("resumeSessionId")
+        if not tx_id:
+            continue
+        for tx in (home / "projects").glob(f"*/{tx_id}.jsonl"):
+            project_dir = tx.parent
+            if project_dir in seen_dirs:
+                continue
+            seen_dirs.add(project_dir)
+            try:
+                candidates = list(project_dir.glob("*.jsonl"))
+            except OSError:
+                continue
+            for tf in candidates:
+                if tf.stem in live_map:
+                    known = live_map[tf.stem]
+                    if known is None or set(_both_spellings(known)) & ids:
+                        continue  # a live pointer this cannot rule out
+                try:
+                    mtime = tf.stat().st_mtime
+                except OSError:
+                    continue
+                if floor is not None and mtime < floor:
+                    continue  # T did not exist yet when this file last wrote
+                if _transcript_names_bridge(tf, ids):
+                    return True
+    return False
 
 
 def observed_bridge_owners() -> dict[str, str | None]:
@@ -8239,7 +8408,7 @@ def _repair_wiring_if_ours(certdir: Path, port: int, live_clients=None) -> bool:
         return False
 
 
-def _is_claimed(certdir: Path, live_clients=None) -> bool:
+def _is_claimed(certdir: Path, live_clients=None, republish=None) -> bool:
     """True when the global wiring names THIS daemon, holder or no holder.
 
     A FIFO holder is not the only way to claim a daemon, and it is not even the
@@ -8275,11 +8444,36 @@ def _is_claimed(certdir: Path, live_clients=None) -> bool:
     Linux-only: on macOS it returns None, and None was being read as "not
     claimed" — turning the one check that protects a live session into a
     guaranteed false on the platform where the pin is used most.
+
+    A MISSING RECORD IS NOT A HANDOVER EITHER. `not st` used to end the claim
+    on its own, on the premise that a record naming someone else and a record
+    naming no one prove the same thing. They do not: a live daemon's own
+    ``proxy.json`` can go missing out from under it (`_clear_handover_mark`
+    deleting a mark whose displaced pid turned out to still be serving —
+    measured 2026-09-24 00:39-00:41Z, 22 channels and 16 requests cut) without
+    that daemon having gone anywhere. Only a record that names ANOTHER pid
+    that is actually ALIVE is evidence someone else owns it; that is a real
+    handover and ends the claim at once, same as before. Anything else —
+    missing, unreadable, or naming a pid that is no longer running — proves
+    nothing, so ``republish`` (when the caller has one) re-asserts our own
+    record the way ``ensure_wired_to`` re-asserts the global wiring, and the
+    checks below get to run on it.
     """
     try:
         st = read_daemon_state(certdir)
+        if st and int(st["pid"]) != os.getpid():
+            other = int(st["pid"])
+            if _pid_alive(other):
+                return False  # another LIVE daemon's record — a real handover
+            st = None  # a dead pid's record proves nothing either way
+        if not st and republish is not None:
+            try:
+                republish()
+            except Exception:
+                pass
+            st = read_daemon_state(certdir)
         if not st or int(st["pid"]) != os.getpid():
-            return False  # not our record — say nothing about our own liveness
+            return False  # still nothing naming us — say nothing about our own liveness
         port = int(st["port"])
         if _wired_port() == port:
             # Remember it, because this is the ONLY moment that proves we are
@@ -8310,6 +8504,24 @@ def _is_claimed(certdir: Path, live_clients=None) -> bool:
                     return True
             except Exception:
                 pass
+        # A CHANNEL IS A CLAIM TOO, AND `live_clients` CANNOT SEE ONE. Once a
+        # CONNECT reaches its 101 and becomes an opaque Remote Control tunnel,
+        # `_close_open_connections`/`live_client_count` no longer track its
+        # socket at all (`_PUMP` runs it instead) — measured, the incident
+        # this whole function exists to close had 22 of them open when the
+        # daemon was torn down and none of them counted here.
+        #
+        # THE SAME SILENCE BOUND `await_inflight` USES, or this and that
+        # function disagree about what a pair means. `await_inflight` treats
+        # a pair quiet past `_DRAINING_MARKER_TTL` as WEDGED, not live, and
+        # releases it (c5aa0ad, d4167e0 — a wall clock could not tell a
+        # talking peer from a wedged one, so silence became the discriminator).
+        # Without the same bound here, `live_pairs() > 0` alone claims the
+        # daemon forever on exactly one wedged pair — the teardown that would
+        # have reached `await_inflight` and released it never fires, because
+        # `watch_refcount` never gets past this check.
+        if _PUMP.live_pairs() > 0 and _PUMP.quiet_for() <= _DRAINING_MARKER_TTL:
+            return True
         live = clients_that_arming_would_cut_off(port)
         if live is None:
             # Unmeasurable, and the daemon's own count said zero (or was not
@@ -8321,11 +8533,69 @@ def _is_claimed(certdir: Path, live_clients=None) -> bool:
         return False
 
 
+def _republish_own_record(
+    certdir: Path, port: int, pid: int, fingerprint: str,
+    still_accepting: bool, live_clients=None,
+) -> None:
+    """Re-assert this daemon's own ``proxy.json`` — ONLY when every signal
+    says this process is still the one actually serving ``port``.
+
+    `_is_claimed` calls whatever ``republish`` it is handed from a process
+    whose record has gone missing, which is also exactly what a DRAINING
+    PREDECESSOR looks like right after a handover: `_spawn_daemon` marked it,
+    spawned a successor, and the predecessor's own ``watch_refcount`` thread
+    is still ticking in the background with nothing new on disk. An
+    unconditional write there is a real incident, not a hypothetical one: if
+    that predecessor rewrites ``proxy.json`` naming itself, `_spawn_daemon`'s
+    wait (run by whatever is trying to replace a successor that died) reads a
+    record and calls the spawn done, `_sweep_orphan_daemons(keep_pid=
+    <predecessor>)` TERMs the real, freshly spawned successor as an orphan,
+    and the standby reads the predecessor's record and believes a live daemon
+    already holds the port — when the predecessor gave up its listener the
+    moment the handover began.
+
+    THREE GATES, all independent evidence, all required:
+
+    - ``not this_process_is_draining()``: the process has announced no
+      handover. `release_listener` runs very shortly after
+      `announce_draining` on every handover path in this module, but not
+      atomically with it, so this is not redundant with the gate below — it
+      closes the announcement-to-release window too.
+    - ``still_accepting``: THIS process's own listener is still open. The
+      caller passes ``proxy._srv is not None`` — `release_listener` (called
+      at the start of every handover, before the drain) nils it, so a
+      process past that point can never get here again regardless of what
+      the draining marker says yet.
+    - A claim already holds: a live client, a live Remote Control tunnel, or
+      the global wiring already naming this port. Without one of these there
+      is nothing established to protect, and republishing would manufacture
+      a claim rather than preserve one.
+    """
+    if this_process_is_draining():
+        return
+    if not still_accepting:
+        return
+    claimed = (
+        (live_clients is not None and live_clients() > 0)
+        # THE SAME SILENCE BOUND `_is_claimed` USES (~8523): a pair quiet
+        # past `_DRAINING_MARKER_TTL` is WEDGED, not live, per
+        # `await_inflight`. Unbounded here undoes that bound from the
+        # writing side — a wedged pair `_is_claimed` would refuse to count
+        # still gets a fresh record republished for it.
+        or (_PUMP.live_pairs() > 0 and _PUMP.quiet_for() <= _DRAINING_MARKER_TTL)
+        or _wired_port() == port
+    )
+    if not claimed:
+        return
+    write_daemon_state(certdir, port, pid, fingerprint, ungated=True)
+
+
 def watch_refcount(
     fifo: str | Path,
     on_last_holder_gone,
     first_holder_timeout: float | None = None,
     live_clients=None,
+    republish=None,
 ) -> None:
     """Block on ``fifo`` until every write-holder closes, then call
     ``on_last_holder_gone``. This is a supervisor holding `cat FIFO`:
@@ -8358,6 +8628,11 @@ def watch_refcount(
     (their ``HTTPS_PROXY`` is fixed at exec), so they got ConnectionRefused
     and retried forever. Teardown now means "no holder and nothing else
     claims us", whichever door it arrives by.
+
+    ``republish`` is handed straight to ``_is_claimed``: a zero-arg callable
+    that re-asserts THIS daemon's own ``proxy.json`` when the record has gone
+    missing or stale, so a claim this function would otherwise keep serving
+    is not lost to a state file another path deleted out from under it.
     """
     timeout = _FIRST_HOLDER_TIMEOUT if first_holder_timeout is None else first_holder_timeout
     # O_NONBLOCK on a read-only FIFO open never blocks (POSIX), so this cannot
@@ -8393,7 +8668,7 @@ def watch_refcount(
                 # ...which is NOT the same as "nobody is using me". A globally
                 # wired session never opens the FIFO, so check the wiring
                 # before concluding we are an orphan (see ``_is_claimed``).
-                if _is_claimed(Path(fifo).parent, live_clients):
+                if _is_claimed(Path(fifo).parent, live_clients, republish):
                     deadline = _time.monotonic() + timeout  # re-arm and re-check
                     continue
                 on_last_holder_gone()  # nobody ever attached — do not linger
@@ -8424,7 +8699,7 @@ def watch_refcount(
                 # HTTPS_PROXY fixed at exec: the ConnectionRefused loop
                 # ``_is_claimed`` exists to prevent, arriving by the one door
                 # that never asked it.
-                if _is_claimed(Path(fifo).parent, live_clients):
+                if _is_claimed(Path(fifo).parent, live_clients, republish):
                     _time.sleep(_CLAIM_RECHECK_INTERVAL)
                     continue  # still referenced — keep serving, re-check
                 on_last_holder_gone()
@@ -9585,15 +9860,29 @@ class PortHolder:
 
     def _supervise(self) -> None:
         while not self._stop:
-            code = self._proc.wait()
+            # CAPTURED BEFORE THE WAIT, so it still names the PREDECESSOR
+            # after `wait()` returns, whatever `self._proc` has become by
+            # then. `_on_replace_request` reassigns `self._proc` to the
+            # successor as `_spawn()`'s very last line, and only THEN sets
+            # `self._replacing = True` — two statements, not one, and the
+            # predecessor's own exit is asked for across a process boundary
+            # (`os.kill`, a 0.25s settle, a drain that can be instant with
+            # nothing inflight). Nothing orders that exit after the SECOND
+            # statement, only after the first, so `self._replacing` alone
+            # can still read False here on a genuine handover — and reading
+            # it that way calls `stop()` on the successor's own socket.
+            proc = self._proc
+            code = proc.wait()
             if self._stop:
                 return
             # A HANDOVER, NOT A RELEASE. The predecessor asked us to replace it
             # while it was still serving, we did, and it then drained and left
             # with 0. That 0 means "released — do not restart" everywhere else,
             # and acting on it here would close the listening socket the
-            # successor is already accepting on.
-            if self._replacing:
+            # successor is already accepting on. `self._proc is not proc` is
+            # independent proof of the same thing, and closes the race above:
+            # `_spawn()` reassigns it before `self._replacing` is ever set.
+            if self._replacing or self._proc is not proc:
                 self._replacing = False
                 _log_lifecycle(
                     f"daemon {code} retired after handing over — successor "
@@ -9621,10 +9910,17 @@ class PortHolder:
                     f"daemon {self.daemon_pid} exited cleanly — releasing port "
                     f"{self.port}"
                 )
-                try:
-                    self._srv.close()
-                except OSError:
-                    pass
+                # `stop()`, NOT A BARE CLOSE. Closing only our own listener
+                # left the standby holding its OWN dup of the same descriptor,
+                # un-signalled — still LISTENing, still completing handshakes
+                # into a backlog nobody ever drains. Measured: port 36301
+                # accepted connects and answered nothing for 13 minutes after
+                # exactly this exit, until a human ran `cswap pin --heal`.
+                # `stop()` SIGHUPs the standby and confirms it gone before
+                # closing our own socket (see its own docstring for why that
+                # order matters), so a session that dials afterwards gets
+                # ConnectionRefused at once instead of queueing forever.
+                self.stop()
                 return
             if code == _RESTART_ME_CODE:
                 # A REDEPLOY, not a teardown. Respawn at once and skip the
@@ -10236,9 +10532,22 @@ def _clear_handover_mark(certdir: Path) -> bool:
 
     The mark means "a successor is coming"; leaving it after nothing came would
     make the caller's own teardown read "superseded" and keep the wiring
-    pointing at a port nobody serves. The record described a daemon that has
-    already stopped, so there is nothing left to preserve — the port to reclaim
-    lives in the hint (see ``read_port_hint``).
+    pointing at a port nobody serves. USUALLY the record described a daemon
+    that has already stopped, so there is nothing left to preserve — the port
+    to reclaim lives in the hint (see ``read_port_hint``).
+
+    BUT "no successor published a record" IS NOT "the predecessor is gone".
+    A holder that finds the port already answering exits without ever
+    spawning one (736bb88) — correctly, because a healthy daemon is already
+    there — and the wait loop above still times out with nothing new on
+    disk. Deleting the mark then erases the record of a daemon that never
+    stopped: `_is_claimed` reads the missing file as unclaimed and
+    `watch_refcount` tears the live daemon down underneath its own open
+    connections. Measured 2026-09-24 00:39:13-00:41:13Z: daemon 2147854
+    stayed up through the whole window, was marked as departing, and was
+    torn down 2 minutes later with 22 channels and 16 requests still live.
+    So the displaced pid is checked before the record is discarded, and a
+    still-serving one gets its record RESTORED instead.
 
     RETURNS WHETHER THE MARK IS GONE. The unlink swallowed every OSError and
     returned nothing either way, so a record that could NOT be removed — a
@@ -10254,6 +10563,71 @@ def _clear_handover_mark(certdir: Path) -> bool:
     st = read_daemon_state(certdir)
     if not (st and st.get("handover")):
         return True
+    try:
+        pid = int(st.get("pid") or 0)
+        port = int(st.get("port") or 0)
+    except (TypeError, ValueError):
+        pid = port = 0
+    # STILL ALIVE AND STILL SERVING, not merely alive: a pid can survive a
+    # crash of the socket it held (or belong to something else entirely by
+    # the time we look), and restoring a record for a daemon that no longer
+    # answers its port would be its own outage — every reader would believe
+    # a pin is up when nothing is behind it.
+    if pid and port and _pid_alive(pid) and _port_answers(port):
+        # RE-READ, IMMEDIATELY BEFORE THE WRITE. `_pid_alive` and
+        # `_port_answers` cost real wall time (a signal-0, a 0.5s connect
+        # budget), and a successor can publish its own record in exactly
+        # that window — `_spawn_daemon`'s own wait is racing this function.
+        # Writing the snapshot read at the TOP of this call would overwrite
+        # that fresh, correct record with a stale one, so the write only
+        # goes ahead if the mark on disk is still the SAME one: same pid,
+        # still a handover. Anything else means somebody already handled
+        # it — a successor published, or another caller already cleared or
+        # restored it — and there is nothing left for us to do here.
+        current = read_daemon_state(certdir)
+        if not (current and current.get("handover")
+                and int(current.get("pid") or 0) == pid):
+            _log_lifecycle(
+                f"{pid}'s handover mark changed while checking it was "
+                f"still serving {port} — leaving whatever is there now "
+                f"alone"
+            )
+            return True
+        try:
+            write_daemon_state(
+                certdir, port, pid, st.get("fingerprint") or "",
+                # CARRIED THROUGH, NEVER INVENTED — same reasoning as the
+                # mark written in `_spawn_daemon`: this restores the
+                # DISPLACED daemon's own record, so its capability is
+                # whatever it already was.
+                ungated=bool(st.get(_PLAIN_RELAY_UNGATED_KEY)),
+            )
+            _log_lifecycle(
+                f"no successor came, and {pid} is still serving {port} — "
+                f"restoring its record instead of deleting it"
+            )
+            return True
+        except OSError as exc:
+            _log_lifecycle(
+                f"could not restore {pid}'s record ({exc}) — falling back "
+                f"to clearing the mark"
+            )
+    # RE-READ, IMMEDIATELY BEFORE THE UNLINK — same reasoning as the restore
+    # branch above. `_pid_alive`/`_port_answers` cost real wall time, and a
+    # successor can publish its own record in exactly that window; deleting
+    # the snapshot read at the TOP of this call would then delete the
+    # successor's fresh record, not the stale mark. Skipped when `pid` was
+    # never known (the unparseable-record fallback above) — there is no
+    # "same pid" to check for, and the original behaviour there is unchanged.
+    if pid:
+        current = read_daemon_state(certdir)
+        if not (current and current.get("handover")
+                and int(current.get("pid") or 0) == pid):
+            _log_lifecycle(
+                f"{pid}'s handover mark changed while deciding whether to "
+                f"clear it — leaving whatever is there now alone"
+            )
+            return True
     try:
         (Path(certdir) / _STATE_FILE).unlink()
         return True
@@ -11750,9 +12124,24 @@ def daemon_main(account_num: str, email: str, certdir: Path) -> None:
     threading.Thread(
         target=watch_refcount,
         args=(fifo, _teardown),
-        # The daemon's own connection count, so "is anyone using me" has an
-        # answer on macOS too (/proc/net/tcp does not exist there).
-        kwargs={"live_clients": proxy.live_client_count},
+        kwargs={
+            # The daemon's own connection count, so "is anyone using me" has
+            # an answer on macOS too (/proc/net/tcp does not exist there).
+            "live_clients": proxy.live_client_count,
+            # SAME VALUES AS THE START-OF-DAY WRITE ABOVE. If our own record
+            # ever goes missing while we are still serving — a stray delete,
+            # `_clear_handover_mark` racing this daemon's own restore — this
+            # is what `_is_claimed` calls to put it back before deciding we
+            # are unclaimed. GATED, not unconditional — see
+            # `_republish_own_record`: this same thread keeps ticking in a
+            # DRAINING predecessor after a handover, and writing there names
+            # a process that no longer accepts as the daemon.
+            "republish": lambda: _republish_own_record(
+                certdir, proxy.port, os.getpid(), _OWN_FINGERPRINT,
+                still_accepting=proxy._srv is not None,
+                live_clients=proxy.live_client_count,
+            ),
+        },
         daemon=True,
     ).start()
     # BOUNDED, so a signal callback actually RUNS. CPython executes a signal
@@ -12107,9 +12496,68 @@ def _canonical_body_sha(doc: dict) -> str:
 _STAMP_KINDS = ("org", "key", "wif", "token")
 
 
+def _is_hex64_list(v):
+    """CC's own shape for `hipaa_seen`/`hipaa_ruled_out`: at most 8
+    64-hex-char strings."""
+    return (isinstance(v, list) and len(v) <= 8
+            and all(isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h)
+                    for h in v))
+
+
+def _stamp_evidence(existing):
+    """`(hipaa_seen, hipaa_seen_incomplete, hipaa_ruled_out)` from an
+    existing stamp record whose SHAPE is exactly what CC's own
+    `.stamp.json` schema admits, or None.
+
+    THE SHAPE CHECK `_trusted_stamp_identity` used to run inline, split out
+    here because Path B (a stamp CC's gate would call "unstamped" or
+    "foreign" -- `expected_sha` unknown to it) still needs to know whether
+    that record's evidence is worth carrying forward, never just whether
+    its identity is trustworthy.
+
+    CC's schema (2.1.275+ `mZn` and its reader): `v`, `identity` (64-hex),
+    `kind` (one of `_STAMP_KINDS`), `sha` (1-128 chars), `confirmed_at` (a
+    non-negative int), `hipaa_seen` (at most 8 64-hex strings), and two
+    OPTIONAL keys admitted independently of each other -- `hipaa_seen_
+    incomplete` (bool) and `hipaa_ruled_out` (at most 8 64-hex strings),
+    even though CC's own writer only ever emits them together. Anything
+    outside this shape is UNPARSEABLE, the same bucket CC's own read gives
+    an unreadable or oversize file, and this returns None for it -- exactly
+    what the old inline check did before the split.
+    """
+    if not isinstance(existing, dict):
+        return None
+    identity = existing.get("identity")
+    kind = existing.get("kind")
+    sha = existing.get("sha")
+    # `.default([])` in CC's own schema: a stamp missing this key is `ok`
+    # to CC, not unparseable, so a missing key reads the same as an empty
+    # list here -- only a PRESENT, wrong-shaped value fails the check
+    # below.
+    hipaa_seen = existing.get("hipaa_seen", [])
+    confirmed_at = existing.get("confirmed_at")
+    incomplete = existing.get("hipaa_seen_incomplete", False)
+    ruled_out = existing.get("hipaa_ruled_out", [])
+    if (existing.get("v") != 1
+            or not isinstance(identity, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", identity)
+            or kind not in _STAMP_KINDS
+            or not isinstance(sha, str)
+            or not (1 <= len(sha) <= 128)
+            or not isinstance(confirmed_at, int)
+            or isinstance(confirmed_at, bool)
+            or confirmed_at < 0
+            or not _is_hex64_list(hipaa_seen)
+            or not isinstance(incomplete, bool)
+            or not _is_hex64_list(ruled_out)):
+        return None
+    return hipaa_seen, incomplete, ruled_out
+
+
 def _trusted_stamp_identity(existing, expected_sha):
-    """`(identity, kind, hipaa_seen)` from an EXISTING stamp CC itself can be
-    trusted to have written, or None.
+    """`(identity, kind, evidence)` from an EXISTING stamp CC itself can be
+    trusted to have written, or None -- `evidence` is `_stamp_evidence`'s
+    `(hipaa_seen, hipaa_seen_incomplete, hipaa_ruled_out)`.
 
     GROUND TRUTH, not a guess. An earlier draft of this fix
     (`_local_stamp_identity`) tried to re-derive `lve()`'s precedence -- an
@@ -12129,7 +12577,8 @@ def _trusted_stamp_identity(existing, expected_sha):
     actually validated it against, before this sweep does anything to
     either file -- and the whole record still matches the shape CC's own
     schema requires (`v`, `identity`, `kind`, `sha`, `confirmed_at`,
-    `hipaa_seen`, each element of the latter a 64-hex-char string);
+    `hipaa_seen`, each element of the latter a 64-hex-char string, plus
+    the two OPTIONAL keys `hipaa_seen_incomplete`/`hipaa_ruled_out`);
     anything else carries no assurance CC computed it at all.
     `expected_sha` itself being unknown (the body was unreadable, or this
     is the very first sweep) also trusts nothing: there is no claim to
@@ -12145,30 +12594,15 @@ def _trusted_stamp_identity(existing, expected_sha):
 
     A WRONG identity would only buy "foreign", which refuses exactly like
     "unstamped" does (see `sweep_policy_once`), so an indeterminate case
-    falls back to the plain unlink instead of guessing.
+    falls back to `_fall_back_to_unlink` instead of guessing.
     """
     if (expected_sha is None or not isinstance(existing, dict)
             or existing.get("sha") != expected_sha):
         return None
-    identity = existing.get("identity")
-    kind = existing.get("kind")
-    hipaa_seen = existing.get("hipaa_seen")
-    confirmed_at = existing.get("confirmed_at")
-    if (existing.get("v") != 1
-            or not isinstance(identity, str)
-            or not re.fullmatch(r"[0-9a-f]{64}", identity)
-            or kind not in _STAMP_KINDS
-            or not isinstance(existing["sha"], str)
-            or not (1 <= len(existing["sha"]) <= 128)
-            or not isinstance(confirmed_at, int)
-            or isinstance(confirmed_at, bool)
-            or confirmed_at < 0
-            or not isinstance(hipaa_seen, list)
-            or len(hipaa_seen) > 8
-            or not all(isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h)
-                       for h in hipaa_seen)):
+    evidence = _stamp_evidence(existing)
+    if evidence is None:
         return None
-    return identity, kind, hipaa_seen
+    return existing["identity"], existing["kind"], evidence
 
 
 class PinProxy:
@@ -12969,10 +13403,11 @@ class PinProxy:
         # WITH NO TRUSTED IDENTITY (no prior stamp, or one that does not
         # vouch for the body that was actually on disk) -- OR ONE THIS
         # SWEEP CANNOT VOUCH IS STILL FOR THE SAME ACCOUNT (the witness
-        # gate below, T0681 round 4) -- this still falls back to the plain
-        # unlink: a WRONG identity would only buy "foreign", which refuses
-        # exactly like "unstamped" does, so guessing is never better than
-        # not guessing.
+        # gate below, T0681 round 4) -- this still falls back to
+        # `_fall_back_to_unlink`, which unlinks or tombstones depending on
+        # whether the prior stamp carries HIPAA evidence (T1004): a WRONG
+        # identity would only buy "foreign", which refuses exactly like
+        # "unstamped" does, so guessing is never better than not guessing.
         #
         # THE BODY THIS MINT VOUCHES FOR is whatever is ACTUALLY on disk
         # once the write step above is done: `doc` only if the write just
@@ -12996,10 +13431,21 @@ class PinProxy:
         # equals `old_body_sha`, leaves an already-correct stamp untouched
         # regardless of this file, exactly as before this round).
         witness_path = path.with_name(path.name + ".pin-witness.json")
-        trusted = _trusted_stamp_identity(_read_json(stamp), old_body_sha)
+        # THE PRE-SWEEP STAMP, read once: `_trusted_stamp_identity` below
+        # is only the IDENTITY question (does this vouch for `old_body_sha`
+        # too); `_fall_back_to_unlink` needs the same record for the
+        # EVIDENCE question (does it carry HIPAA history worth keeping)
+        # even when the identity itself is not trusted -- Path B, sha
+        # mismatch included. Reading it twice would still see the same
+        # bytes (nothing above this line touches the stamp file), but
+        # passing the one read through is cheaper and keeps both questions
+        # answered from the same observation.
+        pre_sweep_stamp = _read_json(stamp)
+        trusted = _trusted_stamp_identity(pre_sweep_stamp, old_body_sha)
         target_sha = (_canonical_body_sha(doc)
                       if wrote and not write_failed else old_body_sha)
         healed = False
+        tombstoned = False
 
         def _fall_back_to_unlink(witness: "dict | None" = None) -> None:
             # THE SAME DIRECTION EVERY OTHER INDETERMINATE CASE ON THIS PATH
@@ -13032,10 +13478,71 @@ class PinProxy:
             # either still matches the live account (in which case
             # inheriting is exactly correct) or it does not (falls back,
             # same as if it had been deleted).
-            try:
-                stamp.unlink(missing_ok=True)
-            except OSError:
+            #
+            # THE STAMP ITSELF: 2.1.275+ CC has its own rule for exactly
+            # this moment (`deleteCacheFile`), read off the shipped binary,
+            # and this now mirrors it instead of always unlinking --
+            # losing a policy-limits stamp's HIPAA evidence is permanent
+            # and fails `allow_web_fetch`/`allow_design_sync` OPEN for an
+            # identity that was actually seen, where the old unconditional
+            # unlink read every case below as "nothing to lose". Decided
+            # from a FRESH read of the stamp file, not `pre_sweep_stamp` --
+            # every caller but the mint's own OSError branch below reaches
+            # here before anything has written to `stamp`, so the two
+            # reads see the same bytes there. That branch is the
+            # exception: `tmp.replace(stamp)` can already have landed
+            # THIS sweep's own new evidence (a fresh taint or an overflow
+            # marker) before the witness write that follows it fails, and
+            # falling back on `pre_sweep_stamp` there would overwrite that
+            # fresh evidence with the stale record this sweep was about
+            # to replace.
+            nonlocal tombstoned
+            current_stamp = _read_json(stamp)
+            evidence = _stamp_evidence(current_stamp)
+            if evidence is None:
+                # UNPARSEABLE (missing/wrong-shaped fields, not just a sha
+                # mismatch): CC's own deleteCacheFile leaves this exactly
+                # as it found it -- it could not read what, if anything,
+                # is worth keeping either. Nothing to touch.
                 pass
+            else:
+                seen, incomplete, ruled_out = evidence
+                if not seen and not incomplete:
+                    # EMPTY, COMPLETE EVIDENCE: nothing to lose, so this is
+                    # every host today (no HIPAA taint has ever landed) --
+                    # unlink exactly as before this round.
+                    try:
+                        stamp.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                else:
+                    # EVIDENCE ON RECORD: an unlink here is what loses it
+                    # for good. CC's own tombstone -- an identity no real
+                    # credential produces, so CC's gate reads it
+                    # "unstamped" and refetches, the same cache-miss state
+                    # its own deleteCacheFile leaves when it unlinks a
+                    # body-less stamp -- carries the evidence forward for
+                    # CC's next save to inherit, instead of an unlink
+                    # discarding it.
+                    tombstone = {"v": 1, "identity": "0" * 64,
+                                 "kind": "token", "sha": "none",
+                                 "confirmed_at": 0, "hipaa_seen": seen[-8:]}
+                    if incomplete:
+                        tombstone["hipaa_seen_incomplete"] = True
+                        tombstone["hipaa_ruled_out"] = ruled_out[-8:]
+                    if current_stamp != tombstone:
+                        try:
+                            tmp = stamp.with_name(
+                                f"{stamp.name}.{os.getpid()}.tmp")
+                            tmp.write_text(json.dumps(tombstone),
+                                            encoding="utf-8")
+                            tmp.replace(stamp)
+                            tombstoned = True
+                        except OSError:
+                            # LEAVE THE STAMP AS IS, never unlink: an
+                            # unlink here is exactly the evidence loss this
+                            # branch exists to avoid.
+                            pass
             if witness is not None:
                 try:
                     wtmp = witness_path.with_name(
@@ -13061,20 +13568,41 @@ class PinProxy:
             if current is None or recorded != current:
                 _fall_back_to_unlink(current)
             else:
-                identity_hex, kind, prev_seen = trusted
-                # hipaa_seen mirrors CC's own `bzn`: drop any earlier record
-                # of THIS identity, then re-add it only if the fresh body
-                # carries a "hipaa" taint, capped to the last 8 (CC's `ce`).
-                # `prev_seen` is already list-shaped --
+                identity_hex, kind, (prev_seen, prev_incomplete,
+                                      prev_ruled_out) = trusted
+                # MIRRORS CC's OWN `mZn` (2.1.275+), line for line: drop any
+                # earlier record of THIS identity from both lists; a fresh
+                # "hipaa" taint re-adds it to `seen`, otherwise an already-
+                # incomplete history re-adds it to `ruled_out` (this sweep
+                # itself did not see it tainted, but it cannot vouch the
+                # identity was truly never seen either, since the evidence
+                # it inherited already wasn't complete). `prev_seen`/
+                # `prev_ruled_out` are already list-shaped --
                 # `_trusted_stamp_identity` checked -- so no further
-                # validation is owed here.
+                # validation is owed here. CC normalises a taint (trim +
+                # lowercase) before this comparison; matched here too.
+                taints = doc.get("compliance_taints") or []
+                tainted = any(isinstance(t, str) and t.strip().lower() == "hipaa"
+                               for t in taints)
                 seen = [h for h in prev_seen if h != identity_hex]
-                if "hipaa" in (doc.get("compliance_taints") or []):
+                ruled_out = [h for h in prev_ruled_out if h != identity_hex]
+                if tainted:
                     seen.append(identity_hex)
+                elif prev_incomplete:
+                    ruled_out.append(identity_hex)
+                overflowed = len(seen) > 8
                 new_stamp = {"v": 1, "identity": identity_hex, "kind": kind,
                              "sha": target_sha,
                              "confirmed_at": int(time.time() * 1000),
                              "hipaa_seen": seen[-8:]}
+                if prev_incomplete or overflowed:
+                    # CC's own `mZn` carries `hipaa_seen_incomplete` forward
+                    # once it is ever true, and sets it fresh the moment the
+                    # cap (8) drops an entry -- a `hipaa_seen` list that no
+                    # longer names everyone this identity has been dropped
+                    # for is no longer COMPLETE evidence either way.
+                    new_stamp["hipaa_seen_incomplete"] = True
+                    new_stamp["hipaa_ruled_out"] = ruled_out[-8:]
                 try:
                     # PID-SUFFIXED, matching `write_daemon_state`'s convention:
                     # CC mints this same sidecar, and a draining daemon plus
@@ -13133,6 +13661,15 @@ class PinProxy:
             # OSError logs nothing.
             _log_lifecycle("removed a stale policy-cache stamp left by an "
                            "earlier write")
+        elif tombstoned:
+            # THE EVIDENCE-PRESERVING TWIN of the unlink log above: fires
+            # only where `_fall_back_to_unlink` actually wrote a NEW
+            # tombstone (never on the skip-because-already-equal path, and
+            # never merely because a stamp was left untouched as
+            # unparseable) -- same truthfulness the unlink log already
+            # holds itself to.
+            _log_lifecycle("kept the stamp's HIPAA evidence in a tombstone "
+                           "instead of removing it")
         return wrote
 
     def revive_archived_bridges(self, sessions: list[dict], token: str) -> int:
@@ -15419,6 +15956,17 @@ class PinProxy:
         Nor is a title shared between two LIVE bridges a reason to close
         either: two windows both named ``cswap`` that each opened RC are two
         sessions in use, and that is for the human to fix with `/rename`.
+
+        A FOURTH PATH, disposed of by ARCHIVE rather than DELETE: an
+        active+disconnected twin neither the dead-creator nor the
+        replaced-twin proof names, but that a `bridge-session` record in an
+        ENDED transcript sitting in the SAME project directory as a LIVE
+        session's own transcript still names -- see `_archived_twin_proof`.
+        ARCHIVE, not DELETE, because that proof alone does not rule out the
+        twin being exactly what someone meant to keep: archiving still drops
+        it from ListAgents and the `@` picker, still leaves it in the
+        owner's claude.ai history, and is reversible from there, where a
+        DELETE is not.
         """
         sessions = self._list_bridges(token)
         # SET EVEN WHEN THE LISTING FAILED, and that is the whole point of the
@@ -15459,6 +16007,14 @@ class PinProxy:
         # twin; only a host-local record proving THIS host's own job once
         # held it does. See `_replaced_twin_bridge_ids`.
         replaced_twin = _replaced_twin_bridge_ids()
+        # NO SEPARATE OWNERSHIP CHECK IS NEEDED for the fourth path below,
+        # unlike a first draft that kept one (`held = live_bridge_names()`,
+        # removed): `revive_archived_bridges` only unarchives an id in
+        # `live_bridge_names()`, and that set is built from the exact same
+        # `_live_bridge_records()` join as `live` -- so anything this sweep
+        # reaches to archive has already failed `sid in live` below and can
+        # therefore never be in `live_bridge_names()` either. No revive loop
+        # is possible without a check that duplicates one already run.
         newest: dict[str, str] = {}
         for item in sessions:
             title = (item.get("title") or "").strip()
@@ -15468,10 +16024,13 @@ class PinProxy:
                     newest[title] = stamp
 
         closed = 0
+        archived = 0
+        archive_refused = 0
         for item in sessions:
             sid, title = item.get("id"), (item.get("title") or "").strip()
             if not sid or not title or sid in live:
                 continue
+            archive_only = False
             if (item.get("connection_status") == "connected"
                     and item.get("status") == "archived"):
                 # A RUNNING WORKER IS A SESSION AT WORK, and the listing says
@@ -15490,8 +16049,7 @@ class PinProxy:
                 if str(item.get("worker_status") or "").lower() == "running":
                     continue
             elif (item.get("status") == "active"
-                    and item.get("connection_status") == "disconnected"
-                    and (sid in dead_creator or sid in replaced_twin)):
+                    and item.get("connection_status") == "disconnected"):
                 # THE DEAD-CREATOR PATH, OR THE REPLACED-TWIN ONE. Archived
                 # is deliberately excluded -- that is the owner's claude.ai
                 # history, kept on purpose, whatever a local record says --
@@ -15499,7 +16057,21 @@ class PinProxy:
                 # whose creator is dead, or whose own job has since moved to
                 # a newer bridge, carries a stale flag here, and only the
                 # local record may speak for it.
-                pass
+                #
+                # NEITHER PROVES IT: the fourth path, `_archived_twin_proof`,
+                # gets its chance below, once every cheap condition already
+                # holds -- and its finding is disposed of by ARCHIVE, never
+                # DELETE, since it alone does not rule out this being exactly
+                # what someone meant to keep.
+                if sid not in dead_creator and sid not in replaced_twin:
+                    # RULE 4 APPLIES HERE TOO, unlike the dead-creator/
+                    # replaced-twin proofs above: those carry their own pid
+                    # evidence of death, this one does not, so a `running`
+                    # worker still only SAVES a bridge, never condemns one.
+                    if str(item.get("worker_status") or "").lower() \
+                            == "running":
+                        continue
+                    archive_only = True
             else:
                 continue
             if (item.get("last_event_at") or "") >= newest[title]:
@@ -15516,13 +16088,40 @@ class PinProxy:
                        if (other.get("title") or "").strip() == title
                        and other.get("id") != sid):
                 continue
+            if archive_only:
+                if not _archived_twin_proof(
+                        sid, title, item.get("created_at")):
+                    continue
+                # ROUTE READ FROM THE BINARY, the same discipline
+                # `revive_archived_bridges` used for `/unarchive`: Claude
+                # Code's own `archiveRemoteSession` posts an empty body to
+                # exactly this path and accepts 200 or 409, and its
+                # `bridge:api.archiveSession` names the identical path under
+                # `useCcrV2SessionCrud` (`/v1/sessions/{id}/archive` is the
+                # legacy fallback when that flag is off) -- the same CCR v2
+                # namespace this sweep's own DELETE call already uses.
+                if self._bridge_api(
+                    "POST", f"/v1/code/sessions/{sid}/archive", token
+                ) is not None:
+                    archived += 1
+                else:
+                    archive_refused += 1
+                continue
             if self._bridge_api(
                 "DELETE", f"/v1/code/sessions/{sid}", token
             ) is not None:
                 closed += 1
         if closed:
             _log_lifecycle(f"closed {closed} superseded remote-control bridges")
-        return closed
+        if archived:
+            _log_lifecycle(
+                f"archived {archived} superseded remote-control bridge(s) an "
+                f"ended transcript in a live session's own project proved")
+        if archive_refused:
+            _log_lifecycle(
+                f"refused to archive {archive_refused} superseded "
+                f"remote-control bridge(s) an ended transcript proved")
+        return closed + archived
 
     def _handle_client(self, conn: socket.socket) -> None:
         # A per-CONNECTION id, not a thread id: threads are pooled and reused,
@@ -16028,7 +16627,86 @@ class PinProxy:
                 pass
 
     def _plain_relay(self, request_line: str, conn: socket.socket) -> None:
-        """Forward an absolute-form proxy request through the chain (or direct).
+        """Forward every request on an absolute-form proxy connection (or
+        direct if no chain is set).
+
+        PER REQUEST, NOT ONLY THE CONNECTION'S FIRST (T0986 CHANGE 1).
+        `claude remote-control` sends its requests one after another on one
+        keep-alive socket — register, session create and its first work
+        poll — so route-deciding only the first request left every later
+        one unswapped and untraced — raw `_pump` has no idea what a request
+        even is. `_plain_relay_request` repeats the connection's first
+        request's own parse/route/swap/trace/relay for every request; this
+        loops while it says the connection may carry another.
+        """
+        # NO BLANKET try/finally HERE. `_wait_for_pin_token` can raise
+        # `_BlindMintRefusal` out of `_plain_relay_request`, uncaught on
+        # purpose — `_handle_client`'s own handler answers it and closes
+        # `conn` itself (matching every other refusal on that path); closing
+        # here first would race it and leave the 503 written to a socket
+        # already shut.
+        while True:
+            if not self._plain_relay_request(request_line, conn):
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+                return
+            # THE DEBT BOUNDARY, mirroring `_mitm`'s own (see the comment
+            # at the top of its loop): the reply just relayed has settled,
+            # so clear it before blocking on the next request line, not
+            # after — otherwise every absolute-form keep-alive connection
+            # reads as permanently owed between requests, the same bug
+            # `_mitm` fixed at its own loop.
+            #
+            # NOT `_note_reply_finished`: this path passes no `on_headers` to
+            # `_relay_response`, so `_content_at[conn]` never moves off its
+            # `_owe_answer` seed here — calling it would bank the WHOLE
+            # reply as content-free silence, the wrong-instrument shape its
+            # own docstring warns about.
+            self._owe_answer(conn, False)
+            request_line = _read_line(conn)
+            while request_line == "":
+                # RFC 9112 2.2: a server SHOULD ignore at least one empty
+                # line received prior to a request-line — some clients
+                # pipeline one as a buggy workaround. Treating it as the
+                # end closed a socket that had a request right behind it.
+                request_line = _read_line(conn)
+            if request_line is None:
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+                return
+            # A REQUEST LINE ARRIVED, so somebody is waiting again — same
+            # moment `_handle_one_request` re-arms the debt on the MITM
+            # path.
+            self._owe_answer(conn, True)
+            # A LATER REQUEST ON THIS SOCKET MUST STILL BE ABSOLUTE-FORM:
+            # this loop only knows how to relay the form `_handle_client`
+            # already checked for the connection's first (its own "://"
+            # gate). A CONNECT or an origin-form line here used to run into
+            # `urlsplit` misparsing "host:port" as a scheme and dialling
+            # nowhere; close it instead — draining the headers first, same
+            # discipline as the CONNECT path's own unreadable-authority
+            # close, so closing on top of unread bytes does not send RST --
+            # for a BODYLESS line only: a body past the headers is not
+            # drained here and stays unread on the socket.
+            _rl = request_line.split(" ")
+            if len(_rl) < 2 or "://" not in _rl[1]:
+                while True:
+                    h = _read_line(conn)
+                    if h in ("", None):
+                        break
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+                return
+
+    def _plain_relay_request(self, request_line: str, conn: socket.socket) -> bool:
+        """One request on an absolute-form proxy connection. Returns whether
+        the connection may carry another.
 
         Rewrites the request line to origin-form and dials the target host —
         via the chain proxy if one is set (still absolute-form to it, as a
@@ -16108,8 +16786,7 @@ class PinProxy:
                         self._pin_token_provider, "mint_stalled", None
                 ) and self._pin_token_provider.mint_stalled():
                     self._refuse_stalled_mint(conn, method, rel, close=True)
-                    conn.close()
-                    return
+                    return False
                 token = self._wait_for_pin_token(method, rel, token)
                 if token and any(h.split(":", 1)[0].strip().lower()
                                  == "authorization" for h in headers):
@@ -16211,8 +16888,7 @@ class PinProxy:
             _bridge_event, _ = self._hold_bridge_attach(_bridge_cse)
             if _client_hung_up(conn):
                 self._release_bridge_attach(_bridge_cse, _bridge_event)
-                conn.close()
-                return
+                return False
         _bridge_released = False
 
         def _release_bridge_hold() -> None:
@@ -16220,6 +16896,30 @@ class PinProxy:
             if _bridge_event is not None and not _bridge_released:
                 self._release_bridge_attach(_bridge_cse, _bridge_event)
                 _bridge_released = True
+
+        # AN UPGRADE (101) STAYS OPAQUE, exactly like the connection's first
+        # request always did: `_relay_response` treats a 1xx as interim and
+        # reads PAST it for the "real" status, and `_is_interim` counts a
+        # 101 in that range — routed there, a WebSocket handshake would have
+        # it read the first frame as a status line instead.
+        upgrading = any(k.lower() == "upgrade" and v.strip() for k, v in parsed)
+        # THE CLIENT'S OWN INTENT, read once from the arrival headers —
+        # `headers` may be rewritten below (Authorization/Host) but
+        # Connection is never one of the rewritten names.
+        # JOINED, NOT JUST THE FIRST: RFC 9110 5.3 lets a sender split one
+        # field across repeated header lines, and an earlier version here
+        # took only the first match, losing a later `close` the old `any()`
+        # over every parsed header used to see.
+        _conn_header = ", ".join(
+            v for k, v in parsed if k.lower() == "connection")
+        client_wants_close = "close" in _conn_header.lower() or (
+            # RFC 9112 9.3: an HTTP/1.0 `keep-alive` persists a connection
+            # only when the recipient is not a proxy, or the message is a
+            # response. This pin is a proxy receiving a REQUEST, so neither
+            # holds and every HTTP/1.0 request closes, its own `Connection`
+            # header notwithstanding.
+            len(rl) > 2 and rl[2] == "HTTP/1.0"
+        )
 
         try:
             # A SWAP THE UPSTREAM REFUSES IS TAKEN BACK, as the MITM path
@@ -16246,41 +16946,72 @@ class PinProxy:
                         )
                     except OSError:
                         pass
-                    conn.close()
-                    return
+                    return False
                 if up is None:
-                    conn.close()
-                    return
+                    return False
                 try:
-                    # Connect budget only, same as the tunnel: _pump streams, and
-                    # a read timeout left on the socket tears down a response that
-                    # is merely quiet — an SSE gap or a slow origin — rather than
-                    # dead.
+                    # Connect budget only, same as the tunnel: the relay
+                    # streams, and a read timeout left on the socket tears
+                    # down a response that is merely quiet — an SSE gap or a
+                    # slow origin — rather than dead.
                     up.settimeout(None)
                     up.sendall(head.encode("latin1") + body)
-                    seen = b""
-                    if retry or _bridge_cse:
+                    if upgrading:
+                        # THE OPAQUE TAIL. Always peek the status first — a
+                        # drain reading `inflight_requests()` between the
+                        # dial and the handshake must still see this
+                        # connection as owed, the same order `_mitm`'s own
+                        # Upgrade tail keeps (`_relay_upgrade` relays before
+                        # `_owe_answer(_c, False)` runs). The take-back
+                        # stays gated on `retry` alone: a `_bridge_cse` hold
+                        # with no swap never asked for one.
                         code, seen = _peek_status(up)
                         if retry and code in (401, 403, 404):
                             self._tunnel_trace(
                                 f"{method} {rel} swap refused ({code}) — "
                                 "retrying as it arrived (absolute-form)")
                             continue
-                    # RELEASED HERE, THE MOMENT THE STATUS LINE IS IN HAND —
-                    # same discipline as the MITM path's `on_status` (see
-                    # `_forward`): the outer `finally` below is only the
-                    # backstop for a dial failure or an exception before this
-                    # point. Waiting for `_pump` to return instead held this
-                    # past a whole keep-alive connection's lifetime, or
-                    # released it EARLY on the client's own abort while the
-                    # request was still live in a stalled hop — either way
-                    # not "the exchange settled". (`_release_bridge_hold`
-                    # is already a no-op with no `_bridge_cse`.)
+                        # RELEASED HERE, THE MOMENT THE STATUS LINE IS IN
+                        # HAND — same discipline as the MITM path's
+                        # `on_status` (see `_forward`): the outer `finally`
+                        # below is only the backstop for a dial failure or
+                        # an exception before this point.
+                        _release_bridge_hold()
+                        if seen:
+                            conn.sendall(seen)
+                        # THE DEBT CLEARS ONLY NOW, AFTER THE HANDSHAKE
+                        # REACHED THE CLIENT — not at the dial, or a drain
+                        # racing the peek above would read this connection
+                        # as answered while the client is still waiting on
+                        # a 101 the upstream has not sent yet. From here two
+                        # sockets are pumped into each other for the life of
+                        # the connection, and nobody is waiting on a reply.
+                        self._owe_answer(conn, False)
+                        _pump(conn, up)
+                        return False
+                    # NOT UPGRADING: THE SAME RELAY THE MITM PATH USES
+                    # (`_forward`/`_relay_response`), so every defence it
+                    # carries — chunked re-framing, the swap take-back, the
+                    # bridge-hold release at the status line — applies to
+                    # every request here, not only a connection's first.
+                    #
+                    # NO `path=`/`certdir=`/`auth=` (T1041 finding 5): none of
+                    # what they enable is owed here — the standalone RC
+                    # client's absolute-form routes gate on none of them.
+                    result = _relay_response(
+                        up, conn, getattr(self._local, "cid", 0),
+                        reject_on_auth_error=retry,
+                        method=method,
+                        on_status=lambda st: _release_bridge_hold(),
+                        note_hop=host == UPSTREAM_HOST and secure,
+                    )
+                    if isinstance(result, _AuthRejected):
+                        self._tunnel_trace(
+                            f"{method} {rel} swap refused ({result.code}) — "
+                            "retrying as it arrived (absolute-form)")
+                        continue
                     _release_bridge_hold()
-                    if seen:
-                        conn.sendall(seen)
-                    _pump(conn, up)
-                    return
+                    return bool(result) and not client_wants_close
                 finally:
                     try:
                         up.close()
@@ -16288,10 +17019,11 @@ class PinProxy:
                         pass
         finally:
             # THE EXCHANGE HAS SETTLED ONE WAY OR ANOTHER by the time this
-            # runs — sent and handed to `_pump`, refused with a 503, or
-            # every hop failed — so a later request for this cse may
+            # runs — sent and handed to `_pump`, relayed, refused with a
+            # 503, or every hop failed — so a later request for this cse may
             # proceed.
             _release_bridge_hold()
+        return False
 
     def _mitm(self, conn: socket.socket) -> bool:
         """Serve requests on this connection. True when it was HANDED OVER.
@@ -16601,7 +17333,7 @@ class PinProxy:
         try:
             keep = self._forward(method, path, headers, body, tls,
                                  swapped=swapped, bridge_hold=_bridge_hold)
-            if keep is _AUTH_REJECTED:
+            if isinstance(keep, _AuthRejected):
                 # THE SWAP ITSELF WAS REFUSED. Send it again as it arrived. A
                 # 401/403/404 is terminal to the client — SSETransport treats
                 # those as permanent (M7y = new Set([401,403,404])), sets
@@ -17518,16 +18250,19 @@ class _AuthRejected:
 
     Distinct from True/False, which both mean "the client already has its
     response". This says the opposite — the client has received NOTHING and
-    the caller must retry.
+    the caller must retry. Carries the STATUS CODE the upstream refused
+    with, so a caller can trace which of 401/403/404 fired instead of a
+    bare "swap refused".
     """
 
-    __slots__ = ()
+    __slots__ = ("code",)
+
+    def __init__(self, code: int) -> None:
+        self.code = code
 
     def __bool__(self) -> bool:  # never mistaken for "keep the connection"
         return False
 
-
-_AUTH_REJECTED = _AuthRejected()
 
 _HOP_BY_HOP = {
     "connection",
@@ -17970,15 +18705,31 @@ def _stream_404_is_spurious(path: str | None, certdir=None) -> bool:
 
 
 _walled_switch_lock = threading.Lock()
-# reset -> (ok, retry_at). Insertion-ordered, capped at 8 — a bounded memo,
-# not a bound on how many walls can be in flight: once the cap is hit the
-# OLDEST entry is dropped, so a straggler request from a wall we already
-# left (A -> switched to B -> B also walled -> switched to C) can re-run the
-# switch once, the pre-existing behaviour. `retry_at` is None for a settled
-# CONVERSION and a monotonic deadline for every negative; see
-# `_remember_walled_switch` for why the asymmetry runs that way.
+# (reset, slot) -> (ok, retry_at, decided_at). Insertion-ordered, capped at
+# 8 — a bounded memo, not a bound on how many walls can be in flight: once
+# the cap is hit the OLDEST entry is dropped, so a straggler request from a
+# wall we already left (A -> switched to B -> B also walled -> switched to
+# C) can re-run the switch once, the pre-existing behaviour. `retry_at` is
+# None for a settled CONVERSION and a monotonic deadline for every negative;
+# see `_remember_walled_switch` for why the asymmetry runs that way.
+# `decided_at` is the monotonic time the verdict was written, so a later
+# request whose own slot read (`seen_at`, in `_switch_off_walled_account`)
+# happened AFTER it can tell "I am a storm waiter that read the slot before
+# the switch landed" from "the walled slot is live again, on a later look" —
+# the settled TRUE alone cannot, once a switch-off is permanent history
+# rather than a decision nobody has revisited.
 _walled_switch_seen: dict[tuple[bytes, str | None],
-                          tuple[bool, float | None]] = {}
+                          tuple[bool, float | None, float]] = {}
+
+# slot -> the reset epoch (seconds, from the wall's own header) that walled
+# it, recorded only for a 429 whose bearer is the live slot's own token —
+# see `_switch_off_walled_account`. Read as the set of slots still inside
+# their own wall (epoch > time.time()); expired entries are pruned on read,
+# so this is a decaying set, not a log. Feeds `exclude=` on `switch()` when
+# the host supports it (`_switch_takes_exclude`), so a switch-off does not
+# hand the account straight back onto a slot this daemon already knows is
+# still walled.
+_walled_slots: dict[str, float] = {}
 
 # ~ the cross-process lock timeouts this daemon and cswap itself use: long
 # enough that a storm on one wall does not re-attempt for every repeat,
@@ -17992,15 +18743,21 @@ def _remember_walled_switch(key: tuple[bytes, str | None], ok: bool) -> None:
 
     ONE WRITER, because the asymmetry is the whole point and it was wrong in
     two of the three places that wrote it. A validated conversion is
-    permanent: the account really is off, so a later repeat has nothing to
-    re-decide. Every negative EXPIRES — a raise and a `switched=False` both
-    mean "not now", not "not ever", and `retry_at=None` on a `switched=False`
-    is what relayed 28 raw 429s across 101 seconds on 2026-09-09 while a
-    healthy account sat live and unreachable.
+    permanent AS A RECORD — the switch really landed — but not as a licence
+    to stop looking: the walled slot can go live again inside its own wall
+    (cswap moved back onto it), and a later request whose own slot read
+    happened after this verdict is the signal that re-decides, in
+    `_switch_off_walled_account`; "nothing to re-decide" was the false
+    premise a 1055-line 23-minute debounce storm measured on 2026-09-23.
+    Every negative EXPIRES — a raise and a `switched=False` both mean "not
+    now", not "not ever", and `retry_at=None` on a `switched=False` is what
+    relayed 28 raw 429s across 101 seconds on 2026-09-09 while a healthy
+    account sat live and unreachable.
     """
+    now = time.monotonic()
     _walled_switch_seen[key] = (
-        (True, None) if ok
-        else (False, time.monotonic() + _WALLED_SWITCH_RAISE_TTL)
+        (True, None, now) if ok
+        else (False, now + _WALLED_SWITCH_RAISE_TTL, now)
     )
     if len(_walled_switch_seen) > 8:
         del _walled_switch_seen[next(iter(_walled_switch_seen))]
@@ -18061,6 +18818,20 @@ def _live_account_headroom(num: str) -> float | None:
         return None
 
 
+def _switch_takes_exclude() -> bool:
+    """Whether this host's `switch()` accepts `exclude`, the slot-skip kwarg
+    a separate cswap task adds so a switch-off need not hand the account
+    straight back onto a slot this daemon already knows is still walled. Not
+    every host has it yet, so the pin must work against both: False on any
+    exception (an older `switch()`, or the symbol missing outright) leaves
+    the call exactly as it was before this kwarg existed."""
+    try:
+        return "exclude" in inspect.signature(
+            require("switcher").ClaudeAccountSwitcher.switch).parameters
+    except Exception:  # noqa: BLE001 — never let this break the relay
+        return False
+
+
 def _switch_off_walled_account(
     reset: bytes, retry_after: bytes, auth: str = "",
 ) -> bool:
@@ -18088,12 +18859,16 @@ def _switch_off_walled_account(
 
     True means "turn the 429 the client will see into a 401" — because this
     call switched the account off onto a credential the host confirmed is
-    LIVE, or an earlier call for this same wall already did, or the host had
-    ALREADY moved and the client's frozen bearer is the only thing still on
-    the walled account (`_live_account_headroom`: a 401 alone fixes that, and
-    no switch can). False (no headroom anywhere, `switch()` raised, `switch()`
-    landed a credential it never validated, or a repeat of a wall that never
-    earned a 401 and whose expiry has not passed) means
+    LIVE, or an earlier call for this same wall already did AND THAT VERDICT
+    STILL HOLDS (a request whose own slot read happened before the switch is
+    a storm waiter and gets the debounce as-is; one whose slot read happened
+    after, and still names the walled slot, means the wall let the account
+    back onto it and RE-DECIDES instead — see `seen_at`/`decided_at` below),
+    or the host had ALREADY moved and the client's frozen bearer is the only
+    thing still on the walled account (`_live_account_headroom`: a 401 alone
+    fixes that, and no switch can). False (no headroom anywhere, `switch()`
+    raised, `switch()` landed a credential it never validated, or a repeat of
+    a wall that never earned a 401 and whose expiry has not passed) means
     relay the 429 with its rate-limit headers stripped, so the client backs
     off and retries instead of sleeping the wall's own reset window; a 401
     onto a credential nobody confirmed is alive is worse than the wall
@@ -18141,6 +18916,12 @@ def _switch_off_walled_account(
     # That is the exhaustion `headroom > 0` exists to prevent, so the pair is
     # read adjacently here and the debounce pays one extra store read rather
     # than deciding on two different accounts.
+    #
+    # `seen_at` IS READ HERE TOO, immediately before the slot, for the same
+    # reason: it dates this request's own look at the slot, which is what
+    # tells a storm waiter (its look predates the verdict) from a later
+    # request finding the walled slot live again (its look postdates it).
+    seen_at = time.monotonic()
     slot = _live_account_slot()
     live = _active_oauth_token()
     with _walled_switch_lock:
@@ -18155,14 +18936,38 @@ def _switch_off_walled_account(
         # number does not rotate.
         key = (reset, slot)
         if key in _walled_switch_seen:
-            ok, retry_at = _walled_switch_seen[key]
+            ok, retry_at, decided_at = _walled_switch_seen[key]
             if retry_at is None or time.monotonic() < retry_at:
+                # A settled TRUE is not re-decided on every hit: only when
+                # THIS request's own slot read happened after the verdict
+                # (so it is not one of the storm's own waiters, whose read
+                # predates the switch by construction) AND the host can be
+                # told to skip the slot it would otherwise land right back
+                # on. Without `exclude` a re-decide could ping-pong between
+                # two walled slots, one consume per client retry — worse
+                # than the standing debounce it would replace. `slot is not
+                # None`, because an unmanaged/failed slot read keys on
+                # `(reset, None)` for EVERY request while it lasts, not just
+                # the one that decided it — without this term a settled TRUE
+                # on that key re-decides on every later look. `>`, not
+                # `>=`: a tie is this same request's own read, not a later
+                # one, and must debounce like any other.
+                redecide = (ok and slot is not None and seen_at > decided_at
+                            and _switch_takes_exclude())
+                if not redecide:
+                    _log_lifecycle(
+                        "429 on /v1/messages — debounced repeat of wall reset="
+                        f"{reset.decode('latin1', 'replace')}, relaying "
+                        f"{'a 401' if ok else 'the 429 with headers stripped'}"
+                    )
+                    return ok
                 _log_lifecycle(
-                    "429 on /v1/messages — debounced repeat of wall reset="
-                    f"{reset.decode('latin1', 'replace')}, relaying "
-                    f"{'a 401' if ok else 'the 429 with headers stripped'}"
+                    "429 on /v1/messages — wall reset="
+                    f"{reset.decode('latin1', 'replace')} is on slot "
+                    f"{slot} again after the pin switched off it; "
+                    "re-deciding"
                 )
-                return ok
+                # Falls through to the ordinary decision path below.
             # The negative's short expiry passed: treat this wall as unseen.
         # NO SWITCH IS NEEDED WHEN THE HOST HAS ALREADY MOVED. `switch()`
         # answers "did I just switch?"; what decides whether a 401 helps is
@@ -18213,6 +19018,16 @@ def _switch_off_walled_account(
                 # until the retry loop exhausts into `authentication_failed`.
                 _remember_walled_switch(key, False)
                 return True
+        # THE WALL ITSELF, RECORDED — only for a 429 whose bearer is the
+        # live slot's OWN token: a bearer-branch 429 (handled above) is
+        # someone else's frozen credential and its reset belongs to another
+        # account, not to the slot cswap has active now. An unparseable
+        # reset records nothing rather than a slot excluded forever.
+        if slot is not None and token and live and token == live:
+            try:
+                _walled_slots[slot] = float(reset)
+            except ValueError:
+                pass
         try:
             switcher = require("switcher")
             # NOT `switch_off_at_limit_account`, which passes no `models` and
@@ -18242,10 +19057,17 @@ def _switch_off_walled_account(
             # claude-swap — survives unchanged: an older `switch()` has no
             # `models` parameter, so the TypeError lands in the except below
             # and relays the 429, exactly as a missing symbol did.
-            result = switcher.ClaudeAccountSwitcher().switch(
+            switch_kwargs = dict(
                 strategy="best", json_output=True,
                 current_at_limit=True, models=("all",),
             )
+            if _switch_takes_exclude():
+                now = time.time()
+                for expired in [s for s, exp in _walled_slots.items()
+                                 if exp <= now]:
+                    del _walled_slots[expired]
+                switch_kwargs["exclude"] = frozenset(_walled_slots)
+            result = switcher.ClaudeAccountSwitcher().switch(**switch_kwargs)
         except Exception as exc:  # noqa: BLE001 — never let this break the relay
             _log_lifecycle(
                 f"429 on /v1/messages — the at-limit switch raised "
@@ -18291,6 +19113,7 @@ def _relay_response(
     path: str | None = None,
     certdir=None,
     auth: str = "",
+    note_hop: bool = True,
 ) -> bool:
     """Stream one upstream response to the client; return whether the
     connection may be reused for another request.
@@ -18305,6 +19128,11 @@ def _relay_response(
 
     Bytes are forwarded as they arrive, so an SSE stream reaches the client
     event-by-event instead of being buffered whole.
+
+    `note_hop` gates `_note_hop_trouble`: True (the default, what `_forward`
+    relies on) for the pin's own upstream, False for a foreign host relayed
+    on the plain path — a foreign host's own 5xx is not evidence about the
+    hop `_hop_recently_failed` guards.
     """
     # EVERY WRITE, NOT JUST THE FIRST. `on_headers` began as "the reply has
     # started", which the drain needed to tell a retryable cut from a lost one.
@@ -18353,9 +19181,16 @@ def _relay_response(
                 " (swap refused — retrying unswapped)\n"
             )
             _TRACE.flush()
-        return _AUTH_REJECTED
+        # ONLY BYTES [9:12] ARE GUARANTEED: the `startswith` above matched
+        # "HTTP/1.1 " + one of the three `c` values at that exact offset,
+        # and nothing else -- what follows could be a space, a reason
+        # phrase, or (a malformed "HTTP/1.1 401x") more digits, which
+        # `status_line.split(b" ", 2)[1]` picked up and `int()` then raised
+        # on.
+        return _AuthRejected(int(status_line[9:12]))
     _note_worker_status(path, status_line, certdir)
-    _note_hop_trouble(status_line)
+    if note_hop:
+        _note_hop_trouble(status_line)
     # Unconditional: `/v1/messages` is never pinned so the `swapped` take-back
     # above cannot see it; 401 is a rebuild trigger, 429 is not.
     _walled_401 = False
@@ -18503,13 +19338,13 @@ def _relay_response(
                 _Prefixed(up, rest), client, cid,
                 reject_on_auth_error=reject_on_auth_error, method=method,
                 on_headers=None, on_status=on_status, path=path,
-                certdir=certdir, auth=auth,
+                certdir=certdir, auth=auth, note_hop=note_hop,
             )
         return _relay_response(
             up, client, cid,
             reject_on_auth_error=reject_on_auth_error, method=method,
             on_headers=None, on_status=on_status, path=path,
-            certdir=certdir, auth=auth,
+            certdir=certdir, auth=auth, note_hop=note_hop,
         )
     if bodyless:
         # 204/304 (and 1xx) carry no body by definition and commonly send

@@ -237,8 +237,8 @@ class State(_common.CaseInSensitiveEnum):
     """The unspecified state."""
     ACTIVE = "ACTIVE"
     """Is deployed and ready to be used."""
-    DEPRECATED = "DEPRECATED"
-    """Is deprecated, may not be used, only preserved for historical purposes."""
+    ARCHIVED = "ARCHIVED"
+    """Is archived and can no longer receive traffic, only preserved for historical purposes."""
 
 
 class MemoryType(_common.CaseInSensitiveEnum):
@@ -328,6 +328,8 @@ class SandboxState(_common.CaseInSensitiveEnum):
     """Sandbox runtime is pausing."""
     STATE_RESUMING = "STATE_RESUMING"
     """Sandbox runtime is resuming."""
+    STATE_STOPPING = "STATE_STOPPING"
+    """Sandbox runtime is stopping."""
 
 
 class Protocol(_common.CaseInSensitiveEnum):
@@ -1705,6 +1707,10 @@ class CustomCodeExecutionSpec(_common.BaseModel):
   Instance is the evaluation instance, any fields populated in the instance
   are available to the function as instance[field_name].""",
     )
+    code_execution_region: Optional[str] = Field(
+        default=None,
+        description="""Optional. The region to use for code execution. If set, the Code Execution Sandbox will be invoked in the specified region regardless of the request's originating region. Must be a region where the Code Execution Sandbox is available. Supported regions: northamerica-northeast1, southamerica-east1, us-central1, us-east1, us-east4, us-west1, us-west4, europe-central2, europe-north1, europe-southwest1, europe-west1, europe-west2, europe-west3, europe-west4, europe-west6, europe-west8, europe-west9, me-west1, asia-east1, asia-east2, asia-northeast1, asia-northeast3, asia-south1, asia-south2, asia-southeast1, australia-southeast2. If unset, the request's originating region is used; requests from regions where the sandbox is unavailable will fail with UNIMPLEMENTED.""",
+    )
 
 
 class CustomCodeExecutionSpecDict(TypedDict, total=False):
@@ -1723,6 +1729,9 @@ class CustomCodeExecutionSpecDict(TypedDict, total=False):
   Please include this function signature in the code snippet.
   Instance is the evaluation instance, any fields populated in the instance
   are available to the function as instance[field_name]."""
+
+    code_execution_region: Optional[str]
+    """Optional. The region to use for code execution. If set, the Code Execution Sandbox will be invoked in the specified region regardless of the request's originating region. Must be a region where the Code Execution Sandbox is available. Supported regions: northamerica-northeast1, southamerica-east1, us-central1, us-east1, us-east4, us-west1, us-west4, europe-central2, europe-north1, europe-southwest1, europe-west1, europe-west2, europe-west3, europe-west4, europe-west6, europe-west8, europe-west9, me-west1, asia-east1, asia-east2, asia-northeast1, asia-northeast3, asia-south1, asia-south2, asia-southeast1, australia-southeast2. If unset, the request's originating region is used; requests from regions where the sandbox is unavailable will fail with UNIMPLEMENTED."""
 
 
 CustomCodeExecutionSpecOrDict = Union[
@@ -6665,7 +6674,7 @@ class ReservationAffinity(_common.BaseModel):
     )
     values: Optional[list[str]] = Field(
         default=None,
-        description="""Optional. Corresponds to the label values of a reservation resource. This must be the full resource name of the reservation or reservation block.""",
+        description="""Optional. Corresponds to the label values of a reservation resource. This must be the resource name of the reservation, reservation block, or reservation sub- block.""",
     )
 
 
@@ -6679,7 +6688,7 @@ class ReservationAffinityDict(TypedDict, total=False):
     """Required. Specifies the reservation affinity type."""
 
     values: Optional[list[str]]
-    """Optional. Corresponds to the label values of a reservation resource. This must be the full resource name of the reservation or reservation block."""
+    """Optional. Corresponds to the label values of a reservation resource. This must be the resource name of the reservation, reservation block, or reservation sub- block."""
 
 
 ReservationAffinityOrDict = Union[ReservationAffinity, ReservationAffinityDict]
@@ -8897,6 +8906,56 @@ ReasoningEngineTrafficConfigOrDict = Union[
 ]
 
 
+class ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatest(_common.BaseModel):
+    """Keeps only the latest N Runtime Revisions active."""
+
+    max_revisions: Optional[int] = Field(
+        default=None,
+        description="""Required. Specifies the maximum number of Runtime Revisions to keep active. If an update to Reasoning Engine would result in exceeding this number of active Runtime Revisions, a new Runtime Revision will be created, while the oldest Runtime Revision will be automatically deleted, providing it's not configured to serve traffic via `traffic_config`. If the oldest Runtime Revision is configured to serve traffic, the update will fail validation. No changes will be made to the Reasoning Engine, existing Runtime Revisions, and no new Runtime Revision will be created.""",
+    )
+
+
+class ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatestDict(
+    TypedDict, total=False
+):
+    """Keeps only the latest N Runtime Revisions active."""
+
+    max_revisions: Optional[int]
+    """Required. Specifies the maximum number of Runtime Revisions to keep active. If an update to Reasoning Engine would result in exceeding this number of active Runtime Revisions, a new Runtime Revision will be created, while the oldest Runtime Revision will be automatically deleted, providing it's not configured to serve traffic via `traffic_config`. If the oldest Runtime Revision is configured to serve traffic, the update will fail validation. No changes will be made to the Reasoning Engine, existing Runtime Revisions, and no new Runtime Revision will be created."""
+
+
+ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatestOrDict = Union[
+    ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatest,
+    ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatestDict,
+]
+
+
+class ReasoningEngineRevisionGarbageCollectionStrategy(_common.BaseModel):
+    """Configures garbage collection of Runtime Revisions."""
+
+    keep_n_latest: Optional[
+        ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatest
+    ] = Field(
+        default=None,
+        description="""Optional. Keeps only the latest N Runtime Revisions active.""",
+    )
+
+
+class ReasoningEngineRevisionGarbageCollectionStrategyDict(TypedDict, total=False):
+    """Configures garbage collection of Runtime Revisions."""
+
+    keep_n_latest: Optional[
+        ReasoningEngineRevisionGarbageCollectionStrategyKeepNLatestDict
+    ]
+    """Optional. Keeps only the latest N Runtime Revisions active."""
+
+
+ReasoningEngineRevisionGarbageCollectionStrategyOrDict = Union[
+    ReasoningEngineRevisionGarbageCollectionStrategy,
+    ReasoningEngineRevisionGarbageCollectionStrategyDict,
+]
+
+
 class ReasoningEngine(_common.BaseModel):
     """An agent runtime."""
 
@@ -8942,6 +9001,12 @@ class ReasoningEngine(_common.BaseModel):
         default=None,
         description="""Optional. Traffic distribution configuration for the Reasoning Engine.""",
     )
+    revision_garbage_collection_strategy: Optional[
+        ReasoningEngineRevisionGarbageCollectionStrategy
+    ] = Field(
+        default=None,
+        description="""Optional. Configures garbage collection of Runtime Revisions.""",
+    )
 
 
 class ReasoningEngineDict(TypedDict, total=False):
@@ -8979,6 +9044,11 @@ class ReasoningEngineDict(TypedDict, total=False):
 
     traffic_config: Optional[ReasoningEngineTrafficConfigDict]
     """Optional. Traffic distribution configuration for the Reasoning Engine."""
+
+    revision_garbage_collection_strategy: Optional[
+        ReasoningEngineRevisionGarbageCollectionStrategyDict
+    ]
+    """Optional. Configures garbage collection of Runtime Revisions."""
 
 
 ReasoningEngineOrDict = Union[ReasoningEngine, ReasoningEngineDict]
@@ -11538,6 +11608,9 @@ class Memory(_common.BaseModel):
         default=None,
         description="""Optional. Represents the structured content of the memory.""",
     )
+    context: Optional[str] = Field(
+        default=None, description="""Optional. Represents the context of the memory."""
+    )
 
 
 class MemoryDict(TypedDict, total=False):
@@ -11593,6 +11666,9 @@ class MemoryDict(TypedDict, total=False):
 
     structured_content: Optional[MemoryStructuredContentDict]
     """Optional. Represents the structured content of the memory."""
+
+    context: Optional[str]
+    """Optional. Represents the context of the memory."""
 
 
 MemoryOrDict = Union[Memory, MemoryDict]
@@ -13281,6 +13357,10 @@ class MemoryRevision(_common.BaseModel):
         default=None,
         description="""Output only. Represents the structured value of the memory at the time of revision creation.""",
     )
+    context: Optional[str] = Field(
+        default=None,
+        description="""Output only. Represents the context of the Memory Revision. The context may include context from both the historical revisions and the extracted content.""",
+    )
 
 
 class MemoryRevisionDict(TypedDict, total=False):
@@ -13306,6 +13386,9 @@ class MemoryRevisionDict(TypedDict, total=False):
 
     structured_data: Optional[dict[str, Any]]
     """Output only. Represents the structured value of the memory at the time of revision creation."""
+
+    context: Optional[str]
+    """Output only. Represents the context of the Memory Revision. The context may include context from both the historical revisions and the extracted content."""
 
 
 MemoryRevisionOrDict = Union[MemoryRevision, MemoryRevisionDict]
@@ -16564,13 +16647,13 @@ SandboxEnvironmentSpecComputerUseEnvironmentOrDict = Union[
 
 
 class SandboxEnvironmentSpecShellEnvironment(_common.BaseModel):
-    """The shell environment with customized settings."""
+    """The shell environment."""
 
     pass
 
 
 class SandboxEnvironmentSpecShellEnvironmentDict(TypedDict, total=False):
-    """The shell environment with customized settings."""
+    """The shell environment."""
 
     pass
 
@@ -16590,7 +16673,12 @@ class SandboxEnvironmentSpec(_common.BaseModel):
         Field(default=None, description="""Optional. The computer use environment.""")
     )
     shell_environment: Optional[SandboxEnvironmentSpecShellEnvironment] = Field(
-        default=None, description="""Optional. The shell environment."""
+        default=None,
+        description="""Optional. The shell environment for executing shell commands and scripts.""",
+    )
+    use_gke_td: Optional[bool] = Field(
+        default=None,
+        description="""Optional. Immutable. Whether to provision the SandboxEnvironment via the GKE TD pool. Immutable.""",
     )
 
 
@@ -16606,7 +16694,10 @@ class SandboxEnvironmentSpecDict(TypedDict, total=False):
     """Optional. The computer use environment."""
 
     shell_environment: Optional[SandboxEnvironmentSpecShellEnvironmentDict]
-    """Optional. The shell environment."""
+    """Optional. The shell environment for executing shell commands and scripts."""
+
+    use_gke_td: Optional[bool]
+    """Optional. Immutable. Whether to provision the SandboxEnvironment via the GKE TD pool. Immutable."""
 
 
 SandboxEnvironmentSpecOrDict = Union[SandboxEnvironmentSpec, SandboxEnvironmentSpecDict]
@@ -17551,11 +17642,11 @@ class SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfig(_common.Base
     )
     target_network: Optional[str] = Field(
         default=None,
-        description="""Required. The VPC network name in the target_project where the DNS zone specified by 'domain' is visible.""",
+        description="""Required. The VPC network name in the target_project where the DNS zone specified by `domain` is visible.""",
     )
     target_project: Optional[str] = Field(
         default=None,
-        description="""Required. The project ID hosting the Cloud DNS managed zone that contains the 'domain'. The Vertex AI Service Agent requires the dns.peer role on this project.""",
+        description="""Required. The project ID hosting the Cloud DNS managed zone that contains the `domain`. The Vertex AI Service Agent requires the dns.peer role on this project.""",
     )
 
 
@@ -17568,10 +17659,10 @@ class SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigDict(
     """Required. The DNS name suffix of the zone being peered to, e.g., "my-internal-domain.corp.". Must end with a dot."""
 
     target_network: Optional[str]
-    """Required. The VPC network name in the target_project where the DNS zone specified by 'domain' is visible."""
+    """Required. The VPC network name in the target_project where the DNS zone specified by `domain` is visible."""
 
     target_project: Optional[str]
-    """Required. The project ID hosting the Cloud DNS managed zone that contains the 'domain'. The Vertex AI Service Agent requires the dns.peer role on this project."""
+    """Required. The project ID hosting the Cloud DNS managed zone that contains the `domain`. The Vertex AI Service Agent requires the dns.peer role on this project."""
 
 
 SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigOrDict = Union[
@@ -17586,10 +17677,6 @@ class SandboxEnvironmentTemplateEgressControlConfig(_common.BaseModel):
     internet_access: Optional[bool] = Field(
         default=None, description="""Optional. Whether to allow internet access."""
     )
-    customer_vpc_network: Optional[str] = Field(
-        default=None,
-        description="""Optional. The customer VPC network that sandbox egress is routed into.""",
-    )
     dns_peering_configs: Optional[
         list[SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfig]
     ] = Field(
@@ -17598,7 +17685,7 @@ class SandboxEnvironmentTemplateEgressControlConfig(_common.BaseModel):
     )
     network_attachment: Optional[str] = Field(
         default=None,
-        description="""Optional. The name of the customer VPC NetworkAttachment used to draw a PSC interface IP into the customer VPC for sandbox egress.""",
+        description="""Optional. The name of the customer VPC `NetworkAttachment` used to draw a PSC interface IP into the customer VPC for sandbox egress.""",
     )
 
 
@@ -17608,16 +17695,13 @@ class SandboxEnvironmentTemplateEgressControlConfigDict(TypedDict, total=False):
     internet_access: Optional[bool]
     """Optional. Whether to allow internet access."""
 
-    customer_vpc_network: Optional[str]
-    """Optional. The customer VPC network that sandbox egress is routed into."""
-
     dns_peering_configs: Optional[
         list[SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigDict]
     ]
     """Optional. DNS peering configurations that allow sandbox egress to resolve customer-internal domains via the customer VPC."""
 
     network_attachment: Optional[str]
-    """Optional. The name of the customer VPC NetworkAttachment used to draw a PSC interface IP into the customer VPC for sandbox egress."""
+    """Optional. The name of the customer VPC `NetworkAttachment` used to draw a PSC interface IP into the customer VPC for sandbox egress."""
 
 
 SandboxEnvironmentTemplateEgressControlConfigOrDict = Union[
@@ -17873,6 +17957,10 @@ class SandboxEnvironmentTemplate(_common.BaseModel):
         default=None,
         description="""Optional. The configuration for private ingress (PSC-E) of this template. When set, the sandbox router is exposed privately via a PSC service attachment so VPC-SC customers can connect from their VPC over a private endpoint instead of the public internet. The resulting service attachment is surfaced on `SandboxEnvironment.connection_info.service_attachment`. Only the PSC-E (service-attachment/ingress) portion of `PrivateServiceConnectConfig` applies here: `enable_private_service_connect` and `project_allowlist` (the consumer projects allowed to connect). The nested `psc_interface_config` (PSC-I / egress) is not used for sandbox ingress; sandbox egress is configured via `egress_control_config` instead.""",
     )
+    use_gke_td: Optional[bool] = Field(
+        default=None,
+        description="""Optional. Immutable. Whether to provision the SandboxEnvironmentTemplate via the GKE TD pool.""",
+    )
 
 
 class SandboxEnvironmentTemplateDict(TypedDict, total=False):
@@ -17908,6 +17996,9 @@ class SandboxEnvironmentTemplateDict(TypedDict, total=False):
 
     ingress_control_config: Optional[PrivateServiceConnectConfigDict]
     """Optional. The configuration for private ingress (PSC-E) of this template. When set, the sandbox router is exposed privately via a PSC service attachment so VPC-SC customers can connect from their VPC over a private endpoint instead of the public internet. The resulting service attachment is surfaced on `SandboxEnvironment.connection_info.service_attachment`. Only the PSC-E (service-attachment/ingress) portion of `PrivateServiceConnectConfig` applies here: `enable_private_service_connect` and `project_allowlist` (the consumer projects allowed to connect). The nested `psc_interface_config` (PSC-I / egress) is not used for sandbox ingress; sandbox egress is configured via `egress_control_config` instead."""
+
+    use_gke_td: Optional[bool]
+    """Optional. Immutable. Whether to provision the SandboxEnvironmentTemplate via the GKE TD pool."""
 
 
 SandboxEnvironmentTemplateOrDict = Union[
@@ -18340,6 +18431,10 @@ class SandboxEnvironmentSnapshot(_common.BaseModel):
         default=None,
         description="""Output only. The timestamp when this SandboxEnvironment was most recently updated.""",
     )
+    use_gke_td: Optional[bool] = Field(
+        default=None,
+        description="""Output only. Whether the source SandboxEnvironment uses the GKE TD pool.""",
+    )
 
 
 class SandboxEnvironmentSnapshotDict(TypedDict, total=False):
@@ -18378,6 +18473,9 @@ class SandboxEnvironmentSnapshotDict(TypedDict, total=False):
 
     update_time: Optional[datetime.datetime]
     """Output only. The timestamp when this SandboxEnvironment was most recently updated."""
+
+    use_gke_td: Optional[bool]
+    """Output only. Whether the source SandboxEnvironment uses the GKE TD pool."""
 
 
 SandboxEnvironmentSnapshotOrDict = Union[
@@ -20965,6 +21063,10 @@ class SchemaPromptSpecAppBuilderData(_common.BaseModel):
             description="""Linked resources attached to the application by the user.""",
         )
     )
+    deployed_regions: Optional[list[str]] = Field(
+        default=None,
+        description="""Optional. The Cloud Run regions in which the application is currently deployed. Used to rediscover and redeploy the app in the regions it already runs in, which may differ from the prompt's location.""",
+    )
 
 
 class SchemaPromptSpecAppBuilderDataDict(TypedDict, total=False):
@@ -20978,6 +21080,9 @@ class SchemaPromptSpecAppBuilderDataDict(TypedDict, total=False):
 
     linked_resources: Optional[list[SchemaPromptSpecAppBuilderDataLinkedResourceDict]]
     """Linked resources attached to the application by the user."""
+
+    deployed_regions: Optional[list[str]]
+    """Optional. The Cloud Run regions in which the application is currently deployed. Used to rediscover and redeploy the app in the regions it already runs in, which may differ from the prompt's location."""
 
 
 SchemaPromptSpecAppBuilderDataOrDict = Union[
@@ -28666,11 +28771,11 @@ AudioTranscriptionWordInfoOrDict = Union[
 
 
 class AudioTranscription(_common.BaseModel):
-    """The transcription of an audio part. For multi-speaker audio, each speaker segment is a separate Part with its own AudioTranscription carrying the speaker_label."""
+    """The transcription of an audio part. For multi-speaker audio, each speaker segment is a separate `Part` with its own `AudioTranscription` carrying the `speaker_label`."""
 
     speaker_label: Optional[str] = Field(
         default=None,
-        description="""Optional. A label identifying the speaker of this audio segment (e.g. "spk_1", "spk_2"). Present when diarization is set.""",
+        description="""Optional. A label identifying the speaker of this audio segment (e.g. `spk_1`, `spk_2`). Present when `diarization` is set.""",
     )
     text: Optional[str] = Field(
         default=None,
@@ -28678,21 +28783,21 @@ class AudioTranscription(_common.BaseModel):
     )
     words: Optional[list[AudioTranscriptionWordInfo]] = Field(
         default=None,
-        description="""Optional. Detailed word-level transcriptions and timing details. Present when word_timestamp is set.""",
+        description="""Optional. Detailed word-level transcriptions and timing details. Present when `word_timestamp` is set.""",
     )
 
 
 class AudioTranscriptionDict(TypedDict, total=False):
-    """The transcription of an audio part. For multi-speaker audio, each speaker segment is a separate Part with its own AudioTranscription carrying the speaker_label."""
+    """The transcription of an audio part. For multi-speaker audio, each speaker segment is a separate `Part` with its own `AudioTranscription` carrying the `speaker_label`."""
 
     speaker_label: Optional[str]
-    """Optional. A label identifying the speaker of this audio segment (e.g. "spk_1", "spk_2"). Present when diarization is set."""
+    """Optional. A label identifying the speaker of this audio segment (e.g. `spk_1`, `spk_2`). Present when `diarization` is set."""
 
     text: Optional[str]
     """Required. The transcription text of this audio segment."""
 
     words: Optional[list[AudioTranscriptionWordInfoDict]]
-    """Optional. Detailed word-level transcriptions and timing details. Present when word_timestamp is set."""
+    """Optional. Detailed word-level transcriptions and timing details. Present when `word_timestamp` is set."""
 
 
 AudioTranscriptionOrDict = Union[AudioTranscription, AudioTranscriptionDict]

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvespa"
-version = "1.2.6"
+version = "1.2.7"
 description = "Python API for vespa.ai"
 readme = "README.md"
 keywords = ["vespa", "search engine", "data science"]
@@ -97,7 +97,7 @@ notebooks = [
     "plotly",
     "torch",
     "openai",
-    "datasets<4.0.0",
+    "datasets<5.0.2",
     "ir_datasets",
     "pytrec_eval",
     "papermill",
@@ -111,7 +111,7 @@ mteb = [
 dev = [
     "pre-commit",
     "vespacli",
-    "datasets<4.0.0",
+    "datasets<5.0.2",
     "pyvespa[unittest]",
     "pyvespa[build]",
     "ruff",
@@ -153,7 +153,12 @@ line-length = 88
 indent-width = 4
 
 [tool.setuptools.package-data]
-vespa = ["py.typed", "templates/*"]
+vespa = [
+    "py.typed",
+    "templates/*",
+    "resources/metric-presets.json",
+    "resources/metric-presets.source.json",
+]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "RUF013"]

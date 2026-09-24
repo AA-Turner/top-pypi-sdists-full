@@ -76,6 +76,29 @@ def _bool_he(key: str, default: bool) -> bool:
     return str(val).lower() in ("1", "true", "yes")
 
 
+def resolve_custom_headers() -> dict:
+    """Resolve custom headers: non-empty test_config > configure() value.
+
+    configure() carries the headers baked in at code-export time. The per-run
+    test config is the newer statement of intent, so it wins — but only when it
+    actually carries headers: the key is omitted entirely for a test that has
+    none, and neither an absent key nor an empty map may clear the baked set.
+
+    Module-level (like _bool_he) so the capability build and the browser-context
+    headers in testmu._session resolve from exactly the same place.
+    """
+    headers = _configure.get("custom_headers", {}) or {}
+
+    from testmu._test_config import load_test_config
+
+    test_config = load_test_config()
+    if test_config:
+        published = test_config.get("custom_headers")
+        if published:
+            headers = published
+    return headers
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -107,7 +130,7 @@ def get_capabilities(
     if chrome_options is None:
         chrome_options = _configure.get("chrome_options", [])
     if custom_headers is None:
-        custom_headers = _configure.get("custom_headers", {})
+        custom_headers = resolve_custom_headers()
 
     # Resolve top-level fields: explicit param > HyperExecute matrix argv > env > default.
     # HyperExecute invokes the test script with browser/browser_version/resolution/platform

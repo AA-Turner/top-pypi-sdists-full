@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import io
 import json
 import logging
 import os
@@ -106,7 +107,7 @@ def print_json(buf: Any, colored: Optional[bool] = None, default: Callable[[Any]
     if colored is None:
         colored = user_requested_colored_output()
     formatted_json = json.dumps(buf, sort_keys=True, indent=4, default=default)
-    if colored and os.isatty(sys.stdout.fileno()):
+    if colored and isatty():
         colorful_json = cast(
             str,
             highlight(
@@ -147,7 +148,15 @@ def set_color_flag(value: bool) -> None:
 
 
 def isatty() -> bool:
-    return os.isatty(sys.stdout.fileno())
+    """Whether stdout is a terminal, tolerating replacements that have no file descriptor at all.
+
+    A test runner's capture buffer and some embedders raise from ``fileno()`` rather than returning
+    one, which used to take the whole command down on the way to deciding about colour.
+    """
+    try:
+        return os.isatty(sys.stdout.fileno())
+    except (AttributeError, ValueError, OSError, io.UnsupportedOperation):
+        return False
 
 
 def user_requested_colored_output() -> bool:
@@ -283,7 +292,21 @@ WebDavReadonlyOption = Annotated[bool, typer.Option("--readonly", help="expose t
 
 
 async def get_mobdev2_devices(udid: Optional[str] = None) -> list[TcpLockdownClient]:
-    return [lockdown async for _, lockdown in get_mobdev2_lockdowns(udid=udid)]
+    """The mobdev2 devices on the network, or just ``udid`` when one was named.
+
+    Asking for a specific device stops at it: there is only ever one answer worth waiting for, so
+    the browse ends as soon as it arrives instead of sitting out the rest of the window. Listing
+    every device still takes the full window, since any of them may still be announcing.
+    """
+    lockdowns = get_mobdev2_lockdowns(udid=udid)
+    if udid is None:
+        return [lockdown async for _, lockdown in lockdowns]
+    try:
+        async for _, lockdown in lockdowns:
+            return [lockdown]
+    finally:
+        await lockdowns.aclose()
+    return []
 
 
 def _parse_tunnel_spec(tunnel: str) -> tuple[str, TunneldAddress, Optional[bool]]:

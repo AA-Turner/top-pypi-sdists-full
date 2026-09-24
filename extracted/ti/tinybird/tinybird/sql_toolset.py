@@ -699,3 +699,62 @@ def is_invalid_resource_from_current_workspace(
     valid_tables: Optional[Set[Tuple[str, str]]],
 ) -> bool:
     return bool(database == default_database and valid_tables and r not in valid_tables and r not in _replaced_with)
+
+
+def validate_ttl_expression(
+    columns: list[dict[str, str]],
+    ttl: Optional[str],
+    sorting_key: str,
+    primary_key: Optional[str] = None,
+    partition_key: Optional[str] = None,
+) -> Optional[str]:
+    if not ttl:
+        return None
+
+    kwargs = {"partition_key": partition_key} if partition_key else {}
+    error = chquery.validate_ttl(
+        ttl=ttl,
+        columns=columns,
+        sorting_key=sorting_key,
+        primary_key=primary_key or sorting_key,
+        **kwargs,
+    )
+    if error is None:
+        return None
+    return error.removeprefix("DB::Exception: ")
+
+
+TTL_ONLY_DROP_PARTS_SETTING = "ttl_only_drop_parts"
+
+
+def should_default_ttl_only_drop_parts(
+    columns: list[dict[str, str]],
+    ttl: Optional[str],
+    sorting_key: str,
+    partition_key: Optional[str],
+    primary_key: Optional[str] = None,
+) -> bool:
+    """Whether ``ttl_only_drop_parts = 1`` should be defaulted for this table."""
+    if not ttl or not partition_key:
+        return False
+    result = chquery.check_ttl_partition_compatibility(
+        columns=columns,
+        ttl=ttl,
+        sorting_key=sorting_key,
+        primary_key=primary_key or sorting_key,
+        partition_key=partition_key,
+    )
+    return result["checked"] and result["error"] is None
+
+
+def validate_partition_key_expression(
+    columns: list[dict[str, str]],
+    partition_key: Optional[str],
+) -> Optional[str]:
+    if not partition_key:
+        return None
+
+    error = chquery.validate_partition_key(columns=columns, partition_key=partition_key)
+    if error is None:
+        return None
+    return error.removeprefix("DB::Exception: ")

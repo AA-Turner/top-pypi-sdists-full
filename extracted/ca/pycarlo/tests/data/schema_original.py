@@ -27165,6 +27165,84 @@ class AuditLogEntryEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class AuditLogJsonChangeConnection(sgqlc.types.relay.Connection):
+    """Cursor-paginated connection over ``AuditLogJsonChangeEntry``.  The
+    resolver returns fully-rendered entries and graphene-relay slices
+    them by ``first`` / ``after`` / ``last`` / ``before``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("AuditLogJsonChangeEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+
+class AuditLogJsonChangeEdge(sgqlc.types.Type):
+    """A Relay edge containing a `AuditLogJsonChange` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("AuditLogJsonChangeEntry", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class AuditLogJsonChangeEntry(sgqlc.types.Type):
+    """Audit log entry that renders JSON-field changes key by key.
+    Differs from ``AuditLogEntry`` in one guarantee: a change to a
+    JSON-mapped field that ``format_changes`` emits as one whole-value
+    pair — a first write or a removal — is expanded into one dotted
+    field per changed key, and ``*_updated_by`` / ``*_updated_at``
+    bookkeeping keys are dropped.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "timestamp",
+        "action",
+        "object_type_name",
+        "object_uuid",
+        "changes",
+        "actor_display_name",
+        "actor_first_name",
+        "actor_last_name",
+    )
+    timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="timestamp")
+    """When the change occurred"""
+
+    action = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="action")
+    """create/update/delete"""
+
+    object_type_name = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="objectTypeName"
+    )
+    """Friendly name of object type"""
+
+    object_uuid = sgqlc.types.Field(UUID, graphql_name="objectUuid")
+    """Object UUID (if available)"""
+
+    changes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("FieldChange")), graphql_name="changes"
+    )
+    """List of changes"""
+
+    actor_display_name = sgqlc.types.Field(String, graphql_name="actorDisplayName")
+    """Resolved display name of the user who made the change."""
+
+    actor_first_name = sgqlc.types.Field(String, graphql_name="actorFirstName")
+    """First name of the user who made the change"""
+
+    actor_last_name = sgqlc.types.Field(String, graphql_name="actorLastName")
+    """Last name of the user who made the change"""
+
+
 class AuthorRef(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("name", "username", "email")
@@ -78804,6 +78882,7 @@ class Query(sgqlc.types.Type):
         "get_monitor_audit_logs",
         "get_asset_metric_audit_logs",
         "get_size_collection_audit_logs",
+        "get_account_config_audit_logs",
         "get_monitored_rules_audit_logs",
         "get_assigned_assets",
         "get_alerts",
@@ -102061,6 +102140,41 @@ class Query(sgqlc.types.Type):
     * `timestamp__lt` (`DateTime`): Filter logs with timestamp less
       than this value
     * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    get_account_config_audit_logs = sgqlc.types.Field(
+        AuditLogJsonChangeConnection,
+        graphql_name="getAccountConfigAuditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                ("config_key", sgqlc.types.Arg(String, graphql_name="configKey", default=None)),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Audit log for changes to the account's
+    configuration, newest first. Each entry's ``changes`` carries one
+    dotted field per changed configuration key, in the form
+    ``config.<key>``. Entries that did not touch the configuration,
+    such as an account rename, are not returned.
+
+    Arguments:
+
+    * `config_key` (`String`): Narrow to entries where this
+      configuration key was added, removed, or changed value.
+    * `timestamp__lt` (`DateTime`): Filter logs with timestamp less
+      than this value
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None

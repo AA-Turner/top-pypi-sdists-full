@@ -1,0 +1,228 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel==0.37.1",
+    "cffi==1.17.1",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tinybird"
+version = "1.0"
+description = "tinybird"
+readme = { text = "tinybird analytics", content-type = "text/markdown" }
+requires-python = ">=3.13,<3.15"
+authors = [
+    { name = "tinybird.co" },
+]
+dependencies = [
+    "GitPython==3.1.44",
+    "Markdown==3.5.1",
+    "aioboto3==14.0.0",
+    "aiofiles==24.1.0",
+    "aiohttp==3.11.2",
+    "anthropic==0.55.0",
+    "aws-msk-iam-sasl-signer-python==1.0.2",
+    "cachetools==5.5.0",
+    "cffi==1.17.1",
+    "chardet==4.0.0",
+    "ciso8601==2.2.0",
+    "click==8.1.8",
+    "clickhouse-cityhash==1.0.2.5",
+    "clickhouse-driver==0.2.9",
+    "confluent-kafka[avro,json,schemaregistry]==2.12.2",
+    "contextvars==2.4",
+    "cramjam==2.11.0",
+    "croniter==6.2.2",
+    "cryptography==3.4.8",
+    "datasketch==1.6.5",
+    "dnspython==2.8.0",
+    "docker==7.1.0",
+    "fastavro==1.12.2",
+    "fastmcp==2.12.2",
+    "google-cloud-aiplatform==1.148.1",
+    "google-cloud-compute==1.48.0",
+    "google-cloud-scheduler==2.20.0",
+    "google-cloud-secret-manager==2.29.0",
+    "google-cloud-storage==3.4.1",
+    "google_api_core==2.25.2",
+    "googleapis_common_protos==1.66.0",
+    "grpcio_status==1.67.1",
+    "humanfriendly==10.0",
+    "isal==1.8.0",
+    "jinja2",
+    "jsondiff==2.2.1",
+    "jsonschema==4.23.0",
+    "litellm==1.80.11",
+    "logfire-api==4.2.0",
+    "lru-dict==1.3.0",
+    "lz4==4.4.5",
+    "memray==1.20.0",
+    "msgspec==0.21.1",
+    "multidict==6.6.4",
+    "networkx==3.4.2",
+    "numpy==1.26.4",
+    "objgraph==3.6.2",
+    "opentelemetry-api==1.38.0",
+    "opentelemetry-exporter-otlp-proto-http==1.38.0",
+    "opentelemetry-sdk==1.38.0",
+    "orb-billing==2.17.0",
+    "orjson==3.11.5",
+    "packaging==23.2",
+    "passlib==1.7.1",
+    "posthog==7.28.0",
+    "pre-commit==4.6.2",
+    "prometheus_client==0.26.0",
+    "prompt_toolkit==3.0.48",
+    "propcache==0.3.2",
+    "proto_plus==1.25.0",
+    "protobuf==5.29.5",
+    "psutil==7.2.2",
+    "psycopg2-binary==2.9.12",
+    "py-spy==0.4.2",
+    "pyarrow==23.0.1",
+    "pycurl==7.45.7",
+    "pydantic-ai-slim[anthropic]==0.5.0",
+    "pydantic-ai-slim[google]==0.5.0",
+    "pydantic-ai-slim[retries]==0.5.0",
+    "pydantic==2.12.5",
+    "pyjwt[crypto]==2.9.0",
+    "pympler==1.1",
+    "pynacl==1.5.0",
+    "pyperclip==1.9.0",
+    "python-dateutil==2.9.0.post0",
+    "python-dotenv==1.1.0",
+    "python-ulid==2.7.0",
+    "pyyaml==6.0.1",
+    "redis[hiredis]==5.3.1",
+    "requests==2.32.4",
+    "sentry-sdk==2.69.1",
+    "setproctitle==1.3.3",
+    "shandy-sqlfmt==0.11.1",
+    "shandy-sqlfmt[jinjafmt]==0.11.1",
+    "sqlparse==0.4.3",
+    "starlette==1.0.1",
+    "streaming-form-data==1.20.0",
+    "stripe==3.1.0",
+    "tabulate==0.8.10",
+    "thefuzz==0.22.1",
+    "tinybird-python-sdk[ai]==0.3.7",
+    "tinybird-toolset==2.6.2",
+    "toposort==1.10",
+    "tornado==6.5.5",
+    "urllib3==1.26.20",
+    "uvicorn[standard]==0.49.0",
+    "virtualenv==20.21.1",
+    "watchdog==6.0.0",
+    "wheel==0.37.1",
+    "zlib-ng==1.0.0",
+    "zstandard==0.25.0",
+]
+
+[dependency-groups]
+deploy = [
+    "GitPython==3.1.44",
+    "ansible==8.5.0",
+    "ara==1.6.1",
+    "boto3==1.36.21",
+    "fabric==3.2.2",
+    "google-auth==2.47.0",
+    "jsonnet",
+    "prettytable==3.8.0",
+    "requests==2.32.4",
+    "requests[security]",
+    "xmltodict",
+]
+devtools = [
+    "flameprof",
+    "matplotlib",
+    "memory_profiler",
+    "rope",
+]
+doc = [
+    "Pallets-Sphinx-Themes==2.3.0",
+    "pyOpenSSL<24.0.0",
+    "sphinx-autobuild==2024.2.4",
+    "sphinx-sitemap",
+    "sphinx==7.3.7",
+    "sphinxcontrib-httpdomain",
+    "sphinxcontrib-jquery==4.1",
+]
+lint = [
+    "botocore-stubs==1.36.23",
+    "mypy==2.3.1",
+    "ruff==0.16.8",
+    "types-Markdown",
+    "types-PyYAML",
+    "types-aiofiles==24.1.0.20241221",
+    "types-boto3-lite==1.36.21",
+    "types-cachetools",
+    "types-chardet",
+    "types-paramiko",
+    "types-pycurl",
+    "types-python-dateutil",
+    "types-pytz",
+    "types-requests",
+    "types-tabulate",
+    "types_croniter",
+]
+test = [
+    "coverage==7.10.6",
+    "freezegun==1.5.5",
+    "google-auth==2.47.0",
+    "gsutil==4.58",
+    "hypothesis==6.156.1",
+    "oauth2client==3.0.0",
+    "py==1.11.0",
+    "pytest-asyncio==0.23.8",
+    "pytest-cov==4.1.0",
+    "pytest-env==1.1.3",
+    "pytest-flakefinder==1.1.0",
+    "pytest-timeout==2.3.1",
+    "pytest-xdist==3.6.1",
+    "pytest==8.1.2",
+    "rangehttpserver==1.4.0",
+    "yappi==1.7.6",
+]
+
+[project.scripts]
+tinybird_server = "tinybird.app:run"
+tinybird_tool = "tinybird.tinybird_tool.main:cli"
+tb_old = "tinybird.tb_cli:cli"
+tb = "tinybird.tb.cli:cli"
+colibri = "tinybird.colibri.cli:cli"
+
+[tool.uv.workspace]
+members = ["data_connector"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+namespaces = false
+include = ["tinybird", "tinybird.*", "tinybird_shared", "tinybird_shared.*", "scripts"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+tinybird = [
+    "templates/**/*",
+    "static/**/*",
+    "default_pipes/**/*",
+    "sql/**/*",
+    "monitors/**/*.sql",
+    "scripts/**/*",
+    "data_projects/**/*",
+    "data_projects/**/.*",
+    "raw_events/**/*",
+    "query_booster/**/*",
+    "deployments/**/*",
+]
+tinybird_shared = [
+    "redis_client/**/*",
+    "retry/**/*",
+    "metrics/**/*",
+    "gatherer_settings/**/*",
+    "clickhouse/**/*",
+    "gatherer_backpressure/**/*",
+    "data_connector_circuit_breaker/**/*",
+]

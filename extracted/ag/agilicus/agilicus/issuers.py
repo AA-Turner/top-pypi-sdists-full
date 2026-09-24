@@ -240,6 +240,7 @@ def update_oidc_upstreams(
             if request_user_info is not None:
                 upstream.request_user_info = request_user_info
             if auto_create_status is not None:
+                auto_create_status = agilicus.AutoCreateStatus(auto_create_status)
                 upstream.auto_create_status = auto_create_status
             if prompt_mode is not None:
                 upstream.prompt_mode = prompt_mode
@@ -299,7 +300,7 @@ def add_oidc_upstreams(
     if user_id_key:
         upstream.user_id_key = user_id_key
     if auto_create_status:
-        upstream.auto_create_status = auto_create_status
+        upstream.auto_create_status = agilicus.AutoCreateStatus(auto_create_status)
 
     issuer.oidc_upstreams.append(upstream)
     kwargs.pop("org_id", None)

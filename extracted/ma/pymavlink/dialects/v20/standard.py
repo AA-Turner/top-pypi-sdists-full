@@ -162,7 +162,7 @@ class MAVLink_message(object):
 
     def __init__(self, msgId: int, name: str) -> None:
         self._header = MAVLink_header(msgId)
-        self._payload: Optional[bytes] = None
+        self._payload: Optional[Union[bytes, bytearray]] = None
         self._msgbuf = bytearray(b"")
         self._crc: Optional[int] = None
         self._fieldnames: List[str] = []
@@ -185,7 +185,7 @@ class MAVLink_message(object):
     def get_header(self) -> MAVLink_header:
         return self._header
 
-    def get_payload(self) -> Optional[bytes]:
+    def get_payload(self) -> Optional[Union[bytes, bytearray]]:
         return self._payload
 
     def get_crc(self) -> Optional[int]:
@@ -299,9 +299,8 @@ class MAVLink_message(object):
         self._msgbuf = bytearray(self._header.pack(force_mavlink1=force_mavlink1))
         self._msgbuf += self._payload
         crc = x25crc(self._msgbuf[1:])
-        if True:
-            # we are using CRC extra
-            crc.accumulate(struct.pack("B", crc_extra))
+        # we are using CRC extra
+        crc.accumulate(struct.pack("B", crc_extra))
         self._crc = crc.crc
         self._msgbuf += struct.pack("<H", self._crc)
         if mav.signing.sign_outgoing and not force_mavlink1:
@@ -350,6 +349,7 @@ class EnumEntry(object):
         self.name = name
         self.description = description
         self.param: Dict[int, str] = {}
+        self.label: Dict[int, str] = {}
         self.has_location = False
 
 class Enum(Dict[int, EnumEntry]):
@@ -367,6 +367,94 @@ MAV_BOOL_TRUE = 1
 enums["MAV_BOOL"][1] = EnumEntry("MAV_BOOL_TRUE", """True.""")
 MAV_BOOL_ENUM_END = 2
 enums["MAV_BOOL"][2] = EnumEntry("MAV_BOOL_ENUM_END", """""")
+
+# MAV_PROTOCOL_CAPABILITY
+enums["MAV_PROTOCOL_CAPABILITY"] = Enum()
+enums["MAV_PROTOCOL_CAPABILITY"].bitmask = True
+MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT = 1
+enums["MAV_PROTOCOL_CAPABILITY"][1] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT",
+    """Autopilot supports the MISSION_ITEM float message type.
+          Note that MISSION_ITEM is deprecated, and autopilots should use MISSION_ITEM_INT instead.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT = 2
+enums["MAV_PROTOCOL_CAPABILITY"][2] = EnumEntry("MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT", """Autopilot supports the new param float message type.""")
+MAV_PROTOCOL_CAPABILITY_MISSION_INT = 4
+enums["MAV_PROTOCOL_CAPABILITY"][4] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_MISSION_INT",
+    """Autopilot supports MISSION_ITEM_INT scaled integer message type.
+          Note that this flag must always be set if missions are supported, because missions must always use MISSION_ITEM_INT (rather than MISSION_ITEM, which is deprecated).
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_COMMAND_INT = 8
+enums["MAV_PROTOCOL_CAPABILITY"][8] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMMAND_INT", """Autopilot supports COMMAND_INT scaled integer message type.""")
+MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE = 16
+enums["MAV_PROTOCOL_CAPABILITY"][16] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE",
+    """Parameter protocol uses byte-wise encoding of parameter values into param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
+          Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST should be set if the parameter protocol is supported.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_FTP = 32
+enums["MAV_PROTOCOL_CAPABILITY"][32] = EnumEntry("MAV_PROTOCOL_CAPABILITY_FTP", """Autopilot supports the File Transfer Protocol v1: https://mavlink.io/en/services/ftp.html.""")
+MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET = 64
+enums["MAV_PROTOCOL_CAPABILITY"][64] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET", """Autopilot supports commanding attitude offboard.""")
+MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED = 128
+enums["MAV_PROTOCOL_CAPABILITY"][128] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED", """Autopilot supports commanding position and velocity targets in local NED frame.""")
+MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT = 256
+enums["MAV_PROTOCOL_CAPABILITY"][256] = EnumEntry("MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT", """Autopilot supports commanding position and velocity targets in global scaled integers.""")
+MAV_PROTOCOL_CAPABILITY_TERRAIN = 512
+enums["MAV_PROTOCOL_CAPABILITY"][512] = EnumEntry("MAV_PROTOCOL_CAPABILITY_TERRAIN", """Autopilot supports terrain protocol / data handling.""")
+MAV_PROTOCOL_CAPABILITY_RESERVED3 = 1024
+enums["MAV_PROTOCOL_CAPABILITY"][1024] = EnumEntry("MAV_PROTOCOL_CAPABILITY_RESERVED3", """Reserved for future use.""")
+MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION = 2048
+enums["MAV_PROTOCOL_CAPABILITY"][2048] = EnumEntry("MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION", """Autopilot supports the MAV_CMD_DO_FLIGHTTERMINATION command (flight termination).""")
+MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION = 4096
+enums["MAV_PROTOCOL_CAPABILITY"][4096] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION", """Autopilot supports onboard compass calibration.""")
+MAV_PROTOCOL_CAPABILITY_MAVLINK2 = 8192
+enums["MAV_PROTOCOL_CAPABILITY"][8192] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MAVLINK2", """Autopilot supports MAVLink version 2.""")
+MAV_PROTOCOL_CAPABILITY_MISSION_FENCE = 16384
+enums["MAV_PROTOCOL_CAPABILITY"][16384] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MISSION_FENCE", """Autopilot supports mission fence protocol.""")
+MAV_PROTOCOL_CAPABILITY_MISSION_RALLY = 32768
+enums["MAV_PROTOCOL_CAPABILITY"][32768] = EnumEntry("MAV_PROTOCOL_CAPABILITY_MISSION_RALLY", """Autopilot supports mission rally point protocol.""")
+MAV_PROTOCOL_CAPABILITY_RESERVED2 = 65536
+enums["MAV_PROTOCOL_CAPABILITY"][65536] = EnumEntry("MAV_PROTOCOL_CAPABILITY_RESERVED2", """Reserved for future use.""")
+MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST = 131072
+enums["MAV_PROTOCOL_CAPABILITY"][131072] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST",
+    """Parameter protocol uses C-cast of parameter values to set the param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
+          Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE should be set if the parameter protocol is supported.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER = 262144
+enums["MAV_PROTOCOL_CAPABILITY"][262144] = EnumEntry(
+    "MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER",
+    """This component implements/is a gimbal manager. This means the GIMBAL_MANAGER_INFORMATION, and other messages can be requested.
+        """,
+)
+MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL = 524288
+enums["MAV_PROTOCOL_CAPABILITY"][524288] = EnumEntry("MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL", """Component supports locking control to a particular GCS independent of its system (via MAV_CMD_REQUEST_OPERATOR_CONTROL).""")
+MAV_PROTOCOL_CAPABILITY_GRIPPER = 1048576
+enums["MAV_PROTOCOL_CAPABILITY"][1048576] = EnumEntry("MAV_PROTOCOL_CAPABILITY_GRIPPER", """Autopilot has a connected gripper. MAVLink Grippers would set MAV_TYPE_GRIPPER instead.""")
+MAV_PROTOCOL_CAPABILITY_ENUM_END = 1048577
+enums["MAV_PROTOCOL_CAPABILITY"][1048577] = EnumEntry("MAV_PROTOCOL_CAPABILITY_ENUM_END", """""")
+
+# FIRMWARE_VERSION_TYPE
+enums["FIRMWARE_VERSION_TYPE"] = Enum()
+enums["FIRMWARE_VERSION_TYPE"].bitmask = False
+FIRMWARE_VERSION_TYPE_DEV = 0
+enums["FIRMWARE_VERSION_TYPE"][0] = EnumEntry("FIRMWARE_VERSION_TYPE_DEV", """development release""")
+FIRMWARE_VERSION_TYPE_ALPHA = 64
+enums["FIRMWARE_VERSION_TYPE"][64] = EnumEntry("FIRMWARE_VERSION_TYPE_ALPHA", """alpha release""")
+FIRMWARE_VERSION_TYPE_BETA = 128
+enums["FIRMWARE_VERSION_TYPE"][128] = EnumEntry("FIRMWARE_VERSION_TYPE_BETA", """beta release""")
+FIRMWARE_VERSION_TYPE_RC = 192
+enums["FIRMWARE_VERSION_TYPE"][192] = EnumEntry("FIRMWARE_VERSION_TYPE_RC", """release candidate""")
+FIRMWARE_VERSION_TYPE_OFFICIAL = 255
+enums["FIRMWARE_VERSION_TYPE"][255] = EnumEntry("FIRMWARE_VERSION_TYPE_OFFICIAL", """official stable release""")
+FIRMWARE_VERSION_TYPE_ENUM_END = 256
+enums["FIRMWARE_VERSION_TYPE"][256] = EnumEntry("FIRMWARE_VERSION_TYPE_ENUM_END", """""")
 
 # MAV_AUTOPILOT
 enums["MAV_AUTOPILOT"] = Enum()
@@ -505,8 +593,20 @@ MAV_TYPE_GPS = 41
 enums["MAV_TYPE"][41] = EnumEntry("MAV_TYPE_GPS", """GPS""")
 MAV_TYPE_WINCH = 42
 enums["MAV_TYPE"][42] = EnumEntry("MAV_TYPE_WINCH", """Winch""")
-MAV_TYPE_ENUM_END = 43
-enums["MAV_TYPE"][43] = EnumEntry("MAV_TYPE_ENUM_END", """""")
+MAV_TYPE_GENERIC_MULTIROTOR = 43
+enums["MAV_TYPE"][43] = EnumEntry("MAV_TYPE_GENERIC_MULTIROTOR", """Generic multirotor that does not fit into a specific type or whose type is unknown""")
+MAV_TYPE_ILLUMINATOR = 44
+enums["MAV_TYPE"][44] = EnumEntry("MAV_TYPE_ILLUMINATOR", """Illuminator. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).""")
+MAV_TYPE_SPACECRAFT_ORBITER = 45
+enums["MAV_TYPE"][45] = EnumEntry("MAV_TYPE_SPACECRAFT_ORBITER", """Orbiter spacecraft. Includes satellites orbiting terrestrial and extra-terrestrial bodies. Follows NASA Spacecraft Classification.""")
+MAV_TYPE_GROUND_QUADRUPED = 46
+enums["MAV_TYPE"][46] = EnumEntry("MAV_TYPE_GROUND_QUADRUPED", """A generic four-legged ground vehicle (e.g., a robot dog).""")
+MAV_TYPE_VTOL_GYRODYNE = 47
+enums["MAV_TYPE"][47] = EnumEntry("MAV_TYPE_VTOL_GYRODYNE", """VTOL hybrid of helicopter and autogyro. It has a main rotor for lift and separate propellers for forward flight. The rotor must be powered for hover but can autorotate in cruise flight. See: https://en.wikipedia.org/wiki/Gyrodyne""")
+MAV_TYPE_GRIPPER = 48
+enums["MAV_TYPE"][48] = EnumEntry("MAV_TYPE_GRIPPER", """Gripper""")
+MAV_TYPE_ENUM_END = 49
+enums["MAV_TYPE"][49] = EnumEntry("MAV_TYPE_ENUM_END", """""")
 
 # MAV_MODE_FLAG
 enums["MAV_MODE_FLAG"] = Enum()
@@ -566,13 +666,13 @@ enums["MAV_STATE"][3] = EnumEntry("MAV_STATE_STANDBY", """System is grounded and
 MAV_STATE_ACTIVE = 4
 enums["MAV_STATE"][4] = EnumEntry("MAV_STATE_ACTIVE", """System is active and might be already airborne. Motors are engaged.""")
 MAV_STATE_CRITICAL = 5
-enums["MAV_STATE"][5] = EnumEntry("MAV_STATE_CRITICAL", """System is in a non-normal flight mode. It can however still navigate.""")
+enums["MAV_STATE"][5] = EnumEntry("MAV_STATE_CRITICAL", """System is in a non-normal flight mode (failsafe). It can however still navigate.""")
 MAV_STATE_EMERGENCY = 6
-enums["MAV_STATE"][6] = EnumEntry("MAV_STATE_EMERGENCY", """System is in a non-normal flight mode. It lost control over parts or over the whole airframe. It is in mayday and going down.""")
+enums["MAV_STATE"][6] = EnumEntry("MAV_STATE_EMERGENCY", """System is in a non-normal flight mode (failsafe). It lost control over parts or over the whole airframe. It is in mayday and going down.""")
 MAV_STATE_POWEROFF = 7
 enums["MAV_STATE"][7] = EnumEntry("MAV_STATE_POWEROFF", """System just initialized its power-down sequence, will shut down now.""")
 MAV_STATE_FLIGHT_TERMINATION = 8
-enums["MAV_STATE"][8] = EnumEntry("MAV_STATE_FLIGHT_TERMINATION", """System is terminating itself.""")
+enums["MAV_STATE"][8] = EnumEntry("MAV_STATE_FLIGHT_TERMINATION", """System is terminating itself (failsafe or commanded).""")
 MAV_STATE_ENUM_END = 9
 enums["MAV_STATE"][9] = EnumEntry("MAV_STATE_ENUM_END", """""")
 
@@ -789,6 +889,8 @@ MAV_COMP_ID_FLARM = 160
 enums["MAV_COMPONENT"][160] = EnumEntry("MAV_COMP_ID_FLARM", """FLARM collision alert component.""")
 MAV_COMP_ID_PARACHUTE = 161
 enums["MAV_COMPONENT"][161] = EnumEntry("MAV_COMP_ID_PARACHUTE", """Parachute component.""")
+MAV_COMP_ID_WINCH = 169
+enums["MAV_COMPONENT"][169] = EnumEntry("MAV_COMP_ID_WINCH", """Winch component.""")
 MAV_COMP_ID_GIMBAL2 = 171
 enums["MAV_COMPONENT"][171] = EnumEntry("MAV_COMP_ID_GIMBAL2", """Gimbal #2.""")
 MAV_COMP_ID_GIMBAL3 = 172
@@ -845,15 +947,118 @@ MAV_COMP_ID_UART_BRIDGE = 241
 enums["MAV_COMPONENT"][241] = EnumEntry("MAV_COMP_ID_UART_BRIDGE", """Component to bridge to UART (i.e. from UDP).""")
 MAV_COMP_ID_TUNNEL_NODE = 242
 enums["MAV_COMPONENT"][242] = EnumEntry("MAV_COMP_ID_TUNNEL_NODE", """Component handling TUNNEL messages (e.g. vendor specific GUI of a component).""")
+MAV_COMP_ID_ILLUMINATOR = 243
+enums["MAV_COMPONENT"][243] = EnumEntry("MAV_COMP_ID_ILLUMINATOR", """Illuminator""")
 MAV_COMP_ID_SYSTEM_CONTROL = 250
-enums["MAV_COMPONENT"][250] = EnumEntry("MAV_COMP_ID_SYSTEM_CONTROL", """Component for handling system messages (e.g. to ARM, takeoff, etc.).""")
+enums["MAV_COMPONENT"][250] = EnumEntry("MAV_COMP_ID_SYSTEM_CONTROL", """Deprecated, don't use. Component for handling system messages (e.g. to ARM, takeoff, etc.).""")
 MAV_COMPONENT_ENUM_END = 251
 enums["MAV_COMPONENT"][251] = EnumEntry("MAV_COMPONENT_ENUM_END", """""")
 
 # message IDs
 MAVLINK_MSG_ID_BAD_DATA = -1
 MAVLINK_MSG_ID_UNKNOWN = -2
+MAVLINK_MSG_ID_GLOBAL_POSITION_INT = 33
+MAVLINK_MSG_ID_AUTOPILOT_VERSION = 148
 MAVLINK_MSG_ID_HEARTBEAT = 0
+
+
+class MAVLink_global_position_int_message(MAVLink_message):
+    """
+    The filtered global position (e.g. fused GPS and accelerometers).
+    The position is in GPS-frame (right-handed, Z-up). It is designed
+    as scaled integer message since the resolution of float is not
+    sufficient.
+    """
+
+    id = MAVLINK_MSG_ID_GLOBAL_POSITION_INT
+    msgname = "GLOBAL_POSITION_INT"
+    fieldnames = ["time_boot_ms", "lat", "lon", "alt", "relative_alt", "vx", "vy", "vz", "hdg"]
+    ordered_fieldnames = ["time_boot_ms", "lat", "lon", "alt", "relative_alt", "vx", "vy", "vz", "hdg"]
+    fieldtypes = ["uint32_t", "int32_t", "int32_t", "int32_t", "int32_t", "int16_t", "int16_t", "int16_t", "uint16_t"]
+    fielddisplays_by_name: Dict[str, str] = {}
+    fieldenums_by_name: Dict[str, str] = {}
+    fieldunits_by_name: Dict[str, str] = {"time_boot_ms": "ms", "lat": "degE7", "lon": "degE7", "alt": "mm", "relative_alt": "mm", "vx": "cm/s", "vy": "cm/s", "vz": "cm/s", "hdg": "cdeg"}
+    native_format = bytearray(b"<IiiiihhhH")
+    orders = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 1]
+    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    crc_extra = 104
+    unpacker = struct.Struct("<IiiiihhhH")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int):
+        MAVLink_message.__init__(self, MAVLink_global_position_int_message.id, MAVLink_global_position_int_message.msgname)
+        self._fieldnames = MAVLink_global_position_int_message.fieldnames
+        self._instance_field = MAVLink_global_position_int_message.instance_field
+        self._instance_offset = MAVLink_global_position_int_message.instance_offset
+        self.time_boot_ms = time_boot_ms
+        self.lat = lat
+        self.lon = lon
+        self.alt = alt
+        self.relative_alt = relative_alt
+        self.vx = vx
+        self.vy = vy
+        self.vz = vz
+        self.hdg = hdg
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.time_boot_ms, self.lat, self.lon, self.alt, self.relative_alt, self.vx, self.vy, self.vz, self.hdg), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_global_position_int_message, "name", mavlink_msg_deprecated_name_property())
+
+
+class MAVLink_autopilot_version_message(MAVLink_message):
+    """
+    Version and capability of autopilot software. This should be
+    emitted in response to a request with MAV_CMD_REQUEST_MESSAGE.
+    """
+
+    id = MAVLINK_MSG_ID_AUTOPILOT_VERSION
+    msgname = "AUTOPILOT_VERSION"
+    fieldnames = ["capabilities", "flight_sw_version", "middleware_sw_version", "os_sw_version", "board_version", "flight_custom_version", "middleware_custom_version", "os_custom_version", "vendor_id", "product_id", "uid", "uid2"]
+    ordered_fieldnames = ["capabilities", "uid", "flight_sw_version", "middleware_sw_version", "os_sw_version", "board_version", "vendor_id", "product_id", "flight_custom_version", "middleware_custom_version", "os_custom_version", "uid2"]
+    fieldtypes = ["uint64_t", "uint32_t", "uint32_t", "uint32_t", "uint32_t", "uint8_t", "uint8_t", "uint8_t", "uint16_t", "uint16_t", "uint64_t", "uint8_t"]
+    fielddisplays_by_name: Dict[str, str] = {"capabilities": "bitmask"}
+    fieldenums_by_name: Dict[str, str] = {"capabilities": "MAV_PROTOCOL_CAPABILITY"}
+    fieldunits_by_name: Dict[str, str] = {}
+    native_format = bytearray(b"<QQIIIIHHBBBB")
+    orders = [0, 2, 3, 4, 5, 8, 9, 10, 6, 7, 1, 11]
+    lengths = [1, 1, 1, 1, 1, 1, 1, 1, 8, 8, 8, 18]
+    array_lengths = [0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 18]
+    crc_extra = 178
+    unpacker = struct.Struct("<QQIIIIHH8B8B8B18B")
+    instance_field = None
+    instance_offset = -1
+
+    def __init__(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int, uid2: Sequence[int] = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)):
+        MAVLink_message.__init__(self, MAVLink_autopilot_version_message.id, MAVLink_autopilot_version_message.msgname)
+        self._fieldnames = MAVLink_autopilot_version_message.fieldnames
+        self._instance_field = MAVLink_autopilot_version_message.instance_field
+        self._instance_offset = MAVLink_autopilot_version_message.instance_offset
+        self.capabilities = capabilities
+        self.flight_sw_version = flight_sw_version
+        self.middleware_sw_version = middleware_sw_version
+        self.os_sw_version = os_sw_version
+        self.board_version = board_version
+        self.flight_custom_version = flight_custom_version
+        self.middleware_custom_version = middleware_custom_version
+        self.os_custom_version = os_custom_version
+        self.vendor_id = vendor_id
+        self.product_id = product_id
+        self.uid = uid
+        self.uid2 = uid2
+
+    def pack(self, mav: "MAVLink", force_mavlink1: bool = False) -> bytes:
+        return self._pack(mav, self.crc_extra, self.unpacker.pack(self.capabilities, self.uid, self.flight_sw_version, self.middleware_sw_version, self.os_sw_version, self.board_version, self.vendor_id, self.product_id, self.flight_custom_version[0], self.flight_custom_version[1], self.flight_custom_version[2], self.flight_custom_version[3], self.flight_custom_version[4], self.flight_custom_version[5], self.flight_custom_version[6], self.flight_custom_version[7], self.middleware_custom_version[0], self.middleware_custom_version[1], self.middleware_custom_version[2], self.middleware_custom_version[3], self.middleware_custom_version[4], self.middleware_custom_version[5], self.middleware_custom_version[6], self.middleware_custom_version[7], self.os_custom_version[0], self.os_custom_version[1], self.os_custom_version[2], self.os_custom_version[3], self.os_custom_version[4], self.os_custom_version[5], self.os_custom_version[6], self.os_custom_version[7], self.uid2[0], self.uid2[1], self.uid2[2], self.uid2[3], self.uid2[4], self.uid2[5], self.uid2[6], self.uid2[7], self.uid2[8], self.uid2[9], self.uid2[10], self.uid2[11], self.uid2[12], self.uid2[13], self.uid2[14], self.uid2[15], self.uid2[16], self.uid2[17]), force_mavlink1=force_mavlink1)
+
+
+# Define name on the class for backwards compatibility (it is now msgname).
+# Done with setattr to hide the class variable from mypy.
+setattr(MAVLink_autopilot_version_message, "name", mavlink_msg_deprecated_name_property())
 
 
 class MAVLink_heartbeat_message(MAVLink_message):
@@ -905,6 +1110,8 @@ setattr(MAVLink_heartbeat_message, "name", mavlink_msg_deprecated_name_property(
 
 
 mavlink_map: Dict[int, Type[MAVLink_message]] = {
+    MAVLINK_MSG_ID_GLOBAL_POSITION_INT: MAVLink_global_position_int_message,
+    MAVLINK_MSG_ID_AUTOPILOT_VERSION: MAVLink_autopilot_version_message,
     MAVLINK_MSG_ID_HEARTBEAT: MAVLink_heartbeat_message,
 }
 
@@ -922,7 +1129,7 @@ class MAVLink_bad_data(MAVLink_message):
     a piece of bad data in a mavlink stream
     """
 
-    def __init__(self, data: bytes, reason: str) -> None:
+    def __init__(self, data: Union[bytes, bytearray], reason: str) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_BAD_DATA, "BAD_DATA")
         self._fieldnames = ["data", "reason"]
         self.data = data
@@ -941,7 +1148,7 @@ class MAVLink_unknown(MAVLink_message):
     a message that we don't have in the XML used when built
     """
 
-    def __init__(self, msgid: int, data: bytes) -> None:
+    def __init__(self, msgid: int, data: Union[bytes, bytearray]) -> None:
         MAVLink_message.__init__(self, MAVLINK_MSG_ID_UNKNOWN, "UNKNOWN_%u" % msgid)
         self._fieldnames = ["data"]
         self.data = data
@@ -1057,12 +1264,12 @@ class MAVLink(object):
         if m is not None:
             self.total_packets_received += 1
             self.__callbacks(m)
-        else:
-            # XXX The idea here is if we've read something and there's nothing left in
-            # the buffer, reset it to 0 which frees the memory
-            if self.buf_len() == 0 and self.buf_index != 0:
-                self.buf = bytearray()
-                self.buf_index = 0
+
+        # See if there's nothing left in the buffer, reset it to 0
+        # which frees the memory
+        if self.buf_index != 0 and self.buf_len() == 0:
+            self.buf = bytearray()
+            self.buf_index = 0
 
         return m
 
@@ -1216,9 +1423,8 @@ class MAVLink(object):
         except struct.error as emsg:
             raise MAVError("Unable to unpack MAVLink CRC: %s" % emsg)
         crcbuf = msgbuf[1 : -(2 + signature_len)]
-        if True:
-            # using CRC extra
-            crcbuf.append(crc_extra)
+        # using CRC extra
+        crcbuf.append(crc_extra)
         crc2 = x25crc(crcbuf)
         if crc != crc2.crc and not MAVLINK_IGNORE_CRC:
             raise MAVError("invalid MAVLink CRC in msgID %u 0x%04x should be 0x%04x" % (msgId, crc, crc2.crc))
@@ -1265,23 +1471,22 @@ class MAVLink(object):
 
         tlist: List[Union[bytes, float, int, Sequence[Union[bytes, float, int]]]] = list(t)
         # handle sorted fields
-        if True:
-            if sum(len_map) == len(len_map):
-                # message has no arrays in it
-                for i in range(0, len(tlist)):
-                    tlist[i] = t[order_map[i]]
-            else:
-                # message has some arrays
-                tlist = []
-                for i in range(0, len(order_map)):
-                    order = order_map[i]
-                    L = len_map[order]
-                    tip = sum(len_map[:order])
-                    field = t[tip]
-                    if L == 1 or isinstance(field, bytes):
-                        tlist.append(field)
-                    else:
-                        tlist.append(list(t[tip : (tip + L)]))
+        if sum(len_map) == len(len_map):
+            # message has no arrays in it
+            for i in range(0, len(tlist)):
+                tlist[i] = t[order_map[i]]
+        else:
+            # message has some arrays
+            tlist = []
+            for i in range(0, len(order_map)):
+                order = order_map[i]
+                L = len_map[order]
+                tip = sum(len_map[:order])
+                field = t[tip]
+                if L == 1 or isinstance(field, bytes):
+                    tlist.append(field)
+                else:
+                    tlist.append(list(t[tip : (tip + L)]))
 
         # terminate any strings
         for i, elem in enumerate(tlist):
@@ -1303,6 +1508,90 @@ class MAVLink(object):
         m._crc = crc
         m._header = MAVLink_header(msgId, incompat_flags, compat_flags, mlen, seq, srcSystem, srcComponent)
         return m
+
+    def global_position_int_encode(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int) -> MAVLink_global_position_int_message:
+        """
+        The filtered global position (e.g. fused GPS and accelerometers). The
+        position is in GPS-frame (right-handed, Z-up). It is designed
+        as scaled integer message since the resolution of float is not
+        sufficient.
+
+        time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
+        lat                       : Latitude, expressed [degE7] (type:int32_t)
+        lon                       : Longitude, expressed [degE7] (type:int32_t)
+        alt                       : Altitude (MSL). Note that virtually all GPS modules provide both WGS84 and MSL. [mm] (type:int32_t)
+        relative_alt              : Altitude above home [mm] (type:int32_t)
+        vx                        : Ground X Speed (Latitude, positive north) [cm/s] (type:int16_t)
+        vy                        : Ground Y Speed (Longitude, positive east) [cm/s] (type:int16_t)
+        vz                        : Ground Z Speed (Altitude, positive down) [cm/s] (type:int16_t)
+        hdg                       : Vehicle heading (yaw angle), 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
+
+        """
+        return MAVLink_global_position_int_message(time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg)
+
+    def global_position_int_send(self, time_boot_ms: int, lat: int, lon: int, alt: int, relative_alt: int, vx: int, vy: int, vz: int, hdg: int, force_mavlink1: bool = False) -> None:
+        """
+        The filtered global position (e.g. fused GPS and accelerometers). The
+        position is in GPS-frame (right-handed, Z-up). It is designed
+        as scaled integer message since the resolution of float is not
+        sufficient.
+
+        time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
+        lat                       : Latitude, expressed [degE7] (type:int32_t)
+        lon                       : Longitude, expressed [degE7] (type:int32_t)
+        alt                       : Altitude (MSL). Note that virtually all GPS modules provide both WGS84 and MSL. [mm] (type:int32_t)
+        relative_alt              : Altitude above home [mm] (type:int32_t)
+        vx                        : Ground X Speed (Latitude, positive north) [cm/s] (type:int16_t)
+        vy                        : Ground Y Speed (Longitude, positive east) [cm/s] (type:int16_t)
+        vz                        : Ground Z Speed (Altitude, positive down) [cm/s] (type:int16_t)
+        hdg                       : Vehicle heading (yaw angle), 0.0..359.99 degrees. If unknown, set to: UINT16_MAX [cdeg] (type:uint16_t)
+
+        """
+        self.send(self.global_position_int_encode(time_boot_ms, lat, lon, alt, relative_alt, vx, vy, vz, hdg), force_mavlink1=force_mavlink1)
+
+    def autopilot_version_encode(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int, uid2: Sequence[int] = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) -> MAVLink_autopilot_version_message:
+        """
+        Version and capability of autopilot software. This should be emitted
+        in response to a request with MAV_CMD_REQUEST_MESSAGE.
+
+        capabilities              : Bitmap of capabilities (type:uint64_t, values:MAV_PROTOCOL_CAPABILITY)
+        flight_sw_version         : Firmware version number.
+        The field must be encoded as 4 bytes, where each byte (shown from MSB to LSB) is part of a semantic version: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE). (type:uint32_t)
+        middleware_sw_version        : Middleware version number (type:uint32_t)
+        os_sw_version             : Operating system version number (type:uint32_t)
+        board_version             : HW / board version (last 8 bits should be silicon ID, if any). The first 16 bits of this field specify a board type from an enumeration stored at https://github.com/PX4/PX4-Bootloader/blob/master/board_types.txt and with extensive additions at https://github.com/ArduPilot/ardupilot/blob/master/Tools/AP_Bootloader/board_types.txt (type:uint32_t)
+        flight_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        middleware_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        os_custom_version         : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        vendor_id                 : ID of the board vendor (type:uint16_t)
+        product_id                : ID of the product (type:uint16_t)
+        uid                       : UID if provided by hardware (see uid2) (type:uint64_t)
+        uid2                      : UID if provided by hardware (supersedes the uid field. If this is non-zero, use this field, otherwise use uid) (type:uint8_t)
+
+        """
+        return MAVLink_autopilot_version_message(capabilities, flight_sw_version, middleware_sw_version, os_sw_version, board_version, flight_custom_version, middleware_custom_version, os_custom_version, vendor_id, product_id, uid, uid2)
+
+    def autopilot_version_send(self, capabilities: int, flight_sw_version: int, middleware_sw_version: int, os_sw_version: int, board_version: int, flight_custom_version: Sequence[int], middleware_custom_version: Sequence[int], os_custom_version: Sequence[int], vendor_id: int, product_id: int, uid: int, uid2: Sequence[int] = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), force_mavlink1: bool = False) -> None:
+        """
+        Version and capability of autopilot software. This should be emitted
+        in response to a request with MAV_CMD_REQUEST_MESSAGE.
+
+        capabilities              : Bitmap of capabilities (type:uint64_t, values:MAV_PROTOCOL_CAPABILITY)
+        flight_sw_version         : Firmware version number.
+        The field must be encoded as 4 bytes, where each byte (shown from MSB to LSB) is part of a semantic version: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE). (type:uint32_t)
+        middleware_sw_version        : Middleware version number (type:uint32_t)
+        os_sw_version             : Operating system version number (type:uint32_t)
+        board_version             : HW / board version (last 8 bits should be silicon ID, if any). The first 16 bits of this field specify a board type from an enumeration stored at https://github.com/PX4/PX4-Bootloader/blob/master/board_types.txt and with extensive additions at https://github.com/ArduPilot/ardupilot/blob/master/Tools/AP_Bootloader/board_types.txt (type:uint32_t)
+        flight_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        middleware_custom_version        : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        os_custom_version         : Custom version field, commonly the first 8 bytes of the git hash. This is not an unique identifier, but should allow to identify the commit using the main version number even for very large code bases. (type:uint8_t)
+        vendor_id                 : ID of the board vendor (type:uint16_t)
+        product_id                : ID of the product (type:uint16_t)
+        uid                       : UID if provided by hardware (see uid2) (type:uint64_t)
+        uid2                      : UID if provided by hardware (supersedes the uid field. If this is non-zero, use this field, otherwise use uid) (type:uint8_t)
+
+        """
+        self.send(self.autopilot_version_encode(capabilities, flight_sw_version, middleware_sw_version, os_sw_version, board_version, flight_custom_version, middleware_custom_version, os_custom_version, vendor_id, product_id, uid, uid2), force_mavlink1=force_mavlink1)
 
     def heartbeat_encode(self, type: int, autopilot: int, base_mode: int, custom_mode: int, system_status: int, mavlink_version: int = 3) -> MAVLink_heartbeat_message:
         """

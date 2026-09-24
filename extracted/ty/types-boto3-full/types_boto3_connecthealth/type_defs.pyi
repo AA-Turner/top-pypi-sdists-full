@@ -30,6 +30,7 @@ from .literals import (
     EncryptionTypeType,
     JobStatusType,
     ManagedNoteTemplateType,
+    MedicalScribeLanguageCodeType,
     MedicalScribeMediaEncodingType,
     MedicalScribeParticipantRoleType,
     MedicalScribeStreamStatusType,
@@ -472,7 +473,7 @@ class StartMedicalScribeListeningSessionOutputTypeDef(TypedDict):
     domainId: str
     subscriptionId: str
     requestId: str
-    languageCode: Literal["en-US"]
+    languageCode: MedicalScribeLanguageCodeType
     mediaSampleRateHertz: int
     mediaEncoding: MedicalScribeMediaEncodingType
     responseStream: EventStream[MedicalScribeOutputStreamTypeDef]
@@ -486,7 +487,7 @@ class MedicalScribeListeningSessionDetailsTypeDef(TypedDict):
     sessionId: NotRequired[str]
     domainId: NotRequired[str]
     subscriptionId: NotRequired[str]
-    languageCode: NotRequired[Literal["en-US"]]
+    languageCode: NotRequired[MedicalScribeLanguageCodeType]
     mediaSampleRateHertz: NotRequired[int]
     mediaEncoding: NotRequired[MedicalScribeMediaEncodingType]
     channelDefinitions: NotRequired[list[MedicalScribeChannelDefinitionTypeDef]]
@@ -516,7 +517,7 @@ class StartMedicalScribeListeningSessionInputTypeDef(TypedDict):
     sessionId: str
     domainId: str
     subscriptionId: str
-    languageCode: Literal["en-US"]
+    languageCode: MedicalScribeLanguageCodeType
     mediaSampleRateHertz: int
     mediaEncoding: MedicalScribeMediaEncodingType
     inputStream: NotRequired[EventStream[MedicalScribeInputStreamTypeDef]]

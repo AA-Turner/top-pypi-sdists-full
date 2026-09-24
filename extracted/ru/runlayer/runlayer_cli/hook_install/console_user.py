@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
 import subprocess
@@ -80,14 +81,23 @@ def has_enrolled_credential_for_host(home: Path, host: str) -> bool:
 
 
 def _macos_console_user_home() -> Optional[Path]:
-    user = _scutil_console_user()
-    if user is None:
-        return None
-    return Path("/Users") / user
+    """Console user's home from their account record, looked up by UID.
+
+    scutil's ``Name`` is the login name, not the account short name: IdP-backed
+    accounts (Platform SSO / Jamf Connect) can log in with an email alias, so
+    ``/Users/<Name>`` need not exist, and homes can live outside ``/Users``.
+    ``/Users/<Name>`` is only the fallback when the UID has no account record.
+    """
+    state = _scutil_console_user_state()
+    name = _scutil_field(state, "Name")
+    home = None
+    if name and name not in {"loginwindow", "_mbsetupuser", "root"}:
+        home = _account_home(_scutil_field(state, "UID")) or Path("/Users") / name
+    return home
 
 
-def _scutil_console_user() -> Optional[str]:
-    """Parse ``scutil`` for the active console user; skips loginwindow."""
+def _scutil_console_user_state() -> str:
+    """Raw ``scutil`` dump of ``State:/Users/ConsoleUser``; empty on failure."""
     try:
         result = subprocess.run(
             ["/usr/sbin/scutil"],
@@ -98,19 +108,41 @@ def _scutil_console_user() -> Optional[str]:
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
-        return None
+        return ""
+    return result.stdout if result.returncode == 0 else ""
 
-    user = None
-    for line in result.stdout.splitlines():
+
+def _scutil_field(state: str, key: str) -> Optional[str]:
+    """Value of the top-level ``<key> : <value>`` line in a scutil dump.
+
+    Nested ``SessionInfo`` keys are prefixed (``kCGSSessionUserIDKey``), so an
+    exact ``<key> :`` prefix only matches the top-level entry.
+    """
+    prefix = f"{key} :"
+    value = None
+    for line in state.splitlines():
         stripped = line.strip()
-        if stripped.startswith("Name :"):
-            user = stripped.split(":", 1)[1].strip()
+        if stripped.startswith(prefix):
+            value = stripped[len(prefix) :].strip()
             break
-    if not user or user in {"loginwindow", "_mbsetupuser", "root"}:
-        return None
-    return user
+    return value
+
+
+def _account_home(uid: Optional[str]) -> Optional[Path]:
+    """Home directory from the account record for *uid*; ``None`` if unknown.
+
+    A non-absolute record (``""`` becomes ``Path(".")``) counts as unknown: it
+    would resolve against root's cwd and send root-owned writes there.
+    """
+    home = None
+    if uid and uid.isdecimal():
+        import pwd  # POSIX-only; importing at module level would break Windows
+
+        with contextlib.suppress(KeyError):
+            candidate = Path(pwd.getpwuid(int(uid)).pw_dir)
+            if candidate.is_absolute():
+                home = candidate
+    return home
 
 
 def _windows_console_user_home() -> Optional[Path]:

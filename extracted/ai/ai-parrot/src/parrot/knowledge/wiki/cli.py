@@ -489,7 +489,7 @@ def _normalize_scores(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     scores = [float(r.get("score", 0.0)) for r in rows]
     lo, hi = min(scores), max(scores)
     span = hi - lo
-    for row, score in zip(rows, scores):
+    for row, score in zip(rows, scores, strict=True):
         row["score"] = 1.0 if span <= 0 else (score - lo) / span
     return rows
 
@@ -752,7 +752,7 @@ async def _ingest_files(
     # read per file), so only the files that will actually be re-ingested
     # get registered.
     pending: list[tuple[Any, Path]] = []
-    for file_slice, abs_path in zip(scan.files, paths):
+    for file_slice, abs_path in zip(scan.files, paths, strict=True):
         entry = known.get(str(abs_path))
         must_force = force or file_slice.rel_path in force_rel_paths
         if entry is not None and not must_force and not sources.entry_is_stale(entry):
@@ -821,6 +821,37 @@ async def _ingest_files(
     return {"written": written, "unchanged": unchanged, "written_rel_paths": written_rel_paths}
 
 
+async def _refresh_adr_plane(
+    store: BaseWikiStore, root: Path, config: WikiProjectConfig, paths: list[str] | None = None
+) -> None:
+    """Refresh the ADR decision plane after ordinary ingestion (FEAT-578).
+
+    A no-op when the feature is disabled or no ADR source exists. NEVER
+    generates candidates and never invokes a model — an ordinary build stays
+    fully offline (AC5).
+    """
+    if not config.decisions.enabled:
+        return
+    from parrot.knowledge.wiki.decisions.ingest import refresh_decisions
+
+    try:
+        result = await refresh_decisions(store, root, config.decisions, paths)
+    except Exception as exc:  # noqa: BLE001 — a build must not fail on the ADR plane
+        _cli_logger.warning("ADR refresh skipped: %s", exc)
+        return
+    if result.created or result.updated or result.unchanged or result.missing or result.unresolved:
+        _cli_logger.info(
+            "ADR refresh: %d created, %d updated, %d unchanged, %d missing, %d unresolved",
+            result.created,
+            result.updated,
+            result.unchanged,
+            result.missing,
+            result.unresolved,
+        )
+    for diagnostic in result.diagnostics:
+        _cli_logger.warning("ADR refresh diagnostic: %s: %s", diagnostic.code, diagnostic.message)
+
+
 # --------------------------------------------------------------------------
 # Roblox scan enrichment integration (FEAT-532 TASK-2909)
 # --------------------------------------------------------------------------
@@ -846,15 +877,26 @@ async def _discovered_paths_for_mapping(root: Path, scan: Any, sources: SourceCo
     """
     from_scan = {fs.rel_path for fs in scan.files}
     known_sources = await asyncio.to_thread(sources.list_sources)
-    from_manifest: set[str] = set()
+    from_manifest = await asyncio.to_thread(_resolve_manifest_rel_paths, root, known_sources)
+    return frozenset(from_scan | from_manifest)
+
+
+def _resolve_manifest_rel_paths(root: Path, known_sources: Any) -> set[str]:
+    """Blocking helper: resolve each manifest source URI relative to ``root``.
+
+    Isolated from ``_discovered_paths_for_mapping`` so the filesystem-bound
+    ``Path.resolve()`` calls run once via ``asyncio.to_thread`` instead of
+    blocking the event loop directly inside an ``async def``.
+    """
     resolved_root = root.resolve()
+    from_manifest: set[str] = set()
     for entry in known_sources:
         try:
             rel = Path(entry.source_uri).resolve().relative_to(resolved_root).as_posix()
         except ValueError:
             continue
         from_manifest.add(rel)
-    return frozenset(from_scan | from_manifest)
+    return from_manifest
 
 
 async def _load_active_roblox_catalog() -> Any | None:
@@ -1002,8 +1044,9 @@ async def _prune_removed(
     """
     expected_files = {fs.record.concept_id for fs in scan.files}
     expected_dirs = {r.concept_id for r in scan.dir_records}
-    expected_uris = {str((root / fs.rel_path).resolve()) for fs in scan.files}
-    root_prefix = str(root.resolve()) + os.sep
+    resolved_root = await asyncio.to_thread(root.resolve)
+    expected_uris = await asyncio.to_thread(lambda: {str((root / fs.rel_path).resolve()) for fs in scan.files})
+    root_prefix = str(resolved_root) + os.sep
     removed = 0
 
     #: `dir:` ids that this run's removals could have emptied.
@@ -1018,7 +1061,7 @@ async def _prune_removed(
             # Another corpus sharing this plane — not ours to prune.
             live_source_ids.add(entry.source_id)
             continue
-        for parent in PurePosixPath(Path(entry.source_uri).relative_to(root.resolve()).as_posix()).parents:
+        for parent in PurePosixPath(Path(entry.source_uri).relative_to(resolved_root).as_posix()).parents:
             emptied_dirs.add(f"dir:{parent if str(parent) != '.' else '.'}")
         await store.replace_source_slice(entry.source_id, [], [])
         await asyncio.to_thread(sources.remove_source, entry.source_id)
@@ -1615,6 +1658,10 @@ def build(
                 for path in scan.skipped:
                     click.echo(f"  - {path}")
 
+        # FEAT-578: refresh the ADR decision plane LAST — after ordinary
+        # ingestion, export/graph generation and deletion handling above.
+        _run(_refresh_adr_plane(_open_store(root, config), root, config))
+
 
 def _changed_files_from_git(root: Path) -> list[str]:
     """Relative paths touched by the last commit (post-commit hook).
@@ -1795,6 +1842,10 @@ def upsert(
             raise
         if not quiet:
             click.echo(f"Upserted {counts['written']} page(s), " f"removed {counts['removed']}.")
+
+        # FEAT-578: refresh the ADR decision plane LAST — after ordinary
+        # ingestion and deletion handling above.
+        _run(_refresh_adr_plane(_open_store(root, config), root, config))
 
 
 @wiki.command()
@@ -2204,6 +2255,22 @@ def _echo_structural_result(result: Any, as_json: bool) -> None:
         click.echo(json.dumps(payload, indent=2, default=str))
         return
     click.echo(text)
+
+
+# FEAT-578: the ADR decision plane. Its commands live in decisions/cli.py to
+# keep this module's size in check. Registration is lazy (FEAT-584 /
+# TASK-3569): `decisions.cli` (and the service/store/structural chain it
+# pulls in) is only imported once an `adr` subcommand is actually resolved,
+# so the `claude-hook` fast path — and every other `wikitoolkit` invocation
+# that never touches ADRs — no longer pays that import cost.
+from parrot.knowledge.wiki.lazy_commands import LazyAdrGroup  # noqa: E402  (bottom import breaks a cycle)
+
+wiki.add_command(
+    LazyAdrGroup(
+        name="adr",
+        help="Architectural decisions: ingest ADRs, look them up, and review candidates.",
+    )
+)
 
 
 @wiki.group(name="symbols")
@@ -2768,7 +2835,7 @@ def ledger_claim(issue_id: str, actor: str) -> None:
             raise SystemExit(1)
     except WikiStoreBusy as exc:
         click.echo(f"Ledger index is busy ({exc.operation}); cannot claim")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
 @ledger.command("acknowledge")
@@ -2834,7 +2901,7 @@ def ledger_plan_fix(kind: str | None, severity: str | None, lane: str | None, as
         )
     except ValueError as exc:  # S7: --lane fast on a critical/vulnerability group
         click.echo(f"Refused: {exc}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
     _dedupe_slugs(plan, service.shared_root / "sdd" / "specs")
     if as_json:
         click.echo(plan.model_dump_json(indent=2))
@@ -2866,7 +2933,7 @@ def ledger_unclaim(issue_id: str, reason: str, actor: str) -> None:
             raise SystemExit(1)
     except WikiStoreBusy as exc:
         click.echo(f"Ledger index is busy ({exc.operation}); cannot unclaim")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
 @ledger.command("context")
@@ -2923,7 +2990,7 @@ def ledger_sync() -> None:
         # (unlike open/close's soft index_pending success) — the cursor is
         # unchanged, the whole batch rolled back, nothing to report as done.
         click.echo(f"Ledger index is busy ({exc.operation}); sync failed")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
 @ledger.command("rebuild")
@@ -2953,7 +3020,7 @@ def ledger_rebuild() -> None:
         click.echo("Ledger index rebuilt (SDD spec/task graph re-ingested)")
     except WikiStoreBusy as exc:
         click.echo(f"Ledger index is busy ({exc.operation}); rebuild failed")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
 @ledger.command("ingest-sdd")
@@ -2974,7 +3041,7 @@ def ledger_ingest_sdd() -> None:
         )
     except WikiStoreBusy as exc:
         click.echo(f"Ledger index is busy ({exc.operation}); ingest failed")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
 @ledger.command("compact")
@@ -2986,7 +3053,7 @@ def ledger_compact(older_than: int) -> None:
         folded = _run(service.compact(older_than_days=older_than))
     except WikiStoreBusy as exc:
         click.echo(f"Ledger index is busy ({exc.operation}); compact failed")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     click.echo(f"Compacted: {folded} issue(s) folded (events.jsonl untouched)")
 
 
@@ -3488,6 +3555,14 @@ def remember(
     from parrot.knowledge.wiki.store import WikiPageRecord, estimate_tokens
 
     existing = _run(store.get_page(page_id, include_body=False))
+
+    from parrot.knowledge.wiki.tools import _reject_managed_page
+
+    managed = _reject_managed_page(existing, page_id)
+    if managed:
+        click.echo(managed, err=True)
+        raise SystemExit(2)
+
     body = text if not source_uri else f"{text}\n\n> Source: {source_uri}"
     _run(
         store.upsert_pages(
@@ -3613,6 +3688,14 @@ def note(
     page = _run(store.get_page(page_id, include_body=True))
     if page is None:
         raise click.ClickException(f'Page {page_id!r} not found. Search first: wikitoolkit query "..."')
+
+    from parrot.knowledge.wiki.tools import _reject_managed_page
+
+    managed = _reject_managed_page(page, page_id)
+    if managed:
+        click.echo(managed, err=True)
+        raise SystemExit(2)
+
     asserted_by = _authoring_identity(by)
     stamp = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     body = str(page.get("body") or "")

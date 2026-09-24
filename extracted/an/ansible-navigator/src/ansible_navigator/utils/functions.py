@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import datetime
 import decimal
 import html
@@ -64,7 +65,9 @@ def expand_path(path: str | Path) -> Path:
         Resolved file path
     """
     _path = Path(os.path.expandvars(path))
-    _path = _path.expanduser()
+    # The home directory may not be determinable, e.g. ~ names an unknown user
+    with contextlib.suppress(RuntimeError):
+        _path = _path.expanduser()
     return _path.resolve()
 
 
@@ -110,10 +113,13 @@ def check_playbook_type(playbook: str) -> str:
     """
     playbook_type = "file"
     playbook_path = str(playbook)
-    if Path(playbook_path).exists() is False:
-        playbook_type = "missing"
-    if Path(playbook_path).exists() is False and len(playbook_path.split(".")) >= 3:
-        playbook_type = "fqcn"
+    try:
+        exists = Path(playbook_path).exists()
+    except OSError:
+        # The path cannot name a file on this system, e.g. it is too long
+        return "missing"
+    if exists is False:
+        playbook_type = "fqcn" if len(playbook_path.split(".")) >= 3 else "missing"
     return playbook_type
 
 

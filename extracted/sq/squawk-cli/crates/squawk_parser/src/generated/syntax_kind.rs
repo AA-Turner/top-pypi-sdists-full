@@ -20,9 +20,11 @@ pub enum SyntaxKind {
     L_CURLY,
     R_CURLY,
     L_ANGLE,
+    LESS_LESS,
     LTEQ,
     NEQB,
     R_ANGLE,
+    GREATER_GREATER,
     GTEQ,
     AT,
     POUND,
@@ -37,6 +39,7 @@ pub enum SyntaxKind {
     PERCENT,
     UNDERSCORE,
     DOT,
+    DOT_DOT,
     COLON,
     COLON_EQ,
     EQ,
@@ -556,6 +559,55 @@ pub enum SyntaxKind {
     YEAR_KW,
     YES_KW,
     ZONE_KW,
+    ALIAS_KW,
+    ASSERT_KW,
+    COLUMN_NAME_KW,
+    CONSTANT_KW,
+    CONSTRAINT_NAME_KW,
+    DATATYPE_KW,
+    DEBUG_KW,
+    DETAIL_KW,
+    DIAGNOSTICS_KW,
+    DUMP_KW,
+    ELSEIF_KW,
+    ELSIF_KW,
+    ERRCODE_KW,
+    EXCEPTION_KW,
+    EXIT_KW,
+    FOREACH_KW,
+    GET_KW,
+    HINT_KW,
+    INFO_KW,
+    LOG_KW,
+    LOOP_KW,
+    MESSAGE_KW,
+    MESSAGE_TEXT_KW,
+    NOTICE_KW,
+    OPEN_KW,
+    PERFORM_KW,
+    PG_CONTEXT_KW,
+    PG_DATATYPE_NAME_KW,
+    PG_EXCEPTION_CONTEXT_KW,
+    PG_EXCEPTION_DETAIL_KW,
+    PG_EXCEPTION_HINT_KW,
+    PG_ROUTINE_OID_KW,
+    PRINT_STRICT_PARAMS_KW,
+    QUERY_KW,
+    RAISE_KW,
+    RETURNED_SQLSTATE_KW,
+    REVERSE_KW,
+    ROW_COUNT_KW,
+    ROWTYPE_KW,
+    SCHEMA_NAME_KW,
+    SLICE_KW,
+    SQLSTATE_KW,
+    STACKED_KW,
+    TABLE_NAME_KW,
+    USE_COLUMN_KW,
+    USE_VARIABLE_KW,
+    VARIABLE_CONFLICT_KW,
+    WARNING_KW,
+    WHILE_KW,
     BIT_STRING,
     BYTE_STRING,
     DOLLAR_QUOTED_STRING,
@@ -1451,6 +1503,95 @@ pub enum SyntaxKind {
     PERCENT_TYPE,
     PERCENT_TYPE_CLAUSE,
     PERIOD_COLUMN,
+    PLPGSQL,
+    PLPGSQL_ALIAS_DECL,
+    PLPGSQL_ALIAS_TARGET,
+    PLPGSQL_ASSERT_STMT,
+    PLPGSQL_ASSIGN_STMT,
+    PLPGSQL_ASSIGN_TARGET,
+    PLPGSQL_BLOCK,
+    PLPGSQL_BODY,
+    PLPGSQL_CALL_STMT,
+    PLPGSQL_CASE_STMT,
+    PLPGSQL_CASE_WHEN,
+    PLPGSQL_CLOSE_STMT,
+    PLPGSQL_COMMIT_STMT,
+    PLPGSQL_COMP_OPTION_DUMP,
+    PLPGSQL_COMP_OPTION_PRINT_STRICT_PARAMS,
+    PLPGSQL_COMP_OPTION_VARIABLE_CONFLICT,
+    PLPGSQL_CONDITION,
+    PLPGSQL_CONTINUE_STMT,
+    PLPGSQL_CURSOR_ARG,
+    PLPGSQL_CURSOR_ARG_LIST,
+    PLPGSQL_CURSOR_DECL,
+    PLPGSQL_CURSOR_VARIABLE_REF,
+    PLPGSQL_DECLARE_SECTION,
+    PLPGSQL_DIAG_AREA,
+    PLPGSQL_DIAG_ITEM,
+    PLPGSQL_DIAG_ITEM_LIST,
+    PLPGSQL_DIAG_KIND,
+    PLPGSQL_DIAG_TARGET,
+    PLPGSQL_DO_STMT,
+    PLPGSQL_DYN_EXECUTE_STMT,
+    PLPGSQL_ELSE_CLAUSE,
+    PLPGSQL_ELSIF_CLAUSE,
+    PLPGSQL_EXCEPTION_HANDLER,
+    PLPGSQL_EXCEPTION_SECTION,
+    PLPGSQL_EXEC_SQL_STMT,
+    PLPGSQL_EXIT_STMT,
+    PLPGSQL_EXIT_WHEN,
+    PLPGSQL_EXPR,
+    PLPGSQL_FETCH_STMT,
+    PLPGSQL_FOR_CURSOR_STMT,
+    PLPGSQL_FOR_DYN_STMT,
+    PLPGSQL_FOR_EACH_SLICE,
+    PLPGSQL_FOR_EACH_STMT,
+    PLPGSQL_FOR_I_STMT,
+    PLPGSQL_FOR_QUERY_STMT,
+    PLPGSQL_FOR_RANGE,
+    PLPGSQL_FOR_VARIABLE,
+    PLPGSQL_GET_DIAG_STMT,
+    PLPGSQL_IF_STMT,
+    PLPGSQL_INTO_CLAUSE,
+    PLPGSQL_INTO_TARGET,
+    PLPGSQL_INTO_TARGET_LIST,
+    PLPGSQL_LABEL,
+    PLPGSQL_LABEL_NAME,
+    PLPGSQL_LABEL_NAME_REF,
+    PLPGSQL_LOOP_STMT,
+    PLPGSQL_MOVE_STMT,
+    PLPGSQL_NOT_NULL,
+    PLPGSQL_NULL_STMT,
+    PLPGSQL_OPEN_EXECUTE,
+    PLPGSQL_OPEN_QUERY,
+    PLPGSQL_OPEN_STMT,
+    PLPGSQL_OPTION_VALUE,
+    PLPGSQL_PERCENT_ROWTYPE,
+    PLPGSQL_PERFORM_STMT,
+    PLPGSQL_RAISE_LEVEL,
+    PLPGSQL_RAISE_MESSAGE,
+    PLPGSQL_RAISE_OPTION_COLUMN,
+    PLPGSQL_RAISE_OPTION_CONSTRAINT,
+    PLPGSQL_RAISE_OPTION_DATATYPE,
+    PLPGSQL_RAISE_OPTION_DETAIL,
+    PLPGSQL_RAISE_OPTION_ERRCODE,
+    PLPGSQL_RAISE_OPTION_HINT,
+    PLPGSQL_RAISE_OPTION_MESSAGE,
+    PLPGSQL_RAISE_OPTION_SCHEMA,
+    PLPGSQL_RAISE_OPTION_TABLE,
+    PLPGSQL_RAISE_STMT,
+    PLPGSQL_RAISE_USING_CLAUSE,
+    PLPGSQL_RETURN_NEXT_STMT,
+    PLPGSQL_RETURN_QUERY_EXECUTE_STMT,
+    PLPGSQL_RETURN_QUERY_STMT,
+    PLPGSQL_RETURN_STMT,
+    PLPGSQL_ROLLBACK_STMT,
+    PLPGSQL_USING_CLAUSE,
+    PLPGSQL_VAR_DECL,
+    PLPGSQL_VAR_INIT,
+    PLPGSQL_VAR_NAME,
+    PLPGSQL_VAR_NAME_REF,
+    PLPGSQL_WHILE_STMT,
     POLICY,
     POLICY_COMMAND,
     POLICY_COMMAND_ALL,
@@ -2959,6 +3100,111 @@ impl SyntaxKind {
             SyntaxKind::YES_KW
         } else if ident.eq_ignore_ascii_case("zone") {
             SyntaxKind::ZONE_KW
+        } else {
+            return None;
+        };
+        Some(kw)
+    }
+    #[doc = r"PL/pgSQL keywords that aren't SQL keywords. These stay `IDENT` in the token stream so SQL is unaffected; the PL/pgSQL grammar matches on the contextual kind instead."]
+    pub(crate) fn from_contextual_keyword(ident: &str) -> Option<SyntaxKind> {
+        let kw = if ident.eq_ignore_ascii_case("alias") {
+            SyntaxKind::ALIAS_KW
+        } else if ident.eq_ignore_ascii_case("assert") {
+            SyntaxKind::ASSERT_KW
+        } else if ident.eq_ignore_ascii_case("column_name") {
+            SyntaxKind::COLUMN_NAME_KW
+        } else if ident.eq_ignore_ascii_case("constant") {
+            SyntaxKind::CONSTANT_KW
+        } else if ident.eq_ignore_ascii_case("constraint_name") {
+            SyntaxKind::CONSTRAINT_NAME_KW
+        } else if ident.eq_ignore_ascii_case("datatype") {
+            SyntaxKind::DATATYPE_KW
+        } else if ident.eq_ignore_ascii_case("debug") {
+            SyntaxKind::DEBUG_KW
+        } else if ident.eq_ignore_ascii_case("detail") {
+            SyntaxKind::DETAIL_KW
+        } else if ident.eq_ignore_ascii_case("diagnostics") {
+            SyntaxKind::DIAGNOSTICS_KW
+        } else if ident.eq_ignore_ascii_case("dump") {
+            SyntaxKind::DUMP_KW
+        } else if ident.eq_ignore_ascii_case("elseif") {
+            SyntaxKind::ELSEIF_KW
+        } else if ident.eq_ignore_ascii_case("elsif") {
+            SyntaxKind::ELSIF_KW
+        } else if ident.eq_ignore_ascii_case("errcode") {
+            SyntaxKind::ERRCODE_KW
+        } else if ident.eq_ignore_ascii_case("exception") {
+            SyntaxKind::EXCEPTION_KW
+        } else if ident.eq_ignore_ascii_case("exit") {
+            SyntaxKind::EXIT_KW
+        } else if ident.eq_ignore_ascii_case("foreach") {
+            SyntaxKind::FOREACH_KW
+        } else if ident.eq_ignore_ascii_case("get") {
+            SyntaxKind::GET_KW
+        } else if ident.eq_ignore_ascii_case("hint") {
+            SyntaxKind::HINT_KW
+        } else if ident.eq_ignore_ascii_case("info") {
+            SyntaxKind::INFO_KW
+        } else if ident.eq_ignore_ascii_case("log") {
+            SyntaxKind::LOG_KW
+        } else if ident.eq_ignore_ascii_case("loop") {
+            SyntaxKind::LOOP_KW
+        } else if ident.eq_ignore_ascii_case("message") {
+            SyntaxKind::MESSAGE_KW
+        } else if ident.eq_ignore_ascii_case("message_text") {
+            SyntaxKind::MESSAGE_TEXT_KW
+        } else if ident.eq_ignore_ascii_case("notice") {
+            SyntaxKind::NOTICE_KW
+        } else if ident.eq_ignore_ascii_case("open") {
+            SyntaxKind::OPEN_KW
+        } else if ident.eq_ignore_ascii_case("perform") {
+            SyntaxKind::PERFORM_KW
+        } else if ident.eq_ignore_ascii_case("pg_context") {
+            SyntaxKind::PG_CONTEXT_KW
+        } else if ident.eq_ignore_ascii_case("pg_datatype_name") {
+            SyntaxKind::PG_DATATYPE_NAME_KW
+        } else if ident.eq_ignore_ascii_case("pg_exception_context") {
+            SyntaxKind::PG_EXCEPTION_CONTEXT_KW
+        } else if ident.eq_ignore_ascii_case("pg_exception_detail") {
+            SyntaxKind::PG_EXCEPTION_DETAIL_KW
+        } else if ident.eq_ignore_ascii_case("pg_exception_hint") {
+            SyntaxKind::PG_EXCEPTION_HINT_KW
+        } else if ident.eq_ignore_ascii_case("pg_routine_oid") {
+            SyntaxKind::PG_ROUTINE_OID_KW
+        } else if ident.eq_ignore_ascii_case("print_strict_params") {
+            SyntaxKind::PRINT_STRICT_PARAMS_KW
+        } else if ident.eq_ignore_ascii_case("query") {
+            SyntaxKind::QUERY_KW
+        } else if ident.eq_ignore_ascii_case("raise") {
+            SyntaxKind::RAISE_KW
+        } else if ident.eq_ignore_ascii_case("returned_sqlstate") {
+            SyntaxKind::RETURNED_SQLSTATE_KW
+        } else if ident.eq_ignore_ascii_case("reverse") {
+            SyntaxKind::REVERSE_KW
+        } else if ident.eq_ignore_ascii_case("row_count") {
+            SyntaxKind::ROW_COUNT_KW
+        } else if ident.eq_ignore_ascii_case("rowtype") {
+            SyntaxKind::ROWTYPE_KW
+        } else if ident.eq_ignore_ascii_case("schema_name") {
+            SyntaxKind::SCHEMA_NAME_KW
+        } else if ident.eq_ignore_ascii_case("slice") {
+            SyntaxKind::SLICE_KW
+        } else if ident.eq_ignore_ascii_case("sqlstate") {
+            SyntaxKind::SQLSTATE_KW
+        } else if ident.eq_ignore_ascii_case("stacked") {
+            SyntaxKind::STACKED_KW
+        } else if ident.eq_ignore_ascii_case("table_name") {
+            SyntaxKind::TABLE_NAME_KW
+        } else if ident.eq_ignore_ascii_case("use_column") {
+            SyntaxKind::USE_COLUMN_KW
+        } else if ident.eq_ignore_ascii_case("use_variable") {
+            SyntaxKind::USE_VARIABLE_KW
+        } else if ident.eq_ignore_ascii_case("variable_conflict") {
+            SyntaxKind::VARIABLE_CONFLICT_KW
+        } else if ident.eq_ignore_ascii_case("warning") {
+            SyntaxKind::WARNING_KW
+        } else if ident.eq_ignore_ascii_case("while") {
+            SyntaxKind::WHILE_KW
         } else {
             return None;
         };

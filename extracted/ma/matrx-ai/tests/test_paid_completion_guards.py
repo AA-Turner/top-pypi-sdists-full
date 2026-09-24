@@ -134,7 +134,7 @@ class _PaidMediaStub(BaseMediaGeneration):
 
 async def test_post_provider_persist_failure_is_not_retryable() -> None:
     """After the paid provider call returns, local failures must not retry."""
-    from matrx_ai.providers.base_media import _non_retryable_after_paid_call
+    from matrx_ai.providers.paid_output import non_retryable_after_paid_call
     from matrx_ai.providers.errors import RetryableError
 
     false_rate_limit = RetryableError(
@@ -145,7 +145,7 @@ async def test_post_provider_persist_failure_is_not_retryable() -> None:
         retry_after=10.0,
         user_message="Rate limited",
     )
-    result = _non_retryable_after_paid_call(
+    result = non_retryable_after_paid_call(
         false_rate_limit,
         RuntimeError("persist failed"),
         provider="replicate",

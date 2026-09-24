@@ -1975,6 +1975,10 @@ class ToProtoConverter:
         retry_policy = getattr(source, "retry_policy", None)
         if retry_policy is not None:
             settings.retry_policy.CopyFrom(cls.convert_sql_retry_policy(retry_policy))
+        # Same reflective treatment for `max_row_version_lookback`, added later still.
+        max_row_version_lookback = getattr(source, "max_row_version_lookback", None)
+        if max_row_version_lookback is not None:
+            settings.max_row_version_lookback.FromTimedelta(max_row_version_lookback)
         return settings
 
     @classmethod

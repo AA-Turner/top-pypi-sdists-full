@@ -235,14 +235,12 @@ def filter_whitespace(mode, text):
     """
     if mode == "all":
         return text
-    elif mode == "single":
+    if mode == "single":
         text = _PATTERN_TAB_SPACE.sub(" ", text)
-        text = _PATTERN_NEWLINE_SPACE.sub("\n", text)
-        return text
-    elif mode == "oneline":
+        return _PATTERN_NEWLINE_SPACE.sub("\n", text)
+    if mode == "oneline":
         return _PATTERN_ALL_WHITESPACE.sub(" ", text)
-    else:
-        raise Exception("invalid whitespace mode %s" % mode)
+    raise Exception("invalid whitespace mode %s" % mode)
 
 
 class Template:
@@ -460,8 +458,7 @@ class Loader(BaseLoader):
     def _create_template(self, name):
         path = os.path.join(self.root, name)
         with open(path, "rb") as f:
-            template = Template(f.read(), name=name, loader=self)
-            return template
+            return Template(f.read(), name=name, loader=self)
 
 
 class DictLoader(BaseLoader):
@@ -811,10 +808,9 @@ class _TemplateReader:
             if stop is not None:
                 stop += self.pos
             return self.text[slice(start, stop, step)]
-        elif key < 0:
+        if key < 0:
             return self.text[key]
-        else:
-            return self.text[self.pos + key]
+        return self.text[self.pos + key]
 
     def __str__(self):
         return self.text[self.pos :]
@@ -933,12 +929,12 @@ def _parse(reader: _TemplateReader, template, in_block=None, in_loop=None):
             continue
 
         # End tag
-        elif operator == "end":
+        if operator == "end":
             if not in_block:
                 reader.raise_parse_error("Extra {% end %} block")
             return body
 
-        elif operator in (
+        if operator in (
             "extends",
             "include",
             "set",
@@ -977,7 +973,7 @@ def _parse(reader: _TemplateReader, template, in_block=None, in_loop=None):
             body.chunks.append(block)
             continue
 
-        elif operator in ("apply", "block", "try", "if", "for", "while"):
+        if operator in ("apply", "block", "try", "if", "for", "while"):
             # parse inner body recursively
             if operator in ("for", "while"):
                 block_body = _parse(reader, template, operator, operator)
@@ -995,14 +991,13 @@ def _parse(reader: _TemplateReader, template, in_block=None, in_loop=None):
             body.chunks.append(block)
             continue
 
-        elif operator in ("break", "continue"):
+        if operator in ("break", "continue"):
             if not in_loop:
                 reader.raise_parse_error("%s outside %s block" % (operator, {"for", "while"}))
             body.chunks.append(_Statement(contents, line))
             continue
 
-        else:
-            reader.raise_parse_error("unknown operator: %r" % operator)
+        reader.raise_parse_error("unknown operator: %r" % operator)
 
 
 VALID_CUSTOM_FUNCTION_NAMES = {

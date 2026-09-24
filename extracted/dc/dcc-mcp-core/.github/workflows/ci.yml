@@ -299,6 +299,74 @@ jobs:
           CARGO_TARGET_DIR: target/semantic-backend-tests
         run: vx cargo test -p dcc-mcp-semantic --features fastembed-backend --lib
 
+  # ── Feature-gated Rust test matrix ────────────────────────────────────────
+  # `just test-rust` runs `cargo nextest run --workspace` with default features
+  # only, so crates whose `default = []` hides their behaviour behind opt-in
+  # features never execute their tests in CI. The admin dashboard and its
+  # SQLite persistence lane are exactly that case: they only compile and run
+  # under `admin` / `persist-sqlite`. This matrix runs those combinations on
+  # every PR, fanning out so the four suites build in parallel instead of
+  # extending the `rust-check` critical path.
+  #
+  # `admin` (without `persist-sqlite`) is covered on purpose: it is the
+  # feature set the release wheel is built with, and it is a different compile
+  # path from `admin-persist-sqlite`, so a regression can be red in one and
+  # green in the other.
+  rust-feature-tests:
+    name: Rust features (${{ matrix.label }})
+    needs: admin-ui-bundle
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: gateway admin-persist-sqlite
+            package: dcc-mcp-gateway
+            features: admin-persist-sqlite
+          - label: gateway admin
+            package: dcc-mcp-gateway
+            features: admin
+          - label: gateway-admin persist-sqlite
+            package: dcc-mcp-gateway-admin
+            features: persist-sqlite
+          - label: db gateway-admin-sqlite
+            package: dcc-mcp-db
+            features: gateway-admin-sqlite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+      # `dcc-mcp-gateway-admin/src/generated/index.html` is git-ignored and
+      # `include_str!`-ed when the `embed` feature is on. Reuse the bundle the
+      # `admin-ui-bundle` job already built instead of paying for a second
+      # Node/npm install in every matrix leg.
+      - name: Download prebuilt admin UI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway-admin/src/generated
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-feature-${{ matrix.package }}-${{ matrix.features }}
+          shared-key: rust-feature-${{ runner.os }}
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: Feature-gated tests
+        env:
+          DCC_MCP_ADMIN_UI_PREBUILT: "1"
+        run: |
+          set -euo pipefail
+          vx cargo nextest run \
+            -p "${{ matrix.package }}" \
+            --features "${{ matrix.features }}" \
+            --no-fail-fast
+
   # ── Dependency policy gate (cargo-deny) ───────────────────────────────────
   # Independent of `rust-check` so its install of `cargo-deny` does not
   # bottleneck the slower clippy/nextest path. Catches: native-tls /
@@ -613,6 +681,62 @@ jobs:
             "${{ steps.py314.outputs.python-path }}" scripts/vrs_replay.py \
               --base-url http://127.0.0.1:1 --dry-run --trace "$f"
           done
+
+      # Last on purpose: GitHub runs steps serially, so a check placed earlier
+      # would skip everything after it when it fails. Keeping this at the end
+      # means a red coverage gate cannot silently switch off VRS validation.
+      - name: Docs playbook coverage (agent-facing entry points)
+        run: vx just docs-lint-playbook
+
+  # ── Released schema immutability gate ─────────────────────────────────────
+  # A released `-vN` schema must never be rewritten in place. The four live
+  # digest pins (compatibility/python.json, install_sop.py,
+  # schema_validation.rs and the catalog provenance cross-assert) are all
+  # derived from the current file, so a coordinated in-place edit keeps every
+  # one of them green. This job compares committed schema bytes against the
+  # digests registered in compatibility/schema-pins.json for released tags
+  # instead, which no amount of pin-following can satisfy.
+  released-schema-immutability:
+    name: Released schema immutability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # `git cat-file blob <tag>:<path>` needs the release tags. The
+          # default depth-1 checkout fetches none of them, which would leave
+          # the gate skipped and therefore unenforced.
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Verify released schema pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_file="$(mktemp)"
+          trap 'rm -f "$output_file"' EXIT
+          set +e
+          python -m pytest tests/test_released_schema_immutability.py --noconftest \
+            -q --tb=short 2>&1 | tee "$output_file"
+          status="${PIPESTATUS[0]}"
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            echo "::error::released schema immutability gate failed"
+            exit 1
+          fi
+          # A skipped or empty gate is an unenforced gate. Refuse to pass on
+          # either, so a future checkout-config change cannot silently disable
+          # this check.
+          if grep -Eq '[0-9]+ skipped' "$output_file"; then
+            echo "::error::released schema immutability gate skipped tests; the gate must run"
+            exit 1
+          fi
+          if ! grep -Eq '[0-9]+ passed' "$output_file"; then
+            echo "::error::released schema immutability gate ran no tests"
+            exit 1
+          fi
 
   # ── Python 3.7 syntax gate ──────────────────────────────────────────────
   # Maya 2022 / Blender 2.83 embed Python 3.7; pure-Python modules must

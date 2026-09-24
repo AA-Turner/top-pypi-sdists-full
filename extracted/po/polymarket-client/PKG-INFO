@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: polymarket-client
-Version: 0.10.0
+Version: 0.11.0
 Summary: Official Python client for Polymarket
 Project-URL: Homepage, https://polymarket.com
 Project-URL: Documentation, https://docs.polymarket.com
@@ -27,6 +27,7 @@ Requires-Dist: eth-utils<6,>=4
 Requires-Dist: httpx[http2]<1,>=0.27
 Requires-Dist: msgpack<2,>=1
 Requires-Dist: pydantic<3,>=2
+Requires-Dist: typing-extensions<5,>=4.15
 Requires-Dist: websockets<16,>=13
 Provides-Extra: arrow
 Requires-Dist: pyarrow<22,>=15; extra == 'arrow'

@@ -101,6 +101,10 @@ class AsyncTelemetryDispatcher(TelemetryDispatcher):
             telemetry_event = client_telemetry_service_pb2.ClientTelemetryEvent(
                 session_end=event.to_proto(), event_order=event_order
             )
+        elif isinstance(event, client_telemetry_service_models.ClientSelectorEvent):
+            telemetry_event = client_telemetry_service_pb2.ClientTelemetryEvent(
+                client_selector_event=event.to_proto(), event_order=event_order
+            )
         else:
             raise ValueError(f"Unknown event type: {type(event)}")
         self._add_events([telemetry_event])

@@ -4011,6 +4011,28 @@ def test_migrate_removes_user_hooks():
         assert len(list(user_dir.glob("hooks.backup_*.json"))) == 1
 
 
+def test_backup_file_prunes_stale_backups_to_retention_cap(tmp_path):
+    """Repeated operator installs never pile up more than the retention cap."""
+    from runlayer_cli.commands.setup import _backup_file
+    from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+    hooks_json = tmp_path / "hooks.json"
+    hooks_json.write_text('{"version": 1}\n')
+    seeded = []
+    for day in range(1, BACKUP_KEEP + 3):
+        stale = tmp_path / f"hooks.backup_2020010{day}_000000.json"
+        stale.write_text("stale")
+        seeded.append(stale)
+
+    fresh = _backup_file(hooks_json)
+
+    assert fresh is not None
+    assert fresh.read_text() == '{"version": 1}\n'
+    remaining = sorted(tmp_path.glob("hooks.backup_*.json"))
+    assert remaining == seeded[-(BACKUP_KEEP - 1) :] + [fresh]
+    assert hooks_json.read_text() == '{"version": 1}\n'
+
+
 def test_migrate_removes_user_hooks_jsonc():
     """Test that MDM migration handles JSONC hooks.json (comments, trailing commas)."""
     with tempfile.TemporaryDirectory() as temp_dir:

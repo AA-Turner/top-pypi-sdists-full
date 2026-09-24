@@ -2,7 +2,6 @@
 
 import signal as signal_module
 import subprocess
-import time
 import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -20,7 +19,6 @@ from vercel.sandbox._internal.errors import (
     SandboxCleanupError,
     SandboxResponseError,
     SandboxTerminalStateError,
-    SandboxTimeoutError,
 )
 from vercel.sandbox._internal.filesystem_handle_common import _validate_open_options
 from vercel.sandbox._internal.filesystem_handle_core import (
@@ -41,6 +39,7 @@ from vercel.sandbox._internal.models import (
     DriveQuery,
     DurationInput,
     FailoverRegionsInput,
+    NetworkIdUpdate,
     NetworkPolicy,
     PrivateSandboxParameters,
     ProcessLog,
@@ -73,10 +72,7 @@ from vercel.sandbox._internal.process_output import (
     _validate_reader_destination,
 )
 from vercel.sandbox._internal.recovery import (
-    TRANSITION_POLL_INTERVAL,
-    TRANSITION_TIMEOUT,
     SandboxLifecycle,
-    SandboxRecoveryTarget,
     classify_sandbox_lifecycle_error,
     execute_with_sandbox_recovery,
 )
@@ -1078,17 +1074,9 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         with self._recovery_condition:
             super()._apply_session_stop_from_child(child, result)
 
-    def _capture_recovery_target(self) -> SandboxRecoveryTarget:
+    def _capture_recovery_session_id(self) -> str:
         with self._recovery_condition:
-            return super()._capture_recovery_target()
-
-    def _apply_recovery_session_payload(
-        self,
-        target: SandboxRecoveryTarget,
-        payload: SandboxRuntimeSessionState,
-    ) -> None:
-        with self._recovery_condition:
-            super()._apply_recovery_session_payload(target, payload)
+            return super()._capture_recovery_session_id()
 
     async def _await_shared_resume(self) -> None:
         while True:
@@ -1142,17 +1130,14 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         return (await self._acquire_session()).id
 
     async def _acquire_session(self) -> SyncSandboxRuntimeSession:
-        target = self._capture_recovery_target()
         try:
             await self._await_shared_resume()
         except Exception as error:
-            lifecycle = classify_sandbox_lifecycle_error(error)
-            if lifecycle not in {
+            if classify_sandbox_lifecycle_error(error) not in {
                 SandboxLifecycle.STOPPING,
                 SandboxLifecycle.SNAPSHOTTING,
             }:
                 raise
-            await self._wait_for_transition(target)
             await self._await_shared_resume()
         session = self.current_session
         if session is None:
@@ -1169,29 +1154,6 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         exact session identity on exit.
         """
         return iter_coroutine(self._acquire_session())
-
-    async def _wait_for_transition(self, target: SandboxRecoveryTarget) -> None:
-        deadline = time.monotonic() + TRANSITION_TIMEOUT
-        while True:
-            if time.monotonic() >= deadline:
-                raise SandboxTimeoutError(
-                    f"Sandbox session {target.session_id!r} did not leave a "
-                    f"transitional state within {TRANSITION_TIMEOUT}s"
-                )
-            time.sleep(TRANSITION_POLL_INTERVAL)
-            payload = await self._service.get_runtime_session(session_id=target.session_id)
-            self._apply_recovery_session_payload(target, payload)
-            if payload.status not in {
-                SandboxStatus.STOPPING,
-                SandboxStatus.SNAPSHOTTING,
-            }:
-                return
-
-    async def _recover(self, lifecycle: SandboxLifecycle, target: SandboxRecoveryTarget) -> bool:
-        if lifecycle in {SandboxLifecycle.STOPPING, SandboxLifecycle.SNAPSHOTTING}:
-            await self._wait_for_transition(target)
-        await self._await_shared_resume()
-        return True
 
     def run_process(
         self,
@@ -1428,10 +1390,18 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
             session._apply_stop_result(result)
         return self
 
-    def destroy(self) -> Self:
-        """Permanently destroy the sandbox and refresh this handle."""
+    def destroy(self, *, delete_orphan_snapshots: bool = False) -> Self:
+        """Permanently destroy the sandbox and refresh this handle.
+
+        Set ``delete_orphan_snapshots`` to also delete snapshots that no other
+        sandbox uses. By default, snapshots are kept until they expire.
+        """
         payload = iter_coroutine(
-            self._service.destroy_sandbox(name=self.name, project_id=self.project_id)
+            self._service.destroy_sandbox(
+                name=self.name,
+                project_id=self.project_id,
+                delete_orphan_snapshots=delete_orphan_snapshots,
+            )
         )
         self._apply_payload(payload)
         return self
@@ -1444,6 +1414,7 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
         resources: SandboxResources | None = None,
         persistent: bool | None = None,
         network_policy: NetworkPolicy | None = None,
+        network_id: NetworkIdUpdate = _OMITTED,
         env: Mapping[str, str] | None = None,
         tags: Mapping[str, str] | None = None,
         mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1477,6 +1448,7 @@ class SyncSandbox(SandboxHandleBase[SyncSandboxRuntimeSession]):
                 resources=resources,
                 persistent=persistent,
                 network_policy=network_policy,
+                network_id=network_id,
                 env=env,
                 tags=tags,
                 mounts=mounts,
@@ -1500,7 +1472,7 @@ def _cleanup_managed_sandbox(handle: SyncSandbox, *, destroy: bool) -> None:
 
     if destroy:
         try:
-            handle.destroy()
+            handle.destroy(delete_orphan_snapshots=True)
         except Exception as exc:
             if cleanup_error is None:
                 cleanup_error = exc
@@ -1556,6 +1528,7 @@ def create_sandbox(
     resources: SandboxResources | None = None,
     persistent: bool | None = None,
     network_policy: NetworkPolicy | None = None,
+    network_id: str | None = None,
     env: Mapping[str, str] | None = None,
     tags: Mapping[str, str] | None = None,
     mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1578,6 +1551,7 @@ def create_sandbox(
                 resources=resources,
                 persistent=persistent,
                 network_policy=network_policy,
+                network_id=network_id,
                 env=env,
                 tags=tags,
                 mounts=mounts,
@@ -1609,6 +1583,7 @@ def fork_sandbox(
     image: str | None = None,
     persistent: bool | None = None,
     network_policy: NetworkPolicy | None = None,
+    network_id: str | None = None,
     env: Mapping[str, str] | None = None,
     tags: Mapping[str, str] | None = None,
     mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1631,6 +1606,7 @@ def fork_sandbox(
                 image=image,
                 persistent=persistent,
                 network_policy=network_policy,
+                network_id=network_id,
                 env=env,
                 tags=tags,
                 mounts=mounts,
@@ -1688,6 +1664,7 @@ def get_or_create_sandbox(
     resources: SandboxResources | None = None,
     persistent: bool | None = None,
     network_policy: NetworkPolicy | None = None,
+    network_id: str | None = None,
     env: Mapping[str, str] | None = None,
     tags: Mapping[str, str] | None = None,
     mounts: DriveMountsInput[_RemotePathT] | None = None,
@@ -1711,6 +1688,7 @@ def get_or_create_sandbox(
                 resources=resources,
                 persistent=persistent,
                 network_policy=network_policy,
+                network_id=network_id,
                 env=env,
                 tags=tags,
                 mounts=mounts,
@@ -1770,18 +1748,16 @@ def get_or_create_drive(
     project_id: str | None = None,
     max_size_bytes: int | None = None,
     region: str | None = None,
-) -> SyncDrive:
-    return SyncDrive(
-        payload=iter_coroutine(
-            service.get_or_create_drive(
-                name=name,
-                project_id=project_id,
-                max_size_bytes=max_size_bytes,
-                region=region,
-            )
-        ),
-        service=service,
+) -> tuple[SyncDrive, bool]:
+    state, created = iter_coroutine(
+        service.get_or_create_drive(
+            name=name,
+            project_id=project_id,
+            max_size_bytes=max_size_bytes,
+            region=region,
+        )
     )
+    return SyncDrive(payload=state, service=service), created
 
 
 def delete_drive(service: SandboxService, *, name: str, project_id: str | None = None) -> SyncDrive:

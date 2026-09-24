@@ -83,11 +83,21 @@ class NumPyPlottableAxis:
         """
         return self.edges.shape[0]  # type: ignore[no-any-return]
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Needed for the protocol (should be present to be stored in a Sequence).
+
+        Returns NotImplemented when other has no .edges attribute (so Python can
+        try the reflected operation), and False when shapes differ, to avoid
+        broadcast errors inside np.allclose.
         """
-        return np.allclose(self.edges, other.edges)
+        other_edges = getattr(other, "edges", None)
+        if other_edges is None:
+            return NotImplemented
+        other_edges = np.asarray(other_edges)
+        if self.edges.shape != other_edges.shape:
+            return False
+        return bool(np.allclose(self.edges, other_edges))
 
     def __iter__(self) -> Iterator[tuple[float, float]]:
         """
@@ -111,12 +121,12 @@ def _bin_helper(shape: int, bins: np.typing.NDArray[Any] | None) -> NumPyPlottab
     """
     if bins is None:
         return NumPyPlottableAxis(
-            np.array([np.arange(0, shape), np.arange(1, shape + 1)]).T
+            np.column_stack([np.arange(0, shape), np.arange(1, shape + 1)])
         )
     if bins.ndim == 2:
         return NumPyPlottableAxis(bins)
     if bins.ndim == 1:
-        return NumPyPlottableAxis(np.array([bins[:-1], bins[1:]]).T)
+        return NumPyPlottableAxis(np.column_stack([bins[:-1], bins[1:]]))
     msg = "Bins not understood, should be 2d array of min/max edges or 1D array of edges or None"
     raise ValueError(msg)
 
@@ -126,7 +136,7 @@ class NumPyPlottableHistogram:
         self,
         hist: np.typing.NDArray[Any],
         *bins: (
-            np.typing.NDArray[Any] | None | tuple[np.typing.NDArray[Any] | None, ...]
+            np.typing.NDArray[Any] | tuple[np.typing.NDArray[Any] | None, ...] | None
         ),
         variances: np.typing.NDArray[Any] | None = None,
         kind: Kind = Kind.COUNT,
@@ -202,7 +212,7 @@ class ROOTAxis(abc.ABC):
     def __getitem__(self, index: int) -> Any:
         pass
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, ROOTAxis):
             return NotImplemented
         return len(self) == len(other) and all(
@@ -395,8 +405,12 @@ def ensure_plottable_histogram(hist: Any) -> PlottableHistogram:
             return NumPyPlottableHistogram(
                 np.asarray(hist[0]), *(None for _ in np.asarray(hist[0]).shape)
             )
-        # Standard tuple
-        return NumPyPlottableHistogram(*(np.asarray(h) for h in hist))
+        # Standard tuple — preserve None entries so _bin_helper can use the
+        # default 0..N integer-edges axis for that dimension.
+        return NumPyPlottableHistogram(
+            np.asarray(hist[0]),
+            *(None if b is None else np.asarray(b) for b in hist[1:]),
+        )
 
     if hasattr(hist, "InheritsFrom") and hist.InheritsFrom("TH1"):
         if any(

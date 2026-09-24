@@ -32,6 +32,7 @@ from .literals import (
     MetricsNameType,
     MinimumThroughputBillingCommitmentInputStatusType,
     MinimumThroughputBillingCommitmentOutputStatusType,
+    RecordDistributionStrategyType,
     RecordFormatTypeType,
     S3CompressionTypeType,
     S3StorageClassType,
@@ -184,6 +185,7 @@ __all__ = (
     "UpdateShardCountInputTypeDef",
     "UpdateShardCountOutputTypeDef",
     "UpdateStreamModeInputTypeDef",
+    "UpdateStreamRecordDistributionStrategyInputTypeDef",
     "UpdateStreamWarmThroughputInputTypeDef",
     "UpdateStreamWarmThroughputOutputTypeDef",
     "WaiterConfigTypeDef",
@@ -368,8 +370,8 @@ class GetRecordsInputTypeDef(TypedDict):
 class RecordTypeDef(TypedDict):
     SequenceNumber: str
     Data: bytes
-    PartitionKey: str
     ApproximateArrivalTimestamp: NotRequired[datetime]
+    PartitionKey: NotRequired[str]
     EncryptionType: NotRequired[EncryptionTypeType]
 
 
@@ -568,6 +570,12 @@ class UpdateShardCountInputTypeDef(TypedDict):
     StreamId: NotRequired[str]
 
 
+class UpdateStreamRecordDistributionStrategyInputTypeDef(TypedDict):
+    StreamARN: str
+    RecordDistributionStrategy: RecordDistributionStrategyType
+    StreamId: NotRequired[str]
+
+
 class UpdateStreamWarmThroughputInputTypeDef(TypedDict):
     WarmThroughputMiBps: int
     StreamARN: NotRequired[str]
@@ -577,8 +585,8 @@ class UpdateStreamWarmThroughputInputTypeDef(TypedDict):
 
 class PutRecordInputTypeDef(TypedDict):
     Data: BlobTypeDef
-    PartitionKey: str
     StreamName: NotRequired[str]
+    PartitionKey: NotRequired[str]
     ExplicitHashKey: NotRequired[str]
     SequenceNumberForOrdering: NotRequired[str]
     StreamARN: NotRequired[str]
@@ -588,8 +596,8 @@ class PutRecordInputTypeDef(TypedDict):
 
 class PutRecordsRequestEntryTypeDef(TypedDict):
     Data: BlobTypeDef
-    PartitionKey: str
     ExplicitHashKey: NotRequired[str]
+    PartitionKey: NotRequired[str]
 
 
 class ChannelLoggingConfigurationTypeDef(TypedDict):
@@ -698,6 +706,7 @@ class CreateStreamInputTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
     WarmThroughputMiBps: NotRequired[int]
     MaxRecordSizeInKiB: NotRequired[int]
+    RecordDistributionStrategy: NotRequired[RecordDistributionStrategyType]
 
 
 class StreamSummaryTypeDef(TypedDict):
@@ -875,6 +884,7 @@ class StreamDescriptionSummaryTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputObjectTypeDef]
     MaxRecordSizeInKiB: NotRequired[int]
     ChannelCount: NotRequired[int]
+    RecordDistributionStrategy: NotRequired[RecordDistributionStrategyType]
 
 
 class UpdateStreamWarmThroughputOutputTypeDef(TypedDict):

@@ -22,7 +22,6 @@ import xai_sdk
 
 from matrx_ai.config import ProviderCharge, UnifiedConfig
 from matrx_ai.config.message_config import (
-    iter_images_by_role,
     pick_image_by_role,
     pick_text_by_role,
 )
@@ -74,41 +73,44 @@ class XAIVideoGeneration(BaseMediaGeneration):
             **params,
         }
 
-        # Image-to-video. Prefer user-message-tagged start_image (or first
-        # un-tagged image), fall back to settings image_input.
-        start = (
-            pick_image_by_role(unified_config.messages, "start_image")
-            or pick_image_by_role(unified_config.messages, None)
-        )
+        # Typed video roles (legacy metadata.role tags fold in):
+        # first_frame -> image_url, asset -> reference_image_urls (max 3),
+        # restyle -> video_url (edit), extend -> the extend call's video_url.
+        from matrx_ai.media.video_reference_roles import collect_video_references, first_of
+
+        refs = collect_video_references(unified_config.messages)
+
+        def _url(block: Any, label: str) -> str:
+            u = self._mediaref_url(block)
+            if not u:
+                raise ValueError(f"The {label} could not be read. Re-upload it and run again.")
+            return u
+
+        start = first_of(refs, "first_frame")
         if start is not None:
-            u = self._mediaref_url(start)
-        elif unified_config.image_input is not None:
-            u = self._mediaref_url(unified_config.image_input)
+            kwargs["image_url"] = _url(start, "First frame image")
         else:
-            u = None
-        if u:
-            kwargs["image_url"] = u
-
-        # Reference-to-video. User-message-tagged refs take precedence.
-        refs: list[str] = []
-        for ref in iter_images_by_role(unified_config.messages, "reference"):
-            u = self._mediaref_url(ref)
+            untagged = pick_image_by_role(unified_config.messages, None)
+            source = untagged if untagged is not None else unified_config.image_input
+            u = self._mediaref_url(source) if source is not None else None
             if u:
-                refs.append(u)
-        if not refs:
-            for ref in unified_config.image_inputs or []:
-                u = self._mediaref_url(ref)
-                if u:
-                    refs.append(u)
-            for ref in unified_config.reference_images or []:
-                u = self._mediaref_url(ref)
-                if u:
-                    refs.append(u)
-        if refs:
-            kwargs["reference_image_urls"] = refs[:3]
+                kwargs["image_url"] = u
 
-        # Video input — for edit (top-level) or extend (separate kwarg path).
-        if unified_config.video_input is not None:
+        refs_urls = [_url(b, "Asset image") for b in refs.get("asset") or []]
+        if not refs_urls:
+            for ref in (unified_config.image_inputs or []) + (unified_config.reference_images or []):
+                u = self._mediaref_url(ref)
+                if u:
+                    refs_urls.append(u)
+        if refs_urls:
+            kwargs["reference_image_urls"] = refs_urls[:3]
+
+        video_block = first_of(refs, "extend") or first_of(refs, "restyle")
+        if video_block is not None:
+            kwargs["video_url"] = _url(video_block, "reference video")
+            if first_of(refs, "extend") is not None:
+                self._is_extend = True
+        elif unified_config.video_input is not None:
             u = self._mediaref_url(unified_config.video_input)
             if u:
                 kwargs["video_url"] = u
@@ -119,6 +121,11 @@ class XAIVideoGeneration(BaseMediaGeneration):
         if self._is_extend:
             return "https://api.x.ai/v1/videos/extensions"
         return "https://api.x.ai/v1/videos/generations"
+
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """Grok Imagine: first frame, up to 3 asset references, a clip to
+        restyle (edit) or to extend."""
+        return frozenset({"first_frame", "asset", "restyle", "extend"})
 
     async def _call_provider(self, kwargs: dict[str, Any]) -> Any:
         prompt = kwargs.pop("prompt")

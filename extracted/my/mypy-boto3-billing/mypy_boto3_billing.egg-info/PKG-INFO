@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-billing
-Version: 1.43.94
-Summary: Type annotations for boto3 Billing 1.43.94 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.101
+Summary: Type annotations for boto3 Billing 1.43.101 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Billing 1.43.94](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Billing 1.43.101](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.94' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.101' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Billing` service.
 4. Use provided commands to install generated packages.
@@ -339,6 +339,7 @@ from boto3.session import Session
 from mypy_boto3_billing import BillingClient
 from mypy_boto3_billing.paginator import (
     GetCreditAllocationHistoryPaginator,
+    ListBillingViewSegmentsPaginator,
     ListBillingViewsPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
@@ -350,6 +351,9 @@ client: BillingClient = Session().client("billing")
 # Types should be correctly discovered by mypy and IDEs
 get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = client.get_paginator(
     "get_credit_allocation_history"
+)
+list_billing_view_segments_paginator: ListBillingViewSegmentsPaginator = client.get_paginator(
+    "list_billing_view_segments"
 )
 list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
 list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator(

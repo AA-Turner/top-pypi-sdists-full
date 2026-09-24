@@ -1,20 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aiohttp-asgi-connector
-Version: 1.1.2
+Version: 1.2.0
 Summary: AIOHTTP Connector for running ASGI applications
-Keywords: fastapi,aiohttp,asgi,testing,starlette,httpx,asyncio
-Author-Email: thearchitector <me@eliasfgabriel.com>
-License: BSD-3-Clause
+Keywords: fastapi,aiohttp,asgi,testing,httpx2,asyncio,pytest
+Author: Elias Gabriel
+Author-email: Elias Gabriel <oss@eliasfgabriel.com>
+License-Expression: BSD-3-Clause-Clear
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: aiohttp
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Dist: aiohttp>=3.1.0 ; python_full_version >= '3.9'
+Requires-Dist: aiohttp>=3.1.0,<3.11 ; python_full_version == '3.8.*'
 Requires-Python: >=3.8
-Requires-Dist: aiohttp>=3.1.0; python_version >= "3.9"
-Requires-Dist: aiohttp<3.11,>=3.1.0; python_version ~= "3.8.0"
 Description-Content-Type: text/markdown
 
 # aiohttp-asgi-connector
 
-![GitHub Workflow Status](https://raster.shields.io/github/actions/workflow/status/thearchitector/aiohttp-asgi-connector/CI.yaml?label=tests&style=flat-square)
-![PyPI - Downloads](https://raster.shields.io/pypi/dm/aiohttp-asgi-connector?style=flat-square)
-![GitHub](https://raster.shields.io/github/license/thearchitector/aiohttp-asgi-connector?style=flat-square)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/aiohttp-asgi-connector?style=flat)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/thearchitector/aiohttp-asgi-connector/ci.yaml?label=tests&style=flat)
+![GitHub](https://img.shields.io/github/license/thearchitector/aiohttp-asgi-connector?style=flat)
 
 An AIOHTTP `ClientSession` connector for interacting with ASGI applications.
 
@@ -46,21 +62,27 @@ from fastapi import FastAPI, Body
 
 app = FastAPI()
 
+
 @app.post("/ping")
 async def pong(message: Annotated[str, Body(embed=True)]):
     return {"broadcast": f"Application says '{message}'!"}
 
+
 async def main():
     connector = ASGIApplicationConnector(app)
-    async with ClientSession(base_url="http://localhost", connector=connector) as session:
+    async with ClientSession(
+        base_url="http://localhost", connector=connector
+    ) as session:
         async with session.post("/ping", json={"message": "hello"}) as resp:
             print(await resp.json())
             # ==> {'broadcast': "Application says 'hello'!"}
 
+
 asyncio.run(main())
 ```
 
-Exceptions raised within the ASGI application that are not handled by middleware are propagated.
+By default, exceptions raised within the ASGI application that are not swallowed by middleware are propagated. This has the side-effect of buffering all known-length responses before sending them to the client, including streaming responses with an explicit `Content-Length` header. To opt-out, and receive HTTP error responses where
+where sen, pass `propagate_exceptions=False` to `ASGIApplicationConnector`; this in turn means responses will be streamed as expected.
 
 This connector transmits the request to the ASGI application _exactly_ as it is serialized by AIOHTTP. If upload chunking or compression are enabled for your `ClientSession` requests, your ASGI application will need to be able to handle de-chunking and de-compressing; FastAPI / Starlette do not do this by default. Support to enable connector-side dechunking and decompressing may come as a future feature if a need is demonstrated for it (file an Issue).
 
@@ -71,7 +93,9 @@ from asgi_lifespan import LifespanManager
 
 async with LifespanManager(app) as manager:
     connector = ASGIApplicationConnector(manager.app)
-    async with ClientSession(base_url="http://localhost", connector=connector) as session:
+    async with ClientSession(
+        base_url="http://localhost", connector=connector
+    ) as session:
         ...
 ```
 

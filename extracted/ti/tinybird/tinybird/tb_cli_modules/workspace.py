@@ -115,17 +115,16 @@ async def clear_workspace(ctx: Context, yes: bool, dry_run: bool) -> None:
         if config["id"] == workspace["id"]:
             if workspace.get("is_branch"):
                 raise CLIWorkspaceException(FeedbackManager.error_not_allowed_in_branch(cli="tb"))
-            else:
-                click.echo(FeedbackManager.info_current_workspace())
-                table.append(
-                    [
-                        workspace["name"],
-                        workspace["id"],
-                        workspace["role"],
-                        _get_workspace_plan_name(workspace["plan"]),
-                        True,
-                    ]
-                )
+            click.echo(FeedbackManager.info_current_workspace())
+            table.append(
+                [
+                    workspace["name"],
+                    workspace["id"],
+                    workspace["role"],
+                    _get_workspace_plan_name(workspace["plan"]),
+                    True,
+                ]
+            )
             break
 
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
@@ -178,8 +177,7 @@ async def clear_workspace(ctx: Context, yes: bool, dry_run: bool) -> None:
                 except Exception as e:
                     if "is a Shared Data Source" in str(e):
                         raise CLIWorkspaceException(FeedbackManager.error_operation_can_not_be_performed(error=e))
-                    else:
-                        raise CLIWorkspaceException(FeedbackManager.error_exception(error=e))
+                    raise CLIWorkspaceException(FeedbackManager.error_exception(error=e))
             else:
                 click.echo(FeedbackManager.info_dry_removing_datasource(datasource=ds_name))
 

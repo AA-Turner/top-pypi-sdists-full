@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3-lite"
-version = "1.43.100"
+version = "1.43.101"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.43.100 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.43.101 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.100",
+    "boto3==1.43.101",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -349,6 +349,7 @@ all = [
     "types-boto3-neptune-graph>=1.43.0, <1.44.0",
     "types-boto3-neptunedata>=1.43.0, <1.44.0",
     "types-boto3-network-firewall>=1.43.0, <1.44.0",
+    "types-boto3-network-security-manager>=1.43.0, <1.44.0",
     "types-boto3-networkflowmonitor>=1.43.0, <1.44.0",
     "types-boto3-networkmanager>=1.43.0, <1.44.0",
     "types-boto3-networkmonitor>=1.43.0, <1.44.0",
@@ -1343,6 +1344,9 @@ neptunedata = [
 ]
 network-firewall = [
     "types-boto3-network-firewall>=1.43.0, <1.44.0",
+]
+network-security-manager = [
+    "types-boto3-network-security-manager>=1.43.0, <1.44.0",
 ]
 networkflowmonitor = [
     "types-boto3-networkflowmonitor>=1.43.0, <1.44.0",

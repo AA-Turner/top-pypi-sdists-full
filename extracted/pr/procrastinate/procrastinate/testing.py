@@ -5,7 +5,7 @@ import datetime
 import json
 import threading
 from collections import Counter
-from collections.abc import Coroutine, Iterable, Iterator
+from collections.abc import Awaitable, Coroutine, Iterable, Iterator
 from itertools import count
 from typing import Any, Literal
 
@@ -88,6 +88,16 @@ class InMemoryConnector(connector.BaseAsyncConnector):
         self, query: str, **arguments: Any
     ) -> list[dict[str, Any]]:
         return await self.generic_execute(query, "all", **arguments)
+
+    def execute_query_one_with_connection(
+        self, connection: Any, query: str, **arguments: Any
+    ) -> dict[str, Any]:
+        return utils.async_to_sync(self.execute_query_one_async, query, **arguments)
+
+    async def execute_query_one_async_with_connection(
+        self, connection: Any, query: str, **arguments: Any
+    ) -> dict[str, Any]:
+        return await self.execute_query_one_async(query, **arguments)
 
     def execute_query_all_with_connection(
         self, connection: Any, query: str, **arguments: Any
@@ -264,7 +274,9 @@ class InMemoryConnector(connector.BaseAsyncConnector):
                 if not isinstance(coro, Coroutine):
                     original_coro = coro
 
-                    async def _coro() -> None:
+                    async def _coro(
+                        original_coro: Awaitable[None] = original_coro,
+                    ) -> None:
                         return await original_coro
 
                     coro: Any = _coro()

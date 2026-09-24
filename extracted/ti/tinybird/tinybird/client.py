@@ -408,6 +408,16 @@ class TinyB:
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
     ) -> Dict[str, Any]:
+        if mode in ("append", "replace"):
+            return await self.datasource_append_url(
+                table_name,
+                url,
+                mode=mode,
+                sql_condition=sql_condition,
+                format=format,
+                replace_options=replace_options,
+            )
+
         params = {"name": table_name, "url": url, "mode": mode, "debug": "blocks_block_log", "format": format}
 
         if sql_condition:
@@ -423,6 +433,33 @@ class TinyB:
             raise Exception(res["error"])
 
         return await self.wait_for_job(res["id"], status_callback, backoff_multiplier=1.5, maximum_backoff_seconds=20)
+
+    async def datasource_append_url(
+        self,
+        datasource_name: str,
+        url: str,
+        mode: str = "append",
+        sql_condition: Optional[str] = None,
+        format: str = "csv",
+        replace_options: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        params = {"format": format, "url": url}
+        if sql_condition:
+            params["replace_condition"] = sql_condition
+        if replace_options:
+            for option in replace_options:
+                params[option] = "true"
+
+        res = await self._req(
+            f"/v1/datasources/{quote(datasource_name, safe='')}/{mode}?{urlencode(params, safe='')}",
+            method="POST",
+            data=b"",
+        )
+        if not isinstance(res, dict):
+            raise RuntimeError("We couldn't confirm that your import started. Please try again.")
+        if "error" in res:
+            raise Exception(res["error"])
+        return res
 
     async def datasource_delete(self, datasource_name: str, force: bool = False, dry_run: bool = False):
         params = {"force": "true" if force else "false", "dry_run": "true" if dry_run else "false"}

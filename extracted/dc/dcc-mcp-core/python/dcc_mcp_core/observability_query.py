@@ -9,12 +9,17 @@ changes without breaking.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
 from typing import Any
 from typing import Callable
+
+from dcc_mcp_core.skill_promotion import DECISION_MANUAL_REVIEW
+from dcc_mcp_core.skill_promotion import DEFAULT_PROMOTION_THRESHOLD
+from dcc_mcp_core.skill_promotion import RECOMMENDED_ACTION_REVIEW_ONLY
+from dcc_mcp_core.skill_promotion import build_skill_promotion_proposals
+from dcc_mcp_core.skill_promotion import candidate_id_for_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -37,19 +42,16 @@ def _now_ms() -> int:
 def _script_candidate_id(row: dict[str, Any]) -> str:
     """Return a stable identity for one repeated-script grouping.
 
-    A content hash alone is not unique because the same materialized script
-    can be reused by multiple tools, DCCs, or reuse keys.  Canonical JSON
-    keeps the identity deterministic while the digest bounds its size.
+    Delegates to :func:`dcc_mcp_core.skill_promotion.candidate_id_for_evidence`
+    so query results and structured promotion proposals share one identity.
     """
-    identity = {
-        "sha256": str(row.get("sha256", "")),
-        "reuse_key": row.get("reuse_key"),
-        "dcc_type": row.get("dcc_type"),
-        "tool_name": row.get("tool_name"),
-    }
-    canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"))
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    return f"script:{digest}"
+    return candidate_id_for_evidence(row)
+
+
+# Public alias: the in-process escape-hatch promotion hint derives the same
+# ``script:`` identity so an advisory hint and a durable audit candidate can be
+# correlated without duplicating the digest algorithm.
+script_candidate_id = _script_candidate_id
 
 
 def build_query_response(
@@ -303,6 +305,7 @@ class ObservabilityQuery:
         dcc_type: str | None = None,
         tool_name: str | None = None,
         limit: int = 100,
+        promotion_threshold: int = DEFAULT_PROMOTION_THRESHOLD,
     ) -> dict[str, Any]:
         """Return repeated materialized scripts and human-review candidates.
 
@@ -310,15 +313,34 @@ class ObservabilityQuery:
         ``script_execution`` identity stored in durable audit JSON rows. The
         candidate payload is advisory only and never promotes or publishes a
         skill automatically.
+
+        ``promotion_threshold`` is the number of distinct executions required
+        before a grouping's
+        :class:`~dcc_mcp_core.skill_promotion.SkillPromotionProposal` reports
+        ``decision == "propose_skill"``. It is independent of ``min_repeats`` so
+        a caller can surface sub-threshold groupings for inspection.
         """
-        if isinstance(min_repeats, bool) or min_repeats < 2:
+        # ``bool`` is an ``int`` subclass, so it is excluded explicitly. Every
+        # other non-``int`` (2.9, "3", …) is rejected here instead of being
+        # silently truncated by ``int()``: truncation would widen the query
+        # beyond what the caller asked for (2.9 would become 2).
+        if isinstance(min_repeats, bool) or not isinstance(min_repeats, int):
             raise ValueError("min_repeats must be an integer greater than or equal to 2")
-        if isinstance(limit, bool) or limit < 1:
+        if min_repeats < 2:
+            raise ValueError("min_repeats must be an integer greater than or equal to 2")
+        if isinstance(limit, bool) or not isinstance(limit, int):
             raise ValueError("limit must be a positive integer")
+        if limit < 1:
+            raise ValueError("limit must be a positive integer")
+        if isinstance(promotion_threshold, bool) or not isinstance(promotion_threshold, int):
+            raise ValueError("promotion_threshold must be a positive integer")
+        if promotion_threshold < 1:
+            raise ValueError("promotion_threshold must be a positive integer")
 
         params: dict[str, Any] = {
-            "min_repeats": int(min_repeats),
-            "limit": min(int(limit), 1000),
+            "min_repeats": min_repeats,
+            "limit": min(limit, 1000),
+            "promotion_threshold": promotion_threshold,
         }
         conditions = [
             "json_valid(audit_json)",
@@ -372,7 +394,7 @@ class ObservabilityQuery:
                     try:
                         rows = _repeated_script_rows_without_json1(
                             self._read_fn,
-                            min_repeats=int(min_repeats),
+                            min_repeats=min_repeats,
                             limit=params["limit"],
                             since_ms=since_ms,
                             until_ms=until_ms,
@@ -393,18 +415,30 @@ class ObservabilityQuery:
                     rows = []
 
         scripts = [_repeated_script_evidence(row) for row in rows]
+        proposals = build_skill_promotion_proposals(
+            scripts,
+            threshold=promotion_threshold,
+        )
+        # ``decision``/``recommended_action`` stay advisory-only constants so the
+        # pre-existing contract is unchanged; the structured, threshold-aware
+        # payload lives under ``proposal``.
         candidates = [
             {
-                "candidate_id": _script_candidate_id(row),
-                "decision": "manual_review",
-                "recommended_action": "human_review_only",
+                "candidate_id": proposal.candidate_id,
+                "decision": DECISION_MANUAL_REVIEW,
+                "recommended_action": RECOMMENDED_ACTION_REVIEW_ONLY,
                 "evidence": row,
+                "proposal": proposal.to_dict(),
             }
-            for row in scripts
+            for row, proposal in zip(scripts, proposals)
         ]
         return build_query_response(
             "repeated_scripts",
-            {"scripts": scripts, "promotion_candidates": candidates},
+            {
+                "scripts": scripts,
+                "promotion_candidates": candidates,
+                "skill_promotion_proposals": [proposal.to_dict() for proposal in proposals],
+            },
             query_params=params,
         )
 

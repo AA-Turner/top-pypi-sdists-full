@@ -13,7 +13,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "3.27.0"
+__version__ = "3.28.0"
 
 # import apis into sdk package
 from phrase_api.api.accounts_api import AccountsApi
@@ -68,6 +68,7 @@ from phrase_api.api.screenshots_api import ScreenshotsApi
 from phrase_api.api.search_api import SearchApi
 from phrase_api.api.spaces_api import SpacesApi
 from phrase_api.api.style_guides_api import StyleGuidesApi
+from phrase_api.api.supported_languages_api import SupportedLanguagesApi
 from phrase_api.api.tags_api import TagsApi
 from phrase_api.api.teams_api import TeamsApi
 from phrase_api.api.translations_api import TranslationsApi
@@ -241,6 +242,7 @@ from phrase_api.models.project import Project
 from phrase_api.models.project_create_parameters import ProjectCreateParameters
 from phrase_api.models.project_details import ProjectDetails
 from phrase_api.models.project_locales import ProjectLocales
+from phrase_api.models.project_member import ProjectMember
 from phrase_api.models.project_report import ProjectReport
 from phrase_api.models.project_short import ProjectShort
 from phrase_api.models.project_update_parameters import ProjectUpdateParameters

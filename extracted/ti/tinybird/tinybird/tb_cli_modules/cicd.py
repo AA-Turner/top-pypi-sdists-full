@@ -327,6 +327,7 @@ class CICDGeneratorBase:
                 return FeedbackManager.warning_for_cicd_file(
                     file_name=cicd_file.file_name, warning_message=cicd_file.warning_message.format(**params)
                 )
+        return None
 
     def is_already_generated(self, path: str) -> bool:
         for cicd_file in self.cicd_files:
@@ -396,6 +397,7 @@ def ask_provider_interactively():
                 FeedbackManager.error_git_provider_index(host_index=provider_index, available_options=available_options)
             )
             provider_index = -1
+    return None
 
 
 async def init_cicd(

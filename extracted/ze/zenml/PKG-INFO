@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.96.4
+Version: 0.97.0
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -21,7 +21,7 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: asgiref~=3.10.0
-Requires-Dist: click>=8.0.1,<=8.2.1
+Requires-Dist: click>=8.3.3,<=8.5.0
 Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: distro>=1.6.0,<2.0.0
 Requires-Dist: docker~=7.1.0
@@ -32,6 +32,7 @@ Requires-Dist: opentelemetry-sdk==1.43.0
 Requires-Dist: packaging>=24.1
 Requires-Dist: psutil>=5.0.0
 Requires-Dist: pydantic>=2.0,<=2.12.5
+Requires-Dist: pydantic-settings>=2.0.0,<3.0.0
 Requires-Dist: python-dateutil>=2.8.1,<3.0.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: rich>=12.0.0
@@ -202,14 +203,14 @@ Description-Content-Type: text/markdown
 </div>
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[pypi-shield]: https://img.shields.io/pypi/pyversions/zenml?color=281158
+[pypi-shield]: https://img.shields.io/pypi/pyversions/zenml?color=BECAA6
 [pypi-url]: https://pypi.org/project/zenml/
-[pypiversion-shield]: https://img.shields.io/pypi/v/zenml?color=361776
-[downloads-shield]: https://img.shields.io/pepy/dt/zenml?color=431D93
+[pypiversion-shield]: https://img.shields.io/pypi/v/zenml?color=9AAD82
+[downloads-shield]: https://img.shields.io/pepy/dt/zenml?color=7A9268
 [downloads-url]: https://pypi.org/project/zenml/
-[contributors-shield]: https://img.shields.io/github/contributors/zenml-io/zenml?color=7A3EF4
+[contributors-shield]: https://img.shields.io/github/contributors/zenml-io/zenml?color=63775E
 [contributors-url]: https://github.com/zenml-io/zenml/graphs/contributors
-[license-shield]: https://img.shields.io/github/license/zenml-io/zenml?color=9565F6
+[license-shield]: https://img.shields.io/github/license/zenml-io/zenml?color=3C4C38
 [license-url]: https://github.com/zenml-io/zenml/blob/main/LICENSE
 
 <div align="center">

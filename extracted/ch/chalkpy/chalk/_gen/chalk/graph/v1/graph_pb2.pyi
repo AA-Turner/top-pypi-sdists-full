@@ -1910,6 +1910,7 @@ class SQLResolverSettings(_message.Message):
         "use_native_sql",
         "is_chalk_sql_source",
         "retry_policy",
+        "max_row_version_lookback",
     )
     class FieldsRootFqnEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1943,6 +1944,7 @@ class SQLResolverSettings(_message.Message):
     USE_NATIVE_SQL_FIELD_NUMBER: _ClassVar[int]
     IS_CHALK_SQL_SOURCE_FIELD_NUMBER: _ClassVar[int]
     RETRY_POLICY_FIELD_NUMBER: _ClassVar[int]
+    MAX_ROW_VERSION_LOOKBACK_FIELD_NUMBER: _ClassVar[int]
     finalizer: Finalizer
     incremental_settings: IncrementalSettings
     fields_root_fqn: _containers.ScalarMap[str, str]
@@ -1951,6 +1953,7 @@ class SQLResolverSettings(_message.Message):
     use_native_sql: bool
     is_chalk_sql_source: bool
     retry_policy: _sql_resolver_retry_policy_pb2.SQLResolverRetryPolicy
+    max_row_version_lookback: _duration_pb2.Duration
     def __init__(
         self,
         finalizer: _Optional[_Union[Finalizer, str]] = ...,
@@ -1961,6 +1964,7 @@ class SQLResolverSettings(_message.Message):
         use_native_sql: bool = ...,
         is_chalk_sql_source: bool = ...,
         retry_policy: _Optional[_Union[_sql_resolver_retry_policy_pb2.SQLResolverRetryPolicy, _Mapping]] = ...,
+        max_row_version_lookback: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class IncrementalSettings(_message.Message):

@@ -56,7 +56,7 @@ def mavgen(opts, args):
     if opts.validate:
         try:
             from lxml import etree
-            with open(schemaFile, 'r') as f:
+            with open(schemaFile, 'r', encoding='utf-8') as f:
                 xmlschema_root = etree.parse(f)
                 if not opts.strict_units:
                     # replace the strict "SI_Unit" list of known unit strings with a more generic "xs:string" type
@@ -195,7 +195,7 @@ def mavgen(opts, args):
            here because it relies on the XML libs that were loaded in mavgen(), so it can't be called standalone"""
         xmlvalid = True
         try:
-            with open(xmlfile, 'r') as f:
+            with open(xmlfile, 'r', encoding='utf-8') as f:
                 xmldocument = etree.parse(f)
                 xmlschema.assertValid(xmldocument)
                 forbidden_names_re = re.compile("^(break$|case$|class$|catch$|const$|continue$|debugger$|default$|delete$|do$|else$|\
@@ -284,11 +284,13 @@ def mavgen(opts, args):
         from . import mavgen_spin2
         mavgen_spin2.generate(opts.output, xml)
     elif opts.language == 'ada':
-        if opts.wire_protocol != mavparse.PROTOCOL_1_0:
-            raise DeprecationWarning("Error! Mavgen_Ada only supports protocol version 1.0")
-        else:
-            from . import mavgen_ada
+        from . import mavgen_ada
+        if opts.wire_protocol == mavparse.PROTOCOL_1_0:
             mavgen_ada.generate(opts.output, xml)
+        elif opts.wire_protocol == mavparse.PROTOCOL_2_0:
+            mavgen_ada.generate_v2(opts.output, xml)
+        else:
+            raise DeprecationWarning("Error! Mavgen_Ada does not supports protocol version")
     else:
         print("Unsupported language %s" % opts.language)
 
@@ -309,12 +311,7 @@ def mavgen_python_dialect(dialect, wire_protocol):
     '''generate the python code on the fly for a MAVLink dialect'''
     dialects = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'dialects')
     mdef = os.getenv("MDEF", default=os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'message_definitions'))
-    if wire_protocol == mavparse.PROTOCOL_0_9:
-        py = os.path.join(dialects, 'v09', dialect + '.py')
-        xml = os.path.join(dialects, 'v09', dialect + '.xml')
-        if not os.path.exists(xml):
-            xml = os.path.join(mdef, 'v0.9', dialect + '.xml')
-    elif wire_protocol == mavparse.PROTOCOL_1_0:
+    if wire_protocol == mavparse.PROTOCOL_1_0:
         py = os.path.join(dialects, 'v10', dialect + '.py')
         xml = os.path.join(dialects, 'v10', dialect + '.xml')
         if not os.path.exists(xml):

@@ -1,1 +1,0 @@
-import{D as e}from"./chunk-V7LPWEOD-_NoD23F_.js";import{r as t}from"./RunDropdown-BU9s1aIJ.js";import{t as n}from"./RunsBody-B57cyCUK.js";var r=e();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})}export{i as default};

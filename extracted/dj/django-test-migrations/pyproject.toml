@@ -5,7 +5,7 @@ requires = [ "poetry-core>=2.1" ]
 
 [project]
 name = "django-test-migrations"
-version = "1.6.0"
+version = "1.7.0"
 description = "Test django schema and data migrations, including ordering"
 readme = "README.md"
 keywords = [
@@ -23,15 +23,10 @@ keywords = [
 ]
 license = "MIT"
 license-files = [ "LICENSE" ]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Django",
-  "Framework :: Django :: 3.2",
-  "Framework :: Django :: 4.1",
-  "Framework :: Django :: 4.2",
-  "Framework :: Django :: 5.0",
-  "Framework :: Django :: 5.1",
   "Framework :: Django :: 5.2",
   "Framework :: Django :: 6.0",
   "Framework :: Django :: 6.1",
@@ -41,17 +36,17 @@ classifiers = [
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = [ "typing-extensions>=4.16" ]
+dependencies = []
 
 [[project.authors]]
 name = "sobolevn"
 email = "mail@sobolevn.me"
 
-[project.entry-points.pytest11]
-django_test_migrations = "django_test_migrations.contrib.pytest_plugin"
-
 [project.urls]
 repository = "https://github.com/wemake-services/django-test-migrations"
+
+[project.entry-points.pytest11]
+django_test_migrations = "django_test_migrations.contrib.pytest_plugin"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -60,11 +55,11 @@ django-stubs = "^6.0"
 mypy = "^2.3"
 pytest = "^9.1"
 pytest-cov = "^7.1"
-pytest-django = "^4.12"
+pytest-django = "^4.14"
 pytest-mock = "^3.15"
-pytest-randomly = "^4.1"
+pytest-randomly = "^5.0"
 ruff = "^0.16"
-wemake-python-styleguide = "^1.7"
+wemake-python-styleguide = "^1.8"
 
 
 [tool.ruff]
@@ -78,6 +73,14 @@ output-prefer-rule-codes = true
 [tool.ruff.format]
 quote-style = "single"
 docstring-code-format = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = [
+  "S101", # asserts
+  "S404", # subprocess calls are for tests
+  "S603", # do not require `shell=True`
+  "S607", # partial executable paths
+]
 
 [tool.ruff.lint]
 select = [
@@ -150,14 +153,6 @@ external = [ "WPS" ]
 flake8-quotes.inline-quotes = "single"
 mccabe.max-complexity = 6
 pydocstyle.convention = "google"
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*.py" = [
-  "S101", # asserts
-  "S404", # subprocess calls are for tests
-  "S603", # do not require `shell=True`
-  "S607", # partial executable paths
-]
 
 
 [tool.pyproject-fmt]

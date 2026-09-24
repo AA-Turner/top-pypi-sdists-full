@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyodata
-Version: 1.12.0
+Version: 1.12.1
 Summary: Enterprise ready Python OData client
 Home-page: https://github.com/SAP/python-pyodata
 Author: Jakub Filak, Michal Nezerka, Patrik Petrik, Petr Hanak

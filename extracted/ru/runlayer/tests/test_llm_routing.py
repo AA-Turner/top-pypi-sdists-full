@@ -562,6 +562,38 @@ def test_route_reports_and_repairs_client_drift(
     assert len(list(path.parent.glob(f"{path.stem}.backup_*{path.suffix}"))) == 1
 
 
+@pytest.mark.parametrize("client", ["claude", "codex"])
+def test_route_prunes_stale_backups_to_retention_cap(
+    client: str,
+    routing_paths: dict[str, Path],
+) -> None:
+    from runlayer_cli.hook_install.config_backup import BACKUP_KEEP
+
+    llm_routing.route("https://gateway.example.com", scope=InstallScope.MDM)
+    path = routing_paths[client]
+    seeded = []
+    for day in range(1, BACKUP_KEEP + 3):
+        stale = path.with_name(
+            f"{path.stem}.backup_2020010{day}_000000_000000{path.suffix}"
+        )
+        stale.write_text("stale")
+        seeded.append(stale)
+    path.write_text(
+        path.read_text().replace("gateway.example.com", "other.example.com")
+    )
+
+    result = llm_routing.route(
+        "https://gateway.example.com",
+        scope=InstallScope.MDM,
+    )
+
+    assert result is llm_routing.RouteResult.DRIFTED
+    remaining = sorted(path.parent.glob(f"{path.stem}.backup_*{path.suffix}"))
+    assert len(remaining) == BACKUP_KEEP
+    assert remaining[:-1] == seeded[-(BACKUP_KEEP - 1) :]
+    assert "other.example.com" in remaining[-1].read_text()
+
+
 @pytest.mark.parametrize(
     ("base_url", "scope"),
     [

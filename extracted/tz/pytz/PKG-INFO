@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytz
-Version: 2026.3.post1
+Version: 2026.4
 Summary: World timezone definitions, modern and historical
 Home-page: http://pythonhosted.org/pytz
 Download-URL: https://pypi.org/project/pytz/
@@ -56,6 +56,12 @@ of daylight saving time, which you can read more about in the Python
 Library Reference (``datetime.tzinfo``).
 
 Almost all of the Olson timezones are supported.
+
+.. caution::
+
+    Deprecated. This library fails for dates starting 2038.
+    Use modern Python and the Python standard library.
+    Updates continue to be made for legacy systems.
 
 .. note::
 

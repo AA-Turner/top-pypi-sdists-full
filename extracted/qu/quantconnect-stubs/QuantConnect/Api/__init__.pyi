@@ -867,6 +867,15 @@ class Project(QuantConnect.Api.RestResponse):
     def encryption_key(self, value: QuantConnect.Api.EncryptionKey) -> None:
         ...
 
+    @property
+    def max_file_size(self) -> int:
+        """The maximum file length allowed in the project"""
+        ...
+
+    @max_file_size.setter
+    def max_file_size(self, value: int) -> None:
+        ...
+
 
 class ProjectResponse(QuantConnect.Api.VersionsResponse):
     """Project list response"""
@@ -1579,6 +1588,15 @@ class Backtest(QuantConnect.Api.BasicBacktest):
     def analysis(self, value: typing.Sequence[QuantConnect.Analysis]) -> None:
         ...
 
+    @property
+    def debugging(self) -> bool:
+        """Indicates if the backtest is run under debugging mode"""
+        ...
+
+    @debugging.setter
+    def debugging(self, value: bool) -> None:
+        ...
+
 
 class ReadChartResponse(QuantConnect.Api.RestResponse):
     """Class for wrapping Read Chart response"""
@@ -1590,6 +1608,24 @@ class ReadChartResponse(QuantConnect.Api.RestResponse):
 
     @chart.setter
     def chart(self, value: QuantConnect.Chart) -> None:
+        ...
+
+    @property
+    def status(self) -> str:
+        """Status of the chart generation process, "loading" while the chart is not ready yet"""
+        ...
+
+    @status.setter
+    def status(self, value: str) -> None:
+        ...
+
+    @property
+    def progress(self) -> float:
+        """Loading percentage of the chart generation process"""
+        ...
+
+    @progress.setter
+    def progress(self, value: float) -> None:
         ...
 
 
@@ -1820,108 +1856,6 @@ class BaseLiveAlgorithm(QuantConnect.Api.RestResponse):
         ...
 
 
-class CreateLiveAlgorithmResponse(QuantConnect.Api.BaseLiveAlgorithm):
-    """Class representing the REST response from QC API when creating a live algorithm"""
-
-    @property
-    def version_id(self) -> int:
-        """The version of the Lean used to run the algorithm"""
-        ...
-
-    @version_id.setter
-    def version_id(self, value: int) -> None:
-        ...
-
-    @property
-    def source(self) -> str:
-        """Id of the node that will run the algorithm"""
-        ...
-
-    @source.setter
-    def source(self, value: str) -> None:
-        ...
-
-    @property
-    def response_code(self) -> str:
-        """HTTP status response code"""
-        ...
-
-    @response_code.setter
-    def response_code(self, value: str) -> None:
-        ...
-
-
-class LiveAlgorithmSummary(QuantConnect.Api.BaseLiveAlgorithm):
-    """Response from List Live Algorithms request to QuantConnect Rest API."""
-
-    @property
-    def status(self) -> QuantConnect.AlgorithmStatus:
-        """Algorithm status: running, stopped or runtime error."""
-        ...
-
-    @status.setter
-    def status(self, value: QuantConnect.AlgorithmStatus) -> None:
-        ...
-
-    @property
-    def launched(self) -> datetime.datetime:
-        """Datetime the algorithm was launched in UTC."""
-        ...
-
-    @launched.setter
-    def launched(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def stopped(self) -> typing.Optional[datetime.datetime]:
-        """Datetime the algorithm was stopped in UTC, null if its still running."""
-        ...
-
-    @stopped.setter
-    def stopped(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def brokerage(self) -> str:
-        """Brokerage"""
-        ...
-
-    @brokerage.setter
-    def brokerage(self, value: str) -> None:
-        ...
-
-    @property
-    def subscription(self) -> str:
-        """Chart we're subscribed to"""
-        ...
-
-    @subscription.setter
-    def subscription(self, value: str) -> None:
-        ...
-
-    @property
-    def error(self) -> str:
-        """Live algorithm error message from a crash or algorithm runtime error."""
-        ...
-
-    @error.setter
-    def error(self, value: str) -> None:
-        ...
-
-
-class LiveList(QuantConnect.Api.RestResponse):
-    """List of the live algorithms running which match the requested status"""
-
-    @property
-    def algorithms(self) -> typing.List[QuantConnect.Api.LiveAlgorithmSummary]:
-        """Algorithm list matching the requested status."""
-        ...
-
-    @algorithms.setter
-    def algorithms(self, value: typing.List[QuantConnect.Api.LiveAlgorithmSummary]) -> None:
-        ...
-
-
 class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
     """Details a live algorithm from the "live/read" Api endpoint"""
 
@@ -2007,6 +1941,15 @@ class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
         ...
 
     @property
+    def description(self) -> str:
+        """Description of the project the live algorithm is in"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
     def datacenter(self) -> str:
         """Name of the data center where the algorithm is physically located."""
         ...
@@ -2070,6 +2013,144 @@ class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
 
     @deployment_details.setter
     def deployment_details(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+
+class CreateLiveAlgorithmResponse(QuantConnect.Api.BaseLiveAlgorithm):
+    """Class representing the REST response from QC API when creating a live algorithm"""
+
+    @property
+    def version_id(self) -> int:
+        """The version of the Lean used to run the algorithm"""
+        ...
+
+    @version_id.setter
+    def version_id(self, value: int) -> None:
+        ...
+
+    @property
+    def source(self) -> str:
+        """Id of the node that will run the algorithm"""
+        ...
+
+    @source.setter
+    def source(self, value: str) -> None:
+        ...
+
+    @property
+    def response_code(self) -> str:
+        """HTTP status response code"""
+        ...
+
+    @response_code.setter
+    def response_code(self, value: str) -> None:
+        ...
+
+    @property
+    def live(self) -> QuantConnect.Api.LiveAlgorithmResults:
+        """Summary of the algorithm created"""
+        ...
+
+    @live.setter
+    def live(self, value: QuantConnect.Api.LiveAlgorithmResults) -> None:
+        ...
+
+
+class LiveAlgorithmSummary(QuantConnect.Api.BaseLiveAlgorithm):
+    """Response from List Live Algorithms request to QuantConnect Rest API."""
+
+    @property
+    def status(self) -> QuantConnect.AlgorithmStatus:
+        """Algorithm status: running, stopped or runtime error."""
+        ...
+
+    @status.setter
+    def status(self, value: QuantConnect.AlgorithmStatus) -> None:
+        ...
+
+    @property
+    def launched(self) -> datetime.datetime:
+        """Datetime the algorithm was launched in UTC."""
+        ...
+
+    @launched.setter
+    def launched(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def stopped(self) -> typing.Optional[datetime.datetime]:
+        """Datetime the algorithm was stopped in UTC, null if its still running."""
+        ...
+
+    @stopped.setter
+    def stopped(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def brokerage(self) -> str:
+        """Brokerage"""
+        ...
+
+    @brokerage.setter
+    def brokerage(self, value: str) -> None:
+        ...
+
+    @property
+    def subscription(self) -> str:
+        """Chart we're subscribed to"""
+        ...
+
+    @subscription.setter
+    def subscription(self, value: str) -> None:
+        ...
+
+    @property
+    def equity(self) -> float:
+        """Equity value of the deployment."""
+        ...
+
+    @equity.setter
+    def equity(self, value: float) -> None:
+        ...
+
+    @property
+    def environment(self) -> str:
+        """Environment in which the deployment is running: "live", "paper" or "uat"."""
+        ...
+
+    @environment.setter
+    def environment(self, value: str) -> None:
+        ...
+
+    @property
+    def description(self) -> str:
+        """Description of the project the algorithm is in."""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def error(self) -> str:
+        """Live algorithm error message from a crash or algorithm runtime error."""
+        ...
+
+    @error.setter
+    def error(self, value: str) -> None:
+        ...
+
+
+class LiveList(QuantConnect.Api.RestResponse):
+    """List of the live algorithms running which match the requested status"""
+
+    @property
+    def algorithms(self) -> typing.List[QuantConnect.Api.LiveAlgorithmSummary]:
+        """Algorithm list matching the requested status."""
+        ...
+
+    @algorithms.setter
+    def algorithms(self, value: typing.List[QuantConnect.Api.LiveAlgorithmSummary]) -> None:
         ...
 
 
@@ -2302,6 +2383,15 @@ class BacktestReport(QuantConnect.Api.RestResponse):
     def report(self, value: str) -> None:
         ...
 
+    @property
+    def generating(self) -> bool:
+        """Indicates if the report is still being generated"""
+        ...
+
+    @generating.setter
+    def generating(self, value: bool) -> None:
+        ...
+
 
 class Card(System.Object):
     """Credit card"""
@@ -2325,12 +2415,12 @@ class Card(System.Object):
         ...
 
     @property
-    def last_four_digits(self) -> float:
+    def last_four_digits(self) -> str:
         """The last 4 digits of the card"""
         ...
 
     @last_four_digits.setter
-    def last_four_digits(self, value: float) -> None:
+    def last_four_digits(self, value: str) -> None:
         ...
 
 
@@ -3011,6 +3101,24 @@ class ListObjectStoreResponse(QuantConnect.Api.RestResponse):
         ...
 
     @property
+    def page(self) -> int:
+        """The current page number in the paginated response"""
+        ...
+
+    @page.setter
+    def page(self, value: int) -> None:
+        ...
+
+    @property
+    def total_pages(self) -> int:
+        """The total number of pages in the paginated response"""
+        ...
+
+    @total_pages.setter
+    def total_pages(self, value: int) -> None:
+        ...
+
+    @property
     def object_storage_used(self) -> int:
         """Size of all objects stored in bytes"""
         ...
@@ -3113,13 +3221,14 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def create_backtest(self, project_id: int, compile_id: str, backtest_name: str) -> QuantConnect.Api.Backtest:
+    def create_backtest(self, project_id: int, compile_id: str, backtest_name: str, parameters: System.Collections.Generic.Dictionary[str, str] = None) -> QuantConnect.Api.Backtest:
         """
         Create a new backtest request and get the id.
         
         :param project_id: Id for the project to backtest
         :param compile_id: Compile id for the project
         :param backtest_name: Name for the new backtest
+        :param parameters: Parameters to use for the backtest, null to use the ones defined in the project
         :returns: Backtestt.
         """
         ...
@@ -3402,11 +3511,12 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def list_live_algorithms(self, status: typing.Optional[QuantConnect.AlgorithmStatus] = None) -> QuantConnect.Api.LiveList:
+    def list_live_algorithms(self, status: typing.Optional[QuantConnect.AlgorithmStatus] = None, project_id: typing.Optional[int] = None) -> QuantConnect.Api.LiveList:
         """
         Get a list of live running algorithms for user
         
         :param status: Filter the statuses of the algorithms returned from the api
+        :param project_id: Id of the project to include in the response, for example 23456789, null to include every project
         :returns: LiveList.
         """
         ...
@@ -3430,10 +3540,12 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def list_projects(self) -> QuantConnect.Api.ProjectResponse:
+    def list_projects(self, start: int = 0, end: int = 0) -> QuantConnect.Api.ProjectResponse:
         """
         List details of all projects
         
+        :param start: Starting (inclusive, zero-based) index of the projects to be fetched, for example 0
+        :param end: Last (exclusive) index of the projects to be fetched, for example 100. Zero to let the API apply its own limit
         :returns: ProjectResponse that contains information regarding the project.
         """
         ...
@@ -3554,12 +3666,11 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """Gets a list of LEAN versions with their corresponding basic descriptions"""
         ...
 
-    def read_live_algorithm(self, project_id: int, deploy_id: str) -> QuantConnect.Api.LiveAlgorithmResults:
+    def read_live_algorithm(self, project_id: int) -> QuantConnect.Api.LiveAlgorithmResults:
         """
-        Read out a live algorithm in the project id specified.
+        Read out the latest deployment of the live algorithm of the project id specified.
         
         :param project_id: Project id to read
-        :param deploy_id: Specific instance id to read
         :returns: LiveAlgorithmResults.
         """
         ...
@@ -3577,11 +3688,13 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def read_live_insights(self, project_id: int, start: int = 0, end: int = 0) -> QuantConnect.Api.InsightResponse:
+    def read_live_insights(self, project_id: int, algorithm_id: str, start: int = 0, end: int = 0) -> QuantConnect.Api.InsightResponse:
         """
         Read out the insights of a live algorithm
         
         :param project_id: Id of the project from which to read the live algorithm
+        :param algorithm_id: Deploy id (algorithm id) of the live running algorithm, for example
+        "L-6e9d8a78f5af89d401f630585be90e43", null for the latest deployment of the project
         :param start: Starting index of the insights to be fetched
         :param end: Last index of the insights to be fetched. Note that end - start must not exceed 100.
         Defaults to a full window starting at start
@@ -3610,7 +3723,8 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         Returns the orders of the specified project id live algorithm.
         
         :param project_id: Id of the project from which to read the live orders
-        :param algorithm_id: Deploy id (algorithm id) of the live running algorithm, null for the latest deployment of the project
+        :param algorithm_id: Deploy id (algorithm id) of the live running algorithm, for example
+        "L-6e9d8a78f5af89d401f630585be90e43", null for the latest deployment of the project
         :param start: Starting index of the orders to be fetched
         :param end: Last index of the orders to be fetched. Note that end - start must not exceed 100.
         Defaults to a full window starting at start
@@ -3769,6 +3883,17 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         :param optimization_id: Optimization id we want to update
         :param name: Name we'd like to assign to the optimization
         :returns: RestResponse.
+        """
+        ...
+
+    def update_project(self, project_id: int, name: str = None, description: str = None) -> QuantConnect.Api.RestResponse:
+        """
+        Update a project's name or description
+        
+        :param project_id: Project id to update
+        :param name: The new name for the project, for example "New Project Name", null to leave it unchanged
+        :param description: The new description for the project, for example "New Project Description", null to leave it unchanged
+        :returns: RestResponse indicating success.
         """
         ...
 

@@ -156,11 +156,31 @@ class ElevenLabsChat:
         try:
             return await self._execute_tts(unified_config, profile, emitter, matrx_model_name)
         except Exception as e:
+            # A classification attached at the raising site wins — above all the
+            # non-retryable one stamped on a failure AFTER the paid call
+            # (storage, alignment, events): re-classifying it as a retryable
+            # provider error is how one run was billed three times (2026-09-22).
+            if getattr(e, "error_info", None) is not None:
+                raise
             from matrx_ai.providers.errors import classify_elevenlabs_error
 
-            error_info = classify_elevenlabs_error(e)
-            e.error_info = error_info
+            e.error_info = classify_elevenlabs_error(e)
             raise
+
+    @staticmethod
+    async def _billed_characters(
+        characters: int, matrx_model_name: str, model: str
+    ) -> Any:
+        """Characters actually sent (post-dictionary) as billed usage —
+        ElevenLabs returns raw audio with no usage object."""
+        from matrx_ai.config.usage_config import build_character_billed_usage_async
+
+        return await build_character_billed_usage_async(
+            characters=characters,
+            matrx_model_name=matrx_model_name,
+            provider_model_name=model,
+            api="elevenlabs",
+        )
 
     @staticmethod
     async def _build_locators(unified_config: UnifiedConfig) -> list:
@@ -509,6 +529,18 @@ class ElevenLabsChat:
             pass
 
         client = self.client
+        # Pronunciation: an in-config dictionary is already substituted into
+        # each turn's text (compile_elevenlabs → _spoken); otherwise the native
+        # dictionary locators (request or the person's published dictionary)
+        # ride both endpoints — the same rule as the plain-text path.
+        from matrx_ai.config.dictionary_config import DictionaryConfig
+
+        _dconf = DictionaryConfig.coerce(unified_config.dictionary)
+        locators = (
+            []
+            if _dconf is not None and not _dconf.is_empty
+            else await self._build_locators(unified_config)
+        )
 
         def _call_dialogue() -> Any:
             kwargs: dict[str, Any] = {
@@ -518,6 +550,8 @@ class ElevenLabsChat:
             }
             if compiled.language_code:
                 kwargs["language_code"] = compiled.language_code
+            if locators:
+                kwargs["pronunciation_dictionary_locators"] = locators
             return client.text_to_dialogue.convert_with_timestamps(
                 **route_undeclared_params(
                     client.text_to_dialogue.convert_with_timestamps, kwargs, provider="elevenlabs"
@@ -533,6 +567,8 @@ class ElevenLabsChat:
             }
             if compiled.language_code:
                 kwargs["language_code"] = compiled.language_code
+            if locators:
+                kwargs["pronunciation_dictionary_locators"] = locators
             if compiled.speed is not None:
                 from elevenlabs.types import VoiceSettings
 
@@ -555,22 +591,33 @@ class ElevenLabsChat:
                     (base64.b64decode(_audio_b64(response)), response, turn["voice_id"])
                 )
 
-        all_audio_bytes = b"".join(chunk for chunk, _, _ in segments)
-        seq = 0
-        if codec == "mp3" and all_audio_bytes:
-            await self._emit_audio_stream_chunk(
-                emitter, stream_id=stream_id, seq=seq, data=all_audio_bytes
-            )
-            seq = 1
+        # ── Paid call returned. Nothing below may re-buy the audio. ──
+        try:
+            all_audio_bytes = b"".join(chunk for chunk, _, _ in segments)
+            seq = 0
+            if codec == "mp3" and all_audio_bytes:
+                await self._emit_audio_stream_chunk(
+                    emitter, stream_id=stream_id, seq=seq, data=all_audio_bytes
+                )
+                seq = 1
 
-        timeline = merge_timelines(
-            [(response, voice_id) for _, response, voice_id in segments]
-        )
-        alignment = {
-            "source": "elevenlabs",
-            "words": alignment_to_words(timeline["characters"]),
-            "voice_segments": timeline["voice_segments"],
-        }
+            timeline = merge_timelines(
+                [(response, voice_id) for _, response, voice_id in segments]
+            )
+            alignment = {
+                "source": "elevenlabs",
+                "words": alignment_to_words(timeline["characters"]),
+                "voice_segments": timeline["voice_segments"],
+            }
+        except Exception as exc:
+            from matrx_ai.providers.paid_output import mark_failed_after_paid_call
+
+            try:
+                usage = await self._billed_characters(total_chars, matrx_model_name, model)
+            except Exception:  # noqa: BLE001 — never mask the real failure
+                usage = None
+            mark_failed_after_paid_call(exc, provider="elevenlabs", modality="audio", usage=usage)
+            raise
 
         return await self._save_and_emit(
             all_audio_bytes=all_audio_bytes,
@@ -612,7 +659,60 @@ class ElevenLabsChat:
 
         One tail for the plain path and the speech-script path, so both land
         the same envelope, the same metadata, and the same live events.
+
+        The paid call has already returned when this runs: the billed usage is
+        built FIRST, storage retries alone (``store_paid_output``), and any
+        failure here is non-retryable with the usage attached — the executor
+        records the spend once and never calls ElevenLabs again for it.
         """
+        from matrx_ai.providers.paid_output import mark_failed_after_paid_call
+
+        total_chars = sum(len(t["text"]) for b in batched_inputs for t in b)
+        # Bill by characters actually sent (post-dictionary, summed across every
+        # dialogue turn) — ElevenLabs streams raw bytes with no usage object. See
+        # build_character_billed_usage for the basis-aware contract.
+        usage = await self._billed_characters(total_chars, matrx_model_name, model)
+        try:
+            return await self._store_and_emit(
+                all_audio_bytes=all_audio_bytes,
+                batched_inputs=batched_inputs,
+                tts=tts,
+                codec=codec,
+                mime_type=mime_type,
+                model=model,
+                emitter=emitter,
+                stream_id=stream_id,
+                seq=seq,
+                emit_mp3_chunks=emit_mp3_chunks,
+                is_dialogue=is_dialogue,
+                extra_audio_metadata=extra_audio_metadata,
+                usage=usage,
+                total_chars=total_chars,
+            )
+        except Exception as exc:
+            mark_failed_after_paid_call(exc, provider="elevenlabs", modality="audio", usage=usage)
+            raise
+
+    async def _store_and_emit(
+        self,
+        *,
+        all_audio_bytes: bytes,
+        batched_inputs: list[list[dict]],
+        tts: Any,
+        codec: str,
+        mime_type: str,
+        model: str,
+        emitter: Emitter,
+        stream_id: str,
+        seq: int,
+        emit_mp3_chunks: bool,
+        is_dialogue: bool,
+        extra_audio_metadata: dict[str, Any] | None,
+        usage: Any,
+        total_chars: int,
+    ) -> UnifiedResponse:
+        from matrx_ai.providers.paid_output import store_paid_output
+
         await emitter.send_info(
             InfoPayload(
                 code="tts_saving",
@@ -640,8 +740,6 @@ class ElevenLabsChat:
         except Exception:
             pass
 
-        total_chars = sum(len(t["text"]) for b in batched_inputs for t in b)
-
         # Concatenate every dialogue input's text as the canonical
         # "prompt" — gives the audit log a single representation of
         # what the model was asked to say.
@@ -659,15 +757,20 @@ class ElevenLabsChat:
             is_dialogue=is_dialogue,
         )
 
-        envelope = await save_media_envelope_async(
-            content=all_audio_bytes,
-            mime_type=mime_type,
-            audio_format=codec,
-            prompt=prompt_text,
-            model=model,
+        envelope = await store_paid_output(
+            lambda: save_media_envelope_async(
+                content=all_audio_bytes,
+                mime_type=mime_type,
+                audio_format=codec,
+                prompt=prompt_text,
+                model=model,
+                provider="elevenlabs",
+                feature="ai_audio",
+                extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+            ),
             provider="elevenlabs",
-            feature="ai_audio",
-            extra_metadata={"generation": gen_meta.model_dump(exclude_none=True)},
+            modality="audio",
+            usage=usage,
         )
         vcprint(f"[ElevenLabs TTS] Saved: file_id={envelope.file_id}", color="green")
 
@@ -683,18 +786,6 @@ class ElevenLabsChat:
             },
         )
         msg = UnifiedMessage(role="assistant", content=[audio_content])
-
-        # Bill by characters actually sent (post-dictionary, summed across every
-        # dialogue turn) — ElevenLabs streams raw bytes with no usage object. See
-        # build_character_billed_usage for the basis-aware contract.
-        from matrx_ai.config.usage_config import build_character_billed_usage_async
-
-        usage = await build_character_billed_usage_async(
-            characters=total_chars,
-            matrx_model_name=matrx_model_name,
-            provider_model_name=model,
-            api="elevenlabs",
-        )
 
         unified_response = UnifiedResponse(messages=[msg], usage=usage)
 

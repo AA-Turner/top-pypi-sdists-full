@@ -84,6 +84,7 @@ class SQLTemplateException(ValueError):
 JOB_TIMESTAMP_PARAM = "job_timestamp"
 DEFAULT_PARAM_NAMES = ["format", "q"]
 RESERVED_PARAM_NAMES = [
+    "__tb__csv_header",
     "__tb__semver",
     "debug_source_tables",
     "debug",

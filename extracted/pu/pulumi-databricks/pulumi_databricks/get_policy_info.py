@@ -147,7 +147,7 @@ class GetPolicyInfoResult:
     def for_securable_type(self) -> _builtins.str:
         """
         (string) - Type of securables that the policy should take effect on.
-        Required on create and optional on update. Possible values are: `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
+        Required on create and optional on update. Possible values are: `AGENT_SERVICE`, `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `SKILL`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
         """
         return pulumi.get(self, "for_securable_type")
 
@@ -203,7 +203,7 @@ class GetPolicyInfoResult:
         """
         (string) - Type of the securable on which the policy is defined.
         Only `CATALOG`, `SCHEMA` and `TABLE` are supported at this moment.
-        Required on create. Possible values are: `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
+        Required on create. Possible values are: `AGENT_SERVICE`, `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `SKILL`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
         """
         return pulumi.get(self, "on_securable_type")
 
@@ -295,7 +295,7 @@ class AwaitableGetPolicyInfoResult(GetPolicyInfoResult):
 def get_policy_info(name: Optional[_builtins.str] = None,
                     on_securable_fullname: Optional[_builtins.str] = None,
                     on_securable_type: Optional[_builtins.str] = None,
-                    provider_config: Optional[Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict']] = None,
+                    provider_config: Optional[Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict', 'outputs.GetPolicyInfoProviderConfigResult']] = None,
                     opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetPolicyInfoResult:
     """
     [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
@@ -326,8 +326,8 @@ def get_policy_info(name: Optional[_builtins.str] = None,
            Required on create
     :param _builtins.str on_securable_type: Type of the securable on which the policy is defined.
            Only `CATALOG`, `SCHEMA` and `TABLE` are supported at this moment.
-           Required on create. Possible values are: `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
-    :param Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider.
+           Required on create. Possible values are: `AGENT_SERVICE`, `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `SKILL`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
+    :param Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict', 'outputs.GetPolicyInfoProviderConfigResult'] provider_config: Configure the provider for management through account provider.
     """
     __args__ = dict()
     __args__['name'] = name
@@ -361,7 +361,7 @@ def get_policy_info(name: Optional[_builtins.str] = None,
 def get_policy_info_output(name: pulumi.Input[Optional[_builtins.str]] = None,
                            on_securable_fullname: pulumi.Input[Optional[_builtins.str]] = None,
                            on_securable_type: pulumi.Input[Optional[_builtins.str]] = None,
-                           provider_config: pulumi.Input[Optional[Optional[Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict']]]] = None,
+                           provider_config: pulumi.Input[Optional[Optional[Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict', 'outputs.GetPolicyInfoProviderConfigResult']]]] = None,
                            opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetPolicyInfoResult]:
     """
     [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
@@ -392,8 +392,8 @@ def get_policy_info_output(name: pulumi.Input[Optional[_builtins.str]] = None,
            Required on create
     :param _builtins.str on_securable_type: Type of the securable on which the policy is defined.
            Only `CATALOG`, `SCHEMA` and `TABLE` are supported at this moment.
-           Required on create. Possible values are: `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
-    :param Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider.
+           Required on create. Possible values are: `AGENT_SERVICE`, `CATALOG`, `CLEAN_ROOM`, `CONNECTION`, `CREDENTIAL`, `EXTERNAL_LOCATION`, `EXTERNAL_METADATA`, `FUNCTION`, `MCP_SERVICE`, `METASTORE`, `MODEL`, `MODEL_PROVIDER_SERVICE`, `MODEL_SERVICE`, `PIPELINE`, `PROVIDER`, `RECIPIENT`, `SCHEMA`, `SHARE`, `SKILL`, `STAGING_TABLE`, `STORAGE_CREDENTIAL`, `TABLE`, `VOLUME`
+    :param Union['GetPolicyInfoProviderConfigArgs', 'GetPolicyInfoProviderConfigArgsDict', 'outputs.GetPolicyInfoProviderConfigResult'] provider_config: Configure the provider for management through account provider.
     """
     __args__ = dict()
     __args__['name'] = name

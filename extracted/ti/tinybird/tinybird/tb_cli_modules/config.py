@@ -121,8 +121,7 @@ class CLIConfig:
             return self._values[key].origin
         if self._parent:
             return self._parent.get_value_origin(key)
-        else:
-            return ConfigValueOrigin.NONE
+        return ConfigValueOrigin.NONE
 
     def persist_to_file(self, override_with_values: Optional["CLIConfig"] = None) -> None:
         if not self._path:

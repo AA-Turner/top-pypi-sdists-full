@@ -71,16 +71,40 @@ class GoogleInteractionsVideoGeneration(BaseMediaGeneration):
                     text = f"{text}\n\nGenerate a {unified_config.duration_seconds}-second video."
                 output.append({"type": "text", "text": text})
                 continue
-            if isinstance(item, ImageContent):
-                media = GoogleInteractionsVideoGeneration._media_input("image", item)
+            if isinstance(item, (ImageContent, VideoContent)):
+                kind = "image" if isinstance(item, ImageContent) else "video"
+                media = GoogleInteractionsVideoGeneration._media_input(kind, item)
                 if media:
-                    output.append(media)
-                continue
-            if isinstance(item, VideoContent):
-                media = GoogleInteractionsVideoGeneration._media_input("video", item)
-                if media:
+                    label = GoogleInteractionsVideoGeneration._role_label(item)
+                    if label:
+                        output.append({"type": "text", "text": label})
                     output.append(media)
         return output
+
+    @staticmethod
+    def _role_label(item: Any) -> str | None:
+        """Omni reads interleaved parts, so a roled input is announced by the
+        text part right before it (the legend transport)."""
+        from matrx_ai.media.image_reference_roles import ROLE_INSTRUCTIONS
+        from matrx_ai.media.video_reference_roles import LEGACY_ALIASES, reference_name
+
+        role = getattr(item, "role", None)
+        if role is None and isinstance(item, ImageContent):
+            legacy = (item.metadata or {}).get("role")
+            role = next((new for new, olds in LEGACY_ALIASES.items() if legacy in olds), None)
+        if role == "restyle":
+            text = "Video to restyle — keep its motion and timing, change its look as asked:"
+        elif role in ROLE_INSTRUCTIONS:
+            text = f"The next image is the {ROLE_INSTRUCTIONS[role]}:"
+        else:
+            return None
+        name = reference_name(item)
+        return f"@{name} — {text}" if name else text
+
+    def video_role_transport(self, unified_config: UnifiedConfig) -> frozenset[str]:
+        """Omni takes interleaved image/video parts; each roled one is
+        announced by a text label (first frame, asset, style, restyle, names)."""
+        return frozenset({"first_frame", "asset", "style", "restyle", "named"})
 
     @staticmethod
     def _media_input(kind: str, item: ImageContent | VideoContent) -> dict[str, Any] | None:

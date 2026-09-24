@@ -87,11 +87,11 @@ def test_both_refuse_an_unknown_field(old, new):
 
 
 def test_the_stored_surface_is_narrower_than_the_declared_one():
-    """15 keys are persisted against 74 declared field slots. If a future field
+    """15 keys are persisted against 78 declared field slots. If a future field
     starts being stored, this is where the mismatch becomes visible instead of
     silently widening the wire contract."""
     declared = sum(len(dataclasses.fields(old)) for old, _ in PAIRS)
-    assert declared == 74
+    assert declared == 78
     assert len(STORED_KEYS) == 15
 
 

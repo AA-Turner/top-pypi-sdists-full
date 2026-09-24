@@ -62,6 +62,7 @@ from .literals import (
     AudioNormalizationLoudnessLoggingType,
     AudioNormalizationPeakCalculationType,
     AudioSelectorTypeType,
+    AudioSmpte337PassthroughType,
     AudioTypeControlType,
     Av1AdaptiveQuantizationType,
     Av1BitDepthType,
@@ -391,6 +392,7 @@ from .literals import (
     OutputGroupTypeType,
     OutputSdtType,
     PadVideoType,
+    PassthroughSegmentationModeType,
     PresetListByType,
     PresetSpeke20AudioType,
     PresetSpeke20VideoType,
@@ -2030,6 +2032,8 @@ class VideoDetailTypeDef(TypedDict):
 
 class PassthroughSettingsTypeDef(TypedDict):
     FrameControl: NotRequired[FrameControlType]
+    GopsPerSegment: NotRequired[int]
+    SegmentationMode: NotRequired[PassthroughSegmentationModeType]
     VideoSelectorMode: NotRequired[VideoSelectorModeType]
 
 
@@ -3396,6 +3400,7 @@ class AudioSelectorOutputTypeDef(TypedDict):
     ProgramSelection: NotRequired[int]
     RemixSettings: NotRequired[RemixSettingsOutputTypeDef]
     SelectorType: NotRequired[AudioSelectorTypeType]
+    Smpte337Passthrough: NotRequired[AudioSmpte337PassthroughType]
     Streams: NotRequired[list[int]]
     Tracks: NotRequired[list[int]]
 
@@ -3427,6 +3432,7 @@ class AudioSelectorTypeDef(TypedDict):
     ProgramSelection: NotRequired[int]
     RemixSettings: NotRequired[RemixSettingsTypeDef]
     SelectorType: NotRequired[AudioSelectorTypeType]
+    Smpte337Passthrough: NotRequired[AudioSmpte337PassthroughType]
     Streams: NotRequired[Sequence[int]]
     Tracks: NotRequired[Sequence[int]]
 
@@ -4015,6 +4021,7 @@ class JobSettingsOutputTypeDef(TypedDict):
     Inputs: NotRequired[list[InputOutputTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[list[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[list[OutputGroupOutputTypeDef]]
@@ -4032,6 +4039,7 @@ class JobTemplateSettingsOutputTypeDef(TypedDict):
     Inputs: NotRequired[list[InputTemplateOutputTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[list[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[list[OutputGroupOutputTypeDef]]
@@ -4049,6 +4057,7 @@ class JobTemplateSettingsTypeDef(TypedDict):
     Inputs: NotRequired[Sequence[InputTemplateTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[Sequence[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[Sequence[OutputGroupTypeDef]]
@@ -4066,6 +4075,7 @@ class JobSettingsTypeDef(TypedDict):
     Inputs: NotRequired[Sequence[InputTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[Sequence[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[Sequence[OutputGroupTypeDef]]

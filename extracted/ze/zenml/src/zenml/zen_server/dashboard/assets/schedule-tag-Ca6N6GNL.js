@@ -1,0 +1,1 @@
+import{p as e}from"./utils-CRVOceX-.js";import{t}from"./clock-DJyzQ4pr.js";import{an as n}from"./index-ClLsmNAr.js";var r=e();function i(e){return(0,r.jsxs)(n,{variant:`info`,emphasis:`light`,size:`xs`,...e,children:[(0,r.jsx)(t,{"aria-hidden":`true`,className:`size-3`}),(0,r.jsx)(`span`,{className:`truncate`,children:`Schedule`})]})}export{i as t};

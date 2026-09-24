@@ -1,8 +1,7 @@
 import hmac
+from _hashlib import HASH
+from collections.abc import Callable
 from struct import pack
-from typing import Callable, Tuple
-
-from .typing import SignableMessage
 
 
 class RFC6979:
@@ -17,22 +16,22 @@ class RFC6979:
         |  msg (bytes): A message being signed.
         |  x (int): An ECDSA private key.
         |  q (int): The order of the generator point of the curve being used to sign the message.
-        |  hashfunc (_hashlib.HASH): The hash function used to compress the message.
+        |  hashfunc Callable[..., HASH]: The hash function used to compress the message.
         |  prehashed (bool): Whether the signature is on a pre-hashed message.
     """
 
     def __init__(
         self,
-        msg: SignableMessage,
+        msg: bytes,
         x: int,
         q: int,
-        hashfunc: Callable,
+        hashfunc: Callable[..., HASH],
         prehashed: bool = False,
     ) -> None:
         self.x = x
         self.q = q
-        self.msg = msg_bytes(msg)
-        self.qlen = len(bin(q)) - 2  # -2 for the leading '0b'
+        self.msg = msg
+        self.qlen = q.bit_length()
         self.rlen = ((self.qlen + 7) // 8) * 8
         self.hashfunc = hashfunc
         self.prehashed = prehashed
@@ -96,7 +95,7 @@ class RFC6979:
             v = hmac.new(k, v, self.hashfunc).digest()
 
 
-def _tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
+def _tonelli_shanks(n: int, p: int) -> tuple[int, int]:
     """A generic algorithm for computing modular square roots."""
     Q, S = p - 1, 0
     while Q % 2 == 0:
@@ -118,7 +117,7 @@ def _tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
     return R, -R % p
 
 
-def mod_sqrt(a: int, p: int) -> Tuple[int, int]:
+def mod_sqrt(a: int, p: int) -> tuple[int, int]:
     r"""Compute the square root of :math:`a \pmod{p}`
 
     In other words, find a value :math:`x` such that :math:`x^2 \equiv a \pmod{p}`.
@@ -136,29 +135,3 @@ def mod_sqrt(a: int, p: int) -> Tuple[int, int]:
         return x, (-x % p)
     else:
         return _tonelli_shanks(a, p)
-
-
-def msg_bytes(msg: SignableMessage) -> bytes:
-    """Return bytes in a consistent way for a given message.
-
-    The message is expected to be either a string, bytes, or an array of bytes.
-
-    Args:
-        |  msg (str|bytes|bytearray): The data to transform.
-
-    Returns:
-        bytes: The byte encoded data.
-
-    Raises:
-        ValueError: If the data cannot be encoded as bytes.
-    """
-    if isinstance(msg, bytes):
-        return msg
-    elif isinstance(msg, str):
-        return msg.encode()
-    elif isinstance(msg, bytearray):
-        return bytes(msg)
-    else:
-        raise ValueError(
-            f'Msg "{msg}" of type {type(msg)} cannot be converted to bytes'
-        )
